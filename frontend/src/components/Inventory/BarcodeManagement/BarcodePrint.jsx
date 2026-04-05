@@ -89,10 +89,10 @@ function Label({ b }) {
 
         <table style={{ fontSize: "9px", width: "100%", borderCollapse: "collapse" }}>
           <tbody>
-            {b.item_desc && (
+            {b.item_name && (
               <tr>
                 <td style={{ color: "#888", paddingRight: "4px", whiteSpace: "nowrap" }}>Item</td>
-                <td style={{ fontWeight: 500 }}>{b.item_desc}</td>
+                <td style={{ fontWeight: 500 }}>{b.item_name}</td>
               </tr>
             )}
             {b.purity_name && (

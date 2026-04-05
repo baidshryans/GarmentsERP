@@ -70,7 +70,23 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                   {row.label}
                 </span>
 
-                {showEditableTotal ? (
+                {row.captionField ? (
+                  <div className="flex items-center gap-1 flex-1 justify-end">
+                    <Input
+                      type="text"
+                      placeholder={row.captionPlaceholder || "Charge name"}
+                      className="w-24 h-7 text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-violet-500 focus-visible:border-violet-400"
+                      {...register(row.captionField)}
+                    />
+                    <Input
+                      type="number"
+                      step={row.step || '0.01'}
+                      disabled={!watch?.(row.captionField)}
+                      className="w-24 h-7 text-right text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-violet-500 focus-visible:border-violet-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                      {...register(row.field, { valueAsNumber: true })}
+                    />
+                  </div>
+                ) : showEditableTotal ? (
                   <div className="flex items-center gap-1">
                     <Input
                       type="number"

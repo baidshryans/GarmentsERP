@@ -27,7 +27,6 @@ class PurchaseVoucher(models.Model):
     hallmark_charge = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
     ref_no = models.CharField(max_length=10, null=True,blank=True) #
     ref_date = models.DateField(null=True) #
-    place_of_supply = models.ForeignKey(State,on_delete=models.SET_NULL,null=True) #
     ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True, related_name='ldgr_code') #
     item_total = models.IntegerField(null=True) #
     discount_amt = models.DecimalField(default=Decimal(0.00), max_digits=10, decimal_places =2) #
@@ -55,17 +54,14 @@ class PurchaseVoucher(models.Model):
 
     ac_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True)
 
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail     = models.ForeignKey("mastersconfig.RetailMaster",  on_delete=models.SET_NULL, null=True, blank=True)
+    gstin_ref  = models.ForeignKey("mastersconfig.GSTINMaster",  on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_vouchers')
+    branch_ref = models.ForeignKey("mastersconfig.BranchMaster", on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_vouchers')
 
     #return tag
     @property
     def ldgr_name(self):
         return self.ldgr.ac_name
-
-    @property
-    def pos_name(self):
-        return self.place_of_supply.name
-
 
     class Meta:
         db_table="purchase_voucher"
@@ -102,11 +98,11 @@ class PurchaseVoucherItems(models.Model): #main item
     order_no = models.ForeignKey(CustomerOrder, on_delete=models.CASCADE, null=True, blank=True)
     sl_no = models.IntegerField()
     pcs = models.IntegerField(null=True)
-    gw = models.DecimalField(null=True, max_digits=10, decimal_places =2)
-    size = models.CharField(null=True, max_length=10,blank=True) 
-    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True)  
+    gw = models.DecimalField(null=True, max_digits=10, decimal_places=3)
+    size = models.CharField(null=True, max_length=10,blank=True)
+    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True)
     pending_pcs = models.IntegerField(default=0)
-    pending_gw = models.DecimalField(default=0, max_digits=10, decimal_places =2)
+    pending_gw = models.DecimalField(default=0, max_digits=10, decimal_places=3)
     making_type = models.CharField(max_length=20)
     making = models.DecimalField(null=True, max_digits=10, decimal_places =2)
     making_value = models.IntegerField(null=True)
@@ -129,8 +125,8 @@ class PurchaseVoucherDetails(models.Model):
     date1 = models.DateField(null=True)
     sub_item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     sub_pcs = models.IntegerField(null=True, blank=True, default=0)
-    sub_gw = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)
-    sub_ct = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)
+    sub_gw = models.DecimalField(null=True, max_digits=10, decimal_places=3, blank=True, default=0)
+    sub_ct = models.DecimalField(null=True, max_digits=10, decimal_places=3, blank=True, default=0)
     metal_purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True, blank=True)
     loss = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)
     tunch = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)
@@ -213,7 +209,9 @@ class PurchaseReturn(models.Model):
     freight_amt = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
     bill_value = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
     round_off = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail     = models.ForeignKey("mastersconfig.RetailMaster",  on_delete=models.SET_NULL, null=True, blank=True)
+    gstin_ref  = models.ForeignKey("mastersconfig.GSTINMaster",  on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_returns')
+    branch_ref = models.ForeignKey("mastersconfig.BranchMaster", on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_returns')
 
     ac_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True)
 
@@ -238,8 +236,8 @@ class PurchaseReturnItems(models.Model): #main item
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
 
     pcs = models.IntegerField(null=True)
-    gw = models.DecimalField(null=True, max_digits=10, decimal_places =2)
-    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True)  
+    gw = models.DecimalField(null=True, max_digits=10, decimal_places=3)
+    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True)
     making_type = models.CharField(max_length=20)
     making_value = models.IntegerField(null=True)
     making = models.DecimalField(null=True, max_digits=10, decimal_places =2)
@@ -257,8 +255,8 @@ class PurchaseReturnDetails(models.Model): #main item
     billno = models.ForeignKey(PurchaseReturn, on_delete=models.CASCADE, null=True)
     sub_item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     sub_pcs = models.IntegerField(null=True, blank=True, default=0)
-    sub_gw = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)
-    sub_ct = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)
+    sub_gw = models.DecimalField(null=True, max_digits=10, decimal_places=3, blank=True, default=0)
+    sub_ct = models.DecimalField(null=True, max_digits=10, decimal_places=3, blank=True, default=0)
     metal_purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True, blank=True)
     loss = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)
     tunch = models.DecimalField(null=True, max_digits=10, decimal_places =2, blank=True, default=0)

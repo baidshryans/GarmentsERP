@@ -178,9 +178,9 @@ The ERP uses a per-app subscription model. Each company can be licensed for spec
 | CRM Occasions | `crm_occasions` | Add-on |
 | Manufacturing | `manufacturing` | Add-on |
 | Purchases | `purchases` | Add-on |
-| Sales | `sales` | Add-on |
+| Sales | `sales` | Core (always on) |
 | Inventory | `inventory` | Add-on |
-| Financial Accounting | `accounting` | Add-on |
+| Financial Accounting | `accounting` | Core (always on) |
 | AI Assistant | `ai` | Add-on |
 
 To configure for a new company: go to Django Admin → Company Subscriptions → add subscription and toggle the desired apps.

@@ -22,6 +22,7 @@ import {
   fetchItemGroups,
   fetchHSNs,
   getLedgers,
+  fetchPurity,
 } from "@/services/apiService";
 
 const ITEM_TYPES = [
@@ -50,6 +51,7 @@ const emptyForm = {
   purchase_ledger: "",
   sale_ledger: "",
   op_wtd_avg_rate: "0",
+  default_purity: "",
 };
 
 export default function ItemMaster() {
@@ -58,6 +60,7 @@ export default function ItemMaster() {
   const [itemGroups, setItemGroups] = useState([]);
   const [hsns, setHsns] = useState([]);
   const [ledgers, setLedgers] = useState([]);
+  const [purityData, setPurityData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -69,16 +72,18 @@ export default function ItemMaster() {
 
   const load = async () => {
     setLoading(true);
-    const [itemsRes, groupsRes, hsnRes, ledgersRes] = await Promise.all([
+    const [itemsRes, groupsRes, hsnRes, ledgersRes, purityRes] = await Promise.all([
       fetchItems(),
       fetchItemGroups(),
       fetchHSNs(),
       getLedgers({ type: "" }),
+      fetchPurity(),
     ]);
     if (itemsRes.success) setRows(toArr(itemsRes.data));
     if (groupsRes.success) setItemGroups(toArr(groupsRes.data));
     if (hsnRes.success) setHsns(toArr(hsnRes.data));
     if (ledgersRes.success) setLedgers(toArr(ledgersRes.data));
+    if (purityRes.success) setPurityData(Array.isArray(purityRes.data) ? purityRes.data : purityRes.data?.results ?? []);
     setLoading(false);
   };
 
@@ -90,7 +95,7 @@ export default function ItemMaster() {
   };
 
   const handleSelect = (name, value) =>
-    setForm((f) => ({ ...f, [name]: value }));
+    setForm((f) => ({ ...f, [name]: value === "__none__" ? "" : value }));
 
   const buildPayload = () => ({
     short_code: form.short_code.trim(),
@@ -104,6 +109,7 @@ export default function ItemMaster() {
     purchase_ledger: form.purchase_ledger ? Number(form.purchase_ledger) : null,
     sale_ledger: form.sale_ledger ? Number(form.sale_ledger) : null,
     op_wtd_avg_rate: form.op_wtd_avg_rate || "0",
+    default_purity: form.default_purity || "",
   });
 
   const handleSubmit = async (e) => {
@@ -146,6 +152,7 @@ export default function ItemMaster() {
         ? String(row.sale_ledger.id)
         : row.sale_ledger ? String(row.sale_ledger) : "",
       op_wtd_avg_rate: String(row.op_wtd_avg_rate ?? "0"),
+      default_purity: row.default_purity || "",
     });
     setEditingId(row.id);
     setShowForm(true);
@@ -186,10 +193,10 @@ export default function ItemMaster() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-3">
-          <button onClick={() => handleEdit(row.original)} className="text-violet-500">
+          <button type="button" onClick={(e) => { e.stopPropagation(); handleEdit(row.original); }} className="text-violet-500">
             <Edit className="size-4" />
           </button>
-          <button onClick={() => handleDelete(row.original.id)} className="text-red-500">
+          <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.original.id); }} className="text-red-500">
             <Trash2 className="size-4" />
           </button>
         </div>
@@ -319,14 +326,14 @@ export default function ItemMaster() {
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Item Group</Label>
                 <Select
-                  value={form.grp}
+                  value={form.grp || "__none__"}
                   onValueChange={(v) => handleSelect("grp", v)}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Select group" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- None --</SelectItem>
+                    <SelectItem value="__none__">-- None --</SelectItem>
                     {itemGroups.map((g) => (
                       <SelectItem key={g.id} value={String(g.id)}>
                         {g.item_group_name}
@@ -351,14 +358,14 @@ export default function ItemMaster() {
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">HSN</Label>
                 <Select
-                  value={form.hsn_no}
+                  value={form.hsn_no || "__none__"}
                   onValueChange={(v) => handleSelect("hsn_no", v)}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Select HSN" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- None --</SelectItem>
+                    <SelectItem value="__none__">-- None --</SelectItem>
                     {hsns.map((h) => (
                       <SelectItem key={h.id} value={String(h.id)}>
                         {h.hsn_no} — {h.description}
@@ -371,14 +378,14 @@ export default function ItemMaster() {
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Purchase Ledger</Label>
                 <Select
-                  value={form.purchase_ledger}
+                  value={form.purchase_ledger || "__none__"}
                   onValueChange={(v) => handleSelect("purchase_ledger", v)}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Select ledger" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- None --</SelectItem>
+                    <SelectItem value="__none__">-- None --</SelectItem>
                     {ledgers.map((l) => (
                       <SelectItem key={l.id} value={String(l.id)}>
                         {l.ac_name}
@@ -391,14 +398,14 @@ export default function ItemMaster() {
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Sale Ledger</Label>
                 <Select
-                  value={form.sale_ledger}
+                  value={form.sale_ledger || "__none__"}
                   onValueChange={(v) => handleSelect("sale_ledger", v)}
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Select ledger" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- None --</SelectItem>
+                    <SelectItem value="__none__">-- None --</SelectItem>
                     {ledgers.map((l) => (
                       <SelectItem key={l.id} value={String(l.id)}>
                         {l.ac_name}
@@ -419,6 +426,24 @@ export default function ItemMaster() {
                   onChange={handleChange}
                   className="h-9"
                 />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Default Purity</Label>
+                <Select
+                  value={form.default_purity || "__none__"}
+                  onValueChange={(v) => handleSelect("default_purity", v)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">-- None --</SelectItem>
+                    {purityData.map((p, i) => (
+                      <SelectItem key={i} value={`${p.purity}`}>{p.purity}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex items-center gap-2 pt-5">

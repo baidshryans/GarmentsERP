@@ -1,6 +1,6 @@
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
-from .models import Hsn, Item, ItemGroupMaster, Packet, PacketGroup, RetailMaster, SalesPersonMaster, Shapes, Colors, FiscalYearMaster, State, TDSSectionMaster, TCSSectionMaster, ExhibitionProfile, BranchMaster, CompanyMaster, SystemSettings, CRMSettings, CRMSendLog
+from .models import Hsn, Item, ItemGroupMaster, Packet, PacketGroup, RetailMaster, SalesPersonMaster, Shapes, Colors, FiscalYearMaster, State, TDSSectionMaster, TCSSectionMaster, ExhibitionProfile, BranchMaster, CompanyMaster, SystemSettings, CRMSettings, CRMSendLog, GSTINMaster
 
 
 class StateSerializer(ModelSerializer):
@@ -100,11 +100,19 @@ class CompanyMasterSerializer(ModelSerializer):
     branch_count  = serializers.SerializerMethodField(read_only=True)
     retail_count  = serializers.SerializerMethodField(read_only=True)
 
+    # Operational ledger names (read-only convenience fields)
+    discount_ldgr_name              = serializers.CharField(source='discount_ldgr.ac_name',              read_only=True, default='')
+    round_off_ldgr_name             = serializers.CharField(source='round_off_ldgr.ac_name',             read_only=True, default='')
+    hallmark_charge_ldgr_name       = serializers.CharField(source='hallmark_charge_ldgr.ac_name',       read_only=True, default='')
+    making_receive_ldgr_name        = serializers.CharField(source='making_receive_ldgr.ac_name',        read_only=True, default='')
+    gold_conversion_ldgr_name       = serializers.CharField(source='gold_conversion_ldgr.ac_name',       read_only=True, default='')
+    carriage_inward_ldgr_name       = serializers.CharField(source='carriage_inward_ldgr.ac_name',       read_only=True, default='')
+    making_charge_purchase_ldgr_name = serializers.CharField(source='making_charge_purchase_ldgr.ac_name', read_only=True, default='')
+
     def get_branch_count(self, obj):
         return obj.branches.count()
 
     def get_retail_count(self, obj):
-        from django.db.models import Count
         return sum(b.retails.count() for b in obj.branches.all())
 
     class Meta:
@@ -113,22 +121,28 @@ class CompanyMasterSerializer(ModelSerializer):
             'id', 'company_name', 'pan', 'tan', 'gstin', 'cin',
             'phone', 'email', 'address', 'city', 'state', 'state_name',
             'pincode', 'website', 'created_at', 'branch_count', 'retail_count',
+            'discount_ldgr', 'round_off_ldgr', 'hallmark_charge_ldgr',
+            'making_receive_ldgr', 'gold_conversion_ldgr',
+            'carriage_inward_ldgr', 'making_charge_purchase_ldgr',
+            'discount_ldgr_name', 'round_off_ldgr_name', 'hallmark_charge_ldgr_name',
+            'making_receive_ldgr_name', 'gold_conversion_ldgr_name',
+            'carriage_inward_ldgr_name', 'making_charge_purchase_ldgr_name',
         ]
-        read_only_fields = ['created_at', 'branch_count', 'retail_count', 'state_name']
+        read_only_fields = [
+            'created_at', 'branch_count', 'retail_count', 'state_name',
+            'discount_ldgr', 'round_off_ldgr', 'hallmark_charge_ldgr',
+            'making_receive_ldgr', 'gold_conversion_ldgr',
+            'carriage_inward_ldgr', 'making_charge_purchase_ldgr',
+            'discount_ldgr_name', 'round_off_ldgr_name', 'hallmark_charge_ldgr_name',
+            'making_receive_ldgr_name', 'gold_conversion_ldgr_name',
+            'carriage_inward_ldgr_name', 'making_charge_purchase_ldgr_name',
+        ]
 
 
 class BranchMasterSerializer(ModelSerializer):
     retail_count = serializers.SerializerMethodField(read_only=True)
     company_name = serializers.CharField(source='company.company_name', read_only=True, default='')
     state_name   = serializers.CharField(source='state.name', read_only=True, default='')
-
-    # GST register ledger names (read-only convenience fields)
-    input_cgst_name  = serializers.CharField(source='input_cgst.ac_name', read_only=True, default='')
-    input_sgst_name  = serializers.CharField(source='input_sgst.ac_name', read_only=True, default='')
-    input_igst_name  = serializers.CharField(source='input_igst.ac_name', read_only=True, default='')
-    output_cgst_name = serializers.CharField(source='output_cgst.ac_name', read_only=True, default='')
-    output_sgst_name = serializers.CharField(source='output_sgst.ac_name', read_only=True, default='')
-    output_igst_name = serializers.CharField(source='output_igst.ac_name', read_only=True, default='')
 
     def get_retail_count(self, obj):
         return obj.retails.count()
@@ -138,13 +152,33 @@ class BranchMasterSerializer(ModelSerializer):
         fields = [
             'id', 'company', 'company_name', 'branch_name', 'branch_code',
             'state', 'state_name', 'description', 'created_at', 'retail_count',
+        ]
+        read_only_fields = ['created_at', 'retail_count', 'company_name', 'state_name']
+
+
+class GSTINMasterSerializer(ModelSerializer):
+    branch_name  = serializers.CharField(source='branch.branch_name', read_only=True, default='')
+    state_name   = serializers.CharField(source='state.name',         read_only=True, default='')
+
+    # GST register ledger names (read-only)
+    input_cgst_name  = serializers.CharField(source='input_cgst.ac_name',  read_only=True, default='')
+    input_sgst_name  = serializers.CharField(source='input_sgst.ac_name',  read_only=True, default='')
+    input_igst_name  = serializers.CharField(source='input_igst.ac_name',  read_only=True, default='')
+    output_cgst_name = serializers.CharField(source='output_cgst.ac_name', read_only=True, default='')
+    output_sgst_name = serializers.CharField(source='output_sgst.ac_name', read_only=True, default='')
+    output_igst_name = serializers.CharField(source='output_igst.ac_name', read_only=True, default='')
+
+    class Meta:
+        model  = GSTINMaster
+        fields = [
+            'id', 'gstin', 'legal_name', 'branch', 'branch_name', 'state', 'state_name',
             'input_cgst', 'input_sgst', 'input_igst',
             'output_cgst', 'output_sgst', 'output_igst',
             'input_cgst_name', 'input_sgst_name', 'input_igst_name',
             'output_cgst_name', 'output_sgst_name', 'output_igst_name',
         ]
         read_only_fields = [
-            'created_at', 'retail_count', 'company_name', 'state_name',
+            'branch_name', 'state_name',
             'input_cgst', 'input_sgst', 'input_igst',
             'output_cgst', 'output_sgst', 'output_igst',
             'input_cgst_name', 'input_sgst_name', 'input_igst_name',
@@ -157,6 +191,7 @@ class RetailSerializer(ModelSerializer):
     state_name           = serializers.CharField(source='state.name', read_only=True, default='')
     commission_ldgr_name = serializers.SerializerMethodField(read_only=True)
     branch_name          = serializers.CharField(source='branch.branch_name', read_only=True, default='')
+    gstin_master_str     = serializers.CharField(source='gstin_master.gstin', read_only=True, default='')
 
     def get_commission_ldgr_name(self, obj):
         return obj.commission_ldgr.ac_name if obj.commission_ldgr else None
@@ -211,7 +246,7 @@ class TCSSectionMasterSerializer(ModelSerializer):
 class SystemSettingsSerializer(ModelSerializer):
     class Meta:
         model  = SystemSettings
-        fields = ['attachment_storage_path', 'bill_total_auto_calc', 'updated_at']
+        fields = ['attachment_storage_path', 'barcode_image_storage_path', 'bill_total_auto_calc', 'updated_at']
         read_only_fields = ['updated_at']
 
 

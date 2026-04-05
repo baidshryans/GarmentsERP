@@ -46,6 +46,24 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
     serializer_class = LedgerSerializer
     queryset         = Ledger.objects.all()
 
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_system:
+            return Response(
+                {'error': 'System-created ledgers cannot be edited.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_system:
+            return Response(
+                {'error': 'System-created ledgers cannot be deleted.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
 class AllowedRetailView(ListAPIView):
     serializer_class = AllowedRetailSerializer
     def get_queryset(self):
@@ -71,6 +89,9 @@ def manage_ledger_role(request, pk):
         ledger = Ledger.objects.get(pk=pk)
     except Ledger.DoesNotExist:
         return Response({'error': 'Ledger not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if ledger.is_system:
+        return Response({'error': 'System-created ledgers cannot be modified.'}, status=status.HTTP_403_FORBIDDEN)
 
     role = request.data.get('role')
     valid_codes = {code for code, _ in TYPE_CHOICES}
@@ -116,6 +137,8 @@ def set_primary_ledger_role(request, pk):
     Marks the given role as primary (clears is_primary on all others).
     """
     ledger = get_object_or_404(Ledger, pk=pk)
+    if ledger.is_system:
+        return Response({'error': 'System-created ledgers cannot be modified.'}, status=status.HTTP_403_FORBIDDEN)
     role = request.data.get('role')
     valid_codes = {code for code, _ in TYPE_CHOICES}
     if not role or role not in valid_codes:
@@ -290,23 +313,26 @@ _COMMON_COLS = [
     'phone1', 'mobile1', 'email', 'pan', 'gst', 'remarks',
 ]
 
+_ROLE_COLS = ['primary_role', 'secondary_roles']
+
 _TEMPLATE_COLS = {
     'CO':  _COMMON_COLS + ['salutation', 'dob', 'anniversary', 'mobile2', 'mobile3',
-                           'aadhar', 'ship_add1', 'ship_city', 'ship_state', 'ship_pincode'],
-    'DL':  _COMMON_COLS + ['dob', 'anniversary', 'mobile2'],
-    'KR':  _COMMON_COLS + ['mobile2'],
-    'SC':  _COMMON_COLS,
-    'SD':  _COMMON_COLS,
-    'BA':  _COMMON_COLS + ['cheque_no'],
-    'EXP': ['ac_name', 'ac_group_name', 'remarks'],
-    'INC': ['ac_name', 'ac_group_name', 'remarks'],
-    'OTH': _COMMON_COLS,
+                           'aadhar', 'ship_add1', 'ship_city', 'ship_state', 'ship_pincode'] + _ROLE_COLS,
+    'DL':  _COMMON_COLS + ['dob', 'anniversary', 'mobile2'] + _ROLE_COLS,
+    'KR':  _COMMON_COLS + ['mobile2'] + _ROLE_COLS,
+    'VD':  _COMMON_COLS + _ROLE_COLS,
+    'SC':  _COMMON_COLS + _ROLE_COLS,
+    'SD':  _COMMON_COLS + _ROLE_COLS,
+    'BA':  _COMMON_COLS + ['cheque_no'] + _ROLE_COLS,
+    'EXP': ['ac_name', 'ac_group_name', 'remarks'] + _ROLE_COLS,
+    'INC': ['ac_name', 'ac_group_name', 'remarks'] + _ROLE_COLS,
+    'OTH': _COMMON_COLS + _ROLE_COLS,
 }
 
 _TEMPLATE_LABELS = {
     'CO': 'customer', 'DL': 'dealer', 'KR': 'karigar',
-    'SC': 'supplier', 'SD': 'sundry_debtor', 'BA': 'bank',
-    'EXP': 'expense', 'INC': 'income', 'OTH': 'others',
+    'VD': 'vendor',   'SC': 'supplier', 'SD': 'sundry_debtor', 'BA': 'bank',
+    'EXP': 'expense', 'INC': 'income',  'OTH': 'others',
 }
 
 _SAMPLE_ROWS = {
@@ -319,7 +345,7 @@ _SAMPLE_ROWS = {
          'salutation': 'Mr',        'dob': '15/08/1985',        'anniversary': '20/02/2010',
          'mobile2': '9876543211',   'mobile3': '',              'aadhar': '123456789012',
          'ship_add1': '456 Park Ave','ship_city': 'Mumbai',     'ship_state': 'Maharashtra',
-         'ship_pincode': '400001'},
+         'ship_pincode': '400001',  'primary_role': 'CO',       'secondary_roles': ''},
         {'ac_name': 'Priya Shah',   'display_name': 'Priya S', 'ac_group_name': 'Sundry Debtors',
          'add1': '456 Park Avenue', 'add2': '',                 'city': 'Delhi',
          'state': 'Delhi',          'pincode': '110001',        'phone1': '',
@@ -328,7 +354,7 @@ _SAMPLE_ROWS = {
          'salutation': 'Mrs',       'dob': '03/04/1990',        'anniversary': '14/11/2015',
          'mobile2': '',             'mobile3': '',              'aadhar': '',
          'ship_add1': '',           'ship_city': '',            'ship_state': '',
-         'ship_pincode': ''},
+         'ship_pincode': '',        'primary_role': 'CO',       'secondary_roles': ''},
     ],
     'DL': [
         {'ac_name': 'Mehta Jewellery', 'display_name': 'Mehta', 'ac_group_name': 'Sundry Debtors',
@@ -336,7 +362,8 @@ _SAMPLE_ROWS = {
          'state': 'Rajasthan',         'pincode': '302001',     'phone1': '0141-2345678',
          'mobile1': '9988776655',      'email': 'mehta@jwl.in', 'pan': 'UVWXY3456Z',
          'gst': '08UVWXY3456Z1Z5',     'remarks': 'Sample — delete before uploading',
-         'dob': '10/05/1975',          'anniversary': '25/01/2000', 'mobile2': ''},
+         'dob': '10/05/1975',          'anniversary': '25/01/2000', 'mobile2': '',
+         'primary_role': 'DL',         'secondary_roles': ''},
     ],
     'KR': [
         {'ac_name': 'Suresh Gold Works',   'display_name': 'Suresh GW', 'ac_group_name': 'Karigars',
@@ -344,32 +371,49 @@ _SAMPLE_ROWS = {
          'state': 'Gujarat',              'pincode': '395001',           'phone1': '0261-2345678',
          'mobile1': '9811234567',          'email': 'suresh@gw.in',      'pan': 'PQRST9012U',
          'gst': '',                        'remarks': 'Sample — delete before uploading',
-         'mobile2': '9811234568'},
+         'mobile2': '9811234568',          'primary_role': 'KR',         'secondary_roles': ''},
         {'ac_name': 'Ramesh Silversmiths', 'display_name': '',           'ac_group_name': 'Karigars',
          'add1': '67 Silver Street',       'add2': '',                   'city': 'Ahmedabad',
          'state': 'Gujarat',              'pincode': '380001',           'phone1': '',
          'mobile1': '9921234567',          'email': '',                  'pan': '',
          'gst': '',                        'remarks': 'Sample 2 — delete before uploading',
-         'mobile2': ''},
+         'mobile2': '',                    'primary_role': 'KR',         'secondary_roles': ''},
+    ],
+    'VD': [
+        {'ac_name': 'Sharma Diamond Suppliers', 'display_name': 'Sharma DS', 'ac_group_name': 'Sundry Creditors',
+         'add1': '55 Gem Street',               'add2': '',                   'city': 'Surat',
+         'state': 'Gujarat',                   'pincode': '395001',           'phone1': '0261-9876543',
+         'mobile1': '9876543210',               'email': 'sharma@gems.in',    'pan': 'ABCVD1234Z',
+         'gst': '24ABCVD1234Z1Z5',              'remarks': 'Sample — delete before uploading',
+         'primary_role': 'VD',                  'secondary_roles': ''},
+        {'ac_name': 'Kapoor Metal Works',       'display_name': 'Kapoor MW',  'ac_group_name': 'Sundry Creditors',
+         'add1': '88 Metal Lane',               'add2': '',                   'city': 'Mumbai',
+         'state': 'Maharashtra',                'pincode': '400001',           'phone1': '',
+         'mobile1': '9823456789',               'email': 'kapoor@metals.in',  'pan': 'LMNVD5678Q',
+         'gst': '',                             'remarks': 'Sample 2 — delete before uploading',
+         'primary_role': 'VD',                  'secondary_roles': 'SC'},
     ],
     'SC': [
         {'ac_name': 'ABC Gold Suppliers',  'display_name': 'ABC Gold',   'ac_group_name': 'Sundry Creditors',
          'add1': '101 Trade Centre',       'add2': '',                   'city': 'Mumbai',
          'state': 'Maharashtra',           'pincode': '400001',          'phone1': '022-87654321',
          'mobile1': '9876543210',          'email': 'abc@gold.in',       'pan': 'MFGST1234Z',
-         'gst': '27MFGST1234Z1Z5',         'remarks': 'Sample — delete before uploading'},
+         'gst': '27MFGST1234Z1Z5',         'remarks': 'Sample — delete before uploading',
+         'primary_role': 'SC',             'secondary_roles': ''},
         {'ac_name': 'XYZ Metals Pvt Ltd',  'display_name': '',           'ac_group_name': 'Sundry Creditors',
          'add1': '202 Metal House',        'add2': '',                   'city': 'Delhi',
          'state': 'Delhi',                 'pincode': '110001',          'phone1': '',
          'mobile1': '9123456789',          'email': 'xyz@metals.in',     'pan': 'LMNOP5678Q',
-         'gst': '09LMNOP5678Q1Z5',         'remarks': 'Sample 2 — delete before uploading'},
+         'gst': '09LMNOP5678Q1Z5',         'remarks': 'Sample 2 — delete before uploading',
+         'primary_role': 'SC',             'secondary_roles': ''},
     ],
     'SD': [
         {'ac_name': 'Patel Stores',        'display_name': 'Patel',      'ac_group_name': 'Sundry Debtors',
          'add1': '33 Market Road',         'add2': '',                   'city': 'Surat',
          'state': 'Gujarat',              'pincode': '395002',           'phone1': '',
          'mobile1': '9978563412',          'email': 'patel@stores.in',   'pan': 'ABCDE5678F',
-         'gst': '',                        'remarks': 'Sample — delete before uploading'},
+         'gst': '',                        'remarks': 'Sample — delete before uploading',
+         'primary_role': 'SD',             'secondary_roles': ''},
     ],
     'BA': [
         {'ac_name': 'HDFC Current Account', 'display_name': 'HDFC CA',  'ac_group_name': 'Bank Accounts',
@@ -377,30 +421,32 @@ _SAMPLE_ROWS = {
          'state': 'Maharashtra',            'pincode': '400001',         'phone1': '1800-202-6161',
          'mobile1': '',                     'email': '',                 'pan': '',
          'gst': '',                         'remarks': 'Sample — delete before uploading',
-         'cheque_no': '1234567890'},
+         'cheque_no': '1234567890',         'primary_role': 'BA',        'secondary_roles': ''},
     ],
     'EXP': [
-        {'ac_name': 'Office Rent',          'ac_group_name': 'Indirect Expenses', 'remarks': 'Sample — delete before uploading'},
-        {'ac_name': 'Electricity Charges',  'ac_group_name': 'Indirect Expenses', 'remarks': 'Sample 2 — delete before uploading'},
+        {'ac_name': 'Office Rent',          'ac_group_name': 'Indirect Expenses', 'remarks': 'Sample — delete before uploading',         'primary_role': 'EXP', 'secondary_roles': ''},
+        {'ac_name': 'Electricity Charges',  'ac_group_name': 'Indirect Expenses', 'remarks': 'Sample 2 — delete before uploading',       'primary_role': 'EXP', 'secondary_roles': ''},
     ],
     'INC': [
-        {'ac_name': 'Making Charges Income','ac_group_name': 'Indirect Income',   'remarks': 'Sample — delete before uploading'},
+        {'ac_name': 'Making Charges Income','ac_group_name': 'Indirect Income',   'remarks': 'Sample — delete before uploading',         'primary_role': 'INC', 'secondary_roles': ''},
     ],
     'OTH': [
         {'ac_name': 'Tax Payable',          'display_name': '',                   'ac_group_name': 'Current Liabilities',
          'add1': '',                        'add2': '',                           'city': '',
          'state': '',                       'pincode': '',                        'phone1': '',
          'mobile1': '',                     'email': '',                          'pan': '',
-         'gst': '',                         'remarks': 'Sample — delete before uploading'},
+         'gst': '',                         'remarks': 'Sample — delete before uploading',
+         'primary_role': 'OTH',             'secondary_roles': ''},
     ],
 }
 
-_PERSONAL_TYPES = {'CO', 'DL', 'KR', 'SC', 'SD', 'REF', 'HM'}
+_PERSONAL_TYPES = {'CO', 'DL', 'KR', 'VD', 'SC', 'SD', 'REF', 'HM'}
 
 _TYPE_MAP = {
     'customer': 'CO', 'dealer': 'DL', 'karigar': 'KR',
+    'vendor': 'VD', 'vendors': 'VD',
     'cash': 'CA', 'bank': 'BA',
-    'sundry creditors': 'SC', 'sundrycreditors': 'SC', 'supplier': 'SC', 'vendors': 'SC',
+    'sundry creditors': 'SC', 'sundrycreditors': 'SC', 'supplier': 'SC',
     'sundry debtors': 'SD', 'sundrydebtors': 'SD',
     'refinery': 'REF',
     'expenses': 'EXP', 'expense': 'EXP',
@@ -408,7 +454,7 @@ _TYPE_MAP = {
     'hallmark': 'HM',
     'others': 'OTH', 'other': 'OTH',
     'co': 'CO', 'dl': 'DL', 'kr': 'KR', 'ca': 'CA', 'ba': 'BA',
-    'sc': 'SC', 'sd': 'SD', 'ref': 'REF', 'exp': 'EXP',
+    'vd': 'VD', 'sc': 'SC', 'sd': 'SD', 'ref': 'REF', 'exp': 'EXP',
     'inc': 'INC', 'hm': 'HM', 'oth': 'OTH', 'su': 'SC',
 }
 
@@ -507,10 +553,22 @@ class LedgerCSVUploadView(APIView):
                                 f"not found in Chart of Accounts; imported with no group."
                             )
 
-                        # ── Resolve role ───────────────────────────────────
-                        row_type = _TYPE_MAP.get((row.get('type') or '').strip().lower(), ledger_type)
-                        if row_type not in {code for code, _ in TYPE_CHOICES}:
+                        # ── Resolve primary role ──────────────────────────
+                        valid_codes = {code for code, _ in TYPE_CHOICES}
+                        raw_primary = (row.get('primary_role') or row.get('type') or '').strip()
+                        row_type = _TYPE_MAP.get(raw_primary.lower(), raw_primary.upper())
+                        if row_type not in valid_codes:
                             row_type = ledger_type
+
+                        # ── Resolve secondary roles ────────────────────────
+                        raw_secondary = (row.get('secondary_roles') or '').strip()
+                        secondary_codes = []
+                        if raw_secondary:
+                            for part in raw_secondary.split(','):
+                                part = part.strip()
+                                code = _TYPE_MAP.get(part.lower(), part.upper())
+                                if code in valid_codes and code != row_type:
+                                    secondary_codes.append(code)
 
                         is_personal = row_type in _PERSONAL_TYPES
 
@@ -569,16 +627,23 @@ class LedgerCSVUploadView(APIView):
                             for k, v in fields.items():
                                 setattr(existing, k, v)
                             existing.save()
-                            # Ensure the role exists; mark primary if it's the only role
-                            is_first = not existing.roles.exists()
+                            # Ensure primary role exists
                             LedgerRole.objects.get_or_create(
                                 ledger=existing, role=row_type,
-                                defaults={'is_primary': is_first}
+                                defaults={'is_primary': not existing.roles.exists()}
                             )
+                            # Ensure secondary roles exist (non-primary)
+                            for sec in secondary_codes:
+                                LedgerRole.objects.get_or_create(
+                                    ledger=existing, role=sec,
+                                    defaults={'is_primary': False}
+                                )
                             updated += 1
                         else:
                             ldgr = Ledger.objects.create(ac_name=ac_name, **fields)
                             LedgerRole.objects.create(ledger=ldgr, role=row_type, is_primary=True)
+                            for sec in secondary_codes:
+                                LedgerRole.objects.create(ledger=ldgr, role=sec, is_primary=False)
                             created += 1
 
                     except Exception as e:

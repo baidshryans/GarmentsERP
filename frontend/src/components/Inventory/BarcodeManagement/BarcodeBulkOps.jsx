@@ -18,7 +18,9 @@ import {
   CheckSquare,
   Square,
   Filter,
+  ImageIcon,
 } from "lucide-react";
+import BarcodeImages from "./BarcodeImages";
 import { fetchBarcodeBulk, fetchMainItem, fetchPackets } from "@/services/apiService";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -60,10 +62,10 @@ function tagHTML(b, size) {
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden">
       <div style="font-weight:700;font-family:monospace;letter-spacing:0.5px;white-space:nowrap">${b.barcode}</div>
       <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#444">
-        ${b.item_desc || b.item || ""} ${b.purity_name ? `| ${b.purity_name}` : ""}
+        ${b.item_name || b.item || ""} ${b.purity_name ? `| ${b.purity_name}` : ""}
       </div>
       <div style="color:#666;white-space:nowrap">
-        Gw:${parseFloat(b.gw || 0).toFixed(2)}g Nw:${parseFloat(b.nw || 0).toFixed(2)}g${b.huid ? ` HUID:${b.huid}` : ""}
+        Gw:${parseFloat(b.gw || 0).toFixed(3)}g Nw:${parseFloat(b.nw || 0).toFixed(2)}g${b.huid ? ` HUID:${b.huid}` : ""}
       </div>
     </div>
   </div>`;
@@ -113,7 +115,7 @@ function exportCSV(barcodes) {
   const rows = barcodes.map((b) => [
     b.barcode,
     b.item || "",
-    `"${(b.item_desc || "").replace(/"/g, '""')}"`,
+    `"${(b.item_name || "").replace(/"/g, '""')}"`,
     b.purity_name || b.purity || "",
     b.gw,
     b.nw,
@@ -160,6 +162,9 @@ export default function BarcodeBulkOps() {
 
   // Tag size
   const [tagSize, setTagSize] = useState("99x12");
+
+  // Image sheet
+  const [imageSheet, setImageSheet] = useState({ open: false, barcodeId: null, barcodeText: "" });
 
   // Load master data
   useEffect(() => {
@@ -375,6 +380,7 @@ export default function BarcodeBulkOps() {
                   <th className="px-3 py-2.5 text-left font-semibold">Design</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Date</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Packets</th>
+                  <th className="px-3 py-2.5 text-center font-semibold">Images</th>
                 </tr>
               </thead>
               <tbody>
@@ -403,8 +409,8 @@ export default function BarcodeBulkOps() {
                       <td className="px-3 py-2 font-mono text-xs font-semibold">{b.barcode}</td>
                       <td className="px-3 py-2">
                         <span className="text-xs font-medium">{b.item}</span>
-                        {b.item_desc && (
-                          <span className="text-xs text-muted-foreground ml-1.5">{b.item_desc}</span>
+                        {b.item_name && (
+                          <span className="text-xs text-muted-foreground ml-1.5">{b.item_name}</span>
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs">{b.purity_name || b.purity}</td>
@@ -422,6 +428,15 @@ export default function BarcodeBulkOps() {
                       </td>
                       <td className="px-3 py-2 text-xs">
                         {(b.barcodedetails_set || []).map((d) => d.packet || d.packet_text).filter(Boolean).join(", ") || "-"}
+                      </td>
+                      <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          title="View / Add Images"
+                          className="text-muted-foreground hover:text-violet-600 transition-colors"
+                          onClick={() => setImageSheet({ open: true, barcodeId: b.id, barcodeText: b.barcode })}
+                        >
+                          <ImageIcon className="size-4" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -456,6 +471,14 @@ export default function BarcodeBulkOps() {
           </p>
         </div>
       )}
+
+      {/* Barcode Images Sheet */}
+      <BarcodeImages
+        barcodeId={imageSheet.barcodeId}
+        barcodeText={imageSheet.barcodeText}
+        open={imageSheet.open}
+        onOpenChange={(v) => setImageSheet((prev) => ({ ...prev, open: v }))}
+      />
     </div>
   );
 }

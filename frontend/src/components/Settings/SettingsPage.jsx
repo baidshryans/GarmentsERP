@@ -52,6 +52,7 @@ export default function SettingsPage() {
       {/* File Storage */}
       <Section title="File Storage" icon={<FolderOpen className="size-4" />}>
         <AttachmentStorageCard />
+        <BarcodeImageStorageCard />
       </Section>
 
       {/* Compliance */}
@@ -431,6 +432,94 @@ function AttachmentStorageCard() {
 
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-1">
             ⚠ Make sure the server process has <strong>write permission</strong> to this directory.
+            Files already uploaded will remain in their original location.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Barcode Image Storage Path ──────────────────────────────────────────────
+
+function BarcodeImageStorageCard() {
+  const { toast } = useToast();
+  const [path, setPath]       = useState("");
+  const [savedPath, setSavedPath] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+
+  useEffect(() => {
+    fetchSystemSettings().then((res) => {
+      setLoading(false);
+      if (res.success) {
+        setSavedPath(res.data.barcode_image_storage_path || "");
+        setPath(res.data.barcode_image_storage_path || "");
+      }
+    });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const res = await updateSystemSettings({ barcode_image_storage_path: path.trim() });
+    setSaving(false);
+    if (res.success) {
+      setSavedPath(res.data.barcode_image_storage_path || path.trim());
+      toast({ title: "Barcode image path saved", description: res.data.barcode_image_storage_path || "Using default media folder" });
+    } else {
+      const msg = res.error?.barcode_image_storage_path?.[0] || res.error?.detail || JSON.stringify(res.error);
+      toast({ title: "Failed to save", description: msg, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="px-5 py-4 flex flex-col gap-3">
+      <div>
+        <p className="text-sm font-medium">Barcode Image Storage Location</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Absolute path on the <strong>server</strong> where barcode design images are stored.
+          If left empty the default media folder is used. Changing this path does{" "}
+          <strong>not</strong> move files that were already uploaded.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" /> Loading...
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 max-w-xl">
+            <FolderOpen className="size-4 text-muted-foreground shrink-0" />
+            <Input
+              className="h-8 text-sm flex-1 font-mono"
+              placeholder={`e.g. C:\\ERP\\BarcodeImages  or  /srv/erp/barcode-images`}
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            />
+            <Button
+              size="sm"
+              className="bg-violet-700 hover:bg-violet-800 text-white shrink-0"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+            </Button>
+          </div>
+
+          {savedPath ? (
+            <p className="text-xs text-green-700 font-mono break-all">
+              Currently saving to: {savedPath}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground font-mono">
+              Using default media folder (no custom path set).
+            </p>
+          )}
+
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mt-1">
+            Make sure the server process has <strong>write permission</strong> to this directory.
             Files already uploaded will remain in their original location.
           </p>
         </>

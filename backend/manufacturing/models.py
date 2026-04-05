@@ -16,11 +16,12 @@ class KarigarGoldIssueHeader(models.Model):
     date1 = models.DateField()
     slip_type = models.CharField(max_length=15)
     karigar_ldgr = models.ForeignKey(Ledger, on_delete = models.SET_NULL, null=True)
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year  = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def karigar_ldgr_name(self):
-        return self.karigar_ldgr.ac_name 
+        return self.karigar_ldgr.ac_name
 
 
 class KarigarGoldIssue(models.Model):
@@ -115,11 +116,13 @@ class KarigarStoneIssueHeader(models.Model):
     billno = models.CharField(max_length=25)
     date1 = models.DateField()
     karigar_ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
-    slip_type = models.CharField(max_length=15)
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    slip_type    = models.CharField(max_length=15)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year  = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
     @property
     def karigar_ldgr_name(self):
-        return self.karigar_ldgr.ac_name 
+        return self.karigar_ldgr.ac_name
 
 class KarigarStoneIssue(models.Model):
     header = models.ForeignKey(KarigarStoneIssueHeader,on_delete=models.CASCADE)
@@ -163,10 +166,12 @@ class KarigarStoneReceiveHeader(models.Model):
     billno = models.CharField(max_length=25)
     date1 = models.DateField()
     karigar_ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year  = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
     @property
     def karigar_ldgr_name(self):
-        return self.karigar_ldgr.ac_name 
+        return self.karigar_ldgr.ac_name
 
 class KarigarStoneReceive(models.Model):
 
@@ -340,11 +345,13 @@ class HallmarkIssue(models.Model):
     issue_slip_no = models.CharField(max_length=30)
     date1 = models.DateField()
     hallmark_center = models.ForeignKey(Ledger, on_delete=models.PROTECT)
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail          = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year     = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def hallmark_center_name(self):
         return self.hallmark_center.ac_name
+
     class Meta:
         db_table = "issue_to_hallmark"
 
@@ -390,8 +397,8 @@ class HallmarkReceive(models.Model):
     date1 = models.DateField(auto_now_add=True)
     receive_slip_no = models.CharField(max_length=200)
     hallmark_center = models.ForeignKey(Ledger, on_delete=models.PROTECT)
-
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail          = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year     = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def hallmark_center_name(self):
@@ -442,9 +449,10 @@ class HallmarkReceiveDetails(models.Model):
 class RefinaryIssue(models.Model):
     date1 = models.DateField()
     billno = models.CharField(max_length=30)
-    ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT)
-    rec_status = models.BooleanField(default=False)
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    ldgr        = models.ForeignKey(Ledger, on_delete=models.PROTECT)
+    rec_status  = models.BooleanField(default=False)
+    retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def ldgr_name(self):
@@ -470,8 +478,10 @@ class RefinaryIssueDetail(models.Model):
 class RefinaryReceive(models.Model):
     date1 = models.DateField()
     billno = models.CharField(max_length=30)
-    ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT)
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    ldgr        = models.ForeignKey(Ledger, on_delete=models.PROTECT)
+    retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
     class Meta:
         db_table = "receive_from_refinary"
 

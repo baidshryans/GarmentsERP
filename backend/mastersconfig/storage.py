@@ -85,3 +85,63 @@ class DynamicAttachmentStorage(Storage):
 
     def deconstruct(self):
         return ('mastersconfig.storage.DynamicAttachmentStorage', [], {})
+
+
+# ── Barcode image storage ────────────────────────────────────────────────────
+
+def _barcode_image_root():
+    """Return the currently configured barcode image storage root path."""
+    try:
+        from mastersconfig.models import SystemSettings
+        path = (
+            SystemSettings.objects.filter(pk=1)
+            .values_list('barcode_image_storage_path', flat=True)
+            .first()
+        )
+        if path and path.strip():
+            return path.strip()
+    except Exception:
+        pass
+    return settings.MEDIA_ROOT
+
+
+class DynamicBarcodeImageStorage(Storage):
+    """
+    File-system storage for barcode images whose root directory is resolved
+    dynamically from SystemSettings.barcode_image_storage_path.
+
+    Files are served through /inventory/api/barcode-image-file/<name>
+    """
+
+    def _save(self, name, content):
+        root = _barcode_image_root()
+        full_path = os.path.normpath(os.path.join(root, name))
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, 'wb') as dest:
+            for chunk in content.chunks():
+                dest.write(chunk)
+        return name
+
+    def path(self, name):
+        return os.path.normpath(os.path.join(_barcode_image_root(), name))
+
+    def exists(self, name):
+        return os.path.exists(self.path(name))
+
+    def size(self, name):
+        return os.path.getsize(self.path(name))
+
+    def url(self, name):
+        from urllib.parse import quote
+        return '/inventory/api/barcode-image-file/' + quote(name, safe='/')
+
+    def delete(self, name):
+        try:
+            p = self.path(name)
+            if os.path.exists(p):
+                os.remove(p)
+        except Exception:
+            pass
+
+    def deconstruct(self):
+        return ('mastersconfig.storage.DynamicBarcodeImageStorage', [], {})

@@ -3,6 +3,7 @@ from . import views
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
 from django.conf.urls.static import static
+from django.urls import re_path
 from rest_framework.routers import DefaultRouter
 
 
@@ -15,6 +16,8 @@ router.register(r'brcode-history', views.BarcodeTransactionView, basename='barco
 router.register(r'unbarcoded', views.UnBarCodeView, basename='unbarcoded')
 router.register(r'stock-journal', views.StockJournalViewSet, basename='stock-journal')
 router.register(r'stock-transfer', views.StockTransferViewset, basename='stock-transfer')
+router.register(r'raw-material', views.RawMaterialInventoryViewSet, basename='raw-material')
+router.register(r'raw-material-txn', views.RawMaterialTransactionListView, basename='raw-material-txn')
 
 
 urlpatterns = [
@@ -38,6 +41,12 @@ urlpatterns = [
     path('api/barcode-creation-report/', views.BarcodeCreationReportView.as_view(), name='barcode_creation_report'),
     path('api/item-barcode-report/', views.ItemwiseBarcodeReport.as_view(), name='item_barcode_report'),
     path('api/barcode-bulk/', views.BarcodeBulkListView.as_view(), name='barcode_bulk'),
+    path('api/barcode-images/', views.BarcodeImageListCreate.as_view(), name='barcode_images'),
+    path('api/barcode-images/<int:pk>/', views.BarcodeImageDelete.as_view(), name='barcode_image_delete'),
+    re_path(r'^api/barcode-image-file/(?P<name>.+)$', views.serve_barcode_image_file, name='barcode_image_file'),
+    path('api/raw-material-balance/', views.RawMaterialBalanceReportView.as_view(), name='raw_material_balance'),
+    path('api/raw-material-ledger/', views.RawMaterialMovementLedgerView.as_view(), name='raw_material_ledger'),
+    path('api/semi-finished-stock/', views.SemiFinishedStockReportView.as_view(), name='semi_finished_stock'),
     *router.urls
     
 ]

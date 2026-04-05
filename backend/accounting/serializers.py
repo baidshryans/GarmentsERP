@@ -96,9 +96,12 @@ class GoldCashSerializder(serializers.ModelSerializer):
         with transaction.atomic():
             instance = CashGoldConversion.objects.create(**validated_data)
             # Create journal entry for gold/cash conversion
+            _retail = self.context['request'].retail
+            _co = _retail.branch.company if _retail.branch_id and _retail.branch else None
+            _gold_conv_ldgr = _co.gold_conversion_ldgr.ac_name if _co and _co.gold_conversion_ldgr else "Gold Conversion"
             journal_data = {
                 'date': instance.date,
-                'voucher_no': generate_voucher_no(type=global_vars.VoucherType.journal,retail=self.context['request'].retail),
+                'voucher_no': generate_voucher_no(type=global_vars.VoucherType.journal,retail=_retail),
                 'narration': f"{'Cash to Gold' if instance.conv_type == 'CG' else 'Gold to Cash'} Conversion",
                 'voucher_type': global_vars.VoucherType.journal,
                 'voucher_details': []
@@ -113,8 +116,8 @@ class GoldCashSerializder(serializers.ModelSerializer):
                         'credit': 0
                     },
                     {
-                        'account': "Gold Conversion",
-                        'debit': 0, 
+                        'account': _gold_conv_ldgr,
+                        'debit': 0,
                         'credit': instance.amount
                     }
                 ]
@@ -122,7 +125,7 @@ class GoldCashSerializder(serializers.ModelSerializer):
                 # Gold to Cash entry
                 journal_data['voucher_details'] = [
                     {
-                        'account': "Gold Conversion",
+                        'account': _gold_conv_ldgr,
                         'debit': instance.amount,
                         'credit': 0
                     },

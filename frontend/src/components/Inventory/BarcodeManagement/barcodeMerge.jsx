@@ -237,10 +237,6 @@ const MergeBarcode = () => {
                         <Input type="text" {...register("form.customer_order")} />
                     </FieldContainer>
                     <FieldContainer>
-                        <Label htmlFor="status" className="text-nowrap">Create from</Label>
-                        <Input type="text" {...register("form.created_from")} />
-                    </FieldContainer>
-                    <FieldContainer>
                         <Label htmlFor="status" className="text-nowrap">Karigar Code</Label>
                         <Input list="party_list"
                             onChange={(e) => {
@@ -305,9 +301,7 @@ const MergeBarcode = () => {
 
                                 </TableCell>
                                 <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.item_desc}
-
+                                    {row.item_name}
                                 </TableCell>
                                 <TableCell className="w-28 px-4 py-2 border">
 
@@ -364,7 +358,7 @@ const MergeBarcode = () => {
                                 </datalist>
                             </TableCell>
                             <TableCell className="w-28 px-4 py-2 border">
-                                <Input type="text" {...register("form.item_desc")} />
+                                <Input type="text" readOnly value={""} disabled />
                             </TableCell>
                             <TableCell className="w-28 px-4 py-2 border">
                                 <Input {...register("form.purity")} />

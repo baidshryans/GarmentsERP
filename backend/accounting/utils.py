@@ -72,7 +72,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'SV': (SalesVou, 'billno'),
         'SR': (SaleReturn, 'billno'),
         'SA': (SalesApproval, 'billno'),
-        'PV': (PurchaseVoucher, 'bill_no'),
+        'PV': (PurchaseVoucher, 'billno'),
         'PR': (PurchaseReturn, 'billno'),
         'PO': (PurchaseOrder, 'po_no'),
         'GC': (CashGoldConversion, 'billno'),

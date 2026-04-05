@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,14 @@ import { Package, Printer } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 
 const today = new Date().toISOString().split("T")[0];
+
+const CATEGORY_TABS = [
+  { key: "all", label: "All" },
+  { key: "R", label: "Raw" },
+  { key: "S", label: "Stone" },
+  { key: "F", label: "Finished" },
+  { key: "C", label: "Coin" },
+];
 
 const fmt = (v) =>
   Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -50,6 +58,7 @@ export default function ClosingStockTable() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [category, setCategory] = useState("all");
 
   const fetchReport = async () => {
     setError("");
@@ -67,8 +76,29 @@ export default function ClosingStockTable() {
     setLoading(false);
   };
 
+  /* filtered details based on category tab */
+  const filteredDetails = useMemo(() => {
+    if (!data?.details) return [];
+    if (category === "all") return data.details;
+    if (category === "F") return data.details.filter((d) => !["R", "S", "M", "C"].includes(d.item_type));
+    return data.details.filter((d) => d.item_type === category);
+  }, [data, category]);
+
+  /* category subtotals for summary cards */
+  const categoryCounts = useMemo(() => {
+    if (!data?.details) return {};
+    const counts = {};
+    for (const d of data.details) {
+      const cat = ["R", "S", "C"].includes(d.item_type) ? d.item_type : "F";
+      if (!counts[cat]) counts[cat] = { count: 0, closing_amt: 0 };
+      counts[cat].count++;
+      counts[cat].closing_amt += d.closing_amt;
+    }
+    return counts;
+  }, [data]);
+
   /* totals row computation */
-  const totals = data?.details?.reduce(
+  const totals = filteredDetails?.reduce(
     (acc, d) => {
       acc.opening_gw += d.opening_gw;  acc.opening_ct += d.opening_ct;  acc.opening_amt += d.opening_amt;
       acc.purchase_gw += d.purchase_gw; acc.purchase_ct += d.purchase_ct; acc.purchase_amt += d.purchase_amt;
@@ -135,6 +165,35 @@ export default function ClosingStockTable() {
         </div>
       )}
 
+      {/* Category tabs + summary */}
+      {data && !loading && (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              {CATEGORY_TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    category === t.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                  }`}
+                  onClick={() => setCategory(t.key)}
+                >
+                  {t.label}
+                  {t.key !== "all" && categoryCounts[t.key] ? ` (${categoryCounts[t.key].count})` : ""}
+                </button>
+              ))}
+            </div>
+            {category !== "all" && categoryCounts[category] && (
+              <span className="text-xs text-muted-foreground ml-2">
+                Closing: {fmt(categoryCounts[category].closing_amt)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {data && !loading && (
         <div className="rounded-lg border border-border overflow-hidden">
           <div className="overflow-x-auto">
@@ -191,7 +250,7 @@ export default function ClosingStockTable() {
               </thead>
 
               <tbody>
-                {data.details.length === 0 && (
+                {filteredDetails.length === 0 && (
                   <tr>
                     <td colSpan={24} className="text-center py-8 text-muted-foreground">
                       No stock data available for this date.
@@ -199,7 +258,7 @@ export default function ClosingStockTable() {
                   </tr>
                 )}
 
-                {data.details.map((d, i) => (
+                {filteredDetails.map((d, i) => (
                   <tr
                     key={d.item_id}
                     className={`border-t border-border ${i % 2 === 1 ? "bg-muted/15" : ""} hover:bg-accent/20 transition-colors`}
@@ -254,7 +313,7 @@ export default function ClosingStockTable() {
                 ))}
               </tbody>
 
-              {data.details.length > 0 && totals && (
+              {filteredDetails.length > 0 && totals && (
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/50 font-semibold text-xs">
                     <td className="px-2 py-2 text-left border border-border">Total</td>

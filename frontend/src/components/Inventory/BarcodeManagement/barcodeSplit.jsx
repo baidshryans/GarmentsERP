@@ -417,7 +417,6 @@ const BarcodeSplit = () => {
                     barcode_text: "",
                     amt:0,
                     value: 0,
-                    item_desc: "",
                     sl_no: vals.sl_no + 1, // Increment sl_no for next entry
                 });
             }
@@ -463,7 +462,6 @@ const BarcodeSplit = () => {
             making: null,
             item_value: null,
             value: null,
-            item_desc: "",
             remarks: "",
             barcodedetails_set: [],
             details: {
@@ -484,7 +482,6 @@ const BarcodeSplit = () => {
                 barcode_text: "",
                 amt: 0,
                 value: 0,
-                item_desc: "",
                 sl_no: 1,
             },
         });
@@ -562,7 +559,7 @@ const BarcodeSplit = () => {
                                             <tr className="bg-violet-50 border-t border-violet-100">
                                                 <td className="px-2 py-1.5 font-semibold text-violet-800">{item.barcode}</td>
                                                 <td className="px-2 py-1.5">{item.item}</td>
-                                                <td className="px-2 py-1.5">{item.item_desc}</td>
+                                                <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.gw}</td>
@@ -575,7 +572,7 @@ const BarcodeSplit = () => {
                                                 <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
                                                     <td className="px-2 py-1 pl-6 text-xs text-gray-500">{detail.barcode_text}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_item}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.item_desc}</td>
+                                                    <td className="px-2 py-1 text-xs"></td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_pcs}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_ct}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_gw}</td>
@@ -617,10 +614,6 @@ const BarcodeSplit = () => {
                         <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-gray-500">Barcode</Label>
                             <Input type="text" {...register("table.barcode")} className="h-9 w-44 bg-white text-sm font-mono" placeholder="Auto-generated…" />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label className="text-xs text-gray-500">Description</Label>
-                            <Input type="text" {...register("table.item_desc")} className="h-9 w-52 bg-white text-sm" placeholder="Description…" />
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-gray-500">Purity</Label>
@@ -735,9 +728,6 @@ const BarcodeSplit = () => {
                                         </datalist>
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
-                                        <Input type="text" {...register("table.details.item_desc")} className="h-9 text-sm bg-white w-28" placeholder="Desc…" />
-                                    </td>
-                                    <td className="px-2 py-1.5 border-b border-gray-100">
                                         <Input type="number" {...register("table.details.sub_pcs")} className="h-9 text-sm bg-white w-20" placeholder="0" />
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
@@ -793,7 +783,7 @@ const BarcodeSplit = () => {
                                             <tr className="bg-violet-50 border-t border-violet-100">
                                                 <td className="px-2 py-1.5 font-semibold text-violet-800">{item.barcode}</td>
                                                 <td className="px-2 py-1.5">{item.item}</td>
-                                                <td className="px-2 py-1.5">{item.item_desc}</td>
+                                                <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.gw}</td>
@@ -824,7 +814,7 @@ const BarcodeSplit = () => {
                                                 <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
                                                     <td className="px-2 py-1 pl-6 text-xs text-gray-500">{detail.barcode_text}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_item}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.item_desc}</td>
+                                                    <td className="px-2 py-1 text-xs"></td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_pcs}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_ct}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.sub_gw}</td>

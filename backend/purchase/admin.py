@@ -30,7 +30,7 @@ class PurchaseVoucherItemsInline(nested_admin.NestedTabularInline):
 @admin.register(PurchaseVoucher)
 class PurchaseVoucherAdmin(nested_admin.NestedModelAdmin):
     list_display = ('billno', 'date1', 'voucher_type', 'ldgr', 'bill_value', 'retail')
-    list_select_related = ('ldgr', 'place_of_supply', 'retail')
+    list_select_related = ('ldgr', 'retail')
     search_fields = ('billno', 'ldgr__ac_name')
     list_filter = ('date1', 'voucher_type', 'retail')
     inlines = [PurchaseVoucherItemsInline]

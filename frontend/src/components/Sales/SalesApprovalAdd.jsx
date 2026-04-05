@@ -363,7 +363,7 @@ const SalesApprovalAdd = () => {
                   <SelectContent>
                     {hsns.map((h, i) => (
                       <SelectItem key={i} value={`${h.hsn_no}`}>
-                        {h.hsn_no}
+                        {h.description || h.hsn_no}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -423,7 +423,7 @@ const SalesApprovalAdd = () => {
                     {/* Packet — col 3 */}
                     <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.pcs}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">{field?.ct}</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs text-center">{Number(field?.ct || 0).toFixed(3)}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.gw}</TableCell>
                     <TableCell className="px-3 py-1 border">
                       <Input
@@ -455,7 +455,7 @@ const SalesApprovalAdd = () => {
                       {/* Packet — col 3 */}
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.packet}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.pcs}</TableCell>
-                      <TableCell className="px-3 py-1 border text-xs text-center">{detail?.ct}</TableCell>
+                      <TableCell className="px-3 py-1 border text-xs text-center">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.gw}</TableCell>
                       <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border" />

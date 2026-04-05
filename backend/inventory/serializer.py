@@ -4,7 +4,7 @@ from rest_framework import serializers
 from mastersconfig.models import Packet
 from goldrates.models import GoldRates, PurityMaster
 from sales.models import CustomerOrder
-from .models import BarcodeDetails, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
+from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, RawMaterialInventory, RawMaterialTransaction, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
 from django.db import transaction
 from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
 
@@ -222,13 +222,24 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
         required=False
     )
 
-
-
     kr_code = serializers.PrimaryKeyRelatedField(
         queryset=Ledger.objects.all(),
         required=False
     )
     barcodedetails_set = BarcodeDetailsSerializer(many=True)
+    item_desc = serializers.SerializerMethodField()
+    created_from = serializers.SerializerMethodField()
+
+    def get_item_desc(self, obj):
+        return obj.item.item_name if obj.item else None
+
+    def get_created_from(self, obj):
+        if obj.rec_item_id:
+            return 'KAR_REC'
+        if obj.pur_voucher_id:
+            return 'PUR_VOU'
+        return 'MANUAL'
+
     class Meta:
         model = BarcodeMain
         fields = [
@@ -260,8 +271,7 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             'voucher_no',
         ]
         extra_kwargs = {
-            'item_desc': {'default': "sdfasdfa"},
-              'id': {'read_only': False, 'required': False},
+            'id': {'read_only': False, 'required': False},
         }
 
 
@@ -270,7 +280,7 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             pur = validated_data.get('pur_voucher')
             rec_item = validated_data.get('rec_item')
-            grandchildren_data = BarcodeDetailsSerializer(validated_data.pop('barcodedetails_set', []),many=True).data 
+            grandchildren_data = BarcodeDetailsSerializer(validated_data.pop('barcodedetails_set', []),many=True).data
             child = BarcodeMain.objects.create(**validated_data)
             create_or_update_nested(
                 serializer_class=BarcodeDetailsSerializer,
@@ -282,7 +292,7 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
 
-            created_from = validated_data.get('created_from')
+            created_from = 'KAR_REC' if rec_item else ('PUR_VOU' if pur else 'MANUAL')
             trans_type = "CREATE-REC" if created_from == "KAR_REC" else "CREATE-PUR"
        
             BarcodeTransaction.objects.create(
@@ -542,6 +552,15 @@ class BarcodeTransactionSerializer(serializers.ModelSerializer):
 class BarcodeCreationReportSerializer(serializers.ModelSerializer):
     stone_details = BarcodeDetailsSerializer(many=True)
     other_details = BarcodeDetailsSerializer(many=True)
+    created_from = serializers.SerializerMethodField()
+
+    def get_created_from(self, obj):
+        if obj.rec_item_id:
+            return 'KAR_REC'
+        if obj.pur_voucher_id:
+            return 'PUR_VOU'
+        return 'MANUAL'
+
     class Meta:
         model = BarcodeMain
         fields = [
@@ -686,3 +705,48 @@ class StockTransferSerializer(serializers.ModelSerializer):
                 StockTransferMainSerializer(detail_data, many=True).data,
             )
             return instance
+
+
+class RawMaterialInventorySerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
+    item_short_code = serializers.CharField(source='item.short_code', read_only=True)
+    item_type = serializers.CharField(source='item.item_type', read_only=True)
+    packet_no = serializers.CharField(source='packet.pckt_no', read_only=True, default=None)
+    purity_name = serializers.SerializerMethodField()
+
+    def get_purity_name(self, obj):
+        return str(obj.purity) if obj.purity else None
+
+    class Meta:
+        model = RawMaterialInventory
+        fields = ['id', 'item', 'item_name', 'item_short_code', 'item_type',
+                  'pcs', 'ct', 'gw', 'packet', 'packet_no', 'purity', 'purity_name', 'retail']
+
+
+class RawMaterialTransactionSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
+    item_short_code = serializers.CharField(source='item.short_code', read_only=True)
+    packet_no = serializers.CharField(source='packet.pckt_no', read_only=True, default=None)
+    purity_name = serializers.SerializerMethodField()
+
+    def get_purity_name(self, obj):
+        return str(obj.purity) if obj.purity else None
+
+    class Meta:
+        model = RawMaterialTransaction
+        fields = ['id', 'date', 'item', 'item_name', 'item_short_code',
+                  'packet', 'packet_no', 'purity', 'purity_name',
+                  'trans_type', 'pcs', 'ct', 'gw', 'rate', 'amt',
+                  'billno', 'retail']
+
+
+class BarcodeImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BarcodeImage
+        fields = ['id', 'barcode', 'image', 'original_name', 'uploaded_at']
+        read_only_fields = ['original_name', 'uploaded_at']
+
+    def create(self, validated_data):
+        file = validated_data['image']
+        validated_data['original_name'] = file.name
+        return super().create(validated_data)

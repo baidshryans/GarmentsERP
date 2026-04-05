@@ -86,6 +86,10 @@ urlpatterns = [
     path('api/branch/<int:pk>/', views.BranchMasterDetailView.as_view(), name='branch_master_detail'),
     path('api/branch/<int:pk>/analytics/', views.BranchAnalyticsView.as_view(), name='branch_analytics'),
 
+    # GSTIN Master
+    path('api/gstin/', views.GSTINMasterView.as_view(), name='gstin_master_list_create'),
+    path('api/gstin/<int:pk>/', views.GSTINMasterDetailView.as_view(), name='gstin_master_detail'),
+
     # Salesperson Commission
     path('api/commission/report/',         commission_views.commission_report,       name='commission_report'),
     path('api/commission/create-jv/',      commission_views.commission_create_jv,    name='commission_create_jv'),

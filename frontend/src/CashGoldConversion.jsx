@@ -114,7 +114,7 @@ const CashGoldConversion = () => {
 
   // ── Submit handlers ─────────────────────────────────────────────────────
   const onCGSubmit = (data) => {
-    createGC({ ...data, gw: parseFloat(data.fineWt).toFixed(2), amount: data.cash, conv_type: "CG" })
+    createGC({ ...data, gw: parseFloat(data.fineWt).toFixed(3), amount: data.cash, conv_type: "CG" })
       .then((res) => {
         if (res.success) { toast({ title: "Cash → Gold conversion saved." }); resetCG(); }
         else toast({ title: "Conversion failed.", description: res.message, variant: "destructive" });
@@ -123,7 +123,7 @@ const CashGoldConversion = () => {
   };
 
   const onGCSubmit = (data) => {
-    createGC({ ...data, gw: parseFloat(data.fineWt).toFixed(2), amount: data.cash, conv_type: "GC" })
+    createGC({ ...data, gw: parseFloat(data.fineWt).toFixed(3), amount: data.cash, conv_type: "GC" })
       .then((res) => {
         if (res.success) { toast({ title: "Gold → Cash conversion saved." }); resetGC(); }
         else toast({ title: "Conversion failed.", description: res.message, variant: "destructive" });

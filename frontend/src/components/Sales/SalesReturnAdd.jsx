@@ -532,7 +532,7 @@ const SalesReturnAdd = () => {
                           <TableCell className="px-4 py-1.5 border" />
                           <TableCell className="px-4 py-1.5 border text-xs text-gray-400">↳</TableCell>
                           <TableCell className="px-4 py-1.5 border text-xs text-gray-500 italic" colSpan={5}>
-                            {[d.item, d.pcs != null && `Pcs: ${d.pcs}`, d.ct != null && `Ct: ${d.ct}`, d.gw != null && `GW: ${d.gw}`, d.metal_purity && `Purity: ${d.metal_purity}`, d.tunch != null && `Tunch: ${d.tunch}`, d.rate != null && `Rate: ${d.rate}`, d.packet && `Pkt: ${d.packet}`].filter(Boolean).join("  ")}
+                            {[d.item, d.pcs != null && `Pcs: ${d.pcs}`, d.ct != null && `Ct: ${Number(d.ct).toFixed(3)}`, d.gw != null && `GW: ${d.gw}`, d.metal_purity && `Purity: ${d.metal_purity}`, d.tunch != null && `Tunch: ${d.tunch}`, d.rate != null && `Rate: ${d.rate}`, d.packet && `Pkt: ${d.packet}`].filter(Boolean).join("  ")}
                           </TableCell>
                           <TableCell className="px-4 py-1.5 border text-xs text-gray-500">{d.amount}</TableCell>
                         </TableRow>

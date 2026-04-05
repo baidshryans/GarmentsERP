@@ -688,8 +688,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                                     # "status":karigar_receive_instance.receive_slip_no,
                                     "retail":self.context.get('request').retail.id,
                                     "voucher_details": [
-                                        {   
-                                            'account':"Making Charge Receive", 
+                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else "Making Charge Receive")(self.context.get('request').retail),
                                             'debit':total_making_charge,
                                             'credit':0
                                                 },
@@ -738,8 +737,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                                     # "status":karigar_receive_instance.receive_slip_no,
                                     "retail":self.context.get('request').retail.id,
                                     "voucher_details": [
-                                        {   
-                                            'account':"Making Charge Receive", 
+                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else "Making Charge Receive")(self.context.get('request').retail),
                                             'debit':total_making_charge,
                                             'credit':0
                                                 },

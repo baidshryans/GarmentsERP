@@ -136,7 +136,7 @@ class RetrieveUpdateDestroySalesPersonMaster(RetrieveUpdateDestroyAPIView):
 
 class ListCreateItemGroupMaster(ListCreateAPIView):
     serializer_class = ItemGroupMasterSerializer
-    queryset         = ItemGroupMaster.objects.all()
+    queryset         = ItemGroupMaster.objects.all().order_by('id')
 
 class RetrieveUpdateDestroyItemGroupMaster(RetrieveUpdateDestroyAPIView):
     serializer_class = ItemGroupMasterSerializer
@@ -156,6 +156,66 @@ class RetailMasterView(ListCreateAPIView):
 class RetailMasterDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = RetailSerializer
     queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'branch').all()
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Block deletion if any system ledger owned by this retail has
+        transactions in the active financial year.  If clean, auto-delete
+        the system ledgers before removing the retail.
+        """
+        from accounting.models import VoucherDetail
+
+        retail = self.get_object()
+        active_fy = retail.active_fy
+
+        # ── Collect system ledgers owned by this retail ──────────────
+        ledgers_to_delete = []
+
+        # 1) Cash ledger (always retail-specific)
+        if retail.cash_ldgr_id:
+            ledgers_to_delete.append(retail.cash_ldgr)
+
+        # 2) GSTIN GST ledgers — only if this is the last retail on that GSTIN
+        gstin = retail.gstin_master
+        delete_gstin = False
+        if gstin:
+            other_retails = gstin.retails.exclude(pk=retail.pk).count()
+            if other_retails == 0:
+                delete_gstin = True
+                for fld in ('input_cgst', 'input_sgst', 'input_igst',
+                            'output_cgst', 'output_sgst', 'output_igst'):
+                    ldgr = getattr(gstin, fld, None)
+                    if ldgr:
+                        ledgers_to_delete.append(ldgr)
+
+        # ── Check for transactions across all fiscal years ─────────────
+        if ledgers_to_delete:
+            ledger_ids = [l.pk for l in ledgers_to_delete]
+            txn_count = VoucherDetail.objects.filter(
+                account_id__in=ledger_ids,
+            ).count()
+            if txn_count > 0:
+                fy_label = f" (active FY: {active_fy.fy_code})" if active_fy else ""
+                return Response(
+                    {'error': (
+                        f'Cannot delete retail — {txn_count} transaction(s) exist '
+                        f'for its system ledgers{fy_label}. '
+                        f'Close or delete those entries first.'
+                    )},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # ── Safe to delete — clean up system ledgers ─────────────────
+        # Detach FKs first so the retail delete doesn't fail on protected refs
+        RetailMaster.objects.filter(pk=retail.pk).update(cash_ldgr=None)
+
+        for ldgr in ledgers_to_delete:
+            ldgr.delete()
+
+        if delete_gstin and gstin:
+            gstin.delete()
+
+        return super().destroy(request, *args, **kwargs)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -188,42 +248,59 @@ def system_settings_view(request):
     if request.method == 'GET':
         return Response(SystemSettingsSerializer(settings_obj).data)
 
-    # PATCH
-    path = request.data.get('attachment_storage_path', None)
-    if path is not None:
-        path = path.strip()
-        if path and not os.path.isabs(path):
-            return Response(
-                {'attachment_storage_path': 'Must be an absolute path (e.g. C:\\Attachments\\ERP or /srv/erp/attachments).'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        if path:
-            try:
-                os.makedirs(path, exist_ok=True)
-            except Exception as exc:
+    # PATCH — validate and save each path field
+    for field in ('attachment_storage_path', 'barcode_image_storage_path'):
+        path = request.data.get(field, None)
+        if path is not None:
+            path = path.strip()
+            if path and not os.path.isabs(path):
                 return Response(
-                    {'attachment_storage_path': f'Cannot create directory: {exc}'},
+                    {field: 'Must be an absolute path (e.g. C:\\Attachments\\ERP or /srv/erp/attachments).'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-        settings_obj.attachment_storage_path = path
-        settings_obj.save()
+            if path:
+                try:
+                    os.makedirs(path, exist_ok=True)
+                except Exception as exc:
+                    return Response(
+                        {field: f'Cannot create directory: {exc}'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            setattr(settings_obj, field, path)
+
+    # Handle non-path fields
+    bill_total = request.data.get('bill_total_auto_calc', None)
+    if bill_total is not None:
+        settings_obj.bill_total_auto_calc = bill_total
+
+    settings_obj.save()
 
     return Response(SystemSettingsSerializer(settings_obj).data)
 
 
 class BranchMasterView(ListCreateAPIView):
     serializer_class = BranchMasterSerializer
-    queryset = BranchMaster.objects.select_related(
-        'company', 'state',
+    queryset = BranchMaster.objects.select_related('company', 'state').all()
+
+
+class BranchMasterDetailView(RetrieveUpdateDestroyAPIView):
+    serializer_class = BranchMasterSerializer
+    queryset = BranchMaster.objects.select_related('company', 'state').all()
+
+
+class GSTINMasterView(ListCreateAPIView):
+    serializer_class = GSTINMasterSerializer
+    queryset = GSTINMaster.objects.select_related(
+        'branch', 'state',
         'input_cgst', 'input_sgst', 'input_igst',
         'output_cgst', 'output_sgst', 'output_igst',
     ).all()
 
 
-class BranchMasterDetailView(RetrieveUpdateDestroyAPIView):
-    serializer_class = BranchMasterSerializer
-    queryset = BranchMaster.objects.select_related(
-        'company', 'state',
+class GSTINMasterDetailView(RetrieveUpdateDestroyAPIView):
+    serializer_class = GSTINMasterSerializer
+    queryset = GSTINMaster.objects.select_related(
+        'branch', 'state',
         'input_cgst', 'input_sgst', 'input_igst',
         'output_cgst', 'output_sgst', 'output_igst',
     ).all()

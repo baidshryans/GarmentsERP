@@ -131,6 +131,9 @@ import AuditLog from "./components/Settings/AuditLog.jsx";
 import CRMAutomation from "./components/Settings/CRMAutomation.jsx";
 import Dashboard from "./components/Dashboard/Dashboard.jsx";
 import BarcodeBulkOps from "./components/Inventory/BarcodeManagement/BarcodeBulkOps.jsx";
+import RawMaterialBalanceReport from "./components/Inventory/RawMaterialBalanceReport.jsx";
+import RawMaterialLedger from "./components/Inventory/RawMaterialLedger.jsx";
+import SemiFinishedStockReport from "./components/Inventory/SemiFinishedStockReport.jsx";
 import SetupWizard from "./components/Settings/SetupWizard.jsx";
 import SettingsPage from "./components/Settings/SettingsPage.jsx";
 import SectionIndexPage from "./components/SectionIndexPage.jsx";
@@ -319,6 +322,9 @@ const appRoutes = [
   { path: "inventory/reports/itemwisebarcode",      heading: "Item Wise Barcode Report", component: <ItemWiseBarcodeReport /> },
   { path: "inventory/reports/barcodestockreport",   heading: "Barcode Stock Report",   component: <BarcodeStockReport /> },
   { path: "inventory/reports/stockvalue",           heading: "Stock Value Report",     component: <StockValueReport /> },
+  { path: "inventory/reports/raw-material",         heading: "Raw Material Balance",   component: <RawMaterialBalanceReport /> },
+  { path: "inventory/reports/raw-material-ledger",  heading: "Raw Material Ledger",    component: <RawMaterialLedger /> },
+  { path: "inventory/reports/semi-finished",        heading: "Semi-Finished Stock",    component: <SemiFinishedStockReport /> },
 
   // ── Gold Rates ────────────────────────────────────────────────────────────
   { path: "goldrate/form", heading: "Update Gold Rate", component: <GoldRateForm /> },

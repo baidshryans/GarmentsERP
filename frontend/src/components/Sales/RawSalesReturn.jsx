@@ -796,7 +796,7 @@ const RawSalesReturn = () => {
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{detail.item}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{detail.pcs}</TableCell>
-                    <TableCell className="w-28 px-4 py-2 border">{detail.ct}</TableCell>
+                    <TableCell className="w-28 px-4 py-2 border">{Number(detail.ct || 0).toFixed(3)}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{detail.gw}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>

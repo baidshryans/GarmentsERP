@@ -32,6 +32,8 @@ class VoucherMain(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     retail = models.ForeignKey(RetailMaster, on_delete=models.SET_NULL,null=True,related_name="retail_voucher")
     fiscal_year = models.ForeignKey('mastersconfig.FiscalYearMaster', on_delete=models.SET_NULL, null=True, blank=True)
+    gstin_ref  = models.ForeignKey('mastersconfig.GSTINMaster',  null=True, blank=True, on_delete=models.SET_NULL, related_name='vouchers')
+    branch_ref = models.ForeignKey('mastersconfig.BranchMaster', null=True, blank=True, on_delete=models.SET_NULL, related_name='vouchers')
 
     
     def __str__(self):
@@ -91,7 +93,7 @@ class CashGoldConversion(models.Model):
     v_type = models.ForeignKey(VoucherMain, on_delete = models.SET_NULL,null=True)
     billno = models.CharField(max_length=100)  # generate from bill prefix
     fiscal_year = models.ForeignKey('mastersconfig.FiscalYearMaster', on_delete=models.SET_NULL, null=True, blank=True)
-    gw = models.DecimalField(max_digits=10, decimal_places=2)
+    gw = models.DecimalField(max_digits=10, decimal_places=3)
     rate = models.DecimalField(max_digits=10, decimal_places=2)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     retail = models.ForeignKey(RetailMaster, on_delete=models.SET_NULL,null=True)
@@ -141,6 +143,7 @@ class BankStatementEntry(models.Model):
         VoucherDetail, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='bank_statement_match'
     )
+    fiscal_year  = models.ForeignKey('mastersconfig.FiscalYearMaster', on_delete=models.SET_NULL, null=True, blank=True)
     created_at   = models.DateTimeField(auto_now_add=True)
 
     class Meta:

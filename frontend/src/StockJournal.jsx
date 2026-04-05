@@ -450,7 +450,7 @@ const StockJournal = () => {
                       </span>
                     </TableCell>
                     <TableCell className="px-3 py-1.5 border text-center tabular-nums">{item.pcs || "—"}</TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center tabular-nums">{item.ct  || "—"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center tabular-nums">{item.ct != null ? Number(item.ct).toFixed(3) : "—"}</TableCell>
                     <TableCell className="px-3 py-1.5 border text-center tabular-nums font-semibold">{item.gw   || "—"}</TableCell>
                     <TableCell className="px-3 py-1.5 border text-center tabular-nums text-orange-600">{item.loss || "—"}</TableCell>
                   </TableRow>

@@ -62,7 +62,7 @@ export async function loginAndSaveToken(username, password) {
 //   }
 // } getLedgers()
 
-export async function getLedgers({ search = "", page = 1, ordering = "", type = "KR" } = {}) {
+export async function getLedgers({ search = "", page = 1, ordering = "", type = "KR", page_size } = {}) {
   try {
     const params = new URLSearchParams();
 
@@ -70,6 +70,7 @@ export async function getLedgers({ search = "", page = 1, ordering = "", type = 
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
     params.append("page", page);
+    if (page_size) params.append("page_size", page_size);
 
     // Use role-based filtering so a ledger with multiple roles (e.g. a
     // Dealer who is also a Customer) appears in both filtered lists.
@@ -842,7 +843,7 @@ export async function fetchDetailsForPurchaseReturn(po_no) {
 // Fetch Purity
 export async function fetchHSNs() {
   try {
-    const response = await apiClient.get(`/mastersconfig/api/hsn/`);
+    const response = await apiClient.get(`/mastersconfig/api/hsn/?page_size=10000`);
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch HSN :", error.response?.data || error.message);
@@ -2612,7 +2613,7 @@ export async function updatePurchaseVoucherForEdit(data, id) {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to update PurchaseVoucher:", error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
+    return { success: false, status: error.response?.status, error: error.response?.data || error.message };
   }
 }
 
@@ -2624,7 +2625,7 @@ export async function createPurchaseVoucher(data) {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to create PurchaseVoucher:", error.response?.data || error.message);
-    return { success: false, status, error: error.response?.data || error.message };
+    return { success: false, status: error.response?.status, error: error.response?.data || error.message };
   }
 }
 
@@ -4211,6 +4212,73 @@ export async function updateRepairJobCardStatus(id, status) {
   try {
     const response = await apiClient.patch(`/manufacturing/api/repair-job-card/${id}/status/`, { status });
     return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Raw Material & Semi-Finished Stock ────────────────────────────────────────
+
+export async function getRawMaterialBalance(params = {}) {
+  try {
+    const query = new URLSearchParams(params).toString();
+    const response = await apiClient.get(`/inventory/api/raw-material-balance/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getRawMaterialLedger(params = {}) {
+  try {
+    const query = new URLSearchParams(params).toString();
+    const response = await apiClient.get(`/inventory/api/raw-material-ledger/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getSemiFinishedStock() {
+  try {
+    const response = await apiClient.get("/inventory/api/semi-finished-stock/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Barcode Images ────────────────────────────────────────────────────────────
+
+export async function getBarcodeImages(barcodeId) {
+  try {
+    const response = await apiClient.get(`/inventory/api/barcode-images/?barcode=${barcodeId}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function uploadBarcodeImages(barcodeId, files) {
+  try {
+    const formData = new FormData();
+    formData.append("barcode", barcodeId);
+    for (const file of files) {
+      formData.append("image", file);
+    }
+    const response = await apiClient.post("/inventory/api/barcode-images/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteBarcodeImage(id) {
+  try {
+    await apiClient.delete(`/inventory/api/barcode-images/${id}/`);
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
   }

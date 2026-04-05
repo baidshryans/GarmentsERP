@@ -274,6 +274,13 @@ const SalesVoucherAdd = () => {
       setValue("details.loss", 0);
       setValue("details.tunch", 0);
       setValue("details.fine_wt", 0);
+    } else {
+      // Auto-fill metal_purity from the parent main item's default_purity
+      const lastMainItem = rs[rs.length - 1];
+      const parentInfo = mainItemData.find(m => m.short_code === lastMainItem?.item);
+      if (parentInfo?.default_purity) {
+        setValue("details.metal_purity", parentInfo.default_purity);
+      }
     }
   }, [detailItem]);
 
@@ -979,7 +986,7 @@ const SalesVoucherAdd = () => {
                 <Select disabled={getValues("salesvouitem_set").length > 0} onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger><SelectValue placeholder="Select HSN" /></SelectTrigger>
                   <SelectContent>
-                    {hsns.map((h, i) => <SelectItem key={i} value={h.hsn_no}>{h.hsn_no}</SelectItem>)}
+                    {hsns.map((h, i) => <SelectItem key={i} value={h.hsn_no}>{h.description || h.hsn_no}</SelectItem>)}
                   </SelectContent>
                 </Select>
               )}
@@ -1018,7 +1025,7 @@ const SalesVoucherAdd = () => {
                     <TableCell className="px-3 py-2 border text-xs">{field?.packet}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{field?.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{field?.pcs}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{field?.ct}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs">{Number(field?.ct || 0).toFixed(3)}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{field?.gw}</TableCell>
                     <TableCell className="w-24 px-3 py-2 border">
                       <Input type="number" className="h-7 text-xs" {...register(`salesvouitem_set.${index}.making`, { valueAsNumber: true })} />
@@ -1059,7 +1066,7 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border text-xs">{detail?.packet}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs">{detail?.item}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs">{detail?.pcs}</TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{detail?.ct}</TableCell>
+                      <TableCell className="px-3 py-2 border text-xs">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs">{detail?.gw}</TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
@@ -1312,7 +1319,7 @@ const SalesVoucherAdd = () => {
                           <TableCell className="px-3 py-2 border text-xs text-gray-500">{detail.packet || detail.item}</TableCell>
                           <TableCell className="px-3 py-2 border text-xs">{detail.item_name || detail.item}</TableCell>
                           <TableCell className="px-3 py-2 border text-xs">{detail.pcs || ""}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{detail.ct || ""}</TableCell>
+                          <TableCell className="px-3 py-2 border text-xs">{Number(detail.ct || 0).toFixed(3)}</TableCell>
                           <TableCell className="px-3 py-2 border text-xs">{detail.gw}</TableCell>
                           <TableCell className="px-3 py-2 border text-xs">{rowIsRaw ? detail.loss : ""}</TableCell>
                           <TableCell className="px-3 py-2 border text-xs">{rowIsRaw ? detail.tunch : ""}</TableCell>

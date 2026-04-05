@@ -8,22 +8,23 @@ from django.core.exceptions import ValidationError
 # ── Constants ────────────────────────────────────────────────────────────────
 
 TYPE_CHOICES = (
-    ("CO", "Customer"),
-    ("DL", "Dealer"),
-    ("KR", "Karigar"),
-    ("CA", "Cash"),
-    ("BA", "Bank"),
-    ("SC", "Sundry Creditors"),
-    ("SD", "Sundry Debtors"),
+    ("CO",  "Customer"),
+    ("DL",  "Dealer"),
+    ("KR",  "Karigar"),
+    ("VD",  "Vendor"),
+    ("CA",  "Cash"),
+    ("BA",  "Bank"),
+    ("SC",  "Sundry Creditors"),
+    ("SD",  "Sundry Debtors"),
     ("REF", "Refinery"),
     ("EXP", "Expenses"),
     ("INC", "Income"),
-    ("HM", "Hallmark"),
+    ("HM",  "Hallmark"),
     ("OTH", "Others"),
 )
 
 # Ledger types that represent people/businesses (parties)
-PARTY_TYPES = {"CO", "DL", "KR", "SC", "SD", "REF", "HM"}
+PARTY_TYPES = {"CO", "DL", "KR", "VD", "SC", "SD", "REF", "HM"}
 
 # Ledger types that are non-personal (system/accounting)
 NON_PERSONAL_TYPES = {"CA", "BA", "EXP", "INC", "OTH"}
@@ -88,6 +89,11 @@ class Ledger(models.Model):
     tds_applicable    = models.BooleanField(default=False)
     tds_section       = models.ForeignKey('mastersconfig.TDSSectionMaster', on_delete=models.SET_NULL, null=True, blank=True, related_name='ledgers')
     tds_deductor_type = models.CharField(max_length=3, choices=[('IND', 'Individual/HUF'), ('CO', 'Company/Firm')], null=True, blank=True)
+
+    is_system = models.BooleanField(
+        default=False,
+        help_text="Auto-created system ledger (Cash, GST registers, operational). Cannot be edited or deleted."
+    )
 
     def __str__(self):
         return f'{self.ac_name} {self.pk}'

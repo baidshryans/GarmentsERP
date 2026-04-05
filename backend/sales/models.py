@@ -36,7 +36,8 @@ class CustomerOrder(models.Model):
         help_text="Date the order was actually handed to the customer"
     )
 
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year  = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     @property
     def ldgr_code_name(self):
@@ -56,7 +57,7 @@ class CustomerOrderItems(models.Model):
     sl_no = models.IntegerField()
     order_no = models.ForeignKey(CustomerOrder, on_delete=models.CASCADE, related_name="items")
     pcs = models.IntegerField(null=True)
-    gw = models.DecimalField(null=True, max_digits=10, decimal_places =2)
+    gw = models.DecimalField(null=True, max_digits=10, decimal_places=3)
     size = models.CharField(null=True, max_length=10,blank=True)
     purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True)
     making_type = models.CharField(max_length=20)
@@ -125,7 +126,9 @@ class SalesVou(models.Model):
     ac_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True)
     ac_rec_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True,related_name="salereceipts")
 
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    retail     = models.ForeignKey("mastersconfig.RetailMaster",  on_delete=models.SET_NULL, null=True, blank=True)
+    gstin_ref  = models.ForeignKey("mastersconfig.GSTINMaster",  on_delete=models.SET_NULL, null=True, blank=True, related_name='sales_vouchers')
+    branch_ref = models.ForeignKey("mastersconfig.BranchMaster", on_delete=models.SET_NULL, null=True, blank=True, related_name='sales_vouchers')
     exhibition_profile = models.ForeignKey(
         'mastersconfig.ExhibitionProfile', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='sales_vouchers'
@@ -350,8 +353,8 @@ class SalesApproval(models.Model):
     cgst_per = models.DecimalField(null=True, max_digits=10, decimal_places = 2)
     igst_per = models.DecimalField(null=True, max_digits=10, decimal_places = 2)
 
-    retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
-
+    retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     def clean(self):
         # Ensure that if both cgst and sgst are defined, igst should be 0
@@ -402,7 +405,7 @@ class SalesApprovalItem(models.Model):
     barcode = models.ForeignKey(BarcodeMain, on_delete=models.PROTECT)
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
     pcs = models.IntegerField()
-    gw = models.DecimalField(max_digits=10, decimal_places=2)
+    gw = models.DecimalField(max_digits=10, decimal_places=3)
     # making = models.DecimalField(max_digits=10, decimal_places = 2)
     # making_type = models.DecimalField(max_digits=10, decimal_places = 2)
     purity = models.IntegerField()

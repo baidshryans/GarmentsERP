@@ -53,8 +53,10 @@ const PurchaseVoucher = () => {
   let navigate = useNavigate();
   const [pendingFiles, setPendingFiles] = useState([]); // files to upload after create
   const [detailItemDisplay, setDetailItemDisplay] = useState(""); // display label for item field
+  const [tableItemDisplay, setTableItemDisplay] = useState(""); // display label for main item field
   const { register: originalRegister, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
     defaultValues: {
+      hsn: "",
       rate_18kt: 0,
       rate_22kt: 0,
       rate_24kt: 0,
@@ -76,7 +78,6 @@ const PurchaseVoucher = () => {
         "ldgr": "",
         "sales_person": "",
         "sales_person2": "",
-        "place_of_supply": "WB",
         "remarks": "",
         "freight_charge": 0,
         "freight_amt": 0,
@@ -90,6 +91,8 @@ const PurchaseVoucher = () => {
         "cgst_per": 0,
         "igst_per": 0,
         "tcs_per": 0,
+        "tcs_amt": 0,
+        "round_off": 0,
         "tds_section": null,
         "tds_rate": 0,
         "tds_taxable_value": 0,
@@ -115,7 +118,7 @@ const PurchaseVoucher = () => {
         "pending_pcs": 0,
         "pending_gw": 0,
         "making_type": "",
-        "making_amt": null,
+        "making_value": null,
         "item_value": null,
         "remarks": "",
         "purchasevoucherdetails_set": [],
@@ -173,7 +176,8 @@ const PurchaseVoucher = () => {
   const [rsRaw, setRsRaw] = useState([]);
   const [serialNos, setSerialNos] = useState([]);
   const [statesData, setstatesData] = useState([]);
-  const [mainItemData, setMainItemData] = useState([]);
+  const [mainItemData, setMainItemData] = useState([]);   // all items (for sub-item lookup & name resolution)
+  const [mainItemsM, setMainItemsM] = useState([]);       // type M only (for main item datalist)
   const [customerOrders, setCustomerOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purityData, setPurityData] = useState([]);
@@ -184,12 +188,12 @@ const PurchaseVoucher = () => {
   const [uom, setUom] = useState('');
 
 
-  const place_of_supply = watch('form.place_of_supply');
-  const party_name = watch('form.ldgr_name');
   const selectedPacket = watch('details.packet');
   const selectedItem = watch('details.sub_item');
   const detailRate = watch('details.rate');
   const detailSubGw = watch('details.sub_gw');
+  const detailSubCt = watch('details.sub_ct');
+  const detailSubPcs = watch('details.sub_pcs');
   const selectedPacketData = packets.find(p => p.pckt_no === selectedPacket);
   const detailItemData = mainItemData.find(m => m.short_code === selectedItem);
   const isRawItem = detailItemData?.item_type === "R";
@@ -246,15 +250,16 @@ const PurchaseVoucher = () => {
 
   useEffect(() => {
     async function fetchData() {
-      const [orderNo, packets, barcodes, customerOrders, customers, states, salesperson, mainItem, purity, poNo, hsnres] = await Promise.all([
+      const [orderNo, packets, barcodes, customerOrders, customers, states, salesperson, mainItem, mainItemM, purity, poNo, hsnres] = await Promise.all([
         fetchPVNoNext().then(orderNo => { if (orderNo.success) setValue("form.billno", orderNo.data.billno); }),
         fetchPackets(),
         fetchBarcodes(),
         fetchCustomerOrders(),
-        getLedgers({type:"KR,DL,SD"}),
+        getLedgers({type:"VD", page_size: 10000}),
         getStates(),
         fetchSalesperson(),
         fetchMainItem(),
+        fetchMainItem({type: "M"}),
         fetchPurity(),
         fetchPos(),
         fetchHSNs(),
@@ -265,9 +270,20 @@ const PurchaseVoucher = () => {
       if (states.success) setstatesData(states.data);
 
       if (mainItem.success) setMainItemData(mainItem.data);
+      if (mainItemM.success) setMainItemsM(mainItemM.data);
       if (purity.success) setPurityData(purity.data);
       if (poNo.success) setValue("po_no", poNo.data.po_no);
-      if (hsnres.success) setHSNs(hsnres.data.results);
+      if (hsnres.success) {
+        setHSNs(hsnres.data.results);
+        // Set default HSN to 711319 (Jewellery plain or studded) in create mode
+        if (!id) {
+          const jewelleryHsn = hsnres.data.results.find(
+            h => h.hsn_no === "711319" || h.description?.toUpperCase().includes("JEWELLERY PLAIN")
+          );
+          // Defer so Select items render before value is set
+          if (jewelleryHsn) setTimeout(() => setValue("hsn", jewelleryHsn.hsn_no), 0);
+        }
+      }
     }
 
 
@@ -283,8 +299,8 @@ const PurchaseVoucher = () => {
             if (response.data.purchasevoucheritems_set) {
               setRows(response.data.purchasevoucheritems_set);
             }
-            if (response.data.purchasevoucheritemdetails_set?.length) {
-              setRsRaw(response.data.purchasevoucheritemdetails_set);
+            if (response.data.purchasevoucherdetails_set?.length) {
+              setRsRaw(response.data.purchasevoucherdetails_set);
             }
           })
           .catch((error) => {
@@ -306,16 +322,6 @@ const PurchaseVoucher = () => {
   }, []);
 
 
-  useEffect(() => {
-    async function fetchData() {
-      const [customers] = await Promise.all([
-        getLedgers({ type: "DL,SD,KR", search: party_name }),
-      ]);
-      if (customers.success) setCustomers(customers.data.results);
-    }
-    fetchData();
-
-  }, [party_name]);
 
   const hsn_current       = watch('hsn');
   const current_vou_type  = watch('form.voucher_type');
@@ -324,20 +330,29 @@ const PurchaseVoucher = () => {
   const sgst_per = watch('form.sgst_per');
   const cgst_per = watch('form.cgst_per');
   const igst_per = watch('form.igst_per');
+  const add_chrg_cap1 = watch('form.add_chrg_cap1');
+  const add_chrg_cap2 = watch('form.add_chrg_cap2');
+
+  useEffect(() => { if (!add_chrg_cap1) setValue('form.add_chrg_amt1', 0); }, [add_chrg_cap1]);
+  useEffect(() => { if (!add_chrg_cap2) setValue('form.add_chrg_amt2', 0); }, [add_chrg_cap2]);
 
 
-  const taxable_value_formula = "SUM(rs.item_value) + SUM(rsRaw.value) + freight_amt + hallmark_charge + add_chrg_amt1 + add_chrg_amt2 - discount_amt "
-  const total_incl_gst_formula = `${taxable_value_formula} + (${taxable_value_formula}) * (cgst_per / 100) + (${taxable_value_formula})* igst_per / 100 + (${taxable_value_formula}) * sgst_per / 100 `
-  const tcs_amt_formula = `tcs_per * (${total_incl_gst_formula})`
+  // Total excl. taxes = items + all charges (before discount)
+  const taxable_value_formula = "SUM(rs.item_value) + SUM(rsRaw.value) + freight_amt + hallmark_charge + add_chrg_amt1 + add_chrg_amt2"
+  // GST base = total excl. taxes minus discount
+  const gst_base_formula = `(${taxable_value_formula}) - discount_amt`
+  const total_incl_gst_formula = `(${gst_base_formula}) + (${gst_base_formula}) * (cgst_per / 100) + (${gst_base_formula}) * (igst_per / 100) + (${gst_base_formula}) * (sgst_per / 100)`
+  const tcs_amt_formula = `(tcs_per / 100) * (${total_incl_gst_formula})`
   const main_formulas = {
     taxable_value: taxable_value_formula,
-    cgst: `(${taxable_value_formula}) * (cgst_per / 100) `,
-    igst: `(${taxable_value_formula})* (igst_per / 100) `,
-    sgst: `(${taxable_value_formula}) * (sgst_per / 100 )`,
-    total_incl_gst: `(${total_incl_gst_formula}) - discount_amt`,
+    item_total: taxable_value_formula,
+    cgst: `(${gst_base_formula}) * (cgst_per / 100)`,
+    igst: `(${gst_base_formula}) * (igst_per / 100)`,
+    sgst: `(${gst_base_formula}) * (sgst_per / 100)`,
+    total_incl_gst: total_incl_gst_formula,
     tcs_amt: tcs_amt_formula,
-    bill_value: `(${tcs_amt_formula} + ${total_incl_gst_formula})`,
-    tds_taxable_value: taxable_value_formula,
+    bill_value: `(${total_incl_gst_formula}) + (${tcs_amt_formula}) + round_off`,
+    tds_taxable_value: gst_base_formula,
     tds_amt: `(tds_taxable_value * tds_rate) / 100`,
     net_vendor_payable: `bill_value - tds_amt`,
   }
@@ -371,7 +386,8 @@ const PurchaseVoucher = () => {
 
         if (data.hasOwnProperty(variable)) {
           let value = data[variable];
-          return typeof value === "number" ? `(${value})` : `'${value}'`;
+          if (typeof value === "number") return `(${isNaN(value) ? 0 : value})`;
+          return `'${value}'`;
         }
 
         return "0"; // Default replacement if variable is not found
@@ -426,17 +442,24 @@ const PurchaseVoucher = () => {
     const packet = packets.find(p => p.pckt_no === watchedPacketDetail);
     if (packet?.stone_item_id?.short_code) {
       setValue('details.sub_item', packet.stone_item_id.short_code);
-      setDetailItemDisplay(packet.stone_item_id.short_code);
+      setDetailItemDisplay(packet.stone_item_id.item_name || packet.stone_item_id.short_code);
       setValue('details.rate', packet.rate_for_retail ?? 0);
     }
   }, [watchedPacketDetail]);
 
-  // Auto-calculate value = rate × sub_gw whenever either changes
+  // Auto-calculate value based on UOM
   useEffect(() => {
     const rate = parseFloat(detailRate || 0);
-    const gw   = parseFloat(detailSubGw || 0);
-    setValue('details.value', parseFloat((rate * gw).toFixed(2)));
-  }, [detailRate, detailSubGw]);
+    let qty;
+    if (uom === 'ct') {
+      qty = parseFloat(detailSubCt || 0);
+    } else if (uom === 'pcs') {
+      qty = parseFloat(detailSubPcs || 0);
+    } else {
+      qty = parseFloat(detailSubGw || 0);
+    }
+    setValue('details.value', parseFloat((rate * qty).toFixed(2)));
+  }, [detailRate, detailSubGw, detailSubCt, detailSubPcs, uom]);
 
 
   useEffect(() => {
@@ -450,20 +473,16 @@ const PurchaseVoucher = () => {
     let hsn_ = hsns.find(e => e.hsn_no === hsn_current);
 
     if (hsn_) {
-      const poc = getValues("form.place_of_supply")
-
-      const current_state = localStorage.getItem('state_code')
-      console.log(hsn_)
-      setValue('form.sgst_per', poc !== current_state ? 0.0 : parseFloat(hsn_.sgst))
-      setValue('form.cgst_per', poc !== current_state ? 0.0 : parseFloat(hsn_.cgst))
-      setValue('form.igst_per', poc == current_state ? 0.0 : parseFloat(hsn_.igst))
+      setValue('form.sgst_per', parseFloat(hsn_.sgst))
+      setValue('form.cgst_per', parseFloat(hsn_.cgst))
+      setValue('form.igst_per', 0.0)
     }
-  }, [hsn_current, place_of_supply]);
+  }, [hsn_current]);
 
   const onSubmit = async (data) => {
     const form = getValues("form");
-    if (rs.length === 0 && rsRaw.length === 0) {
-      toast({ title: "Table is empty " })
+    if (rs.length === 0) {
+      toast({ title: "Table is empty" })
       return;
     }
     // Weight reconciliation: sub-item GW totals must match parent item GW
@@ -482,7 +501,7 @@ const PurchaseVoucher = () => {
       }
     }
     form.purchasevoucheritems_set = [...rs];
-    form.purchasevoucheritemdetails_set = [...rsRaw];
+    form.purchasevoucherdetails_set = [...rsRaw];
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })
@@ -499,13 +518,12 @@ const PurchaseVoucher = () => {
         }
         toast({ title: "Form submitted successfully!" });
         setTimeout(() => navigate("/purchase/purchasevoucher/list/"), 500);
-      } else if (response.status < 500) {
-        toast({
-          title: "Form submission failed. Please try again.",
-          description: renderErrorTree(response.error),
-        });
       } else {
-        toast({ title: "An error occurred. Please try again later." });
+        toast({
+          title: "Form submission failed.",
+          description: renderErrorTree(response.error),
+          variant: "destructive",
+        });
       }
     } catch {
       toast({ title: "An error occurred. Please try again later." });
@@ -543,6 +561,8 @@ const PurchaseVoucher = () => {
     const row = rs[index];
     editingRowRef.current = { index, row }; // preserve index + full row
     reset({ table: row, form: getValues('form'), hsn: getValues('hsn'), details: getValues('details') });
+    const itemData = mainItemsM.find(m => m.short_code === row.item);
+    setTableItemDisplay(itemData ? itemData.item_name : (row.item || ""));
     // Mark row as being-edited instead of removing it — sub-items stay visible
     setRows(prev => prev.map((r, i) => i === index ? { ...r, _editing: true } : r));
   };
@@ -581,7 +601,8 @@ const PurchaseVoucher = () => {
     setValue('details.fine_wt', subItem.fine_wt || 0);
     setValue('details.rate', subItem.rate || 0);
     setValue('details.value', subItem.value || 0);
-    setDetailItemDisplay(subItem.sub_item || "");
+    const subItemData = mainItemData.find(m => m.short_code === subItem.sub_item);
+    setDetailItemDisplay(subItemData ? subItemData.item_name : (subItem.sub_item || ""));
 
     // Remove from saved list so user can re-add after editing
     setRows((prev) =>
@@ -656,7 +677,8 @@ const PurchaseVoucher = () => {
             pending_gw: 0.0,
             pending_pcs: 0,
             making: 0.0,
-            making_type: 0.0,
+            making_type: "",
+            making_value: 0,
             purity: 0,
             ret_status: false,
             amount: 0,
@@ -688,6 +710,24 @@ const PurchaseVoucher = () => {
     const newItem = getValues("table");
     if (!newItem.item) { toast({ title: "No item added" }); return; }
 
+    // Before adding a new row, verify existing rows with sub-items are GW-reconciled
+    if (!editingRowRef.current && rs.filter(r => !r._editing).length > 0) {
+      for (const row of rs.filter(r => !r._editing)) {
+        const details = row.purchasevoucherdetails_set || [];
+        if (!details.length) continue; // direct item — no check needed
+        const totalSubGW = details.reduce((sum, d) => sum + parseFloat(d.sub_gw || 0), 0);
+        const itemGW = parseFloat(row.gw || 0);
+        if (Math.abs(totalSubGW - itemGW) > 0.001) {
+          toast({
+            title: `Sub-item GW doesn't match for Sl No ${row.sl_no}`,
+            description: `Sub-items total: ${totalSubGW.toFixed(3)}g, Item GW: ${itemGW.toFixed(3)}g. Reconcile before adding another item.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+
     if (editingRowRef.current) {
       // Update the row in-place: restore sl_no and sub-items, clear editing flag
       const { index, row } = editingRowRef.current;
@@ -704,6 +744,7 @@ const PurchaseVoucher = () => {
       }
       setRows([...rs, { ...newItem }]);
     }
+    setTableItemDisplay("");
     reset({
       form: { ...getValues('form') },
       hsn: getValues('hsn'),
@@ -717,7 +758,8 @@ const PurchaseVoucher = () => {
         gw: 0.0,
         pending_gw: 0.0,
         making: 0.0,
-        making_type: 0.0,
+        making_type: "",
+        making_value: 0,
         purity: 0,
         ret_status: false,
         amount: 0,
@@ -770,20 +812,22 @@ const PurchaseVoucher = () => {
   };
 
   const billSummaryRows = [
-    { label: 'Total excl. Taxes',  field: 'form.taxable_value' },
-    { isSeparator: true },
     { label: 'Hallmark Charge',    field: 'form.hallmark_charge', editable: true },
     { label: 'Freight Charge',     field: 'form.freight_amt',     editable: true },
-    { label: watch('form.add_chrg_cap1') || 'Additional Charge 1', field: 'form.add_chrg_amt1', editable: true },
-    { label: watch('form.add_chrg_cap2') || 'Additional Charge 2', field: 'form.add_chrg_amt2', editable: true },
+    { label: '', field: 'form.add_chrg_amt1', captionField: 'form.add_chrg_cap1', captionPlaceholder: 'Charge 1 name' },
+    { label: '', field: 'form.add_chrg_amt2', captionField: 'form.add_chrg_cap2', captionPlaceholder: 'Charge 2 name' },
+    { isSeparator: true },
+    { label: 'Total excl. Taxes',  field: 'form.taxable_value' },
     { label: 'Discount',           field: 'form.discount_amt',    editable: true },
     { isSeparator: true },
     ...(!isCustomer && cgst_per !== 0 ? [{ label: `CGST @ ${cgst_per}%`, field: 'form.cgst' }] : []),
     ...(!isCustomer && sgst_per !== 0 ? [{ label: `SGST @ ${sgst_per}%`, field: 'form.sgst' }] : []),
     ...(!isCustomer && igst_per !== 0 ? [{ label: `IGST @ ${igst_per}%`, field: 'form.igst' }] : []),
     { label: isCustomer ? 'Total' : 'Total incl. GST', field: 'form.total_incl_gst' },
+    { isSeparator: true },
     { label: 'TCS',                field: 'form.tcs_amt',         editable: true },
     { label: 'Round Off',          field: 'form.round_off',       editable: true, step: '0.001' },
+    { label: 'Bill Total',         field: 'form.bill_value',      isTotal: true },
     ...(watch('form.tds_rate') > 0 ? [
       { isSeparator: true },
       { label: `TDS @ ${watch('form.tds_rate')}% (deducted)`, field: 'form.tds_amt' },
@@ -834,7 +878,17 @@ const PurchaseVoucher = () => {
               name="form.voucher_type"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value} disabled={vou_type}>
+                <Select
+                  value={field.value}
+                  disabled={vou_type}
+                  onValueChange={(val) => {
+                    field.onChange(val);
+                    setRows([]);
+                    setTableItemDisplay("");
+                    setDetailItemDisplay("");
+                    setValue("hsn", "");
+                  }}
+                >
                   <SelectTrigger data-testid="voucher-type">
                     <SelectValue> {field.value}</SelectValue>
                   </SelectTrigger>
@@ -852,41 +906,48 @@ const PurchaseVoucher = () => {
 
           {/* Party Details */}
           <FieldContainer>
-            <Label htmlFor="party_name_display" className="text-nowrap">Party Name</Label>
-            <Input list="party_list" {...register("form.ldgr_name", {
-              onChange: async (e) => {
-                const selectedCustomer = customers.find(
-                  (customer) => customer.ac_name === e.target.value
-                );
-                if (selectedCustomer) {
-                  setValue("form.ldgr", selectedCustomer.id);
-                  const tdsRes = await fetchLedgerTDSInfo(selectedCustomer.id);
-                  if (tdsRes.success && tdsRes.data.tds_applicable) {
-                    setValue("form.tds_section", tdsRes.data.section_id);
-                    setValue("form.tds_rate", tdsRes.data.rate);
-                  } else {
-                    setValue("form.tds_section", null);
-                    setValue("form.tds_rate", 0);
-                    setValue("form.tds_amt", 0);
-                    setValue("form.net_vendor_payable", 0);
-                  }
-                }
-              }
-            })}
-              required />
-
+            <Label className="text-nowrap">Party Name</Label>
+            <Controller
+              name="form.ldgr"
+              control={control}
+              rules={{ required: true }}
+              render={({ field }) => (
+                <Select
+                  value={field.value ? String(field.value) : ""}
+                  onValueChange={async (val) => {
+                    const id = parseInt(val);
+                    const selected = customers.find(c => c.id === id);
+                    field.onChange(id);
+                    if (selected) {
+                      setValue("form.ldgr_name", selected.ac_name);
+                      const tdsRes = await fetchLedgerTDSInfo(id);
+                      if (tdsRes.success && tdsRes.data.tds_applicable) {
+                        setValue("form.tds_section", tdsRes.data.section_id);
+                        setValue("form.tds_rate", tdsRes.data.rate);
+                      } else {
+                        setValue("form.tds_section", null);
+                        setValue("form.tds_rate", 0);
+                        setValue("form.tds_amt", 0);
+                        setValue("form.net_vendor_payable", 0);
+                      }
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vendor…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map(c => (
+                      <SelectItem key={c.id} value={String(c.id)}>{c.ac_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </FieldContainer>
-          <Input type="hidden" {...register("form.ldgr")} />
-          <datalist id="party_list" >
-            {customers.map((customer, index) => (
-              <option key={index} value={customer.ac_name}>{customer.id}</option>
-
-            ))}
-
-          </datalist>
           {!isCustomer && (
           <FieldContainer>
-            <Label htmlFor="hsn" className="text-nowrap">HSN code</Label>
+            <Label htmlFor="hsn" className="text-nowrap">HSN code <span className="text-violet-500 font-normal text-xs">(select to add items)</span></Label>
 
             <Controller
               name="hsn"
@@ -899,7 +960,7 @@ const PurchaseVoucher = () => {
 
                   <SelectContent>
                     {hsns.map((hsn, index) => (
-                      <SelectItem key={index} value={hsn.hsn_no}>{hsn.hsn_no}</SelectItem>
+                      <SelectItem key={index} value={hsn.hsn_no}>{hsn.description || hsn.hsn_no}</SelectItem>
                     ))}
 
                   </SelectContent>
@@ -916,28 +977,6 @@ const PurchaseVoucher = () => {
           <FieldContainer>
             <Label htmlFor="ref_date">Ref.Date</Label>
             <Input type="date" {...register("form.ref_date")} required />
-          </FieldContainer>
-          <FieldContainer>
-            <Label htmlFor=" place_of_supply " className="text-nowrap">Place of Supply</Label>
-            <Controller
-              name="form.place_of_supply"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger  data-testid="place-of-supply">
-                    <SelectValue placeholder="Select State" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {statesData.map((sp, index) => (
-                      <SelectItem key={index} value={`${sp.code}`}>{sp.name}</SelectItem>
-                    ))}
-
-                  </SelectContent>
-                </Select>
-              )}
-            />
-
           </FieldContainer>
           <FieldContainer>
             <Label htmlFor="party_name_display" className="text-nowrap">Order No</Label>
@@ -992,7 +1031,7 @@ const PurchaseVoucher = () => {
           {/* Item Details */}
           <div className="flex items-center gap-3 my-5">
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">2</span>
-            <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Item Details</span>
+            <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Main and Sub Item Details</span>
             <div className="flex-1 h-px bg-violet-100" />
           </div>
           <br></br>
@@ -1016,13 +1055,26 @@ const PurchaseVoucher = () => {
 
 
                 <TableCell className="w-28 px-4 py-2 border">
-                  <Input list="item_list" {...register("table.item")} />
+                  <Input
+                    list="item_list"
+                    value={tableItemDisplay}
+                    onChange={(e) => {
+                      const typed = e.target.value;
+                      setTableItemDisplay(typed);
+                      const found = mainItemsM.find(m => m.item_name === typed || m.short_code === typed);
+                      setValue('table.item', found ? found.short_code : typed);
+                      if (found?.default_purity) {
+                        setValue('table.purity', found.default_purity);
+                      }
+                    }}
+                    placeholder="Item"
+                  />
                   <datalist id="item_list">
-                    {mainItemData.map((item, index) => (
-                      <option key={index} value={item.short_code}  ></option>
+                    {mainItemsM.map((item, index) => (
+                      <option key={index} value={item.item_name} />
                     ))}
-
                   </datalist>
+                  <input type="hidden" {...register("table.item")} />
                 </TableCell>
 
 
@@ -1078,7 +1130,7 @@ const PurchaseVoucher = () => {
                   />
                 </TableCell>
                 <TableCell className="px-4 py-2 border">
-                  <Input type="number" {...register("table.making_amt")} />
+                  <Input type="number" {...register("table.making_value")} />
                 </TableCell>
                 <TableCell className="px-4 py-2 border">
                   <Input type="number" {...register("table.item_value")} />
@@ -1102,10 +1154,10 @@ const PurchaseVoucher = () => {
             <TableBody>
               <TableRow className="w-full bg-violet-50">
                 <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Packet</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Item</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Ct</TableCell>
+                <TableCell className={`w-40 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${!!selectedItem && !selectedPacketData ? " hidden" : ""}`}>Packet</TableCell>
+                <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Item</TableCell>
+                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${isRawItem ? " hidden" : ""}`}>Pcs</TableCell>
+                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${isRawItem ? " hidden" : ""}`}>Ct</TableCell>
                 <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">GW</TableCell>
                 <TableCell className={`w-32 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Metal Purity</TableCell>
                 <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Loss</TableCell>
@@ -1122,7 +1174,7 @@ const PurchaseVoucher = () => {
                   <Input type="text" {...register("details.sl_no")} />
                 </TableCell>
 
-                <TableCell className="w-28 px-4 py-2 border">
+                <TableCell className={`w-40 px-4 py-2 border${!!selectedItem && !selectedPacketData ? " hidden" : ""}`}>
                   <Input list="packet_list" {...register("details.packet")} disabled={!!selectedItem && !selectedPacketData} />
                   <datalist id="packet_list">
                     {packets.map((packet, index) => (
@@ -1132,14 +1184,14 @@ const PurchaseVoucher = () => {
                     ))}
                   </datalist>
                 </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
+                <TableCell className="w-48 px-4 py-2 border">
                   <Input
                     list="sub_item_list"
                     value={detailItemDisplay}
                     onChange={(e) => {
                       const typed = e.target.value;
                       setDetailItemDisplay(typed);
-                      const found = mainItemData.find(m => m.short_code === typed);
+                      const found = mainItemData.find(m => m.item_name === typed || m.short_code === typed);
                       setValue('details.sub_item', found ? found.short_code : typed);
                     }}
                     disabled={!!selectedPacketData}
@@ -1148,24 +1200,26 @@ const PurchaseVoucher = () => {
                   />
                   <datalist id="sub_item_list">
                     {mainItemData.map((item, index) => (
-                      <option key={index} value={item.short_code} />
+                      <option key={index} value={item.item_name} />
                     ))}
                   </datalist>
                   <input type="hidden" {...register("details.sub_item")} />
                 </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
+                <TableCell className={`w-28 px-4 py-2 border${isRawItem ? " hidden" : ""}`}>
                   <Input
                     type="number"
                     {...register("details.sub_pcs")}
                     placeholder="Sub Pcs"
+                    disabled={isRawItem}
                   />
                 </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
+                <TableCell className={`w-28 px-4 py-2 border${isRawItem ? " hidden" : ""}`}>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     {...register("details.sub_ct")}
                     placeholder="Sub Ct"
+                    disabled={isRawItem}
                   />
                 </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
@@ -1248,7 +1302,7 @@ const PurchaseVoucher = () => {
                 <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Options</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Packet</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Item</TableCell>
+                <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Item</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Order No</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Ct</TableCell>
@@ -1264,19 +1318,27 @@ const PurchaseVoucher = () => {
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Remarks</TableCell>
               </TableRow>
 
+              {rs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={17} className="px-4 py-6 border text-center text-sm text-gray-400">
+                    No items added yet. Add a main item above and press <kbd className="px-1 py-0.5 rounded bg-gray-100 border text-gray-500 font-mono text-[11px]">Tab</kbd> on Remarks to add it here.
+                  </TableCell>
+                </TableRow>
+              )}
               {[...rs].sort((a, b) => (a.sl_no || 0) - (b.sl_no || 0)).map((item, idx) => (
-                <>
-                  <TableRow className={item._editing ? "bg-amber-50 border-t-2 border-amber-400 opacity-70" : "bg-white border-t-2 border-violet-300 border-l-4 border-l-violet-400"}>
-                    <TableCell className="px-4 py-2 border flex flex-row justify-center items-center gap-3">
+                <React.Fragment key={item.sl_no ?? idx}>
+                  <TableRow className={item._editing ? "bg-amber-50 border-t-2 border-amber-400 opacity-70 font-bold" : "bg-violet-50 border-t-2 border-violet-300 border-l-4 border-l-violet-400 font-bold"}>
+                    <TableCell className="px-4 py-2 border align-middle">
+                      <div className="flex flex-row justify-center items-center gap-3">
 
-                      <Edit size={20} className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleEdit(rs.indexOf(item))} />
-
-                      <Trash2 size={20} color="#d45959" className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleDelete(rs.indexOf(item))} />
+                        <Edit size={20} className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleEdit(rs.indexOf(item))} />
+                        <Trash2 size={20} color="#d45959" className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleDelete(rs.indexOf(item))} />
+                      </div>
                     </TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.sl_no}</TableCell>
 
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                    <TableCell className="w-28 px-4 py-2 border" >{item.item}</TableCell>
+                    <TableCell className="w-48 px-4 py-2 border">{mainItemData.find(m => m.short_code === item.item)?.item_name || item.item}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.order_no}</TableCell>
 
                     <TableCell className="w-28 px-4 py-2 border">{item.pcs}</TableCell>
@@ -1289,7 +1351,7 @@ const PurchaseVoucher = () => {
 
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                    <TableCell className="w-28 px-4 py-2 border">{item.making_amt}</TableCell>
+                    <TableCell className="w-28 px-4 py-2 border">{item.making_value}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.item_value}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.remarks}</TableCell>
@@ -1297,20 +1359,22 @@ const PurchaseVoucher = () => {
 
                   {item.purchasevoucherdetails_set?.map((detail, sub_id) => (
                     <TableRow key={sub_id} className="bg-white">
-                      <TableCell className="px-4 py-2 border flex flex-row justify-center items-center gap-1">
-                        <Edit size={16} color="#6d6d6d" className="cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
-                        <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                      <TableCell className="px-4 py-2 border align-middle">
+                        <div className="flex flex-row justify-center items-center gap-1">
+                          <Edit size={16} color="#6d6d6d" className="cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                          <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                        </div>
                       </TableCell>
                       <TableCell className="w-28 px-4 py-2 border">{detail.sl_no}</TableCell>
                       {/* <TableCell className="w-28 px-4 py-2 border">{detail.bill_no}</TableCell> */}
                       <TableCell className="w-28 px-4 py-2 border">{detail.packet}</TableCell>
 
-                      <TableCell className="w-28 px-4 py-2 border">{detail.sub_item}</TableCell>
+                      <TableCell className="w-48 px-4 py-2 border">{mainItemData.find(m => m.short_code === detail.sub_item)?.item_name || detail.sub_item}</TableCell>
                       <TableCell className="w-28 px-4 py-2 border"></TableCell>
 
 
                       <TableCell className="w-28 px-4 py-2 border">{detail.sub_pcs}</TableCell>
-                      <TableCell className="w-28 px-4 py-2 border">{detail.sub_ct}</TableCell>
+                      <TableCell className="w-28 px-4 py-2 border">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
                       <TableCell className="w-28 px-4 py-2 border">{detail.sub_gw}</TableCell>
                       <TableCell className="w-28 px-4 py-2 border"></TableCell>
                       <TableCell className="w-28 px-4 py-2 border">{detail.metal_purity}</TableCell>
@@ -1326,103 +1390,13 @@ const PurchaseVoucher = () => {
 
                     </TableRow>
                   ))}
-                </>
+                </React.Fragment>
               ))}
 
             </TableBody>
           </Table> </> : <></>}
 
-        {/* Section 3 — Direct / Raw Items (no main item) */}
-        <div className="flex items-center gap-3 my-5">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">3</span>
-          <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Direct Items (No Main Item)</span>
-          <div className="flex-1 h-px bg-violet-100" />
-        </div>
-        <p className="text-xs text-gray-400 mb-2">Enter items that are not linked to a main jewellery item. Press <kbd className="px-1 py-0.5 rounded bg-gray-100 border text-gray-600 font-mono text-[11px]">Tab</kbd> on the last field to add the row.</p>
-
-        <Table className="w-full table-fixed border-collapse">
-          <TableBody>
-            <TableRow className="w-full bg-violet-50">
-              <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Packet</TableCell>
-              <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Item</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Pcs</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Ct</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">GW</TableCell>
-              <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Metal Purity</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Loss</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Tunch</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Fine Wt</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Rate</TableCell>
-              <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Value</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="w-28 px-4 py-2 border">
-                <Input list="raw_packet_list" {...register("rawDetails.packet")} />
-                <datalist id="raw_packet_list">
-                  {packets.map((packet, index) => (
-                    <option key={index} value={packet.pckt_no}>{packet.pckt_no}</option>
-                  ))}
-                </datalist>
-              </TableCell>
-              <TableCell className="w-28 px-4 py-2 border">
-                <Input list="raw_sub_item_list" {...register("rawDetails.sub_item")} />
-                <datalist id="raw_sub_item_list">
-                  {mainItemData.map((item, index) => (
-                    <option key={index} value={item.short_code}></option>
-                  ))}
-                </datalist>
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input type="number" {...register("rawDetails.sub_pcs")} placeholder="Pcs" />
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input type="number" step="0.01" {...register("rawDetails.sub_ct")} placeholder="Ct" />
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input type="number" step="0.01" {...register("rawDetails.sub_gw")} placeholder="GW" />
-              </TableCell>
-              <TableCell className="w-28 px-4 py-2 border">
-                <Controller
-                  name="rawDetails.metal_purity"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger data-testid="raw-purity">
-                        <SelectValue placeholder="Purity" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {purityData.map((item, index) => (
-                          <SelectItem key={index} value={`${item.purity}`}>{item.purity}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input type="number" step="0.01" {...register("rawDetails.loss")} placeholder="Loss" />
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input type="number" step="0.01" {...register("rawDetails.tunch")} placeholder="Tunch" />
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input type="number" step="0.01" {...register("rawDetails.fine_wt")} placeholder="Fine Wt" />
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input type="number" step="0.01" {...register("rawDetails.rate")} placeholder="Rate" />
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Input
-                  type="number"
-                  step="0.01"
-                  {...register("rawDetails.value")}
-                  placeholder="Value"
-                  onKeyDown={(e) => { if (e.key === "Tab") { e.preventDefault(); handleAddRawRow(); } }}
-                />
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        {/* Legacy direct items — shown in edit mode only if the voucher had them */}
 
         {rsRaw.length > 0 && (
           <Table className="w-full table-fixed border-collapse mt-2">
@@ -1449,7 +1423,7 @@ const PurchaseVoucher = () => {
                   <TableCell className="w-24 px-4 py-2 border">{detail.packet}</TableCell>
                   <TableCell className="w-24 px-4 py-2 border">{detail.sub_item}</TableCell>
                   <TableCell className="w-20 px-4 py-2 border">{detail.sub_pcs}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_ct}</TableCell>
+                  <TableCell className="w-20 px-4 py-2 border">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
                   <TableCell className="w-20 px-4 py-2 border">{detail.sub_gw}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{detail.metal_purity}</TableCell>
                   <TableCell className="w-20 px-4 py-2 border">{detail.loss}</TableCell>

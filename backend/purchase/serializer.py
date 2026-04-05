@@ -150,57 +150,75 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                 ret_item = PurchaseReturnDetails.objects.create(main_item=purchase_return_item_instance, **detail_data)
                 item_detail_instances.append(ret_item)
         print(item_instances)
+        retail = self.context.get('request').retail
+        _gm = retail.gstin_master
+        _co = retail.branch.company if retail.branch_id and retail.branch else None
+        in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
+        in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
+        in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
+        _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
+        _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
+        _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
+        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
-                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, self.context.get('request').retail),
+                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
                 "narration":f"Purchase Return Narration",
                 "voucher_type":global_vars.VoucherType.purc_ret,
-                "retail":self.context.get('request').retail.id,
+                "retail":retail.id,
                 "voucher_details": [
-                    {   
-                        'account':"INPUT CGST", 
-                        
+                    {
+                        'account': in_cgst,
+
                         'credit':f"{purchase_return_instance.cgst_amt:.2f}"
                     },
-                    {'account':"INPUT SGST", 
-                        
+                    {'account': in_sgst,
+
                         'credit':f"{purchase_return_instance.sgst_amt:.2f}"
                     },
-                    {'account':"INPUT IGST", 
-                        
+                    {'account': in_igst,
+
                         'credit':f"{purchase_return_instance.igst_amt:.2f}"
                     },
-                    {'account':"Hallmarking/Testing Charges", 
-                        
+                    {'account':_hallmark_ldgr,
+
                         'credit':f"{purchase_return_instance.hallmark_charge:.2f}" if purchase_return_instance.hallmark_charge else '0.0'
                     },
-                    {'account':"Carriage Inward", 
+                    {'account':_carriage_ldgr, 
                         
                         'credit':f"{purchase_return_instance.freight_amt:.2f}"if purchase_return_instance.freight_amt else '0.0'
                     },
-                        {'account':"Discount/Round Off", 
-                        
+                        {'account':_discount_ldgr,
+
                         'credit':f"{purchase_return_instance.round_off:.2f}"if purchase_return_instance.round_off else '0.0'
                     },
                 ] + 
-                [{'account':"Making Charge Purchase", 
+                [{'account':_making_purc_ldgr, 
                     
                     'credit':f"{item.making_value:.2f}" if item.making_value else '0.0'
                 } for item in item_instances] +
-                [{'account':item.sub_item.sale_ledger.ac_name, 
-                    
+                [{'account': (
+                        item.sub_item.purchase_ledger.ac_name
+                        if item.sub_item and item.sub_item.purchase_ledger
+                        else (_ for _ in ()).throw(ValidationError(
+                            f"Item '{item.sub_item}' has no purchase ledger configured. "
+                            f"Please set the purchase ledger in the Item Master."
+                        ))
+                    ),
                     'credit':f"{item.value:.2f}"
                 } for item in item_detail_instances]  +
-                [{   
-                    'account':purchase_return_instance.ldgr.ac_name, 
+                [{
+                    'account':purchase_return_instance.ldgr.ac_name,
                     'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
-                    
+
                 }]},
                 context=self.context)
 
         if ser.is_valid(raise_exception=True):
-            
+
             ref = ser.save()
         purchase_return_instance.ac_voucher = ref
+        purchase_return_instance.gstin_ref  = retail.gstin_master
+        purchase_return_instance.branch_ref = retail.branch
         purchase_return_instance.save()
         return purchase_return_instance
 
@@ -219,57 +237,75 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
             for detail in item_data.purchasereturndetails_set.all():
                 item_detail_instances.append(detail)
         print(item_instances)
+        retail = self.context.get('request').retail
+        _gm = retail.gstin_master
+        _co = retail.branch.company if retail.branch_id and retail.branch else None
+        in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
+        in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
+        in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
+        _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
+        _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
+        _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
+        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
-                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, self.context.get('request').retail),
+                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
                 "narration":f"Purchase Return Narration",
                 "voucher_type":global_vars.VoucherType.purc_ret,
-                "retail":self.context.get('request').retail.id,
+                "retail":retail.id,
                 "voucher_details": [
-                    {   
-                        'account':"INPUT CGST", 
-                        
+                    {
+                        'account': in_cgst,
+
                         'credit':f"{purchase_return_instance.cgst_amt:.2f}"
                     },
-                    {'account':"INPUT SGST", 
-                        
+                    {'account': in_sgst,
+
                         'credit':f"{purchase_return_instance.sgst_amt:.2f}"
                     },
-                    {'account':"INPUT IGST", 
-                        
+                    {'account': in_igst,
+
                         'credit':f"{purchase_return_instance.igst_amt:.2f}"
                     },
-                    {'account':"Hallmarking/Testing Charges",
-                        
+                    {'account':_hallmark_ldgr,
+
                         'credit':f"{purchase_return_instance.hallmark_charge:.2f}" if purchase_return_instance.hallmark_charge else '0.0'
                     },
-                    {'account':"Carriage Inward", 
+                    {'account':_carriage_ldgr, 
                         
                         'credit':f"{purchase_return_instance.freight_amt:.2f}"if purchase_return_instance.freight_amt else '0.0'
                     },
-                        {'account':"Discount/Round Off", 
-                        
+                        {'account':_discount_ldgr,
+
                         'credit':f"{purchase_return_instance.round_off:.2f}"if purchase_return_instance.round_off else '0.0'
                     },
                 ] + 
-                [{'account':"Making Charge Purchase",  
+                [{'account':_making_purc_ldgr,  
                     
                     'credit':f"{item.making_value:.2f}" if item.making_value else '0.0'
                 } for item in item_instances] +
-                [{'account':item.sub_item.sale_ledger.ac_name, 
-                    
+                [{'account': (
+                        item.sub_item.purchase_ledger.ac_name
+                        if item.sub_item and item.sub_item.purchase_ledger
+                        else (_ for _ in ()).throw(ValidationError(
+                            f"Item '{item.sub_item}' has no purchase ledger configured. "
+                            f"Please set the purchase ledger in the Item Master."
+                        ))
+                    ),
                     'credit':f"{item.value:.2f}"
                 } for item in item_detail_instances]  +
-                [{   
-                    'account':purchase_return_instance.ldgr.ac_name, 
+                [{
+                    'account':purchase_return_instance.ldgr.ac_name,
                     'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
-                    
+
                 }]},
                 context=self.context)
 
         if ser.is_valid(raise_exception=True):
-            
+
             ref = ser.save()
         purchase_return_instance.ac_voucher = ref
+        purchase_return_instance.gstin_ref  = retail.gstin_master
+        purchase_return_instance.branch_ref = retail.branch
         purchase_return_instance.save()
         return purchase_return_instance
 
@@ -300,6 +336,13 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
             'sub_pcs': {'required': False, 'allow_null': True},
         }
 
+    def create(self, validated_data):
+        # Derive billno from main_item so the FK is always populated
+        main_item = validated_data.get('main_item')
+        if main_item and 'billno' not in validated_data:
+            validated_data['billno'] = main_item.billno
+        return super().create(validated_data)
+
 class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode", required=False,allow_null=True)
@@ -327,6 +370,7 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
             'purity',
             'pending_pcs',
             'pending_gw',
+            'making',
             'making_type',
             'making_value',
             'item_value',
@@ -369,9 +413,11 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
 from rest_framework.exceptions import ValidationError
 class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
 
-    # Nested serializer for items
+    # Nested serializers
     purchasevoucheritems_set = PurchaseVoucherItemsSerializer(many=True)
-    place_of_supply = serializers.SlugRelatedField(queryset=State.objects.all(), slug_field="code", required=False,allow_null=True)
+    # Direct raw/material details not linked to a main item
+    purchasevoucherdetails_set = PurchaseVoucherDetailsSerializer(many=True, required=False)
+
     class Meta:
         model = PurchaseVoucher
         fields = [
@@ -382,7 +428,6 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             'ref_no',
             'hallmark_charge',
             'ref_date',
-            'place_of_supply',
             'ldgr',
             'ldgr_name',
             'item_total',
@@ -404,10 +449,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             'narration',
             'total_incl_gst',
             'bill_value',
-            'pos_name',
             'due_amt',
             'is_return',
             'purchasevoucheritems_set',
+            'purchasevoucherdetails_set',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -415,57 +460,79 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         with transaction.atomic():
             items_data = validated_data.pop('purchasevoucheritems_set')
+            direct_details_data = validated_data.pop('purchasevoucherdetails_set', [])
             purchase_voucher_instance = PurchaseVoucher.objects.create(**validated_data)
 
-            # Create related PurchaseVoucherItems instances
+            # Create related PurchaseVoucherItems and their sub-details
             item_detail_instances = []
             item_instances = []
             for item_data in items_data:
                 details_data = item_data.pop('purchasevoucherdetails_set')
                 voucher_item_instance = PurchaseVoucherItems.objects.create(billno=purchase_voucher_instance, **item_data)
                 item_instances.append(voucher_item_instance)
-                # Create related PurchaseVoucherDetails instances
                 for detail_data in details_data:
-                    det = PurchaseVoucherDetails.objects.create(main_item=voucher_item_instance, **detail_data)
+                    det = PurchaseVoucherDetails.objects.create(
+                        main_item=voucher_item_instance,
+                        billno=purchase_voucher_instance,
+                        **detail_data,
+                    )
                     item_detail_instances.append(det)
+
+            # Create direct raw/material details (no parent main item)
+            for detail_data in direct_details_data:
+                det = PurchaseVoucherDetails.objects.create(
+                    billno=purchase_voucher_instance,
+                    main_item=None,
+                    **detail_data,
+                )
+                item_detail_instances.append(det)
             
+            retail = self.context.get('request').retail
+            _gm = retail.gstin_master
+            _co = retail.branch.company if retail.branch_id and retail.branch else None
+            in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
+            in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
+            in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
+            _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
+            _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
+            _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
+            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                            "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, self.context.get('request').retail),
+                            "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                             "narration":f"Purchase Voucher Narration",
                             "voucher_type":global_vars.VoucherType.purc_sc,
-                            "retail":self.context.get('request').retail.id,
+                            "retail":retail.id,
                             "voucher_details": [
-                                {   
-                                    'account':"INPUT CGST", 
-                                    
+                                {
+                                    'account': in_cgst,
                                     'debit':f"{purchase_voucher_instance.cgst:.2f}"
                                 },
-                                {'account':"INPUT SGST", 
-                                    
+                                {'account': in_sgst,
                                     'debit':f"{purchase_voucher_instance.sgst:.2f}"
                                 },
-                                {'account':"INPUT IGST", 
-                                    
+                                {'account': in_igst,
                                     'debit':f"{purchase_voucher_instance.igst:.2f}"
                                 },
-                                {'account':"Hallmarking/Testing Charges", 
-                                    
+                                {'account':_hallmark_ldgr,
                                     'debit':f"{purchase_voucher_instance.hallmark_charge:.2f}" if purchase_voucher_instance.hallmark_charge else'0.0'
                                 },
-                                {'account':"Carriage Inward", 
-                                    
+                                {'account':_carriage_ldgr,
                                     'debit':f"{purchase_voucher_instance.freight_amt:.2f}"
                                 },
-                                {'account':"Discount/Round Off", 
-                                    
+                                {'account':_discount_ldgr,
                                   'credit': f"{(purchase_voucher_instance.round_off + purchase_voucher_instance.discount_amt):.2f}" },
-                            ] + 
-                            [{'account':"Making Charge Purchase", 
-                                
+                            ] +
+                            [{'account':_making_purc_ldgr,
                                 'debit':f"{item.making_value:.2f}"if item.making_value else'0.0'
                             } for item in item_instances] +
-                            [{'account':item.sub_item.sale_ledger.ac_name if item.sub_item.sale_ledger != None else  (_ for _ in ()).throw(ValidationError(f"{item.sub_item} has no sale ledger")),
-
+                            [{'account': (
+                                    item.sub_item.purchase_ledger.ac_name
+                                    if item.sub_item and item.sub_item.purchase_ledger
+                                    else (_ for _ in ()).throw(ValidationError(
+                                        f"Item '{item.sub_item}' has no purchase ledger configured. "
+                                        f"Please set the purchase ledger in the Item Master."
+                                    ))
+                                ),
                                 'debit':f"{item.value:.2f}"
                             } for item in item_detail_instances]  +
                             (
@@ -481,70 +548,92 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                             context=self.context)
 
             if ser.is_valid(raise_exception=True):
-
                 ref = ser.save()
-
-            purchase_voucher_instance.ac_voucher = ref
-
+                purchase_voucher_instance.ac_voucher = ref
+            purchase_voucher_instance.gstin_ref  = retail.gstin_master
+            purchase_voucher_instance.branch_ref = retail.branch
             purchase_voucher_instance.save()
             return purchase_voucher_instance
 
     def update(self, instance, validated_data):
         with transaction.atomic():
-            detail_data = validated_data.pop('purchasevoucheritems_set', [])
-            ac_voucher_data = validated_data.pop("ac_voucher", None)
+            items_data = validated_data.pop('purchasevoucheritems_set', [])
+            direct_details_data = validated_data.pop('purchasevoucherdetails_set', [])
+            validated_data.pop("ac_voucher", None)
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
-            create_or_update_nested(PurchaseVoucherItemsSerializer, instance, 'purchasevoucheritems_set',  'billno',PurchaseVoucherItemsSerializer(detail_data,many=True).data)
+            create_or_update_nested(PurchaseVoucherItemsSerializer, instance, 'purchasevoucheritems_set', 'billno', PurchaseVoucherItemsSerializer(items_data, many=True).data)
+
+            # Rebuild direct details (those without a main item)
+            instance.purchasevoucherdetails_set.filter(main_item=None).delete()
+            for detail_data in direct_details_data:
+                PurchaseVoucherDetails.objects.create(
+                    billno=instance,
+                    main_item=None,
+                    **detail_data,
+                )
+
             item_instances = []
             item_detail_instances = []
             for item_data in instance.purchasevoucheritems_set.all():
                 item_instances.append(item_data)
                 for detail in item_data.purchasevoucherdetails_set.all():
                     item_detail_instances.append(detail)
+            # Include direct details in journal entry
+            for detail in instance.purchasevoucherdetails_set.filter(main_item=None):
+                item_detail_instances.append(detail)
             if instance.ac_voucher:
                 instance.ac_voucher.delete()
 
             purchase_voucher_instance = instance
+            retail = self.context.get('request').retail
+            _gm = retail.gstin_master
+            _co = retail.branch.company if retail.branch_id and retail.branch else None
+            in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
+            in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
+            in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
+            _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
+            _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
+            _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
+            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                            "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, self.context.get('request').retail),
+                            "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                             "narration":f"Purchase Voucher Narration",
                             "voucher_type":global_vars.VoucherType.purc_sc,
-                            "retail":self.context.get('request').retail.id,
+                            "retail":retail.id,
                             "voucher_details": [
-                                {   
-                                    'account':"INPUT CGST", 
-                                    
+                                {
+                                    'account': in_cgst,
                                     'debit':f"{purchase_voucher_instance.cgst:.2f}"
                                 },
-                                {'account':"INPUT SGST", 
-                                    
+                                {'account': in_sgst,
                                     'debit':f"{purchase_voucher_instance.sgst:.2f}"
                                 },
-                                {'account':"INPUT IGST", 
-                                    
+                                {'account': in_igst,
                                     'debit':f"{purchase_voucher_instance.igst:.2f}"
                                 },
-                                {'account':"Hallmarking/Testing Charges", 
-                                    
+                                {'account':_hallmark_ldgr,
                                     'debit':f"{purchase_voucher_instance.hallmark_charge:.2f}" if purchase_voucher_instance.hallmark_charge else'0.0'
                                 },
-                                {'account':"Carriage Inward", 
-                                    
+                                {'account':_carriage_ldgr,
                                     'debit':f"{purchase_voucher_instance.freight_amt:.2f}"
                                 },
-                                {'account':"Discount/Round Off",
-
+                                {'account':_discount_ldgr,
                                     'credit': f"{(purchase_voucher_instance.round_off + purchase_voucher_instance.discount_amt):.2f}"
                                 },
-                            ] + 
-                            [{'account':"Making Charge Purchase", 
-                                
+                            ] +
+                            [{'account':_making_purc_ldgr,
                                 'debit':f"{item.making_value:.2f}"if item.making_value else'0.0'
                             } for item in item_instances] +
-                            [{'account':item.sub_item.sale_ledger.ac_name,
-
+                            [{'account': (
+                                    item.sub_item.purchase_ledger.ac_name
+                                    if item.sub_item and item.sub_item.purchase_ledger
+                                    else (_ for _ in ()).throw(ValidationError(
+                                        f"Item '{item.sub_item}' has no purchase ledger configured. "
+                                        f"Please set the purchase ledger in the Item Master."
+                                    ))
+                                ),
                                 'debit':f"{item.value:.2f}"
                             } for item in item_detail_instances]  +
                             (
@@ -560,13 +649,13 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                             context=self.context)
 
             if ser.is_valid(raise_exception=True):
-
                 ref = ser.save()
-
-            purchase_voucher_instance.ac_voucher = ref
+                purchase_voucher_instance.ac_voucher = ref
+            purchase_voucher_instance.gstin_ref  = retail.gstin_master
+            purchase_voucher_instance.branch_ref = retail.branch
             purchase_voucher_instance.save()
             return purchase_voucher_instance
-                
+
 class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):
     customer_order_item = serializers.PrimaryKeyRelatedField(queryset=CustomerOrderItems.objects.all(), required=False, allow_null=True)
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")

@@ -101,7 +101,6 @@ def create_barcode_from_receive_api(request):
             'gw':rec_item.pending_gw,
             'nw':rec_item.nw,
             'making':rec_item.making,
-            'created_from': "KAR_REC",
             'barcodedetails_set': [{
                 'packet': detail.packet.pckt_no if detail.packet else None,
                 'item': detail.item.short_code,
@@ -157,7 +156,6 @@ def create_barcode_from_purchase(request):
             'nw': None,  # Assuming net weight is not stored explicitly
             'making_val': purchase_item.making_value,
             'making_type': purchase_item.making_type,
-            'created_from': "PUR_VOU",
             'barcodedetails_set': [
                 {
                     'packet': detail.packet.pckt_no if detail.packet else None,
@@ -236,7 +234,7 @@ class ConvertBarcodeToUnbarcodedView(APIView):
         # Create UnBarcodedMain entry with optimized field assignments
         unbarcoded_main = UnBarcodedMain.objects.create(
             item=barcode_main.item,
-            item_desc=barcode_main.item_desc,
+            item_desc=barcode_main.item.item_name if barcode_main.item else None,
             label=barcode_main.barcode,
             pcs=barcode_main.pcs,
             gw=barcode_main.gw,
@@ -252,7 +250,7 @@ class ConvertBarcodeToUnbarcodedView(APIView):
             total_amount=barcode_main.total_amount,
             size=barcode_main.size,
             metal_color=barcode_main.metal_color,
-            created_from=barcode_main.created_from,
+            created_from='KAR_REC' if barcode_main.rec_item_id else ('PUR_VOU' if barcode_main.pur_voucher_id else 'MANUAL'),
             customer_order=barcode_main.customer_order,
             created_by=barcode_main.created_by,
             created_date=barcode_main.created_date,
@@ -387,8 +385,7 @@ class BarcodeBulkListView(APIView):
             qs = qs.filter(
                 Q(barcode__icontains=search) |
                 Q(item__short_code__icontains=search) |
-                Q(item__item_name__icontains=search) |
-                Q(item_desc__icontains=search)
+                Q(item__item_name__icontains=search)
             )
 
         qs = qs.order_by('-created_date')[:2000]  # safety cap
@@ -1194,4 +1191,259 @@ def stock_transfer_billno_view(request):
         bill_no = peek_next_bill_number(request.retail, 'RST')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ── Barcode Images ─────────────────────────────────────────────────────────────
+
+class BarcodeImageListCreate(ListCreateAPIView):
+    from rest_framework.parsers import MultiPartParser
+    parser_classes = [MultiPartParser]
+
+    def get_serializer_class(self):
+        from inventory.serializer import BarcodeImageSerializer
+        return BarcodeImageSerializer
+
+    def get_queryset(self):
+        barcode_id = self.request.query_params.get('barcode')
+        if barcode_id:
+            return BarcodeImage.objects.filter(barcode_id=barcode_id).order_by('-uploaded_at')
+        return BarcodeImage.objects.none()
+
+    def create(self, request, *args, **kwargs):
+        from inventory.serializer import BarcodeImageSerializer
+        files = request.FILES.getlist('image')
+        barcode_id = request.data.get('barcode')
+        if not barcode_id:
+            return Response({"error": "barcode is required"}, status=status.HTTP_400_BAD_REQUEST)
+        results = []
+        for f in files:
+            serializer = BarcodeImageSerializer(data={'barcode': barcode_id, 'image': f})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            results.append(serializer.data)
+        return Response(results, status=status.HTTP_201_CREATED)
+
+
+class BarcodeImageDelete(APIView):
+    def delete(self, request, pk):
+        try:
+            img = BarcodeImage.objects.get(pk=pk)
+            img.image.delete(save=False)
+            img.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except BarcodeImage.DoesNotExist:
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+def serve_barcode_image_file(request, name):
+    """Stream a barcode image from the configured storage root."""
+    import os, mimetypes
+    from urllib.parse import unquote
+    from django.http import FileResponse
+    from mastersconfig.storage import _barcode_image_root
+
+    decoded = unquote(name)
+    full_path = os.path.normpath(os.path.join(_barcode_image_root(), decoded))
+    if not os.path.isfile(full_path):
+        return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    content_type, _ = mimetypes.guess_type(full_path)
+    return FileResponse(open(full_path, 'rb'), content_type=content_type or 'application/octet-stream')
+
+
+# ── Raw Material Inventory ─────────────────────────────────────────────────────
+
+class RawMaterialInventoryViewSet(RetailBaseViewset):
+    from inventory.serializer import RawMaterialInventorySerializer
+    serializer_class = RawMaterialInventorySerializer
+    queryset = RawMaterialInventory.objects.select_related('item', 'packet', 'purity').all()
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['item', 'packet', 'purity']
+    search_fields = ['item__item_name', 'item__short_code']
+    ordering_fields = ['item__item_name', 'gw', 'ct', 'pcs']
+
+
+class RawMaterialTransactionListView(RetailBaseViewset):
+    from inventory.serializer import RawMaterialTransactionSerializer
+    serializer_class = RawMaterialTransactionSerializer
+    queryset = RawMaterialTransaction.objects.select_related('item', 'packet', 'purity').order_by('-date')
+    http_method_names = ['get']
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['item', 'packet', 'trans_type']
+    search_fields = ['item__item_name', 'item__short_code', 'billno']
+    ordering_fields = ['date', 'item__item_name']
+
+
+class RawMaterialBalanceReportView(APIView):
+    """Current raw material stock balance grouped by item."""
+
+    def get(self, request):
+        from django.db.models import Sum, CharField, Value
+        from django.db.models.functions import Coalesce
+
+        qs = RawMaterialInventory.objects.select_related('item', 'packet', 'purity').filter(
+            retail=request.retail
+        )
+
+        item_id = request.query_params.get('item')
+        item_type = request.query_params.get('item_type')
+        if item_id:
+            qs = qs.filter(item_id=item_id)
+        if item_type:
+            qs = qs.filter(item__item_type=item_type)
+
+        # Exclude zero-balance rows
+        qs = qs.exclude(pcs=0, ct=0, gw=0)
+
+        data = []
+        total_gw = total_ct = total_pcs = 0
+        for rm in qs.order_by('item__item_name', 'packet__pckt_no'):
+            row = {
+                'id': rm.id,
+                'item': rm.item.short_code,
+                'item_name': rm.item.item_name,
+                'item_type': rm.item.item_type,
+                'packet': rm.packet.pckt_no if rm.packet else None,
+                'purity': str(rm.purity) if rm.purity else None,
+                'pcs': rm.pcs,
+                'ct': float(rm.ct),
+                'gw': float(rm.gw),
+            }
+            data.append(row)
+            total_gw += float(rm.gw)
+            total_ct += float(rm.ct)
+            total_pcs += rm.pcs
+
+        return Response({
+            'results': data,
+            'summary': {
+                'total_pcs': total_pcs,
+                'total_ct': round(total_ct, 3),
+                'total_gw': round(total_gw, 3),
+                'count': len(data),
+            }
+        })
+
+
+class RawMaterialMovementLedgerView(APIView):
+    """Chronological transaction ledger for a specific item with running balance."""
+
+    def get(self, request):
+        item_id = request.query_params.get('item')
+        if not item_id:
+            return Response({'error': 'item parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = RawMaterialTransaction.objects.filter(
+            item_id=item_id, retail=request.retail,
+        ).select_related('item', 'packet', 'purity').order_by('date', 'id')
+
+        packet_id = request.query_params.get('packet')
+        from_date = request.query_params.get('from_date')
+        to_date = request.query_params.get('to_date')
+        if packet_id:
+            qs = qs.filter(packet_id=packet_id)
+        if from_date:
+            qs = qs.filter(date__date__gte=from_date)
+        if to_date:
+            qs = qs.filter(date__date__lte=to_date)
+
+        running_gw = running_ct = running_pcs = 0
+        data = []
+        for txn in qs:
+            running_pcs += txn.pcs
+            running_ct += float(txn.ct)
+            running_gw += float(txn.gw)
+            data.append({
+                'id': txn.id,
+                'date': txn.date,
+                'trans_type': txn.trans_type,
+                'billno': txn.billno,
+                'packet': txn.packet.pckt_no if txn.packet else None,
+                'purity': str(txn.purity) if txn.purity else None,
+                'pcs': txn.pcs,
+                'ct': float(txn.ct),
+                'gw': float(txn.gw),
+                'rate': float(txn.rate),
+                'amt': float(txn.amt),
+                'running_pcs': running_pcs,
+                'running_ct': round(running_ct, 3),
+                'running_gw': round(running_gw, 3),
+            })
+
+        return Response({'results': data, 'count': len(data)})
+
+
+class SemiFinishedStockReportView(APIView):
+    """Semi-finished stock in two categories: With Karigar (WIP) and Pending Barcode."""
+
+    def get(self, request):
+        from manufacturing.models import KarigarIssueItem
+        from django.db.models import Sum, F
+
+        retail = request.retail
+
+        # ── With Karigar (WIP): issued but not received back ──
+        wip_qs = KarigarIssueItem.objects.filter(
+            rec_status=False, retail=retail,
+        ).select_related('item', 'purity', 'issue_slip__karigar_ldgr')
+
+        wip_data = []
+        for row in wip_qs.order_by('issue_slip__karigar_ldgr__ac_name', '-issue_slip__date1'):
+            from datetime import date
+            days_pending = (date.today() - row.issue_slip.date1).days if row.issue_slip.date1 else None
+            wip_data.append({
+                'id': row.id,
+                'karigar': row.issue_slip.karigar_ldgr.ac_name if row.issue_slip.karigar_ldgr else None,
+                'karigar_id': row.issue_slip.karigar_ldgr_id if row.issue_slip else None,
+                'issue_slip_no': row.issue_slip.issue_slip_no,
+                'issue_date': row.issue_slip.date1,
+                'item': row.item.short_code if row.item else None,
+                'item_name': row.item.item_name if row.item else None,
+                'purity': str(row.purity) if row.purity else None,
+                'pcs': row.pcs,
+                'approx_wt': float(row.approx_wt) if row.approx_wt else None,
+                'design_code': row.design_code,
+                'days_pending': days_pending,
+            })
+
+        # ── Pending Barcode: received but not yet barcoded ──
+        pending_qs = UnBarcodedMain.objects.filter(
+            stk_status=True, retail=retail,
+        ).select_related('item', 'purity')
+
+        pending_data = []
+        for row in pending_qs.order_by('-created_date'):
+            pending_data.append({
+                'id': row.id,
+                'item': row.item.short_code if row.item else None,
+                'item_name': row.item.item_name if row.item else None,
+                'purity': str(row.purity) if row.purity else None,
+                'pcs': row.pcs,
+                'gw': float(row.gw) if row.gw else 0,
+                'nw': float(row.nw) if row.nw else 0,
+                'created_date': row.created_date,
+                'created_from': row.created_from,
+                'design_code': row.design_code,
+                'voucher_no': row.voucher_no,
+            })
+
+        # ── Summaries ──
+        wip_summary = {
+            'total_pcs': sum(r['pcs'] for r in wip_data),
+            'total_approx_wt': round(sum(r['approx_wt'] or 0 for r in wip_data), 3),
+            'count': len(wip_data),
+        }
+        pending_summary = {
+            'total_pcs': sum(r['pcs'] or 0 for r in pending_data),
+            'total_gw': round(sum(r['gw'] for r in pending_data), 3),
+            'count': len(pending_data),
+        }
+
+        return Response({
+            'with_karigar': wip_data,
+            'with_karigar_summary': wip_summary,
+            'pending_barcode': pending_data,
+            'pending_barcode_summary': pending_summary,
+        })

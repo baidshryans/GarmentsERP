@@ -21,6 +21,7 @@ class CompanyMaster(models.Model):
     """
     Top-level legal entity. Hierarchy: Company → Branch → Retail.
     Company details (PAN, TAN, phone, email, address) are printed on all bills.
+    Operational ledgers (discount, round off, etc.) are company-wide and auto-created on save.
     """
     company_name = models.CharField(max_length=200)
     pan          = models.CharField(max_length=10, blank=True, help_text="Permanent Account Number")
@@ -38,6 +39,36 @@ class CompanyMaster(models.Model):
     website      = models.CharField(max_length=200, blank=True)
     created_at   = models.DateTimeField(auto_now_add=True)
 
+    # ── Operational Ledgers (auto-created on company creation) ───────────────
+    discount_ldgr        = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_discount'
+    )
+    round_off_ldgr       = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_round_off'
+    )
+    hallmark_charge_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_hallmark_charge'
+    )
+    making_receive_ldgr  = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_making_receive'
+    )
+    gold_conversion_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_gold_conversion'
+    )
+    carriage_inward_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_carriage_inward'
+    )
+    making_charge_purchase_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_making_charge_purchase'
+    )
+
     class Meta:
         db_table = "company_master"
         ordering = ['company_name']
@@ -53,8 +84,7 @@ class CompanyMaster(models.Model):
 class BranchMaster(models.Model):
     """
     Groups retail locations under a company at the *state* level.
-    All retails in the same state share one branch and therefore the same
-    set of INPUT / OUTPUT GST register ledgers.
+    Purely organisational — GST ledgers are owned by GSTINMaster, not by branch.
     Hierarchy: Company → Branch → Retail.
     """
     company     = models.ForeignKey(
@@ -66,36 +96,10 @@ class BranchMaster(models.Model):
     state       = models.ForeignKey(
         State, null=True, blank=True, on_delete=models.SET_NULL,
         related_name='branches',
-        help_text="State this branch represents — all retails in this state share the branch's GST registers"
+        help_text="State this branch represents"
     )
     description = models.TextField(blank=True)
     created_at  = models.DateTimeField(auto_now_add=True)
-
-    # ── GST Register Ledgers (auto-created on branch creation) ───────────────
-    input_cgst  = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='branch_input_cgst'
-    )
-    input_sgst  = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='branch_input_sgst'
-    )
-    input_igst  = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='branch_input_igst'
-    )
-    output_cgst = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='branch_output_cgst'
-    )
-    output_sgst = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='branch_output_sgst'
-    )
-    output_igst = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='branch_output_igst'
-    )
 
     class Meta:
         db_table = "branch_master"
@@ -105,10 +109,63 @@ class BranchMaster(models.Model):
         return f"{self.branch_code} – {self.branch_name}"
 
 
+class GSTINMaster(models.Model):
+    """
+    Compliance anchor for GST. Each unique GSTIN gets one record.
+    The 6 GST register ledgers (Input/Output CGST/SGST/IGST) are auto-created
+    via signal when a GSTINMaster is first saved.
+    Hierarchy: BranchMaster → GSTINMaster ← RetailMaster
+    """
+    gstin      = models.CharField(max_length=15, unique=True)
+    legal_name = models.CharField(max_length=200, blank=True)
+    branch     = models.ForeignKey(
+        BranchMaster, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='gstins'
+    )
+    state      = models.ForeignKey(
+        State, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    # ── GST Register Ledgers (auto-created on first save via signal) ─────────
+    input_cgst  = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_input_cgst'
+    )
+    input_sgst  = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_input_sgst'
+    )
+    input_igst  = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_input_igst'
+    )
+    output_cgst = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_output_cgst'
+    )
+    output_sgst = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_output_sgst'
+    )
+    output_igst = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_output_igst'
+    )
+
+    class Meta:
+        db_table = "gstin_master"
+
+    def __str__(self):
+        return self.gstin
+
+
 class RetailMaster(models.Model):
     STATES = global_vars.STATES_OF_INDIA
     retail_name = models.CharField(max_length=100)
-    gstin = models.CharField(max_length=30,unique=True,null=True)
+    gstin_master = models.ForeignKey(
+        'GSTINMaster', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='retails'
+    )
     email = models.EmailField(unique=True,null=True)
     retail_code = models.CharField(max_length=100,unique=True)
     address_line1 = models.CharField(max_length=100)
@@ -143,32 +200,6 @@ class RetailMaster(models.Model):
     branch = models.ForeignKey(
         'BranchMaster', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='retails'
-    )
-
-    # ── GST Register Ledgers (auto-assigned from branch on retail creation) ──
-    input_cgst  = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='retail_input_cgst'
-    )
-    input_sgst  = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='retail_input_sgst'
-    )
-    input_igst  = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='retail_input_igst'
-    )
-    output_cgst = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='retail_output_cgst'
-    )
-    output_sgst = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='retail_output_sgst'
-    )
-    output_igst = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='retail_output_igst'
     )
 
     default_country_code = models.CharField(
@@ -254,20 +285,20 @@ class Item(models.Model):
     ITEM_CHOICES = (("M","Metal"),("R","Raw"),("S","Stone"),("O","Other"),("C","Coin"),)
     short_code = models.CharField(max_length=10, unique=True)
     item_name = models.CharField(max_length=50)
-    grp = models.ForeignKey(ItemGroupMaster, on_delete = models.SET_NULL, null=True)
-    sub_grp = models.CharField(max_length=20)
+    grp = models.ForeignKey(ItemGroupMaster, on_delete = models.SET_NULL, null=True, blank=True)
+    sub_grp = models.CharField(max_length=20, blank=True, null=True)
     item_type = models.CharField(max_length=50,choices=ITEM_CHOICES)
     uom = models.CharField(max_length=10,choices=CHOICES)
 
-    purchase_ledger = models.ForeignKey("contacts.Ledger", related_name='purchase_ldgrs', on_delete = models.SET_NULL, null=True)
-    sale_ledger = models.ForeignKey("contacts.Ledger", related_name='sale_ldgrs', on_delete = models.SET_NULL, null=True)
+    purchase_ledger = models.ForeignKey("contacts.Ledger", related_name='purchase_ldgrs', on_delete = models.SET_NULL, null=True, blank=True)
+    sale_ledger = models.ForeignKey("contacts.Ledger", related_name='sale_ldgrs', on_delete = models.SET_NULL, null=True, blank=True)
     
     show_in_pcs_report = models.BooleanField()
-    hsn_no = models.ForeignKey(Hsn, on_delete = models.SET_NULL, null=True)
+    hsn_no = models.ForeignKey(Hsn, on_delete = models.SET_NULL, null=True, blank=True)
     created_date = models.DateField(default=timezone.now)
 
     op_wtd_avg_rate = models.DecimalField(default=0,decimal_places=3,max_digits=10)
-
+    default_purity = models.CharField(max_length=10, blank=True, default="")
 
     def __str__(self) -> str:
         return self.item_name
@@ -366,6 +397,14 @@ class SystemSettings(models.Model):
         max_length=500, blank=True,
         help_text=(
             "Absolute path on this server where file attachments are stored. "
+            "Leave blank to use the default media folder. "
+            "Changing this path does NOT move existing files."
+        )
+    )
+    barcode_image_storage_path = models.CharField(
+        max_length=500, blank=True,
+        help_text=(
+            "Absolute path on this server where barcode images are stored. "
             "Leave blank to use the default media folder. "
             "Changing this path does NOT move existing files."
         )
@@ -478,6 +517,7 @@ class SalesPersonCommission(models.Model):
         related_name='commission_entries'
     )
     retail      = models.ForeignKey(RetailMaster, on_delete=models.CASCADE, related_name='commissions')
+    fiscal_year = models.ForeignKey('mastersconfig.FiscalYearMaster', on_delete=models.SET_NULL, null=True, blank=True)
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -673,7 +673,7 @@ const PurchaseReturnAdd = () => {
                         {/* Detail data */}
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_item}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_pcs}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{detail.sub_ct}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_gw}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.metal_purity}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.loss}</TableCell>

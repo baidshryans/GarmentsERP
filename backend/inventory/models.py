@@ -16,7 +16,6 @@ from mastersconfig import serializers
 
 class BarcodeMain(models.Model):
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
-    item_desc = models.CharField(max_length=50,null=True, blank=True)
     barcode = models.CharField(
         max_length=13,
         unique=True,
@@ -26,7 +25,7 @@ class BarcodeMain(models.Model):
     pur_voucher = models.ForeignKey("purchase.PurchaseVoucherItems", on_delete=models.SET_NULL, null=True)
     rec_item = models.ForeignKey("manufacturing.KarigarReceiveItem", on_delete=models.SET_NULL, null=True)
     pcs = models.IntegerField(blank=True, null=True)
-    gw = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     nw = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True,null=True)  # Added blank=True
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)  # Added blank=True
@@ -38,9 +37,7 @@ class BarcodeMain(models.Model):
     kr_code = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
     total_amount = models.IntegerField(blank=True, null=True, default=0)  # Added blank=True
     size = models.CharField(max_length=50, blank=True, null=True)
-    sale_approval = models.BooleanField(default=False)
     metal_color = models.CharField(max_length=50, blank=True, null=True)
-    created_from = models.CharField(max_length=50, blank=True, null=True)  # Added blank=True
     customer_order = models.ForeignKey(CustomerOrder,null=True,on_delete=models.SET_NULL)  
     created_by = models.CharField(max_length=50, blank=True)  # Added blank=True
     created_date = models.DateField(auto_now_add=True)  # Added auto_now_add=True
@@ -168,7 +165,20 @@ class CVDTest(models.Model):
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
 
 
-class BarcodeSplitMerge(models.Model): 
+class BarcodeImage(models.Model):
+    barcode = models.ForeignKey(BarcodeMain, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(
+        upload_to='barcode_images/%Y/%m/',
+        storage='mastersconfig.storage.DynamicBarcodeImageStorage',
+    )
+    original_name = models.CharField(max_length=255, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    class Meta:
+        db_table = 'barcode_images'
+
+
+class BarcodeSplitMerge(models.Model):
     date1 = models.DateField(auto_now_add=True)
     transaction_type = models.CharField(max_length=50, choices=[('Split', 'Split'), ('Merge', 'Merge')])
     old_barcode = models.ForeignKey(BarcodeMain, on_delete=models.SET_NULL, null=True, related_name='old_barcode')
@@ -183,7 +193,7 @@ class UnBarcodedMain(models.Model):
     item_desc = models.CharField(max_length=50)
     label = models.CharField(max_length=255)
     pcs = models.IntegerField(blank=True, null=True)
-    gw = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     nw = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True,null=True)  # Added blank=True
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)  # Added blank=True
@@ -231,35 +241,48 @@ class UnBarcodedDetails(models.Model):  # Inherit models.Model
 
 
 class RawMaterialInventory(models.Model):
-    item = models.ForeignKey(Item,on_delete=models.CASCADE)
-    pcs = models.PositiveBigIntegerField(default=0)
-    ct = models.DecimalField(decimal_places=2,max_digits=10)
-    gw = models.DecimalField(decimal_places=2,max_digits=10)
-    packet = models.ForeignKey(Packet,on_delete=models.SET_NULL,null=True)
-    purity = models.ForeignKey(PurityMaster,on_delete=models.SET_NULL,null=True) 
+    item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    pcs = models.IntegerField(default=0)
+    ct = models.DecimalField(decimal_places=3, max_digits=10, default=0)
+    gw = models.DecimalField(decimal_places=3, max_digits=10, default=0)
+    packet = models.ForeignKey(Packet, on_delete=models.SET_NULL, null=True, blank=True)
+    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "raw_material_inventory"
+        unique_together = ['item', 'packet', 'purity', 'retail']
+
 
 class RawMaterialTransaction(models.Model):
-    date = models.DateTimeField(auto_now=True)
+    date = models.DateTimeField(auto_now_add=True)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
-    packet = models.ForeignKey(Packet, on_delete=models.CASCADE)
-    purity = models.ForeignKey(PurityMaster, on_delete = models.CASCADE)
-    trans_type = models.CharField(max_length=50)  # 'PURCHASE', 'USAGE', 'ADJUSTMENT', etc.
-    pcs = models.DecimalField(max_digits=10, decimal_places=3)  # Positive for additions, negative for removals
-    ct = models.DecimalField(max_digits=10, decimal_places=3)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    ip_address = models.GenericIPAddressField()
+    packet = models.ForeignKey(Packet, on_delete=models.SET_NULL, null=True, blank=True)
+    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    trans_type = models.CharField(max_length=50)
+    pcs = models.IntegerField(default=0)
+    ct = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    amt = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    billno = models.CharField(max_length=50, blank=True, default='')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
     class Meta:
         db_table = "raw_material_transaction"
-    def __str__(self):
-        return f"{self.name} - {self.current_quantity} {self.unit_of_measure}"
+        indexes = [
+            models.Index(fields=['retail', 'item', 'trans_type'], name='idx_rmt_retail_item_type'),
+            models.Index(fields=['retail', '-date'], name='idx_rmt_retail_date'),
+        ]
 
 class OpeningInventory(models.Model):
     item = models.ForeignKey(Item,on_delete=models.CASCADE)
     ldgr = models.ForeignKey(Ledger,on_delete=models.CASCADE) 
     pcs = models.PositiveBigIntegerField(default=0)
     ct = models.DecimalField(decimal_places=2,max_digits=10)
-    gw = models.DecimalField(decimal_places=2,max_digits=10)
+    gw = models.DecimalField(decimal_places=3,max_digits=10)
     type = models.CharField(max_length=10, choices=[('SH', 'Showroom'), ('KR', 'Karigar'), ('CO', 'Customer')])
     packet = models.ForeignKey(Packet,on_delete=models.SET_NULL,null=True)
     retail = models.ForeignKey(RetailMaster,on_delete=models.CASCADE,null=True)

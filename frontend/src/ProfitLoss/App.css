@@ -1,0 +1,76 @@
+#root {
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+
+  body {
+    font-size: 9pt;
+    line-height: 1.2;
+  }
+
+  /* Container adjustments */
+  .max-w-4xl {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Table adjustments */
+  table {
+    font-size: 9pt;
+    page-break-inside: avoid;
+    width: 100% !important;
+    margin-bottom: 0 !important;
+    
+  }
+
+  /* Cell padding adjustments */
+  td, th {
+    padding: 2px 4px !important;
+  }
+
+  .print\:px-2 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  .print\:py-0\.5 {
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
+  }
+
+  /* Hide print button */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Compact rows */
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Heading adjustments */
+  h2 {
+    font-size: 12pt !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Remove unnecessary spacing */
+  .mb-6 {
+    margin-bottom: 8px !important;
+  }
+
+  /* Ensure background colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+

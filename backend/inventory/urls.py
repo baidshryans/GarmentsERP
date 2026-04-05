@@ -1,0 +1,48 @@
+from django.urls import path
+from . import views
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.conf import settings
+from django.conf.urls.static import static
+from rest_framework.routers import DefaultRouter
+
+
+app_name = 'inventory'
+
+router = DefaultRouter()
+router.register(r'design-main', views.DesignMainViewSet, basename='design-main')
+router.register(r'barcode', views.BarCodeView, basename='barcode')
+router.register(r'brcode-history', views.BarcodeTransactionView, basename='barcode-history')
+router.register(r'unbarcoded', views.UnBarCodeView, basename='unbarcoded')
+router.register(r'stock-journal', views.StockJournalViewSet, basename='stock-journal')
+router.register(r'stock-transfer', views.StockTransferViewset, basename='stock-transfer')
+
+
+urlpatterns = [
+    #path('create-barcode/', views.create_barcode_view, name='create_barcode_view'),
+    path('api/next_stock_journal_no', views.stock_journal_billno_view, name='stock_journal_billno'),
+    path('api/next_stock_transfer_no', views.stock_transfer_billno_view, name='stock_transfer_billno'),
+    path('api/create-barcode-from-receive/', views.create_barcode_from_receive_api, name='create_barcode_from_receive_api'),
+    path('api/create-barcode-from-pur/', views.create_barcode_from_purchase),
+    path('api/stock-valuation-report/',views.StockValuationReportView.as_view() ),
+    path('api/generate-barcode/',views.gen_barcode ),
+    path('api/get-barcode-detail/<str:barcode>/<str:hsn>/',views.get_barcode ),
+    path('api/get-barcode-detail/<str:barcode>/',views.get_barcode_only ),
+    path('api/barcode-merge/',views.barcode_merge_view ),
+    path('api/barcode-split/<str:old_barcode>',views.barcode_split_view ),
+    path('api/closing-stock',views.ClosingStockCalculator.as_view() ),
+    path('api/stock-report',views.StockReportView.as_view() ),
+    path('api/cvd-check',views.CVDTestViewSet.as_view() ),
+    path('api/idgeneration',views.IDGenerationReport.as_view() ),
+    path('api/brcode-split-merge',views.BarcodeSplitMergeView.as_view() ),
+    path('api/bar-unbar/',views.ConvertBarcodeToUnbarcodedView.as_view() ),
+    path('api/barcode-creation-report/', views.BarcodeCreationReportView.as_view(), name='barcode_creation_report'),
+    path('api/item-barcode-report/', views.ItemwiseBarcodeReport.as_view(), name='item_barcode_report'),
+    path('api/barcode-bulk/', views.BarcodeBulkListView.as_view(), name='barcode_bulk'),
+    *router.urls
+    
+]
+
+urlpatterns += staticfiles_urlpatterns()
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

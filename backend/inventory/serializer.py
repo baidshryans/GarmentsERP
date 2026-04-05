@@ -1,0 +1,688 @@
+from purchase.models import PurchaseVoucher, PurchaseVoucherItems
+from rest_framework import serializers
+
+from mastersconfig.models import Packet
+from goldrates.models import GoldRates, PurityMaster
+from sales.models import CustomerOrder
+from .models import BarcodeDetails, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
+from django.db import transaction
+from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
+
+
+def create_or_update_nested(serializer_class, parent_instance, related_name,parent_name, nested_data):
+    """
+    Generic function to create or update nested objects.
+
+    Args:
+        serializer_class (Serializer): The serializer class for the nested object.
+        parent_instance (Model): The parent instance to link the nested objects to.
+        related_name (str): The related name of the nested field (e.g., 'children', 'grandchildren').
+        nested_data (list): List of dictionaries with nested data.
+        parent_name (str) : name referenced in child for parent (field with relation name)
+
+    Returns:
+        None
+    """
+    related_manager = getattr(parent_instance, related_name)
+    existing_objects = {obj.id: obj for obj in related_manager.all()}
+    for item_data in nested_data:
+        obj_id = item_data.get("id")
+        if obj_id and (obj_id in existing_objects):
+            # Update the existing object
+            serializer_instance = serializer_class(instance=existing_objects.pop(obj_id), data=item_data, partial=True)
+            serializer_instance.is_valid(raise_exception=True)
+            serializer_instance.save()
+        else:
+            # Create a new object and link it
+            
+            serializer_instance = serializer_class(data=item_data)
+            serializer_instance.is_valid(raise_exception=True)
+            # serializer_instance.validated_data[parent_name] = parent_instance
+            serializer_instance.save(**{parent_name:parent_instance})
+
+    # Delete any remaining objects not in the new data
+    for obj in existing_objects.values():
+        obj.delete()
+
+class ItemStockReportSerializer(serializers.ModelSerializer):
+    opening = serializers.IntegerField()
+    # Inflows
+    create_pur = serializers.IntegerField()
+    create_rec = serializers.IntegerField()
+    sale_ret = serializers.IntegerField()
+    sale_app_ret = serializers.IntegerField()
+    trf_rr_in = serializers.IntegerField()
+    bar_mer_crt = serializers.IntegerField()
+    bar_split_crt = serializers.IntegerField()
+    inflow = serializers.IntegerField()
+    # Outflows
+    sale = serializers.IntegerField()
+    sale_app = serializers.IntegerField()
+    trf_rr_out = serializers.IntegerField()
+    bar_mer = serializers.IntegerField()
+    bar_split = serializers.IntegerField()
+    bar_trf_unb = serializers.IntegerField()
+    outflow = serializers.IntegerField()
+    # Net
+    stock = serializers.IntegerField()
+
+    class Meta:
+        model = Item
+        fields = [
+            'short_code', 'item_name', 'opening',
+            'create_pur', 'create_rec', 'sale_ret', 'sale_app_ret',
+            'trf_rr_in', 'bar_mer_crt', 'bar_split_crt', 'inflow',
+            'sale', 'sale_app', 'trf_rr_out',
+            'bar_mer', 'bar_split', 'bar_trf_unb', 'outflow',
+            'stock',
+        ]
+
+class BarCodeDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BarcodeDetails
+        fields = "__all__"
+        depth = 1
+
+
+class BarcodeSplitMergeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BarcodeSplitMerge
+        fields = "__all__"
+        depth = 1
+
+
+from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
+
+
+class DesignDetailsSerializer(serializers.ModelSerializer):
+    sub_item = serializers.SlugRelatedField(
+        queryset=Item.objects.all(),
+        slug_field='name',  # Replace 'name' with the field you want to use as the slug field
+    )
+    sub_item_txt = serializers.CharField(required=False)
+
+    class Meta:
+        model = DesignDetails
+        fields = [
+            'design_no',
+            'design_no_txt',
+            'sub_item',
+            'sub_item_txt',
+            'metal_purity',
+            'pcs',
+            'ct',
+            'rate',
+            'amt',
+        ]
+
+
+class DesignMainSerializer(serializers.ModelSerializer):
+    design_details = DesignDetailsSerializer(many=True)
+
+    asset_type = serializers.SlugRelatedField(
+        queryset=AssetType.objects.all(),
+        slug_field='asset_type',  # Replace 'type_name' with the field you want to use
+    )
+    item = serializers.SlugRelatedField(
+        queryset=Item.objects.all(),
+        slug_field='short_code',  # Replace 'short_code' with the field you want to use
+    )
+    kr_code = serializers.PrimaryKeyRelatedField(
+        queryset=Ledger.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = DesignMain
+        fields = [
+            'design_no',
+            'variation_suffix',
+            'asset_type',
+            'file',
+            'item',
+            'item_desc',
+            'pcs',
+            'gw',
+            'nw',
+            'making',
+            'making_type',
+            'kr_code',
+            'loss_rate',
+            'making_rate',
+            'design_photo',
+            'created_date',
+            'design_details',
+        ]
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            details_data = validated_data.pop('design_details')
+            design_main_instance = DesignMain.objects.create(**validated_data)
+
+            for detail_data in details_data:
+                DesignDetails.objects.create(
+                    design_no=design_main_instance,
+                    **detail_data,
+                )
+
+            return design_main_instance
+
+class BarcodeDetailsSerializer(serializers.ModelSerializer):
+
+
+    packet = serializers.SlugRelatedField(
+        queryset=Packet.objects.all(),
+        required=False,
+        slug_field="pckt_no",
+        allow_null = True
+    )
+    item = serializers.SlugRelatedField(
+        queryset=Item.objects.all(),
+        slug_field="short_code"
+    )
+
+    class Meta:
+        model = BarcodeDetails
+        fields = [
+            'barcode',
+            'barcode_text',
+            'packet',
+            'pcs',
+            'ct',
+            'uom',
+            'gw',
+            'item',
+            'rate',
+            'amt',
+        ]
+        extra_kwargs = {
+            'barcode': {'required': False},
+            'uom': {'read_only': True},
+            'barcode_text': {'required': False},
+        }
+
+from manufacturing.models import KarigarReceiveItem
+class BarCodeMainSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(
+        queryset=Item.objects.all(),
+        slug_field="short_code"
+    )
+    purity = serializers.SlugRelatedField(
+        queryset=PurityMaster.objects.all(),
+        slug_field="purity"
+    )
+    pur_voucher = serializers.PrimaryKeyRelatedField(
+        queryset=PurchaseVoucherItems.objects.all(),
+        required=False
+    )
+
+    rec_item = serializers.PrimaryKeyRelatedField(
+        queryset=KarigarReceiveItem.objects.all(),
+        required=False
+    )
+
+
+
+    kr_code = serializers.PrimaryKeyRelatedField(
+        queryset=Ledger.objects.all(),
+        required=False
+    )
+    barcodedetails_set = BarcodeDetailsSerializer(many=True)
+    class Meta:
+        model = BarcodeMain
+        fields = [
+            'id',
+            'rec_item',
+            'barcodedetails_set',
+            'item',
+            'item_desc',
+            'barcode',
+            'pcs',
+            'gw',
+            'nw',
+            'huid',
+            'purity',
+            'value',
+            'making_val',
+            'making_type',
+            'pur_voucher',
+            'other_chg',
+            'design_code',
+            'kr_code',
+            'total_amount',
+            'size',
+            'metal_color',
+            'created_from',
+            'created_by',
+            'created_date',
+            'stk_status',
+            'voucher_no',
+        ]
+        extra_kwargs = {
+            'item_desc': {'default': "sdfasdfa"},
+              'id': {'read_only': False, 'required': False},
+        }
+
+
+    #TODO : add logic to karigar receive too
+    def create(self, validated_data):
+        with transaction.atomic():
+            pur = validated_data.get('pur_voucher')
+            rec_item = validated_data.get('rec_item')
+            grandchildren_data = BarcodeDetailsSerializer(validated_data.pop('barcodedetails_set', []),many=True).data 
+            child = BarcodeMain.objects.create(**validated_data)
+            create_or_update_nested(
+                serializer_class=BarcodeDetailsSerializer,
+                parent_instance=child,
+                related_name='barcodedetails_set',
+                parent_name="barcode",
+                nested_data=grandchildren_data
+            )
+            request = self.context.get("request")
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
+
+            created_from = validated_data.get('created_from')
+            trans_type = "CREATE-REC" if created_from == "KAR_REC" else "CREATE-PUR"
+       
+            BarcodeTransaction.objects.create(
+                barcode=child,
+                billno=validated_data.get('voucher_no', ''),
+                trans_type=trans_type,
+                user=request.user,
+                ip_address=ip,
+                retail=request.retail
+            )
+        if pur:
+            pur.pending_pcs = pur.pending_pcs - child.pcs
+            pur.pending_gw = pur.pending_gw - child.gw
+            pur.save()
+            
+        if rec_item:
+            rec_item.pending_pcs = rec_item.pending_pcs - child.pcs
+            rec_item.pending_gw = rec_item.pending_gw - child.gw
+            rec_item.save()
+        return child
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            grandchildren_data = BarcodeDetailsSerializer(validated_data.pop('barcodedetails_set', []),many=True).data
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+
+            create_or_update_nested(
+                serializer_class=BarcodeDetailsSerializer,
+                parent_instance=instance,
+                related_name='barcodedetails_set',
+                nested_data=grandchildren_data,
+                parent_name="barcode"
+            )
+            return instance
+
+class UnBarcodedDetailsSerializer(serializers.ModelSerializer):
+    packet = serializers.SlugRelatedField(
+        queryset=Packet.objects.all(),
+        required=False,
+        slug_field="pckt_no",
+        allow_null=True
+    )
+    item = serializers.SlugRelatedField(
+        queryset=Item.objects.all(),
+        slug_field="short_code"
+    )
+
+    class Meta:
+        model = UnBarcodedDetails
+        fields = [
+            'packet',
+            'pcs',
+            'ct',
+            'gw',
+            'item',
+            'rate',
+            'amt',
+        ]
+
+
+class UnBarcodedMainSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(
+        queryset=Item.objects.all(),
+        slug_field="short_code"
+    )
+    purity = serializers.SlugRelatedField(
+        queryset=PurityMaster.objects.all(),
+        slug_field="purity"
+    )
+    kr_code = serializers.PrimaryKeyRelatedField(
+        queryset=Ledger.objects.all(),
+        required=False
+    )
+    customer_order = serializers.SlugRelatedField(
+        queryset=CustomerOrder.objects.all(),
+        slug_field="order_no",
+        required=False,
+        allow_null=True
+    )
+    unbarcodeddetails_set = UnBarcodedDetailsSerializer(many=True)
+
+    class Meta:
+        model = UnBarcodedMain
+        fields = [
+            'id',
+
+            'unbarcodeddetails_set',
+            'item',
+            'label',
+            'item_desc',
+            'pcs',
+            'gw',
+            'nw',
+            'huid',
+            'purity',
+            'value',
+            'making_val',
+            'making_type',
+            'other_chg',
+            'design_code',
+            'kr_code',
+            'total_amount',
+            'size',
+            'metal_color',
+            'created_from',
+            'customer_order',
+            'created_by',
+            'created_date',
+            'next',
+            'stk_status',
+            'op_stk',
+            'voucher_no',
+        ]
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            grandchildren_data = UnBarcodedDetailsSerializer(
+                validated_data.pop('unbarcodeddetails_set', []), many=True
+            ).data
+            child = UnBarcodedMain.objects.create(**validated_data)
+            create_or_update_nested(
+                serializer_class=UnBarcodedDetailsSerializer,
+                parent_instance=child,
+                related_name='unbarcodeddetails_set',
+                parent_name="main_item",
+                nested_data=grandchildren_data
+            )
+            return child
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            grandchildren_data = UnBarcodedDetailsSerializer(
+                validated_data.pop('unbarcodeddetails_set', []), many=True
+            ).data
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+
+            create_or_update_nested(
+                serializer_class=UnBarcodedDetailsSerializer,
+                parent_instance=instance,
+                related_name='unbarcodeddetails_set',
+                nested_data=grandchildren_data,
+                parent_name="main_item"
+            )
+            return instance
+
+def get_recent_gold_rate(purity_value):
+    """
+    Get the most recent gold rate for a specific purity.
+    
+    Args:
+        purity_value (str): The purity value (e.g., "22K", "24K", etc.)
+        
+    Returns:
+        int: The most recent gold rate for the specified purity
+        None: If no rate is found for the specified purity
+    """
+    try:
+        # First, get the PurityMaster object that matches the purity value
+        purity_obj = PurityMaster.objects.get(purity=purity_value)
+        
+        # Get the most recent gold rate for this purity
+        # We order by date1 in descending order and take the first one
+        latest_rate = GoldRates.objects.filter(purity=purity_obj).order_by('-date1').first()
+        
+        if latest_rate:
+            return latest_rate.rate
+        else:
+            return None
+            
+    except PurityMaster.DoesNotExist:
+        # Handle the case where the specified purity doesn't exist
+        return None
+    except Exception as e:
+        # Handle any other exceptions
+        print(f"Error retrieving gold rate: {e}")
+        return None
+class BarcodeDetToSaleVouDetSerializer(BarcodeDetailsSerializer):
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["metal_purity"] = self.context.get('purity')
+        if instance.item.short_code == "GOLD":
+            representation["rate"] = get_recent_gold_rate(self.context.get('purity'))
+        return representation
+
+
+class BarcodeMainToSaleVouSerializer(BarCodeMainSerializer):
+    def __init__(self, *args, **kwargs):
+        
+        super().__init__(*args, **kwargs)
+        
+        # Dynamically pass context to the nested serializer
+        instance = self.instance
+
+        if instance:
+            purity_value = instance.purity.purity 
+            self.fields['barcodedetails_set'].context.update({**self.context, 'purity': purity_value})
+    
+    barcodedetails_set = BarcodeDetToSaleVouDetSerializer(many=True,)
+    
+    def to_representation(self, instance):
+        
+        representation = super().to_representation(instance)
+
+
+        representation['main_item_set'] =  representation['barcodedetails_set']
+        representation['making'] = representation['making_val']
+        del representation['making_val']
+        del representation['barcodedetails_set']
+        return representation
+    
+class StockJournalDetailSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", allow_null=True)
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True)
+
+    class Meta:
+        model = StockJournalDetail
+        fields = [ 'doc_type', 'item', 'pcs', 'ct', 'gw', 'loss', 'packet', 'metal_purity', 'retail']
+
+class StockJournalSerializer(serializers.ModelSerializer):
+    stockjournaldetail_set = StockJournalDetailSerializer(many=True)
+
+    class Meta:
+        model = StockJournal
+        fields = ['id','date1', 'billno', 'remarks', 'retail', 'stockjournaldetail_set']
+
+        extra_kwargs={
+            'id': {'read_only': False, 'required': False},
+        }
+    
+    def create(self, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('stockjournaldetail_set', [])
+            parent_instance = StockJournal.objects.create(**validated_data)
+            create_or_update_nested(StockJournalDetailSerializer, parent_instance, 'stockjournaldetail_set', 'billno', StockJournalDetailSerializer(detail_data,many=True).data)
+            return parent_instance
+    
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('stockjournaldetail_set', [])
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(StockJournalDetailSerializer, instance, 'stockjournaldetail_set','billno',StockJournalDetailSerializer(detail_data,many=True).data)
+            return instance
+    
+class BarcodeTransactionSerializer(serializers.ModelSerializer):
+    barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(),slug_field="barcode")
+    class Meta:
+        model = BarcodeTransaction
+        fields = ['barcode','date','billno','trans_type']
+
+class BarcodeCreationReportSerializer(serializers.ModelSerializer):
+    stone_details = BarcodeDetailsSerializer(many=True)
+    other_details = BarcodeDetailsSerializer(many=True)
+    class Meta:
+        model = BarcodeMain
+        fields = [
+            'id',
+            'barcode',
+            'item',
+            'pcs',
+            'gw',
+            'nw',
+            'huid',
+            'purity',
+            'value',
+            'making_val',
+            'making_type',
+            'other_chg',
+            'design_code',
+            'kr_code',
+            'total_amount',
+            'size',
+            'metal_color',
+            'created_from',
+            'created_by',
+            'created_date',
+            'stone_details',
+            'other_details',
+        ]
+
+
+# ── Stock Transfer ─────────────────────────────────────────────────────────────
+
+from mastersconfig.models import RetailMaster
+
+
+class StockTransferMainSerializer(serializers.ModelSerializer):
+    barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode")
+    gw        = serializers.SerializerMethodField(read_only=True)
+    nw        = serializers.SerializerMethodField(read_only=True)
+    item_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = StockTransferMain
+        fields = ['id', 'sl_no', 'barcode', 'rec_status', 'gw', 'nw', 'item_name']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'rec_status': {'read_only': True},
+        }
+
+    def validate_barcode(self, barcode):
+        request = self.context.get('request')
+        if request and getattr(request, 'retail', None):
+            if barcode.retail_id != request.retail.pk:
+                raise serializers.ValidationError(
+                    f"Barcode '{barcode.barcode}' does not belong to the current retail location."
+                )
+            if not barcode.stk_status:
+                raise serializers.ValidationError(
+                    f"Barcode '{barcode.barcode}' is not in active stock "
+                    "(it may already be sold, in transit, or transferred)."
+                )
+        return barcode
+
+    def get_gw(self, obj):
+        try:
+            return float(obj.barcode.gw)
+        except Exception:
+            return None
+
+    def get_nw(self, obj):
+        try:
+            return float(obj.barcode.nw)
+        except Exception:
+            return None
+
+    def get_item_name(self, obj):
+        try:
+            return obj.barcode.main_item.item_name if obj.barcode.main_item else None
+        except Exception:
+            return None
+
+
+class StockTransferSerializer(serializers.ModelSerializer):
+    stocktransfermain_set = StockTransferMainSerializer(many=True)
+    to_rt_code       = serializers.SlugRelatedField(queryset=RetailMaster.objects.all(), allow_null=True, slug_field="retail_code")
+    from_retail_name = serializers.SerializerMethodField(read_only=True)
+    to_retail_name   = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = StockTransfer
+        fields = ['id', 'date1', 'billno', 'to_rt_code', 'sent_status', 'rec_status',
+                  'from_retail_name', 'to_retail_name', 'stocktransfermain_set']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'sent_status': {'read_only': True},
+            'rec_status': {'read_only': True},
+        }
+
+    def get_from_retail_name(self, obj):
+        try:
+            return obj.retail.retail_name if obj.retail else None
+        except Exception:
+            return None
+
+    def get_to_retail_name(self, obj):
+        try:
+            return obj.to_rt_code.retail_name if obj.to_rt_code else None
+        except Exception:
+            return None
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('stocktransfermain_set', [])
+            request = self.context.get("request")
+            from accounting.utils import get_next_bill_number
+            validated_data['billno'] = get_next_bill_number(request.retail, 'RST')
+            parent_instance = StockTransfer.objects.create(**validated_data)
+            create_or_update_nested(
+                StockTransferMainSerializer, parent_instance,
+                'stocktransfermain_set', 'billno',
+                StockTransferMainSerializer(detail_data, many=True).data,
+            )
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
+            for item_br in detail_data:
+                BarcodeTransaction.objects.create(
+                    barcode=item_br["barcode"], billno=parent_instance.billno,
+                    trans_type="TRF-RR-OUT", user=request.user, ip_address=ip, retail=request.retail,
+                )
+                BarcodeTransaction.objects.create(
+                    barcode=item_br["barcode"], billno=parent_instance.billno,
+                    trans_type="TRF-RR-IN", user=request.user, ip_address=ip, retail=parent_instance.to_rt_code,
+                )
+            return parent_instance
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('stocktransfermain_set', [])
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(
+                StockTransferMainSerializer, instance,
+                'stocktransfermain_set', 'billno',
+                StockTransferMainSerializer(detail_data, many=True).data,
+            )
+            return instance

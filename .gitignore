@@ -1,0 +1,58 @@
+# ============================================================
+# CLAUDE CODE ARTIFACTS — never commit
+# ============================================================
+.claude/
+
+# ============================================================
+# GEO AUDIT FILES — unrelated to the project
+# ============================================================
+GEO-AUDIT-REPORT.md
+GEO-REPORT-Zorii-Diamonds.pdf
+geo-audit-data.json
+
+# ============================================================
+# BACKEND — Django
+# ============================================================
+backend/.env
+backend/db.sqlite3
+backend/db.sqlite3-shm
+backend/db.sqlite3-wal
+backend/env/
+backend/media/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/**/*.pyd
+backend/.coverage
+backend/.pytest_cache/
+backend/htmlcov/
+backend/*.egg-info/
+
+# ============================================================
+# FRONTEND — React / Vite / Node
+# ============================================================
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/*.local
+frontend/yarn-error.log
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+
+# ============================================================
+# OS & EDITOR NOISE
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.idea/
+*.log

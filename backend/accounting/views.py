@@ -1,0 +1,1537 @@
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.db import transaction
+from contacts.models import Ledger
+from global_vars import VoucherType
+from inventory.views import ClosingStockCal
+from sales.models import SalesVou
+from sales.serializers import SalesVouSerializer
+from userauth.views import RetailBaseViewset
+from .models import *
+from purchase.models import PurchaseVoucher
+from accounting.utils import *
+from django.utils import timezone
+from django.http import JsonResponse, HttpResponse
+import json
+from rest_framework.generics import ListCreateAPIView,ListAPIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Account
+from .serializers import AccountSerializer, CashbookTransactionSerializer, GoldCashSerializder, LedgerSerializer, PurchaseVoucherSerializer, LedgerOpenBalanceSerializer
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.decorators import api_view
+from django.utils import timezone
+from .models import Ledger
+from .serializers import JournalEntrySerializer
+from .utils import generate_voucher_no  # Assuming you have this utility function
+from django.db.models import Sum
+from rest_framework.request import Request
+
+from rest_framework import serializers
+from .models import VoucherDetail
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter, SearchFilter
+
+
+class DueAdvanceReportSerializer(serializers.Serializer):
+    ldgr = serializers.CharField()
+    ac_name = serializers.CharField()
+    net_dbt_opbal = serializers.DecimalField(max_digits=15, decimal_places=2)
+    net_crdt_opbal = serializers.DecimalField(max_digits=15, decimal_places=2)
+    net_dbt = serializers.DecimalField(max_digits=15, decimal_places=2)
+    net_crdt = serializers.DecimalField(max_digits=15, decimal_places=2)
+    balance = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+# views/api
+from django.db.models import Sum, F, Case, When, Value, DecimalField
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import  VoucherDetail #LedgerOpenBalance,
+from django.db.models import FloatField
+
+
+def get_all_descendants(account:Account):
+    descendants = list(account.children.all())
+    for child in descendants:
+        descendants.extend(get_all_descendants(child))
+    return descendants
+
+
+def calcuate_pnl(start_date, end_date, retail=None):
+    opening_stock = calculate_opening_stock()
+
+    base_filter = {'voucher_main__date__range': [start_date, end_date]}
+    if retail:
+        base_filter['voucher_main__retail'] = retail
+
+    purchases = VoucherDetail.objects.filter(
+        voucher_main__voucher_type=global_vars.VoucherType.purc_sc,
+        **base_filter
+    ).aggregate(total_purchases=Sum(F('debit')))['total_purchases'] or Decimal(0)
+
+
+    purchase_returns = VoucherDetail.objects.filter(
+        voucher_main__voucher_type=global_vars.VoucherType.purc_ret,
+        **base_filter
+    ).aggregate(total_purchase_returns=Sum(F('credit')))['total_purchase_returns'] or Decimal(0)
+
+    closing_stock_value = ClosingStockCal().calculate_closing_stock(from_date=start_date,to_date=end_date)['total_value']
+
+
+    cogs = opening_stock + purchases - purchase_returns - closing_stock_value
+
+    sales_revenue = VoucherDetail.objects.filter(
+        voucher_main__voucher_type=global_vars.VoucherType.sale,
+        **base_filter
+    ).aggregate(total_sales=Sum(F('debit')))['total_sales'] or Decimal(0)
+
+    children = get_all_descendants(Account.objects.get(name="Expenses"))
+    ldgrs = Ledger.objects.filter(ac_group__in=children)
+
+    expense_txn = VoucherDetail.objects.filter(
+        account__in=ldgrs,
+        **base_filter
+    ).aggregate(total_expense=Sum(F('debit') - F('credit')))['total_expense'] or Decimal(0)
+
+    # Include opening balances for expense ledgers
+    expense_ob_filter = {'ldgr__in': ldgrs}
+    if retail:
+        expense_ob_filter['retail'] = retail
+    expense_ob = LedgerOpenBalance.objects.filter(
+        **expense_ob_filter
+    ).aggregate(
+        total=Sum(F('debit') - F('credit'), output_field=DecimalField())
+    )['total'] or Decimal(0)
+
+    total_expenses = expense_txn + expense_ob
+
+    gross_profit = sales_revenue - cogs
+    net_profit = gross_profit - total_expenses
+
+    data = {
+        "opening_stock": opening_stock,
+        "purchases": purchases,
+        "purchase_returns": purchase_returns,
+        "closing_stock": closing_stock_value,
+        "cogs": cogs,
+        "sales_revenue": sales_revenue,
+        "gross_profit": gross_profit,
+        "total_expenses": total_expenses,
+        "net_profit": net_profit,
+        "income": get_accounts_tree('Income', retail=retail),
+        "expenses": get_accounts_tree('Expenses', retail=retail)
+    }
+
+    return data
+
+class BankbookReportView(APIView):
+    def get(self, request, *args, **kwargs):
+        from_date_str = request.query_params.get("from_date")
+        to_date_str = request.query_params.get("to_date")
+        bank_ldgr_id = request.query_params.get("bank_ldgr")
+
+        if not all([from_date_str, to_date_str, bank_ldgr_id]):
+            return Response({"error": "Missing required parameters."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+
+        try:
+            bank_ldgr = Ledger.objects.get(pk=bank_ldgr_id)
+        except Ledger.DoesNotExist:
+            return Response({"error": "Ledger not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Opening balance from LedgerOpenBalance for this specific bank ledger
+        ledger_opening_balance = LedgerOpenBalance.objects.filter(
+            ldgr=bank_ldgr, retail=request.retail
+        ).aggregate(
+            total=Coalesce(Sum(F('debit') - F('credit'), output_field=DecimalField(max_digits=20, decimal_places=4)), Value(Decimal('0')))
+        )['total'] or Decimal('0')
+
+        # Transactions before from_date
+        bank_transactions_before = VoucherDetail.objects.filter(
+            voucher_main__date__lt=from_date,
+            voucher_main__retail=request.retail,
+            account=bank_ldgr
+        ).aggregate(
+            total=Coalesce(Sum(F('debit') - F('credit'), output_field=DecimalField(max_digits=20, decimal_places=4)), Value(Decimal('0')))
+        )['total'] or Decimal('0')
+
+        # Final Opening Balance
+        opening_balance = ledger_opening_balance + bank_transactions_before
+
+        # Transactions in date range
+        transactions = VoucherDetail.objects.filter(
+            voucher_main__date__range=(from_date, to_date),
+            voucher_main__retail=request.retail,
+            account=bank_ldgr
+        ).annotate(
+            txn_date=F('voucher_main__date'),
+            txn_voucher_no=F('voucher_main__voucher_no'),  # renamed to avoid conflict
+            txn_voucher_type=F('voucher_main__voucher_type'),  # renamed to avoid conflict
+            ledger=F('account__ac_name'),
+            debit_val=Case(
+                When(debit__gt=0, then=F('debit')),
+                default=Value(0),
+                output_field=DecimalField()
+            ),
+            credit_val=Case(
+                When(credit__gt=0, then=F('credit')),
+                default=Value(0),
+                output_field=DecimalField()
+            ),
+            narration=F('voucher_main__narration')
+        ).values(
+            'txn_date', 'txn_voucher_no', 'txn_voucher_type', 'ledger',
+            'chq_no', 'debit_val', 'credit_val', 'narration'
+        ).order_by('txn_date')
+
+        total_debit = sum(txn['debit_val'] for txn in transactions)
+        total_credit = sum(txn['credit_val'] for txn in transactions)
+        closing_balance = opening_balance + total_debit - total_credit
+
+        return Response({
+            "opening_balance": opening_balance,
+            "transactions": list(transactions),
+            "closing_balance": closing_balance
+        }, status=status.HTTP_200_OK)
+    
+class TrialBalanceReportView(APIView):
+    def get(self, request: Request):
+        try:
+            from_date = request.query_params.get("from_date")
+            to_date = request.query_params.get("to_date")
+
+            from_date_obj = datetime.strptime(from_date, "%Y-%m-%d").date()
+
+            # Determine which fiscal year contains from_date so we can use its stored OB
+            # and only scan transactions within that FY (not all history).
+            from mastersconfig.models import FiscalYearMaster
+            fy = FiscalYearMaster.objects.filter(
+                retail=request.retail,
+                fy_start__lte=from_date_obj,
+                fy_end__gte=from_date_obj,
+            ).first()
+
+            # Batch query 1: Opening balances for the relevant fiscal year
+            ob_filter = dict(retail=request.retail)
+            if fy:
+                ob_filter['acc_year'] = fy.fy_code
+            ob_raw = LedgerOpenBalance.objects.filter(**ob_filter).values('ldgr').annotate(
+                total_debit=Sum("debit", default=0),
+                total_credit=Sum("credit", default=0)
+            )
+            ob_dict = {row['ldgr']: (row['total_debit'], row['total_credit']) for row in ob_raw}
+
+            # Batch query 2: Transactions within the FY before from_date (not all history)
+            before_filter = dict(
+                voucher_main__date__lt=from_date_obj,
+                voucher_main__retail=request.retail,
+            )
+            if fy:
+                before_filter['voucher_main__date__gte'] = fy.fy_start
+            before_raw = VoucherDetail.objects.filter(**before_filter).values('account').annotate(
+                total=Sum(F('debit') - F('credit'))
+            )
+            before_dict = {row['account']: row['total'] or 0 for row in before_raw}
+
+            # Batch query 3: All transactions in date range grouped by account
+            in_range_raw = VoucherDetail.objects.filter(
+                voucher_main__date__range=(from_date, to_date),
+                voucher_main__retail=request.retail
+            ).values('account').annotate(
+                total_debit=Sum("debit", default=0),
+                total_credit=Sum("credit", default=0)
+            )
+            in_range_dict = {row['account']: (row['total_debit'], row['total_credit']) for row in in_range_raw}
+
+            # Batch query 4: All ledgers with their groups (single query)
+            all_ledgers = Ledger.objects.select_related('ac_group').filter(retail_code=request.retail)
+            ledger_groups = Account.objects.all()
+
+            # Group ledgers by account group
+            group_ledgers = {}
+            for ledger in all_ledgers:
+                gid = ledger.ac_group_id
+                if gid not in group_ledgers:
+                    group_ledgers[gid] = []
+                group_ledgers[gid].append(ledger)
+
+            report_data = []
+            for group in ledger_groups:
+                group_data = {"group_name": group.name, "ledgers": []}
+                for ledger in group_ledgers.get(group.id, []):
+                    ob_debit, ob_credit = ob_dict.get(ledger.id, (0, 0))
+                    before_total = before_dict.get(ledger.id, 0)
+                    ir_debit, ir_credit = in_range_dict.get(ledger.id, (0, 0))
+
+                    opening_balance_amount = (ob_debit - ob_credit) + before_total
+                    closing_balance = opening_balance_amount + ir_debit - ir_credit
+
+                    group_data["ledgers"].append({
+                        "ledger_name": ledger.ac_name,
+                        "opening_balance": opening_balance_amount,
+                        "total_debit": ir_debit,
+                        "total_credit": ir_credit,
+                        "closing_balance": closing_balance
+                    })
+                report_data.append(group_data)
+
+            return Response({"from_date": from_date, "to_date": to_date, "trial_balance": report_data}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class BalanceSheetAPIView(APIView):
+    def get(self, request: Response):
+        end_date = request.query_params.get("end_date", date.today())
+
+        # Aggregate transaction balances grouped by ledger's account group
+        # (account__ac_group is the FK from Ledger → Account)
+        txn_by_group = {}
+        for row in VoucherDetail.objects.filter(
+            voucher_main__date__lte=end_date,
+            voucher_main__retail=request.retail
+        ).values('account__ac_group').annotate(
+            balance=Sum(F('debit')) - Sum(F('credit'))
+        ):
+            gid = row['account__ac_group']
+            if gid is not None:
+                txn_by_group[gid] = row['balance'] or Decimal(0)
+
+        # Aggregate opening balances grouped by ledger's account group
+        ob_by_group = {}
+        for row in LedgerOpenBalance.objects.filter(
+            retail=request.retail
+        ).values('ldgr__ac_group').annotate(
+            balance=Sum(F('debit') - F('credit'), output_field=DecimalField())
+        ):
+            gid = row['ldgr__ac_group']
+            if gid is not None:
+                ob_by_group[gid] = row['balance'] or Decimal(0)
+
+        # Load all accounts in one query and build parent-child map
+        all_accounts = list(Account.objects.all())
+        children_map = {}
+        account_by_id = {}
+        for acc in all_accounts:
+            account_by_id[acc.id] = acc
+            pid = acc.parent_id
+            if pid not in children_map:
+                children_map[pid] = []
+            children_map[pid].append(acc)
+
+        def get_descendants(parent_id):
+            result = []
+            for child in children_map.get(parent_id, []):
+                result.append(child)
+                result.extend(get_descendants(child.id))
+            return result
+
+        def get_balance(account):
+            """Get the combined txn + opening balance for an account group."""
+            return txn_by_group.get(account.id, Decimal(0)) + ob_by_group.get(account.id, Decimal(0))
+
+        def get_group_balance(group_name):
+            try:
+                parent = next(a for a in all_accounts if a.name == group_name)
+            except StopIteration:
+                return {"total": Decimal(0), "accounts": []}
+            descendants = get_descendants(parent.id)
+            accounts_data = []
+            total = Decimal(0)
+            for acc in descendants:
+                bal = get_balance(acc)
+                accounts_data.append({"id": acc.id, "name": acc.name, "balance": bal})
+                total += bal
+            return {"total": total, "accounts": accounts_data}
+
+        assets = get_group_balance("Assets")
+        liabilities = get_group_balance("Liabilities")
+
+        pnl_data = calcuate_pnl("2000-01-01", end_date, retail=request.retail)
+        net_profit = pnl_data.get("net_profit", Decimal(0))
+        liabilities["total"] += net_profit
+        liabilities["accounts"].append({
+            "id": "net_profit",
+            "name": "Net Profit",
+            "balance": net_profit
+        })
+
+        data = {
+            "assets": assets,
+            "liabilities": liabilities,
+            "net_worth": assets["total"] - liabilities["total"]
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+class ProfitLossAPIView(APIView):
+
+    def get(self, request):
+        start_date = request.GET.get("start_date", "2000-01-01")
+        end_date = request.GET.get("end_date", date.today())
+
+        data = calcuate_pnl(start_date=start_date, end_date=end_date, retail=request.retail)
+
+        return Response(data, status=status.HTTP_200_OK)
+ 
+   
+def get_accounts_tree(root=None, retail=None):
+    """Fetch Chart of Accounts as a nested tree — optimized with batch queries."""
+    all_accounts = list(Account.objects.all())
+    root_account = next((a for a in all_accounts if a.name == root), None)
+    if not root_account:
+        return []
+
+    # Build parent-child map in memory
+    children_map = {}
+    for acc in all_accounts:
+        pid = acc.parent_id
+        if pid not in children_map:
+            children_map[pid] = []
+        children_map[pid].append(acc)
+
+    # Batch query: net balances (debit - credit) grouped by ac_group
+    txn_filter = {}
+    if retail:
+        txn_filter['voucher_main__retail'] = retail
+    balance_raw = VoucherDetail.objects.filter(**txn_filter).values('account__ac_group').annotate(
+        total_balance=Sum(F('debit') - F('credit'))
+    )
+    balance_dict = {row['account__ac_group']: row['total_balance'] or Decimal(0) for row in balance_raw}
+
+    # Add opening balances grouped by ac_group
+    ob_filter = {}
+    if retail:
+        ob_filter['retail'] = retail
+    ob_raw = LedgerOpenBalance.objects.filter(**ob_filter).values('ldgr__ac_group').annotate(
+        total_balance=Sum(F('debit') - F('credit'), output_field=DecimalField())
+    )
+    for row in ob_raw:
+        gid = row['ldgr__ac_group']
+        if gid is not None:
+            balance_dict[gid] = balance_dict.get(gid, Decimal(0)) + (row['total_balance'] or Decimal(0))
+
+    def _build_tree(parent_id):
+        tree = []
+        for account in children_map.get(parent_id, []):
+            tree.append({
+                "id": account.id,
+                "name": account.name,
+                "balance": balance_dict.get(account.id, Decimal(0)),
+                "children": _build_tree(account.id)
+            })
+        return tree
+
+    return _build_tree(root_account.id)
+
+class DueAdvanceReportView(APIView):
+    def post(self, request):
+        karigar = request.data.get("karigar", [])
+        doc_type = request.data.get("doc_type", "due")
+        rt_code = request.session.get("rt_code")  # Get session rt_code
+        # Filter ledger accounts for the selected karigars
+        ledger_accounts = Ledger.objects.filter(ldgr_code__in=karigar)
+        # Compute opening balances
+        opening_balances = LedgerOpenBalance.objects.filter(ldgrcd__in=ledger_accounts, rt_code=rt_code).values(
+            "ldgrcd"
+        ).annotate(
+            net_dbt_opbal=Sum(F("debit") - F("credit"), output_field=DecimalField()),
+            net_crdt_opbal=Sum(F("credit") - F("debit"), output_field=DecimalField()),
+        )
+        # Compute voucher transactions
+        voucher_transactions = VoucherDetail.objects.filter(ldgr__in=ledger_accounts, rt_code=rt_code).values(
+            "ldgr"
+        ).annotate(
+            net_dbt=Sum(F("dbt") - F("crdt"), output_field=DecimalField()),
+            net_crdt=Sum(F("crdt") - F("dbt"), output_field=DecimalField()),
+        )
+        # Merge data
+        report_data = []
+        for ledger in ledger_accounts:
+            lob = next((b for b in opening_balances if b["ldgrcd"] == ledger.ldgr_code), {})
+            vt = next((t for t in voucher_transactions if t["ldgr"] == ledger.ldgr_code), {})
+            net_dbt_opbal = lob.get("net_dbt_opbal", 0)
+            net_crdt_opbal = lob.get("net_crdt_opbal", 0)
+            net_dbt = vt.get("net_dbt", 0)
+            net_crdt = vt.get("net_crdt", 0)
+            if doc_type == "due":
+                balance = max(net_dbt_opbal + net_dbt - net_crdt - net_crdt_opbal, 0)
+            else:
+                balance = max(net_crdt_opbal + net_crdt - net_dbt - net_dbt_opbal, 0)
+            if balance > 0:
+                report_data.append({
+                    "ldgr": ledger.ldgr_code,
+                    "ac_name": ledger.ac_name,
+                    "net_dbt_opbal": net_dbt_opbal,
+                    "net_crdt_opbal": net_crdt_opbal,
+                    "net_dbt": net_dbt,
+                    "net_crdt": net_crdt,
+                    "balance": balance
+                })
+        serializer = DueAdvanceReportSerializer(report_data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.exceptions import PermissionDenied
+
+class AccountViewSet(ModelViewSet):
+    serializer_class = AccountSerializer
+    queryset = Account.objects.select_related('parent').all()
+    pagination_class = None
+
+    def perform_create(self, serializer):
+        parent_id = self.request.data.get('parent')
+        if parent_id:
+            serializer.save_with_parent_account(parent_id=parent_id)
+        else:
+            serializer.save()
+
+    def perform_update(self, serializer):
+        parent_id = self.request.data.get('parent')
+        if parent_id:
+            serializer.save_with_parent_account(parent_id=parent_id)
+        else:
+            serializer.save(parent=None)
+
+    def perform_destroy(self, instance):
+        if not instance.can_be_deleted:
+            raise PermissionDenied("This account group cannot be deleted.")
+        # Block if any ledgers are assigned to this group
+        from contacts.models import Ledger
+        ledger_count = Ledger.objects.filter(ac_group=instance).count()
+        if ledger_count > 0:
+            raise PermissionDenied(
+                f"Cannot delete: {ledger_count} ledger(s) are assigned to this group. "
+                "Reassign or remove them first."
+            )
+        # Block if it has child groups
+        if instance.children.exists():
+            raise PermissionDenied(
+                "Cannot delete: this group has sub-groups. Delete the sub-groups first."
+            )
+        instance.delete()
+
+
+class LedgerOpenBalanceViewSet(RetailBaseViewset):
+    serializer_class = LedgerOpenBalanceSerializer
+    queryset = LedgerOpenBalance.objects.select_related('ldgr').all()
+    pagination_class = None
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+
+# Keep backward-compatible list/create view for any existing callers
+class AccountAPIView(ListCreateAPIView):
+    serializer_class = AccountSerializer
+    queryset = Account.objects.select_related('parent').all()
+    pagination_class = None
+
+    def perform_create(self, serializer):
+        parent_id = self.request.data.get('parent')
+        if parent_id:
+            serializer.save_with_parent_account(parent_id=parent_id)
+        else:
+            serializer.save()
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Sum, Q
+from datetime import datetime
+from .models import  VoucherDetail, LedgerOpenBalance
+from django.db.models import Sum, F, ExpressionWrapper, DecimalField
+from django.db.models.functions import Coalesce, Abs
+
+
+class CashbookReportView(APIView):
+    def get(self, request, *args, **kwargs):
+        
+        from_date_str = request.query_params.get("from_date")
+        to_date_str = request.query_params.get("to_date")
+
+
+
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+       
+        opening_balance = 0
+
+        # Use retail's configured cash ledger
+        cash_ledger = request.retail.cash_ldgr
+        if not cash_ledger:
+            return Response({"error": "Cash ledger not configured for this retail."}, status=status.HTTP_400_BAD_REQUEST)
+
+        ledger_opening_balance = LedgerOpenBalance.objects.filter(
+            ldgr=cash_ledger, retail=request.retail
+        ).aggregate(total=Sum('debit'))['total'] or 0
+        opening_balance += ledger_opening_balance
+
+        cash_transactions_before_from_date = VoucherDetail.objects.filter(
+            voucher_main__date__lt=from_date,
+            voucher_main__retail=request.retail,
+            account=cash_ledger
+        ).aggregate(total=Sum(F('debit')-F('credit')))['total'] or 0
+
+        opening_balance += cash_transactions_before_from_date
+
+        transactions_queryset = VoucherDetail.objects.filter(
+            voucher_main__date__range=(from_date, to_date),
+            voucher_main__retail=request.retail,
+            account=cash_ledger
+        ).select_related("voucher_main", "account").order_by("voucher_main__date").annotate(
+            # Annotate the display debit and credit based on your logic
+            # Assuming 'debit' is stored as positive for debits, and 'credit' might be negative for credits
+            # or it's simply the credit amount. Adjust 'Abs(F('credit'))' if 'credit' is always positive.
+            display_debit=ExpressionWrapper(
+                Coalesce(F('debit'), 0),
+                output_field=DecimalField()
+            ),
+            display_credit=ExpressionWrapper(
+                Coalesce(Abs(F('credit')), 0), # Use Abs if credit is stored as negative for credit entries
+                output_field=DecimalField()
+            )
+        ).values(
+            "voucher_main__date",
+            "voucher_main__voucher_no",
+            "voucher_main__voucher_type",
+            
+            "account__ac_name",
+            "display_debit",
+            "display_credit",
+            "voucher_main__narration"
+        )
+
+        totals = transactions_queryset.aggregate(
+            total_debit=Sum('display_debit'),
+            total_credit=Sum('display_credit')
+        )
+        total_debit = totals['total_debit'] or 0
+        total_credit = totals['total_credit'] or 0
+
+        # Convert the QuerySet of dictionaries to a list of dictionaries
+        transaction_data = list(transactions_queryset)
+        response_data = {
+        "opening_balance": opening_balance,
+        "transactions": transaction_data,
+        "closing_balance": opening_balance + total_debit - total_credit
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+
+
+@api_view(['GET'])
+def account_tree(request):
+    from contacts.models import Ledger
+    from django.db.models import Count
+
+    # Pre-compute ledger counts per account group in one query
+    ledger_counts = dict(
+        Ledger.objects.values('ac_group_id')
+                      .annotate(cnt=Count('id'))
+                      .values_list('ac_group_id', 'cnt')
+    )
+
+    def build_tree(account):
+        children = list(account.children.all())
+        ledger_count = ledger_counts.get(account.id, 0)
+        return {
+            'id': account.id,
+            'name': f"{account.code} - {account.name}",
+            'code': account.code,
+            'can_be_deleted': account.can_be_deleted,
+            'ledger_count': ledger_count,
+            'can_delete': account.can_be_deleted and ledger_count == 0 and len(children) == 0,
+            'children': [build_tree(child) for child in children],
+        }
+
+    root_accounts = Account.objects.filter(parent__isnull=True).prefetch_related('children__children__children')
+    tree_data = [build_tree(account) for account in root_accounts]
+    return Response(tree_data)
+
+
+
+
+
+class JournalEntryViewSet(RetailBaseViewset):
+    serializer_class = JournalEntrySerializer
+    queryset = VoucherMain.objects.select_related('retail').prefetch_related('transactions__account').all()
+    filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
+    filterset_fields = ['voucher_no', 'voucher_type']
+    search_fields=['voucher_no','voucher_type']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Exclude sale/purchase voucher types from the accounting list
+        # (those are already visible in their respective apps)
+        excluded = [
+            VoucherType.sale, VoucherType.purc_sc, VoucherType.purc_ret,
+            VoucherType.sale_ret, VoucherType.rcpt_sale,
+        ]
+        return qs.exclude(voucher_type__in=excluded)
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            serializer.save(retail=self.request.retail)
+
+    def create(self, request, *args, **kwargs):
+        with transaction.atomic():
+            response = super().create(request, *args, **kwargs)
+            if response.status_code == status.HTTP_201_CREATED:
+                return Response({'success': True}, status=status.HTTP_201_CREATED)
+            return Response({'success': False, 'errors': response.data}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def initial_data_view(request):
+    # Retrieve ledgers, voucher number, and default date
+    ledgers = LedgerSerializer(Ledger.objects.only('id', 'ac_name', 'type', 'ac_group'), many=True).data
+    from accounting.utils import peek_next_bill_number
+    voucher_no = peek_next_bill_number(request.retail, 'JRNL')
+    default_date = timezone.localdate()
+
+    return Response({
+        'ledgers': ledgers,
+        'voucher_no': voucher_no,
+        'default_date': default_date
+    })
+
+@api_view()
+def get_next_gc_no(request):
+    from accounting.utils import peek_next_bill_number
+    bill_no = peek_next_bill_number(request.retail, "GC")
+    return Response({"billno":bill_no})
+
+@api_view()
+def get_next_vou_no(request,type):
+    from accounting.utils import peek_next_bill_number
+    type_map = {
+        "PMNT": VoucherType.pmnt,
+        "CONTRA": VoucherType.cntr,
+        "RCPT": VoucherType.rcpt,
+        "RCPT-SALE": VoucherType.rcpt_sale,
+        "SALE": VoucherType.sale,
+        "PURC-RET": VoucherType.purc_ret,
+        "PURC-SC": VoucherType.purc_sc,
+        "SALE-RET": VoucherType.sale_ret,
+        "JRNL": VoucherType.journal,
+    }
+    prefix = type_map.get(type)
+    if not prefix:
+        return Response(status=400)
+    bill_no = peek_next_bill_number(request.retail, prefix)
+    return Response({"billno":bill_no})
+
+
+@api_view()
+def get_next_cg_no(request):
+    from accounting.utils import peek_next_bill_number
+    bill_no = peek_next_bill_number(request.retail, "CG")
+    return Response({"billno":bill_no})
+
+class VoucherAttachmentListCreate(ListCreateAPIView):
+    from .serializers import VoucherAttachmentSerializer
+    serializer_class = VoucherAttachmentSerializer
+    from rest_framework.parsers import MultiPartParser
+    parser_classes = [MultiPartParser]
+
+    def get_queryset(self):
+        from .models import VoucherAttachment
+        voucher_id = self.request.query_params.get('voucher')
+        if voucher_id:
+            return VoucherAttachment.objects.filter(voucher_id=voucher_id).order_by('-uploaded_at')
+        return VoucherAttachment.objects.none()
+
+
+class VoucherAttachmentDelete(APIView):
+    def delete(self, request, pk):
+        from .models import VoucherAttachment
+        try:
+            att = VoucherAttachment.objects.get(pk=pk)
+            att.file.delete(save=False)
+            att.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except VoucherAttachment.DoesNotExist:
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class GoldCashConversionView(ListCreateAPIView):
+    serializer_class = GoldCashSerializder
+    queryset = CashGoldConversion.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.validated_data['retail'] = self.request.retail
+        return super().perform_create(serializer)
+
+class PurchaseVoucherView(ListAPIView):
+    serializer_class = PurchaseVoucherSerializer
+
+    def get_queryset(self):
+        ldgr_id = self.request.query_params.get("ldgr_id")
+        
+        return self.serializer_class.Meta.model.objects.filter(retail =self.request.retail ,ldgr_id=ldgr_id, due_amt__gt=0)
+
+class SaleVoucherView(ListAPIView):
+    serializer_class = SalesVouSerializer
+
+    def get_queryset(self):
+        ldgr_id = self.request.query_params.get("ldgr_id")
+        return self.serializer_class.Meta.model.objects.filter(retail =self.request.retail ,ldgr=ldgr_id, due_amt__gt=0)
+
+
+
+@api_view(['GET'])
+def cash_total_of_ledger(request, ledger_id):
+    total_debit = VoucherDetail.objects.filter(
+    voucher_main_id__in=VoucherDetail.objects.filter(account=ledger_id).values('voucher_main_id'),
+    account__in=RetailMaster.objects.values_list('cash_ldgr_id', flat=True).exclude(cash_ldgr_id=None)
+    ).aggregate(Sum('debit'))['debit__sum']
+
+    return Response({'total_cash': total_debit or 0})
+
+
+from django.db.models import Value
+from django.db.models.functions import Coalesce
+
+
+class LedgerStatementView(APIView):
+    """Per-ledger account statement with running balance."""
+    def get(self, request):
+        ledger_id = request.query_params.get("ledger_id")
+        from_date_str = request.query_params.get("from_date")
+        to_date_str = request.query_params.get("to_date")
+
+        if not all([ledger_id, from_date_str, to_date_str]):
+            return Response({"error": "ledger_id, from_date and to_date are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+
+        try:
+            ledger = Ledger.objects.get(pk=ledger_id)
+        except Ledger.DoesNotExist:
+            return Response({"error": "Ledger not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Opening balance = stored LedgerOpenBalance for the FY containing from_date
+        # + transactions within that FY before from_date (not all history).
+        from mastersconfig.models import FiscalYearMaster
+        fy = FiscalYearMaster.objects.filter(
+            retail=request.retail,
+            fy_start__lte=from_date,
+            fy_end__gte=from_date,
+        ).first()
+
+        ob_filter = dict(ldgr=ledger, retail=request.retail)
+        if fy:
+            ob_filter['acc_year'] = fy.fy_code
+        ob = LedgerOpenBalance.objects.filter(**ob_filter).aggregate(
+            debit=Coalesce(Sum('debit', output_field=DecimalField(max_digits=20, decimal_places=4)), Value(Decimal('0'))),
+            credit=Coalesce(Sum('credit', output_field=DecimalField(max_digits=20, decimal_places=4)), Value(Decimal('0')))
+        )
+        ob_balance = Decimal(str(ob['debit'])) - Decimal(str(ob['credit']))
+
+        before_filter = dict(
+            account=ledger,
+            voucher_main__date__lt=from_date,
+            voucher_main__retail=request.retail,
+        )
+        if fy:
+            before_filter['voucher_main__date__gte'] = fy.fy_start
+        before = VoucherDetail.objects.filter(**before_filter).aggregate(
+            total=Coalesce(
+                Sum(F('debit') - F('credit'), output_field=DecimalField(max_digits=20, decimal_places=4)),
+                Value(Decimal('0'))
+            )
+        )['total']
+
+        opening_balance = ob_balance + Decimal(str(before))
+
+        # Transactions in range
+        txns = VoucherDetail.objects.filter(
+            account=ledger,
+            voucher_main__date__range=(from_date, to_date),
+            voucher_main__retail=request.retail
+        ).select_related('voucher_main').order_by(
+            'voucher_main__date', 'voucher_main__id'
+        ).values(
+            'voucher_main__date', 'voucher_main__voucher_no', 'voucher_main__voucher_type',
+            'voucher_main__narration', 'debit', 'credit', 'party_bank_name', 'chq_no', 'ref_bill_no'
+        )
+
+        running_balance = opening_balance
+        transactions = []
+        for txn in txns:
+            running_balance += Decimal(str(txn['debit'])) - Decimal(str(txn['credit']))
+            transactions.append({
+                'date': txn['voucher_main__date'],
+                'voucher_no': txn['voucher_main__voucher_no'],
+                'voucher_type': txn['voucher_main__voucher_type'],
+                'narration': txn['voucher_main__narration'],
+                'debit': txn['debit'],
+                'credit': txn['credit'],
+                'party_bank_name': txn['party_bank_name'] or '',
+                'chq_no': txn['chq_no'] or '',
+                'ref_bill_no': txn['ref_bill_no'] or '',
+                'running_balance': running_balance,
+            })
+
+        return Response({
+            "ledger_id": ledger.id,
+            "ledger_name": ledger.ac_name,
+            "from_date": from_date,
+            "to_date": to_date,
+            "opening_balance": opening_balance,
+            "transactions": transactions,
+            "closing_balance": running_balance,
+        }, status=status.HTTP_200_OK)
+
+
+class DayBookView(APIView):
+    """All vouchers for a date range with their debit/credit lines."""
+    def get(self, request):
+        from_date_str = request.query_params.get("from_date")
+        to_date_str = request.query_params.get("to_date")
+
+        if not all([from_date_str, to_date_str]):
+            return Response({"error": "from_date and to_date are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+        to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+
+        vouchers = VoucherMain.objects.filter(
+            date__range=(from_date, to_date),
+            retail=request.retail
+        ).prefetch_related('transactions__account').order_by('date', 'voucher_no')
+
+        result = []
+        total_debit = Decimal('0')
+        total_credit = Decimal('0')
+        for v in vouchers:
+            lines = []
+            for t in v.transactions.all():
+                lines.append({
+                    "account": t.account.ac_name,
+                    "debit": t.debit,
+                    "credit": t.credit,
+                    "ref_bill_no": t.ref_bill_no or "",
+                    "party_bank_name": t.party_bank_name or "",
+                    "chq_no": t.chq_no or "",
+                })
+                total_debit += t.debit
+                total_credit += t.credit
+            result.append({
+                "date": v.date,
+                "voucher_no": v.voucher_no,
+                "voucher_type": v.voucher_type,
+                "narration": v.narration,
+                "amount": v.amount,
+                "lines": lines,
+            })
+
+        return Response({
+            "from_date": from_date,
+            "to_date": to_date,
+            "total_debit": total_debit,
+            "total_credit": total_credit,
+            "vouchers": result,
+        }, status=status.HTTP_200_OK)
+
+
+class OutstandingReportView(APIView):
+    """Debtors / Creditors outstanding with aging buckets: 0-30, 31-60, 61-90, 90+."""
+    def get(self, request):
+        report_type = request.query_params.get("type", "debtor")  # debtor | creditor
+        as_of_date_str = request.query_params.get("as_of_date", str(date.today()))
+        as_of_date = datetime.strptime(as_of_date_str, "%Y-%m-%d").date()
+
+        if report_type == "debtor":
+            from sales.models import SalesVou as BillModel
+            bills = BillModel.objects.filter(
+                retail=request.retail, due_amt__gt=0
+            ).select_related('ldgr').values('ldgr__ac_name', 'billno', 'date1', 'due_amt', 'total_bill_value')
+            bill_no_key = 'billno'
+            amount_key = 'total_bill_value'
+        else:
+            from purchase.models import PurchaseVoucher as BillModel
+            bills = BillModel.objects.filter(
+                retail=request.retail, due_amt__gt=0
+            ).select_related('ldgr').values('ldgr__ac_name', 'billno', 'date1', 'due_amt', 'bill_value')
+            bill_no_key = 'billno'
+            amount_key = 'bill_value'
+
+        result = {}
+        grand_total = Decimal('0')
+        grand_0_30 = Decimal('0')
+        grand_31_60 = Decimal('0')
+        grand_61_90 = Decimal('0')
+        grand_above_90 = Decimal('0')
+
+        for bill in bills:
+            name = bill['ldgr__ac_name']
+            bill_date = bill['date1']
+            if isinstance(bill_date, str):
+                bill_date = datetime.strptime(bill_date, "%Y-%m-%d").date()
+            age = (as_of_date - bill_date).days
+            due = Decimal(str(bill['due_amt']))
+
+            if name not in result:
+                result[name] = {
+                    "name": name,
+                    "total": Decimal('0'), "0_30": Decimal('0'),
+                    "31_60": Decimal('0'), "61_90": Decimal('0'),
+                    "above_90": Decimal('0'), "bills": []
+                }
+
+            result[name]["total"] += due
+            grand_total += due
+            if age <= 30:
+                result[name]["0_30"] += due
+                grand_0_30 += due
+            elif age <= 60:
+                result[name]["31_60"] += due
+                grand_31_60 += due
+            elif age <= 90:
+                result[name]["61_90"] += due
+                grand_61_90 += due
+            else:
+                result[name]["above_90"] += due
+                grand_above_90 += due
+
+            result[name]["bills"].append({
+                "bill_no": bill.get(bill_no_key, ''),
+                "date": bill_date.strftime("%Y-%m-%d"),
+                "total_amount": str(bill.get(amount_key, 0)),
+                "due_amount": str(due),
+                "age_days": age,
+            })
+
+        return Response({
+            "type": report_type,
+            "as_of_date": as_of_date_str,
+            "parties": list(result.values()),
+            "summary": {
+                "total": grand_total,
+                "0_30": grand_0_30,
+                "31_60": grand_31_60,
+                "61_90": grand_61_90,
+                "above_90": grand_above_90,
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class PnlDrilldownView(APIView):
+    """Return the voucher-level detail behind a P&L line item."""
+
+    def get(self, request):
+        metric = request.query_params.get("metric")          # sales, purchases, purchase_returns, expenses
+        start_date = request.query_params.get("start_date", "2000-01-01")
+        end_date = request.query_params.get("end_date", str(date.today()))
+        account_group_id = request.query_params.get("account_group_id")  # for expense sub-groups
+
+        base_filter = {
+            'voucher_main__date__range': [start_date, end_date],
+            'voucher_main__retail': request.retail,
+        }
+
+        if metric == "sales":
+            base_filter['voucher_main__voucher_type'] = VoucherType.sale
+            qs = VoucherDetail.objects.filter(**base_filter).select_related(
+                'voucher_main', 'account'
+            ).order_by('voucher_main__date')
+
+            # Group by voucher (bill) — sum debits per voucher = bill total
+            from django.db.models import Min
+            rows = VoucherMain.objects.filter(
+                voucher_type=VoucherType.sale,
+                date__range=[start_date, end_date],
+                retail=request.retail,
+            ).annotate(
+                total=Sum('transactions__debit'),
+                party=Min('transactions__account__ac_name'),
+            ).order_by('-date').values('voucher_no', 'date', 'narration', 'total', 'party')
+
+            return Response({"metric": "Sales Revenue", "vouchers": list(rows)})
+
+        elif metric == "purchases":
+            rows = VoucherMain.objects.filter(
+                voucher_type=VoucherType.purc_sc,
+                date__range=[start_date, end_date],
+                retail=request.retail,
+            ).annotate(
+                total=Sum('transactions__debit'),
+                party=Min('transactions__account__ac_name'),
+            ).order_by('-date').values('voucher_no', 'date', 'narration', 'total', 'party')
+
+            return Response({"metric": "Purchases", "vouchers": list(rows)})
+
+        elif metric == "purchase_returns":
+            rows = VoucherMain.objects.filter(
+                voucher_type=VoucherType.purc_ret,
+                date__range=[start_date, end_date],
+                retail=request.retail,
+            ).annotate(
+                total=Sum('transactions__credit'),
+                party=Min('transactions__account__ac_name'),
+            ).order_by('-date').values('voucher_no', 'date', 'narration', 'total', 'party')
+
+            return Response({"metric": "Purchase Returns", "vouchers": list(rows)})
+
+        elif metric == "expenses":
+            children = get_all_descendants(Account.objects.get(name="Expenses"))
+            ldgrs = Ledger.objects.filter(ac_group__in=children)
+
+            if account_group_id:
+                try:
+                    specific_group = Account.objects.get(pk=account_group_id)
+                    sub_descendants = [specific_group] + get_all_descendants(specific_group)
+                    ldgrs = ldgrs.filter(ac_group__in=sub_descendants)
+                except Account.DoesNotExist:
+                    pass
+
+            rows = VoucherDetail.objects.filter(
+                account__in=ldgrs,
+                **base_filter
+            ).select_related('voucher_main', 'account').order_by(
+                'voucher_main__date'
+            ).values(
+                'voucher_main__voucher_no', 'voucher_main__date',
+                'voucher_main__narration', 'account__ac_name',
+                'debit', 'credit'
+            )
+
+            return Response({"metric": "Expenses", "vouchers": list(rows)})
+
+        return Response({"error": "Invalid metric. Use: sales, purchases, purchase_returns, expenses"}, status=400)
+
+
+class FinancialRatiosView(APIView):
+    """Compute standard financial ratios from P&L + Balance Sheet data."""
+
+    def get(self, request):
+        fy = date.today().year if date.today().month >= 4 else date.today().year - 1
+        start_date_str = request.query_params.get("start_date", f"{fy}-04-01")
+        end_date_str = request.query_params.get("end_date", str(date.today()))
+
+        # ── P&L data ─────────────────────────────────────────────────────
+        pnl = calcuate_pnl(start_date_str, end_date_str, retail=request.retail)
+        sales_revenue = pnl["sales_revenue"]
+        gross_profit  = pnl["gross_profit"]
+        net_profit    = pnl["net_profit"]
+        cogs          = pnl["cogs"]
+        total_expenses = pnl["total_expenses"]
+        closing_stock  = pnl["closing_stock"]
+        purchases      = pnl["purchases"]
+        opening_stock  = pnl["opening_stock"]
+
+        # Average inventory for turnover (opening + closing / 2)
+        avg_inventory = (opening_stock + closing_stock) / 2 if (opening_stock + closing_stock) else Decimal(0)
+
+        # ── Balance Sheet totals ──────────────────────────────────────────
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+        txn_by_group = {}
+        for row in VoucherDetail.objects.filter(
+            voucher_main__date__lte=end_date,
+            voucher_main__retail=request.retail
+        ).values("account__ac_group").annotate(
+            balance=Sum(F("debit")) - Sum(F("credit"))
+        ):
+            gid = row["account__ac_group"]
+            if gid is not None:
+                txn_by_group[gid] = row["balance"] or Decimal(0)
+
+        ob_by_group = {}
+        for row in LedgerOpenBalance.objects.filter(
+            retail=request.retail
+        ).values("ldgr__ac_group").annotate(
+            balance=Sum(F("debit") - F("credit"), output_field=DecimalField())
+        ):
+            gid = row["ldgr__ac_group"]
+            if gid is not None:
+                ob_by_group[gid] = row["balance"] or Decimal(0)
+
+        all_accounts = list(Account.objects.all())
+        children_map = {}
+        for acc in all_accounts:
+            pid = acc.parent_id
+            children_map.setdefault(pid, []).append(acc)
+
+        def get_descendants(parent_id):
+            result = []
+            for child in children_map.get(parent_id, []):
+                result.append(child)
+                result.extend(get_descendants(child.id))
+            return result
+
+        def get_group_total(group_name):
+            try:
+                parent = next(a for a in all_accounts if a.name == group_name)
+            except StopIteration:
+                return Decimal(0)
+            return sum(
+                txn_by_group.get(acc.id, Decimal(0)) + ob_by_group.get(acc.id, Decimal(0))
+                for acc in get_descendants(parent.id)
+            )
+
+        total_assets      = get_group_total("Assets")
+        total_liabilities = get_group_total("Liabilities") + net_profit
+        equity            = total_assets - total_liabilities
+
+        # ── Outstanding debtors / creditors ──────────────────────────────
+        total_debtors = SalesVou.objects.filter(
+            retail=request.retail, due_amt__gt=0
+        ).aggregate(total=Sum("due_amt"))["total"] or Decimal(0)
+
+        total_creditors = PurchaseVoucher.objects.filter(
+            retail=request.retail, due_amt__gt=0
+        ).aggregate(total=Sum("due_amt"))["total"] or Decimal(0)
+
+        # ── Ratio helpers ────────────────────────────────────────────────
+        def ratio(num, den, pct=False, dp=2):
+            try:
+                if not den or Decimal(str(den)) == 0:
+                    return None
+                r = float(num) / float(den)
+                return round(r * 100 if pct else r, dp)
+            except Exception:
+                return None
+
+        def days(r):
+            return round(365 / r, 2) if r else None
+
+        # ── Profitability ────────────────────────────────────────────────
+        gpm  = ratio(gross_profit,   sales_revenue, pct=True)
+        npm  = ratio(net_profit,     sales_revenue, pct=True)
+        cogsr = ratio(cogs,          sales_revenue, pct=True)
+        expr  = ratio(total_expenses, sales_revenue, pct=True)
+        roa   = ratio(net_profit,    total_assets,   pct=True)
+        roe   = ratio(net_profit,    equity,         pct=True)
+        ros   = ratio(net_profit + total_expenses, sales_revenue, pct=True)  # EBIT margin approx
+
+        # ── Efficiency / Activity ────────────────────────────────────────
+        inv_turn  = ratio(cogs, avg_inventory) if avg_inventory else ratio(cogs, closing_stock)
+        dio       = days(inv_turn)
+        asset_turn = ratio(sales_revenue, total_assets)
+        rec_turn  = ratio(sales_revenue, total_debtors)
+        dso       = days(rec_turn)
+        pay_turn  = ratio(purchases, total_creditors)
+        dpo       = days(pay_turn)
+        cash_conv = (dio or 0) + (dso or 0) - (dpo or 0)  # Cash Conversion Cycle
+
+        # ── Leverage / Solvency ──────────────────────────────────────────
+        debt_ratio = ratio(total_liabilities, total_assets)
+        d2e        = ratio(total_liabilities, equity)
+        eq_ratio   = ratio(equity, total_assets)
+
+        return Response({
+            "period": {"start_date": start_date_str, "end_date": end_date_str},
+            "base_data": {
+                "sales_revenue":    sales_revenue,
+                "cogs":             cogs,
+                "gross_profit":     gross_profit,
+                "net_profit":       net_profit,
+                "total_expenses":   total_expenses,
+                "opening_stock":    opening_stock,
+                "closing_stock":    closing_stock,
+                "avg_inventory":    avg_inventory,
+                "total_assets":     total_assets,
+                "total_liabilities": total_liabilities,
+                "equity":           equity,
+                "total_debtors":    total_debtors,
+                "total_creditors":  total_creditors,
+                "purchases":        purchases,
+            },
+            "profitability": {
+                "gross_profit_margin":   {"value": gpm,   "label": "Gross Profit Margin",   "unit": "%", "desc": "Gross Profit / Sales × 100"},
+                "net_profit_margin":     {"value": npm,   "label": "Net Profit Margin",      "unit": "%", "desc": "Net Profit / Sales × 100"},
+                "cogs_ratio":            {"value": cogsr, "label": "COGS Ratio",             "unit": "%", "desc": "COGS / Sales × 100"},
+                "expense_ratio":         {"value": expr,  "label": "Expense Ratio",          "unit": "%", "desc": "Total Expenses / Sales × 100"},
+                "ebit_margin":           {"value": ros,   "label": "EBIT Margin (approx.)",  "unit": "%", "desc": "(Net Profit + Expenses) / Sales × 100"},
+                "return_on_assets":      {"value": roa,   "label": "Return on Assets (ROA)", "unit": "%", "desc": "Net Profit / Total Assets × 100"},
+                "return_on_equity":      {"value": roe,   "label": "Return on Equity (ROE)", "unit": "%", "desc": "Net Profit / Equity × 100"},
+            },
+            "efficiency": {
+                "inventory_turnover":      {"value": inv_turn, "label": "Inventory Turnover",       "unit": "×",    "desc": "COGS / Avg Inventory"},
+                "days_inventory_outstanding": {"value": dio,   "label": "Days Inventory Outstanding","unit": "days", "desc": "365 / Inventory Turnover"},
+                "asset_turnover":          {"value": asset_turn, "label": "Asset Turnover",         "unit": "×",    "desc": "Sales / Total Assets"},
+                "receivables_turnover":    {"value": rec_turn, "label": "Receivables Turnover",     "unit": "×",    "desc": "Sales / Total Debtors"},
+                "days_sales_outstanding":  {"value": dso,     "label": "Days Sales Outstanding",    "unit": "days", "desc": "365 / Receivables Turnover"},
+                "payables_turnover":       {"value": pay_turn, "label": "Payables Turnover",        "unit": "×",    "desc": "Purchases / Total Creditors"},
+                "days_payable_outstanding":{"value": dpo,     "label": "Days Payable Outstanding",  "unit": "days", "desc": "365 / Payables Turnover"},
+                "cash_conversion_cycle":   {"value": round(cash_conv, 2) if cash_conv else None,
+                                            "label": "Cash Conversion Cycle", "unit": "days",
+                                            "desc": "DIO + DSO − DPO"},
+            },
+            "leverage": {
+                "debt_ratio":     {"value": debt_ratio, "label": "Debt Ratio",     "unit": "×", "desc": "Total Liabilities / Total Assets"},
+                "debt_to_equity": {"value": d2e,        "label": "Debt-to-Equity", "unit": "×", "desc": "Total Liabilities / Equity"},
+                "equity_ratio":   {"value": eq_ratio,   "label": "Equity Ratio",   "unit": "×", "desc": "Equity / Total Assets"},
+            },
+        }, status=status.HTTP_200_OK)
+
+
+# ── Bank Reconciliation ───────────────────────────────────────────────────────
+
+class BankStatementListCreate(ListCreateAPIView):
+    """
+    GET  /api/bank-statement/?bank_ledger=<id>&from_date=&to_date=
+    POST /api/bank-statement/   — create a single bank statement entry
+    """
+    from .serializers import BankStatementSerializer
+
+    @property
+    def serializer_class(self):
+        from .serializers import BankStatementSerializer
+        return BankStatementSerializer
+
+    def get_queryset(self):
+        from .models import BankStatementEntry
+        retail = self.request.retail
+        qs = BankStatementEntry.objects.filter(retail=retail).select_related('bank_ledger', 'matched_entry')
+        bank_ldgr = self.request.query_params.get('bank_ledger')
+        from_date = self.request.query_params.get('from_date')
+        to_date   = self.request.query_params.get('to_date')
+        if bank_ldgr:
+            qs = qs.filter(bank_ledger_id=bank_ldgr)
+        if from_date:
+            qs = qs.filter(date__gte=from_date)
+        if to_date:
+            qs = qs.filter(date__lte=to_date)
+        return qs.order_by('date', 'id')
+
+    def perform_create(self, serializer):
+        serializer.save(retail=self.request.retail)
+
+
+class BankStatementDetail(APIView):
+    """DELETE /api/bank-statement/<pk>/"""
+    def delete(self, request, pk):
+        from .models import BankStatementEntry
+        entry = BankStatementEntry.objects.filter(pk=pk, retail=request.retail).first()
+        if not entry:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        entry.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def bank_statement_match(request, pk):
+    """
+    POST /api/bank-statement/<pk>/match/
+    Body: {"voucher_detail_id": <int>}
+    Links a bank statement entry to a book entry.
+    """
+    from .models import BankStatementEntry
+    entry = BankStatementEntry.objects.filter(pk=pk, retail=request.retail).first()
+    if not entry:
+        return Response({"detail": "Not found."}, status=404)
+    vd_id = request.data.get('voucher_detail_id')
+    if vd_id:
+        vd = VoucherDetail.objects.filter(pk=vd_id).first()
+        if not vd:
+            return Response({"detail": "VoucherDetail not found."}, status=404)
+        entry.matched_entry = vd
+    else:
+        entry.matched_entry = None
+    entry.save(update_fields=['matched_entry'])
+    return Response({"status": "ok", "matched": bool(entry.matched_entry)})
+
+
+@api_view(['GET'])
+def bank_book_for_recon(request):
+    """
+    GET /api/bank-reconciliation/book-entries/?bank_ledger=<id>&from_date=&to_date=
+    Returns VoucherDetail rows for the given bank ledger (for matching).
+    """
+    retail = request.retail
+    bank_ldgr_id = request.GET.get('bank_ledger')
+    from_date    = request.GET.get('from_date')
+    to_date      = request.GET.get('to_date')
+
+    if not bank_ldgr_id:
+        return Response({"detail": "bank_ledger is required."}, status=400)
+
+    qs = VoucherDetail.objects.filter(
+        voucher_main__retail=retail,
+        account_id=bank_ldgr_id,
+    ).select_related('voucher_main').order_by('voucher_main__date', 'id')
+
+    if from_date:
+        qs = qs.filter(voucher_main__date__gte=from_date)
+    if to_date:
+        qs = qs.filter(voucher_main__date__lte=to_date)
+
+    data = [{
+        'id':         vd.id,
+        'date':       str(vd.voucher_main.date),
+        'voucher_no': vd.voucher_no,
+        'narration':  vd.voucher_main.narration,
+        'debit':      float(vd.debit),
+        'credit':     float(vd.credit),
+        'chq_no':     vd.chq_no or '',
+        'is_matched': hasattr(vd, 'bank_statement_match'),
+    } for vd in qs]
+
+    # Annotate is_matched properly
+    from .models import BankStatementEntry
+    matched_vd_ids = set(
+        BankStatementEntry.objects.filter(
+            retail=retail, bank_ledger_id=bank_ldgr_id, matched_entry__isnull=False
+        ).values_list('matched_entry_id', flat=True)
+    )
+    for row in data:
+        row['is_matched'] = row['id'] in matched_vd_ids
+
+    return Response(data)
+
+
+# ── Audit Queue ───────────────────────────────────────────────────────────────
+
+def _is_auditor(request):
+    """Staff, superusers, or users with any role named 'Auditor' (case-insensitive)."""
+    if request.user.is_staff or request.user.is_superuser:
+        return True
+    from userauth.models import UserRole
+    try:
+        return request.user.userrole.role.name.lower() == 'auditor'
+    except Exception:
+        return False
+
+
+class AuditQueueView(APIView):
+    """
+    GET  /accounting/api/audit-queue/?from_date=&to_date=&show=unaudited|audited|all
+    Returns VoucherMain entries with audit status annotated.
+    """
+    def get(self, request):
+        from .models import AuditMark
+        from_date_str = request.query_params.get('from_date')
+        to_date_str   = request.query_params.get('to_date')
+        show          = request.query_params.get('show', 'unaudited')  # unaudited | audited | all
+
+        if not all([from_date_str, to_date_str]):
+            return Response({'error': 'from_date and to_date are required.'}, status=400)
+
+        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+        to_date   = datetime.strptime(to_date_str,   '%Y-%m-%d').date()
+
+        qs = VoucherMain.objects.filter(
+            date__range=(from_date, to_date),
+            retail=request.retail,
+        ).prefetch_related(
+            'transactions__account',
+            'audit_mark__audited_by',
+        ).order_by('date', 'voucher_no')
+
+        # Collect audit marks for this retail in one query
+        audit_marks = {
+            am.voucher_id: am
+            for am in AuditMark.objects.filter(
+                retail=request.retail,
+                voucher__date__range=(from_date, to_date),
+            ).select_related('audited_by')
+        }
+
+        result = []
+        for v in qs:
+            am = audit_marks.get(v.id)
+            is_audited = am is not None
+
+            if show == 'unaudited' and is_audited:
+                continue
+            if show == 'audited' and not is_audited:
+                continue
+
+            lines = [
+                {
+                    'account':        t.account.ac_name,
+                    'debit':          t.debit,
+                    'credit':         t.credit,
+                    'ref_bill_no':    t.ref_bill_no or '',
+                    'party_bank_name': t.party_bank_name or '',
+                    'chq_no':         t.chq_no or '',
+                }
+                for t in v.transactions.all()
+            ]
+
+            result.append({
+                'id':            v.id,
+                'date':          v.date,
+                'voucher_no':    v.voucher_no,
+                'voucher_type':  v.voucher_type,
+                'narration':     v.narration,
+                'amount':        v.amount,
+                'lines':         lines,
+                'is_audited':    is_audited,
+                'audited_by':    am.audited_by.get_full_name() or am.audited_by.username if am else None,
+                'audited_at':    am.audited_at.strftime('%Y-%m-%d %H:%M') if am else None,
+                'audit_notes':   am.notes if am else '',
+            })
+
+        return Response({
+            'from_date': from_date_str,
+            'to_date':   to_date_str,
+            'show':      show,
+            'count':     len(result),
+            'vouchers':  result,
+        })
+
+
+class AuditMarkView(APIView):
+    """
+    POST   /accounting/api/audit-mark/   { voucher_ids: [...], notes: "" }  → mark as audited
+    DELETE /accounting/api/audit-mark/   { voucher_ids: [...] }              → unmark
+    """
+    def post(self, request):
+        if not _is_auditor(request):
+            return Response({'error': 'Auditor access required.'}, status=403)
+
+        from .models import AuditMark
+        voucher_ids = request.data.get('voucher_ids', [])
+        notes       = request.data.get('notes', '')
+
+        if not voucher_ids:
+            return Response({'error': 'voucher_ids is required.'}, status=400)
+
+        vouchers = VoucherMain.objects.filter(
+            id__in=voucher_ids, retail=request.retail
+        )
+
+        created = 0
+        for v in vouchers:
+            _, was_created = AuditMark.objects.get_or_create(
+                voucher=v,
+                defaults={
+                    'audited_by': request.user,
+                    'notes':      notes,
+                    'retail':     request.retail,
+                }
+            )
+            if was_created:
+                created += 1
+
+        return Response({'marked': created, 'already_marked': len(voucher_ids) - created})
+
+    def delete(self, request):
+        if not _is_auditor(request):
+            return Response({'error': 'Auditor access required.'}, status=403)
+
+        from .models import AuditMark
+        voucher_ids = request.data.get('voucher_ids', [])
+
+        if not voucher_ids:
+            return Response({'error': 'voucher_ids is required.'}, status=400)
+
+        deleted, _ = AuditMark.objects.filter(
+            voucher_id__in=voucher_ids,
+            retail=request.retail,
+        ).delete()
+
+        return Response({'unmarked': deleted})

@@ -1,0 +1,1390 @@
+import json
+from django.shortcuts import get_object_or_404, render
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, JsonResponse
+from django.urls import reverse
+from django.utils.timezone import make_aware
+from django.utils import timezone
+from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter,SearchFilter
+from sales.serializers import CustomerOrderSerializer
+from .models import *
+from django.contrib.auth.decorators import login_required
+from userauth import views
+from rest_framework.generics import ListCreateAPIView,RetrieveUpdateDestroyAPIView
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+#import other relevant models
+from goldrates.models import PurityMaster
+from contacts.models import Ledger
+from mastersconfig.models import Item
+from .models import *
+
+# Create your views here.
+
+def generate_order_no():
+    # Fetch the last order from the database
+    last_order = CustomerOrder.objects.order_by('id').last()
+    
+    if not last_order:
+        # If there are no orders, start with C2324/00001
+        return "C2324/00001"
+    
+    # Extract the last part of the order number
+    last_order_no = last_order.order_no
+    order_no_suffix = int(last_order_no.split('/')[-1])
+    
+    # Increment the suffix by 1
+    new_order_no_suffix = order_no_suffix + 1
+    
+    # Format the new order number with leading zeros (ensures 5 digits after the '/')
+    new_order_no = f"C2324/{new_order_no_suffix:05}"
+    
+    return new_order_no
+
+@api_view(['GET'])
+def order_no_view(request):
+    try:
+        order_no = generate_order_no()
+        return Response({"order_no": order_no}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+class CustomerOrderView(ListCreateAPIView):
+    queryset = CustomerOrder.objects.all()
+    serializer_class = CustomerOrderSerializer
+    filter_backends = [OrderingFilter,DjangoFilterBackend]
+    ordering = ['-order_no']
+    
+
+    def get_queryset(self):
+        return CustomerOrder.objects.filter(retail=self.request.retail).select_related('ldgr').prefetch_related('items')
+
+    def perform_create(self, serializer):
+        serializer.save(retail=self.request.retail)
+
+class CustomerOrderViewset(views.RetailBaseViewset):
+    queryset = CustomerOrder.objects.select_related('ldgr', 'retail').prefetch_related('items', 'linked_vouchers').all()
+    serializer_class = CustomerOrderSerializer
+    filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['ldgr', 'status']
+    search_fields = ['order_no', 'ldgr__ac_name']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    # Optionally set default ordering
+    ordering = ['order_no'] 
+
+class CustomerOrderNumberView(ListCreateAPIView):
+
+    queryset = CustomerOrder.objects.all().distinct()
+    serializer_class = CustomerOrderSerializer
+    filter_backends = [OrderingFilter]
+    ordering = ['-order_no']
+
+class RetrieveCustomerOrderView(RetrieveUpdateDestroyAPIView):
+    queryset = CustomerOrder.objects.all()
+    serializer_class = CustomerOrderSerializer
+
+from .serializers import CustomerOrderItemsToPurchaseStyleSerializer
+
+@api_view(['GET'])
+def get_customer_item_as_purchase_style(request, order_no, sl_no):
+    try:
+        item = CustomerOrderItems.objects.get(order_no=order_no, sl_no=sl_no)
+    except CustomerOrderItems.DoesNotExist:
+        return Response({"detail": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = CustomerOrderItemsToPurchaseStyleSerializer(item)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def customer_order_delivery_overview(request):
+    """
+    Returns delivery KPI stats for the current retail:
+      - overdue_count        orders past delivery_date, not delivered/cancelled/billed
+      - due_today_count      orders due exactly today
+      - due_this_week_count  orders due in next 7 days (excl. today)
+      - pending_count        all open (not delivered/cancelled) orders
+      - delivered_count      delivered this month
+      - overdue_orders       first 10 overdue orders (for the alert banner)
+    """
+    from datetime import date, timedelta
+    retail = request.retail
+    if not retail:
+        return Response({'error': 'Retail context missing'}, status=400)
+
+    today     = date.today()
+    week_end  = today + timedelta(days=7)
+    month_start = today.replace(day=1)
+
+    open_qs = CustomerOrder.objects.filter(
+        retail=retail
+    ).exclude(
+        delivery_status__in=['delivered', 'cancelled']
+    ).exclude(status='Billed')
+
+    overdue_qs   = open_qs.filter(delivery_date__lt=today, delivery_date__isnull=False)
+    today_qs     = open_qs.filter(delivery_date=today)
+    this_week_qs = open_qs.filter(delivery_date__gt=today, delivery_date__lte=week_end)
+
+    delivered_qs = CustomerOrder.objects.filter(
+        retail=retail, delivery_status='delivered',
+        actual_delivery_date__gte=month_start
+    )
+
+    # Lightweight overdue list for the alert banner (max 10 rows)
+    overdue_orders = overdue_qs.select_related('ldgr').order_by('delivery_date')[:10]
+    overdue_list = [
+        {
+            'id':            o.id,
+            'order_no':      o.order_no,
+            'customer':      o.ldgr.ac_name if o.ldgr else '—',
+            'delivery_date': str(o.delivery_date),
+            'days_overdue':  (today - o.delivery_date).days,
+            'delivery_status': o.delivery_status,
+            'nature':        o.nature,
+        }
+        for o in overdue_orders
+    ]
+
+    return Response({
+        'overdue_count':        overdue_qs.count(),
+        'due_today_count':      today_qs.count(),
+        'due_this_week_count':  this_week_qs.count(),
+        'pending_count':        open_qs.count(),
+        'delivered_this_month': delivered_qs.count(),
+        'overdue_orders':       overdue_list,
+    })
+
+
+@api_view(['PATCH'])
+def customer_order_update_delivery(request, pk):
+    """
+    Quick update of delivery_status and optionally actual_delivery_date.
+    Body: { delivery_status, actual_delivery_date (optional) }
+    """
+    try:
+        order = CustomerOrder.objects.get(pk=pk, retail=request.retail)
+    except CustomerOrder.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=404)
+
+    new_status = request.data.get('delivery_status')
+    if new_status not in dict(CustomerOrder.DELIVERY_STATUS_CHOICES):
+        return Response({'error': f'Invalid delivery_status: {new_status}'}, status=400)
+
+    order.delivery_status = new_status
+
+    if new_status == 'delivered':
+        from datetime import date as date_cls
+        order.actual_delivery_date = request.data.get('actual_delivery_date') or str(date_cls.today())
+
+    order.save(update_fields=['delivery_status', 'actual_delivery_date'])
+    return Response(CustomerOrderSerializer(order).data)
+
+
+# ============= Sales Voucher Views (formerly in sale_voucher app) =============
+
+from datetime import datetime
+from rest_framework.viewsets import ModelViewSet
+from accounting.serializers import LedgerSerializer
+from sales.utils import generate_next_sale_voucher_no, generate_next_sale_return_no, generate_next_sale_app_no
+from sales.serializers import SaleReturnSerializer, SaleVoucherToReturnSerializer, SalesApprovalSerializer, SalesVouSerializer
+from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
+from rest_framework.views import APIView
+from django.db.models import Q
+import decimal
+
+
+class SalesVoucherViewset(views.RetailBaseViewset):
+    queryset = SalesVou.objects.select_related(
+        'ldgr', 'sales_person', 'sales_person2', 'ac_voucher', 'retail'
+    ).prefetch_related(
+        'salesvouitem_set__main_item_set',
+        'salesvouitemdetails_set',
+        'bank_details'
+    ).all()
+    serializer_class = SalesVouSerializer
+    filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
+
+    search_fields = ['billno','ldgr__ac_name']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    ordering = ['billno']
+
+
+class GSTInputRegisterView(APIView):
+    def get(self, request, format=None):
+        start_date_str = request.query_params.get('start_date')
+        end_date_str = request.query_params.get('end_date')
+
+        if not start_date_str or not end_date_str:
+            return Response({"detail": "start_date and end_date query parameters are required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({"detail": "Invalid date format. Use YYYY-MM-DD."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        from purchase.models import PurchaseVoucher
+        vouchers = PurchaseVoucher.objects.filter(
+            date1__range=[start_date, end_date]
+        ).select_related('ldgr').annotate(
+            party_name=F('ldgr__ac_name'),
+            gstin=F('ldgr__gst'),
+            pan=F('ldgr__pan'),
+            before_tax=Case(
+                When(discount_amt__isnull=False, then=ExpressionWrapper(F('discount_amt') * -1, output_field=DecimalField())),
+                default=Value(0),
+                output_field=DecimalField()
+            ),
+            taxable_amount=ExpressionWrapper(
+                F('item_total') - F('discount_amt'),
+                output_field=DecimalField()
+            ),
+            utgst=Value(0, output_field=DecimalField()),
+            add_less=Case(
+                When(round_off__isnull=False, then=F('round_off')),
+                default=Value(0),
+                output_field=DecimalField()
+            )
+        ).values(
+            'bill_no', 'bill_value', 'ref_no', 'gstin', 'sgst', 'cgst', 'igst', 'item_total', 'utgst', 'pan',
+            date=F('date1'), party_name=F('party_name'), group_value=F('item_total'), before_tax=F('before_tax'),
+            taxable_amount=F('taxable_amount'), add_less=F('add_less')
+        )
+
+        return Response(list(vouchers))
+
+
+class GSTOutputRegisterView(APIView):
+    def get(self, request, format=None):
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        sales_qs = SalesVou.objects.filter(
+            date1__range=[start_date, end_date]
+        ).select_related('ldgr', 'ac_voucher')
+
+        sales_annotated = sales_qs.annotate(
+            vtype=F('ac_voucher__voucher_type'),
+            partyname=F("ldgr__ac_name"),
+            gstin=F("ldgr__gst"),
+            pan=F("ldgr__pan"),
+            billvalue=F("mrp"),
+            beforetax=F("mrp") - F('discount'),
+            taxableamount=F("mrp") - F('discount'),
+            placeofsupply=F("place_of_supply"),
+            add_less=ExpressionWrapper(
+                Coalesce(F("freight_charge"), 0) + Coalesce(F("other_charge"), 0),
+                output_field=DecimalField()
+            )
+        ).values(
+            "date1", "vtype", "gst_billno", "partyname", "gstin", "pan",
+            "billvalue", "beforetax", "taxableamount", "sgst_per",
+            "cgst_per", "igst_per", "placeofsupply", "add_less"
+        )
+
+        return_qs = SaleReturn.objects.filter(
+            date1__range=[start_date, end_date]
+        ).select_related('ldgr', 'ac_voucher')
+
+        return_annotated = return_qs.annotate(
+            vtype=F('ac_voucher__voucher_type'),
+            partyname=F("ldgr__ac_name"),
+            gstin=F("ldgr__gst"),
+            pan=F("ldgr__pan"),
+            billvalue=F("mrp"),
+            beforetax=F("mrp") - F('discount'),
+            taxableamount=F("mrp") - F('discount'),
+        ).values(
+            "date1", "vtype", "billno", "partyname", "gstin", "pan",
+            "billvalue", "beforetax", "taxableamount", "sgst_per",
+            "cgst_per", "igst_per",
+        )
+
+        return Response({
+            "salesvoucher": list(sales_annotated),
+            "salesreturn": list(return_annotated)
+        })
+
+
+@api_view(['GET'])
+def tcs_register(request):
+    """
+    TCS Register — Section 206C(1H) sales TCS.
+    Returns all sales vouchers where TCS amount > 0, filtered by date range and section.
+    """
+    retail = request.retail
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+    section = request.GET.get('section')
+
+    qs = SalesVou.objects.filter(
+        retail=retail,
+        tcs_amt__gt=0
+    ).select_related('ldgr', 'tcs_section')
+
+    if from_date:
+        qs = qs.filter(date1__gte=from_date)
+    if to_date:
+        qs = qs.filter(date1__lte=to_date)
+    if section:
+        qs = qs.filter(tcs_section__section_code=section)
+
+    data = [{
+        'bill_no': v.billno,
+        'gst_bill_no': v.gst_billno or '',
+        'date': v.date1,
+        'customer': v.ldgr.ac_name if v.ldgr else '',
+        'gstin': v.ldgr.gst or '' if v.ldgr else '',
+        'pan': v.ldgr.pan or '' if v.ldgr else '',
+        'section': v.tcs_section.section_code if v.tcs_section else '206C1H',
+        'description': v.tcs_section.description if v.tcs_section else 'TCS on Sale of Goods',
+        'taxable_value': float(v.mrp or 0),
+        'tcs_rate': float(v.tcs_per or 0),
+        'tcs_amt': float(v.tcs_amt or 0),
+        'bill_value': float(v.mrp or 0) + float(v.tcs_amt or 0),
+    } for v in qs]
+
+    return Response(data)
+
+
+@api_view(['GET'])
+def gstr1_report(request):
+    """
+    GSTR-1 data split into B2B, B2CL, B2CS, CDNR, CDNUR sections.
+    Parameters: from_date, to_date (YYYY-MM-DD)
+    """
+    retail = request.retail
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if not from_date or not to_date:
+        return Response({"detail": "from_date and to_date are required."}, status=400)
+
+    retail_state_code = retail.state.code if retail and retail.state else ''
+
+    vouchers = SalesVou.objects.filter(
+        retail=retail, date1__range=[from_date, to_date]
+    ).select_related('ldgr', 'ldgr__state')
+
+    b2b = {}      # keyed by customer GSTIN
+    b2cl = []     # large unregistered inter-state invoices (≥ ₹2.5L)
+    b2cs = {}     # small B2C grouped by pos + rate
+
+    for v in vouchers:
+        taxable = float(v.mrp or 0) - float(v.discount or 0)
+        sgst    = round(taxable * float(v.sgst_per or 0) / 100, 2)
+        cgst    = round(taxable * float(v.cgst_per or 0) / 100, 2)
+        igst    = round(taxable * float(v.igst_per or 0) / 100, 2)
+        gst_rate = float(v.igst_per or 0) or (float(v.sgst_per or 0) + float(v.cgst_per or 0))
+        bill_val = round(taxable + sgst + cgst + igst, 2)
+
+        customer_gstin = (v.ldgr.gst or '').strip() if v.ldgr else ''
+        is_b2b = bool(customer_gstin)
+        pos = v.place_of_supply or ''
+        is_inter = pos != retail_state_code
+
+        inv = {
+            'inum': v.gst_billno or v.billno,
+            'idt': str(v.date1),
+            'val': bill_val,
+            'pos': pos,
+            'rchrg': 'N',
+            'txval': round(taxable, 2),
+            'rt': gst_rate,
+            'iamt': igst, 'camt': cgst, 'samt': sgst, 'csamt': 0,
+        }
+
+        if is_b2b:
+            if customer_gstin not in b2b:
+                b2b[customer_gstin] = {
+                    'ctin': customer_gstin,
+                    'cname': v.ldgr.ac_name if v.ldgr else '',
+                    'inv': [],
+                    'txval': 0, 'iamt': 0, 'camt': 0, 'samt': 0,
+                }
+            b2b[customer_gstin]['inv'].append(inv)
+            b2b[customer_gstin]['txval'] += round(taxable, 2)
+            b2b[customer_gstin]['iamt']  += igst
+            b2b[customer_gstin]['camt']  += cgst
+            b2b[customer_gstin]['samt']  += sgst
+        else:
+            if is_inter and taxable >= 250000:
+                b2cl.append({**inv})
+            else:
+                stype = 'INTER' if is_inter else 'INTRA'
+                key = f"{stype}_{pos}_{gst_rate}"
+                if key not in b2cs:
+                    b2cs[key] = {
+                        'sply_tp': stype,
+                        'pos': pos,
+                        'rt': gst_rate,
+                        'txval': 0, 'iamt': 0, 'camt': 0, 'samt': 0, 'csamt': 0,
+                    }
+                b2cs[key]['txval'] += round(taxable, 2)
+                b2cs[key]['iamt'] += igst
+                b2cs[key]['camt'] += cgst
+                b2cs[key]['samt'] += sgst
+
+    # Credit / Debit notes
+    returns_qs = SaleReturn.objects.filter(
+        retail=retail, date1__range=[from_date, to_date]
+    ).select_related('ldgr')
+
+    cdnr = {}
+    cdnur = []
+
+    for r in returns_qs:
+        taxable = float(r.mrp or 0) - float(r.discount or 0)
+        sgst = round(taxable * float(r.sgst_per or 0) / 100, 2)
+        cgst = round(taxable * float(r.cgst_per or 0) / 100, 2)
+        igst = round(taxable * float(r.igst_per or 0) / 100, 2)
+        customer_gstin = (r.ldgr.gst or '').strip() if r.ldgr else ''
+
+        note = {
+            'ntNum': r.billno,
+            'ntDt': str(r.date1),
+            'ntty': 'C',
+            'val': round(taxable + sgst + cgst + igst, 2),
+            'txval': round(taxable, 2),
+            'iamt': igst, 'camt': cgst, 'samt': sgst, 'csamt': 0,
+        }
+
+        if customer_gstin:
+            if customer_gstin not in cdnr:
+                cdnr[customer_gstin] = {
+                    'ctin': customer_gstin,
+                    'cname': r.ldgr.ac_name if r.ldgr else '',
+                    'nt': [],
+                }
+            cdnr[customer_gstin]['nt'].append(note)
+        else:
+            cdnur.append(note)
+
+    # Document summary (number of invoices per series)
+    invoice_count = vouchers.count()
+    return_count = returns_qs.count()
+
+    return Response({
+        'b2b':   list(b2b.values()),
+        'b2cl':  b2cl,
+        'b2cs':  list(b2cs.values()),
+        'cdnr':  list(cdnr.values()),
+        'cdnur': cdnur,
+        'doc_summary': {
+            'invoices': invoice_count,
+            'credit_notes': return_count,
+        },
+        'period': {'from': from_date, 'to': to_date},
+        'retail_gstin': retail.gstin or '' if retail else '',
+    })
+
+
+@api_view(['GET'])
+def gstr3b_report(request):
+    """
+    GSTR-3B summary: outward supplies, ITC, and net tax payable.
+    Parameters: from_date, to_date (YYYY-MM-DD)
+    """
+    retail = request.retail
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    if not from_date or not to_date:
+        return Response({"detail": "from_date and to_date are required."}, status=400)
+
+    # ── 3.1 Outward taxable supplies ──────────────────────────────────────────
+    sales_qs   = SalesVou.objects.filter(retail=retail, date1__range=[from_date, to_date])
+    returns_qs = SaleReturn.objects.filter(retail=retail, date1__range=[from_date, to_date])
+
+    out_taxable = out_igst = out_cgst = out_sgst = 0.0
+
+    for v in sales_qs:
+        tv = float(v.mrp or 0) - float(v.discount or 0)
+        out_taxable += tv
+        out_igst    += tv * float(v.igst_per or 0) / 100
+        out_cgst    += tv * float(v.cgst_per or 0) / 100
+        out_sgst    += tv * float(v.sgst_per or 0) / 100
+
+    for r in returns_qs:
+        tv = float(r.mrp or 0) - float(r.discount or 0)
+        out_taxable -= tv
+        out_igst    -= tv * float(r.igst_per or 0) / 100
+        out_cgst    -= tv * float(r.cgst_per or 0) / 100
+        out_sgst    -= tv * float(r.sgst_per or 0) / 100
+
+    # ── 4. Input Tax Credit (ITC) from purchases with GST supplier ────────────
+    from purchase.models import PurchaseVoucher
+    pur_qs = PurchaseVoucher.objects.filter(
+        retail=retail, date1__range=[from_date, to_date]
+    ).select_related('ldgr')
+
+    itc_igst = itc_cgst = itc_sgst = 0.0
+
+    for p in pur_qs:
+        if p.ldgr and (p.ldgr.gst or '').strip():
+            itc_igst += float(p.igst or 0)
+            itc_cgst += float(p.cgst or 0)
+            itc_sgst += float(p.sgst or 0)
+
+    tax_out   = out_igst + out_cgst + out_sgst
+    itc_total = itc_igst + itc_cgst + itc_sgst
+    net_tax   = max(0.0, tax_out - itc_total)
+
+    return Response({
+        '3_1': {
+            'label': 'Outward taxable supplies (other than zero rated, nil and exempted)',
+            'txval': round(out_taxable, 2),
+            'iamt':  round(out_igst, 2),
+            'camt':  round(out_cgst, 2),
+            'samt':  round(out_sgst, 2),
+            'csamt': 0,
+        },
+        '4': {
+            'label':     'Eligible ITC',
+            'itc_igst':  round(itc_igst, 2),
+            'itc_cgst':  round(itc_cgst, 2),
+            'itc_sgst':  round(itc_sgst, 2),
+            'itc_total': round(itc_total, 2),
+        },
+        'summary': {
+            'tax_payable':  round(tax_out, 2),
+            'itc':          round(itc_total, 2),
+            'net_payable':  round(net_tax, 2),
+        },
+        'period': {'from': from_date, 'to': to_date},
+    })
+
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        return super(DecimalEncoder, self).default(obj)
+
+
+class GenerateJsonView(APIView):
+    def get(self, request):
+        if not request.retail:
+            return Response(
+                {"error": "Missing or invalid X-RETAIL-ID header"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        bill = request.GET.get('bill')
+        if not bill:
+            return Response({"error": "Bill number is required"}, status=400)
+
+        from mastersconfig.models import State as StateModel
+
+        json_array = {}
+        json_array1 = []
+        sales_vou = SalesVou.objects.select_related(
+            'ldgr__state', 'retail__state'
+        ).get(billno=bill, retail=request.retail)
+        ldgr_master = sales_vou.ldgr
+
+        # ── State code for Place of Supply (Pos) ──────────────────────────────
+        pos_state = StateModel.objects.filter(
+            name__iexact=sales_vou.place_of_supply
+        ).first()
+        state_code_pos = str(pos_state.tin) if pos_state and pos_state.tin else '09'
+
+        # ── Buyer state code (Stcd) ───────────────────────────────────────────
+        buyer_state = StateModel.objects.filter(
+            name__iexact=(ldgr_master.state or '')
+        ).first()
+        party_state_code = str(buyer_state.tin) if buyer_state and buyer_state.tin else '09'
+
+        Catg = 'B2B' if ldgr_master.gst else 'B2C'
+
+        date = sales_vou.date1.strftime('%d/%m/%Y')
+
+        json_array['Version'] = '1.1'
+        json_array['TranDtls'] = {
+            'TaxSch': 'GST',
+            'SupTyp': Catg,
+            'IgstOnIntra': 'N',
+            'RegRev': 'N',
+            'EcmGstin': None
+        }
+        json_array['DocDtls'] = {
+            'Typ': 'INV',
+            'No': sales_vou.gst_billno,
+            'Dt': date
+        }
+
+        # ── Seller details — use exhibition profile if present ─────────────────
+        retail = request.retail
+        ep = getattr(request, 'exhibition', None)
+        seller_gstin   = (ep.gstin if ep and ep.gstin else retail.gstin) or ''
+        seller_addr1   = (ep.address_line1 if ep else retail.address_line1) or ''
+        seller_addr2   = (ep.address_line2 if ep else retail.address_line2) or ''
+        seller_city    = (ep.city if ep else retail.city) or ''
+        seller_pin     = (ep.pincode if ep else retail.pincode) or ''
+        seller_state   = ep.state if ep else retail.state
+        seller_stcd    = str(seller_state.tin) if seller_state and seller_state.tin else ''
+
+        json_array['SellerDtls'] = {
+            'Gstin': seller_gstin,
+            'LglNm': retail.retail_name.upper(),
+            'Addr1': seller_addr1,
+            'Addr2': seller_addr2,
+            'Loc':   seller_city,
+            'Pin':   int(seller_pin) if str(seller_pin).isdigit() else 0,
+            'Stcd':  seller_stcd,
+            'Ph':    retail.phone or None,
+            'Em':    retail.email or None,
+        }
+
+        # ── Buyer details ─────────────────────────────────────────────────────
+        buyer_addr1 = ((ldgr_master.add1 or '') + ' ' + (ldgr_master.add2 or '')).strip()
+        json_array['BuyerDtls'] = {
+            'Gstin': ldgr_master.gst or 'URP',
+            'LglNm': ldgr_master.ac_name.upper(),
+            'Addr1': buyer_addr1 or 'N/A',
+            'Addr2': None,
+            'Loc':   ldgr_master.state or '',
+            'Pin':   int(ldgr_master.pincode) if ldgr_master.pincode and str(ldgr_master.pincode).isdigit() else 0,
+            'Pos':   state_code_pos,
+            'Stcd':  party_state_code,
+            'Ph':    ldgr_master.phone1 or None,
+            'Em':    ldgr_master.email or None,
+        }
+        total_gross_amount = float(sales_vou.mrp or 0)
+        discount = float(sales_vou.discount or 0)
+        sgst_amt = sales_vou.sgst_amt
+        cgst_amt = sales_vou.cgst_amt
+        igst_amt = sales_vou.igst_amt
+        round_off = float(sales_vou.round_off or 0)
+        tcs_amt = sales_vou.tcs_amt
+        TotInvVal = (total_gross_amount - discount + sgst_amt +
+                        cgst_amt + igst_amt + round_off + tcs_amt)
+        json_array['ValDtls'] = {
+            'AssVal': round(total_gross_amount + round_off - discount, 2),
+            'IgstVal': round(igst_amt, 2),
+            'CgstVal': round(cgst_amt, 2),
+            'SgstVal': round(sgst_amt, 2),
+            'CesVal': 0.00,
+            'StCesVal': 0.00,
+            'Discount': 0.00,
+            'OthChrg': round(float(sales_vou.other_charge or 0) + tcs_amt, 2),
+            'RndOffAmt': 0.00,
+            'TotInvVal': round(TotInvVal, 2)
+        }
+        json_array['RefDtls'] = {'InvRm': 'NICGEPP2.0'}
+        item_array = []
+        bill_tot_item_value = 0
+        sales_items = SalesVouItem.objects.filter(billno=sales_vou)
+        flag = 1
+        if not sales_items.exists():
+            flag = 0
+            sales_details = SalesVouItemDetails.objects.filter(
+                billno=sales_vou
+            ).select_related('item')
+        c = 0
+        if flag == 1:
+            for sale_main in sales_items:
+                c += 1
+                metal_details = SalesVouItemDetails.objects.filter(
+                    billno=sales_vou,
+                    main_item=sale_main,
+                    item__item_name='GOLD',
+                    gw__gt=0
+                ).first()
+                stone_details = SalesVouItemDetails.objects.filter( Q(billno=sales_vou,
+                    main_item=sale_main,gw__gt=0) &
+                    ~Q(item__item_name='GOLD'),
+                ).select_related('item')
+                stone_desc = ""
+                for stone in stone_details:
+                    if stone.item.uom == "Gm":
+                        stone_desc += f", {stone.item.item} Wt {stone.gw} gms"
+                    elif stone.item.uom == "Ct":
+                        stone_desc += f", {stone.item.item} Wt {stone.ct} Ct"
+                hhsn = Item.objects.get(id=sale_main.item_id).hsn_no
+                freight_chrg = float(sales_vou.freight_charge or 0)
+                if c == 1:
+                    tot_amt = decimal.Decimal(sale_main.amount + freight_chrg + round_off -
+                                round((sale_main.amount * discount) / total_gross_amount, 0))
+                else:
+                    tot_amt = decimal.Decimal(sale_main.amount + freight_chrg -
+                                round((sale_main.amount * discount) / total_gross_amount, 0))
+                tot_item_value = (tot_amt +
+                                round(tot_amt * sales_vou.cgst_per / 100, 0) +
+                                round(tot_amt * sales_vou.sgst_per / 100, 0) +
+                                round(tot_amt * sales_vou.igst_per / 100, 0))
+                item_description = (f"{metal_details.metal_purity if metal_details else ''}K "
+                                    f"{sale_main.item.short_code} {sale_main.pcs} Pieces "
+                                    f"(Gross wt {sale_main.gw} gms {stone_desc})")
+                tot_item_value = round(tot_item_value, 2)
+                bill_tot_item_value += tot_item_value
+                item_array.append({
+                    'SlNo': str(c),
+                    'PrdDesc': item_description,
+                    'IsServc': 'N',
+                    'HsnCd': hhsn.hsn_no,
+                    'Qty': float(round(metal_details.gw, 3)) if metal_details else 0,
+                    'FreeQty': 0,
+                    'Unit': 'GMS',
+                    'UnitPrice': round(metal_details.rate, 0) if metal_details else 0,
+                    'TotAmt': round(tot_amt, 2),
+                    'Discount': 0.00,
+                    'PreTaxVal': 0.00,
+                    'AssAmt': round(tot_amt, 2),
+                    'GstRt': (sales_vou.sgst_per) + (sales_vou.cgst_per) + (sales_vou.igst_per),
+                    'IgstAmt': round(tot_amt * (sales_vou.igst_per) / 100, 0),
+                    'CgstAmt': round(tot_amt * (sales_vou.sgst_per) / 100, 0),
+                    'SgstAmt': round(tot_amt * (sales_vou.cgst_per) / 100, 0),
+                    'CesRt': 0.00,
+                    'CesAmt': 0.00,
+                    'CesNonAdvlAmt': 0.00,
+                    'StateCesRt': 0.00,
+                    'StateCesAmt': 0.00,
+                    'StateCesNonAdvlAmt': 0.00,
+                    'OthChrg': 0.00,
+                    'TotItemVal': round(tot_item_value, 0)
+                })
+        else:
+            for idx, sale_detail in enumerate(sales_details, 1):
+                c = idx
+                from mastersconfig.models import Hsn
+                hsn_no = Item.objects.get(item_id=sale_detail.item).hsn_no
+                hhsn = Hsn.objects.get(id=hsn_no)
+                wt = sale_detail.ct if sale_detail.item.uom == "Ct" else sale_detail.gw
+                freight_chrg = float(sales_vou.freight_charge or 0)
+                if c == 1:
+                    tot_amt = (sale_detail.amount + freight_chrg + round_off -
+                                round((sale_detail.amount * discount) / total_gross_amount, 0))
+                else:
+                    tot_amt = (sale_detail.amount + freight_chrg -
+                                round((sale_detail.amount * discount) / total_gross_amount, 0))
+                tot_item_value = (tot_amt +
+                                round(tot_amt * float(sales_vou.cgst_per) / 100, 0) +
+                                round(tot_amt * float(sales_vou.sgst_per) / 100, 0) +
+                                round(tot_amt * float(sales_vou.igst_per) / 100, 0))
+                item_description = hhsn.description
+                tot_item_value = round(tot_item_value, 2)
+                bill_tot_item_value += tot_item_value
+                item_array.append({
+                    'SlNo': str(c),
+                    'PrdDesc': item_description,
+                    'IsServc': 'N',
+                    'HsnCd': hhsn.hsn_no,
+                    'Qty': float(wt),
+                    'FreeQty': 0,
+                    'Unit': 'CT' if sale_detail.item.uom == "Ct" else 'GMS',
+                    'UnitPrice': round(sale_detail.rate, 0),
+                    'TotAmt': round(tot_amt, 2),
+                    'Discount': 0.00,
+                    'PreTaxVal': 0.00,
+                    'AssAmt': round(tot_amt, 2),
+                    'GstRt': float(sales_vou.sgst_per) + float(sales_vou.cgst_per) + float(sales_vou.igst_per),
+                    'IgstAmt': round(tot_amt * float(sales_vou.igst_per) / 100, 0),
+                    'CgstAmt': round(tot_amt * float(sales_vou.sgst_per) / 100, 0),
+                    'SgstAmt': round(tot_amt * float(sales_vou.cgst_per) / 100, 0),
+                    'CesRt': 0.00,
+                    'CesAmt': 0.00,
+                    'CesNonAdvlAmt': 0.00,
+                    'StateCesRt': 0.00,
+                    'StateCesAmt': 0.00,
+                    'StateCesNonAdvlAmt': 0.00,
+                    'OthChrg': 0.00,
+                    'TotItemVal': round(tot_item_value, 0)
+                })
+        if abs(float(bill_tot_item_value) - sales_vou.total_bill_value) > 1:
+            return Response({"error": "Error, please generate this using excel tool"}, status=400)
+        json_array['ItemList'] = item_array
+        json_array1.append(json_array)
+        json_data = json.dumps(json_array1, cls=DecimalEncoder, indent=4)
+        response = HttpResponse(json_data, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename=JSON_{bill}.json'
+        return response
+
+
+@api_view()
+def get_sale_voucher_for_return(request):
+    bill_no = request.query_params.get('bill_no')
+    if not bill_no:
+        return Response({"error": "Bill number is required"}, status=400)
+    obj = SalesVou.objects.get(billno=bill_no)
+    serializer = SaleVoucherToReturnSerializer(obj)
+    return Response(serializer.data)
+
+
+class SalesApprovalViewset(views.RetailBaseViewset):
+    queryset = SalesApproval.objects.all()
+    serializer_class = SalesApprovalSerializer
+    filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
+
+    search_fields=['billno','ldgr__ac_name']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+    ordering=['billno']
+
+class SalesReturnViewset(views.RetailBaseViewset):
+    queryset = SaleReturn.objects.all()
+    serializer_class = SaleReturnSerializer
+    filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
+
+    search_fields=['billno','ldgr__ac_name']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    ordering = ['billno']
+
+@api_view(['GET'])
+def get_next_sv_no(request):
+    from accounting.utils import peek_next_bill_number
+    if not request.retail:
+        return Response(
+            {"error": "Missing or invalid X-RETAIL-ID header"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    bill_no = peek_next_bill_number(request.retail, "SV")
+    return Response({"billno":bill_no})
+
+@api_view(['GET'])
+def get_next_sr_no(request):
+    from accounting.utils import peek_next_bill_number
+    if not request.retail:
+        return Response(
+            {"error": "Missing or invalid X-RETAIL-ID header"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    bill_no = peek_next_bill_number(request.retail, "SR")
+    return Response({"billno":bill_no})
+
+@api_view(['GET'])
+def get_next_sa_no(request):
+    from accounting.utils import peek_next_bill_number
+    if not request.retail:
+        return Response(
+            {"error": "Missing or invalid X-RETAIL-ID header"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    bill_no = peek_next_bill_number(request.retail, "SA")
+    return Response({"billno":bill_no})
+
+@api_view(['GET'])
+def customer_cash_received_view(request):
+    """
+    Returns the total cash already received from a customer in the active fiscal year.
+    Used by the frontend to show a live indicator and warn before the 269ST limit is hit.
+    Query params: customer_id (required)
+    """
+    from contacts.models import Ledger
+    from accounting.utils import get_customer_cash_received
+
+    customer_id = request.query_params.get('customer_id')
+    if not customer_id:
+        return Response({'error': 'customer_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not request.retail:
+        return Response({'error': 'Retail not set'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        customer_ldgr = Ledger.objects.get(pk=customer_id)
+    except Ledger.DoesNotExist:
+        return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    fy = request.retail.active_fy
+    limit = float(request.retail.max_cash_receipt_limit)
+    already = float(get_customer_cash_received(request.retail, fy, customer_ldgr))
+
+    return Response({
+        'customer_id': int(customer_id),
+        'customer_name': customer_ldgr.ac_name,
+        'cash_received': already,
+        'limit': limit,
+        'remaining': max(0.0, limit - already),
+    })
+
+
+@api_view(['GET'])
+def sale_voucher_initial_data(request):
+    """Combined endpoint that replaces 8 parallel API calls on the SalesVoucher form mount."""
+    from global_vars import STATES_OF_INDIA
+    from mastersconfig.models import Item, Packet, SalesPersonMaster, Hsn
+    from mastersconfig.serializers import ItemSerializer, PacketSerializer, SalesPersonMasterSerializer, HSNSerializer
+    from goldrates.serializer import PurityMasterSerializer
+
+    if not request.retail:
+        return Response(
+            {"error": "Missing or invalid X-RETAIL-ID header"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    from accounting.utils import peek_next_bill_number
+
+    states = [{"code": code, "name": name} for code, name in STATES_OF_INDIA]
+    bill_no = peek_next_bill_number(request.retail, "SV")
+
+    ledgers_qs = Ledger.objects.filter(roles__role='CO').only('id', 'ac_name', 'ac_group').distinct()
+    items_qs = Item.objects.select_related('hsn_no').all()
+    purity_qs = PurityMaster.objects.all()
+    packets_qs = Packet.objects.select_related('stone_item_id').all()
+    salespersons_qs = SalesPersonMaster.objects.filter(retail=request.retail)
+    hsns_qs = Hsn.objects.prefetch_related('item_set').all()
+
+    # Derive retail state code using STATES_OF_INDIA to stay consistent
+    # with the place_of_supply select options on the frontend
+    retail_state_name = request.retail.state.name if request.retail.state else ""
+    retail_state_code = next(
+        (code for code, name in STATES_OF_INDIA if name == retail_state_name),
+        request.retail.state.code if request.retail.state else ""
+    )
+
+    return Response({
+        "billno": bill_no,
+        "retail_state_code": retail_state_code,
+        "is_exhibition": request.retail.is_exhibition,
+        "states": states,
+        "ledgers": LedgerSerializer(ledgers_qs, many=True).data,
+        "items": ItemSerializer(items_qs, many=True).data,
+        "purity": PurityMasterSerializer(purity_qs, many=True).data,
+        "packets": PacketSerializer(packets_qs, many=True).data,
+        "salespersons": SalesPersonMasterSerializer(salespersons_qs, many=True).data,
+        "hsns": HSNSerializer(hsns_qs, many=True).data,
+    })
+
+
+@api_view(['GET'])
+def sale_return_initial_data(request):
+    """Combined initial data for the SalesReturn form."""
+    from mastersconfig.models import Item, Packet
+    from mastersconfig.serializers import ItemSerializer, PacketSerializer
+    from goldrates.serializer import PurityMasterSerializer
+
+    if not request.retail:
+        return Response(
+            {"error": "Missing or invalid X-RETAIL-ID header"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    from accounting.utils import peek_next_bill_number
+
+    bill_no = peek_next_bill_number(request.retail, "SR")
+    ledgers_qs = Ledger.objects.filter(roles__role='CO').only('id', 'ac_name', 'ac_group').distinct()
+    items_qs = Item.objects.select_related('hsn_no').all()
+    purity_qs = PurityMaster.objects.all()
+    packets_qs = Packet.objects.select_related('stone_item_id').all()
+
+    return Response({
+        "billno": bill_no,
+        "ledgers": LedgerSerializer(ledgers_qs, many=True).data,
+        "items": ItemSerializer(items_qs, many=True).data,
+        "purity": PurityMasterSerializer(purity_qs, many=True).data,
+        "packets": PacketSerializer(packets_qs, many=True).data,
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Invoice print helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_sub_item_text(d):
+    """Build the descriptive text line for a SalesVouItemDetails sub-row."""
+    if not d.item:
+        return ''
+    item_type = d.item.item_type
+    t = d.item.item_name or ''
+    rate_val = float(d.rate or 0)
+    rate_str = f' @ {round(rate_val)}' if rate_val != 0 else ''
+    if item_type == 'S':
+        return f'{t} Wt {d.ct} Ct{rate_str}'
+    elif item_type in ('O', 'P_G'):
+        return f'{t} ({d.gw} Gm) {d.pcs} Pcs{rate_str}'
+    else:  # R, C, M
+        if d.metal_purity and str(d.metal_purity) not in ('', '0'):
+            return f'{t} {d.metal_purity}K {float(d.gw or 0):.2f} Gm{rate_str}'
+        return t
+
+
+def build_invoice_context(voucher, retail):
+    """Build the complete data dict for the invoice print view."""
+    from mastersconfig.models import State as StateModel
+
+    # ── Company info — use exhibition profile if one was active when bill was raised ──
+    exh = voucher.exhibition_profile
+    if exh:
+        company_address    = ', '.join(filter(None, [
+            exh.address_line1, exh.address_line2, exh.address_line3, exh.city, exh.pincode,
+        ]))
+        company_gstin      = exh.gstin
+        company_state_name = exh.state.name if exh.state else ''
+        company_state_code = str(exh.state.tin) if exh.state else ''
+    else:
+        company_address    = ', '.join(filter(None, [
+            retail.address_line1, retail.address_line2, retail.address_line3,
+            retail.city, retail.pincode,
+        ]))
+        company_gstin      = retail.gstin or ''
+        company_state_name = retail.state.name if retail.state else ''
+        company_state_code = str(retail.state.tin) if retail.state else ''
+
+    # ── Customer (ledger) info ─────────────────────────────────────────────────
+    ldgr = voucher.ldgr
+    customer_address = ', '.join(filter(None, [
+        ldgr.add1, ldgr.add2, ldgr.city, ldgr.pincode,
+    ]))
+    customer_state_name = ldgr.state or ''
+    customer_state_obj = StateModel.objects.filter(name__iexact=customer_state_name).first()
+    customer_state_code = str(customer_state_obj.tin) if customer_state_obj else ''
+
+    # ── Metal rates: purity → rate (from R-type sub-items) ───────────────────
+    metal_rates = {}
+    for vi in voucher.salesvouitem_set.all():
+        for d in vi.main_item_set.all():
+            if d.item and d.item.item_type == 'R' and d.metal_purity and d.rate:
+                key = str(d.metal_purity)
+                if key not in metal_rates:
+                    metal_rates[key] = float(d.rate)
+    metal_rate_str = ', '.join(f'{k}K @ {v:.0f}' for k, v in metal_rates.items())
+
+    # ── Line items ────────────────────────────────────────────────────────────
+    items_data = []
+    for vi in voucher.salesvouitem_set.select_related(
+        'item', 'item__hsn_no'
+    ).prefetch_related('main_item_set__item').all():
+
+        purity_str = str(vi.purity) if vi.purity else ''
+        details = list(vi.main_item_set.all())
+
+        nw = sum(
+            float(d.gw or 0) for d in details
+            if d.item and d.item.item_type == 'R' and str(d.metal_purity) == purity_str
+        )
+        metal_value = sum(float(d.amount or 0) for d in details if d.item and d.item.item_type == 'R')
+        stone_value = sum(float(d.amount or 0) for d in details if d.item and d.item.item_type == 'S')
+        other_value = sum(float(d.amount or 0) for d in details if d.item and d.item.item_type not in ('R', 'S', 'M'))
+
+        hsn_code = vi.item.hsn_no.hsn_no if (vi.item and vi.item.hsn_no) else ''
+
+        sub_rows = [
+            {
+                'text': build_sub_item_text(d),
+                'pcs': d.pcs,
+                'gw': float(d.gw or 0),
+                'ct': float(d.ct or 0),
+                'rate': float(d.rate or 0),
+                'amount': float(d.amount or 0),
+                'item_type': d.item.item_type if d.item else '',
+                'metal_purity': str(d.metal_purity) if d.metal_purity else '',
+            }
+            for d in details
+        ]
+
+        items_data.append({
+            'sn': len(items_data) + 1,
+            'pcs': vi.pcs,
+            'item_name': vi.item.item_name if vi.item else '',
+            'hsn': hsn_code,
+            'purity': purity_str,
+            'gw': float(vi.gw or 0),
+            'nw': round(nw, 3),
+            'rate': metal_rates.get(purity_str, 0),
+            'metal_value': round(metal_value, 2),
+            'stone_value': round(stone_value, 2),
+            'making': float(vi.making_value or 0),
+            'other_value': round(other_value, 2),
+            'amount': float(vi.amount or 0),
+            'sub_rows': sub_rows,
+        })
+
+    # ── Totals & tax ──────────────────────────────────────────────────────────
+    items_total = sum(i['amount'] for i in items_data)
+    discount = float(voucher.discount or 0)
+    freight = float(voucher.freight_charge or 0)
+    taxable = items_total - discount + freight
+
+    sgst_per = float(voucher.sgst_per or 0)
+    cgst_per = float(voucher.cgst_per or 0)
+    igst_per = float(voucher.igst_per or 0)
+    tcs_per  = float(voucher.tcs_per or 0)
+
+    sgst_amt = round(taxable * sgst_per / 100, 2)
+    cgst_amt = round(taxable * cgst_per / 100, 2)
+    igst_amt = round(taxable * igst_per / 100, 2)
+    tcs_amt  = round((taxable + sgst_amt + cgst_amt + igst_amt) * tcs_per / 100, 2)
+    total    = round(taxable + sgst_amt + cgst_amt + igst_amt + tcs_amt, 2)
+
+    cash = float(voucher.cash or 0)
+    net_receivable = round(total - cash, 2)
+
+    # ── Bank details ──────────────────────────────────────────────────────────
+    bank_lines = []
+    for bd in voucher.bank_details.all():
+        parts = list(filter(None, [
+            bd.bank_name,
+            f'Chq: {bd.chq_no}' if bd.chq_no else '',
+            f'₹{bd.amount}' if bd.amount else '',
+        ]))
+        bank_lines.append(' | '.join(parts))
+
+    # ── Walk hierarchy: retail → branch → company for PAN / TAN / name ──────
+    company = None
+    if retail.branch_id and retail.branch and retail.branch.company_id:
+        company = retail.branch.company
+
+    return {
+        # Company
+        'company_name':         (company.company_name if company else retail.retail_name) or '',
+        'company_address':      company_address,
+        'company_gstin':        company_gstin,
+        'company_state':        company_state_name,
+        'company_state_code':   company_state_code,
+        'company_phone':        (company.phone if company else retail.phone) or '',
+        'company_email':        (company.email if company else retail.email) or '',
+        'company_pan':          (company.pan if company else '') or '',
+        'company_tan':          (company.tan if company else '') or '',
+        'company_cin':          (company.cin if company else '') or '',
+        'company_website':      (company.website if company else '') or '',
+        # Invoice meta
+        'billno':       voucher.billno or '',
+        'gst_billno':   voucher.gst_billno or '',
+        'date1':        str(voucher.date1) if voucher.date1 else '',
+        # Customer
+        'customer_name':        ldgr.ac_name or '',
+        'customer_address':     customer_address,
+        'customer_state':       customer_state_name,
+        'customer_state_code':  customer_state_code,
+        'customer_gstin':       ldgr.gst or '',
+        'customer_pan':         ldgr.pan or '',
+        'customer_aadhar':      ldgr.aadhar or '',
+        'customer_dl':          ldgr.dl_no or '',
+        # Shipping / Transport
+        'mode_of_transport': voucher.mode_of_transport or '',
+        'place_of_supply':   voucher.place_of_supply or '',
+        'metal_rate_str':    metal_rate_str,
+        # Items
+        'items': items_data,
+        # Totals
+        'items_total':    round(items_total, 2),
+        'discount':       discount,
+        'freight_charge': freight,
+        'taxable_value':  round(taxable, 2),
+        'sgst_per': sgst_per, 'sgst_amt': sgst_amt,
+        'cgst_per': cgst_per, 'cgst_amt': cgst_amt,
+        'igst_per': igst_per, 'igst_amt': igst_amt,
+        'tcs_per':  tcs_per,  'tcs_amt':  tcs_amt,
+        'total_bill_value': total,
+        'cash':            cash,
+        'net_receivable':  net_receivable,
+        'bank_lines':      bank_lines,
+        'mrp':             float(voucher.mrp or 0),
+    }
+
+
+@api_view(['GET'])
+def sale_voucher_print_data(request, pk):
+    """Return fully-computed invoice JSON for the React print component."""
+    try:
+        voucher = SalesVou.objects.select_related(
+            'ldgr', 'retail', 'retail__state',
+            'exhibition_profile', 'exhibition_profile__state',
+        ).prefetch_related(
+            'salesvouitem_set__item__hsn_no',
+            'salesvouitem_set__main_item_set__item',
+            'bank_details',
+        ).get(pk=pk, retail=request.retail)
+    except SalesVou.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    data = build_invoice_context(voucher, request.retail)
+    return Response(data)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# E-Way Bill views
+# ─────────────────────────────────────────────────────────────────────────────
+
+@api_view(['PATCH'])
+def eway_transport_update(request, pk):
+    """Save transport details onto a SalesVou so they can be used for e-way bill."""
+    try:
+        voucher = SalesVou.objects.get(pk=pk, retail=request.retail)
+    except SalesVou.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    allowed = {
+        'vehicle_no', 'transporter_name', 'transporter_id',
+        'trans_distance', 'trans_doc_no', 'trans_doc_date', 'mode_of_transport',
+    }
+    for field in allowed:
+        if field in request.data:
+            setattr(voucher, field, request.data[field] or '' if field != 'trans_distance' else (int(request.data[field]) if request.data[field] else 0))
+    voucher.save(update_fields=list(allowed & set(request.data.keys())))
+
+    return Response({
+        'id': voucher.id,
+        'vehicle_no': voucher.vehicle_no,
+        'transporter_name': voucher.transporter_name,
+        'transporter_id': voucher.transporter_id,
+        'trans_distance': voucher.trans_distance,
+        'trans_doc_no': voucher.trans_doc_no,
+        'trans_doc_date': str(voucher.trans_doc_date) if voucher.trans_doc_date else None,
+        'mode_of_transport': voucher.mode_of_transport,
+    })
+
+
+class EwayBillGenerateView(APIView):
+    """Generate e-Way Bill JSON download for a given bill number."""
+
+    def get(self, request):
+        from mastersconfig.models import State as StateModel
+
+        bill = request.query_params.get('bill')
+        if not bill:
+            return Response({'error': 'bill query param required'}, status=400)
+
+        try:
+            voucher = SalesVou.objects.select_related(
+                'ldgr', 'retail', 'retail__state',
+                'exhibition_profile', 'exhibition_profile__state',
+            ).get(billno=bill, retail=request.retail)
+        except SalesVou.DoesNotExist:
+            return Response({'error': 'Voucher not found'}, status=404)
+
+        retail = request.retail
+        ldgr = voucher.ldgr
+        ep = voucher.exhibition_profile
+
+        # ── Seller (From) details ─────────────────────────────────────────────
+        seller_gstin = (ep.gstin if ep else retail.gstin) or ''
+        seller_name  = (ep.name  if ep else retail.retail_name) or ''
+        seller_addr1 = (ep.address_line1 if ep else retail.address_line1) or ''
+        seller_addr2 = (ep.address_line2 if ep else retail.address_line2) or ''
+        seller_city  = (ep.city if ep else retail.city) or ''
+        seller_pin   = (ep.pincode if ep else retail.pincode) or '0'
+        seller_state = ep.state if ep else retail.state
+        seller_stcd  = str(seller_state.tin) if seller_state else '0'
+
+        # ── Buyer (To) details — use shipping address ─────────────────────────
+        buyer_gstin = ldgr.gst or 'URP'
+        buyer_name  = ldgr.ac_name or ''
+        buyer_addr1 = ldgr.ship_add1 or ldgr.add1 or ''
+        buyer_addr2 = ldgr.ship_add2 or ldgr.add2 or ''
+        buyer_city  = ldgr.ship_city or ldgr.city or ''
+        buyer_pin   = ldgr.ship_pincode or ldgr.pincode or '0'
+        buyer_state_name = ldgr.ship_state or ldgr.state or ''
+        try:
+            buyer_state_obj = StateModel.objects.get(name__iexact=buyer_state_name)
+            buyer_stcd = str(buyer_state_obj.tin)
+        except StateModel.DoesNotExist:
+            buyer_stcd = '0'
+
+        # ── Tax values ────────────────────────────────────────────────────────
+        taxable_val = round(float(voucher.taxable_value), 2)
+        cgst_val    = round(float(voucher.cgst_amt), 2)
+        sgst_val    = round(float(voucher.sgst_amt), 2)
+        igst_val    = round(float(voucher.igst_amt), 2)
+        total_val   = round(float(voucher.total_bill_value), 2)
+
+        # ── Doc date ──────────────────────────────────────────────────────────
+        doc_date = voucher.date1.strftime('%d/%m/%Y') if voucher.date1 else ''
+
+        # ── Transport details ─────────────────────────────────────────────────
+        trans_mode_map = {
+            'Road': '1', 'Rail': '2', 'Air': '3', 'Ship': '4',
+        }
+        trans_mode = trans_mode_map.get(voucher.mode_of_transport or '', '1')
+        trans_doc_date_str = voucher.trans_doc_date.strftime('%d/%m/%Y') if voucher.trans_doc_date else ''
+
+        # ── Build item list ───────────────────────────────────────────────────
+        item_list = []
+        sales_items = SalesVouItem.objects.filter(billno=voucher).select_related('item__hsn_no')
+        if sales_items.exists():
+            for idx, si in enumerate(sales_items, 1):
+                hsn_no = si.item.hsn_no.hsn_no if si.item and si.item.hsn_no else ''
+                gst_rate = float(voucher.sgst_per or 0) + float(voucher.cgst_per or 0) + float(voucher.igst_per or 0)
+                item_list.append({
+                    'productName': si.item.item_name if si.item else '',
+                    'productDesc': si.item.item_name if si.item else '',
+                    'hsnCode': hsn_no,
+                    'quantity': float(si.wt or 0),
+                    'qtyUnit': 'GMS',
+                    'taxableAmount': round(float(si.amount or 0), 2),
+                    'cgstRate': float(voucher.cgst_per or 0),
+                    'sgstRate': float(voucher.sgst_per or 0),
+                    'igstRate': float(voucher.igst_per or 0),
+                    'cessRate': 0.0,
+                })
+        else:
+            # Fallback: single line with total
+            item_list.append({
+                'productName': 'Jewellery',
+                'productDesc': 'Gold/Diamond Jewellery',
+                'hsnCode': '7113',
+                'quantity': 1.0,
+                'qtyUnit': 'NOS',
+                'taxableAmount': taxable_val,
+                'cgstRate': float(voucher.cgst_per or 0),
+                'sgstRate': float(voucher.sgst_per or 0),
+                'igstRate': float(voucher.igst_per or 0),
+                'cessRate': 0.0,
+            })
+
+        eway_json = {
+            'supplyType': 'O',
+            'subSupplyType': '1',
+            'docType': 'INV',
+            'docNo': voucher.gst_bill_no or voucher.billno,
+            'docDate': doc_date,
+            'fromGstin': seller_gstin,
+            'fromTrdName': seller_name,
+            'fromAddr1': seller_addr1,
+            'fromAddr2': seller_addr2,
+            'fromPlace': seller_city,
+            'fromPincode': int(seller_pin) if str(seller_pin).isdigit() else 0,
+            'fromStateCode': int(seller_stcd) if str(seller_stcd).isdigit() else 0,
+            'toGstin': buyer_gstin,
+            'toTrdName': buyer_name,
+            'toAddr1': buyer_addr1,
+            'toAddr2': buyer_addr2,
+            'toPlace': buyer_city,
+            'toPincode': int(buyer_pin) if str(buyer_pin).isdigit() else 0,
+            'toStateCode': int(buyer_stcd) if str(buyer_stcd).isdigit() else 0,
+            'transactionType': 1,
+            'totalValue': taxable_val,
+            'cgstValue': cgst_val,
+            'sgstValue': sgst_val,
+            'igstValue': igst_val,
+            'cessValue': 0.0,
+            'totInvValue': total_val,
+            'transMode': trans_mode,
+            'transDistance': str(voucher.trans_distance or ''),
+            'transporterName': voucher.transporter_name or '',
+            'transporterId': voucher.transporter_id or '',
+            'transDocNo': voucher.trans_doc_no or '',
+            'transDocDate': trans_doc_date_str,
+            'vehicleNo': voucher.vehicle_no or '',
+            'vehicleType': 'R',
+            'itemList': item_list,
+        }
+
+        json_data = json.dumps(eway_json, cls=DecimalEncoder, indent=4)
+        response = HttpResponse(json_data, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename=EWAY_{bill}.json'
+        return response
+

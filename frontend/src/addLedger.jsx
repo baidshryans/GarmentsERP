@@ -17,11 +17,11 @@ import {
     Sheet,
     SheetContent,
 } from "@/components/ui/sheet";
-import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Checkbox } from "@/components/ui/checkbox";
 import { renderErrorTree } from "@/Utils";
-import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getTypes, addLedgerRole, removeLedgerRole, setPrimaryLedgerRole, fetchTDSSections } from '@/services/apiService';
+import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getTypes, addLedgerRole, removeLedgerRole, setPrimaryLedgerRole, fetchTDSSections, checkLedgerName } from '@/services/apiService';
 import PhoneInput, { makePhoneValidator } from "@/components/ui/PhoneInput";
 
 // ─── Account tree helpers ─────────────────────────────────────────────────────
@@ -181,11 +181,33 @@ const LedgerForm = () => {
     const [ledgerRoles, setLedgerRoles] = useState([]);
     const [roleLoading, setRoleLoading] = useState(null);  // role code being toggled
     const [tdsSections, setTdsSections] = useState([]);
+    const [nameCheck, setNameCheck] = useState({ checking: false, exists: null }); // null = not checked yet
+    const nameCheckTimer = React.useRef(null);
 
     // Derived helpers
     const activeRoleCodes = ledgerRoles.map(r => r.role ?? r);   // support both old string[] and new {role,is_primary}[]
     const primaryRole = (ledgerRoles.find(r => r.is_primary)?.role)
         ?? (ledgerRoles[0]?.role ?? ledgerRoles[0]);              // fallback to first
+
+    const NON_CUSTOMER_ROLES = ['DL','KR','VD','CA','BA','SC','SD','REF','EXP','INC','HM','OTH'];
+    const hasNonCustomerRole = activeRoleCodes.some(r => NON_CUSTOMER_ROLES.includes(r));
+
+    const acName = watch('ac_name');
+
+    // Real-time ledger name uniqueness check (only for non-customer ledgers)
+    useEffect(() => {
+        if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current);
+        if (!hasNonCustomerRole || !acName || acName.trim().length < 2) {
+            setNameCheck({ checking: false, exists: null });
+            return;
+        }
+        setNameCheck({ checking: true, exists: null });
+        nameCheckTimer.current = setTimeout(async () => {
+            const res = await checkLedgerName(acName.trim(), id || null);
+            setNameCheck({ checking: false, exists: res.exists });
+        }, 500);
+        return () => clearTimeout(nameCheckTimer.current);
+    }, [acName, hasNonCustomerRole, id]);
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -255,6 +277,10 @@ const LedgerForm = () => {
     const onSubmit = async (data) => {
         if (activeRoleCodes.length === 0) {
             toast({ title: "Select at least one role", description: "Every ledger must have at least one role.", variant: "destructive" });
+            return;
+        }
+        if (nameCheck.exists === true) {
+            toast({ title: "Duplicate ledger name", description: "A ledger with this name already exists. Please use a different name.", variant: "destructive" });
             return;
         }
         try {
@@ -393,7 +419,24 @@ const LedgerForm = () => {
                         </Field>
 
                         <Field label="Party Name" required>
-                            <Input className={inputCls} {...register("ac_name")} required placeholder="Full legal name" />
+                            <div className="relative">
+                                <Input
+                                    className={`${inputCls} pr-8 ${nameCheck.exists ? 'border-red-400 focus:border-red-400' : nameCheck.exists === false && hasNonCustomerRole ? 'border-green-400 focus:border-green-400' : ''}`}
+                                    {...register("ac_name")}
+                                    required
+                                    placeholder="Full legal name"
+                                />
+                                {hasNonCustomerRole && (
+                                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                                        {nameCheck.checking && <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />}
+                                        {!nameCheck.checking && nameCheck.exists === false && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                                        {!nameCheck.checking && nameCheck.exists === true && <XCircle className="w-4 h-4 text-red-500" />}
+                                    </span>
+                                )}
+                            </div>
+                            {nameCheck.exists === true && (
+                                <p className="text-xs text-red-500 -mt-1">A ledger with this name already exists.</p>
+                            )}
                         </Field>
 
                         <Field label="Display Name" required>

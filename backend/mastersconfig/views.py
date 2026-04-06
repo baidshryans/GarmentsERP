@@ -37,18 +37,24 @@ class RetrieveUpdateDeleteHsn(RetrieveUpdateDestroyAPIView):
 
 #------------------Item-API-------------------------------------------
 class ListCreateItem(ListCreateAPIView):
-    serializer_class = ItemSerializer
     queryset         = Item.objects.all()
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['hsn_no','item_type']
     pagination_class = None
 
-
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ItemWriteSerializer
+        return ItemSerializer
 
 
 class RetrieveUpdateDestroyItem(RetrieveUpdateDestroyAPIView):
-    serializer_class = ItemSerializer
     queryset         = Item.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method in ('PUT', 'PATCH'):
+            return ItemWriteSerializer
+        return ItemSerializer
 
 
 
@@ -524,6 +530,32 @@ class ItemCSVUploadView(APIView):
                                 hsn_obj = Hsn.objects.filter(pk=int(hsn_val)).first()
                         show_pcs_raw = (row.get('show_in_pcs_report') or '0').strip()
                         show_pcs = show_pcs_raw in ('1', 'true', 'True', 'yes', 'Yes', 'Y')
+
+                        # Resolve purchase_ledger and sale_ledger (required)
+                        from contacts.models import Ledger as _Ldgr
+                        purchase_ldgr_val = (row.get('purchase_ledger') or '').strip()
+                        sale_ldgr_val = (row.get('sale_ledger') or '').strip()
+                        purchase_ldgr_obj = None
+                        sale_ldgr_obj = None
+                        if purchase_ldgr_val:
+                            purchase_ldgr_obj = _Ldgr.objects.filter(ac_name=purchase_ldgr_val).first()
+                            if not purchase_ldgr_obj and purchase_ldgr_val.isdigit():
+                                purchase_ldgr_obj = _Ldgr.objects.filter(pk=int(purchase_ldgr_val)).first()
+                        if sale_ldgr_val:
+                            sale_ldgr_obj = _Ldgr.objects.filter(ac_name=sale_ldgr_val).first()
+                            if not sale_ldgr_obj and sale_ldgr_val.isdigit():
+                                sale_ldgr_obj = _Ldgr.objects.filter(pk=int(sale_ldgr_val)).first()
+
+                        # For new items, purchase_ledger and sale_ledger are required
+                        is_existing = Item.objects.filter(short_code=short_code).exists()
+                        if not is_existing:
+                            if not purchase_ldgr_obj:
+                                errors.append(f"Row {i}: purchase_ledger is required for new item '{short_code}'.")
+                                continue
+                            if not sale_ldgr_obj:
+                                errors.append(f"Row {i}: sale_ledger is required for new item '{short_code}'.")
+                                continue
+
                         defaults = {
                             'item_name': item_name,
                             'item_type': item_type,
@@ -532,6 +564,10 @@ class ItemCSVUploadView(APIView):
                             'show_in_pcs_report': show_pcs,
                             'sub_grp': '',
                         }
+                        if purchase_ldgr_obj:
+                            defaults['purchase_ledger'] = purchase_ldgr_obj
+                        if sale_ldgr_obj:
+                            defaults['sale_ledger'] = sale_ldgr_obj
                         # Preserve MySQL id as Django pk so packet master stone_id lookup works
                         mysql_id_val = (row.get('id') or row.get('item_id') or '').strip()
                         if mysql_id_val.isdigit():

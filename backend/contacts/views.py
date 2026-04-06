@@ -29,6 +29,52 @@ class LocationBasedQuerysetMixin:
         return queryset.filter(loc=user_location)
 
 
+def _has_non_customer_role(ledger):
+    """Return True if the ledger has any role that is not Customer (CO)."""
+    return ledger.roles.exclude(role='CO').exists()
+
+
+def _name_conflicts(ac_name, exclude_id=None):
+    """
+    Return True if a non-Customer ledger with this ac_name (case-insensitive)
+    already exists, excluding the ledger with exclude_id.
+    """
+    qs = Ledger.objects.filter(ac_name__iexact=ac_name).exclude(roles__role='CO')
+    # The above gets ledgers that have at least one non-CO role OR no roles at all
+    # We want ledgers that are NOT purely customers
+    # Ledgers with no roles yet: filter those out (they have no non-CO role either)
+    qs = Ledger.objects.filter(
+        ac_name__iexact=ac_name
+    ).filter(
+        roles__isnull=False        # has at least one role
+    ).exclude(
+        roles__role='CO'           # exclude pure customers (those whose only roles are CO)
+    )
+    # More precise: exclude ledgers where ALL roles are CO
+    # Simplest: a ledger conflicts if it has any non-CO role AND its name matches
+    qs = Ledger.objects.filter(ac_name__iexact=ac_name).filter(
+        roles__role__in=['DL','KR','VD','CA','BA','SC','SD','REF','EXP','INC','HM','OTH']
+    ).distinct()
+    if exclude_id:
+        qs = qs.exclude(pk=exclude_id)
+    return qs.exists()
+
+
+@api_view(['GET'])
+def check_ledger_name(request):
+    """
+    GET /contacts/api/ledger/check-name/?ac_name=X&exclude_id=Y
+    Returns { exists: bool } — exists=true means a non-Customer ledger with
+    that name already exists (conflict for non-Customer ledger types).
+    """
+    ac_name = request.GET.get('ac_name', '').strip()
+    exclude_id = request.GET.get('exclude_id') or None
+    if not ac_name:
+        return Response({'exists': False})
+    exists = _name_conflicts(ac_name, exclude_id=exclude_id)
+    return Response({'exists': exists})
+
+
 class ListCreateLedger(ListCreateAPIView):
     serializer_class = LedgerSerializer
     queryset         = Ledger.objects.all()
@@ -37,10 +83,22 @@ class ListCreateLedger(ListCreateAPIView):
 
     search_fields = ["ac_name", "display_name", "mobile1", "mobile2", "phone1"]
 
-
-
     # Optionally set default ordering
-    ordering = ['ac_name'] 
+    ordering = ['ac_name']
+
+    def create(self, request, *args, **kwargs):
+        # requested_roles may be passed in the payload for upfront uniqueness check
+        requested_roles = request.data.get('requested_roles', [])
+        is_customer_only = requested_roles and all(r == 'CO' for r in requested_roles)
+        ac_name = (request.data.get('ac_name') or '').strip()
+        if ac_name and requested_roles and not is_customer_only:
+            if _name_conflicts(ac_name):
+                return Response(
+                    {'ac_name': f"A ledger named '{ac_name}' already exists. Duplicate names are only allowed for Customer accounts."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return super().create(request, *args, **kwargs)
+
 
 class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
     serializer_class = LedgerSerializer
@@ -53,6 +111,14 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
                 {'error': 'System-created ledgers cannot be edited.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        # If the ledger has non-CO roles and the name is being changed, check uniqueness
+        new_name = (request.data.get('ac_name') or '').strip()
+        if new_name and new_name.lower() != instance.ac_name.lower():
+            if _has_non_customer_role(instance) and _name_conflicts(new_name, exclude_id=instance.pk):
+                return Response(
+                    {'ac_name': f"A ledger named '{new_name}' already exists. Duplicate names are only allowed for Customer accounts."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -623,6 +689,13 @@ class LedgerCSVUploadView(APIView):
 
                         # ── Upsert by ac_name (case-insensitive) ───────────
                         existing = Ledger.objects.filter(ac_name__iexact=ac_name).first()
+                        # For new non-CO ledgers, reject if name already used by another non-CO ledger
+                        if not existing and row_type != 'CO' and _name_conflicts(ac_name):
+                            errors.append(
+                                f"Row {i}: '{ac_name}' — a non-customer ledger with this name already exists. "
+                                f"Duplicate names are not allowed for non-customer ledgers."
+                            )
+                            continue
                         if existing:
                             for k, v in fields.items():
                                 setattr(existing, k, v)

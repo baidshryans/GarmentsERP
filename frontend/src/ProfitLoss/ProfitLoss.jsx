@@ -235,14 +235,18 @@ export default function ProfitLoss() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [drill, setDrill] = useState(null); // { metric, title, accountGroupId? }
+  const [combined, setCombined] = useState(false);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   const fetchReport = async () => {
     setError("");
     setLoading(true);
     try {
-      const res = await apiClient.get(
-        `/accounting/api/pnl?start_date=${startDate}&end_date=${endDate}`
-      );
+      const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+      if (combined) params.set("combined", "true");
+      const res = await apiClient.get(`/accounting/api/pnl?${params}`);
       setData(res.data);
     } catch (e) {
       setError(e.response?.data?.error || "Failed to load Profit & Loss data.");
@@ -330,6 +334,18 @@ export default function ProfitLoss() {
           <Label className="text-xs">To</Label>
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-36" />
         </div>
+        {canViewCombined && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="pnl-combined"
+              checked={combined}
+              onChange={(e) => setCombined(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <Label htmlFor="pnl-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
+          </div>
+        )}
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {data && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">

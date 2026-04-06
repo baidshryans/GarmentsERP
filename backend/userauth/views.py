@@ -35,12 +35,20 @@ class UserLoginView(APIView):
         user = authenticate(username=username, password=password)
         if user is not None:
             token, created = Token.objects.get_or_create(user=user)
+            # Resolve role name for the frontend
+            role_name = None
+            try:
+                role_name = UserRole.objects.select_related('role').get(user=user).role.name
+            except UserRole.DoesNotExist:
+                pass
             user_data = {
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
+                "is_superuser": user.is_superuser,
+                "role": role_name,
             }
             return Response({"token": token.key, "user": user_data}, status=status.HTTP_200_OK)
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)

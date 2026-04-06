@@ -30,6 +30,10 @@ export default function TrialBalance() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [collapsed, setCollapsed] = useState({});
+  const [combined, setCombined] = useState(false);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   const toggle = (name) => setCollapsed((p) => ({ ...p, [name]: !p[name] }));
 
@@ -37,9 +41,9 @@ export default function TrialBalance() {
     setError("");
     setLoading(true);
     try {
-      const res = await apiClient.get(
-        `/accounting/api/trial?from_date=${fromDate}&to_date=${toDate}`
-      );
+      const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
+      if (combined) params.set("combined", "true");
+      const res = await apiClient.get(`/accounting/api/trial?${params}`);
       setReport(res.data);
     } catch (e) {
       setError(e.response?.data?.error || "Failed to load Trial Balance.");
@@ -135,6 +139,18 @@ export default function TrialBalance() {
           <Label className="text-xs">To</Label>
           <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-36" />
         </div>
+        {canViewCombined && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="tb-combined"
+              checked={combined}
+              onChange={(e) => setCombined(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <Label htmlFor="tb-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
+          </div>
+        )}
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {report && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">

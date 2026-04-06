@@ -271,6 +271,35 @@ def serve_attachment_file(request, name):
 
 
 @api_view(['GET'])
+def customer_purchases_for_adjustment(request):
+    """Return customer-type purchase vouchers for a given ledger that have unadjusted balance."""
+    from django.db.models import Sum, F, DecimalField, Value
+    from django.db.models.functions import Coalesce
+
+    ldgr_id = request.GET.get('ldgr')
+    if not ldgr_id or not request.retail:
+        return Response([])
+
+    qs = PurchaseVoucher.objects.filter(
+        voucher_type='Customer',
+        ldgr_id=ldgr_id,
+        retail=request.retail,
+        is_return=False,
+    ).annotate(
+        total_adjusted=Coalesce(
+            Sum('linked_sales_vouchers__old_gold_adjusted'),
+            Value(0), output_field=DecimalField()
+        ),
+    ).annotate(
+        available_balance=F('bill_value') - F('total_adjusted')
+    ).filter(
+        available_balance__gt=0
+    ).values('id', 'billno', 'date1', 'bill_value', 'total_adjusted', 'available_balance')
+
+    return Response(list(qs))
+
+
+@api_view(['GET'])
 def tds_register(request):
     retail = request.retail
     from_date = request.GET.get('from_date')

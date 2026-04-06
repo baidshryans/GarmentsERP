@@ -14,6 +14,19 @@ class ItemSerializer(ModelSerializer):
         model= Item
         fields = "__all__"
         depth = 1
+
+class ItemWriteSerializer(ModelSerializer):
+    """Flat serializer for create/update — enforces purchase_ledger & sale_ledger."""
+    class Meta:
+        model = Item
+        fields = "__all__"
+
+    def validate(self, attrs):
+        if not attrs.get('purchase_ledger'):
+            raise serializers.ValidationError({'purchase_ledger': 'Purchase ledger is required.'})
+        if not attrs.get('sale_ledger'):
+            raise serializers.ValidationError({'sale_ledger': 'Sale ledger is required.'})
+        return attrs
 class HSNSerializer(ModelSerializer):
     item_set = ItemSerializer(many=True)
     class Meta:

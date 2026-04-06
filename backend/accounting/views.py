@@ -62,6 +62,28 @@ def get_all_descendants(account:Account):
     return descendants
 
 
+def _can_view_combined(user):
+    """Return True if the user is allowed to view combined (all-retail) financial reports."""
+    if user.is_superuser:
+        return True
+    from userauth.models import UserRole
+    try:
+        user_role = UserRole.objects.select_related('role').get(user=user)
+        return user_role.role.name.lower() in ('admin', 'super admin')
+    except UserRole.DoesNotExist:
+        return False
+
+
+def _get_retail_for_report(request):
+    """Return retail or None based on ?combined=true param and user permissions."""
+    combined = request.query_params.get('combined', '').lower() in ('true', '1')
+    if combined:
+        if not _can_view_combined(request.user):
+            return 'FORBIDDEN'
+        return None  # None means all retails
+    return request.retail
+
+
 def calcuate_pnl(start_date, end_date, retail=None):
     opening_stock = calculate_opening_stock()
 
@@ -204,6 +226,11 @@ class BankbookReportView(APIView):
 class TrialBalanceReportView(APIView):
     def get(self, request: Request):
         try:
+            retail = _get_retail_for_report(request)
+            if retail == 'FORBIDDEN':
+                return Response({"error": "You do not have permission to view combined reports."},
+                                status=status.HTTP_403_FORBIDDEN)
+
             from_date = request.query_params.get("from_date")
             to_date = request.query_params.get("to_date")
 
@@ -212,14 +239,15 @@ class TrialBalanceReportView(APIView):
             # Determine which fiscal year contains from_date so we can use its stored OB
             # and only scan transactions within that FY (not all history).
             from mastersconfig.models import FiscalYearMaster
-            fy = FiscalYearMaster.objects.filter(
-                retail=request.retail,
-                fy_start__lte=from_date_obj,
-                fy_end__gte=from_date_obj,
-            ).first()
+            fy_filter = dict(fy_start__lte=from_date_obj, fy_end__gte=from_date_obj)
+            if retail:
+                fy_filter['retail'] = retail
+            fy = FiscalYearMaster.objects.filter(**fy_filter).first()
 
             # Batch query 1: Opening balances for the relevant fiscal year
-            ob_filter = dict(retail=request.retail)
+            ob_filter = {}
+            if retail:
+                ob_filter['retail'] = retail
             if fy:
                 ob_filter['acc_year'] = fy.fy_code
             ob_raw = LedgerOpenBalance.objects.filter(**ob_filter).values('ldgr').annotate(
@@ -229,10 +257,9 @@ class TrialBalanceReportView(APIView):
             ob_dict = {row['ldgr']: (row['total_debit'], row['total_credit']) for row in ob_raw}
 
             # Batch query 2: Transactions within the FY before from_date (not all history)
-            before_filter = dict(
-                voucher_main__date__lt=from_date_obj,
-                voucher_main__retail=request.retail,
-            )
+            before_filter = dict(voucher_main__date__lt=from_date_obj)
+            if retail:
+                before_filter['voucher_main__retail'] = retail
             if fy:
                 before_filter['voucher_main__date__gte'] = fy.fy_start
             before_raw = VoucherDetail.objects.filter(**before_filter).values('account').annotate(
@@ -241,17 +268,20 @@ class TrialBalanceReportView(APIView):
             before_dict = {row['account']: row['total'] or 0 for row in before_raw}
 
             # Batch query 3: All transactions in date range grouped by account
-            in_range_raw = VoucherDetail.objects.filter(
-                voucher_main__date__range=(from_date, to_date),
-                voucher_main__retail=request.retail
-            ).values('account').annotate(
+            in_range_filter = dict(voucher_main__date__range=(from_date, to_date))
+            if retail:
+                in_range_filter['voucher_main__retail'] = retail
+            in_range_raw = VoucherDetail.objects.filter(**in_range_filter).values('account').annotate(
                 total_debit=Sum("debit", default=0),
                 total_credit=Sum("credit", default=0)
             )
             in_range_dict = {row['account']: (row['total_debit'], row['total_credit']) for row in in_range_raw}
 
             # Batch query 4: All ledgers with their groups (single query)
-            all_ledgers = Ledger.objects.select_related('ac_group').filter(retail_code=request.retail)
+            ledger_filter = {}
+            if retail:
+                ledger_filter['retail_code'] = retail
+            all_ledgers = Ledger.objects.select_related('ac_group').filter(**ledger_filter)
             ledger_groups = Account.objects.all()
 
             # Group ledgers by account group
@@ -289,15 +319,21 @@ class TrialBalanceReportView(APIView):
 
 class BalanceSheetAPIView(APIView):
     def get(self, request: Response):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "You do not have permission to view combined reports."},
+                            status=status.HTTP_403_FORBIDDEN)
+
         end_date = request.query_params.get("end_date", date.today())
 
         # Aggregate transaction balances grouped by ledger's account group
-        # (account__ac_group is the FK from Ledger → Account)
+        txn_filter = dict(voucher_main__date__lte=end_date)
+        if retail:
+            txn_filter['voucher_main__retail'] = retail
         txn_by_group = {}
-        for row in VoucherDetail.objects.filter(
-            voucher_main__date__lte=end_date,
-            voucher_main__retail=request.retail
-        ).values('account__ac_group').annotate(
+        for row in VoucherDetail.objects.filter(**txn_filter).values(
+            'account__ac_group'
+        ).annotate(
             balance=Sum(F('debit')) - Sum(F('credit'))
         ):
             gid = row['account__ac_group']
@@ -305,10 +341,13 @@ class BalanceSheetAPIView(APIView):
                 txn_by_group[gid] = row['balance'] or Decimal(0)
 
         # Aggregate opening balances grouped by ledger's account group
+        ob_filter = {}
+        if retail:
+            ob_filter['retail'] = retail
         ob_by_group = {}
-        for row in LedgerOpenBalance.objects.filter(
-            retail=request.retail
-        ).values('ldgr__ac_group').annotate(
+        for row in LedgerOpenBalance.objects.filter(**ob_filter).values(
+            'ldgr__ac_group'
+        ).annotate(
             balance=Sum(F('debit') - F('credit'), output_field=DecimalField())
         ):
             gid = row['ldgr__ac_group']
@@ -354,7 +393,7 @@ class BalanceSheetAPIView(APIView):
         assets = get_group_balance("Assets")
         liabilities = get_group_balance("Liabilities")
 
-        pnl_data = calcuate_pnl("2000-01-01", end_date, retail=request.retail)
+        pnl_data = calcuate_pnl("2000-01-01", end_date, retail=retail)
         net_profit = pnl_data.get("net_profit", Decimal(0))
         liabilities["total"] += net_profit
         liabilities["accounts"].append({
@@ -373,10 +412,15 @@ class BalanceSheetAPIView(APIView):
 class ProfitLossAPIView(APIView):
 
     def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "You do not have permission to view combined reports."},
+                            status=status.HTTP_403_FORBIDDEN)
+
         start_date = request.GET.get("start_date", "2000-01-01")
         end_date = request.GET.get("end_date", date.today())
 
-        data = calcuate_pnl(start_date=start_date, end_date=end_date, retail=request.retail)
+        data = calcuate_pnl(start_date=start_date, end_date=end_date, retail=retail)
 
         return Response(data, status=status.HTTP_200_OK)
  
@@ -1030,6 +1074,11 @@ class PnlDrilldownView(APIView):
     """Return the voucher-level detail behind a P&L line item."""
 
     def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "You do not have permission to view combined reports."},
+                            status=status.HTTP_403_FORBIDDEN)
+
         metric = request.query_params.get("metric")          # sales, purchases, purchase_returns, expenses
         start_date = request.query_params.get("start_date", "2000-01-01")
         end_date = request.query_params.get("end_date", str(date.today()))
@@ -1037,8 +1086,11 @@ class PnlDrilldownView(APIView):
 
         base_filter = {
             'voucher_main__date__range': [start_date, end_date],
-            'voucher_main__retail': request.retail,
         }
+        retail_filter = {}
+        if retail:
+            base_filter['voucher_main__retail'] = retail
+            retail_filter['retail'] = retail
 
         if metric == "sales":
             base_filter['voucher_main__voucher_type'] = VoucherType.sale
@@ -1048,11 +1100,12 @@ class PnlDrilldownView(APIView):
 
             # Group by voucher (bill) — sum debits per voucher = bill total
             from django.db.models import Min
-            rows = VoucherMain.objects.filter(
+            vm_filter = dict(
                 voucher_type=VoucherType.sale,
                 date__range=[start_date, end_date],
-                retail=request.retail,
-            ).annotate(
+                **retail_filter,
+            )
+            rows = VoucherMain.objects.filter(**vm_filter).annotate(
                 total=Sum('transactions__debit'),
                 party=Min('transactions__account__ac_name'),
             ).order_by('-date').values('voucher_no', 'date', 'narration', 'total', 'party')
@@ -1060,11 +1113,12 @@ class PnlDrilldownView(APIView):
             return Response({"metric": "Sales Revenue", "vouchers": list(rows)})
 
         elif metric == "purchases":
-            rows = VoucherMain.objects.filter(
+            vm_filter = dict(
                 voucher_type=VoucherType.purc_sc,
                 date__range=[start_date, end_date],
-                retail=request.retail,
-            ).annotate(
+                **retail_filter,
+            )
+            rows = VoucherMain.objects.filter(**vm_filter).annotate(
                 total=Sum('transactions__debit'),
                 party=Min('transactions__account__ac_name'),
             ).order_by('-date').values('voucher_no', 'date', 'narration', 'total', 'party')
@@ -1075,7 +1129,7 @@ class PnlDrilldownView(APIView):
             rows = VoucherMain.objects.filter(
                 voucher_type=VoucherType.purc_ret,
                 date__range=[start_date, end_date],
-                retail=request.retail,
+                **retail_filter,
             ).annotate(
                 total=Sum('transactions__credit'),
                 party=Min('transactions__account__ac_name'),
@@ -1115,12 +1169,17 @@ class FinancialRatiosView(APIView):
     """Compute standard financial ratios from P&L + Balance Sheet data."""
 
     def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "You do not have permission to view combined reports."},
+                            status=status.HTTP_403_FORBIDDEN)
+
         fy = date.today().year if date.today().month >= 4 else date.today().year - 1
         start_date_str = request.query_params.get("start_date", f"{fy}-04-01")
         end_date_str = request.query_params.get("end_date", str(date.today()))
 
         # ── P&L data ─────────────────────────────────────────────────────
-        pnl = calcuate_pnl(start_date_str, end_date_str, retail=request.retail)
+        pnl = calcuate_pnl(start_date_str, end_date_str, retail=retail)
         sales_revenue = pnl["sales_revenue"]
         gross_profit  = pnl["gross_profit"]
         net_profit    = pnl["net_profit"]
@@ -1136,21 +1195,26 @@ class FinancialRatiosView(APIView):
         # ── Balance Sheet totals ──────────────────────────────────────────
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
 
+        txn_filter = dict(voucher_main__date__lte=end_date)
+        if retail:
+            txn_filter['voucher_main__retail'] = retail
         txn_by_group = {}
-        for row in VoucherDetail.objects.filter(
-            voucher_main__date__lte=end_date,
-            voucher_main__retail=request.retail
-        ).values("account__ac_group").annotate(
+        for row in VoucherDetail.objects.filter(**txn_filter).values(
+            "account__ac_group"
+        ).annotate(
             balance=Sum(F("debit")) - Sum(F("credit"))
         ):
             gid = row["account__ac_group"]
             if gid is not None:
                 txn_by_group[gid] = row["balance"] or Decimal(0)
 
+        ob_filter = {}
+        if retail:
+            ob_filter['retail'] = retail
         ob_by_group = {}
-        for row in LedgerOpenBalance.objects.filter(
-            retail=request.retail
-        ).values("ldgr__ac_group").annotate(
+        for row in LedgerOpenBalance.objects.filter(**ob_filter).values(
+            "ldgr__ac_group"
+        ).annotate(
             balance=Sum(F("debit") - F("credit"), output_field=DecimalField())
         ):
             gid = row["ldgr__ac_group"]

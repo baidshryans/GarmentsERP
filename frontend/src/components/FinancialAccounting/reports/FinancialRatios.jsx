@@ -80,12 +80,18 @@ export default function FinancialRatios() {
   const [data, setData]           = useState(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState(null);
+  const [combined, setCombined]   = useState(false);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   const fetchRatios = () => {
     setLoading(true);
     setError(null);
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    if (combined) params.set("combined", "true");
     apiClient
-      .get(`/accounting/api/financial-ratios/?start_date=${startDate}&end_date=${endDate}`)
+      .get(`/accounting/api/financial-ratios/?${params}`)
       .then((r) => setData(r.data))
       .catch((e) => setError(e?.response?.data?.error || "Failed to load ratios."))
       .finally(() => setLoading(false));
@@ -108,6 +114,18 @@ export default function FinancialRatios() {
           <Label className="text-xs">To Date</Label>
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40 h-8 text-sm" />
         </div>
+        {canViewCombined && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="fr-combined"
+              checked={combined}
+              onChange={(e) => setCombined(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <Label htmlFor="fr-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
+          </div>
+        )}
         <Button onClick={fetchRatios} disabled={loading} size="sm">
           {loading ? "Loading…" : "Generate Ratios"}
         </Button>

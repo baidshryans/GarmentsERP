@@ -6,6 +6,7 @@ from goldrates.models import PurityMaster
 from manufacturing.utils import create_or_update_nested
 from mastersconfig.models import Item, SalesPersonMaster, TCSSectionMaster
 from sales.models import CustomerOrder, CustomerOrderItems
+from purchase.models import PurchaseVoucher
 from django.db import   transaction
 
 class CustomerOrderSerializer(ModelSerializer):
@@ -260,6 +261,10 @@ class SalesVouSerializer(serializers.ModelSerializer):
     customer_order = serializers.PrimaryKeyRelatedField(
         queryset=CustomerOrder.objects.all(), allow_null=True, required=False
     )
+    old_gold_purchase = serializers.PrimaryKeyRelatedField(
+        queryset=PurchaseVoucher.objects.filter(voucher_type='Customer'),
+        allow_null=True, required=False
+    )
 
     class Meta:
         model = SalesVou
@@ -273,6 +278,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'due_amt',
             'advance_deducted',
             'customer_order',
+            'old_gold_purchase',
+            'old_gold_adjusted',
             'ldgr',
             'ldgr_name',
             'mobile1',
@@ -363,11 +370,27 @@ class SalesVouSerializer(serializers.ModelSerializer):
                         )
                     })
 
+            # ── Validate old_gold_adjusted against purchase's available balance ──
+            old_gold_adjusted = Decimal(str(validated_data.get('old_gold_adjusted', 0) or 0))
+            old_gold_purchase = validated_data.get('old_gold_purchase')
+            if old_gold_purchase and old_gold_adjusted > 0:
+                from django.db.models import Sum as _Sum
+                already_adj = old_gold_purchase.linked_sales_vouchers.aggregate(
+                    s=_Sum('old_gold_adjusted'))['s'] or Decimal('0')
+                available_og = Decimal(str(old_gold_purchase.bill_value or 0)) - already_adj
+                if old_gold_adjusted > available_og:
+                    raise ValidationError({
+                        'old_gold_adjusted': (
+                            f"Cannot adjust ₹{old_gold_adjusted:,.0f} — only ₹{available_og:,.0f} "
+                            f"is available from purchase {old_gold_purchase.billno}."
+                        )
+                    })
+
             sales_vou_instance = SalesVou.objects.create(**validated_data)
 
             # Patch due_amt now that the instance exists (total_bill_value is a property)
             total_bill = Decimal(str(sales_vou_instance.total_bill_value))
-            sales_vou_instance.due_amt = max(Decimal('0'), total_bill - cash_amt - bank_total - advance_deducted)
+            sales_vou_instance.due_amt = max(Decimal('0'), total_bill - cash_amt - bank_total - advance_deducted - old_gold_adjusted)
             # (saved again after ac_voucher is assigned below)
 
             # Create related SalesVouItem instances
@@ -506,6 +529,15 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 else:
                     customer_order.status = 'Billed'
                 customer_order.save(update_fields=['status'])
+
+            # ── Update old gold purchase voucher due_amt ─────────────────────
+            if old_gold_purchase and old_gold_adjusted > 0:
+                from django.db.models import Sum as _Sum
+                total_adj = old_gold_purchase.linked_sales_vouchers.aggregate(
+                    s=_Sum('old_gold_adjusted'))['s'] or Decimal('0')
+                purchase_bill = Decimal(str(old_gold_purchase.bill_value or 0))
+                old_gold_purchase.due_amt = max(Decimal('0'), purchase_bill - total_adj)
+                old_gold_purchase.save(update_fields=['due_amt'])
 
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
             for item_br in item_instances:

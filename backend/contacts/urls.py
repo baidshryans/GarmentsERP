@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/ledger-documents/<int:pk>/",views.LedgerDocumentDelete.as_view(),name='ledger-document-delete'),
     path('api/ledger/<int:pk>/tds-info/', views.ledger_tds_info, name='ledger_tds_info'),
     path('api/crm/occasions/', views.crm_occasions, name='crm_occasions'),
+    path('api/ledger/check-name/', views.check_ledger_name, name='ledger_check_name'),
     path('api/ledger/template/', views.LedgerTemplateDownloadView.as_view(), name='ledger_template'),
     path('api/ledger/csv-upload/', views.LedgerCSVUploadView.as_view(), name='ledger_csv_upload'),
 

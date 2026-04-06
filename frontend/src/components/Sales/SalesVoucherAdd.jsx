@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
-import { Edit, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle } from "lucide-react";
+import { Edit, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -34,6 +34,7 @@ import {
   fetchExhibitions,
   fetchCustomerCashReceived,
   fetchCustomerOrdersByLedger,
+  fetchCustomerPurchasesByLedger,
 } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 
@@ -99,6 +100,8 @@ const SalesVoucherAdd = () => {
         exhibition_profile: "",
         customer_order: "",
         advance_deducted: 0,
+        old_gold_purchase: "",
+        old_gold_adjusted: 0,
       },
       hsn: "711319",
       salesvouitem_set: [],
@@ -178,6 +181,8 @@ const SalesVoucherAdd = () => {
   const [customerCashInfo, setCustomerCashInfo] = useState(null); // { cash_received, limit, remaining }
   const [customerOrders, setCustomerOrders] = useState([]);       // orders with available advance
   const [selectedOrder, setSelectedOrder] = useState(null);       // the linked CustomerOrder object
+  const [customerPurchases, setCustomerPurchases] = useState([]); // old gold purchases with available balance
+  const [selectedPurchase, setSelectedPurchase] = useState(null); // the linked PurchaseVoucher object
   // Resolved item for the current manual input row
   const [detailItem, setDetailItem] = useState(null);
   // Display name shown in the item text box (item_name, not short_code)
@@ -381,6 +386,16 @@ const SalesVoucherAdd = () => {
             // Restore manual items
             if (data.data.salesvouitemdetails_set?.length) {
               setRows(data.data.salesvouitemdetails_set);
+            }
+            // Restore old gold purchase link
+            if (data.data.old_gold_purchase && data.data.ldgr) {
+              fetchCustomerPurchasesByLedger(data.data.ldgr).then(res => {
+                if (res.success) {
+                  setCustomerPurchases(res.data);
+                  const pv = res.data.find(p => p.id === data.data.old_gold_purchase);
+                  setSelectedPurchase(pv ?? null);
+                }
+              });
             }
           }
         });
@@ -612,9 +627,11 @@ const SalesVoucherAdd = () => {
       const cashPaid       = parseFloat(data.cash || 0);
       const bankPaid       = bankdetails.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
       const advDeducted    = parseFloat(data.advance_deducted || 0);
-      data.due_amt         = Math.max(0, grandTotal - cashPaid - bankPaid - advDeducted).toFixed(2);
-      // Send null when no order linked (avoid empty-string FK)
+      const oldGoldAdj     = parseFloat(data.old_gold_adjusted || 0);
+      data.due_amt         = Math.max(0, grandTotal - cashPaid - bankPaid - advDeducted - oldGoldAdj).toFixed(2);
+      // Send null when no order/purchase linked (avoid empty-string FK)
       if (!data.customer_order) data.customer_order = null;
+      if (!data.old_gold_purchase) data.old_gold_purchase = null;
 
       // ── Section 269ST: Cash Limit Compliance (₹2,00,000) ────────────────
       // Under Section 269ST of the Income Tax Act, no person can accept ₹2L or
@@ -686,6 +703,7 @@ const SalesVoucherAdd = () => {
     { isSeparator: true },
     { label: 'Total',          field: 'form.total_bill_value', isTotal: true, isEditableTotal: true },
     ...(selectedOrder ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: true, step: '1' }] : []),
+    ...(selectedPurchase ? [{ label: 'Old Gold Adjusted', field: 'form.old_gold_adjusted', editable: true, step: '1' }] : []),
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -745,10 +763,18 @@ const SalesVoucherAdd = () => {
                       setSelectedOrder(null);
                       setValue("form.customer_order", "");
                       setValue("form.advance_deducted", 0);
+                      // Fetch customer purchases (old gold) with available balance
+                      const purchasesRes = await fetchCustomerPurchasesByLedger(selected.id);
+                      setCustomerPurchases(purchasesRes.success ? purchasesRes.data : []);
+                      setSelectedPurchase(null);
+                      setValue("form.old_gold_purchase", "");
+                      setValue("form.old_gold_adjusted", 0);
                     } else {
                       setCustomerCashInfo(null);
                       setCustomerOrders([]);
                       setSelectedOrder(null);
+                      setCustomerPurchases([]);
+                      setSelectedPurchase(null);
                     }
                   },
                 })}
@@ -971,6 +997,95 @@ const SalesVoucherAdd = () => {
                 <p className="text-xs text-amber-700">
                   Advance deducted reduces the <strong>due amount</strong> on this bill.
                   Adjust the "Advance Deducted" field in the bill summary if you want to apply a partial amount.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ Old Gold Adjustment ════════════════════════════════════════ */}
+        {customerPurchases.length > 0 && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Gem className="size-4 text-amber-700" />
+              <span className="text-sm font-semibold text-amber-900">Old Gold Adjustment</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Purchase dropdown */}
+              <FieldContainer>
+                <Label className="text-nowrap text-amber-800">Customer Purchase (Old Gold)</Label>
+                <Controller
+                  name="form.old_gold_purchase"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ? String(field.value) : "__none__"}
+                      onValueChange={(val) => {
+                        if (val === "__none__") {
+                          field.onChange("");
+                          setSelectedPurchase(null);
+                          setValue("form.old_gold_adjusted", 0);
+                        } else {
+                          field.onChange(val);
+                          const pv = customerPurchases.find(p => String(p.id) === val);
+                          setSelectedPurchase(pv ?? null);
+                          if (pv) {
+                            setValue("form.old_gold_adjusted", parseFloat(pv.available_balance || 0));
+                            setCalculate(prev => prev + 1);
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm bg-white">
+                        <SelectValue placeholder="Select purchase…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— No old gold linked —</SelectItem>
+                        {customerPurchases.map(p => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.billno} · ₹{parseFloat(p.available_balance || 0).toLocaleString('en-IN')} available
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FieldContainer>
+
+              {/* Purchase info card */}
+              {selectedPurchase && (
+                <div className="rounded-md border border-amber-200 bg-white px-4 py-3 text-sm flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <CheckCircle2 className="size-3.5 text-emerald-600" />
+                    <span className="font-semibold text-amber-900">{selectedPurchase.billno}</span>
+                    <span className="text-muted-foreground text-xs ml-auto">{selectedPurchase.date1}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Purchase Bill Value</span>
+                    <span className="font-medium">₹{parseFloat(selectedPurchase.bill_value || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Already Adjusted</span>
+                    <span className="font-medium text-rose-600">
+                      − ₹{parseFloat(selectedPurchase.total_adjusted || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs border-t border-amber-100 pt-1 mt-0.5">
+                    <span className="font-semibold text-amber-800">Available to Adjust</span>
+                    <span className="font-bold text-amber-800">
+                      ₹{parseFloat(selectedPurchase.available_balance || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {selectedPurchase && (
+              <div className="mt-3 flex items-center gap-3">
+                <AlertCircle className="size-3.5 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-700">
+                  Old gold adjustment reduces the <strong>due amount</strong> on this bill.
+                  Adjust the "Old Gold Adjusted" field in the bill summary to apply a partial amount.
                 </p>
               </div>
             )}

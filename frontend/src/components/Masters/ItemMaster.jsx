@@ -115,6 +115,16 @@ export default function ItemMaster() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.short_code.trim() || !form.item_name.trim()) return;
+    if (!form.purchase_ledger) {
+      toast({ title: "Purchase Ledger is required", variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
+    if (!form.sale_ledger) {
+      toast({ title: "Sale Ledger is required", variant: "destructive" });
+      setSubmitting(false);
+      return;
+    }
     setSubmitting(true);
     const res = editingId
       ? await updateItem(editingId, buildPayload())
@@ -376,7 +386,7 @@ export default function ItemMaster() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <Label className="text-xs">Purchase Ledger</Label>
+                <Label className="text-xs">Purchase Ledger <span className="text-destructive">*</span></Label>
                 <Select
                   value={form.purchase_ledger || "__none__"}
                   onValueChange={(v) => handleSelect("purchase_ledger", v)}
@@ -385,7 +395,7 @@ export default function ItemMaster() {
                     <SelectValue placeholder="Select ledger" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">-- None --</SelectItem>
+                    <SelectItem value="__none__">-- Select --</SelectItem>
                     {ledgers.map((l) => (
                       <SelectItem key={l.id} value={String(l.id)}>
                         {l.ac_name}
@@ -396,7 +406,7 @@ export default function ItemMaster() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <Label className="text-xs">Sale Ledger</Label>
+                <Label className="text-xs">Sale Ledger <span className="text-destructive">*</span></Label>
                 <Select
                   value={form.sale_ledger || "__none__"}
                   onValueChange={(v) => handleSelect("sale_ledger", v)}
@@ -405,7 +415,7 @@ export default function ItemMaster() {
                     <SelectValue placeholder="Select ledger" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">-- None --</SelectItem>
+                    <SelectItem value="__none__">-- Select --</SelectItem>
                     {ledgers.map((l) => (
                       <SelectItem key={l.id} value={String(l.id)}>
                         {l.ac_name}

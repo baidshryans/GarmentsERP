@@ -123,6 +123,15 @@ class SalesVou(models.Model):
         related_name='linked_vouchers',
         help_text="The customer order whose advance is being reconciled in this bill"
     )
+    old_gold_purchase = models.ForeignKey(
+        'purchase.PurchaseVoucher', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='linked_sales_vouchers',
+        help_text="Customer purchase (old gold) adjusted against this sale"
+    )
+    old_gold_adjusted = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Old gold value adjusted from the linked customer purchase"
+    )
     ac_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True)
     ac_rec_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True,related_name="salereceipts")
 

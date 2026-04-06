@@ -29,14 +29,18 @@ export default function BalanceSheet() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [combined, setCombined] = useState(false);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   const fetchReport = async () => {
     setError("");
     setLoading(true);
     try {
-      const res = await apiClient.get(
-        `/accounting/api/bal-sheet?end_date=${endDate}`
-      );
+      const params = new URLSearchParams({ end_date: endDate });
+      if (combined) params.set("combined", "true");
+      const res = await apiClient.get(`/accounting/api/bal-sheet?${params}`);
       setData(res.data);
     } catch (e) {
       setError(
@@ -77,7 +81,7 @@ export default function BalanceSheet() {
 
     printReport({
       title: "Balance Sheet",
-      subtitle: `As on ${endDate}`,
+      subtitle: `As on ${endDate}${combined ? " (Combined — All Retails)" : ""}`,
       html,
     });
   };
@@ -102,6 +106,18 @@ export default function BalanceSheet() {
             className="h-9 w-40"
           />
         </div>
+        {canViewCombined && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="bs-combined"
+              checked={combined}
+              onChange={(e) => setCombined(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <Label htmlFor="bs-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
+          </div>
+        )}
         <Button size="sm" onClick={fetchReport} className="h-9">
           Show
         </Button>

@@ -1139,6 +1139,27 @@ export async function fetchCustomerOrdersByLedger(ldgr_id, { onlyWithAdvance = t
   }
 }
 
+export async function fetchCustomerPurchasesByLedger(ldgr_id) {
+  try {
+    const params = new URLSearchParams({ ldgr: ldgr_id });
+    const response = await apiClient.get(`/purchase/api/customer-purchases-for-adjustment/?${params.toString()}`);
+    return { success: true, data: response.data ?? [] };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function checkLedgerName(ac_name, excludeId = null) {
+  try {
+    const params = new URLSearchParams({ ac_name });
+    if (excludeId) params.set('exclude_id', excludeId);
+    const response = await apiClient.get(`/contacts/api/ledger/check-name/?${params}`);
+    return { success: true, exists: response.data.exists };
+  } catch (error) {
+    return { success: false, exists: false };
+  }
+}
+
 export async function fetchSlNosOrders(id) {
   try {
     const response = await apiClient.get(`/manufacturing/fetch-sl-no/?order_no_id=${id}`);

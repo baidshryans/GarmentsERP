@@ -14,6 +14,7 @@ urlpatterns += [
     path('api-token-auth/', views.UserLoginView.as_view()),
     # Setup wizard endpoints
     path('api/setup/status/', setup_views.setup_status),
+    path('api/setup/sync-retails/', setup_views.sync_user_retails),
     path('api/setup/seed-states/', setup_views.seed_states),
     path('api/setup/seed-accounts/', setup_views.seed_account_groups),
     path('api/setup/seed-tds-tcs/', setup_views.seed_tds_tcs),

@@ -51,17 +51,19 @@ class Command(BaseCommand):
     help = "Seed all Indian states and union territories into the State master."
 
     def handle(self, *args, **kwargs):
+        from django.db import transaction
         created_count = 0
         updated_count = 0
-        for sid, name, stype, tin, code in INDIAN_STATES:
-            _, created = State.objects.update_or_create(
-                id=sid,
-                defaults={"name": name, "type": stype, "tin": tin, "code": code},
-            )
-            if created:
-                created_count += 1
-            else:
-                updated_count += 1
+        with transaction.atomic():
+            for sid, name, stype, tin, code in INDIAN_STATES:
+                _, created = State.objects.update_or_create(
+                    id=sid,
+                    defaults={"name": name, "type": stype, "tin": tin, "code": code},
+                )
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
         self.stdout.write(
             self.style.SUCCESS(
                 f"States seeded: {created_count} created, {updated_count} updated."

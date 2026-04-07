@@ -158,6 +158,19 @@ class RetailMasterView(ListCreateAPIView):
     serializer_class = RetailSerializer
     queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'branch').all()
 
+    def perform_create(self, serializer):
+        retail = serializer.save()
+        # Auto-assign the new retail to the creating user's UserLocation so
+        # it appears immediately in their retail selector dropdown.
+        user = self.request.user
+        if user and user.is_authenticated:
+            from contacts.models import UserLocation
+            ul, _ = UserLocation.objects.get_or_create(user=user)
+            ul.location.add(retail)
+            if ul.default_location is None:
+                ul.default_location = retail
+                ul.save(update_fields=['default_location'])
+
 
 class RetailMasterDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = RetailSerializer

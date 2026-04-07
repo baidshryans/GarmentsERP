@@ -138,8 +138,21 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
 
 class AllowedRetailView(ListAPIView):
     serializer_class = AllowedRetailSerializer
+
     def get_queryset(self):
-        return UserLocation.objects.filter(user=self.request.user).order_by('id')
+        user = self.request.user
+        if user.is_superuser:
+            # Superusers always see every retail — sync their UserLocation first
+            from mastersconfig.models import RetailMaster
+            all_retails = list(RetailMaster.objects.all())
+            if all_retails:
+                ul, _ = UserLocation.objects.get_or_create(user=user)
+                for retail in all_retails:
+                    ul.location.add(retail)
+                if ul.default_location is None:
+                    ul.default_location = all_retails[0]
+                    ul.save(update_fields=['default_location'])
+        return UserLocation.objects.filter(user=user).order_by('id')
     
 @api_view(['GET'])
 def get_customer_type(request):

@@ -23,7 +23,13 @@ def my_apps(request):
     """
     Returns the licensing info for the current user's company.
     Superadmin or no-subscription = all apps licensed (full access).
+    Auto-seeds the AppRegistry on first call if it is empty.
     """
+    # Auto-seed app registry if it has never been populated
+    if not AppRegistry.objects.exists():
+        from django.core.management import call_command
+        call_command('seed_app_registry', verbosity=0)
+
     # Superadmin always gets everything
     if request.user.is_superuser:
         all_codes, all_nav = _all_apps_payload()
@@ -61,7 +67,13 @@ def all_apps(request):
     """
     Returns the full app catalog with licensing status for the current company.
     Superadmin or no subscription = all apps shown as installed.
+    Auto-seeds the AppRegistry on first call if it is empty.
     """
+    # Auto-seed app registry if it has never been populated
+    if not AppRegistry.objects.exists():
+        from django.core.management import call_command
+        call_command('seed_app_registry', verbosity=0)
+
     is_superuser = request.user.is_superuser
 
     retail = getattr(request, 'retail', None)

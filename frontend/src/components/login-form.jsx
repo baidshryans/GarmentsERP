@@ -44,7 +44,8 @@ export function LoginForm() {
           navigate("/settings/setup", { replace: true });
         }
       } else {
-        navigate("/", { replace: true });
+        // Status check failed — go to setup wizard which will auto-detect state
+        navigate("/settings/setup", { replace: true });
       }
       window.location.reload();
     } else {

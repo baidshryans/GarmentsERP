@@ -2741,7 +2741,7 @@ export async function deleteKarigarMaking(id) {
 
 export async function fetchCompanies() {
   try {
-    const response = await apiClient.get(`/mastersconfig/api/company/`);
+    const response = await apiClient.get(`/mastersconfig/api/company/?page_size=100`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -2779,7 +2779,7 @@ export async function deleteCompany(id) {
 
 export async function fetchBranches() {
   try {
-    const response = await apiClient.get(`/mastersconfig/api/branch/`);
+    const response = await apiClient.get(`/mastersconfig/api/branch/?page_size=100`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -4077,11 +4077,20 @@ export async function setupRollback() {
   }
 }
 
+export async function syncUserRetails() {
+  try {
+    const response = await apiClient.post('/userauth/api/setup/sync-retails/');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // ── GSTIN Master ──────────────────────────────────────────────────────────────
 
 export async function fetchGstins() {
   try {
-    const response = await apiClient.get('/mastersconfig/api/gstin/');
+    const response = await apiClient.get('/mastersconfig/api/gstin/?page_size=100');
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

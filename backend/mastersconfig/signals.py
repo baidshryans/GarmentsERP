@@ -47,7 +47,6 @@ def create_gstin_gst_registers(sender, instance, created, **kwargs):
         ledger = Ledger.objects.create(
             ac_name=ac_name,
             display_name=f"{instance.gstin} {label}",
-            mobile1=ac_name,
             ac_group=acct_cache.get(acct_code),
             is_system=True,
         )
@@ -81,7 +80,6 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
         ledger = Ledger.objects.create(
             ac_name=ac_name,
             display_name=f"{instance.company_name} {label.replace('_', ' ')}",
-            mobile1=ac_name,
             ac_group=acct_cache.get(acct_code),
             is_system=True,
         )
@@ -111,11 +109,61 @@ def create_retail_ledgers(sender, instance, created, **kwargs):
 
     ledger = Ledger.objects.create(
         ac_name=f"{instance.retail_code}_Cash",
-        display_name=f"{instance.retail_code}_Cash",
-        mobile1=f"{instance.retail_code}_Cash",
+        display_name=f"{instance.retail_code} Cash",
         ac_group=ac_group,
         is_system=True,
     )
     LedgerRole.objects.create(ledger=ledger, role='CA', is_primary=True)
 
     RetailMaster.objects.filter(pk=instance.pk).update(cash_ldgr_id=ledger.pk)
+
+    # Auto-create TDS/TCS payable ledgers if sections are already seeded
+    try:
+        from mastersconfig.models import TDSSectionMaster, TCSSectionMaster
+        from accounting.models import Account
+
+        tds_group = Account.objects.filter(code='CL-DT-TDS').first()
+        tcs_group = Account.objects.filter(code='CL-DT-TCS').first()
+
+        for sec in TDSSectionMaster.objects.all():
+            ledger_name = f"TDS Payable u/s {sec.section_code}"
+            ldgr, created = Ledger.objects.get_or_create(
+                ac_name=ledger_name,
+                retail_code=instance,
+                defaults={'display_name': ledger_name, 'ac_group': tds_group, 'is_system': True},
+            )
+            if created:
+                LedgerRole.objects.get_or_create(ledger=ldgr, role='EXP', defaults={'is_primary': True})
+            if not sec.ledger:
+                sec.ledger = ldgr
+                sec.save(update_fields=['ledger'])
+
+        for sec in TCSSectionMaster.objects.all():
+            ledger_name = f"TCS Payable u/s {sec.section_code}"
+            ldgr, created = Ledger.objects.get_or_create(
+                ac_name=ledger_name,
+                retail_code=instance,
+                defaults={'display_name': ledger_name, 'ac_group': tcs_group, 'is_system': True},
+            )
+            if created:
+                LedgerRole.objects.get_or_create(ledger=ldgr, role='EXP', defaults={'is_primary': True})
+            if not sec.ledger:
+                sec.ledger = ldgr
+                sec.save(update_fields=['ledger'])
+    except Exception:
+        pass  # Never block retail creation
+
+    # Auto-assign every new retail to all superusers so they can always switch
+    # between retails regardless of when the retail was created.
+    try:
+        from django.contrib.auth import get_user_model
+        from contacts.models import UserLocation
+        User = get_user_model()
+        for superuser in User.objects.filter(is_superuser=True, is_active=True):
+            ul, _ = UserLocation.objects.get_or_create(user=superuser)
+            ul.location.add(instance)
+            if ul.default_location is None:
+                ul.default_location = instance
+                ul.save(update_fields=['default_location'])
+    except Exception:
+        pass  # Never let this break retail creation

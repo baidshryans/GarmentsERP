@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -8,7 +8,6 @@ import {
   ChevronDown,
   FolderOpen,
   Folder,
-  Upload,
   Database,
   XCircle,
   ArrowRight,
@@ -28,11 +27,6 @@ import {
   fetchStates,
   getFiscalYears,
   createFiscalYear,
-  uploadHSNCSV,
-  uploadItemGroupCSV,
-  uploadItemCSV,
-  uploadPacketGroupCSV,
-  uploadPacketCSV,
   createCompany,
   fetchCompanies,
   createBranch,
@@ -41,21 +35,21 @@ import {
   fetchGstins,
   setupRollback,
   seedStates,
+  syncUserRetails,
 } from "@/services/apiService";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Step definitions
 // ═══════════════════════════════════════════════════════════════════════════════
 const STEPS = [
-  { key: "company", label: "Company", description: "Create the parent company entity" },
-  { key: "branch", label: "Branch", description: "Add at least one branch under the company" },
-  { key: "gstin", label: "GSTIN", description: "Register the GSTIN that owns GST ledgers" },
-  { key: "accounts", label: "Account Groups", description: "Seed the chart of accounts hierarchy" },
-  { key: "retail", label: "Create Retail", description: "Set up your first retail location" },
-  { key: "tds", label: "TDS & TCS Sections", description: "Seed tax deduction sections and ledgers" },
-  { key: "fiscal", label: "Fiscal Year", description: "Create and activate a fiscal year" },
-  { key: "masters", label: "Upload Masters", description: "Import HSN, items, packets via CSV" },
-  { key: "review", label: "Review & Finish", description: "Verify setup and start using the ERP" },
+  { key: "company",  label: "Company",        description: "Create the parent company entity" },
+  { key: "branch",   label: "Branch",          description: "Add at least one branch under the company" },
+  { key: "accounts", label: "Account Groups",  description: "Seed the chart of accounts hierarchy" },
+  { key: "gstin",    label: "GSTIN",           description: "Register the GSTIN that owns GST ledgers" },
+  { key: "retail",   label: "Create Retail",   description: "Set up your first retail location" },
+  { key: "tds",      label: "TDS & TCS",       description: "Seed tax deduction sections and ledgers" },
+  { key: "fiscal",   label: "Fiscal Year",     description: "Create and activate a fiscal year" },
+  { key: "review",   label: "Review & Finish", description: "Verify setup and start using the ERP" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -155,62 +149,6 @@ function AccountTree({ tree }) {
   return <div className="max-h-[400px] overflow-y-auto border rounded-lg p-2 bg-white">{tree.map((n) => renderNode(n, 0))}</div>;
 }
 
-// ─── CSV upload card (reused from ImportDataPage pattern) ──────────────────
-const CSV_TABLES = [
-  { key: "hsn", label: "HSN Master", fn: uploadHSNCSV, hint: "hsn_no, description, hsn_type, hsn_per_cgst, hsn_per_igst" },
-  { key: "item_group", label: "Item Group Master", fn: uploadItemGroupCSV, hint: "id, name, short_code" },
-  { key: "item", label: "Item Master", fn: uploadItemCSV, hint: "id, short_code, item_name, item_type, uom, hsn_no" },
-  { key: "packet_group", label: "Packet Group Master", fn: uploadPacketGroupCSV, hint: "packet_group_name" },
-  { key: "packet", label: "Packet Master", fn: uploadPacketCSV, hint: "pckt_no, stone_id, rate_for_retail, rate_for_wholesale, solitare, customer, packet_group" },
-];
-
-function CsvCard({ label, fn, hint }) {
-  const ref = useRef(null);
-  const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState("");
-
-  const handle = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setResult(null);
-    setError("");
-    const res = await fn(file);
-    if (res.success) setResult(res.data);
-    else setError(typeof res.error === "string" ? res.error : JSON.stringify(res.error));
-    setUploading(false);
-    e.target.value = "";
-  };
-
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium">{label}</p>
-          <p className="text-[11px] text-muted-foreground">{hint}</p>
-        </div>
-        <button
-          onClick={() => ref.current?.click()}
-          disabled={uploading}
-          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 shrink-0"
-        >
-          {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-          {uploading ? "Uploading..." : "Upload CSV"}
-        </button>
-        <input ref={ref} type="file" accept=".csv" onChange={handle} className="hidden" />
-      </div>
-      {result && (
-        <div className="mt-2 text-xs flex gap-3">
-          <span className="text-green-700">Created: <strong>{result.created}</strong></span>
-          <span className="text-violet-700">Updated: <strong>{result.updated}</strong></span>
-          {result.errors?.length > 0 && <span className="text-red-600">Errors: <strong>{result.errors.length}</strong></span>}
-        </div>
-      )}
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Main Wizard
@@ -260,9 +198,21 @@ export default function SetupWizard() {
   useEffect(() => {
     (async () => {
       let res = await getSetupStatus();
-      // Auto-seed Indian states silently on first run
+
+      // If setup is already complete but the session flag is missing (e.g. new tab /
+      // browser restart), restore the flag and send the user straight to the dashboard.
+      if (res.success && res.data.is_setup_complete && sessionStorage.getItem("erpSetupComplete") !== "true") {
+        sessionStorage.setItem("erpSetupComplete", "true");
+        navigate("/", { replace: true });
+        return;
+      }
+
+      // Auto-seed Indian states on first run
       if (res.success && !res.data.states_seeded) {
-        await seedStates();
+        const seedRes = await seedStates();
+        if (!seedRes.success) {
+          toast({ title: "State seeding failed", description: seedRes.error?.detail || String(seedRes.error), variant: "destructive" });
+        }
         res = await getSetupStatus();
       }
       if (res.success) {
@@ -275,7 +225,6 @@ export default function SetupWizard() {
         if (res.data.retails_created) done.add("retail");
         if (res.data.tds_tcs_seeded) done.add("tds");
         if (res.data.fiscal_years_created) done.add("fiscal");
-        if (res.data.masters_uploaded) done.add("masters");
         setCompleted(done);
         // Jump to first incomplete step
         const idx = STEPS.findIndex((s) => !done.has(s.key));
@@ -319,7 +268,17 @@ export default function SetupWizard() {
   useEffect(() => {
     const stepKey = STEPS[current]?.key;
     if (states.length === 0 && ["company", "branch", "gstin", "retail"].includes(stepKey)) {
-      fetchStates().then((r) => { if (r.success) setStates(Array.isArray(r.data) ? r.data : (r.data?.results || [])); });
+      fetchStates().then(async (r) => {
+        const list = r.success ? (Array.isArray(r.data) ? r.data : (r.data?.results || [])) : [];
+        if (list.length === 0) {
+          // States not seeded yet — seed now and retry
+          await seedStates();
+          const r2 = await fetchStates();
+          if (r2.success) setStates(Array.isArray(r2.data) ? r2.data : (r2.data?.results || []));
+        } else {
+          setStates(list);
+        }
+      });
     }
     if (stepKey === "branch") {
       fetchCompanies().then((r) => {
@@ -895,22 +854,6 @@ export default function SetupWizard() {
             </div>
           )}
 
-          {/* ── Step 5: Upload Masters (CSV) ──────────────────── */}
-          {step.key === "masters" && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">
-                Upload CSV files for your master data. This step is optional — you can also do this later
-                from Import Master Data. Upload in order: HSN &rarr; Item Group &rarr; Item &rarr; Packet
-                Group &rarr; Packet.
-              </p>
-              {CSV_TABLES.map((t) => (
-                <CsvCard key={t.key} label={t.label} fn={t.fn} hint={t.hint} />
-              ))}
-              <Button variant="outline" size="sm" onClick={() => { markDone("masters"); }} className="self-start">
-                Skip this step
-              </Button>
-            </div>
-          )}
 
           {/* ── Step 6: Review & Finish ───────────────────────── */}
           {step.key === "review" && (
@@ -938,7 +881,8 @@ export default function SetupWizard() {
                 ))}
               </div>
               <Button
-                onClick={() => {
+                onClick={async () => {
+                  await syncUserRetails();
                   sessionStorage.setItem("erpSetupComplete", "true");
                   navigate("/");
                 }}

@@ -119,20 +119,44 @@ def setup_status(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def sync_user_retails(request):
+    """
+    Ensure the requesting user has a UserLocation record covering all existing
+    retails.  Called by the setup wizard Finish step so the retail selector is
+    populated immediately after setup.
+    """
+    from mastersconfig.models import RetailMaster
+    from contacts.models import UserLocation
+
+    retails = list(RetailMaster.objects.all())
+    if not retails:
+        return Response({'detail': 'No retails found.', 'synced': 0})
+
+    ul, _ = UserLocation.objects.get_or_create(user=request.user)
+    for retail in retails:
+        ul.location.add(retail)
+    if ul.default_location is None:
+        ul.default_location = retails[0]
+        ul.save(update_fields=['default_location'])
+
+    return Response({'detail': f'Synced {len(retails)} retail(s).', 'synced': len(retails)})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def seed_states(request):
     """Run the setup_states management command to populate all Indian states/UTs."""
     from django.core.management import call_command
     from io import StringIO
-    from django.db import OperationalError
 
     try:
         out = StringIO()
         call_command('setup_states', stdout=out)
         return Response({'detail': out.getvalue(), 'success': True})
-    except OperationalError as e:
+    except Exception as e:
         return Response(
-            {'detail': f'Database not ready: {e}. Run python manage.py migrate first.', 'success': False},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            {'detail': str(e), 'success': False},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 

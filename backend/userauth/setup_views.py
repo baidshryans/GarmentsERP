@@ -21,6 +21,7 @@ from mastersconfig.models import (
     CompanyMaster,
     BranchMaster,
     GSTINMaster,
+    State,
 )
 
 
@@ -59,6 +60,7 @@ PROTECTED_TABLES = {
 @permission_classes([IsAuthenticated])
 def setup_status(request):
     """Return current setup state so the wizard knows which steps are done."""
+    states_count = State.objects.count()
     account_groups_count = Account.objects.count()
     retails_count = RetailMaster.objects.count()
     company_count = CompanyMaster.objects.count()
@@ -75,6 +77,8 @@ def setup_status(request):
     fy_count = FiscalYearMaster.objects.count()
 
     return Response({
+        'states_seeded': states_count >= 35,
+        'states_count': states_count,
         'company_created': company_count > 0,
         'company_count': company_count,
         'branch_created': branch_count > 0,
@@ -103,6 +107,18 @@ def setup_status(request):
             and fy_count > 0
         ),
     })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def seed_states(request):
+    """Run the setup_states management command to populate all Indian states/UTs."""
+    from django.core.management import call_command
+    from io import StringIO
+
+    out = StringIO()
+    call_command('setup_states', stdout=out)
+    return Response({'detail': out.getvalue(), 'success': True})
 
 
 @api_view(['POST'])

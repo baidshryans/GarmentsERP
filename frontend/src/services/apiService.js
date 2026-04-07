@@ -4032,6 +4032,15 @@ export async function getSetupStatus() {
   }
 }
 
+export async function seedStates() {
+  try {
+    const response = await apiClient.post('/userauth/api/setup/seed-states/');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function seedAccountGroups() {
   try {
     const response = await apiClient.post('/userauth/api/setup/seed-accounts/');

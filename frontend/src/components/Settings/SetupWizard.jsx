@@ -40,6 +40,7 @@ import {
   createGstin,
   fetchGstins,
   setupRollback,
+  seedStates,
 } from "@/services/apiService";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -255,10 +256,15 @@ export default function SetupWizard() {
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
-  // Load status on mount
+  // Load status on mount — also auto-seed states if missing
   useEffect(() => {
     (async () => {
-      const res = await getSetupStatus();
+      let res = await getSetupStatus();
+      // Auto-seed Indian states silently on first run
+      if (res.success && !res.data.states_seeded) {
+        await seedStates();
+        res = await getSetupStatus();
+      }
       if (res.success) {
         setSetupStatus(res.data);
         const done = new Set();

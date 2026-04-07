@@ -16,7 +16,12 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from accounting.models import Account
-from mastersconfig.models import RetailMaster
+from mastersconfig.models import (
+    RetailMaster,
+    CompanyMaster,
+    BranchMaster,
+    GSTINMaster,
+)
 
 
 # ── Tables that must NEVER be truncated ────────────────────────────────────────
@@ -56,6 +61,9 @@ def setup_status(request):
     """Return current setup state so the wizard knows which steps are done."""
     account_groups_count = Account.objects.count()
     retails_count = RetailMaster.objects.count()
+    company_count = CompanyMaster.objects.count()
+    branch_count = BranchMaster.objects.count()
+    gstin_count = GSTINMaster.objects.count()
 
     from mastersconfig.models import TDSSectionMaster, TCSSectionMaster
     tds_count = TDSSectionMaster.objects.count()
@@ -67,6 +75,12 @@ def setup_status(request):
     fy_count = FiscalYearMaster.objects.count()
 
     return Response({
+        'company_created': company_count > 0,
+        'company_count': company_count,
+        'branch_created': branch_count > 0,
+        'branch_count': branch_count,
+        'gstin_created': gstin_count > 0,
+        'gstin_count': gstin_count,
         'account_groups_seeded': account_groups_count > 5,
         'account_groups_count': account_groups_count,
         'retails_created': retails_count > 0,
@@ -80,7 +94,10 @@ def setup_status(request):
         'hsn_count': hsn_count,
         'item_count': item_count,
         'is_setup_complete': (
-            account_groups_count > 5
+            company_count > 0
+            and branch_count > 0
+            and gstin_count > 0
+            and account_groups_count > 5
             and retails_count > 0
             and tds_count > 0
             and fy_count > 0
@@ -110,6 +127,78 @@ def seed_tds_tcs(request):
     out = StringIO()
     call_command('setup_tds_initial_data', stdout=out)
     return Response({'detail': out.getvalue(), 'success': True})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def setup_rollback(request):
+    """
+    Wipe all setup data when a user abandons the wizard before completion.
+
+    Truncates every application table (except protected user/auth/migration tables)
+    AND the easyaudit_* tables so the audit trail of the failed setup is also cleared.
+    Refuses to run if setup is already complete.
+    """
+    # Refuse if setup is already complete
+    if (
+        CompanyMaster.objects.exists()
+        and BranchMaster.objects.exists()
+        and GSTINMaster.objects.exists()
+        and RetailMaster.objects.exists()
+    ):
+        from mastersconfig.models import FiscalYearMaster
+        if (
+            FiscalYearMaster.objects.exists()
+            and Account.objects.count() > 5
+        ):
+            return Response(
+                {'error': 'Setup is already complete; rollback not allowed.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    # Easy-audit tables MUST be truncated as part of rollback
+    rollback_protected = PROTECTED_TABLES - {
+        'easyaudit_crudevent',
+        'easyaudit_loginevent',
+        'easyaudit_requestevent',
+    }
+
+    all_tables = set(connection.introspection.table_names())
+    tables_to_truncate = sorted(all_tables - rollback_protected)
+
+    truncated = []
+    errors = []
+
+    with connection.cursor() as cursor:
+        if connection.vendor == 'sqlite':
+            cursor.execute('PRAGMA foreign_keys = OFF;')
+        elif connection.vendor == 'postgresql':
+            cursor.execute('SET session_replication_role = replica;')
+
+        for table in tables_to_truncate:
+            try:
+                if connection.vendor == 'sqlite':
+                    cursor.execute(f'DELETE FROM "{table}";')
+                    cursor.execute(
+                        f"DELETE FROM sqlite_sequence WHERE name='{table}';"
+                    )
+                else:
+                    cursor.execute(f'TRUNCATE TABLE "{table}" CASCADE;')
+                truncated.append(table)
+            except Exception as e:
+                errors.append(f'{table}: {str(e)}')
+
+        if connection.vendor == 'sqlite':
+            cursor.execute('PRAGMA foreign_keys = ON;')
+        elif connection.vendor == 'postgresql':
+            cursor.execute('SET session_replication_role = DEFAULT;')
+
+    return Response({
+        'success': True,
+        'truncated_count': len(truncated),
+        'truncated': truncated,
+        'errors': errors,
+    })
 
 
 @api_view(['POST'])

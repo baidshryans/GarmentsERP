@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { loginAndSaveToken } from "@/services/apiService";
+import { loginAndSaveToken, getSetupStatus, setupRollback } from "@/services/apiService";
 import { Gem } from "lucide-react"
 
 export function LoginForm() {
@@ -24,7 +24,28 @@ export function LoginForm() {
     setError("");
     const { success, data, error } = await loginAndSaveToken(username, password);
     if (success) {
-      navigate("/", { replace: true });
+      // Check if setup is complete; if not, route to wizard
+      const status = await getSetupStatus();
+      if (status.success) {
+        if (status.data.is_setup_complete) {
+          sessionStorage.setItem("erpSetupComplete", "true");
+          navigate("/", { replace: true });
+        } else {
+          // Partial leftover data from a previously abandoned wizard? Wipe it.
+          const hasPartial =
+            status.data.company_created ||
+            status.data.branch_created ||
+            status.data.gstin_created ||
+            status.data.retails_created;
+          if (hasPartial) {
+            await setupRollback();
+          }
+          sessionStorage.removeItem("erpSetupComplete");
+          navigate("/settings/setup", { replace: true });
+        }
+      } else {
+        navigate("/", { replace: true });
+      }
       window.location.reload();
     } else {
       setError("Invalid username or password.");

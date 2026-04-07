@@ -4059,6 +4059,35 @@ export async function resetErp(password) {
   }
 }
 
+export async function setupRollback() {
+  try {
+    const response = await apiClient.post('/userauth/api/setup/rollback/');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── GSTIN Master ──────────────────────────────────────────────────────────────
+
+export async function fetchGstins() {
+  try {
+    const response = await apiClient.get('/mastersconfig/api/gstin/');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createGstin(payload) {
+  try {
+    const response = await apiClient.post('/mastersconfig/api/gstin/', payload);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // ── Exhibition Profiles ───────────────────────────────────────────────────────
 
 export async function fetchExhibitions() {

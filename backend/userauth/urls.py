@@ -17,6 +17,7 @@ urlpatterns += [
     path('api/setup/seed-accounts/', setup_views.seed_account_groups),
     path('api/setup/seed-tds-tcs/', setup_views.seed_tds_tcs),
     path('api/setup/reset-erp/', setup_views.reset_erp),
+    path('api/setup/rollback/', setup_views.setup_rollback),
     # User management
     path('api/users/', views.list_users),
     path('api/users/create/', views.create_user),

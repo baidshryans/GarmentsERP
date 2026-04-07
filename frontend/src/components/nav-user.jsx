@@ -73,7 +73,17 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             
-            <DropdownMenuItem onClick={(e)=>{localStorage.clear();window.location.reload()}} >
+            <DropdownMenuItem onClick={async (e)=>{
+              try {
+                if (sessionStorage.getItem("erpSetupComplete") !== "true") {
+                  const { setupRollback } = await import("@/services/apiService");
+                  await setupRollback();
+                }
+              } catch (err) { /* swallow */ }
+              localStorage.clear();
+              sessionStorage.removeItem("erpSetupComplete");
+              window.location.reload();
+            }} >
               <LogOut />
               Log out
             </DropdownMenuItem>

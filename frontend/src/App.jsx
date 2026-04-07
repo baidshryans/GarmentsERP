@@ -145,13 +145,23 @@ import AppsPage from "./components/Apps/AppsPage.jsx";
 
 const isAuthenticate = () => !!localStorage.getItem("Token");
 const hasBaseUrl = () => !!sessionStorage.getItem("baseUrl");
+const isSetupComplete = () => sessionStorage.getItem("erpSetupComplete") === "true";
 
 // Wrapper for protected routes
 const ProtectedRoute = ({ element }) => {
   if (!hasBaseUrl()) {
     return <Navigate to="/config" />;
   }
-  return isAuthenticate() ? element : <Navigate to="/login" />;
+  if (!isAuthenticate()) {
+    return <Navigate to="/login" />;
+  }
+  // Force users into the setup wizard until first-run setup is finished
+  const path = window.location.pathname;
+  const isSetupRoute = path === "/settings/setup" || path.startsWith("/settings/setup");
+  if (!isSetupComplete() && !isSetupRoute) {
+    return <Navigate to="/settings/setup" replace />;
+  }
+  return element;
 };
 
 

@@ -33,12 +33,22 @@ import {
   uploadItemCSV,
   uploadPacketGroupCSV,
   uploadPacketCSV,
+  createCompany,
+  fetchCompanies,
+  createBranch,
+  fetchBranches,
+  createGstin,
+  fetchGstins,
+  setupRollback,
 } from "@/services/apiService";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Step definitions
 // ═══════════════════════════════════════════════════════════════════════════════
 const STEPS = [
+  { key: "company", label: "Company", description: "Create the parent company entity" },
+  { key: "branch", label: "Branch", description: "Add at least one branch under the company" },
+  { key: "gstin", label: "GSTIN", description: "Register the GSTIN that owns GST ledgers" },
   { key: "accounts", label: "Account Groups", description: "Seed the chart of accounts hierarchy" },
   { key: "retail", label: "Create Retail", description: "Set up your first retail location" },
   { key: "tds", label: "TDS & TCS Sections", description: "Seed tax deduction sections and ledgers" },
@@ -218,8 +228,32 @@ export default function SetupWizard() {
   const [setupStatus, setSetupStatus] = useState(null);
   const [accountTree, setAccountTree] = useState([]);
   const [states, setStates] = useState([]);
-  const [retailForm, setRetailForm] = useState({ retail_code: "", retail_name: "", address: "", city: "", pincode: "", state: "" });
+  const [retailForm, setRetailForm] = useState({ retail_code: "", retail_name: "", email: "", phone: "", bill_series: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
   const [fyForm, setFyForm] = useState({ fy_code: "", fy_start: "", fy_end: "" });
+  const [companyForm, setCompanyForm] = useState({ company_name: "", pan: "", phone: "", email: "", address: "", city: "", state: "", pincode: "" });
+  const [branchForm, setBranchForm] = useState({ branch_name: "", branch_code: "", state: "", description: "", company: "" });
+  const [gstinForm, setGstinForm] = useState({ gstin: "", legal_name: "", branch: "", state: "" });
+  const [companies, setCompanies] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [gstins, setGstins] = useState([]);
+
+  // Wipe data if the user closes the tab/browser before clicking Finish
+  useEffect(() => {
+    const handler = () => {
+      if (sessionStorage.getItem("erpSetupComplete") === "true") return;
+      try {
+        const baseUrl = sessionStorage.getItem("baseUrl") || "";
+        const token = localStorage.getItem("Token");
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${baseUrl}/userauth/api/setup/rollback/`, false);
+        if (token) xhr.setRequestHeader("Authorization", `Token ${token}`);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.send(JSON.stringify({}));
+      } catch (e) { /* swallow */ }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
 
   // Load status on mount
   useEffect(() => {
@@ -228,6 +262,9 @@ export default function SetupWizard() {
       if (res.success) {
         setSetupStatus(res.data);
         const done = new Set();
+        if (res.data.company_created) done.add("company");
+        if (res.data.branch_created) done.add("branch");
+        if (res.data.gstin_created) done.add("gstin");
         if (res.data.account_groups_seeded) done.add("accounts");
         if (res.data.retails_created) done.add("retail");
         if (res.data.tds_tcs_seeded) done.add("tds");
@@ -274,16 +311,118 @@ export default function SetupWizard() {
   };
 
   useEffect(() => {
-    if (current === 0 && completed.has("accounts") && accountTree.length === 0) loadTree();
-    if (current === 1 && states.length === 0) {
+    const stepKey = STEPS[current]?.key;
+    if (states.length === 0 && ["company", "branch", "gstin", "retail"].includes(stepKey)) {
       fetchStates().then((r) => { if (r.success) setStates(r.data || []); });
     }
+    if (stepKey === "branch") {
+      fetchCompanies().then((r) => {
+        if (r.success) {
+          const list = Array.isArray(r.data) ? r.data : (r.data?.results || []);
+          setCompanies(list);
+          if (list.length && !branchForm.company) {
+            setBranchForm((f) => ({ ...f, company: list[0].id }));
+          }
+        }
+      });
+    }
+    if (stepKey === "gstin") {
+      fetchBranches().then((r) => {
+        if (r.success) {
+          const list = Array.isArray(r.data) ? r.data : (r.data?.results || []);
+          setBranches(list);
+          if (list.length && !gstinForm.branch) {
+            setGstinForm((f) => ({ ...f, branch: list[0].id }));
+          }
+        }
+      });
+    }
+    if (stepKey === "retail") {
+      fetchBranches().then((r) => {
+        if (r.success) {
+          const list = Array.isArray(r.data) ? r.data : (r.data?.results || []);
+          setBranches(list);
+          if (list.length && !retailForm.branch) {
+            setRetailForm((f) => ({ ...f, branch: list[0].id }));
+          }
+        }
+      });
+      fetchGstins().then((r) => {
+        if (r.success) {
+          const list = Array.isArray(r.data) ? r.data : (r.data?.results || []);
+          setGstins(list);
+          if (list.length && !retailForm.gstin_master) {
+            setRetailForm((f) => ({ ...f, gstin_master: list[0].id }));
+          }
+        }
+      });
+    }
+    if (stepKey === "accounts" && completed.has("accounts") && accountTree.length === 0) loadTree();
   }, [current]);
+
+  // ─── Step: Create Company ───────────────────────────────────────────────
+  const handleCreateCompany = async () => {
+    if (!companyForm.company_name.trim()) {
+      toast({ title: "Company name is required", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    const res = await createCompany(companyForm);
+    if (res.success) {
+      toast({ title: `Company "${companyForm.company_name}" created with operational ledgers` });
+      markDone("company");
+      await refreshStatus();
+    } else {
+      const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+    setBusy(false);
+  };
+
+  // ─── Step: Create Branch ────────────────────────────────────────────────
+  const handleCreateBranch = async () => {
+    if (!branchForm.branch_name.trim() || !branchForm.branch_code.trim() || !branchForm.state || !branchForm.company) {
+      toast({ title: "Branch name, code, company and state are required", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    const res = await createBranch(branchForm);
+    if (res.success) {
+      toast({ title: `Branch "${branchForm.branch_code}" created` });
+      markDone("branch");
+      await refreshStatus();
+    } else {
+      const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+    setBusy(false);
+  };
+
+  // ─── Step: Create GSTIN ─────────────────────────────────────────────────
+  const handleCreateGstin = async () => {
+    if (!gstinForm.gstin.trim() || !gstinForm.branch || !gstinForm.state) {
+      toast({ title: "GSTIN, branch and state are required", variant: "destructive" });
+      return;
+    }
+    setBusy(true);
+    const res = await createGstin(gstinForm);
+    if (res.success) {
+      toast({ title: `GSTIN "${gstinForm.gstin}" created with 6 GST register ledgers` });
+      markDone("gstin");
+      await refreshStatus();
+    } else {
+      const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+    setBusy(false);
+  };
 
   // ─── Step: Create Retail ────────────────────────────────────────────────
   const handleCreateRetail = async () => {
-    if (!retailForm.retail_code.trim() || !retailForm.retail_name.trim()) {
-      toast({ title: "Retail code and name are required", variant: "destructive" });
+    const required = ["retail_code", "retail_name", "email", "phone", "bill_series", "address_line1", "state", "branch", "gstin_master"];
+    const missing = required.filter((k) => !String(retailForm[k] || "").trim());
+    if (missing.length) {
+      toast({ title: `Missing required fields: ${missing.join(", ")}`, variant: "destructive" });
       return;
     }
     setBusy(true);
@@ -291,7 +430,7 @@ export default function SetupWizard() {
     if (res.success) {
       toast({ title: `Retail "${retailForm.retail_code}" created with cash ledger` });
       markDone("retail");
-      setRetailForm({ retail_code: "", retail_name: "", address: "", city: "", pincode: "", state: "" });
+      setRetailForm({ retail_code: "", retail_name: "", email: "", phone: "", bill_series: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
       await refreshStatus();
     } else {
       const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
@@ -356,6 +495,176 @@ export default function SetupWizard() {
         </div>
 
         <div className="flex-1">
+          {/* ── Step: Company ───────────────────────────────────── */}
+          {step.key === "company" && (
+            <div className="flex flex-col gap-4">
+              {completed.has("company") ? (
+                <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                  <CheckCircle2 className="size-4" />
+                  Company created — 7 operational ledgers (Discount, Round Off, Hallmark, Making Charges, etc.) auto-generated.
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Create your parent company. On save, 7 company-wide operational ledgers
+                    (Discount, Round Off, Hallmark Charge, Making Receive, Gold Conversion,
+                    Carriage Inward, Making Charge Purchase) are auto-created.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-1 md:col-span-2">
+                      <Label className="text-xs">Company Name *</Label>
+                      <Input value={companyForm.company_name} onChange={(e) => setCompanyForm((f) => ({ ...f, company_name: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">PAN</Label>
+                      <Input value={companyForm.pan} onChange={(e) => setCompanyForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))} className="h-9 text-sm uppercase" maxLength={10} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">Phone</Label>
+                      <Input value={companyForm.phone} onChange={(e) => setCompanyForm((f) => ({ ...f, phone: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                    <div className="flex flex-col gap-1 md:col-span-2">
+                      <Label className="text-xs">Email</Label>
+                      <Input type="email" value={companyForm.email} onChange={(e) => setCompanyForm((f) => ({ ...f, email: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                    <div className="flex flex-col gap-1 md:col-span-3">
+                      <Label className="text-xs">Address</Label>
+                      <Input value={companyForm.address} onChange={(e) => setCompanyForm((f) => ({ ...f, address: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">City</Label>
+                      <Input value={companyForm.city} onChange={(e) => setCompanyForm((f) => ({ ...f, city: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">State</Label>
+                      <select value={companyForm.state} onChange={(e) => setCompanyForm((f) => ({ ...f, state: e.target.value }))} className="h-9 text-sm rounded-md border border-input bg-background px-3">
+                        <option value="">Select state</option>
+                        {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">Pincode</Label>
+                      <Input value={companyForm.pincode} onChange={(e) => setCompanyForm((f) => ({ ...f, pincode: e.target.value }))} className="h-9 text-sm" maxLength={6} />
+                    </div>
+                  </div>
+                  <Button onClick={handleCreateCompany} disabled={busy} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+                    {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
+                    Create Company
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Step: Branch ────────────────────────────────────── */}
+          {step.key === "branch" && (
+            <div className="flex flex-col gap-4">
+              {completed.has("branch") ? (
+                <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                  <CheckCircle2 className="size-4" />
+                  Branch created.
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Branches are organisational groupings under the company. GSTINs and retails attach to branches.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-1 md:col-span-2">
+                      <Label className="text-xs">Branch Name *</Label>
+                      <Input value={branchForm.branch_name} onChange={(e) => setBranchForm((f) => ({ ...f, branch_name: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">Branch Code *</Label>
+                      <Input value={branchForm.branch_code} onChange={(e) => setBranchForm((f) => ({ ...f, branch_code: e.target.value.toUpperCase() }))} className="h-9 text-sm uppercase" maxLength={20} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">Company *</Label>
+                      <select value={branchForm.company} onChange={(e) => setBranchForm((f) => ({ ...f, company: e.target.value }))} className="h-9 text-sm rounded-md border border-input bg-background px-3">
+                        <option value="">Select company</option>
+                        {companies.map((c) => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">State *</Label>
+                      <select value={branchForm.state} onChange={(e) => setBranchForm((f) => ({ ...f, state: e.target.value }))} className="h-9 text-sm rounded-md border border-input bg-background px-3">
+                        <option value="">Select state</option>
+                        {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1 md:col-span-3">
+                      <Label className="text-xs">Description</Label>
+                      <Input value={branchForm.description} onChange={(e) => setBranchForm((f) => ({ ...f, description: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                  </div>
+                  <Button onClick={handleCreateBranch} disabled={busy || !completed.has("company")} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+                    {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
+                    Create Branch
+                  </Button>
+                  {!completed.has("company") && (
+                    <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                      <XCircle className="size-3.5" />
+                      Create the company in the previous step first.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Step: GSTIN ─────────────────────────────────────── */}
+          {step.key === "gstin" && (
+            <div className="flex flex-col gap-4">
+              {completed.has("gstin") ? (
+                <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
+                  <CheckCircle2 className="size-4" />
+                  GSTIN created — 6 GST register ledgers (Input/Output CGST, SGST, IGST) auto-generated.
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Register the GSTIN for this branch. On save, 6 GST register ledgers
+                    (Input/Output CGST, SGST, IGST) are auto-created and owned by this GSTIN.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">GSTIN *</Label>
+                      <Input value={gstinForm.gstin} onChange={(e) => setGstinForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))} className="h-9 text-sm uppercase" maxLength={15} />
+                    </div>
+                    <div className="flex flex-col gap-1 md:col-span-2">
+                      <Label className="text-xs">Legal Name</Label>
+                      <Input value={gstinForm.legal_name} onChange={(e) => setGstinForm((f) => ({ ...f, legal_name: e.target.value }))} className="h-9 text-sm" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">Branch *</Label>
+                      <select value={gstinForm.branch} onChange={(e) => setGstinForm((f) => ({ ...f, branch: e.target.value }))} className="h-9 text-sm rounded-md border border-input bg-background px-3">
+                        <option value="">Select branch</option>
+                        {branches.map((b) => <option key={b.id} value={b.id}>{b.branch_name} ({b.branch_code})</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs">State *</Label>
+                      <select value={gstinForm.state} onChange={(e) => setGstinForm((f) => ({ ...f, state: e.target.value }))} className="h-9 text-sm rounded-md border border-input bg-background px-3">
+                        <option value="">Select state</option>
+                        {states.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <Button onClick={handleCreateGstin} disabled={busy || !completed.has("branch")} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+                    {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
+                    Create GSTIN
+                  </Button>
+                  {!completed.has("branch") && (
+                    <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                      <XCircle className="size-3.5" />
+                      Create a branch in the previous step first.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* ── Step 1: Account Groups ──────────────────────────── */}
           {step.key === "accounts" && (
             <div className="flex flex-col gap-4">
@@ -426,8 +735,34 @@ export default function SetupWizard() {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Label className="text-xs">Address</Label>
-                  <Input value={retailForm.address} onChange={(e) => setRetailForm((f) => ({ ...f, address: e.target.value }))} className="h-9 text-sm" />
+                  <Label className="text-xs">Email *</Label>
+                  <Input type="email" value={retailForm.email} onChange={(e) => setRetailForm((f) => ({ ...f, email: e.target.value }))} className="h-9 text-sm" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Phone *</Label>
+                  <Input value={retailForm.phone} onChange={(e) => setRetailForm((f) => ({ ...f, phone: e.target.value }))} className="h-9 text-sm" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Bill Series *</Label>
+                  <Input value={retailForm.bill_series} onChange={(e) => setRetailForm((f) => ({ ...f, bill_series: e.target.value.toUpperCase() }))} className="h-9 text-sm uppercase" maxLength={20} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Branch *</Label>
+                  <select value={retailForm.branch} onChange={(e) => setRetailForm((f) => ({ ...f, branch: e.target.value }))} className="h-9 text-sm rounded-md border border-input bg-background px-3">
+                    <option value="">Select branch</option>
+                    {branches.map((b) => <option key={b.id} value={b.id}>{b.branch_name} ({b.branch_code})</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">GSTIN *</Label>
+                  <select value={retailForm.gstin_master} onChange={(e) => setRetailForm((f) => ({ ...f, gstin_master: e.target.value }))} className="h-9 text-sm rounded-md border border-input bg-background px-3">
+                    <option value="">Select GSTIN</option>
+                    {gstins.map((g) => <option key={g.id} value={g.id}>{g.gstin}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1 md:col-span-3">
+                  <Label className="text-xs">Address Line 1 *</Label>
+                  <Input value={retailForm.address_line1} onChange={(e) => setRetailForm((f) => ({ ...f, address_line1: e.target.value }))} className="h-9 text-sm" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs">City</Label>
@@ -593,10 +928,15 @@ export default function SetupWizard() {
                 ))}
               </div>
               <Button
-                onClick={() => navigate("/")}
-                className="self-start bg-violet-700 hover:bg-violet-800 text-white"
+                onClick={() => {
+                  sessionStorage.setItem("erpSetupComplete", "true");
+                  navigate("/");
+                }}
+                disabled={!setupStatus?.is_setup_complete}
+                className="self-start bg-violet-700 hover:bg-violet-800 text-white disabled:opacity-50"
               >
-                Go to Dashboard <ArrowRight className="size-4 ml-1.5" />
+                {setupStatus?.is_setup_complete ? "Go to Dashboard" : "Complete all required steps first"}
+                <ArrowRight className="size-4 ml-1.5" />
               </Button>
             </div>
           )}

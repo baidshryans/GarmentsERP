@@ -48,6 +48,16 @@ def stop():
         logger.info("CRM APScheduler stopped")
 
 
+def _tables_ready():
+    """Return True only if the tables the scheduler needs actually exist."""
+    from django.db import connection
+    try:
+        existing = set(connection.introspection.table_names())
+        return 'crm_settings' in existing
+    except Exception:
+        return False
+
+
 def run_crm_scheduler():
     """
     Called every minute by APScheduler.
@@ -55,6 +65,10 @@ def run_crm_scheduler():
       1. Current hour:minute matches the configured send_time, AND
       2. last_send_date is not today (prevents duplicate sends).
     """
+    # Silently skip on fresh installs where migrations haven't run yet
+    if not _tables_ready():
+        return
+
     try:
         # Avoid Django startup import issues
         from mastersconfig.models import CRMSettings

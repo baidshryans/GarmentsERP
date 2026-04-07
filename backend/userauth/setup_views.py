@@ -56,25 +56,33 @@ PROTECTED_TABLES = {
 }
 
 
+def _safe_count(model):
+    """Count model rows; return 0 if the table doesn't exist yet."""
+    try:
+        return model.objects.count()
+    except Exception:
+        return 0
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def setup_status(request):
     """Return current setup state so the wizard knows which steps are done."""
-    states_count = State.objects.count()
-    account_groups_count = Account.objects.count()
-    retails_count = RetailMaster.objects.count()
-    company_count = CompanyMaster.objects.count()
-    branch_count = BranchMaster.objects.count()
-    gstin_count = GSTINMaster.objects.count()
+    states_count = _safe_count(State)
+    account_groups_count = _safe_count(Account)
+    retails_count = _safe_count(RetailMaster)
+    company_count = _safe_count(CompanyMaster)
+    branch_count = _safe_count(BranchMaster)
+    gstin_count = _safe_count(GSTINMaster)
 
     from mastersconfig.models import TDSSectionMaster, TCSSectionMaster
-    tds_count = TDSSectionMaster.objects.count()
-    tcs_count = TCSSectionMaster.objects.count()
+    tds_count = _safe_count(TDSSectionMaster)
+    tcs_count = _safe_count(TCSSectionMaster)
 
     from mastersconfig.models import Hsn, Item, FiscalYearMaster
-    hsn_count = Hsn.objects.count()
-    item_count = Item.objects.count()
-    fy_count = FiscalYearMaster.objects.count()
+    hsn_count = _safe_count(Hsn)
+    item_count = _safe_count(Item)
+    fy_count = _safe_count(FiscalYearMaster)
 
     return Response({
         'states_seeded': states_count >= 35,
@@ -115,10 +123,17 @@ def seed_states(request):
     """Run the setup_states management command to populate all Indian states/UTs."""
     from django.core.management import call_command
     from io import StringIO
+    from django.db import OperationalError
 
-    out = StringIO()
-    call_command('setup_states', stdout=out)
-    return Response({'detail': out.getvalue(), 'success': True})
+    try:
+        out = StringIO()
+        call_command('setup_states', stdout=out)
+        return Response({'detail': out.getvalue(), 'success': True})
+    except OperationalError as e:
+        return Response(
+            {'detail': f'Database not ready: {e}. Run python manage.py migrate first.', 'success': False},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 @api_view(['POST'])

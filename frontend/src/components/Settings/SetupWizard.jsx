@@ -319,7 +319,7 @@ export default function SetupWizard() {
   useEffect(() => {
     const stepKey = STEPS[current]?.key;
     if (states.length === 0 && ["company", "branch", "gstin", "retail"].includes(stepKey)) {
-      fetchStates().then((r) => { if (r.success) setStates(r.data || []); });
+      fetchStates().then((r) => { if (r.success) setStates(Array.isArray(r.data) ? r.data : (r.data?.results || [])); });
     }
     if (stepKey === "branch") {
       fetchCompanies().then((r) => {
@@ -713,9 +713,11 @@ export default function SetupWizard() {
               {completed.has("retail") && (
                 <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
                   <CheckCircle2 className="size-4" />
-                  {setupStatus?.retails_count} retail(s) created
+                  {setupStatus?.retails_count} retail(s) already exist — step complete. Click Next to continue.
                 </div>
               )}
+              {!completed.has("retail") && (
+              <>
               <p className="text-sm text-muted-foreground">
                 Create your retail location. A Cash ledger will be auto-created and assigned to the
                 Cash-in-Hand account group.
@@ -796,6 +798,8 @@ export default function SetupWizard() {
                 {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
                 Create Retail
               </Button>
+              </>
+              )}
             </div>
           )}
 

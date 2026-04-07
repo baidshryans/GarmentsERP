@@ -2692,7 +2692,7 @@ export async function updateRetail(id, payload) {
 
 export async function fetchStates() {
   try {
-    const response = await apiClient.get(`/mastersconfig/api/state/`);
+    const response = await apiClient.get(`/mastersconfig/api/state/?page_size=100`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

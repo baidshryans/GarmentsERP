@@ -114,6 +114,9 @@ MIDDLEWARE = [
 DJANGO_EASY_AUDIT_WATCH_MODEL_EVENTS = True  # Tracks model changes (create, update, delete)
 DJANGO_EASY_AUDIT_WATCH_REQUEST_EVENTS = True  # Tracks HTTP requests
 DJANGO_EASY_AUDIT_WATCH_AUTH_EVENTS = True  # Tracks login/logout actions
+# Custom backend that silently swallows OperationalError when the
+# easyaudit tables don't exist yet (e.g. during `python manage.py migrate`).
+DJANGO_EASY_AUDIT_LOGGING_BACKEND = 'jewel_test.audit_backend.SafeAuditBackend'
 
 
 ROOT_URLCONF = 'jewel_test.urls'

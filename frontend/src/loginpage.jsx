@@ -21,7 +21,9 @@ const RetailSelection = () => {
       const [states] = await Promise.all([
         getRetails()
       ]);
-      if (states.success) setstatesData(states.data.results[0].location);
+      if (states.success && states.data.results?.length > 0) {
+        setstatesData(states.data.results[0].location || []);
+      }
     }
     fetchData();
   }, []);

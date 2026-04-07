@@ -24,9 +24,15 @@ from django.db import transaction
 
 class LocationBasedQuerysetMixin:
     def get_queryset(self):
-        user_location = self.request.user.userlocation.location
         queryset = super().get_queryset()
-        return queryset.filter(loc=user_location)
+        try:
+            user_location = self.request.user.userlocation.location
+            return queryset.filter(loc=user_location)
+        except Exception:
+            # Staff/superuser without a UserLocation record — return full queryset
+            if getattr(self.request.user, 'is_staff', False):
+                return queryset
+            return queryset.none()
 
 
 def _has_non_customer_role(ledger):

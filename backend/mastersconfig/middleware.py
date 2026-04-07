@@ -44,7 +44,11 @@ class RetailMiddleware(MiddlewareMixin):
                 access_key = f"user_access_{request.user.id}_{retail.id}"
                 has_access = cache.get(access_key)
                 if has_access is None:
-                    has_access = request.user.userlocation.location.filter(id=retail.id).exists()
+                    try:
+                        has_access = request.user.userlocation.location.filter(id=retail.id).exists()
+                    except Exception:
+                        # Superuser or user without a UserLocation record can access all retails
+                        has_access = request.user.is_staff
                     cache.set(access_key, has_access, timeout=300)
                 if not has_access:
                     return JsonResponse({"error": "Unauthorized access"}, status=401)

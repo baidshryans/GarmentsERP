@@ -22,7 +22,7 @@ function Section({ title, badge, children }) {
           {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           {title}
           {badge != null && (
-            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-violet-100 text-violet-700 font-semibold">
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-violet-100 text-primary font-semibold">
               {badge}
             </span>
           )}
@@ -219,7 +219,7 @@ export default function GSTR1Report() {
             onChange={(e) => setFilters((f) => ({ ...f, to_date: e.target.value }))}
           />
         </div>
-        <Button size="sm" onClick={handleSearch} className="bg-violet-700 hover:bg-violet-800 text-white h-9">
+        <Button size="sm" onClick={handleSearch} className="bg-primary hover:bg-primary text-white h-9">
           <Search className="size-4 mr-1" /> Generate
         </Button>
         {data && (

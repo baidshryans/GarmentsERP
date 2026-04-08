@@ -22,6 +22,8 @@ const emptyForm = {
   city: "",
   pincode: "",
   website: "",
+  max_cash_receipt_limit: 199999,
+  max_cash_payment_limit: 10000,
 };
 
 export default function CompanyMasterPage() {
@@ -79,17 +81,19 @@ export default function CompanyMasterPage() {
 
   const handleEdit = (row) => {
     setForm({
-      company_name: row.company_name ?? "",
-      pan:          row.pan          ?? "",
-      tan:          row.tan          ?? "",
-      gstin:        row.gstin        ?? "",
-      cin:          row.cin          ?? "",
-      phone:        row.phone        ?? "",
-      email:        row.email        ?? "",
-      address:      row.address      ?? "",
-      city:         row.city         ?? "",
-      pincode:      row.pincode      ?? "",
-      website:      row.website      ?? "",
+      company_name:           row.company_name           ?? "",
+      pan:                    row.pan                    ?? "",
+      tan:                    row.tan                    ?? "",
+      gstin:                  row.gstin                  ?? "",
+      cin:                    row.cin                    ?? "",
+      phone:                  row.phone                  ?? "",
+      email:                  row.email                  ?? "",
+      address:                row.address                ?? "",
+      city:                   row.city                   ?? "",
+      pincode:                row.pincode                ?? "",
+      website:                row.website                ?? "",
+      max_cash_receipt_limit: row.max_cash_receipt_limit ?? 199999,
+      max_cash_payment_limit: row.max_cash_payment_limit ?? 10000,
     });
     setEditingId(row.id);
     setShowForm(true);
@@ -120,7 +124,7 @@ export default function CompanyMasterPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <button onClick={() => handleEdit(row.original)} className="text-violet-500 hover:text-violet-700" title="Edit">
+          <button onClick={() => handleEdit(row.original)} className="text-primary hover:text-primary" title="Edit">
             <Edit className="size-4" />
           </button>
           <button onClick={() => handleDelete(row.original)} className="text-rose-400 hover:text-rose-600" title="Delete">
@@ -135,7 +139,7 @@ export default function CompanyMasterPage() {
       accessorKey: "company_name",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Building2 className="size-3.5 text-violet-500 flex-shrink-0" />
+          <Building2 className="size-3.5 text-primary flex-shrink-0" />
           <span className="font-semibold text-gray-800">{row.original.company_name}</span>
         </div>
       ),
@@ -148,7 +152,7 @@ export default function CompanyMasterPage() {
       header: "Branches",
       accessorKey: "branch_count",
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-violet-800">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-primary">
           <GitBranch className="size-3" />
           {row.original.branch_count ?? 0}
         </span>
@@ -267,6 +271,45 @@ export default function CompanyMasterPage() {
               </div>
             </div>
 
+            {/* Cash Compliance Limits */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                Cash Compliance Limits
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">
+                    Cash Limit / Customer / FY (₹){" "}
+                    <span className="text-muted-foreground font-normal">Sec 269ST</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    name="max_cash_receipt_limit"
+                    value={form.max_cash_receipt_limit}
+                    onChange={handleChange}
+                    placeholder="199999"
+                    className="h-9 text-sm"
+                    min="0"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">
+                    Cash Limit / Party / Day (₹){" "}
+                    <span className="text-muted-foreground font-normal">Sec 40A(3)</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    name="max_cash_payment_limit"
+                    value={form.max_cash_payment_limit}
+                    onChange={handleChange}
+                    placeholder="10000"
+                    className="h-9 text-sm"
+                    min="0"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Contact */}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
@@ -344,7 +387,7 @@ export default function CompanyMasterPage() {
                 type="submit"
                 size="sm"
                 disabled={submitting || !form.company_name.trim()}
-                className="bg-violet-700 hover:bg-violet-800 text-white"
+                className="bg-primary hover:bg-primary text-white"
               >
                 <Check className="size-4 mr-1" />
                 {editingId ? "Update" : "Save"}
@@ -367,7 +410,7 @@ export default function CompanyMasterPage() {
           </p>
           <Button
             size="sm"
-            className="bg-violet-700 hover:bg-violet-800 text-white"
+            className="bg-primary hover:bg-primary text-white"
             onClick={() => setShowForm(true)}
           >
             <Plus className="size-4 mr-1" />
@@ -390,7 +433,7 @@ export default function CompanyMasterPage() {
           </p>
           <Button
             size="sm"
-            className="mt-4 bg-violet-700 hover:bg-violet-800 text-white"
+            className="mt-4 bg-primary hover:bg-primary text-white"
             onClick={() => setShowForm(true)}
           >
             <Plus className="size-4 mr-1" />

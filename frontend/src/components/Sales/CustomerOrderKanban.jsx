@@ -104,7 +104,7 @@ function KanbanCard({ order, col, onMove }) {
       <div className="flex items-start justify-between gap-2">
         <Link
           to={`/sales/customerorder/list/${order.id}`}
-          className="font-mono text-sm font-bold text-violet-700 hover:underline leading-tight"
+          className="font-mono text-sm font-bold text-primary hover:underline leading-tight"
         >
           {order.order_no}
         </Link>

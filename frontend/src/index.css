@@ -83,6 +83,28 @@
   }
 }
 
+/* ── Theme variants (switchable via data-theme on <html>) ─────────────── */
+:root[data-theme="violet"] {
+  --primary: 242 64% 63%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 242 64% 63%;
+  --accent: 242 90% 96%;
+  --accent-foreground: 242 64% 45%;
+  --sidebar-primary: 242 64% 63%;
+  --sidebar-ring: 242 64% 63%;
+  --sidebar-accent: 242 90% 96%;
+}
+:root[data-theme="indigo"] {
+  --primary: 263 70% 50%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 263 70% 50%;
+  --accent: 263 90% 96%;
+  --accent-foreground: 263 70% 35%;
+  --sidebar-primary: 263 70% 50%;
+  --sidebar-ring: 263 70% 50%;
+  --sidebar-accent: 263 90% 96%;
+}
+
 @layer base {
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }

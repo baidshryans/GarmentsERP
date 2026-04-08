@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 const STATUS_LABELS = {
   RCV:  { label: "Received",        cls: "bg-blue-100 text-blue-700"   },
   ISS:  { label: "Issued",          cls: "bg-amber-100 text-amber-700" },
-  RECV: { label: "Rcvd from Karigar",cls: "bg-purple-100 text-purple-700"},
+  RECV: { label: "Rcvd from Karigar",cls: "bg-purple-100 text-primary"},
   RDY:  { label: "Ready",           cls: "bg-green-100 text-green-700" },
   DLV:  { label: "Delivered",       cls: "bg-gray-100 text-gray-600"   },
 };
@@ -72,7 +72,7 @@ export default function RepairJobCardList() {
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Link to={`/manufacturing/repair/${row.original.id}`}>
-            <Edit className="size-4 text-violet-500" />
+            <Edit className="size-4 text-primary" />
           </Link>
           <button onClick={() => handlePrint(row.original.id)} title="Print receipt">
             <Printer className="size-4 text-muted-foreground hover:text-foreground" />

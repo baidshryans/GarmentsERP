@@ -85,7 +85,7 @@ export default function BarcodeMergeReport() {
             <Label className="text-xs">To Date</Label>
             <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 text-sm w-40" />
           </div>
-          <Button onClick={fetchData} disabled={loading} className="bg-violet-700 hover:bg-violet-800 text-white h-9">
+          <Button onClick={fetchData} disabled={loading} className="bg-primary hover:bg-primary text-white h-9">
             {loading ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Search className="size-4 mr-1.5" />}
             {loading ? "Loading..." : "Search"}
           </Button>
@@ -108,7 +108,7 @@ export default function BarcodeMergeReport() {
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
           <div className="flex items-center gap-2">
-            <Merge className="size-4 text-violet-600" />
+            <Merge className="size-4 text-primary" />
             <span className="font-semibold text-sm">Barcode Merge Report</span>
             {searched && (
               <span className="ml-2 text-xs text-muted-foreground">
@@ -153,7 +153,7 @@ export default function BarcodeMergeReport() {
               {loading && (
                 <tr>
                   <TD colSpan={12} className="text-center py-12 border-b-0">
-                    <Loader2 className="size-5 animate-spin text-violet-500 mx-auto" />
+                    <Loader2 className="size-5 animate-spin text-primary mx-auto" />
                   </TD>
                 </tr>
               )}

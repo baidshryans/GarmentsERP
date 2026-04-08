@@ -42,6 +42,8 @@ export function LicenseProvider({ children }) {
 
   const isNavGroupLicensed = useCallback(
     (navKey) => {
+      // System/Settings is always accessible — never license-gated
+      if (navKey === "navSettings") return true
       if (!license.loaded) return true
       if (license.nav_groups.length === 0 && !license.company) return true // No licensing set up
       return license.nav_groups.includes(navKey)

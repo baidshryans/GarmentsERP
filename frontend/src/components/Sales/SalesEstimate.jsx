@@ -109,7 +109,7 @@ export default function SalesEstimate() {
           <p className="text-sm text-muted-foreground mt-0.5">Scan or type barcodes to build a multi-item estimate</p>
         </div>
         {items.length > 0 && (
-          <Button onClick={handlePrint} className="bg-violet-700 hover:bg-violet-800 text-white gap-1.5">
+          <Button onClick={handlePrint} className="bg-primary hover:bg-primary text-white gap-1.5">
             <Printer className="size-4" /> Print Estimate ({items.length})
           </Button>
         )}
@@ -130,7 +130,7 @@ export default function SalesEstimate() {
               disabled={loading}
             />
           </div>
-          <Button type="submit" disabled={loading || !barcodeInput.trim()} className="h-9 bg-violet-700 hover:bg-violet-800 text-white">
+          <Button type="submit" disabled={loading || !barcodeInput.trim()} className="h-9 bg-primary hover:bg-primary text-white">
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4 mr-1" />}
             {loading ? "Loading…" : "Add"}
           </Button>
@@ -194,7 +194,7 @@ export default function SalesEstimate() {
                       <td className="px-3 py-2 text-right tabular-nums">{fmt(t.totalMakingValue, 2)}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(t.productValue, 2)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmt(t.gstAmt, 2)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-violet-700">{fmt(t.billValue, 2)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-primary">{fmt(t.billValue, 2)}</td>
                       <td className="px-3 py-2 text-center">
                         <button onClick={() => handleRemove(item._key)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <Trash2 className="size-3.5" />
@@ -217,7 +217,7 @@ export default function SalesEstimate() {
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.making, 2)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.productVal, 2)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.gstAmt, 2)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-violet-700">{fmt(grand.billVal, 2)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-primary">{fmt(grand.billVal, 2)}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -226,7 +226,7 @@ export default function SalesEstimate() {
 
           {/* Print footer */}
           <div className="flex justify-end px-5 py-3 border-t border-border bg-muted/10">
-            <Button onClick={handlePrint} className="bg-violet-700 hover:bg-violet-800 text-white gap-1.5">
+            <Button onClick={handlePrint} className="bg-primary hover:bg-primary text-white gap-1.5">
               <Printer className="size-4" /> Print / Save PDF
             </Button>
           </div>

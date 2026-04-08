@@ -46,14 +46,14 @@ function TabBtn({ active, onClick, children, count }) {
       onClick={onClick}
       className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
         active
-          ? "border-violet-600 text-violet-700"
+          ? "border-primary text-primary"
           : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
       }`}
     >
       {children}
       {count != null && (
         <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-          active ? "bg-violet-100 text-violet-700" : "bg-muted text-muted-foreground"
+          active ? "bg-violet-100 text-primary" : "bg-muted text-muted-foreground"
         }`}>
           {count}
         </span>
@@ -161,7 +161,7 @@ const StockTransferList = () => {
           <div className="flex items-center gap-1.5">
             {!t.sent_status && !t.rec_status && (
               <>
-                <Link to={`${t.id}`} className="text-violet-500 hover:text-violet-700">
+                <Link to={`${t.id}`} className="text-primary hover:text-primary">
                   <Edit className="size-4" />
                 </Link>
                 <button onClick={() => deleteStockTransfer(t.id, toast).then(loadTransfers)}
@@ -238,7 +238,7 @@ const StockTransferList = () => {
       header: "Barcode",
       accessorKey: "barcode",
       cell: ({ getValue }) => (
-        <span className="font-mono text-xs text-violet-700">{getValue()}</span>
+        <span className="font-mono text-xs text-primary">{getValue()}</span>
       ),
     },
     { header: "Item", accessorKey: "item_name",
@@ -280,7 +280,7 @@ const StockTransferList = () => {
       header: "Transfer",
       cell: ({ row }) => (
         <div className="text-xs">
-          <div className="font-mono text-violet-600">{row.original.transfer_billno}</div>
+          <div className="font-mono text-primary">{row.original.transfer_billno}</div>
           <div className="text-muted-foreground">
             {row.original.transfer_date
               ? new Date(row.original.transfer_date).toLocaleDateString("en-GB").replaceAll("/", "-")
@@ -308,7 +308,7 @@ const StockTransferList = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold">Stock Transfers</h1>
         <Link to="add/">
-          <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white">
+          <Button size="sm" className="bg-primary hover:bg-primary text-white">
             New Transfer
           </Button>
         </Link>

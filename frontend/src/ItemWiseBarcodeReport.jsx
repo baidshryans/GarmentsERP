@@ -142,7 +142,7 @@ const ItemwiseBarcodeReport = () => {
                   type="date"
                   value={filters.fromDate}
                   onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   style={{
                     colorScheme: 'light'
                   }}
@@ -156,7 +156,7 @@ const ItemwiseBarcodeReport = () => {
                   type="date"
                   value={filters.toDate}
                   onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   style={{
                     colorScheme: 'light'
                   }}
@@ -171,7 +171,7 @@ const ItemwiseBarcodeReport = () => {
                   placeholder="Search by code or barcode..."
                   value={filters.searchTerm}
                   onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                  className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full px-3 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   style={{
                     colorScheme: 'light'
                   }}
@@ -181,7 +181,7 @@ const ItemwiseBarcodeReport = () => {
             <div className="flex items-end">
               <button
                 onClick={handleSearch}
-                className="w-28 px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:bg-gray-400"
+                className="w-28 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary transition-colors disabled:bg-gray-400"
               >
                 Search
               </button>
@@ -192,7 +192,7 @@ const ItemwiseBarcodeReport = () => {
         {/* Loading and Error States */}
         {loading && (
           <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-gray-600">Loading report data...</p>
           </div>
         )}

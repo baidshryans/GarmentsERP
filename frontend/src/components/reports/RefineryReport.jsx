@@ -336,7 +336,7 @@ function RefineryReport() {
             label="Net Returned"
             value={`${(Number(summary.total_recv_gw ?? 0) - Number(summary.total_loss_gw ?? 0)).toFixed(3)} g`}
             sub="after loss"
-            colorClass="text-purple-600"
+            colorClass="text-primary"
           />
         </div>
       )}

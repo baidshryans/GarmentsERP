@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
-import { fetchGSTInputReport } from "./services/apiService";
+import { fetchGSTInputReport, fetchGstins } from "./services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,12 +12,20 @@ const GstInputRegister = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [gstins, setGstins] = useState([]);
+  const [gstinId, setGstinId] = useState('');
+
+  useEffect(() => {
+    fetchGstins().then(r => {
+      if (r.success) setGstins(r.data?.results || r.data || []);
+    });
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
     setError('');
     try {
-      const result = await fetchGSTInputReport(startDate, endDate);
+      const result = await fetchGSTInputReport(startDate, endDate, gstinId);
       setTimeout(() => {
         setData(result);
         setLoading(false);
@@ -79,6 +87,19 @@ const GstInputRegister = () => {
             className="h-9 w-36"
             style={{ colorScheme: 'light' }}
           />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs">GSTIN</Label>
+          <select
+            value={gstinId}
+            onChange={(e) => setGstinId(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="">All</option>
+            {gstins.map((g) => (
+              <option key={g.id} value={g.id}>{g.gstin}</option>
+            ))}
+          </select>
         </div>
         <Button size="sm" onClick={fetchData} disabled={loading} className="h-9">
           <Search className="w-3.5 h-3.5 mr-1" />

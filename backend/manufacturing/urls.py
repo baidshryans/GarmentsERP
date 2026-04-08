@@ -13,6 +13,10 @@ from .views import (
     KarigarReceiveViewSet,
     RefineryIssueViewset,
     RefineryReceiveViewset,
+    MeltingIssueViewset,
+    MeltingReceiveViewset,
+    AssayIssueViewset,
+    AssayReceiveViewset,
     CombinedGoldTransactionView,
     RepairJobCardViewSet,
     KarigarSubcontractorLedgerView,
@@ -31,6 +35,10 @@ router.register(r'hallmark-receive', HallMarkReceiveViewSet)
 router.register(r'hallmark-issue', HallMarkIssueViewSet)
 router.register(r'refinery-issue', RefineryIssueViewset)
 router.register(r'refinery-receive', RefineryReceiveViewset)
+router.register(r'melting-issue', MeltingIssueViewset)
+router.register(r'melting-receive', MeltingReceiveViewset)
+router.register(r'assay-issue', AssayIssueViewset)
+router.register(r'assay-receive', AssayReceiveViewset)
 router.register(r'repair-job-card', RepairJobCardViewSet, basename='repair-job-card')
 app_name = "manufacturing"
 urlpatterns = [   
@@ -57,6 +65,10 @@ urlpatterns = [
     path('api/next_hmrec_no', views.hallmark_receive_billno_view, name='hallmark_receive_billno'),
     path('api/next_ref_iss_no', views.refinery_issue_billno_view, name='refinery_issue_billno'),
     path('api/next_ref_rec_no', views.refinery_receive_billno_view, name='refinery_receive_billno'),
+    path('api/next_melt_iss_no', views.melting_issue_billno_view, name='melting_issue_billno'),
+    path('api/next_melt_rec_no', views.melting_receive_billno_view, name='melting_receive_billno'),
+    path('api/next_assay_iss_no', views.assay_issue_billno_view, name='assay_issue_billno'),
+    path('api/next_assay_rec_no', views.assay_receive_billno_view, name='assay_receive_billno'),
     path('api/karigar-jobs/', views.KarigarJobsView.as_view(), name='karigar_jobs_view_api'),
     
     

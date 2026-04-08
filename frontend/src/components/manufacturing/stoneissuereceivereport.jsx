@@ -381,7 +381,7 @@ export default function StoneWorkOrderReport() {
         <div className="p-4 bg-gray-50 min-h-screen">
             {/* Header */}
             <div className="text-center mb-6">
-                <h1 className="text-xl font-bold text-violet-600 underline">
+                <h1 className="text-xl font-bold text-primary underline">
                     KARIGAR ISSUE/RECEIVE REGISTER
                 </h1>
             </div>
@@ -610,7 +610,7 @@ export default function StoneWorkOrderReport() {
                             <Button
                                 onClick={handleSearch}
                                 disabled={loading}
-                                className="w-full bg-violet-500 hover:bg-violet-600 text-white rounded"
+                                className="w-full bg-primary hover:bg-primary text-white rounded"
                             >
                                 {loading ? "Loading..." : "GO"}
                             </Button>
@@ -751,8 +751,8 @@ export default function StoneWorkOrderReport() {
 
             {/* Export Links */}
             <div className="flex justify-end mt-4 space-x-4 text-sm">
-                <span className="text-violet-600 cursor-pointer hover:underline">[EXCEL]</span>
-                <span className="text-violet-600 cursor-pointer hover:underline">[PRINT]</span>
+                <span className="text-primary cursor-pointer hover:underline">[EXCEL]</span>
+                <span className="text-primary cursor-pointer hover:underline">[PRINT]</span>
             </div>
         </div>
     );

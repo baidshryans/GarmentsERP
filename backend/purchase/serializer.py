@@ -31,6 +31,13 @@ class PurchaseOrderItemsSerializer(ModelSerializer):
 from rest_framework import serializers
 from .models import PurchaseReturn, PurchaseReturnItems, PurchaseReturnDetails, PurchaseVoucherDetails, PurchaseVoucherItems
 
+from rest_framework.exceptions import ValidationError as _LedgerConfigError
+def _raise_missing_ledger(label):
+    raise _LedgerConfigError(
+        {'ledger_config': f"Required ledger '{label}' is not configured on master. Please configure it in Company/GSTIN/Retail master before saving vouchers."}
+    )
+
+
 
 class PurchaseReturnDetailsSerializer(serializers.ModelSerializer):
     # Fields related to PurchaseReturnDetails model
@@ -118,6 +125,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
             'id',
             'billno',
             'pv_billno',
+            'purchase_voucher_ref',
             'date1',
             'ldgr',
             'ldgr_name',
@@ -153,13 +161,13 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         retail = self.context.get('request').retail
         _gm = retail.gstin_master
         _co = retail.branch.company if retail.branch_id and retail.branch else None
-        in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
-        in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
-        in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
-        _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
-        _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
-        _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
-        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
+        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
                 "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
                 "narration":f"Purchase Return Narration",
@@ -240,13 +248,13 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         retail = self.context.get('request').retail
         _gm = retail.gstin_master
         _co = retail.branch.company if retail.branch_id and retail.branch else None
-        in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
-        in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
-        in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
-        _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
-        _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
-        _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
-        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
+        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
                 "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
                 "narration":f"Purchase Return Narration",
@@ -490,13 +498,13 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             retail = self.context.get('request').retail
             _gm = retail.gstin_master
             _co = retail.branch.company if retail.branch_id and retail.branch else None
-            in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
-            in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
-            in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
-            _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
-            _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
-            _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
-            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
+            in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+            in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+            in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+            _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+            _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
                             "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                             "narration":f"Purchase Voucher Narration",
@@ -541,7 +549,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                     'credit':f"{(purchase_voucher_instance.bill_value - (purchase_voucher_instance.tds_amt or 0)):.2f}" if purchase_voucher_instance.bill_value else '0.0',
                                 }] +
                                 ([{
-                                    'account': purchase_voucher_instance.tds_section.ledger.ac_name if purchase_voucher_instance.tds_section.ledger else f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}",
+                                    'account': purchase_voucher_instance.tds_section.ledger.ac_name if purchase_voucher_instance.tds_section.ledger else _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}"),
                                     'credit': f"{purchase_voucher_instance.tds_amt:.2f}",
                                 }] if purchase_voucher_instance.tds_amt and purchase_voucher_instance.tds_amt > 0 and purchase_voucher_instance.tds_section else [])
                             )},
@@ -590,13 +598,13 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             retail = self.context.get('request').retail
             _gm = retail.gstin_master
             _co = retail.branch.company if retail.branch_id and retail.branch else None
-            in_cgst = _gm.input_cgst.ac_name  if _gm and _gm.input_cgst  else "INPUT CGST"
-            in_sgst = _gm.input_sgst.ac_name  if _gm and _gm.input_sgst  else "INPUT SGST"
-            in_igst = _gm.input_igst.ac_name  if _gm and _gm.input_igst  else "INPUT IGST"
-            _hallmark_ldgr    = _co.hallmark_charge_ldgr.ac_name       if _co and _co.hallmark_charge_ldgr       else "Hallmarking/Testing Charges"
-            _discount_ldgr    = _co.discount_ldgr.ac_name              if _co and _co.discount_ldgr              else "Discount/Round Off"
-            _carriage_ldgr    = _co.carriage_inward_ldgr.ac_name       if _co and _co.carriage_inward_ldgr       else "Carriage Inward"
-            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else "Making Charge Purchase"
+            in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+            in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+            in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+            _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+            _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
                             "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                             "narration":f"Purchase Voucher Narration",
@@ -642,7 +650,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                     'credit':f"{(purchase_voucher_instance.bill_value - (purchase_voucher_instance.tds_amt or 0)):.2f}" if purchase_voucher_instance.bill_value else '0.0',
                                 }] +
                                 ([{
-                                    'account': purchase_voucher_instance.tds_section.ledger.ac_name if purchase_voucher_instance.tds_section.ledger else f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}",
+                                    'account': purchase_voucher_instance.tds_section.ledger.ac_name if purchase_voucher_instance.tds_section.ledger else _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}"),
                                     'credit': f"{purchase_voucher_instance.tds_amt:.2f}",
                                 }] if purchase_voucher_instance.tds_amt and purchase_voucher_instance.tds_amt > 0 and purchase_voucher_instance.tds_section else [])
                             )},

@@ -26,7 +26,7 @@ ACCOUNT_TREE = [
     ("FA-LB", "Land & Building", "FA"),
     ("FA-PM", "Plant & Machinery", "FA"),
     ("FA-FF", "Furniture & Fixtures", "FA"),
-    ("FA-CE", "Computer & Equipment", "FA"),
+    ("FA-CE", "Office Equipment", "FA"),
     ("FA-VH", "Vehicles", "FA"),
 
     # Investments

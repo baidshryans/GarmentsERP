@@ -1,0 +1,4 @@
+ac_name,display_name,ac_group_name,add1,add2,city,state,pincode,phone1,mobile1,email,pan,gst,remarks
+# --- SAMPLE ROWS — delete this row and the rows below before uploading ---,,,,,,,,,,,,,
+ABC Gold Suppliers,ABC Gold,Sundry Creditors,101 Trade Centre,,Mumbai,Maharashtra,400001,022-87654321,9876543210,abc@gold.in,MFGST1234Z,27MFGST1234Z1Z5,Sample — delete before uploading
+XYZ Metals Pvt Ltd,,Sundry Creditors,202 Metal House,,Delhi,Delhi,110001,,9123456789,xyz@metals.in,LMNOP5678Q,09LMNOP5678Q1Z5,Sample 2 — delete before uploading

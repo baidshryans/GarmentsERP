@@ -153,7 +153,7 @@ export default function TCSRegister() {
         <Button
           size="sm"
           onClick={handleSearch}
-          className="bg-violet-700 hover:bg-violet-800 text-white h-9"
+          className="bg-primary hover:bg-primary text-white h-9"
         >
           <Search className="size-4 mr-1" />
           Search
@@ -193,7 +193,7 @@ export default function TCSRegister() {
                 <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">
                   Total TCS Collected
                 </span>
-                <span className="text-base font-bold text-violet-800">₹{fmt(totalTCS)}</span>
+                <span className="text-base font-bold text-primary">₹{fmt(totalTCS)}</span>
               </div>
             </div>
           </div>

@@ -79,7 +79,7 @@ export default function AuditLog() {
             value={filters.model} onChange={(e) => sf("model", e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && applyFilters()} />
         </div>
-        <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white h-8" onClick={applyFilters}>
+        <Button size="sm" className="bg-primary hover:bg-primary text-white h-8" onClick={applyFilters}>
           <Search className="size-3.5 mr-1.5" /> Search
         </Button>
         <Button size="sm" variant="outline" className="h-8" onClick={() => {
@@ -131,7 +131,7 @@ export default function AuditLog() {
                     <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[260px]">
                       {e.changed_fields ? (
                         <details className="cursor-pointer">
-                          <summary className="text-violet-600 hover:underline text-[11px]">
+                          <summary className="text-primary hover:underline text-[11px]">
                             View changes
                           </summary>
                           <pre className="mt-1 text-[10px] bg-muted rounded p-1 overflow-x-auto max-h-32 whitespace-pre-wrap">

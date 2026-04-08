@@ -119,7 +119,7 @@ export default function BranchMasterPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleEdit(row.original)}
-            className="text-violet-500 hover:text-violet-700"
+            className="text-primary hover:text-primary"
             title="Edit"
           >
             <Edit className="size-4" />
@@ -148,14 +148,14 @@ export default function BranchMasterPage() {
       header: "Company",
       accessorKey: "company_name",
       cell: ({ row }) => row.original.company_name
-        ? <span className="text-xs text-violet-700 font-medium">{row.original.company_name}</span>
+        ? <span className="text-xs text-primary font-medium">{row.original.company_name}</span>
         : <span className="text-xs text-gray-300">—</span>,
     },
     {
       header: "Retail Locations",
       accessorKey: "retail_count",
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-violet-800">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-primary">
           {row.original.retail_count ?? 0} location{row.original.retail_count !== 1 ? "s" : ""}
         </span>
       ),
@@ -245,7 +245,7 @@ export default function BranchMasterPage() {
                 type="submit"
                 size="sm"
                 disabled={submitting || !form.branch_name.trim() || !form.branch_code.trim()}
-                className="bg-violet-700 hover:bg-violet-800 text-white"
+                className="bg-primary hover:bg-primary text-white"
               >
                 <Check className="size-4 mr-1" />
                 {editingId ? "Update" : "Save"}
@@ -267,7 +267,7 @@ export default function BranchMasterPage() {
           </p>
           <Button
             size="sm"
-            className="bg-violet-700 hover:bg-violet-800 text-white"
+            className="bg-primary hover:bg-primary text-white"
             onClick={() => setShowForm(true)}
           >
             <Plus className="size-4 mr-1" />

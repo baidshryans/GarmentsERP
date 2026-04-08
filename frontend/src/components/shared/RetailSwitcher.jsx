@@ -56,7 +56,7 @@ export function RetailSwitcher() {
     if (!single) return null;
     return (
       <div className="px-3 py-2 border-b border-sidebar-border flex items-center gap-2">
-        <Building2 className="w-3.5 h-3.5 text-violet-600 shrink-0" />
+        <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
         <span className="text-xs font-semibold text-sidebar-foreground truncate">
           {single.retail_name}
         </span>
@@ -73,7 +73,7 @@ export function RetailSwitcher() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="sm" className="h-9 px-3">
-                <Building2 className="w-4 h-4 text-violet-600 shrink-0" />
+                <Building2 className="w-4 h-4 text-primary shrink-0" />
                 <span className="flex-1 text-xs font-semibold text-sidebar-foreground truncate">
                   {active?.retail_name || '—'}
                 </span>
@@ -99,7 +99,7 @@ export function RetailSwitcher() {
                   <Building2
                     className={`w-4 h-4 ${
                       r.retail_code === activeCode
-                        ? 'text-violet-600'
+                        ? 'text-primary'
                         : 'text-muted-foreground'
                     }`}
                   />
@@ -107,7 +107,7 @@ export function RetailSwitcher() {
                     {r.retail_name}
                   </span>
                   {r.retail_code === activeCode && (
-                    <Check className="w-4 h-4 text-violet-600 ml-auto" />
+                    <Check className="w-4 h-4 text-primary ml-auto" />
                   )}
                 </DropdownMenuItem>
               ))}

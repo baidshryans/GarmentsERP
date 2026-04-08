@@ -187,7 +187,7 @@ export default function FinancialRatios() {
           {/* ── Base Data ─────────────────────────────────────────── */}
           {base && (
             <div>
-              <SectionHeader icon={BarChart2} title="Base Data Summary" color="text-purple-500" />
+              <SectionHeader icon={BarChart2} title="Base Data Summary" color="text-primary" />
               <div className="rounded-lg border border-border bg-card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8">
                 <div>
                   <BaseDataRow label="Sales Revenue"    value={base.sales_revenue} />

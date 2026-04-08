@@ -395,7 +395,7 @@ const RetToRetstockTransfer = () => {
                                 </span>
                             )}
                             {watch('form.billno') && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-violet-50 text-violet-700 border border-violet-200">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-violet-50 text-primary border border-violet-200">
                                     <Hash className="size-3" />{watch('form.billno')}
                                 </span>
                             )}
@@ -447,10 +447,10 @@ const RetToRetstockTransfer = () => {
                     {/* Route strip */}
                     {toRetailCode && (
                         <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg bg-violet-50 border border-violet-100 px-4 py-2 text-sm">
-                            <span className="font-mono font-medium text-violet-800">{fromRetailCode}</span>
+                            <span className="font-mono font-medium text-primary">{fromRetailCode}</span>
                             <ArrowRight className="size-3.5 text-violet-400" />
-                            <span className="font-medium text-violet-800">{toRetailObj?.retail_name || toRetailCode}</span>
-                            <span className="font-mono text-xs text-violet-500">({toRetailCode})</span>
+                            <span className="font-medium text-primary">{toRetailObj?.retail_name || toRetailCode}</span>
+                            <span className="font-mono text-xs text-primary">({toRetailCode})</span>
                         </div>
                     )}
                 </div>
@@ -491,7 +491,7 @@ const RetToRetstockTransfer = () => {
                         <div className="flex items-center gap-2">
                             <Scale className="size-4 text-muted-foreground" />
                             <span className="text-sm font-semibold">Transfer Items</span>
-                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[11px] font-semibold">
+                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-violet-100 text-primary text-[11px] font-semibold">
                                 {rs.length}
                             </span>
                         </div>
@@ -531,7 +531,7 @@ const RetToRetstockTransfer = () => {
                                     {rs.map((row, index) => (
                                         <tr key={index} className="hover:bg-muted/20 transition-colors">
                                             <td className="px-4 py-2.5 text-xs text-muted-foreground">{index + 1}</td>
-                                            <td className="px-4 py-2.5 font-mono text-xs text-violet-700">{row.barcode}</td>
+                                            <td className="px-4 py-2.5 font-mono text-xs text-primary">{row.barcode}</td>
                                             <td className="px-4 py-2.5 text-xs">{row.item_name || row.item || '—'}</td>
                                             <td className="px-4 py-2.5 text-xs text-muted-foreground">{row.purity || '—'}</td>
                                             <td className="px-4 py-2.5 text-xs text-right">{row.pcs || '—'}</td>
@@ -545,7 +545,7 @@ const RetToRetstockTransfer = () => {
                                                 <td className="px-4 py-2.5">
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button type="button" onClick={() => handleEdit(index)}
-                                                            className="text-violet-500 hover:text-violet-700 transition-colors">
+                                                            className="text-primary hover:text-primary transition-colors">
                                                             <Edit className="size-3.5" />
                                                         </button>
                                                         <button type="button" onClick={() => handleDelete(index)}
@@ -580,7 +580,7 @@ const RetToRetstockTransfer = () => {
                     {!isSent && (
                         <Button
                             type="submit"
-                            className="bg-violet-700 hover:bg-violet-800 text-white"
+                            className="bg-primary hover:bg-primary text-white"
                             disabled={rs.length === 0}
                         >
                             Save Transfer

@@ -55,7 +55,7 @@ const GroupPickerNode = ({ node, level, onSelect }) => {
                 {hasChildren ? (
                     <button
                         type="button"
-                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-violet-100 text-violet-600"
+                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
                         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
                     >
                         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -67,16 +67,16 @@ const GroupPickerNode = ({ node, level, onSelect }) => {
                 )}
                 {hasChildren
                     ? open
-                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-violet-600' : 'text-violet-400'}`} />
-                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-violet-600' : 'text-violet-400'}`} />
+                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
+                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
                     : null
                 }
                 {node.code && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-violet-200 text-violet-800' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-violet-200 text-primary' : 'bg-gray-100 text-gray-500'}`}>
                         {node.code}
                     </span>
                 )}
-                <span className={`text-sm truncate ${level === 0 ? 'font-semibold text-violet-900' : 'text-gray-700'} group-hover:text-violet-800`}>
+                <span className={`text-sm truncate ${level === 0 ? 'font-semibold text-primary' : 'text-gray-700'} group-hover:text-primary`}>
                     {node.name}
                 </span>
                 {hasChildren && (
@@ -100,10 +100,10 @@ const SectionCard = ({ number, title, children }) => (
     <div className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden">
         {/* Card header */}
         <div className="flex items-center gap-3 px-7 py-4 bg-violet-50 border-b border-violet-100">
-            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-700 text-white text-xs font-bold shrink-0">
+            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                 {number}
             </span>
-            <span className="text-sm font-bold text-violet-900 tracking-widest uppercase">
+            <span className="text-sm font-bold text-primary tracking-widest uppercase">
                 {title}
             </span>
         </div>
@@ -390,7 +390,7 @@ const LedgerForm = () => {
                     <Button
                         type="submit"
                         form="ledgerForm"
-                        className="h-10 px-6 bg-violet-700 hover:bg-violet-800 text-white font-semibold shadow-sm"
+                        className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm"
                     >
                         {id ? 'Update Ledger' : 'Save Ledger'}
                     </Button>
@@ -471,7 +471,7 @@ const LedgerForm = () => {
                                             {selected ? (
                                                 <>
                                                     {selected.code && (
-                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 tracking-wider shrink-0">
+                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-primary tracking-wider shrink-0">
                                                             {selected.code}
                                                         </span>
                                                     )}
@@ -493,10 +493,10 @@ const LedgerForm = () => {
                                                 }}
                                             >
                                                 <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
-                                                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-700 text-white text-xs font-bold shrink-0">≡</span>
+                                                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                                                     <div>
-                                                        <p className="text-sm font-bold text-violet-900 tracking-widest uppercase">Select Account Group</p>
-                                                        <p className="text-xs text-violet-600 mt-0.5">Click a group to assign it</p>
+                                                        <p className="text-sm font-bold text-primary tracking-widest uppercase">Select Account Group</p>
+                                                        <p className="text-xs text-primary mt-0.5">Click a group to assign it</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex-1 overflow-y-auto px-3 py-3">
@@ -564,7 +564,7 @@ const LedgerForm = () => {
                                                     title={isPrimary ? 'Primary role' : 'Set as primary'}
                                                     disabled={isLoading || isPrimary}
                                                     onClick={() => handleSetPrimary(t.code)}
-                                                    className={`text-sm leading-none transition-colors ${isPrimary ? 'text-violet-600 cursor-default' : 'text-gray-300 hover:text-violet-400'}`}
+                                                    className={`text-sm leading-none transition-colors ${isPrimary ? 'text-primary cursor-default' : 'text-gray-300 hover:text-violet-400'}`}
                                                 >
                                                     ★
                                                 </button>
@@ -880,7 +880,7 @@ const LedgerForm = () => {
                     <Button type="button" variant="outline" onClick={() => navigate('/crm/ledger')} className="h-10 px-5">
                         Cancel
                     </Button>
-                    <Button type="submit" className="h-10 px-6 bg-violet-700 hover:bg-violet-800 text-white font-semibold shadow-sm">
+                    <Button type="submit" className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
                         {id ? 'Update Ledger' : 'Save Ledger'}
                     </Button>
                 </div>

@@ -56,10 +56,12 @@ const GoldRateForm = () => {
   const onSubmit = (data) => {
     // Convert the form data structure to the API expected format
     const formattedData = Object.entries(data.rates)
-      .filter(([_, rate]) => rate !== "")
-      .map(([purityId, rate]) => ({
+      .filter(([_, v]) => (v?.buying_rate ?? "") !== "" || (v?.selling_rate ?? "") !== "")
+      .map(([purityId, v]) => ({
         purity: purityId,
-        rate: rate
+        buying_rate: v.buying_rate || null,
+        selling_rate: v.selling_rate || null,
+        rate: v.selling_rate || v.buying_rate || 0,
       }));
     
     if (formattedData.length === 0) {
@@ -124,28 +126,35 @@ const GoldRateForm = () => {
               </>
             ) : purityList.length > 0 ? (
               purityList.map((p) => (
-                <FormField
-                  key={p.id}
-                  control={form.control}
-                  name={`rates.${p.id}`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{p.purity} Karat</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="Enter rate"
-                          step="0.01"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Rate per gram in local currency
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div key={p.id} className="space-y-2">
+                  <Label className="font-semibold">{p.purity} Karat</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormField
+                      control={form.control}
+                      name={`rates.${p.id}.buying_rate`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Buying</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="Buy rate" step="0.01" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`rates.${p.id}.selling_rate`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Selling</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="Sell rate" step="0.01" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
               ))
             ) : (
               <div className="text-center p-4 text-muted-foreground">

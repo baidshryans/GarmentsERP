@@ -271,7 +271,7 @@ const BarcodeMerge = () => {
 
   return (
     <div className="w-full max-w-screen-lg mx-auto bg-white">
-      <div className="text-center text-violet-700 font-bold mb-2">
+      <div className="text-center text-primary font-bold mb-2">
         <a href="#" className="underline">BARCODE MERGE REPORT</a>
       </div>
       
@@ -345,13 +345,13 @@ const BarcodeMerge = () => {
         
         <button
           type="submit"
-          className="bg-violet-500 text-white px-3 py-1 rounded"
+          className="bg-primary text-white px-3 py-1 rounded"
         >
           GO
         </button>
         
         <div className="ml-8">
-          <a href="#" className="text-violet-600 underline text-sm">[PRINT]</a>
+          <a href="#" className="text-primary underline text-sm">[PRINT]</a>
         </div>
       </form>
       

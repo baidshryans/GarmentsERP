@@ -203,7 +203,7 @@ export default function BarcodePrint() {
         </span>
         <Button
           size="sm"
-          className="bg-violet-700 hover:bg-violet-800 text-white"
+          className="bg-primary hover:bg-primary text-white"
           onClick={() => window.print()}
         >
           <Printer className="size-4 mr-1.5" />

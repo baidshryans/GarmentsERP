@@ -121,7 +121,7 @@ const ProfitLossCal = () => {
       {/* <div className="flex justify-end mt-4 print:hidden">
         <button
           onClick={() => window.print()}
-          className="bg-violet-500 hover:bg-violet-300 text-white w-24 px-4 py-2 rounded text-sm shadow-sm transition-colors"
+          className="bg-primary hover:bg-violet-300 text-white w-24 px-4 py-2 rounded text-sm shadow-sm transition-colors"
         >
           Print 
         </button>

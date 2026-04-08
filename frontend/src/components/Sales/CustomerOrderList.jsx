@@ -20,7 +20,7 @@ import {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const DELIVERY_STATUS_OPTIONS = [
-  { value: 'pending',   label: 'Pending',              color: 'bg-violet-100 text-violet-800' },
+  { value: 'pending',   label: 'Pending',              color: 'bg-violet-100 text-primary' },
   { value: 'ready',     label: 'Ready for Delivery',   color: 'bg-sky-100 text-sky-800' },
   { value: 'delivered', label: 'Delivered',             color: 'bg-emerald-100 text-emerald-800' },
   { value: 'cancelled', label: 'Cancelled',             color: 'bg-gray-100 text-gray-600' },
@@ -124,7 +124,7 @@ function KpiStrip({ overview }) {
     { label: 'Overdue',        value: overview.overdue_count,        icon: <AlertTriangle className="w-4 h-4" />, color: 'text-red-600 bg-red-50 border-red-100' },
     { label: 'Due Today',      value: overview.due_today_count,       icon: <Clock className="w-4 h-4" />,         color: 'text-amber-600 bg-amber-50 border-amber-100' },
     { label: 'Due This Week',  value: overview.due_this_week_count,   icon: <Bell className="w-4 h-4" />,          color: 'text-sky-600 bg-sky-50 border-sky-100' },
-    { label: 'All Open',       value: overview.pending_count,         icon: <Truck className="w-4 h-4" />,         color: 'text-violet-600 bg-violet-50 border-violet-100' },
+    { label: 'All Open',       value: overview.pending_count,         icon: <Truck className="w-4 h-4" />,         color: 'text-primary bg-violet-50 border-violet-100' },
     { label: 'Delivered (Mo)', value: overview.delivered_this_month,  icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
   ];
   return (
@@ -177,7 +177,7 @@ function DeliveryUpdateSheet({ order, open, onClose, onUpdated }) {
       <SheetContent side="right" className="sm:max-w-sm" aria-describedby={undefined}>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-violet-500" />
+            <Truck className="w-5 h-5 text-primary" />
             Update Delivery — {order.order_no}
           </SheetTitle>
         </SheetHeader>
@@ -299,7 +299,7 @@ function CustomerOrderList() {
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">✓ Reconciled</span>;
     if (reconciled > 0)
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">◑ Partial</span>;
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-800">● Pending</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-primary">● Pending</span>;
   };
 
   // ── Columns ───────────────────────────────────────────────────────────────
@@ -308,7 +308,7 @@ function CustomerOrderList() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-2 items-center">
-          <Link to={`${row.original.id}`} className="text-violet-500">
+          <Link to={`${row.original.id}`} className="text-primary">
             <Edit className="w-4 h-4" />
           </Link>
           <button
@@ -359,7 +359,7 @@ function CustomerOrderList() {
         const colors = {
           'Billed':  'bg-emerald-100 text-emerald-800',
           'Partial': 'bg-amber-100 text-amber-800',
-          'Pending': 'bg-violet-100 text-violet-800',
+          'Pending': 'bg-violet-100 text-primary',
         };
         return s
           ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[s] ?? 'bg-gray-100 text-gray-700'}`}>{s}</span>

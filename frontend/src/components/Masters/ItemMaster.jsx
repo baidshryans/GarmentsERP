@@ -203,7 +203,7 @@ export default function ItemMaster() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-3">
-          <button type="button" onClick={(e) => { e.stopPropagation(); handleEdit(row.original); }} className="text-violet-500">
+          <button type="button" onClick={(e) => { e.stopPropagation(); handleEdit(row.original); }} className="text-primary">
             <Edit className="size-4" />
           </button>
           <button type="button" onClick={(e) => { e.stopPropagation(); handleDelete(row.original.id); }} className="text-red-500">

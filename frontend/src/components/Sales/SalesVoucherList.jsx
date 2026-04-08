@@ -113,7 +113,7 @@ function SalesVoucherList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Link to={`${row.original.id}`} className="text-primary hover:text-primary/80">
+          <Link to={`/sales/${row.original.id}`} className="text-primary hover:text-primary/80">
             <Edit className="w-4 h-4" />
           </Link>
           <button
@@ -160,7 +160,7 @@ function SalesVoucherList() {
                 toast({ title: 'JSON generation failed', description: detail, variant: 'destructive' });
               }
             }}
-            className="text-violet-500 hover:text-violet-700"
+            className="text-primary hover:text-primary"
           >
             <FileJson className="w-4 h-4" />
           </button>
@@ -229,7 +229,7 @@ function SalesVoucherList() {
             </SelectContent>
           </Select>
         </div>
-        <Link to="add/">
+        <Link to="/sales/add/">
           <Button size="sm" className="gap-1.5">
             <Plus className="w-4 h-4" />
             Add Voucher

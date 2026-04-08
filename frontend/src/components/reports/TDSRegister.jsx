@@ -117,7 +117,7 @@ export default function TDSRegister() {
             </SelectContent>
           </Select>
         </div>
-        <Button size="sm" onClick={handleSearch} className="bg-violet-700 hover:bg-violet-800 text-white h-9">
+        <Button size="sm" onClick={handleSearch} className="bg-primary hover:bg-primary text-white h-9">
           <Search className="size-4 mr-1" />
           Search
         </Button>
@@ -138,7 +138,7 @@ export default function TDSRegister() {
           <div className="flex justify-end">
             <div className="rounded-lg border border-border bg-muted/30 px-6 py-3 flex items-center gap-6">
               <span className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Total TDS Deducted</span>
-              <span className="text-base font-bold text-violet-800">₹{fmt(totalTDS)}</span>
+              <span className="text-base font-bold text-primary">₹{fmt(totalTDS)}</span>
             </div>
           </div>
         </>

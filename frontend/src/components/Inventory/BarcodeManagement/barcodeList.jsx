@@ -63,7 +63,7 @@ function BarcodeListView() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="text-violet-500 flex items-center">
+          <Link to={`${row.original.id}`} className="text-primary flex items-center">
             <Edit className="mr-1" /> 
           </Link>
           
@@ -74,12 +74,12 @@ function BarcodeListView() {
           {/* <a href={`delete/${row.original.id}`} className="text-red-500 flex items-center"> */}
             <Trash2 className="mr-1" /> 
             </button>
-            <Link to={`/inventory/barcodemanagement/barcodehistory/?search=${row.original.barcode}`} className="text-violet-500 flex items-center">
+            <Link to={`/inventory/barcodemanagement/barcodehistory/?search=${row.original.barcode}`} className="text-primary flex items-center">
             <History className="mr-1" />
           </Link>
           <button
             onClick={() => navigate(`/inventory/barcode-print?ids=${row.original.id}`)}
-            className="text-violet-500 flex items-center"
+            className="text-primary flex items-center"
             title="Print label"
           >
             <Printer size={16} />

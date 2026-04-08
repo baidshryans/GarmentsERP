@@ -67,7 +67,7 @@ function StepIndicator({ steps, current, completed }) {
             key={s.key}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               active
-                ? "bg-violet-100 text-violet-800 border border-violet-200"
+                ? "bg-violet-100 text-primary border border-violet-200"
                 : done
                 ? "bg-green-50 text-green-700"
                 : "text-muted-foreground"
@@ -76,7 +76,7 @@ function StepIndicator({ steps, current, completed }) {
             {done ? (
               <CheckCircle2 className="size-3.5 text-green-600" />
             ) : active ? (
-              <Circle className="size-3.5 text-violet-600" />
+              <Circle className="size-3.5 text-primary" />
             ) : (
               <Circle className="size-3.5 text-gray-300" />
             )}
@@ -129,12 +129,12 @@ function AccountTree({ tree }) {
         >
           <button
             onClick={() => has && toggle(node.id)}
-            className={`shrink-0 w-4 h-4 flex items-center justify-center ${has ? "cursor-pointer text-violet-600" : "opacity-0"}`}
+            className={`shrink-0 w-4 h-4 flex items-center justify-center ${has ? "cursor-pointer text-primary" : "opacity-0"}`}
           >
             {has && (open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />)}
           </button>
           {has ? (
-            open ? <FolderOpen className="size-3.5 text-violet-500" /> : <Folder className="size-3.5 text-violet-400" />
+            open ? <FolderOpen className="size-3.5 text-primary" /> : <Folder className="size-3.5 text-violet-400" />
           ) : (
             <div className="size-3.5" />
           )}
@@ -225,6 +225,9 @@ export default function SetupWizard() {
         if (res.data.retails_created) done.add("retail");
         if (res.data.tds_tcs_seeded) done.add("tds");
         if (res.data.fiscal_years_created) done.add("fiscal");
+        // Mark review complete when all prerequisite steps are done
+        const prereqs = ["company", "branch", "accounts", "gstin", "retail", "tds", "fiscal"];
+        if (prereqs.every((k) => done.has(k))) done.add("review");
         setCompleted(done);
         // Jump to first incomplete step
         const idx = STEPS.findIndex((s) => !done.has(s.key));
@@ -440,7 +443,7 @@ export default function SetupWizard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="size-6 animate-spin text-violet-600" />
+        <Loader2 className="size-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -512,7 +515,7 @@ export default function SetupWizard() {
                       <Input value={companyForm.pincode} onChange={(e) => setCompanyForm((f) => ({ ...f, pincode: e.target.value }))} className="h-9 text-sm" maxLength={6} />
                     </div>
                   </div>
-                  <Button onClick={handleCreateCompany} disabled={busy} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+                  <Button onClick={handleCreateCompany} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
                     {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
                     Create Company
                   </Button>
@@ -562,7 +565,7 @@ export default function SetupWizard() {
                       <Input value={branchForm.description} onChange={(e) => setBranchForm((f) => ({ ...f, description: e.target.value }))} className="h-9 text-sm" />
                     </div>
                   </div>
-                  <Button onClick={handleCreateBranch} disabled={busy || !completed.has("company")} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+                  <Button onClick={handleCreateBranch} disabled={busy || !completed.has("company")} className="self-start bg-primary hover:bg-primary text-white">
                     {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
                     Create Branch
                   </Button>
@@ -615,7 +618,7 @@ export default function SetupWizard() {
                       </select>
                     </div>
                   </div>
-                  <Button onClick={handleCreateGstin} disabled={busy || !completed.has("branch")} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+                  <Button onClick={handleCreateGstin} disabled={busy || !completed.has("branch")} className="self-start bg-primary hover:bg-primary text-white">
                     {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
                     Create GSTIN
                   </Button>
@@ -657,7 +660,7 @@ export default function SetupWizard() {
                     creating retails so that system ledgers (Cash, TDS Payable, etc.) can be assigned to
                     the correct account groups.
                   </p>
-                  <Button onClick={handleSeedAccounts} disabled={busy} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+                  <Button onClick={handleSeedAccounts} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
                     {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Database className="size-4 mr-1.5" />}
                     Seed Account Groups
                   </Button>
@@ -753,7 +756,7 @@ export default function SetupWizard() {
                   </select>
                 </div>
               </div>
-              <Button onClick={handleCreateRetail} disabled={busy} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+              <Button onClick={handleCreateRetail} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
                 {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
                 Create Retail
               </Button>
@@ -795,7 +798,7 @@ export default function SetupWizard() {
                   <Button
                     onClick={handleSeedTds}
                     disabled={busy || !completed.has("retail")}
-                    className="self-start bg-violet-700 hover:bg-violet-800 text-white"
+                    className="self-start bg-primary hover:bg-primary text-white"
                   >
                     {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Database className="size-4 mr-1.5" />}
                     Seed TDS & TCS
@@ -847,7 +850,7 @@ export default function SetupWizard() {
                   />
                 </div>
               </div>
-              <Button onClick={handleCreateFY} disabled={busy} className="self-start bg-violet-700 hover:bg-violet-800 text-white">
+              <Button onClick={handleCreateFY} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
                 {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
                 Create Fiscal Year
               </Button>
@@ -887,7 +890,7 @@ export default function SetupWizard() {
                   navigate("/");
                 }}
                 disabled={!setupStatus?.is_setup_complete}
-                className="self-start bg-violet-700 hover:bg-violet-800 text-white disabled:opacity-50"
+                className="self-start bg-primary hover:bg-primary text-white disabled:opacity-50"
               >
                 {setupStatus?.is_setup_complete ? "Go to Dashboard" : "Complete all required steps first"}
                 <ArrowRight className="size-4 ml-1.5" />

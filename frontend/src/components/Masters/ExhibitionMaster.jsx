@@ -108,7 +108,7 @@ export default function ExhibitionMaster() {
         const r = row.original;
         return (
           <div className="flex items-center gap-2">
-            <button onClick={() => handleEdit(r)} className="text-violet-500 hover:text-violet-700" title="Edit">
+            <button onClick={() => handleEdit(r)} className="text-primary hover:text-primary" title="Edit">
               <Edit className="size-4" />
             </button>
             <button
@@ -172,7 +172,7 @@ export default function ExhibitionMaster() {
         <div className="rounded-lg border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/40">
             <div className="flex items-center gap-2">
-              <MapPin className="size-4 text-violet-600" />
+              <MapPin className="size-4 text-primary" />
               <span className="text-sm font-semibold">{editingId ? "Edit Exhibition" : "Add Exhibition Profile"}</span>
             </div>
             <button onClick={reset} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
@@ -240,7 +240,7 @@ export default function ExhibitionMaster() {
 
             <div className="flex gap-3">
               <Button type="submit" size="sm" disabled={submitting || !form.name.trim() || !form.gstin.trim() || !form.address_line1.trim()}
-                className="bg-violet-700 hover:bg-violet-800 text-white">
+                className="bg-primary hover:bg-primary text-white">
                 <Check className="size-4 mr-1" />{editingId ? "Update" : "Save"}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={reset}>
@@ -254,7 +254,7 @@ export default function ExhibitionMaster() {
       {/* Header row */}
       {!showForm && (
         <div className="flex justify-end">
-          <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={() => setShowForm(true)}>
+          <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={() => setShowForm(true)}>
             <Plus className="size-4 mr-1" />Add Exhibition
           </Button>
         </div>

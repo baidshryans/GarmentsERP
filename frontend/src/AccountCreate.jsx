@@ -43,7 +43,7 @@ const GroupPickerNode = ({ node, level, onSelect, disabledId }) => {
                 {hasChildren ? (
                     <button
                         type="button"
-                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-violet-100 text-violet-600"
+                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
                         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
                     >
                         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -55,16 +55,16 @@ const GroupPickerNode = ({ node, level, onSelect, disabledId }) => {
                 )}
                 {hasChildren
                     ? open
-                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-violet-600' : 'text-violet-400'}`} />
-                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-violet-600' : 'text-violet-400'}`} />
+                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
+                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
                     : null
                 }
                 {node.code && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-violet-200 text-violet-800' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-violet-200 text-primary' : 'bg-gray-100 text-gray-500'}`}>
                         {node.code}
                     </span>
                 )}
-                <span className={`text-sm truncate ${level === 0 ? 'font-semibold text-violet-900' : 'text-gray-700'} group-hover:text-violet-800`}>
+                <span className={`text-sm truncate ${level === 0 ? 'font-semibold text-primary' : 'text-gray-700'} group-hover:text-primary`}>
                     {node.name}
                 </span>
                 {hasChildren && (
@@ -206,7 +206,7 @@ const AccountCreate = () => {
                         Cancel
                     </Button>
                     <Button type="submit" form="accountForm" disabled={isSubmitting}
-                        className="h-10 px-6 bg-violet-700 hover:bg-violet-800 text-white font-semibold shadow-sm">
+                        className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
                         {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
                     </Button>
                 </div>
@@ -215,8 +215,8 @@ const AccountCreate = () => {
             {/* ── Form card ───────────────────────────────────────────────── */}
             <div className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-7 py-4 bg-violet-50 border-b border-violet-100">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-700 text-white text-xs font-bold shrink-0">1</span>
-                    <span className="text-sm font-bold text-violet-900 tracking-widest uppercase">Group Details</span>
+                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">1</span>
+                    <span className="text-sm font-bold text-primary tracking-widest uppercase">Group Details</span>
                 </div>
 
                 <form id="accountForm" onSubmit={handleSubmit(onSubmit)} className="px-7 py-8 space-y-6">
@@ -279,7 +279,7 @@ const AccountCreate = () => {
                                             {selected ? (
                                                 <>
                                                     {selected.code && (
-                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 tracking-wider shrink-0">
+                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-primary tracking-wider shrink-0">
                                                             {selected.code}
                                                         </span>
                                                     )}
@@ -304,10 +304,10 @@ const AccountCreate = () => {
                                         <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
                                             <SheetContent side="right" className="w-[400px] sm:max-w-[400px] flex flex-col p-0">
                                                 <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
-                                                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-700 text-white text-xs font-bold shrink-0">≡</span>
+                                                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                                                     <div>
-                                                        <p className="text-sm font-bold text-violet-900 tracking-widest uppercase">Select Parent Group</p>
-                                                        <p className="text-xs text-violet-600 mt-0.5">Click a group to set it as the parent</p>
+                                                        <p className="text-sm font-bold text-primary tracking-widest uppercase">Select Parent Group</p>
+                                                        <p className="text-xs text-primary mt-0.5">Click a group to set it as the parent</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex-1 overflow-y-auto px-3 py-3">
@@ -341,7 +341,7 @@ const AccountCreate = () => {
                     Cancel
                 </Button>
                 <Button type="submit" form="accountForm" disabled={isSubmitting}
-                    className="h-10 px-6 bg-violet-700 hover:bg-violet-800 text-white font-semibold shadow-sm">
+                    className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
                     {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
                 </Button>
             </div>

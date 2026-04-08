@@ -351,7 +351,7 @@ const AddJournal = () => {
                   <div className="flex justify-center items-center gap-2">
                     <Edit
                       size={20}
-                      className="cursor-pointer text-violet-600 hover:text-violet-800"
+                      className="cursor-pointer text-primary hover:text-primary"
                       onClick={() => handleEdit(index)}
                     />
                     <Trash2
@@ -538,7 +538,7 @@ const AddJournal = () => {
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white" disabled={uploadingFiles}>
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={uploadingFiles}>
             {uploadingFiles ? "Uploading files…" : "Save"}
           </Button>
         </div>

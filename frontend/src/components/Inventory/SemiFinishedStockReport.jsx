@@ -74,13 +74,13 @@ export default function SemiFinishedStockReport() {
           <p className="text-lg font-semibold text-amber-800 tabular-nums">{fmtQty(wipSummary?.total_pcs || 0)}</p>
         </div>
         <div className="p-3 rounded-lg border border-violet-200 bg-violet-50/50 text-center">
-          <p className="text-[10px] text-violet-700 uppercase tracking-wider">Pending Barcode</p>
-          <p className="text-lg font-semibold text-violet-800 tabular-nums">{pendingSummary?.count || 0} items</p>
-          <p className="text-xs text-violet-600">{fmtWt(pendingSummary?.total_gw || 0)} g</p>
+          <p className="text-[10px] text-primary uppercase tracking-wider">Pending Barcode</p>
+          <p className="text-lg font-semibold text-primary tabular-nums">{pendingSummary?.count || 0} items</p>
+          <p className="text-xs text-primary">{fmtWt(pendingSummary?.total_gw || 0)} g</p>
         </div>
         <div className="p-3 rounded-lg border border-violet-200 bg-violet-50/50 text-center">
-          <p className="text-[10px] text-violet-700 uppercase tracking-wider">Pending Pcs</p>
-          <p className="text-lg font-semibold text-violet-800 tabular-nums">{fmtQty(pendingSummary?.total_pcs || 0)}</p>
+          <p className="text-[10px] text-primary uppercase tracking-wider">Pending Pcs</p>
+          <p className="text-lg font-semibold text-primary tabular-nums">{fmtQty(pendingSummary?.total_pcs || 0)}</p>
         </div>
       </div>
 
@@ -98,7 +98,7 @@ export default function SemiFinishedStockReport() {
           </button>
           <button
             className={`px-4 py-2 text-xs font-medium transition-colors ${
-              tab === "pending" ? "bg-violet-600 text-white" : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+              tab === "pending" ? "bg-primary text-white" : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
             }`}
             onClick={() => setTab("pending")}
           >
@@ -181,7 +181,7 @@ export default function SemiFinishedStockReport() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-violet-50 text-xs uppercase tracking-wider text-violet-800">
+                <tr className="bg-violet-50 text-xs uppercase tracking-wider text-primary">
                   <th className="px-3 py-2.5 text-left font-semibold">Item</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Purity</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Pcs</th>

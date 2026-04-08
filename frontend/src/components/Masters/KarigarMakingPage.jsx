@@ -162,7 +162,7 @@ export default function KarigarMakingPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleEdit(row.original)}
-            className="text-violet-500 hover:text-violet-700"
+            className="text-primary hover:text-primary"
             title="Edit"
           >
             <Edit className="size-4" />
@@ -211,7 +211,7 @@ export default function KarigarMakingPage() {
       header: "Making / Gm (₹)",
       accessorKey: "making_per_gm",
       cell: ({ getValue }) => (
-        <span className="font-mono text-sm font-semibold text-violet-700">
+        <span className="font-mono text-sm font-semibold text-primary">
           ₹{fmt(getValue())}
         </span>
       ),
@@ -401,7 +401,7 @@ export default function KarigarMakingPage() {
                 type="submit"
                 size="sm"
                 disabled={submitting || !form.karigar || !form.item || !form.purity}
-                className="bg-violet-700 hover:bg-violet-800 text-white"
+                className="bg-primary hover:bg-primary text-white"
               >
                 <Check className="size-4 mr-1" />
                 {editingId ? "Update" : "Save"}
@@ -423,7 +423,7 @@ export default function KarigarMakingPage() {
           </p>
           <Button
             size="sm"
-            className="bg-violet-700 hover:bg-violet-800 text-white"
+            className="bg-primary hover:bg-primary text-white"
             onClick={() => setShowForm(true)}
           >
             <Plus className="size-4 mr-1" />
@@ -446,7 +446,7 @@ export default function KarigarMakingPage() {
           </p>
           <Button
             size="sm"
-            className="bg-violet-700 hover:bg-violet-800 text-white mt-2"
+            className="bg-primary hover:bg-primary text-white mt-2"
             onClick={() => setShowForm(true)}
           >
             <Plus className="size-4 mr-1" />

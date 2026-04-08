@@ -27,14 +27,14 @@ function MessageBubble({ message }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
       {!isUser && (
-        <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center mr-2 mt-0.5 shrink-0">
+        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center mr-2 mt-0.5 shrink-0">
           <Sparkles size={12} className="text-white" />
         </div>
       )}
       <div
         className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
           isUser
-            ? "bg-violet-500 text-white rounded-tr-sm"
+            ? "bg-primary text-white rounded-tr-sm"
             : "bg-gray-100 text-gray-800 rounded-tl-sm"
         }`}
       >
@@ -52,7 +52,7 @@ function MessageBubble({ message }) {
 function TypingIndicator() {
   return (
     <div className="flex justify-start mb-3">
-      <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center mr-2 mt-0.5 shrink-0">
+      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center mr-2 mt-0.5 shrink-0">
         <Sparkles size={12} className="text-white" />
       </div>
       <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-3 py-2">
@@ -152,7 +152,7 @@ export default function AIAssistant() {
       {/* Floating trigger button */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-violet-500 hover:bg-violet-600 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-primary hover:bg-primary text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
         title="AI Assistant"
       >
         {isOpen ? <ChevronDown size={20} /> : <Sparkles size={20} />}
@@ -162,7 +162,7 @@ export default function AIAssistant() {
       {isOpen && (
         <div className="fixed bottom-22 right-6 z-50 w-96 h-[480px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-violet-500 text-white">
+          <div className="flex items-center justify-between px-4 py-3 bg-primary text-white">
             <div className="flex items-center gap-2">
               <Sparkles size={16} />
               <span className="font-semibold text-sm">AI Assistant</span>
@@ -170,14 +170,14 @@ export default function AIAssistant() {
             <div className="flex items-center gap-1">
               <button
                 onClick={clearChat}
-                className="p-1 rounded hover:bg-violet-600 transition-colors"
+                className="p-1 rounded hover:bg-primary transition-colors"
                 title="Clear chat"
               >
                 <Trash2 size={14} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded hover:bg-violet-600 transition-colors"
+                className="p-1 rounded hover:bg-primary transition-colors"
                 title="Close"
               >
                 <X size={14} />
@@ -210,7 +210,7 @@ export default function AIAssistant() {
               <button
                 onClick={sendMessage}
                 disabled={!input.trim() || loading}
-                className="w-8 h-8 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:bg-gray-300 text-white flex items-center justify-center transition-colors shrink-0"
+                className="w-8 h-8 rounded-lg bg-primary hover:bg-primary disabled:bg-gray-300 text-white flex items-center justify-center transition-colors shrink-0"
               >
                 <Send size={14} />
               </button>

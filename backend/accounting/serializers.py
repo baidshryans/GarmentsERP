@@ -16,6 +16,13 @@ from .models import VoucherMain, VoucherDetail, Ledger, ReferenceBills, VoucherA
 from contacts.models import LedgerRole
 from purchase.models import PurchaseVoucher
 
+from rest_framework.exceptions import ValidationError as _LedgerConfigError
+def _raise_missing_ledger(label):
+    raise _LedgerConfigError(
+        {'ledger_config': f"Required ledger '{label}' is not configured on master. Please configure it in Company/GSTIN/Retail master before saving vouchers."}
+    )
+
+
 
 class BankStatementSerializer(serializers.ModelSerializer):
     bank_ledger_name = serializers.CharField(source='bank_ledger.ac_name', read_only=True)
@@ -98,7 +105,7 @@ class GoldCashSerializder(serializers.ModelSerializer):
             # Create journal entry for gold/cash conversion
             _retail = self.context['request'].retail
             _co = _retail.branch.company if _retail.branch_id and _retail.branch else None
-            _gold_conv_ldgr = _co.gold_conversion_ldgr.ac_name if _co and _co.gold_conversion_ldgr else "Gold Conversion"
+            _gold_conv_ldgr = _co.gold_conversion_ldgr.ac_name if _co and _co.gold_conversion_ldgr else _raise_missing_ledger("Gold Conversion")
             journal_data = {
                 'date': instance.date,
                 'voucher_no': generate_voucher_no(type=global_vars.VoucherType.journal,retail=_retail),
@@ -187,9 +194,9 @@ class JournalEntrySerializer(serializers.Serializer):
             and retail_obj
             and retail_obj.cash_ldgr
         ):
-            from accounting.utils import get_customer_cash_received
+            from accounting.utils import get_customer_cash_received, get_company_cash_limits
             cash_ldgr = retail_obj.cash_ldgr
-            limit = Decimal(str(retail_obj.max_cash_receipt_limit))
+            limit, _ = get_company_cash_limits(retail_obj)
             fy = retail_obj.active_fy
 
             new_cash = sum(
@@ -222,9 +229,9 @@ class JournalEntrySerializer(serializers.Serializer):
             validated_data.get('voucher_type', '').strip().upper() == 'PMNT'
             and retail_obj
         ):
-            from accounting.utils import get_vendor_cash_paid_on_date
+            from accounting.utils import get_vendor_cash_paid_on_date, get_company_cash_limits
             cash_ldgr_pm = retail_obj.cash_ldgr
-            limit_pm = Decimal(str(retail_obj.max_cash_payment_limit))
+            _, limit_pm = get_company_cash_limits(retail_obj)
             payment_date = validated_data.get('date')
 
             # Cash = the CREDIT side of a payment (money leaving via cash ledger)

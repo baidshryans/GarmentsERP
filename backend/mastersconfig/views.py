@@ -104,7 +104,17 @@ class ListCreatePacket(ListCreateAPIView):
     serializer_class = PacketSerializer
     queryset         = Packet.objects.all()
     filter_backends = [DjangoFilterBackend,SearchFilter]
+    filterset_fields = ['stone_item']
     pagination_class = None
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        items = self.request.query_params.get('item_ids')
+        if items:
+            ids = [v for v in items.split(',') if v.strip()]
+            if ids:
+                qs = qs.filter(stone_item_id__in=ids)
+        return qs
 
 
 class RetrieveUpdateDestroyPacket(RetrieveUpdateDestroyAPIView):

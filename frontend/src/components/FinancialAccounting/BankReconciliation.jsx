@@ -162,7 +162,7 @@ export default function BankReconciliation() {
           <Label className="text-xs">To Date</Label>
           <Input type="date" className="h-9 w-36 text-sm" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
-        <Button size="sm" onClick={load} className="bg-violet-700 hover:bg-violet-800 text-white h-9">
+        <Button size="sm" onClick={load} className="bg-primary hover:bg-primary text-white h-9">
           <Search className="size-4 mr-1" /> Load
         </Button>
       </div>
@@ -187,7 +187,7 @@ export default function BankReconciliation() {
             </div>
             <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Matched</div>
-              <div className="text-base font-bold text-violet-700">{matchedCount}</div>
+              <div className="text-base font-bold text-primary">{matchedCount}</div>
             </div>
             <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Unmatched</div>
@@ -233,7 +233,7 @@ export default function BankReconciliation() {
                       onChange={(e) => setNewEntry((n) => ({ ...n, credit: e.target.value, debit: "" }))} />
                   </div>
                 </div>
-                <Button size="sm" className="self-end h-7 text-xs bg-violet-700 hover:bg-violet-800 text-white"
+                <Button size="sm" className="self-end h-7 text-xs bg-primary hover:bg-primary text-white"
                   onClick={handleAddEntry} disabled={saving}>
                   <Plus className="size-3 mr-1" /> Add
                 </Button>
@@ -268,7 +268,7 @@ export default function BankReconciliation() {
                         <td className="px-2 py-1.5">
                           {r.is_matched
                             ? <CheckCircle2 className="size-3.5 text-green-600" />
-                            : <Circle className={`size-3.5 ${selStmt === r.id ? "text-violet-500" : "text-muted-foreground/30"}`} />}
+                            : <Circle className={`size-3.5 ${selStmt === r.id ? "text-primary" : "text-muted-foreground/30"}`} />}
                         </td>
                         <td className="px-2 py-1.5 whitespace-nowrap">{r.date}</td>
                         <td className="px-2 py-1.5 max-w-[140px] truncate" title={r.description}>
@@ -330,11 +330,11 @@ export default function BankReconciliation() {
                         <td className="px-2 py-1.5">
                           {r.is_matched
                             ? <CheckCircle2 className="size-3.5 text-green-600" />
-                            : <Circle className={`size-3.5 ${selBook === r.id ? "text-violet-500" : "text-muted-foreground/30"}`} />}
+                            : <Circle className={`size-3.5 ${selBook === r.id ? "text-primary" : "text-muted-foreground/30"}`} />}
                         </td>
                         <td className="px-2 py-1.5 whitespace-nowrap">{r.date}</td>
                         <td className="px-2 py-1.5 max-w-[160px]">
-                          <span className="font-mono text-[10px] text-violet-600 block">{r.voucher_no}</span>
+                          <span className="font-mono text-[10px] text-primary block">{r.voucher_no}</span>
                           <span className="truncate block" title={r.narration}>{r.narration}</span>
                           {r.chq_no && <span className="text-[9px] text-muted-foreground">Chq: {r.chq_no}</span>}
                         </td>
@@ -351,13 +351,13 @@ export default function BankReconciliation() {
           {/* Match button */}
           {(selStmt || selBook) && (
             <div className="flex items-center gap-3 p-3 rounded-lg border border-violet-200 bg-violet-50">
-              <span className="text-xs text-violet-800">
+              <span className="text-xs text-primary">
                 {selStmt ? "1 statement entry selected" : "No statement selected"} ·{" "}
                 {selBook ? "1 book entry selected" : "No book entry selected"}
               </span>
               <Button
                 size="sm"
-                className="ml-auto bg-violet-700 hover:bg-violet-800 text-white h-7 text-xs"
+                className="ml-auto bg-primary hover:bg-primary text-white h-7 text-xs"
                 onClick={handleMatch}
                 disabled={!selStmt || !selBook}
               >

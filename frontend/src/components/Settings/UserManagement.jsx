@@ -184,7 +184,7 @@ export default function UserManagement() {
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-sm">{row.original.username}</span>
           {row.original.is_staff && (
-            <span className="px-1 py-0.5 rounded text-[9px] bg-violet-100 text-violet-700 font-semibold">admin</span>
+            <span className="px-1 py-0.5 rounded text-[9px] bg-violet-100 text-primary font-semibold">admin</span>
           )}
         </div>
       ),
@@ -219,7 +219,7 @@ export default function UserManagement() {
       cell: ({ row }) => {
         const r = row.original.role;
         if (!r) return <span className="text-xs text-muted-foreground">No role</span>;
-        return <span className="px-1.5 py-0.5 rounded text-[11px] bg-violet-100 text-violet-700 font-medium">{r.name}</span>;
+        return <span className="px-1.5 py-0.5 rounded text-[11px] bg-violet-100 text-primary font-medium">{r.name}</span>;
       },
     },
     { header: "Joined", accessorKey: "date_joined" },
@@ -229,7 +229,7 @@ export default function UserManagement() {
     <div className="p-4 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold">User Management</h1>
-        <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={openCreate}>
+        <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={openCreate}>
           <Plus className="size-4 mr-1" /> New User
         </Button>
       </div>
@@ -271,7 +271,7 @@ export default function UserManagement() {
           </div>
           <SheetFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setSheet(null)}>Cancel</Button>
-            <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={handleCreate} disabled={saving}>
+            <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={handleCreate} disabled={saving}>
               {saving ? "Creating..." : "Create User"}
             </Button>
           </SheetFooter>
@@ -312,7 +312,7 @@ export default function UserManagement() {
           </div>
           <SheetFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setSheet(null)}>Cancel</Button>
-            <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={handleUpdate} disabled={saving}>
+            <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={handleUpdate} disabled={saving}>
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </SheetFooter>
@@ -348,7 +348,7 @@ export default function UserManagement() {
           </div>
           <SheetFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setSheet(null)}>Cancel</Button>
-            <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={handleAssignRole} disabled={saving}>
+            <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={handleAssignRole} disabled={saving}>
               {saving ? "Saving..." : "Save Role"}
             </Button>
           </SheetFooter>
@@ -399,7 +399,7 @@ export default function UserManagement() {
           </div>
           <SheetFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setSheet(null)}>Cancel</Button>
-            <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={handleAssignRetail} disabled={saving}>
+            <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={handleAssignRetail} disabled={saving}>
               {saving ? "Saving..." : "Save Assignments"}
             </Button>
           </SheetFooter>

@@ -90,7 +90,7 @@ export default function ShapeMasterPage() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-3">
-          <button onClick={() => handleEdit(row.original)} className="text-violet-500 hover:text-violet-700">
+          <button onClick={() => handleEdit(row.original)} className="text-primary hover:text-primary">
             <Edit className="size-4" />
           </button>
           <button onClick={() => handleDelete(row.original.id)} className="text-red-500 hover:text-red-700">

@@ -236,7 +236,7 @@ const StockJournal = () => {
           onSubmit={handleSubmit(onSubmit)}
         >
           {/* ── Title ── */}
-          <div className="text-center font-bold text-violet-900 text-lg tracking-wide">
+          <div className="text-center font-bold text-primary text-lg tracking-wide">
             ADD / LESS STOCK JOURNAL
           </div>
 
@@ -255,7 +255,7 @@ const StockJournal = () => {
                   readOnly
                   className="bg-muted font-mono font-semibold cursor-not-allowed"
                 />
-                <span className="text-xs whitespace-nowrap text-violet-700 border border-violet-200 rounded px-1.5 py-0.5">
+                <span className="text-xs whitespace-nowrap text-primary border border-violet-200 rounded px-1.5 py-0.5">
                   Auto
                 </span>
               </div>
@@ -409,7 +409,7 @@ const StockJournal = () => {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="text-violet-700 hover:text-violet-900 hover:bg-violet-50 text-xs h-7 gap-1"
+                      className="text-primary hover:text-primary hover:bg-violet-50 text-xs h-7 gap-1"
                       onClick={handleAddRow}
                     >
                       + Add Row
@@ -427,7 +427,7 @@ const StockJournal = () => {
                       <div className="flex justify-center items-center gap-1.5">
                         <Edit
                           size={15}
-                          className="cursor-pointer text-violet-600 hover:text-violet-800"
+                          className="cursor-pointer text-primary hover:text-primary"
                           onClick={() => handleEdit(index)}
                         />
                         <Trash2
@@ -491,7 +491,7 @@ const StockJournal = () => {
             <Button type="button" variant="outline" onClick={() => window.history.back()} className="gap-2">
               <X className="w-4 h-4" /> Cancel
             </Button>
-            <Button type="submit" className="gap-2 bg-violet-700 hover:bg-violet-800 text-white">
+            <Button type="submit" className="gap-2 bg-primary hover:bg-primary text-white">
               <Save className="w-4 h-4" /> Save
             </Button>
           </div>

@@ -155,7 +155,7 @@ export default function RetailMasterPage() {
     {
       header: "Action",
       cell: ({ row }) => (
-        <button onClick={() => handleEdit(row.original)} className="text-violet-500 hover:text-violet-700">
+        <button onClick={() => handleEdit(row.original)} className="text-primary hover:text-primary">
           <Edit className="size-4" />
         </button>
       ),
@@ -177,7 +177,7 @@ export default function RetailMasterPage() {
     {
       header: "Branch",
       cell: ({ row }) => row.original.branch_name
-        ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-violet-800">{row.original.branch_name}</span>
+        ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-primary">{row.original.branch_name}</span>
         : <span className="text-xs text-muted-foreground">—</span>,
     },
   ];
@@ -292,30 +292,6 @@ export default function RetailMasterPage() {
                     Exhibition Retail
                   </span>
                 </label>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">Cash Limit / Customer / FY (₹) <span className="text-muted-foreground font-normal">Sec 269ST</span></Label>
-                <Input
-                  type="number"
-                  name="max_cash_receipt_limit"
-                  value={form.max_cash_receipt_limit}
-                  onChange={handleChange}
-                  placeholder="199999"
-                  className="h-9 text-sm"
-                  min="0"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">Cash Limit / Party / Day (₹) <span className="text-muted-foreground font-normal">Sec 40A(3)</span></Label>
-                <Input
-                  type="number"
-                  name="max_cash_payment_limit"
-                  value={form.max_cash_payment_limit}
-                  onChange={handleChange}
-                  placeholder="10000"
-                  className="h-9 text-sm"
-                  min="0"
-                />
               </div>
             </div>
 
@@ -443,7 +419,7 @@ export default function RetailMasterPage() {
                 type="submit"
                 size="sm"
                 disabled={submitting || !form.retail_name.trim() || !form.retail_code.trim()}
-                className="bg-violet-700 hover:bg-violet-800 text-white"
+                className="bg-primary hover:bg-primary text-white"
               >
                 <Check className="size-4 mr-1" />
                 {editingId ? "Update" : "Save"}
@@ -460,7 +436,7 @@ export default function RetailMasterPage() {
       {/* Header row */}
       {!showForm && (
         <div className="flex justify-end">
-          <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={() => setShowForm(true)}>
+          <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={() => setShowForm(true)}>
             <Plus className="size-4 mr-1" />
             Add Retail
           </Button>

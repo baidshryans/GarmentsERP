@@ -5,7 +5,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.views import APIView
 from inventory.models import OpeningInventory
 from manufacturing.filters import JobCompletedFilter, KarigarReceiveItemFilter
-from manufacturing.serializer import HallmarkIssueForPostSerializer, HallmarkReceiveForPostSerializer, KarigarGoldIssueSerializer, KarigarIssueForPostSerializer, KarigarIssueFullReportSerializer, KarigarIssueItemforJobStatusSerializer, KarigarIssueSerializer, KarigarMasterSerializer , KarigarIssueforJobsSerializer, KarigarReceiveForPostSerializer, KarigarReceiveItemForGetSerializer, KarigarReceiveSerializer, KarigarReceiveforNoSerializer, KarigarStoneIssueGetSerializer, KarigarStoneIssueReportSerializer,KarigarStoneIssueSerializer, KarigarStoneReceiveSerializer, LedgerReceiveReportSerializer, LedgerReportSerializer, HallmarkIssueReportSerializer, RefinaryIssueSerializer, RefinaryReceiveSerializer
+from manufacturing.serializer import HallmarkIssueForPostSerializer, HallmarkReceiveForPostSerializer, KarigarGoldIssueSerializer, KarigarIssueForPostSerializer, KarigarIssueFullReportSerializer, KarigarIssueItemforJobStatusSerializer, KarigarIssueSerializer, KarigarMasterSerializer , KarigarIssueforJobsSerializer, KarigarReceiveForPostSerializer, KarigarReceiveItemForGetSerializer, KarigarReceiveSerializer, KarigarReceiveforNoSerializer, KarigarStoneIssueGetSerializer, KarigarStoneIssueReportSerializer,KarigarStoneIssueSerializer, KarigarStoneReceiveSerializer, LedgerReceiveReportSerializer, LedgerReportSerializer, HallmarkIssueReportSerializer, RefinaryIssueSerializer, RefinaryReceiveSerializer, MeltingIssueSerializer, MeltingReceiveSerializer, AssayIssueSerializer, AssayReceiveSerializer
 from mastersconfig.serializers import PacketSerializer, PacketWithTotalSerializer
 from userauth.permissions import RBACPermission
 from .models import *
@@ -147,6 +147,38 @@ def refinery_issue_billno_view(request):
 def refinery_receive_billno_view(request):
     try:
         bill_no = generate_refinary_rec_bill(request.retail)
+        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def melting_issue_billno_view(request):
+    try:
+        bill_no = generate_melting_iss_bill(request.retail)
+        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def melting_receive_billno_view(request):
+    try:
+        bill_no = generate_melting_rec_bill(request.retail)
+        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def assay_issue_billno_view(request):
+    try:
+        bill_no = generate_assay_iss_bill(request.retail)
+        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+def assay_receive_billno_view(request):
+    try:
+        bill_no = generate_assay_rec_bill(request.retail)
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -798,7 +830,60 @@ class RefineryReceiveViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['billno'] 
+    ordering = ['billno']
+
+
+class MeltingIssueViewset(views.RetailBaseViewset):
+    queryset = MeltingIssue.objects.all()
+    serializer_class = MeltingIssueSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['billno']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    ordering = ['billno']
+
+
+class MeltingReceiveViewset(views.RetailBaseViewset):
+    queryset = MeltingReceive.objects.all()
+    serializer_class = MeltingReceiveSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['billno']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    ordering = ['billno']
+
+
+class AssayIssueViewset(views.RetailBaseViewset):
+    queryset = AssayIssue.objects.all()
+    serializer_class = AssayIssueSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['billno']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    ordering = ['billno']
+
+
+class AssayReceiveViewset(views.RetailBaseViewset):
+    queryset = AssayReceive.objects.all()
+    serializer_class = AssayReceiveSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['billno']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    ordering = ['billno']
+
 
 class HallmarkIssueReportView(APIView):
     def get(self, request):
@@ -930,13 +1015,24 @@ class KarigarStoneReceiveViewset(views.RetailBaseViewset):
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
 
     search_fields=['billno','karigar_ldgr__ac_name']
+    filterset_fields = ['karigar_ldgr']
 
     @property
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['billno'] 
+    ordering = ['-date1', '-billno']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(date1__gte=date_from)
+        if date_to:
+            qs = qs.filter(date1__lte=date_to)
+        return qs
 
 
 
@@ -945,14 +1041,25 @@ class KarigarStoneIssueViewset(views.RetailBaseViewset):
     serializer_class = KarigarStoneIssueSerializer
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
 
-    search_fields=['billno']
-    
+    search_fields=['billno','karigar_ldgr__ac_name']
+    filterset_fields = ['karigar_ldgr']
+
     @property
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['billno'] 
+    ordering = ['-date1', '-billno']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(date1__gte=date_from)
+        if date_to:
+            qs = qs.filter(date1__lte=date_to)
+        return qs
 
 class KarigarGoldIssueViewset(views.RetailBaseViewset):
     queryset = KarigarGoldIssueHeader.objects.all()
@@ -1782,7 +1889,7 @@ def refinery_report(request):
         'refinaryissuedetail_set__item',
         'refinaryissuedetail_set__metal_purity',
         'refinaryissuedetail_set__packet',
-    ).order_by('-date', 'billno')
+    ).order_by('-date1', 'billno')
 
     recv_qs = recv_qs.select_related('ldgr').prefetch_related(
         'refinaryreceivedetail_set__item',
@@ -1790,7 +1897,7 @@ def refinery_report(request):
         'refinaryreceivedetail_set__conv_purity',
         'refinaryreceivedetail_set__issue_no',
         'refinaryreceivedetail_set__packet',
-    ).order_by('-date', 'billno')
+    ).order_by('-date1', 'billno')
 
     # Build issue rows
     issues = []
@@ -1813,7 +1920,7 @@ def refinery_report(request):
         issues.append({
             'id':         iss.id,
             'billno':     iss.billno,
-            'date':       str(iss.date),
+            'date':       str(iss.date1),
             'refiner':    iss.ldgr.ac_name,
             'refiner_id': iss.ldgr_id,
             'rec_status': iss.rec_status,
@@ -1851,7 +1958,7 @@ def refinery_report(request):
         receives.append({
             'id':            rec.id,
             'billno':        rec.billno,
-            'date':          str(rec.date),
+            'date':          str(rec.date1),
             'refiner':       rec.ldgr.ac_name,
             'refiner_id':    rec.ldgr_id,
             'total_gw':      float(rec_gw),

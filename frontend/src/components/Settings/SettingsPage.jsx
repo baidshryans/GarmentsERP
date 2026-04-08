@@ -18,9 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { resetErp, fetchRetails, updateRetail, backupDatabaseDownload, backupDatabaseToPath, fetchCommissionLedgerConfig, setCommissionLedger, getLedgerList, fetchSystemSettings, updateSystemSettings } from "@/services/apiService";
-import { Percent } from "lucide-react";
+import { resetErp, fetchRetails, updateRetail, fetchCompanies, updateCompany, backupDatabaseDownload, backupDatabaseToPath, fetchCommissionLedgerConfig, setCommissionLedger, getLedgerList, fetchSystemSettings, updateSystemSettings } from "@/services/apiService";
+import { Percent, Palette, Check } from "lucide-react";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { useTheme, THEMES } from "@/contexts/ThemeContext";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -42,6 +43,11 @@ export default function SettingsPage() {
             Open Setup Wizard
           </Button>
         </SettingRow>
+      </Section>
+
+      {/* Appearance */}
+      <Section title="Appearance" icon={<Palette className="size-4" />}>
+        <ThemeSelector />
       </Section>
 
       {/* Database */}
@@ -83,6 +89,36 @@ export default function SettingsPage() {
 }
 
 // ─── Layout helpers ──────────────────────────────────────────────────────────
+
+function ThemeSelector() {
+  const { theme, setTheme } = useTheme();
+  return (
+    <SettingRow
+      title="Color Theme"
+      description="Switch the primary accent color used across buttons, links, and highlights."
+    >
+      <div className="flex items-center gap-3">
+        {Object.entries(THEMES).map(([key, t]) => {
+          const active = theme === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTheme(key)}
+              title={t.label}
+              className={`relative size-9 rounded-full border-2 transition ${
+                active ? "border-foreground scale-110" : "border-border hover:scale-105"
+              }`}
+              style={{ backgroundColor: t.swatch }}
+            >
+              {active && <Check className="size-4 text-white absolute inset-0 m-auto" />}
+            </button>
+          );
+        })}
+      </div>
+    </SettingRow>
+  );
+}
 
 function Section({ title, icon, children, danger }) {
   return (
@@ -246,33 +282,32 @@ function BillCalcSettingCard() {
 
 function CashLimitCard() {
   const { toast } = useToast();
-  const [retails, setRetails] = useState([]);
-  // values keyed as `${retailId}_receipt` and `${retailId}_payment`
+  const [companies, setCompanies] = useState([]);
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState({});
 
   useEffect(() => {
-    fetchRetails().then((res) => {
+    fetchCompanies().then((res) => {
       if (res.success) {
         const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
-        setRetails(list);
+        setCompanies(list);
         const v = {};
-        list.forEach((r) => {
-          v[`${r.id}_receipt`]  = r.max_cash_receipt_limit  ?? 199999;
-          v[`${r.id}_payment`]  = r.max_cash_payment_limit  ?? 10000;
+        list.forEach((c) => {
+          v[`${c.id}_receipt`] = c.max_cash_receipt_limit ?? 199999;
+          v[`${c.id}_payment`] = c.max_cash_payment_limit ?? 10000;
         });
         setValues(v);
       }
     });
   }, []);
 
-  const handleSave = async (retailId, field) => {
-    const key = `${retailId}_${field}`;
+  const handleSave = async (companyId, field) => {
+    const key = `${companyId}_${field}`;
     setSaving((s) => ({ ...s, [key]: true }));
     const payload = field === "receipt"
       ? { max_cash_receipt_limit: Number(values[key]) }
       : { max_cash_payment_limit: Number(values[key]) };
-    const res = await updateRetail(retailId, payload);
+    const res = await updateCompany(companyId, payload);
     if (res.success) {
       toast({ title: "Saved", description: "Limit updated successfully." });
     } else {
@@ -281,33 +316,31 @@ function CashLimitCard() {
     setSaving((s) => ({ ...s, [key]: false }));
   };
 
-  if (retails.length === 0) {
-    return <div className="px-5 py-4 text-xs text-muted-foreground">No retail locations found.</div>;
+  if (companies.length === 0) {
+    return <div className="px-5 py-4 text-xs text-muted-foreground">No companies found.</div>;
   }
 
-  return retails.map((r) => (
-    <div key={r.id} className="divide-y divide-border">
-      {/* Receipt limit row */}
+  return companies.map((c) => (
+    <div key={c.id} className="divide-y divide-border">
       <LimitRow
-        label={r.retail_name}
+        label={c.company_name}
         sublabel="Max cash receivable per customer per financial year"
         badge="Sec 269ST"
-        fieldKey={`${r.id}_receipt`}
+        fieldKey={`${c.id}_receipt`}
         values={values}
         saving={saving}
         onChange={(k, v) => setValues((prev) => ({ ...prev, [k]: v }))}
-        onSave={() => handleSave(r.id, "receipt")}
+        onSave={() => handleSave(c.id, "receipt")}
       />
-      {/* Payment limit row */}
       <LimitRow
         label={null}
         sublabel="Max cash payable to a single party per day"
         badge="Sec 40A(3)"
-        fieldKey={`${r.id}_payment`}
+        fieldKey={`${c.id}_payment`}
         values={values}
         saving={saving}
         onChange={(k, v) => setValues((prev) => ({ ...prev, [k]: v }))}
-        onSave={() => handleSave(r.id, "payment")}
+        onSave={() => handleSave(c.id, "payment")}
       />
     </div>
   ));
@@ -335,7 +368,7 @@ function LimitRow({ label, sublabel, badge, fieldKey, values, saving, onChange, 
         />
         <Button
           size="sm"
-          className="h-8 bg-violet-700 hover:bg-violet-800 text-white"
+          className="h-8 bg-primary hover:bg-primary text-white"
           onClick={onSave}
           disabled={saving[fieldKey]}
         >
@@ -412,7 +445,7 @@ function AttachmentStorageCard() {
             />
             <Button
               size="sm"
-              className="bg-violet-700 hover:bg-violet-800 text-white shrink-0"
+              className="bg-primary hover:bg-primary text-white shrink-0"
               onClick={handleSave}
               disabled={saving}
             >
@@ -500,7 +533,7 @@ function BarcodeImageStorageCard() {
             />
             <Button
               size="sm"
-              className="bg-violet-700 hover:bg-violet-800 text-white shrink-0"
+              className="bg-primary hover:bg-primary text-white shrink-0"
               onClick={handleSave}
               disabled={saving}
             >
@@ -609,7 +642,7 @@ function BackupDatabaseCard() {
           />
           <Button
             size="sm"
-            className="bg-violet-700 hover:bg-violet-800 text-white shrink-0"
+            className="bg-primary hover:bg-primary text-white shrink-0"
             onClick={handleSaveToPath}
             disabled={status === "busy"}
           >
@@ -669,7 +702,7 @@ function ResetErpCard() {
         </p>
         <Button
           size="sm"
-          className="bg-violet-700 hover:bg-violet-800 text-white mt-2"
+          className="bg-primary hover:bg-primary text-white mt-2"
           onClick={() => navigate("/settings/setup")}
         >
           Run Setup Wizard

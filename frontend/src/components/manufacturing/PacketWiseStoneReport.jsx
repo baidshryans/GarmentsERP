@@ -1,15 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Search, Download, SlidersHorizontal } from "lucide-react";
-import {
-    fetchPacketWiseStoneReportAPI,
-    fetchPacketDataAPI,
-    fetchItemDataAPI
-} from "@/services/apiService";
+import { Loader2, Search, SlidersHorizontal } from "lucide-react";
+import apiClient from "@/services/apiClient";
+import { fetchPacketWiseStoneReportAPI } from "@/services/apiService";
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -26,66 +22,73 @@ const fyStart = (() => {
 
 export default function PacketWiseStoneReport() {
     const [data, setData] = useState([]);
-    const [filteredData, setFilteredData] = useState([]);
     const [packetData, setPacketData] = useState([]);
     const [itemData, setItemData] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [packetsLoading, setPacketsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [searched, setSearched] = useState(false);
-    const [filters, setFilters] = useState({
-        packet: { all: true, selected: [] },
-        item: { all: true, selected: [] },
-        fromDate: fyStart,
-        toDate: today,
-        reportFormat: "CT"
-    });
 
+    const [fromDate, setFromDate] = useState(fyStart);
+    const [toDate, setToDate] = useState(today);
+    const [selectedItems, setSelectedItems] = useState([]); // [] means all
+    const [selectedPackets, setSelectedPackets] = useState([]); // [] means all
+
+    // Load Type S items once
     useEffect(() => {
-        const load = async () => {
-            const [pr, ir] = await Promise.all([fetchPacketDataAPI(), fetchItemDataAPI()]);
-            if (pr.success) {
-                setPacketData(pr.data);
-                setFilters(f => ({ ...f, packet: { all: true, selected: pr.data.map(p => p.id) } }));
-            }
-            if (ir.success) {
-                setItemData(ir.data);
-                setFilters(f => ({ ...f, item: { all: true, selected: ir.data.map(i => i.id) } }));
-            }
-        };
-        load();
+        apiClient.get("/mastersconfig/api/item/?item_type=S&page_size=500")
+            .then((res) => {
+                const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+                setItemData(list);
+            }).catch(() => setItemData([]));
     }, []);
 
-    const handleSearch = async () => {
+    // Reload packets whenever item selection changes
+    useEffect(() => {
+        setPacketsLoading(true);
+        const url = selectedItems.length
+            ? `/mastersconfig/api/packet/?item_ids=${selectedItems.join(',')}`
+            : `/mastersconfig/api/packet/`;
+        apiClient.get(url)
+            .then((res) => {
+                const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+                setPacketData(list);
+                // Drop selected packets that are no longer in scope
+                setSelectedPackets((prev) => prev.filter((id) => list.some((p) => p.id === id)));
+            })
+            .catch(() => setPacketData([]))
+            .finally(() => setPacketsLoading(false));
+    }, [selectedItems]);
+
+    const toggleItem = (id) => {
+        setSelectedItems((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
+    };
+    const togglePacket = (id) => {
+        setSelectedPackets((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
+    };
+    const toggleAllItems = (checked) =>
+        setSelectedItems(checked ? itemData.map((i) => i.id) : []);
+    const toggleAllPackets = (checked) =>
+        setSelectedPackets(checked ? packetData.map((p) => p.id) : []);
+
+    const handleSearch = useCallback(async () => {
         setLoading(true);
         setError(null);
-        const toISO = (d) => d.split('/').reverse().join('-');
         const p = {
-            from_date: filters.fromDate.includes('/') ? toISO(filters.fromDate) : filters.fromDate,
-            to_date: filters.toDate.includes('/') ? toISO(filters.toDate) : filters.toDate,
-            packet_ids: filters.packet.all ? [] : filters.packet.selected,
-            item_ids: filters.item.all ? [] : filters.item.selected,
+            from_date: fromDate,
+            to_date: toDate,
+            packet_ids: selectedPackets,
+            item_ids: selectedItems,
         };
         const res = await fetchPacketWiseStoneReportAPI(p);
-        if (res.success) { setData(res.data); setFilteredData(res.data); setSearched(true); }
+        if (res.success) { setData(res.data); setSearched(true); }
         else setError(res.error || "Failed to fetch data");
         setLoading(false);
-    };
-
-    const handleFilter = (type, id, checked) => {
-        setFilters(prev => {
-            const src = type === 'packet' ? packetData : itemData;
-            const key = type;
-            if (id === 'all') {
-                return { ...prev, [key]: { all: checked, selected: checked ? src.map(x => x.id) : [] } };
-            }
-            const newSel = checked
-                ? [...prev[key].selected, id]
-                : prev[key].selected.filter(x => x !== id);
-            return { ...prev, [key]: { all: newSel.length === src.length, selected: newSel } };
-        });
-    };
-
-    const getW = (val, gw) => filters.reportFormat === "GW" && gw != null ? gw : val;
+    }, [fromDate, toDate, selectedPackets, selectedItems]);
 
     const hasTransactions = (p) =>
         p.purchase?.length || p.purchase_return?.length || p.sales?.length ||
@@ -97,18 +100,18 @@ export default function PacketWiseStoneReport() {
     });
 
     const processPacketData = (packets) => {
-        return packets.filter(hasTransactions).map(packet => {
+        return packets.filter(hasTransactions).map((packet) => {
             const transactions = [];
-            const push = (arr, type, dateFn, pcsFn, wFn, gwFn) =>
-                arr?.forEach(item => transactions.push({
+            const push = (arr, type, dateFn, pcsFn, wFn) =>
+                arr?.forEach((item) => transactions.push({
                     date: dateFn(item), type,
-                    pcs: pcsFn(item), weight: getW(wFn(item), gwFn ? gwFn(item) : null)
+                    pcs: pcsFn(item), weight: wFn(item),
                 }));
-            push(packet.purchase, 'purchase', i => i.date, i => i.pcs || 0, i => i.ct || 0, i => i.gw || 0);
-            push(packet.purchase_return, 'purchase_return', i => i.date, i => i.pcs || 0, i => i.ct || 0, i => i.gw || 0);
-            push(packet.sales, 'sale', i => i.date, i => i.pcs || 0, i => i.ct || 0, i => i.gw || 0);
-            push(packet.stone_receive, 'receive', i => i.date, i => i.return_pcs || 0, i => i.return_ct || 0, i => i.return_gw || 0);
-            push(packet.stone_issue, 'issue', i => i.date, i => i.pcs || 0, i => i.ct || 0, i => i.gw || 0);
+            push(packet.purchase, 'purchase', i => i.date, i => i.pcs || 0, i => i.ct || 0);
+            push(packet.purchase_return, 'purchase_return', i => i.date, i => i.pcs || 0, i => i.ct || 0);
+            push(packet.sales, 'sale', i => i.date, i => i.pcs || 0, i => i.ct || 0);
+            push(packet.stone_receive, 'receive', i => i.date, i => i.return_pcs || 0, i => i.return_ct || 0);
+            push(packet.stone_issue, 'issue', i => i.date, i => i.pcs || 0, i => i.ct || 0);
 
             const grouped = transactions.reduce((acc, t) => {
                 const d = t.date || 'No Date';
@@ -124,7 +127,7 @@ export default function PacketWiseStoneReport() {
 
             const sorted = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
             let runPcs = packet.opening_quantity || 0, runWt = packet.opening_quantity || 0;
-            const dateTransactions = sorted.map(date => {
+            const dateTransactions = sorted.map((date) => {
                 const row = { date, ...grouped[date], opening: { pcs: runPcs, weight: runWt } };
                 const c = calcClosing(row);
                 runPcs = c.pcs; runWt = c.weight;
@@ -141,85 +144,99 @@ export default function PacketWiseStoneReport() {
             {children}
         </th>
     );
-    const TD = ({ children, className = "" }) => (
-        <td className={`px-2 py-1.5 text-xs text-center border-b border-border ${className}`}>{children}</td>
+    const TD = ({ children, className = "", colSpan }) => (
+        <td colSpan={colSpan} className={`px-2 py-1.5 text-xs text-center border-b border-border ${className}`}>{children}</td>
     );
 
     const COLS = ["Opening","Purchase Appr.","Purchase","Receive","Issue","Sale","Purch. Return","Closing"];
-    const fmt_ = filters.reportFormat;
+    const allItemsChecked = itemData.length > 0 && selectedItems.length === itemData.length;
+    const allPacketsChecked = packetData.length > 0 && selectedPackets.length === packetData.length;
+    const processed = processPacketData(data);
 
     return (
         <div className="flex flex-col gap-5">
             {/* Filters panel */}
             <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                 <div className="flex items-center gap-2 px-5 py-3 border-b border-border bg-muted/30">
-                    <SlidersHorizontal className="size-4 text-violet-600" />
+                    <SlidersHorizontal className="size-4 text-primary" />
                     <span className="text-sm font-semibold">Filters</span>
                 </div>
                 <div className="p-4">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Item filter */}
+                        {/* Item filter (Type S) */}
                         <div className="flex flex-col gap-1">
-                            <Label className="text-xs font-medium">Item</Label>
+                            <Label className="text-xs font-medium">
+                                Items (Type S) <span className="text-muted-foreground">— {selectedItems.length || "all"}</span>
+                            </Label>
                             <div className="border border-border rounded-lg max-h-44 overflow-y-auto bg-background p-2 space-y-1.5">
                                 <div className="flex items-center gap-2">
-                                    <Checkbox checked={filters.item.all} onCheckedChange={c => handleFilter('item','all',c)} />
-                                    <label className="text-xs">All</label>
+                                    <Checkbox checked={allItemsChecked} onCheckedChange={(c) => toggleAllItems(!!c)} />
+                                    <label className="text-xs font-medium">All</label>
                                 </div>
-                                {itemData.map(item => (
+                                {itemData.map((item) => (
                                     <div key={item.id} className="flex items-center gap-2">
                                         <Checkbox
-                                            checked={filters.item.selected.includes(item.id)}
-                                            onCheckedChange={c => handleFilter('item', item.id, c)}
+                                            checked={selectedItems.includes(item.id)}
+                                            onCheckedChange={() => toggleItem(item.id)}
                                         />
                                         <label className="text-xs truncate">{item.short_code || item.item_name}</label>
                                     </div>
                                 ))}
+                                {itemData.length === 0 && (
+                                    <div className="text-xs text-muted-foreground italic">No Type S items.</div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Packet filter */}
+                        {/* Packet filter (filtered by selected items) */}
                         <div className="flex flex-col gap-1">
-                            <Label className="text-xs font-medium">Packet</Label>
+                            <Label className="text-xs font-medium">
+                                Packets <span className="text-muted-foreground">— {selectedPackets.length || "all"}</span>
+                            </Label>
                             <div className="border border-border rounded-lg max-h-44 overflow-y-auto bg-background p-2 space-y-1.5">
-                                <div className="flex items-center gap-2">
-                                    <Checkbox checked={filters.packet.all} onCheckedChange={c => handleFilter('packet','all',c)} />
-                                    <label className="text-xs">All</label>
-                                </div>
-                                {packetData.map(pkt => (
-                                    <div key={pkt.id} className="flex items-center gap-2">
-                                        <Checkbox
-                                            checked={filters.packet.selected.includes(pkt.id)}
-                                            onCheckedChange={c => handleFilter('packet', pkt.id, c)}
-                                        />
-                                        <label className="text-xs truncate">{pkt.pckt_no || pkt.name}</label>
+                                {packetsLoading && (
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <Loader2 className="size-3 animate-spin" /> Loading…
                                     </div>
-                                ))}
+                                )}
+                                {!packetsLoading && (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox checked={allPacketsChecked} onCheckedChange={(c) => toggleAllPackets(!!c)} />
+                                            <label className="text-xs font-medium">All</label>
+                                        </div>
+                                        {packetData.map((pkt) => (
+                                            <div key={pkt.id} className="flex items-center gap-2">
+                                                <Checkbox
+                                                    checked={selectedPackets.includes(pkt.id)}
+                                                    onCheckedChange={() => togglePacket(pkt.id)}
+                                                />
+                                                <label className="text-xs truncate">{pkt.pckt_no || pkt.name}</label>
+                                            </div>
+                                        ))}
+                                        {packetData.length === 0 && (
+                                            <div className="text-xs text-muted-foreground italic">
+                                                {selectedItems.length ? "No packets for selected items." : "No packets."}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </div>
 
-                        {/* Date + format */}
+                        {/* Dates + search */}
                         <div className="md:col-span-2 flex flex-col gap-3">
                             <div className="flex flex-wrap gap-3 items-end">
                                 <div className="flex flex-col gap-1">
                                     <Label className="text-xs">From Date</Label>
-                                    <Input type="date" value={filters.fromDate} onChange={e => setFilters(f => ({...f, fromDate: e.target.value}))} className="h-9 text-sm w-40" />
+                                    <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 text-sm w-40" />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <Label className="text-xs">To Date</Label>
-                                    <Input type="date" value={filters.toDate} onChange={e => setFilters(f => ({...f, toDate: e.target.value}))} className="h-9 text-sm w-40" />
+                                    <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 text-sm w-40" />
                                 </div>
                             </div>
-                            <div className="flex gap-4">
-                                {["CT","GW"].map(fmt => (
-                                    <label key={fmt} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                                        <input type="radio" name="fmt" checked={filters.reportFormat === fmt}
-                                            onChange={() => setFilters(f => ({...f, reportFormat: fmt}))} className="accent-violet-600" />
-                                        Report ({fmt})
-                                    </label>
-                                ))}
-                            </div>
-                            <Button onClick={handleSearch} disabled={loading} className="bg-violet-700 hover:bg-violet-800 text-white h-9 self-start">
+                            <Button onClick={handleSearch} disabled={loading} className="bg-primary hover:bg-primary text-white h-9 self-start">
                                 {loading ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Search className="size-4 mr-1.5" />}
                                 {loading ? "Loading..." : "Search"}
                             </Button>
@@ -228,7 +245,6 @@ export default function PacketWiseStoneReport() {
                 </div>
             </div>
 
-            {/* Error */}
             {error && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>
             )}
@@ -238,21 +254,22 @@ export default function PacketWiseStoneReport() {
                 <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
                     <div className="text-sm font-semibold">
                         Packet Wise Stone Report
-                        {searched && <span className="ml-2 text-xs font-normal text-muted-foreground">({filters.reportFormat}) · {filters.fromDate} — {filters.toDate}</span>}
+                        {searched && <span className="ml-2 text-xs font-normal text-muted-foreground">{fromDate} — {toDate}</span>}
                     </div>
+                    <span className="text-xs text-muted-foreground">{processed.length} packets</span>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="bg-muted/50 border-b-2 border-border">
                             <tr>
                                 <TH>Date</TH>
-                                {COLS.map(c => <TH key={c} colSpan={2}>{c}</TH>)}
+                                {COLS.map((c) => <TH key={c} colSpan={2}>{c}</TH>)}
                             </tr>
                             <tr className="border-b border-border">
                                 <TH></TH>
-                                {COLS.map(c => (
+                                {COLS.map((c) => (
                                     <React.Fragment key={c}>
-                                        <TH>Pcs</TH><TH>{fmt_}</TH>
+                                        <TH>Pcs</TH><TH>Ct</TH>
                                     </React.Fragment>
                                 ))}
                             </tr>
@@ -262,16 +279,15 @@ export default function PacketWiseStoneReport() {
                                 <tr><TD colSpan={17} className="py-12 text-muted-foreground border-b-0">Use the filters above and click Search.</TD></tr>
                             )}
                             {loading && (
-                                <tr><TD colSpan={17} className="py-12 border-b-0"><Loader2 className="size-5 animate-spin text-violet-500 mx-auto" /></TD></tr>
+                                <tr><TD colSpan={17} className="py-12 border-b-0"><Loader2 className="size-5 animate-spin text-primary mx-auto" /></TD></tr>
                             )}
-                            {searched && !loading && filteredData.length === 0 && (
+                            {searched && !loading && processed.length === 0 && (
                                 <tr><TD colSpan={17} className="py-12 text-muted-foreground border-b-0">No data found.</TD></tr>
                             )}
-                            {!loading && processPacketData(filteredData).map((pd, pi) => (
+                            {!loading && processed.map((pd, pi) => (
                                 <React.Fragment key={pd.packet.id || pi}>
-                                    {/* Packet header */}
                                     <tr className="bg-violet-50 border-b border-violet-200">
-                                        <td colSpan={17} className="px-3 py-1.5 text-xs font-semibold text-violet-800">
+                                        <td colSpan={17} className="px-3 py-1.5 text-xs font-semibold text-primary">
                                             {pd.packet.pckt_no}
                                         </td>
                                     </tr>

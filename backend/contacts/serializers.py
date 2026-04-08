@@ -7,6 +7,7 @@ from accounting.models import Account
 
 class AllowedRetailSerializer(ModelSerializer):
     default_country_code = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
 
     class Meta:
         model = UserLocation
@@ -19,6 +20,15 @@ class AllowedRetailSerializer(ModelSerializer):
         # Fall back to first assigned retail's code
         first = obj.location.first()
         return first.default_country_code if first else 'IN'
+
+    def get_company_name(self, obj):
+        retail = obj.default_location or obj.location.first()
+        if not retail:
+            return None
+        try:
+            return retail.gstin_master.branch.company.company_name
+        except AttributeError:
+            return None
 
 
 class _RoleField(serializers.SlugRelatedField):

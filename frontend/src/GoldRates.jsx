@@ -38,7 +38,7 @@ const GoldRates = () => {
 
       <Link
         to="/goldrate/form"
-        className="flex items-center text-sm font-medium text-violet-700 hover:text-violet-900 transition-colors"
+        className="flex items-center text-sm font-medium text-primary hover:text-primary transition-colors"
       >
         <PenSquare className="w-4 h-4 mr-1" />
         Update Rates

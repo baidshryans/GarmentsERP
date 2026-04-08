@@ -56,7 +56,7 @@ function HallmarkReceiveAdd() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="text-violet-500 flex items-center">
+          <Link to={`${row.original.id}`} className="text-primary flex items-center">
             <Edit className="mr-1" /> 
           </Link>
           <button

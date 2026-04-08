@@ -57,7 +57,7 @@ export function LoginForm() {
     <div className="w-full max-w-sm">
       {/* Mobile-only logo */}
       <div className="flex md:hidden items-center gap-3 mb-8">
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500">
+        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary">
           <Gem className="w-5 h-5 text-gray-900" />
         </div>
         <div>

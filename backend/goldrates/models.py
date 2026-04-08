@@ -13,7 +13,9 @@ class PurityMaster(models.Model):
 class GoldRates(models.Model):
     date1 = models.DateTimeField(auto_now_add=True)
     purity = models.ForeignKey(PurityMaster, on_delete = models.SET_NULL, null=True)
-    rate = models.IntegerField()
+    rate = models.IntegerField()  # legacy/selling rate (kept for back-compat)
+    buying_rate = models.IntegerField(null=True, blank=True, help_text="Rate used when purchasing old gold standalone")
+    selling_rate = models.IntegerField(null=True, blank=True, help_text="Rate used when old gold is exchanged against a sale")
     class Meta:
         db_table = "gold_rates"
     

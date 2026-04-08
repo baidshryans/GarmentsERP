@@ -1,4 +1,10 @@
 from rest_framework.serializers import ModelSerializer
+from rest_framework.exceptions import ValidationError as _LedgerConfigError
+
+def _raise_missing_ledger(label):
+    raise _LedgerConfigError(
+        {'ledger_config': f"Required ledger '{label}' is not configured on master. Please configure it in Company/GSTIN/Retail master before saving vouchers."}
+    )
 
 from accounting.models import Account
 from accounting.serializers import JournalEntrySerializer
@@ -9,7 +15,7 @@ from inventory.models import BarcodeMain, BarcodeTransaction
 from inventory.serializer import UnBarcodedMainSerializer
 from manufacturing.utils import create_or_update_nested
 from purchase.serializer import PurchaseOrderItemsSerializer, PurchaseOrderSerializer
-from .models import HallmarkIssue, HallmarkIssueDetails, HallmarkIssueItem, HallmarkReceive, HallmarkReceiveDetails, HallmarkReceiveItem, KarigarGoldIssueHeader, KarigarMaster,KarigarIssueItem,KarigarIssue, KarigarReceive, KarigarReceiveItem, KarigarReceiveItemDetails, KarigarStoneIssueHeader, KarigarStoneReceive, KarigarStoneReceiveHeader, RefinaryIssue, RefinaryIssueDetail, RefinaryReceive, RefinaryReceiveDetail, RepairJobCard, RepairStone, RepairLoss, RepairKarigarLink
+from .models import HallmarkIssue, HallmarkIssueDetails, HallmarkIssueItem, HallmarkReceive, HallmarkReceiveDetails, HallmarkReceiveItem, KarigarGoldIssueHeader, KarigarMaster,KarigarIssueItem,KarigarIssue, KarigarReceive, KarigarReceiveItem, KarigarReceiveItemDetails, KarigarStoneIssueHeader, KarigarStoneReceive, KarigarStoneReceiveHeader, RefinaryIssue, RefinaryIssueDetail, RefinaryReceive, RefinaryReceiveDetail, MeltingIssue, MeltingIssueDetail, MeltingReceive, MeltingReceiveDetail, AssayIssue, AssayIssueDetail, AssayReceive, AssayReceiveDetail, RepairJobCard, RepairStone, RepairLoss, RepairKarigarLink
 
 from rest_framework import serializers
 from django.utils.dateparse import parse_date
@@ -513,6 +519,12 @@ class KarigarReceiveItemForGetSerializer(serializers.ModelSerializer):
     hallmark_status = serializers.BooleanField()
     sample_issued_items = UnBarcodedMainSerializer(many=True)
 
+    # Header context for reports
+    receive_date    = serializers.DateField(source='receive_slip_no.date1', read_only=True)
+    receive_slip    = serializers.CharField(source='receive_slip_no.receive_slip_no', read_only=True)
+    karigar_id      = serializers.IntegerField(source='receive_slip_no.karigar_ldgr_id', read_only=True)
+    karigar_name    = serializers.CharField(source='receive_slip_no.karigar_ldgr.ac_name', read_only=True)
+
     # Nested Serializer for KarigarReceiveItemDetails
     details = serializers.JSONField()
 
@@ -527,10 +539,15 @@ class KarigarReceiveItemForGetSerializer(serializers.ModelSerializer):
             'purity',
             'pcs',
             'gw',
+            'nw',
             'pending_pcs',
             'pending_gw',
             'finish_status',
             'hallmark_status',
+            'receive_date',
+            'receive_slip',
+            'karigar_id',
+            'karigar_name',
             'details',  # Nested details serializer
         ]
         extra_kwargs = {
@@ -688,7 +705,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                                     # "status":karigar_receive_instance.receive_slip_no,
                                     "retail":self.context.get('request').retail.id,
                                     "voucher_details": [
-                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else "Making Charge Receive")(self.context.get('request').retail),
+                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive (configure on Company master)"))(self.context.get('request').retail),
                                             'debit':total_making_charge,
                                             'credit':0
                                                 },
@@ -737,7 +754,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                                     # "status":karigar_receive_instance.receive_slip_no,
                                     "retail":self.context.get('request').retail.id,
                                     "voucher_details": [
-                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else "Making Charge Receive")(self.context.get('request').retail),
+                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive (configure on Company master)"))(self.context.get('request').retail),
                                             'debit':total_making_charge,
                                             'credit':0
                                                 },
@@ -1223,7 +1240,183 @@ class RefinaryReceiveSerializer(serializers.ModelSerializer):
             instance.save()
             create_or_update_nested(RefinaryReceiveDetailSerializer, instance, 'refinaryreceivedetail_set',  'billno',RefinaryReceiveDetailSerializer(detail_data,many=True).data)
             return instance
-        
+
+
+# ── Melting Issue / Receive ──────────────────────────────────────────────────
+
+class MeltingIssueDetailSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+
+    class Meta:
+        model = MeltingIssueDetail
+        fields = ['id', 'item', 'pcs', 'ct', 'gw', 'packet', 'metal_purity', 'rec_status', 'retail']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
+
+
+class MeltingIssueSerializer(serializers.ModelSerializer):
+    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
+    meltingissuedetail_set = MeltingIssueDetailSerializer(many=True)
+
+    class Meta:
+        model = MeltingIssue
+        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'rec_status', 'retail', 'meltingissuedetail_set']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'ldgr_name': {'read_only': True},
+        }
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('meltingissuedetail_set', [])
+            parent_instance = MeltingIssue.objects.create(**validated_data)
+            create_or_update_nested(MeltingIssueDetailSerializer, parent_instance, 'meltingissuedetail_set', 'billno', MeltingIssueDetailSerializer(detail_data, many=True).data)
+            return parent_instance
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('meltingissuedetail_set', [])
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(MeltingIssueDetailSerializer, instance, 'meltingissuedetail_set', 'billno', MeltingIssueDetailSerializer(detail_data, many=True).data)
+            return instance
+
+
+class MeltingReceiveDetailSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+    conv_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+    issue_no = serializers.SlugRelatedField(queryset=MeltingIssue.objects.all(), slug_field="billno")
+
+    class Meta:
+        model = MeltingReceiveDetail
+        fields = ['id', 'issue_no', 'item', 'pcs', 'ct', 'gw', 'loss_per', 'loss_wt', 'remarks', 'packet', 'metal_purity', 'conv_purity', 'conv_nw', 'rec_status', 'retail']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
+
+
+class MeltingReceiveSerializer(serializers.ModelSerializer):
+    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
+    meltingreceivedetail_set = MeltingReceiveDetailSerializer(many=True)
+
+    class Meta:
+        model = MeltingReceive
+        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'retail', 'meltingreceivedetail_set']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'ldgr_name': {'read_only': True},
+        }
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('meltingreceivedetail_set', [])
+            parent_instance = MeltingReceive.objects.create(**validated_data)
+            create_or_update_nested(MeltingReceiveDetailSerializer, parent_instance, 'meltingreceivedetail_set', 'billno', MeltingReceiveDetailSerializer(detail_data, many=True).data)
+            return parent_instance
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('meltingreceivedetail_set', [])
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(MeltingReceiveDetailSerializer, instance, 'meltingreceivedetail_set', 'billno', MeltingReceiveDetailSerializer(detail_data, many=True).data)
+            return instance
+
+
+# ── Fire Assay Issue / Receive ───────────────────────────────────────────────
+
+class AssayIssueDetailSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+
+    class Meta:
+        model = AssayIssueDetail
+        fields = ['id', 'item', 'pcs', 'ct', 'gw', 'packet', 'metal_purity', 'rec_status', 'retail']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
+
+
+class AssayIssueSerializer(serializers.ModelSerializer):
+    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
+    assayissuedetail_set = AssayIssueDetailSerializer(many=True)
+
+    class Meta:
+        model = AssayIssue
+        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'rec_status', 'retail', 'assayissuedetail_set']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'ldgr_name': {'read_only': True},
+        }
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('assayissuedetail_set', [])
+            parent_instance = AssayIssue.objects.create(**validated_data)
+            create_or_update_nested(AssayIssueDetailSerializer, parent_instance, 'assayissuedetail_set', 'billno', AssayIssueDetailSerializer(detail_data, many=True).data)
+            return parent_instance
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('assayissuedetail_set', [])
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(AssayIssueDetailSerializer, instance, 'assayissuedetail_set', 'billno', AssayIssueDetailSerializer(detail_data, many=True).data)
+            return instance
+
+
+class AssayReceiveDetailSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+    conv_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+    issue_no = serializers.SlugRelatedField(queryset=AssayIssue.objects.all(), slug_field="billno")
+
+    class Meta:
+        model = AssayReceiveDetail
+        fields = ['id', 'issue_no', 'item', 'pcs', 'ct', 'gw', 'loss_per', 'loss_wt', 'remarks', 'packet', 'metal_purity', 'conv_purity', 'conv_nw', 'is_cornet', 'rec_status', 'retail']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
+
+
+class AssayReceiveSerializer(serializers.ModelSerializer):
+    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
+    assayreceivedetail_set = AssayReceiveDetailSerializer(many=True)
+
+    class Meta:
+        model = AssayReceive
+        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'retail', 'assayreceivedetail_set']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'ldgr_name': {'read_only': True},
+        }
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('assayreceivedetail_set', [])
+            parent_instance = AssayReceive.objects.create(**validated_data)
+            create_or_update_nested(AssayReceiveDetailSerializer, parent_instance, 'assayreceivedetail_set', 'billno', AssayReceiveDetailSerializer(detail_data, many=True).data)
+            return parent_instance
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            detail_data = validated_data.pop('assayreceivedetail_set', [])
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(AssayReceiveDetailSerializer, instance, 'assayreceivedetail_set', 'billno', AssayReceiveDetailSerializer(detail_data, many=True).data)
+            return instance
+
 
 from rest_framework import serializers
 from .models import HallmarkIssueItem
@@ -1237,6 +1430,7 @@ from .models import HallmarkIssue
 
 class HallmarkIssueReportSerializer(serializers.ModelSerializer):
     hallmarkissueitem_set = HallmarkIssueItemReportSerializer(many=True, read_only=True)
+    hallmark_center_name  = serializers.CharField(read_only=True)
 
     class Meta:
         model = HallmarkIssue

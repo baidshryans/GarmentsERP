@@ -49,7 +49,7 @@ const fmt = (v) =>
 
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 mb-4">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">
+    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
       {number}
     </span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">
@@ -232,7 +232,7 @@ const SalesApprovalAdd = () => {
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-violet-800 text-sm font-semibold min-w-0 flex-1 truncate">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || (
                   <span className="text-violet-400 text-xs font-normal">
                     Auto-generating…
@@ -400,7 +400,7 @@ const SalesApprovalAdd = () => {
               <TableRow className="bg-violet-50">
                 {["Barcode","Item","Packet","Pcs","CT","GW","Making","Making Type",
                   "Purity","Tunch","Rate","Amount"].map((h) => (
-                  <TableCell key={h} className="px-3 py-2 border text-xs font-semibold text-violet-800 text-center whitespace-nowrap">
+                  <TableCell key={h} className="px-3 py-2 border text-xs font-semibold text-primary text-center whitespace-nowrap">
                     {h}
                   </TableCell>
                 ))}
@@ -533,7 +533,7 @@ const SalesApprovalAdd = () => {
                       {...register(row.field)}
                     />
                   ) : (
-                    <span className={`text-sm tabular-nums ${row.bold ? "text-violet-700" : "text-gray-800"}`}>
+                    <span className={`text-sm tabular-nums ${row.bold ? "text-primary" : "text-gray-800"}`}>
                       {row.value}
                     </span>
                   )}

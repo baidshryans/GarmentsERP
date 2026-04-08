@@ -59,7 +59,7 @@ def _name_conflicts(ac_name, exclude_id=None):
     # More precise: exclude ledgers where ALL roles are CO
     # Simplest: a ledger conflicts if it has any non-CO role AND its name matches
     qs = Ledger.objects.filter(ac_name__iexact=ac_name).filter(
-        roles__role__in=['DL','KR','VD','CA','BA','SC','SD','REF','EXP','INC','HM','OTH']
+        roles__role__in=['DL','KR','VD','CA','BA','SC','SD','REF','MLT','EXP','INC','HM','OTH']
     ).distinct()
     if exclude_id:
         qs = qs.exclude(pk=exclude_id)
@@ -525,7 +525,7 @@ _SAMPLE_ROWS = {
     ],
 }
 
-_PERSONAL_TYPES = {'CO', 'DL', 'KR', 'VD', 'SC', 'SD', 'REF', 'HM'}
+_PERSONAL_TYPES = {'CO', 'DL', 'KR', 'VD', 'SC', 'SD', 'REF', 'MLT', 'HM'}
 
 _TYPE_MAP = {
     'customer': 'CO', 'dealer': 'DL', 'karigar': 'KR',
@@ -534,12 +534,13 @@ _TYPE_MAP = {
     'sundry creditors': 'SC', 'sundrycreditors': 'SC', 'supplier': 'SC',
     'sundry debtors': 'SD', 'sundrydebtors': 'SD',
     'refinery': 'REF',
+    'melting': 'MLT', 'melting house': 'MLT', 'meltinghouse': 'MLT',
     'expenses': 'EXP', 'expense': 'EXP',
     'income': 'INC',
     'hallmark': 'HM',
     'others': 'OTH', 'other': 'OTH',
     'co': 'CO', 'dl': 'DL', 'kr': 'KR', 'ca': 'CA', 'ba': 'BA',
-    'vd': 'VD', 'sc': 'SC', 'sd': 'SD', 'ref': 'REF', 'exp': 'EXP',
+    'vd': 'VD', 'sc': 'SC', 'sd': 'SD', 'ref': 'REF', 'mlt': 'MLT', 'exp': 'EXP',
     'inc': 'INC', 'hm': 'HM', 'oth': 'OTH', 'su': 'SC',
 }
 

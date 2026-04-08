@@ -32,7 +32,7 @@ function GoldRateCard() {
     <div className="col-span-full rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/80 to-white p-6 shadow-sm">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-violet-600 shadow-md shadow-violet-200">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary shadow-md shadow-violet-200">
             <Gem className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -51,7 +51,7 @@ function GoldRateCard() {
         </div>
         <Link
           to="/goldrate/form"
-          className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 hover:text-violet-800 transition-colors bg-violet-100/60 hover:bg-violet-100 rounded-lg px-3 py-1.5"
+          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary transition-colors bg-violet-100/60 hover:bg-violet-100 rounded-lg px-3 py-1.5"
         >
           <PenSquare className="w-3.5 h-3.5" />
           Update
@@ -74,7 +74,7 @@ function GoldRateCard() {
       ) : sortedRates.length === 0 ? (
         <div className="text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
           No gold rates set for today.{" "}
-          <Link to="/goldrate/form" className="text-violet-600 font-medium hover:underline">
+          <Link to="/goldrate/form" className="text-primary font-medium hover:underline">
             Set rates now
           </Link>
         </div>
@@ -86,7 +86,7 @@ function GoldRateCard() {
               className="relative rounded-xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm hover:shadow-md hover:border-violet-200 transition-all group"
             >
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 group-hover:text-violet-500 transition-colors">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 group-hover:text-primary transition-colors">
                   {rate.purity_name || `${rate.purity}K`}
                 </span>
                 <span className="text-[10px] text-gray-400">per gram</span>
@@ -157,7 +157,7 @@ function KPICards() {
   ] : [];
 
   const colorMap = {
-    violet:  { bg: "bg-violet-50",  icon: "bg-violet-100 text-violet-600",  val: "text-violet-700"  },
+    violet:  { bg: "bg-violet-50",  icon: "bg-violet-100 text-primary",  val: "text-primary"  },
     emerald: { bg: "bg-emerald-50", icon: "bg-emerald-100 text-emerald-600", val: "text-emerald-700" },
     sky:     { bg: "bg-sky-50",     icon: "bg-sky-100 text-sky-600",         val: "text-sky-700"     },
     rose:    { bg: "bg-rose-50",    icon: "bg-rose-100 text-rose-600",       val: "text-rose-700"    },
@@ -196,7 +196,7 @@ function KPICards() {
 /* ── Quick-action shortcut tile ───────────────────────────── */
 function QuickAction({ to, icon: Icon, label, description, color }) {
   const colorMap = {
-    violet: "bg-violet-50 text-violet-600 group-hover:bg-violet-100",
+    violet: "bg-violet-50 text-primary group-hover:bg-violet-100",
     emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
     sky: "bg-sky-50 text-sky-600 group-hover:bg-sky-100",
     rose: "bg-rose-50 text-rose-600 group-hover:bg-rose-100",
@@ -215,7 +215,7 @@ function QuickAction({ to, icon: Icon, label, description, color }) {
         <Icon className="w-4.5 h-4.5" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold text-gray-800 group-hover:text-violet-700 transition-colors">
+        <div className="text-sm font-semibold text-gray-800 group-hover:text-primary transition-colors">
           {label}
         </div>
         <div className="text-xs text-gray-400 mt-0.5 truncate">
@@ -249,10 +249,10 @@ export default function Dashboard() {
       {/* ── Top bar ────────────────────────────────────────── */}
       <header className="flex items-center justify-between px-6 h-14 border-b border-gray-100 bg-white">
         <div className="flex items-center gap-3">
-          <SidebarTrigger className="text-gray-500 hover:text-violet-600 transition-colors" />
+          <SidebarTrigger className="text-gray-500 hover:text-primary transition-colors" />
           <div className="h-5 w-px bg-gray-200" />
           <div className="flex items-center gap-2">
-            <span className="block w-[3px] h-4 rounded-full bg-violet-500" />
+            <span className="block w-[3px] h-4 rounded-full bg-primary" />
             <h1 className="text-sm font-bold text-gray-800 tracking-tight">
               Dashboard
             </h1>
@@ -286,14 +286,14 @@ export default function Dashboard() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <QuickAction
-              to="/sales/salesvoucher/list/"
+              to="/sales/list/"
               icon={ReceiptText}
               label="Sales Voucher"
               description="Create or view sales bills"
               color="violet"
             />
             <QuickAction
-              to="/purchase/purchasevoucher/list/"
+              to="/purchase/list/"
               icon={ShoppingCart}
               label="Purchase Voucher"
               description="Record purchases"
@@ -351,8 +351,8 @@ export default function Dashboard() {
                 to={to}
                 className="group flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:border-violet-200 transition-all"
               >
-                <Icon className="w-4 h-4 text-gray-400 group-hover:text-violet-500 transition-colors shrink-0" />
-                <span className="text-sm text-gray-700 group-hover:text-violet-700 font-medium transition-colors truncate">
+                <Icon className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
+                <span className="text-sm text-gray-700 group-hover:text-primary font-medium transition-colors truncate">
                   {label}
                 </span>
               </Link>

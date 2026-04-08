@@ -139,7 +139,7 @@ function SalesPersonList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex gap-2">
-          <button onClick={() => openEdit(row.original)} className="text-violet-500 hover:text-violet-700">
+          <button onClick={() => openEdit(row.original)} className="text-primary hover:text-primary">
             <Edit className="size-4" />
           </button>
           <button onClick={() => handleDelete(row.original.id)} className="text-red-500 hover:text-red-700">
@@ -196,7 +196,7 @@ function SalesPersonList() {
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto" aria-describedby={undefined}>
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <Percent className="w-5 h-5 text-violet-500" />
+              <Percent className="w-5 h-5 text-primary" />
               {editingId ? "Edit Sales Person" : "Add Sales Person"}
             </SheetTitle>
           </SheetHeader>
@@ -242,7 +242,7 @@ function SalesPersonList() {
             {/* Commission Section */}
             <div className="border-t pt-4 mt-2">
               <p className="text-sm font-semibold mb-3 flex items-center gap-1">
-                <Percent className="w-4 h-4 text-violet-500" /> Commission Configuration
+                <Percent className="w-4 h-4 text-primary" /> Commission Configuration
               </p>
 
               <div className="flex flex-col gap-4">

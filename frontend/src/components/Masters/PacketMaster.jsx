@@ -179,7 +179,7 @@ export default function PacketMaster() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-3">
-          <button onClick={() => handleEdit(row.original)} className="text-violet-500">
+          <button onClick={() => handleEdit(row.original)} className="text-primary">
             <Edit className="size-4" />
           </button>
           <button onClick={() => handleDelete(row.original.id)} className="text-red-500">

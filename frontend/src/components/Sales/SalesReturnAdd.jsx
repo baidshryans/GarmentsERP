@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
+import { useEnterAsTab } from "@/hooks/useEnterAsTab";
 import { Trash2 } from "lucide-react";
 import {
   Select,
@@ -36,7 +37,7 @@ import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">
+    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
       {number}
     </span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
@@ -46,7 +47,7 @@ const SectionHeader = ({ number, title }) => (
 
 const TH = ({ children, className = "" }) => (
   <TableCell
-    className={`px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap ${className}`}
+    className={`px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}
   >
     {children}
   </TableCell>
@@ -120,6 +121,8 @@ const SalesReturnAdd = () => {
 
   const packetInputRef   = useRef(null);
   const mainItemInputRef = useRef(null);
+  const formRef = useRef(null);
+  useEnterAsTab(formRef);
 
   const w_discount    = watch("form.discount");
   const detailPacket  = watch("details.packet");
@@ -447,12 +450,13 @@ const SalesReturnAdd = () => {
   return (
     <div className="mt-5">
       <form
+        ref={formRef}
         className="p-6 shadow-sm rounded-xl bg-white border border-gray-100"
         onSubmit={handleSubmit(handleSalesReturnSubmit)}
       >
         {/* Title */}
         <div className="flex items-center gap-3 my-5">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">↩</span>
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">↩</span>
           <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Sales Return</span>
           <div className="flex-1 h-px bg-violet-100" />
         </div>
@@ -464,7 +468,7 @@ const SalesReturnAdd = () => {
             <Input type="date" {...register("form.date1", { required: true })} />
           </Field>
           <Field label="Bill No">
-            <div className="flex h-10 items-center px-3 rounded-md bg-violet-50 border border-violet-200 text-violet-800 text-sm font-semibold">
+            <div className="flex h-10 items-center px-3 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold">
               {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
             </div>
             <input type="hidden" {...register("form.billno", { required: true })} />
@@ -472,7 +476,7 @@ const SalesReturnAdd = () => {
           <Field label="Ref Sale Bill No">
             <div className="flex gap-2">
               <Input type="text" placeholder="Enter bill no and press Fetch" onKeyDown={handleRefBillKeyDown} {...register("form.ref_bill_no")} />
-              <Button type="button" variant="outline" className="shrink-0 border-violet-300 text-violet-700 hover:bg-violet-50" onClick={handleRefBillFetch}>
+              <Button type="button" variant="outline" className="shrink-0 border-violet-300 text-primary hover:bg-violet-50" onClick={handleRefBillFetch}>
                 Fetch
               </Button>
             </div>
@@ -543,7 +547,7 @@ const SalesReturnAdd = () => {
               </Table>
             </div>
             <div className="flex justify-end mb-6">
-              <Button type="button" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={handleAddSelected}>
+              <Button type="button" className="bg-primary hover:bg-primary text-white" onClick={handleAddSelected}>
                 Add Selected to Return ↓
               </Button>
             </div>
@@ -554,7 +558,7 @@ const SalesReturnAdd = () => {
         <SectionHeader number="3" title="Manual Items (No Barcode)" />
 
         {/* Step 1 — Main Item */}
-        <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">Step 1 — Main Item</p>
+        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">Step 1 — Main Item</p>
         <p className="text-xs text-gray-400 mb-2">
           Fill in the jewellery piece details, then press <kbd className="px-1 py-0.5 bg-gray-100 border rounded font-mono text-gray-600">Tab</kbd> on Remarks to add.
         </p>
@@ -616,12 +620,12 @@ const SalesReturnAdd = () => {
         </div>
 
         {/* Step 2 — Sub-Items */}
-        <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">Step 2 — Sub-Items / Material Details</p>
+        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">Step 2 — Sub-Items / Material Details</p>
         <p className="text-xs text-gray-400 mb-2">
           Enter <strong>Sl No</strong> to attach to a specific manual item above (e.g. 1 = first manual item).
           Press <kbd className="px-1 py-0.5 bg-gray-100 border rounded font-mono text-gray-600">Tab</kbd> on Amount to add.
-          {itemLockedByPacket && <span className="ml-2 text-violet-600 font-medium">Packet active — item auto-filled.</span>}
-          {packetLockedByItem && <span className="ml-2 text-violet-600 font-medium">Item active — packet disabled.</span>}
+          {itemLockedByPacket && <span className="ml-2 text-primary font-medium">Packet active — item auto-filled.</span>}
+          {packetLockedByItem && <span className="ml-2 text-primary font-medium">Item active — packet disabled.</span>}
         </p>
         <div className="overflow-x-auto mb-6">
           <Table className="w-full table-fixed border-collapse">
@@ -805,7 +809,7 @@ const SalesReturnAdd = () => {
         {/* ══ Action Buttons ════════════════════════════════════════════════ */}
         <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white">Save</Button>
+          <Button type="submit" className="bg-primary hover:bg-primary text-white">Save</Button>
         </div>
       </form>
     </div>

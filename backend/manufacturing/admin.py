@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from manufacturing.models import HallmarkIssue, HallmarkReceive, HallmarkReceiveItem, KarigarGoldIssue, KarigarIssue, KarigarIssueItem, KarigarMaster, KarigarReceive, KarigarReceiveItem, KarigarReceiveItemDetails, KarigarStoneIssue, KarigarStoneReceive, RefinaryIssue
+from manufacturing.models import HallmarkIssue, HallmarkReceive, HallmarkReceiveItem, KarigarGoldIssue, KarigarIssue, KarigarIssueItem, KarigarMaster, KarigarReceive, KarigarReceiveItem, KarigarReceiveItemDetails, KarigarStoneIssue, KarigarStoneReceive, RefinaryIssue, MeltingIssue, MeltingReceive, AssayIssue, AssayReceive
 
 # Register your models here.
 @admin.register(KarigarIssue)
@@ -20,3 +20,7 @@ admin.site.register(HallmarkIssue)
 admin.site.register(HallmarkReceive)
 admin.site.register(HallmarkReceiveItem)
 admin.site.register(RefinaryIssue)
+admin.site.register(MeltingIssue)
+admin.site.register(MeltingReceive)
+admin.site.register(AssayIssue)
+admin.site.register(AssayReceive)

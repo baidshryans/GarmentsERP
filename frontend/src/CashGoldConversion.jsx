@@ -10,7 +10,7 @@ import { ArrowDownUp, Coins, Banknote } from "lucide-react";
 // ── Shared section header (matches SalesVoucherAdd style) ───────────────────
 const SectionHeader = ({ icon: Icon, title, subtitle }) => (
   <div className="flex items-center gap-3 mb-6">
-    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-violet-700 text-white shrink-0">
+    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white shrink-0">
       <Icon size={16} />
     </span>
     <div>
@@ -36,7 +36,7 @@ const Field = ({ label, children, unit }) => (
 
 // ── Read-only computed value display ────────────────────────────────────────
 const ComputedValue = ({ value, prefix = "" }) => (
-  <div className="flex items-center px-3 py-2 rounded-md bg-violet-50 border border-violet-200 text-violet-800 text-sm font-semibold min-w-[120px]">
+  <div className="flex items-center px-3 py-2 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-[120px]">
     {prefix}{value || "—"}
   </div>
 );
@@ -145,7 +145,7 @@ const CashGoldConversion = () => {
               <Input
                 {...regCG("billno")}
                 readOnly
-                className="bg-violet-50 border-violet-200 text-violet-800 font-semibold cursor-default"
+                className="bg-violet-50 border-violet-200 text-primary font-semibold cursor-default"
               />
             </Field>
             <Field label="Date">
@@ -186,7 +186,7 @@ const CashGoldConversion = () => {
               <input type="hidden" {...regCG("cash")} />
             </Field>
             <div className="flex items-end">
-              <Button type="submit" className="w-full bg-violet-700 hover:bg-violet-800 text-white font-semibold tracking-wide">
+              <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold tracking-wide">
                 <Coins size={15} className="mr-2" /> Save Conversion
               </Button>
             </div>
@@ -214,7 +214,7 @@ const CashGoldConversion = () => {
               <Input
                 {...regGC("billno")}
                 readOnly
-                className="bg-violet-50 border-violet-200 text-violet-800 font-semibold cursor-default"
+                className="bg-violet-50 border-violet-200 text-primary font-semibold cursor-default"
               />
             </Field>
             <Field label="Date">
@@ -255,7 +255,7 @@ const CashGoldConversion = () => {
               <input type="hidden" {...regGC("fineWt")} />
             </Field>
             <div className="flex items-end">
-              <Button type="submit" className="w-full bg-violet-700 hover:bg-violet-800 text-white font-semibold tracking-wide">
+              <Button type="submit" className="w-full bg-primary hover:bg-primary text-white font-semibold tracking-wide">
                 <Banknote size={15} className="mr-2" /> Save Conversion
               </Button>
             </div>

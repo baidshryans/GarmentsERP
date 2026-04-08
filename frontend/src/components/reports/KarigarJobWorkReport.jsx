@@ -67,7 +67,7 @@ function KarigarJobWorkReport() {
 
   // Load karigar list once
   useEffect(() => {
-    apiClient.get("/contacts/api/ledger/?type=KR&page_size=500")
+    apiClient.get("/contacts/api/ledger/?role=KR&page_size=500")
       .then(res => {
         const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
         setKarigars(list);
@@ -269,7 +269,7 @@ function KarigarJobWorkReport() {
       {!loading && rows.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <SummaryCard
-            icon={<Hammer className="w-4 h-4 text-violet-500" />}
+            icon={<Hammer className="w-4 h-4 text-primary" />}
             label="Total Jobs"
             value={total}
             color="violet"
@@ -320,7 +320,7 @@ function SummaryCard({ icon, label, value, color }) {
     red:    "bg-red-50    border-red-100",
   };
   const textMap = {
-    violet: "text-violet-700",
+    violet: "text-primary",
     amber:  "text-amber-700",
     green:  "text-green-700",
     red:    "text-red-700",

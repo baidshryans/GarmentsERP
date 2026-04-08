@@ -132,7 +132,7 @@ const ReceiveFromRefinary = () => {
                 className="p-6 shadow-lg rounded-lg bg-white space-y-6"
                 onSubmit={handleSubmit(onSubmit)}
             >
-                <h2 className="text-center font-bold text-violet-900 text-lg tracking-wide">
+                <h2 className="text-center font-bold text-primary text-lg tracking-wide">
                     {id ? "EDIT" : "ADD"} RECEIVE FROM REFINERY
                 </h2>
 
@@ -143,7 +143,9 @@ const ReceiveFromRefinary = () => {
                     </Field>
 
                     <Field label="Bill No">
-                        <Input type="text" {...register("form.billno")} readOnly className="bg-gray-50 max-w-[170px]" />
+                        <div className="text-sm font-mono px-3 py-2 bg-gray-50 rounded border border-gray-200 h-9 flex items-center max-w-[170px]">
+                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating…</span>}
+                        </div>
                     </Field>
 
                     <Field label="Refinery House">
@@ -189,7 +191,7 @@ const ReceiveFromRefinary = () => {
                 <div className="overflow-x-auto rounded border border-gray-200">
                     <Table className="w-full text-sm">
                         <TableHeader>
-                            <TableRow className="bg-violet-100 text-violet-900">
+                            <TableRow className="bg-violet-100 text-primary">
                                 <TableHead className="w-10 px-3 py-2">#</TableHead>
                                 <TableHead className="px-3 py-2 whitespace-nowrap">Issue Voucher</TableHead>
                                 <TableHead className="px-3 py-2">Item</TableHead>
@@ -307,7 +309,7 @@ const ReceiveFromRefinary = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white">
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white">
                         Save
                     </Button>
                 </div>

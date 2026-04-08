@@ -43,7 +43,7 @@ export default function OutstandingReport() {
 
   const bucketColor = (key) => {
     if (key === "0_30") return "text-emerald-700";
-    if (key === "31_60") return "text-violet-600";
+    if (key === "31_60") return "text-primary";
     if (key === "61_90") return "text-orange-600";
     return "text-rose-600";
   };

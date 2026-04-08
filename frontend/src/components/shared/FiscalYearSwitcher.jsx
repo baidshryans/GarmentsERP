@@ -63,7 +63,7 @@ export function FiscalYearSwitcher() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="sm" className="h-9 px-3">
-                <CalendarDays className="w-4 h-4 text-violet-600 shrink-0" />
+                <CalendarDays className="w-4 h-4 text-primary shrink-0" />
                 <span className="flex-1 text-xs font-semibold text-sidebar-foreground truncate">
                   FY {activeFy?.fy_code || '—'}
                 </span>
@@ -87,13 +87,13 @@ export function FiscalYearSwitcher() {
                   onClick={() => handleSwitch(fy)}
                   className="gap-2 cursor-pointer"
                 >
-                  <CalendarDays className={`w-4 h-4 ${fy.is_active ? 'text-violet-600' : 'text-muted-foreground'}`} />
+                  <CalendarDays className={`w-4 h-4 ${fy.is_active ? 'text-primary' : 'text-muted-foreground'}`} />
                   <span className={fy.is_active ? 'font-semibold' : ''}>FY {fy.fy_code}</span>
                   {fy.is_closed && (
                     <Lock className="w-3 h-3 text-red-400 ml-1" />
                   )}
                   {fy.is_active && (
-                    <Check className="w-4 h-4 text-violet-600 ml-auto" />
+                    <Check className="w-4 h-4 text-primary ml-auto" />
                   )}
                 </DropdownMenuItem>
               ))}

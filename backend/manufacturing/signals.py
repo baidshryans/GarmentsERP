@@ -7,6 +7,9 @@ from inventory.models import RawMaterialInventory, RawMaterialTransaction, UnBar
 from manufacturing.models import (
     KarigarGoldIssue, KarigarReceiveItem, KarigarReceiveItemDetails,
     KarigarStoneIssue, KarigarStoneReceive,
+    RefinaryIssueDetail, RefinaryReceiveDetail,
+    MeltingIssueDetail, MeltingReceiveDetail,
+    AssayIssueDetail, AssayReceiveDetail,
 )
 
 
@@ -196,4 +199,221 @@ def reverse_raw_material_on_stone_receive_delete(sender, instance, **kwargs):
         trans_type='KR_STONE_RETURN_DEL',
         pcs=-instance.return_pcs, ct=-instance.return_ct, gw=-instance.return_gw,
         billno=instance.header.billno,
+    )
+
+
+# ── Refinery Issue/Receive detail → raw material ─────────────────────────────
+# (Closes a pre-existing gap: refinery operations did not update stock.)
+
+@receiver(post_save, sender=RefinaryIssueDetail)
+def on_refinary_issue_detail_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='REF_ISS',
+        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_delete, sender=RefinaryIssueDetail)
+def on_refinary_issue_detail_delete(sender, instance, **kwargs):
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='REF_ISS_DEL',
+        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_save, sender=RefinaryReceiveDetail)
+def on_refinary_receive_detail_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        gw=instance.conv_nw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        trans_type='REF_REC',
+        gw=instance.conv_nw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_delete, sender=RefinaryReceiveDetail)
+def on_refinary_receive_detail_delete(sender, instance, **kwargs):
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        gw=-instance.conv_nw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        trans_type='REF_REC_DEL',
+        gw=-instance.conv_nw,
+        billno=instance.billno.billno,
+    )
+
+
+# ── Melting Issue/Receive detail → raw material ──────────────────────────────
+
+@receiver(post_save, sender=MeltingIssueDetail)
+def on_melting_issue_detail_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='MELT_ISS',
+        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_delete, sender=MeltingIssueDetail)
+def on_melting_issue_detail_delete(sender, instance, **kwargs):
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='MELT_ISS_DEL',
+        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_save, sender=MeltingReceiveDetail)
+def on_melting_receive_detail_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        gw=instance.conv_nw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        trans_type='MELT_REC',
+        gw=instance.conv_nw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_delete, sender=MeltingReceiveDetail)
+def on_melting_receive_detail_delete(sender, instance, **kwargs):
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        gw=-instance.conv_nw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        trans_type='MELT_REC_DEL',
+        gw=-instance.conv_nw,
+        billno=instance.billno.billno,
+    )
+
+
+# ── Fire Assay Issue/Receive detail → raw material ───────────────────────────
+# Assay Receive branches on is_cornet: cornet goes to (item, packet=None, conv_purity)
+# so that the refined cornet lands in fine-gold stock, bypassing packet-level tracking.
+
+@receiver(post_save, sender=AssayIssueDetail)
+def on_assay_issue_detail_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='ASSAY_ISS',
+        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_delete, sender=AssayIssueDetail)
+def on_assay_issue_detail_delete(sender, instance, **kwargs):
+    _update_raw_material(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='ASSAY_ISS_DEL',
+        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_save, sender=AssayReceiveDetail)
+def on_assay_receive_detail_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+    packet = None if instance.is_cornet else instance.packet
+    trans_type = 'ASSAY_REC_CORNET' if instance.is_cornet else 'ASSAY_REC'
+    _update_raw_material(
+        item=instance.item, packet=packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        gw=instance.conv_nw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        trans_type=trans_type,
+        gw=instance.conv_nw,
+        billno=instance.billno.billno,
+    )
+
+
+@receiver(post_delete, sender=AssayReceiveDetail)
+def on_assay_receive_detail_delete(sender, instance, **kwargs):
+    packet = None if instance.is_cornet else instance.packet
+    trans_type = 'ASSAY_REC_CORNET_DEL' if instance.is_cornet else 'ASSAY_REC_DEL'
+    _update_raw_material(
+        item=instance.item, packet=packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        gw=-instance.conv_nw,
+    )
+    _log_raw_txn(
+        item=instance.item, packet=packet,
+        purity=instance.conv_purity, retail=instance.retail,
+        trans_type=trans_type,
+        gw=-instance.conv_nw,
+        billno=instance.billno.billno,
     )

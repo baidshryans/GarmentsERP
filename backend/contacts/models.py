@@ -17,6 +17,7 @@ TYPE_CHOICES = (
     ("SC",  "Sundry Creditors"),
     ("SD",  "Sundry Debtors"),
     ("REF", "Refinery"),
+    ("MLT", "Melting House"),
     ("EXP", "Expenses"),
     ("INC", "Income"),
     ("HM",  "Hallmark"),
@@ -24,7 +25,7 @@ TYPE_CHOICES = (
 )
 
 # Ledger types that represent people/businesses (parties)
-PARTY_TYPES = {"CO", "DL", "KR", "VD", "SC", "SD", "REF", "HM"}
+PARTY_TYPES = {"CO", "DL", "KR", "VD", "SC", "SD", "REF", "MLT", "HM"}
 
 # Ledger types that are non-personal (system/accounting)
 NON_PERSONAL_TYPES = {"CA", "BA", "EXP", "INC", "OTH"}

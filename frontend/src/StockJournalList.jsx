@@ -134,7 +134,7 @@ const StockJournalList = () => {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex items-center space-x-3">
-          <Link to={`${row.original.id}`} className="text-violet-500">
+          <Link to={`${row.original.id}`} className="text-primary">
             <Edit size={16} />
           </Link>
           <button

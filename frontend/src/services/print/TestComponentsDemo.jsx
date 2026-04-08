@@ -333,7 +333,7 @@ const TestComponentsDemo = () => {
           <button
             key={comp}
             onClick={() => handlePrint(comp)}
-            className="bg-violet-500 hover:bg-violet-600 text-white py-2 px-4 rounded transition-colors"
+            className="bg-primary hover:bg-primary text-white py-2 px-4 rounded transition-colors"
           >
             Print {comp}
           </button>

@@ -124,7 +124,7 @@ export default function TDSSectionMasterPage() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-3">
-          <button onClick={() => handleEdit(row.original)} className="text-violet-500 hover:text-violet-700">
+          <button onClick={() => handleEdit(row.original)} className="text-primary hover:text-primary">
             <Edit className="size-4" />
           </button>
           <button onClick={() => handleDelete(row.original.id)} className="text-red-500 hover:text-red-700">
@@ -218,7 +218,7 @@ export default function TDSSectionMasterPage() {
             <label htmlFor="is_active" className="text-sm text-foreground/80">Active</label>
           </div>
           <div className="flex gap-3">
-            <Button type="submit" size="sm" disabled={submitting} className="bg-violet-700 hover:bg-violet-800 text-white">
+            <Button type="submit" size="sm" disabled={submitting} className="bg-primary hover:bg-primary text-white">
               <Check className="size-4 mr-1" />
               {editingId ? "Update" : "Save"}
             </Button>
@@ -232,7 +232,7 @@ export default function TDSSectionMasterPage() {
 
       {!showForm && (
         <div className="flex justify-end">
-          <Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white" onClick={() => setShowForm(true)}>
+          <Button size="sm" className="bg-primary hover:bg-primary text-white" onClick={() => setShowForm(true)}>
             <Plus className="size-4 mr-1" />
             Add TDS Section
           </Button>

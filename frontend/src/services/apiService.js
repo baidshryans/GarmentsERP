@@ -1321,6 +1321,46 @@ export async function fetchNextRefinaryReceiveNo() {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+export async function fetchNextMeltingIssueNo() {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/next_melt_iss_no`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch next melting issue no:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchNextMeltingReceiveNo() {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/next_melt_rec_no`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch next melting receive no:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchNextAssayIssueNo() {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/next_assay_iss_no`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch next assay issue no:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchNextAssayReceiveNo() {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/next_assay_rec_no`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch next assay receive no:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
 export async function fetchNextStockJournalNo() {
   try {
     const response = await apiClient.get(`/inventory/api/next_stock_journal_no`);
@@ -1609,6 +1649,82 @@ export async function fetchRefinaryReceive({ search = "", page = 1, ordering = "
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchMeltingIssue({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`manufacturing/api/melting-issue/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch melting issues:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchMeltingReceive({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`manufacturing/api/melting-receive/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch melting receives:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchAssayIssue({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`manufacturing/api/assay-issue/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch assay issues:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchAssayReceive({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`manufacturing/api/assay-receive/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch assay receives:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchMeltingIssueWithBillno(billno) {
+  try {
+    const response = await apiClient.get(`manufacturing/api/melting-issue/?billno=${billno}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch melting issue by billno:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchAssayIssueWithBillno(billno) {
+  try {
+    const response = await apiClient.get(`manufacturing/api/assay-issue/?billno=${billno}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch assay issue by billno:", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }
@@ -2244,6 +2360,130 @@ export async function updateRefinaryReceiveForEdit(data, id) {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch states :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Melting Issue/Receive CRUD ───────────────────────────────────────────────
+
+export async function createMeltingIssue(data) {
+  try {
+    const response = await apiClient.post("/manufacturing/api/melting-issue/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to create melting issue:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchMeltingIssueForEdit(id) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/melting-issue/${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch melting issue for edit:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateMeltingIssueForEdit(data, id) {
+  try {
+    const response = await apiClient.put(`/manufacturing/api/melting-issue/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to update melting issue:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createMeltingReceive(data) {
+  try {
+    const response = await apiClient.post("/manufacturing/api/melting-receive/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to create melting receive:", error.response?.data || error.message);
+    return { success: false, status: error.response?.status, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchMeltingReceiveForEdit(id) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/melting-receive/${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch melting receive for edit:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateMeltingReceiveForEdit(data, id) {
+  try {
+    const response = await apiClient.put(`/manufacturing/api/melting-receive/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to update melting receive:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Fire Assay Issue/Receive CRUD ────────────────────────────────────────────
+
+export async function createAssayIssue(data) {
+  try {
+    const response = await apiClient.post("/manufacturing/api/assay-issue/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to create assay issue:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchAssayIssueForEdit(id) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/assay-issue/${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch assay issue for edit:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateAssayIssueForEdit(data, id) {
+  try {
+    const response = await apiClient.put(`/manufacturing/api/assay-issue/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to update assay issue:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createAssayReceive(data) {
+  try {
+    const response = await apiClient.post("/manufacturing/api/assay-receive/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to create assay receive:", error.response?.data || error.message);
+    return { success: false, status: error.response?.status, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchAssayReceiveForEdit(id) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/assay-receive/${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch assay receive for edit:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateAssayReceiveForEdit(data, id) {
+  try {
+    const response = await apiClient.put(`/manufacturing/api/assay-receive/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to update assay receive:", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }
@@ -3023,6 +3263,16 @@ export const deleteRefineryIssue = async (id, toast) => {
   handleDelete(result, toast, "Refinery issue deleted successfully.");
 };
 
+export const deleteMeltingIssue = async (id, toast) => {
+  const result = await deleteResource("manufacturing/api/melting-issue", id);
+  handleDelete(result, toast, "Melting issue deleted successfully.");
+};
+
+export const deleteAssayIssue = async (id, toast) => {
+  const result = await deleteResource("manufacturing/api/assay-issue", id);
+  handleDelete(result, toast, "Assay issue deleted successfully.");
+};
+
 // Manufacturing - Receives
 export const deleteJobWorkReceive = async (id, toast) => {
   const result = await deleteResource("manufacturing/api/karigar-receive", id);
@@ -3042,6 +3292,16 @@ export const deleteHallmarkReceive = async (id, toast) => {
 export const deleteRefineryReceive = async (id, toast) => {
   const result = await deleteResource("manufacturing/api/refinery-receive", id);
   handleDelete(result, toast, "Refinery receive deleted successfully.");
+};
+
+export const deleteMeltingReceive = async (id, toast) => {
+  const result = await deleteResource("manufacturing/api/melting-receive", id);
+  handleDelete(result, toast, "Melting receive deleted successfully.");
+};
+
+export const deleteAssayReceive = async (id, toast) => {
+  const result = await deleteResource("manufacturing/api/assay-receive", id);
+  handleDelete(result, toast, "Assay receive deleted successfully.");
 };
 export const deleteStockTransfer = async (id, toast) => {
   const result = await deleteResource("inventory/stock-transfer", id);
@@ -3149,9 +3409,11 @@ export const deleteBarcodeManagement = async (id, toast) => {
   handleDelete(result, toast, "Barcode management entry deleted successfully.");
 };
 
-export async function fetchGSTInputReport(startDate, endDate) {
+export async function fetchGSTInputReport(startDate, endDate, gstinId) {
   try {
-    const response = await apiClient.get(`/sales/api/gst-input?start_date=${startDate}&end_date=${endDate}`);
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    if (gstinId) params.append('gstin', gstinId);
+    const response = await apiClient.get(`/sales/api/gst-input?${params.toString()}`);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch gstinputreport:", error.response?.data || error.message);
@@ -3159,9 +3421,11 @@ export async function fetchGSTInputReport(startDate, endDate) {
   }
 }
 
-export async function fetchGSTOutputReport(startDate, endDate) {
+export async function fetchGSTOutputReport(startDate, endDate, gstinId) {
   try {
-    const response = await apiClient.get(`/sales/api/gst-output?start_date=${startDate}&end_date=${endDate}`);
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    if (gstinId) params.append('gstin', gstinId);
+    const response = await apiClient.get(`/sales/api/gst-output?${params.toString()}`);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch gstoutputreport:", error.response?.data || error.message);
@@ -3326,13 +3590,11 @@ export async function fetchIDGenerationReportAPI(filterParams = {}) {
 
 export async function fetchArtisanDataAPI(searchTerm = "") {
   try {
-    let url = "/contacts/api/ledger/";
-
-    if (searchTerm) {
-      const queryParams = new URLSearchParams();
-      queryParams.append('search', searchTerm);
-      url += `?${queryParams.toString()}`;
-    }
+    const queryParams = new URLSearchParams();
+    queryParams.append('role', 'KR');
+    queryParams.append('page_size', '500');
+    if (searchTerm) queryParams.append('search', searchTerm);
+    const url = `/contacts/api/ledger/?${queryParams.toString()}`;
 
     const response = await apiClient.get(url);
     return { success: true, data: response.data.results || response.data };
@@ -3344,7 +3606,7 @@ export async function fetchArtisanDataAPI(searchTerm = "") {
 
 export async function fetchItemDataAPI() {
   try {
-    const response = await apiClient.get("/mastersconfig/api/item/");
+    const response = await apiClient.get("/mastersconfig/api/item/?item_type=M&page_size=500");
     console.log("Raw API Response for items:", response); // Debug line
 
     // Handle different possible response structures
@@ -4353,6 +4615,18 @@ export async function deleteBarcodeImage(id) {
 }
 
 // ── Licensing ─────────────────────────────────────────────────────────────────
+
+export async function fetchRcmRegister({ from_date, to_date } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (from_date) params.append('from_date', from_date);
+    if (to_date) params.append('to_date', to_date);
+    const response = await apiClient.get(`/purchase/api/rcm-register/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
 
 export async function fetchAllApps() {
   try {

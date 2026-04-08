@@ -75,14 +75,14 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
             <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-700 text-white text-xs font-bold shrink-0">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                     {initial ? '✎' : '+'}
                 </span>
                 <div>
-                    <p className="text-sm font-bold text-violet-900 tracking-widest uppercase">
+                    <p className="text-sm font-bold text-primary tracking-widest uppercase">
                         {initial ? 'Edit Opening Balance' : 'Add Opening Balance'}
                     </p>
-                    <p className="text-xs text-violet-600 mt-0.5">Enter debit or credit opening amount</p>
+                    <p className="text-xs text-primary mt-0.5">Enter debit or credit opening amount</p>
                 </div>
             </div>
 
@@ -109,7 +109,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
                             <button
                                 type="button"
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'debit' ? 'bg-violet-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'debit' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
                                 onClick={() => field.onChange('debit')}
                             >
                                 <TrendingUp className="w-4 h-4" />
@@ -117,7 +117,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                             </button>
                             <button
                                 type="button"
-                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'credit' ? 'bg-violet-700 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'credit' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
                                 onClick={() => field.onChange('credit')}
                             >
                                 <TrendingDown className="w-4 h-4" />
@@ -164,7 +164,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                 <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 bg-violet-700 hover:bg-violet-800 text-white font-semibold"
+                    className="flex-1 bg-primary hover:bg-primary text-white font-semibold"
                 >
                     {isSubmitting ? 'Saving…' : initial ? 'Update' : 'Save'}
                 </Button>
@@ -255,7 +255,7 @@ const OpeningBalance = () => {
                         Refresh
                     </Button>
                     <Button
-                        className="h-10 px-5 gap-2 bg-violet-700 hover:bg-violet-800 text-white font-semibold shadow-sm"
+                        className="h-10 px-5 gap-2 bg-primary hover:bg-primary text-white font-semibold shadow-sm"
                         onClick={openAdd}
                     >
                         <Plus className="w-4 h-4" />
@@ -284,7 +284,7 @@ const OpeningBalance = () => {
                             <p className="text-xs text-gray-400 mt-1">Add opening balances for each ledger account</p>
                         </div>
                         <Button
-                            className="gap-2 bg-violet-700 hover:bg-violet-800 text-white"
+                            className="gap-2 bg-primary hover:bg-primary text-white"
                             onClick={openAdd}
                         >
                             <Plus className="w-4 h-4" />
@@ -304,10 +304,10 @@ const OpeningBalance = () => {
                         {/* Year header */}
                         <div className="flex items-center justify-between px-6 py-3 bg-violet-50 border-b border-violet-100">
                             <div className="flex items-center gap-3">
-                                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-700 text-white text-xs font-bold shrink-0">
+                                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                                     {year.slice(0, 2)}
                                 </span>
-                                <span className="text-sm font-bold text-violet-900 tracking-widest uppercase">
+                                <span className="text-sm font-bold text-primary tracking-widest uppercase">
                                     FY {year}
                                 </span>
                                 <span className="text-xs text-gray-400">{rows.length} accounts</span>
@@ -354,7 +354,7 @@ const OpeningBalance = () => {
                                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => openEdit(row)}
-                                                    className="p-1.5 rounded hover:bg-violet-100 text-violet-700 transition-colors"
+                                                    className="p-1.5 rounded hover:bg-violet-100 text-primary transition-colors"
                                                     title="Edit"
                                                 >
                                                     <Pencil className="w-3.5 h-3.5" />

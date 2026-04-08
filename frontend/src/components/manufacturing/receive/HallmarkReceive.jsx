@@ -302,7 +302,7 @@ const HallmarkReceive = () => {
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white">
+          <Button type="submit" className="bg-primary hover:bg-primary text-white">
             Save
           </Button>
         </div>

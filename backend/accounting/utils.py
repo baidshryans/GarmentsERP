@@ -10,6 +10,21 @@ from .models import *
 from purchase.models import *
 
 
+def get_company_cash_limits(retail):
+    """
+    Returns (receipt_limit, payment_limit) from the company linked via
+    retail → branch → company. Falls back to statutory defaults if the
+    chain is broken.
+    """
+    company = getattr(getattr(retail, 'branch', None), 'company', None)
+    if company:
+        return (
+            Decimal(str(company.max_cash_receipt_limit)),
+            Decimal(str(company.max_cash_payment_limit)),
+        )
+    return Decimal('199999'), Decimal('10000')
+
+
 def increment_series_no(bill_no):
     match = re.search(r'(\d+)$', bill_no)
 

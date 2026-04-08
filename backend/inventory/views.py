@@ -1064,7 +1064,18 @@ class BarcodeCreationReportView(APIView):
 
         if not from_date or not to_date:
             return Response({"error": "from_date and to_date are required"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        def _ids(key):
+            raw = request.query_params.get(key)
+            if not raw:
+                return None
+            return [v for v in raw.split(',') if v.strip()]
+
+        artisan_ids = _ids('artisan_ids')
+        item_ids    = _ids('item_ids')
+        purity_ids  = _ids('purity_ids')
+        user_ids    = _ids('user_ids')
+
         stone_prefetch= Prefetch('barcodedetails_set',queryset=BarcodeDetails.objects.filter(
             barcode__created_date__range=[from_date, to_date],
             item__item_type='S'
@@ -1075,15 +1086,21 @@ class BarcodeCreationReportView(APIView):
         ), to_attr='other_details'
         )
 
-        qs=BarcodeMain.objects.filter(
-            created_date__range=[from_date,
-            to_date]
-        ).prefetch_related(
-            stone_prefetch,
-            other_prefetch
-            )
+        qs = BarcodeMain.objects.filter(
+            created_date__range=[from_date, to_date]
+        )
+        if artisan_ids:
+            qs = qs.filter(kr_code_id__in=artisan_ids)
+        if item_ids:
+            qs = qs.filter(item_id__in=item_ids)
+        if purity_ids:
+            qs = qs.filter(purity_id__in=purity_ids)
+        if user_ids:
+            qs = qs.filter(created_by__in=user_ids)
+
+        qs = qs.prefetch_related(stone_prefetch, other_prefetch).order_by('-created_date', '-id')
         serializer=BarcodeCreationReportSerializer(qs,many=True)
-        
+
 
         return Response(serializer.data, status=status.HTTP_200_OK)
     

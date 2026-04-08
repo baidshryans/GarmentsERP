@@ -15,6 +15,7 @@ import { FieldContainer } from "@/Utils";
 const RetailSelection = () => {
   const { control, watch, setValue } = useForm();
   const [statesData, setstatesData] = useState([]);
+  const [companyName, setCompanyName] = useState("");
 
   useEffect(() => {
     async function fetchData() {
@@ -23,6 +24,7 @@ const RetailSelection = () => {
       ]);
       if (states.success && states.data.results?.length > 0) {
         setstatesData(states.data.results[0].location || []);
+        setCompanyName(states.data.results[0].company_name || "");
       }
     }
     fetchData();
@@ -54,29 +56,34 @@ const RetailSelection = () => {
   }, [retail, statesData]);
 
   return (
-
-    <div className="flex items-center justify-between max-w-72 px-4 h-14">
-
-      <Label htmlFor="place_of_supply" className="text-nowrap">Retail</Label>
-      <Controller
-        name="retail"
-        control={control}
-        render={({ field }) => (
-          <Select onValueChange={field.onChange} value={field.value}>
-            <SelectTrigger >
-              <SelectValue placeholder="" />
-            </SelectTrigger>
-
-            <SelectContent>
-              {statesData.map((sp, index) => (
-                <SelectItem key={index} value={`${sp.retail_code}`}>{sp.retail_name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      />
+    <div className="flex items-center gap-3 px-4 h-14">
+      {companyName && (
+        <div className="flex flex-col items-end leading-tight">
+          <span className="text-xs font-semibold text-gray-700 tracking-wide truncate max-w-40">{companyName}</span>
+          <span className="text-[10px] text-gray-400 tracking-wide">Company</span>
+        </div>
+      )}
+      <div className="h-6 w-px bg-gray-200" />
+      <div className="flex items-center gap-2">
+        <Label htmlFor="place_of_supply" className="text-nowrap text-xs text-gray-500">Retail</Label>
+        <Controller
+          name="retail"
+          control={control}
+          render={({ field }) => (
+            <Select onValueChange={field.onChange} value={field.value}>
+              <SelectTrigger>
+                <SelectValue placeholder="" />
+              </SelectTrigger>
+              <SelectContent>
+                {statesData.map((sp, index) => (
+                  <SelectItem key={index} value={`${sp.retail_code}`}>{sp.retail_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </div>
     </div>
-
   );
 };
 

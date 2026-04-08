@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
+import { useEnterAsTab } from "@/hooks/useEnterAsTab"
 import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
 
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
@@ -100,6 +101,7 @@ const PurchaseVoucher = () => {
         "net_vendor_payable": 0,
         "mode_of_transport": "",
         "voucher_type":"Vendor",
+        "is_rcm": false,
       },
       table: {
         "billno": null,
@@ -173,6 +175,8 @@ const PurchaseVoucher = () => {
   };
   const [rs, setRows] = useState([]);
   const editingRowRef = useRef(null); // preserves sub-items while main item is being edited
+  const formRef = useRef(null);
+  useEnterAsTab(formRef);
   const [rsRaw, setRsRaw] = useState([]);
   const [serialNos, setSerialNos] = useState([]);
   const [statesData, setstatesData] = useState([]);
@@ -198,6 +202,7 @@ const PurchaseVoucher = () => {
   const detailItemData = mainItemData.find(m => m.short_code === selectedItem);
   const isRawItem = detailItemData?.item_type === "R";
   const showMetalFields = !selectedItem || isRawItem;
+  const detailMetalPurity = watch('details.metal_purity');
 
 
   useEffect(() => {
@@ -247,6 +252,23 @@ const PurchaseVoucher = () => {
     }
   }, [uom, selectedItem])
 
+
+  // Auto-fill gold rate from GoldRates when Old Gold item is selected as sub-item
+  useEffect(() => {
+    const isOldGold = isRawItem && detailItemData?.item_name?.toLowerCase().includes('old gold');
+    if (!isOldGold || !detailMetalPurity) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    getGoldRate(today).then(res => {
+      if (!res.success) return;
+      const rateObj = res.data.find(r => r.purity_name === detailMetalPurity);
+      if (rateObj) {
+        // Standalone old-gold purchase → use buying rate; fall back to legacy rate
+        setValue('details.rate', rateObj.buying_rate || rateObj.rate);
+        setCalculate(prev => prev + 1);
+      }
+    });
+  }, [isRawItem, detailItemData, detailMetalPurity]);
 
   useEffect(() => {
     async function fetchData() {
@@ -517,7 +539,7 @@ const PurchaseVoucher = () => {
           setPendingFiles([]);
         }
         toast({ title: "Form submitted successfully!" });
-        setTimeout(() => navigate("/purchase/purchasevoucher/list/"), 500);
+        setTimeout(() => navigate("/purchase/list/"), 500);
       } else {
         toast({
           title: "Form submission failed.",
@@ -838,13 +860,14 @@ const PurchaseVoucher = () => {
   return (
     <div className="container mt-4">
       <form
+        ref={formRef}
         className="p-6 shadow-sm rounded-xl bg-white border border-gray-100"
         id="orderForm"
         onSubmit={handleSubmit(onSubmit)}
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">1</span>
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">1</span>
             <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Bill Details</span>
           </div>
           <InvoiceUpload
@@ -865,7 +888,7 @@ const PurchaseVoucher = () => {
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-violet-800 text-sm font-semibold min-w-0 flex-1 truncate">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
               </span>
               <input type="hidden" {...register("form.billno")} />
@@ -945,9 +968,36 @@ const PurchaseVoucher = () => {
               )}
             />
           </FieldContainer>
+          {isCustomer && (
+            <div className="col-span-2 flex flex-col gap-1">
+              <Label className="text-nowrap">RCM (Reverse Charge)</Label>
+              <div className="flex items-center gap-3 h-9">
+                <Controller
+                  name="form.is_rcm"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      checked={!!field.value}
+                      onCheckedChange={field.onChange}
+                      id="is_rcm"
+                    />
+                  )}
+                />
+                <label htmlFor="is_rcm" className="text-sm text-gray-600 cursor-pointer select-none">
+                  Unregistered seller — RCM @ 3% applies
+                </label>
+              </div>
+              {watch('form.is_rcm') && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  GST payable under Reverse Charge. Record in RCM payable ledger via journal entry.
+                </p>
+              )}
+            </div>
+          )}
+
           {!isCustomer && (
           <FieldContainer>
-            <Label htmlFor="hsn" className="text-nowrap">HSN code <span className="text-violet-500 font-normal text-xs">(select to add items)</span></Label>
+            <Label htmlFor="hsn" className="text-nowrap">HSN code <span className="text-primary font-normal text-xs">(select to add items)</span></Label>
 
             <Controller
               name="hsn"
@@ -1030,7 +1080,7 @@ const PurchaseVoucher = () => {
 
           {/* Item Details */}
           <div className="flex items-center gap-3 my-5">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">2</span>
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">2</span>
             <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Main and Sub Item Details</span>
             <div className="flex-1 h-px bg-violet-100" />
           </div>
@@ -1038,16 +1088,16 @@ const PurchaseVoucher = () => {
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
               <TableRow className="w-full bg-violet-50">
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Item</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">GW</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Size</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Purity</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Making</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Making Type</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Making Amt</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Value</TableCell>
-                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Remarks</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Item</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">GW</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Size</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Purity</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Making</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Making Type</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Making Amt</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Value</TableCell>
+                <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Remarks</TableCell>
               </TableRow>
 
               <TableRow>
@@ -1153,18 +1203,18 @@ const PurchaseVoucher = () => {
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
               <TableRow className="w-full bg-violet-50">
-                <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
-                <TableCell className={`w-40 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${!!selectedItem && !selectedPacketData ? " hidden" : ""}`}>Packet</TableCell>
-                <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Item</TableCell>
-                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${isRawItem ? " hidden" : ""}`}>Pcs</TableCell>
-                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${isRawItem ? " hidden" : ""}`}>Ct</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">GW</TableCell>
-                <TableCell className={`w-32 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Metal Purity</TableCell>
-                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Loss</TableCell>
-                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Tunch</TableCell>
-                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Fine Wt</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Rate</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Value</TableCell>
+                <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
+                <TableCell className={`w-40 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${!!selectedItem && !selectedPacketData ? " hidden" : ""}`}>Packet</TableCell>
+                <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Item</TableCell>
+                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${isRawItem ? " hidden" : ""}`}>Pcs</TableCell>
+                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${isRawItem ? " hidden" : ""}`}>Ct</TableCell>
+                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">GW</TableCell>
+                <TableCell className={`w-32 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Metal Purity</TableCell>
+                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Loss</TableCell>
+                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Tunch</TableCell>
+                <TableCell className={`w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${showMetalFields ? "" : " hidden"}`}>Fine Wt</TableCell>
+                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Rate</TableCell>
+                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Value</TableCell>
               </TableRow>
 
               {/* Input Row */}
@@ -1299,23 +1349,23 @@ const PurchaseVoucher = () => {
 
             <TableBody>
               <TableRow className="bg-violet-50">
-                <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Options</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Packet</TableCell>
-                <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Item</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Order No</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Ct</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">GW</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Size</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Purity</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Loss</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Tunch</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Fine Wt</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Rate</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Making</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Value</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap">Remarks</TableCell>
+                <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Options</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Packet</TableCell>
+                <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Item</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Order No</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Ct</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">GW</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Size</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Purity</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Loss</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Tunch</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Fine Wt</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Rate</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Making</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Value</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Remarks</TableCell>
               </TableRow>
 
               {rs.length === 0 && (
@@ -1402,18 +1452,18 @@ const PurchaseVoucher = () => {
           <Table className="w-full table-fixed border-collapse mt-2">
             <TableBody>
               <TableRow className="bg-violet-50">
-                <TableCell className="w-12 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider"></TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Packet</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Item</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Pcs</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Ct</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">GW</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Purity</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Loss</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Tunch</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Fine Wt</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Rate</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider">Value</TableCell>
+                <TableCell className="w-12 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider"></TableCell>
+                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Packet</TableCell>
+                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Item</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Pcs</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Ct</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">GW</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Purity</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Loss</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Tunch</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Fine Wt</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Rate</TableCell>
+                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Value</TableCell>
               </TableRow>
               {rsRaw.map((detail, idx) => (
                 <TableRow key={idx}>
@@ -1512,7 +1562,7 @@ const PurchaseVoucher = () => {
 
         {/* Submit */}
         <div className="flex justify-center items-center gap-3 mt-2 pt-4 border-t border-gray-100">
-          <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white px-8">
+          <Button type="submit" className="bg-primary hover:bg-primary text-white px-8">
             Save
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>

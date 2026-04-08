@@ -6,8 +6,10 @@ import {
   ChevronsUpDown,
   CreditCard,
   LogOut,
+  Settings,
   Sparkles,
 } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 
 import {
   Avatar,
@@ -34,6 +36,7 @@ export function NavUser({
   user
 }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate()
 
   return (
     (<SidebarMenu>
@@ -72,7 +75,13 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            
+
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+
             <DropdownMenuItem onClick={async (e)=>{
               try {
                 if (sessionStorage.getItem("erpSetupComplete") !== "true") {

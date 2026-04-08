@@ -511,6 +511,145 @@ class RefinaryReceiveDetail(models.Model):
         db_table = "receive_from_refinary_details"
 
 
+# ── Melting ──────────────────────────────────────────────────────────────────
+
+class MeltingIssue(models.Model):
+    date1       = models.DateField()
+    billno      = models.CharField(max_length=30)
+    ldgr        = models.ForeignKey(Ledger, on_delete=models.PROTECT)
+    rec_status  = models.BooleanField(default=False)
+    retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    @property
+    def ldgr_name(self):
+        return self.ldgr.ac_name
+
+    class Meta:
+        db_table = "issue_to_melting"
+
+
+class MeltingIssueDetail(models.Model):
+    billno       = models.ForeignKey(MeltingIssue, on_delete=models.CASCADE)
+    item         = models.ForeignKey(Item, on_delete=models.PROTECT)
+    pcs          = models.IntegerField()
+    ct           = models.DecimalField(max_digits=10, decimal_places=3)
+    gw           = models.DecimalField(max_digits=10, decimal_places=3)
+    packet       = models.ForeignKey(Packet, on_delete=models.PROTECT)
+    metal_purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)
+    rec_status   = models.BooleanField(default=False)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "issue_to_melting_details"
+
+
+class MeltingReceive(models.Model):
+    date1       = models.DateField()
+    billno      = models.CharField(max_length=30)
+    ldgr        = models.ForeignKey(Ledger, on_delete=models.PROTECT)
+    retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    @property
+    def ldgr_name(self):
+        return self.ldgr.ac_name
+
+    class Meta:
+        db_table = "receive_from_melting"
+
+
+class MeltingReceiveDetail(models.Model):
+    billno       = models.ForeignKey(MeltingReceive, on_delete=models.CASCADE)
+    issue_no     = models.ForeignKey(MeltingIssue, on_delete=models.CASCADE)
+    item         = models.ForeignKey(Item, on_delete=models.PROTECT)
+    pcs          = models.IntegerField()
+    ct           = models.DecimalField(max_digits=10, decimal_places=3)
+    gw           = models.DecimalField(max_digits=10, decimal_places=3)
+    loss_per     = models.DecimalField(max_digits=10, decimal_places=3)
+    loss_wt      = models.DecimalField(max_digits=10, decimal_places=3)
+    remarks      = models.CharField(max_length=100, blank=True)
+    packet       = models.ForeignKey(Packet, on_delete=models.PROTECT)
+    metal_purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)
+    conv_purity  = models.ForeignKey(PurityMaster, on_delete=models.PROTECT, related_name="converted_melting_receive_set")
+    conv_nw      = models.DecimalField(max_digits=10, decimal_places=3)
+    rec_status   = models.BooleanField(default=False)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "receive_from_melting_details"
+
+
+# ── Fire Assay ───────────────────────────────────────────────────────────────
+
+class AssayIssue(models.Model):
+    date1       = models.DateField()
+    billno      = models.CharField(max_length=30)
+    ldgr        = models.ForeignKey(Ledger, on_delete=models.PROTECT)
+    rec_status  = models.BooleanField(default=False)
+    retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    @property
+    def ldgr_name(self):
+        return self.ldgr.ac_name
+
+    class Meta:
+        db_table = "assay_issue"
+
+
+class AssayIssueDetail(models.Model):
+    billno       = models.ForeignKey(AssayIssue, on_delete=models.CASCADE)
+    item         = models.ForeignKey(Item, on_delete=models.PROTECT)
+    pcs          = models.IntegerField()
+    ct           = models.DecimalField(max_digits=10, decimal_places=3)
+    gw           = models.DecimalField(max_digits=10, decimal_places=3)
+    packet       = models.ForeignKey(Packet, on_delete=models.PROTECT)
+    metal_purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)
+    rec_status   = models.BooleanField(default=False)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "assay_issue_details"
+
+
+class AssayReceive(models.Model):
+    date1       = models.DateField()
+    billno      = models.CharField(max_length=30)
+    ldgr        = models.ForeignKey(Ledger, on_delete=models.PROTECT)
+    retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    @property
+    def ldgr_name(self):
+        return self.ldgr.ac_name
+
+    class Meta:
+        db_table = "assay_receive"
+
+
+class AssayReceiveDetail(models.Model):
+    billno       = models.ForeignKey(AssayReceive, on_delete=models.CASCADE)
+    issue_no     = models.ForeignKey(AssayIssue, on_delete=models.CASCADE)
+    item         = models.ForeignKey(Item, on_delete=models.PROTECT)
+    pcs          = models.IntegerField()
+    ct           = models.DecimalField(max_digits=10, decimal_places=3)
+    gw           = models.DecimalField(max_digits=10, decimal_places=3)
+    loss_per     = models.DecimalField(max_digits=10, decimal_places=3)
+    loss_wt      = models.DecimalField(max_digits=10, decimal_places=3)
+    remarks      = models.CharField(max_length=100, blank=True)
+    packet       = models.ForeignKey(Packet, on_delete=models.PROTECT)
+    metal_purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)
+    conv_purity  = models.ForeignKey(PurityMaster, on_delete=models.PROTECT, related_name="converted_assay_receive_set")
+    conv_nw      = models.DecimalField(max_digits=10, decimal_places=3)
+    is_cornet    = models.BooleanField(default=False, help_text="Flags the refined cornet row (99.5% pure). Cornet goes directly to fine-gold stock and bypasses the refinery flow.")
+    rec_status   = models.BooleanField(default=False)
+    retail       = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "assay_receive_details"
+
+
 
 
 # ── Repair Job Card ────────────────────────────────────────────────────────────

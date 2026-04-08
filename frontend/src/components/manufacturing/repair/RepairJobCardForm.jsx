@@ -42,7 +42,7 @@ const STATUS_LABELS = {
 const STATUS_COLOR = {
   RCV:  "bg-blue-100 text-blue-700",
   ISS:  "bg-amber-100 text-amber-700",
-  RECV: "bg-purple-100 text-purple-700",
+  RECV: "bg-purple-100 text-primary",
   RDY:  "bg-green-100 text-green-700",
   DLV:  "bg-gray-100 text-gray-600",
 };

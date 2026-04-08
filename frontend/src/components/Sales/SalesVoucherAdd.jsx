@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
+import { useEnterAsTab } from "@/hooks/useEnterAsTab";
 import { Edit, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem } from "lucide-react";
 import {
   Select,
@@ -47,7 +48,7 @@ import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 // ─── Section header helper ──────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">{number}</span>
+    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">{number}</span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
     <div className="flex-1 h-px bg-violet-100" />
   </div>
@@ -55,7 +56,7 @@ const SectionHeader = ({ number, title }) => (
 
 // ─── Table header cell helper ────────────────────────────────────────────────
 const TH = ({ children, className = "" }) => (
-  <TableCell className={`px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap ${className}`}>
+  <TableCell className={`px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}>
     {children}
   </TableCell>
 );
@@ -192,6 +193,8 @@ const SalesVoucherAdd = () => {
   // Ref to focus the packet field after a row is added
   const packetInputRef = useRef(null);
   const mainItemInputRef = useRef(null);
+  const formRef = useRef(null);
+  useEnterAsTab(formRef);
 
   // ── Watch manual detail fields ─────────────────────────────────────────────
   const detailPacket   = watch("details.packet");
@@ -652,7 +655,7 @@ const SalesVoucherAdd = () => {
 
       if (response.success) {
         toast({ title: "Form submitted successfully!" });
-        setTimeout(() => navigate("/sales/salesvoucher/list/"), 500);
+        setTimeout(() => navigate("/sales/list/"), 500);
       } else {
         toast({ title: "Form submission failed.", description: renderErrorTree(response.error) });
       }
@@ -710,6 +713,7 @@ const SalesVoucherAdd = () => {
   return (
     <div className="mt-5">
       <form
+        ref={formRef}
         className="p-6 shadow-sm rounded-xl bg-white border border-gray-100"
         id="orderForm"
         onSubmit={handleSubmit(handleSalesVoucherSubmit, (e) => console.log("submission error", e))}
@@ -723,7 +727,7 @@ const SalesVoucherAdd = () => {
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-violet-800 text-sm font-semibold min-w-0 flex-1 truncate">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
               </span>
               <input type="hidden" {...register("form.billno", { required: true })} />
@@ -871,11 +875,6 @@ const SalesVoucherAdd = () => {
           </FieldContainer>
 
           <FieldContainer>
-            <Label className="text-nowrap">Remarks</Label>
-            <Input type="text" {...register("form.remarks", { required: true })} />
-          </FieldContainer>
-
-          <FieldContainer>
             <Label className="text-nowrap">Mode of Transport</Label>
             <Input type="text" {...register("form.mode_of_transport")} />
           </FieldContainer>
@@ -912,13 +911,13 @@ const SalesVoucherAdd = () => {
         {customerOrders.length > 0 && (
           <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50/60 p-4">
             <div className="flex items-center gap-2 mb-3">
-              <ClipboardList className="size-4 text-violet-700" />
-              <span className="text-sm font-semibold text-violet-900">Link Customer Order &amp; Apply Advance</span>
+              <ClipboardList className="size-4 text-primary" />
+              <span className="text-sm font-semibold text-primary">Link Customer Order &amp; Apply Advance</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Order dropdown */}
               <FieldContainer>
-                <Label className="text-nowrap text-violet-800">Customer Order</Label>
+                <Label className="text-nowrap text-primary">Customer Order</Label>
                 <Controller
                   name="form.customer_order"
                   control={control}
@@ -964,7 +963,7 @@ const SalesVoucherAdd = () => {
                 <div className="rounded-md border border-violet-200 bg-white px-4 py-3 text-sm flex flex-col gap-1.5">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <CheckCircle2 className="size-3.5 text-emerald-600" />
-                    <span className="font-semibold text-violet-900">{selectedOrder.order_no}</span>
+                    <span className="font-semibold text-primary">{selectedOrder.order_no}</span>
                     <span className="text-muted-foreground text-xs ml-auto">{selectedOrder.date1}</span>
                   </div>
                   <div className="flex justify-between text-xs">
@@ -982,8 +981,8 @@ const SalesVoucherAdd = () => {
                     </span>
                   </div>
                   <div className="flex justify-between text-xs border-t border-violet-100 pt-1 mt-0.5">
-                    <span className="font-semibold text-violet-800">Available to Apply</span>
-                    <span className="font-bold text-violet-800">
+                    <span className="font-semibold text-primary">Available to Apply</span>
+                    <span className="font-bold text-primary">
                       ₹{parseFloat(selectedOrder.advance_available ?? selectedOrder.advance_amt ?? 0).toLocaleString('en-IN')}
                     </span>
                   </div>
@@ -1208,7 +1207,7 @@ const SalesVoucherAdd = () => {
         <SectionHeader number="3" title="Manual Items (No Barcode)" />
 
         {/* ── 3a. Main Item Entry ─────────────────────────────────────────── */}
-        <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">
+        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
           Step 1 — Main Item (Jewellery Piece)
         </p>
         <p className="text-xs text-gray-400 mb-2">
@@ -1296,7 +1295,7 @@ const SalesVoucherAdd = () => {
         </div>
 
         {/* ── 3b. Sub-Item / Details Entry ────────────────────────────────── */}
-        <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider mb-1.5">
+        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
           Step 2 — Sub-Items / Material Details
         </p>
         <p className="text-xs text-gray-400 mb-2">
@@ -1524,12 +1523,22 @@ const SalesVoucherAdd = () => {
           </Table>
         </div>
 
-        {/* ══ 5. BILL SUMMARY ══════════════════════════════════════════════════ */}
+        {/* ══ 5. REMARKS ═══════════════════════════════════════════════════════ */}
+        <SectionHeader number="5" title="Remarks" />
+
+        <div className="grid grid-cols-3 gap-6 mb-4">
+          <FieldContainer>
+            <Label className="text-nowrap">Remarks</Label>
+            <Input type="text" {...register("form.remarks", { required: true })} />
+          </FieldContainer>
+        </div>
+
+        {/* ══ 6. BILL SUMMARY ══════════════════════════════════════════════════ */}
         <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} autoCalcTotal={autoCalcEnabled} onAutoCalc={handleAutoCalcFromTotal} />
 
         {/* Submit */}
         <div className="flex justify-center gap-3 mt-6 pt-4 border-t border-gray-100">
-          <Button asChild className="bg-violet-700 hover:bg-violet-800 text-white px-8">
+          <Button asChild className="bg-primary hover:bg-primary text-white px-8">
             <button type="submit">Save</button>
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>

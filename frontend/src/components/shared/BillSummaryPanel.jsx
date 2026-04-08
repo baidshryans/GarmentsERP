@@ -61,7 +61,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                 <span
                   className={`text-xs whitespace-nowrap pr-4 ${
                     isTotal
-                      ? 'font-bold text-violet-800 dark:text-violet-300'
+                      ? 'font-bold text-primary dark:text-violet-300'
                       : isEditable
                       ? 'text-foreground/70 font-medium'
                       : 'text-muted-foreground'
@@ -75,14 +75,14 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                     <Input
                       type="text"
                       placeholder={row.captionPlaceholder || "Charge name"}
-                      className="w-24 h-7 text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-violet-500 focus-visible:border-violet-400"
+                      className="w-24 h-7 text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400"
                       {...register(row.captionField)}
                     />
                     <Input
                       type="number"
                       step={row.step || '0.01'}
                       disabled={!watch?.(row.captionField)}
-                      className="w-24 h-7 text-right text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-violet-500 focus-visible:border-violet-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-24 h-7 text-right text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400 disabled:opacity-40 disabled:cursor-not-allowed"
                       {...register(row.field, { valueAsNumber: true })}
                     />
                   </div>
@@ -91,14 +91,14 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                     <Input
                       type="number"
                       step="0.01"
-                      className="w-24 h-7 text-right text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-violet-500 focus-visible:border-violet-400 font-bold text-violet-800"
+                      className="w-24 h-7 text-right text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400 font-bold text-primary"
                       {...register(row.field, { valueAsNumber: true })}
                     />
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-7 w-7 shrink-0 border-violet-300 text-violet-700 hover:bg-violet-50"
+                      className="h-7 w-7 shrink-0 border-violet-300 text-primary hover:bg-violet-50"
                       onClick={onAutoCalc}
                       title="Auto-calculate Discount & GST from this total"
                     >
@@ -109,7 +109,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                   <Input
                     type="number"
                     step={row.step || '0.01'}
-                    className="w-28 h-7 text-right text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-violet-500 focus-visible:border-violet-400"
+                    className="w-28 h-7 text-right text-xs py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400"
                     {...register(row.field, { valueAsNumber: true })}
                   />
                 ) : (
@@ -118,7 +118,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                     <span
                       className={`tabular-nums text-right ${
                         isTotal
-                          ? 'text-sm font-bold text-violet-800 dark:text-violet-300'
+                          ? 'text-sm font-bold text-primary dark:text-violet-300'
                           : 'text-xs font-semibold text-foreground/80'
                       }`}
                     >

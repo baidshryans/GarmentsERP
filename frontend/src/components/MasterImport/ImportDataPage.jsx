@@ -30,7 +30,7 @@ function ResultBadge({ result }) {
     <div className="mt-2 text-xs space-y-1">
       <div className="flex gap-3 flex-wrap">
         <span className="text-green-700">Created: <strong>{result.created}</strong></span>
-        <span className="text-violet-700">Updated: <strong>{result.updated}</strong></span>
+        <span className="text-primary">Updated: <strong>{result.updated}</strong></span>
         {result.items_mapped != null && (
           <span className="text-gray-500">Items mapped: <strong>{result.items_mapped}</strong></span>
         )}
@@ -86,7 +86,7 @@ function CSVUploadCard({ tableKey, label, uploadFn, hint }) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={status === "loading"}
-          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 transition-colors shrink-0"
+          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary hover:bg-primary text-white disabled:opacity-50 transition-colors shrink-0"
         >
           {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
           {status === "loading" ? "Uploading…" : "Upload CSV"}
@@ -154,7 +154,7 @@ function LedgerUploadCard({ type, label, hint }) {
             type="button"
             onClick={handleDownload}
             disabled={downloading}
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-violet-700 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
           >
             {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             {downloading ? "…" : "Template"}
@@ -163,7 +163,7 @@ function LedgerUploadCard({ type, label, hint }) {
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploadStatus === "loading"}
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary hover:bg-primary text-white disabled:opacity-50 transition-colors"
           >
             {uploadStatus === "loading" ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
             {uploadStatus === "loading" ? "Uploading…" : "Upload CSV"}
@@ -220,7 +220,7 @@ function MySQLSyncCard() {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold text-gray-800 flex items-center gap-1.5">
-            <Database size={15} className="text-violet-600" />
+            <Database size={15} className="text-primary" />
             MySQL Sync
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
@@ -231,7 +231,7 @@ function MySQLSyncCard() {
           type="button"
           onClick={handleSync}
           disabled={status === "loading"}
-          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50 transition-colors shrink-0"
+          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary hover:bg-primary text-white disabled:opacity-50 transition-colors shrink-0"
         >
           {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           {status === "loading" ? "Syncing…" : "Sync Now"}
@@ -285,7 +285,7 @@ export default function ImportDataPage() {
         </section>
         <section>
           <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <Users size={14} className="text-violet-500" />
+            <Users size={14} className="text-primary" />
             Ledger Masters
           </h2>
           <p className="text-xs text-gray-500 mb-3">

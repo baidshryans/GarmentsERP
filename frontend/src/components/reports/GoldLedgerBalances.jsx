@@ -214,7 +214,7 @@ export default function GoldLedgerBalances() {
       {/* ── Filters ── */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-border bg-muted/30">
-          <SlidersHorizontal className="size-4 text-violet-600" />
+          <SlidersHorizontal className="size-4 text-primary" />
           <span className="text-sm font-semibold">Filters</span>
           {fetched && (
             <span className="ml-auto text-xs text-muted-foreground">
@@ -305,7 +305,7 @@ export default function GoldLedgerBalances() {
               <Button
                 onClick={handleSearch}
                 disabled={loading}
-                className="bg-violet-700 hover:bg-violet-800 text-white h-9"
+                className="bg-primary hover:bg-primary text-white h-9"
               >
                 {loading ? (
                   <Loader2 className="size-4 mr-1.5 animate-spin" />
@@ -339,7 +339,7 @@ export default function GoldLedgerBalances() {
 
       {loading && (
         <div className="rounded-xl border border-border bg-card shadow-sm flex items-center justify-center py-16">
-          <Loader2 className="size-6 animate-spin text-violet-500" />
+          <Loader2 className="size-6 animate-spin text-primary" />
         </div>
       )}
 
@@ -353,7 +353,7 @@ export default function GoldLedgerBalances() {
       {hasData && (
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-3">
-            <Scale className="size-4 text-violet-600" />
+            <Scale className="size-4 text-primary" />
             <span className="text-sm font-semibold">Gold Ledger Balances</span>
             <span className="text-xs text-muted-foreground ml-1">
               {fromDate} → {toDate}
@@ -377,7 +377,7 @@ export default function GoldLedgerBalances() {
                     <th
                       key={label}
                       colSpan={6}
-                      className="px-2 py-1 text-center text-xs font-bold text-violet-700 border-b border-border border-l border-violet-200 bg-violet-50/60 whitespace-nowrap"
+                      className="px-2 py-1 text-center text-xs font-bold text-primary border-b border-border border-l border-violet-200 bg-violet-50/60 whitespace-nowrap"
                     >
                       {label}
                     </th>
@@ -391,7 +391,7 @@ export default function GoldLedgerBalances() {
                       <TH>Received</TH>
                       <TH>Wastage</TH>
                       <TH>Add Wt</TH>
-                      <TH className="text-violet-700 font-bold">Closing</TH>
+                      <TH className="text-primary font-bold">Closing</TH>
                     </React.Fragment>
                   ))}
                 </tr>
@@ -445,18 +445,18 @@ export default function GoldLedgerBalances() {
               {/* Grand Total */}
               <tfoot className="bg-violet-50/70 border-t-2 border-violet-300">
                 <tr>
-                  <td className="px-3 py-2.5 text-xs font-bold text-violet-800 border-b border-border">
+                  <td className="px-3 py-2.5 text-xs font-bold text-primary border-b border-border">
                     Grand Total
                   </td>
                   {grandTotals.map((tot, pi) => (
                     <React.Fragment key={pi}>
-                      <TD className="border-l border-violet-200 font-bold text-violet-700">
+                      <TD className="border-l border-violet-200 font-bold text-primary">
                         {fmt(tot.opening)}
                       </TD>
-                      <TD className="font-bold text-violet-700">{fmt(tot.periodIssued)}</TD>
-                      <TD className="font-bold text-violet-700">{fmt(tot.periodNW)}</TD>
-                      <TD className="font-bold text-violet-700">{fmt(tot.periodWaste)}</TD>
-                      <TD className="font-bold text-violet-700">{fmt(tot.periodAdd)}</TD>
+                      <TD className="font-bold text-primary">{fmt(tot.periodIssued)}</TD>
+                      <TD className="font-bold text-primary">{fmt(tot.periodNW)}</TD>
+                      <TD className="font-bold text-primary">{fmt(tot.periodWaste)}</TD>
+                      <TD className="font-bold text-primary">{fmt(tot.periodAdd)}</TD>
                       <TD
                         className={`font-bold text-base ${
                           tot.closing < 0

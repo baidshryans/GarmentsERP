@@ -60,6 +60,17 @@ class CompanyMaster(models.Model):
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='company_gold_conversion'
     )
+
+    # ── Compliance Limits ─────────────────────────────────────────────────────
+    max_cash_receipt_limit = models.DecimalField(
+        max_digits=12, decimal_places=2, default=199999,
+        help_text="Maximum cash receivable from a single customer per financial year (Sec 269ST)"
+    )
+    max_cash_payment_limit = models.DecimalField(
+        max_digits=12, decimal_places=2, default=10000,
+        help_text="Maximum cash payable to a single party in a single day (Sec 40A(3))"
+    )
+
     carriage_inward_ldgr = models.ForeignKey(
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='company_carriage_inward'
@@ -67,6 +78,10 @@ class CompanyMaster(models.Model):
     making_charge_purchase_ldgr = models.ForeignKey(
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='company_making_charge_purchase'
+    )
+    sale_discount_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_sale_discount'
     )
 
     class Meta:
@@ -152,6 +167,32 @@ class GSTINMaster(models.Model):
         related_name='gstin_output_igst'
     )
 
+    # ── RCM GST Register Ledgers (auto-created on first save via signal) ─────
+    input_cgst_rcm  = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_input_cgst_rcm'
+    )
+    input_sgst_rcm  = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_input_sgst_rcm'
+    )
+    input_igst_rcm  = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_input_igst_rcm'
+    )
+    output_cgst_rcm = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_output_cgst_rcm'
+    )
+    output_sgst_rcm = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_output_sgst_rcm'
+    )
+    output_igst_rcm = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='gstin_output_igst_rcm'
+    )
+
     class Meta:
         db_table = "gstin_master"
 
@@ -178,14 +219,6 @@ class RetailMaster(models.Model):
     bill_series = models.CharField(max_length=20, unique=True)
 
     is_exhibition = models.BooleanField(default=False)
-    max_cash_receipt_limit = models.DecimalField(
-        max_digits=12, decimal_places=2, default=199999,
-        help_text="Maximum cash receivable from a single customer per financial year (Sec 269ST)"
-    )
-    max_cash_payment_limit = models.DecimalField(
-        max_digits=12, decimal_places=2, default=10000,
-        help_text="Maximum cash payable to a single party in a single day (Sec 40A(3))"
-    )
 
     cash_ldgr = models.OneToOneField('contacts.Ledger',null=True ,on_delete=models.SET_NULL,blank=True)
     commission_ldgr = models.ForeignKey(

@@ -20,7 +20,7 @@ const Input = React.forwardRef(({ className, type, ...props }, ref) => {
         // Hover
         "hover:border-violet-400/70 hover:shadow-md",
         // Focus — violet glow ring
-        "focus-visible:outline-none focus-visible:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500/20 focus-visible:shadow-md",
+        "focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:shadow-md",
         // File input
         "file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",
         // Disabled

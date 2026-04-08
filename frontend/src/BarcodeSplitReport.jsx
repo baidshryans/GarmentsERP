@@ -85,7 +85,7 @@ export default function BarcodeSplitReport() {
             <Label className="text-xs">To Date</Label>
             <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 text-sm w-40" />
           </div>
-          <Button onClick={fetchData} disabled={loading} className="bg-violet-700 hover:bg-violet-800 text-white h-9">
+          <Button onClick={fetchData} disabled={loading} className="bg-primary hover:bg-primary text-white h-9">
             {loading ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Search className="size-4 mr-1.5" />}
             {loading ? "Loading..." : "Search"}
           </Button>
@@ -109,7 +109,7 @@ export default function BarcodeSplitReport() {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
           <div className="flex items-center gap-2">
-            <GitBranch className="size-4 text-violet-600" />
+            <GitBranch className="size-4 text-primary" />
             <span className="font-semibold text-sm">Barcode Split Report</span>
             {searched && (
               <span className="ml-2 text-xs text-muted-foreground">
@@ -130,7 +130,7 @@ export default function BarcodeSplitReport() {
                 <th colSpan={5} className="px-3 py-2 text-center text-xs font-bold text-amber-700 bg-amber-50 border-r border-border tracking-wide uppercase">
                   Old Barcode
                 </th>
-                <th colSpan={5} className="px-3 py-2 text-center text-xs font-bold text-violet-700 bg-violet-50 tracking-wide uppercase">
+                <th colSpan={5} className="px-3 py-2 text-center text-xs font-bold text-primary bg-violet-50 tracking-wide uppercase">
                   New Barcode
                 </th>
               </tr>
@@ -141,11 +141,11 @@ export default function BarcodeSplitReport() {
                 <th className="px-3 py-2 text-right text-xs font-semibold text-amber-700 bg-amber-50/60">Pcs</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-amber-700 bg-amber-50/60">GW</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-amber-700 bg-amber-50/60 border-r border-border">NW</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-violet-700 bg-violet-50/60 whitespace-nowrap">Barcode</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-violet-700 bg-violet-50/60">Item</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-violet-700 bg-violet-50/60">Pcs</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-violet-700 bg-violet-50/60">GW</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-violet-700 bg-violet-50/60">NW</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-primary bg-violet-50/60 whitespace-nowrap">Barcode</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-primary bg-violet-50/60">Item</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-violet-50/60">Pcs</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-violet-50/60">GW</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-violet-50/60">NW</th>
               </tr>
             </thead>
             <tbody>
@@ -159,7 +159,7 @@ export default function BarcodeSplitReport() {
               {loading && (
                 <tr>
                   <TD colSpan={12} className="text-center py-12 border-b-0">
-                    <Loader2 className="size-5 animate-spin text-violet-500 mx-auto" />
+                    <Loader2 className="size-5 animate-spin text-primary mx-auto" />
                   </TD>
                 </tr>
               )}
@@ -186,7 +186,7 @@ export default function BarcodeSplitReport() {
                   <TD className="text-right font-mono text-xs bg-amber-50/20 border-r border-border">{fmt(row.old_barcode?.nw)}</TD>
                   {/* New barcode columns */}
                   <TD className="bg-violet-50/20">
-                    <span className="font-mono text-xs bg-violet-100 text-violet-800 px-1.5 py-0.5 rounded">
+                    <span className="font-mono text-xs bg-violet-100 text-primary px-1.5 py-0.5 rounded">
                       {row.new_barcode?.barcode ?? "—"}
                     </span>
                   </TD>

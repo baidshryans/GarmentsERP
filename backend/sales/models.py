@@ -270,6 +270,11 @@ class SaleReturn(models.Model):
     ac_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True)
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    # Header-level reference back to the original sales voucher being returned
+    sales_voucher_ref = models.ForeignKey(
+        SalesVou, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='sale_returns'
+    )
 
     @property
     def taxable_value(self):

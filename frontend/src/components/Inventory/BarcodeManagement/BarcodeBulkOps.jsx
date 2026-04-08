@@ -325,7 +325,7 @@ export default function BarcodeBulkOps() {
               size="sm"
               onClick={() => printLabels(selectedBarcodes, tagSize)}
               disabled={selected.size === 0}
-              className="h-8 bg-violet-600 hover:bg-violet-700 text-white"
+              className="h-8 bg-primary hover:bg-primary text-white"
             >
               <Printer className="w-3.5 h-3.5 mr-1.5" />
               Print {selected.size > 0 ? `(${selected.size})` : ""}
@@ -432,7 +432,7 @@ export default function BarcodeBulkOps() {
                       <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                         <button
                           title="View / Add Images"
-                          className="text-muted-foreground hover:text-violet-600 transition-colors"
+                          className="text-muted-foreground hover:text-primary transition-colors"
                           onClick={() => setImageSheet({ open: true, barcodeId: b.id, barcodeText: b.barcode })}
                         >
                           <ImageIcon className="size-4" />

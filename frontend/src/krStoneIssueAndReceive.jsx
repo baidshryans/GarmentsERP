@@ -156,7 +156,7 @@ const KrStoneIssueAndReceive = () => {
                     {items.map(item => (
                         <div
                             key={item.id}
-                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-violet-700 text-white' : ''}`}
+                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-primary text-white' : ''}`}
                         >
                             <Checkbox id="fix_rate" checked={item.checked}
                                 onCheckedChange={(checked) => handleCheckboxChange(section, item.id)}
@@ -179,7 +179,7 @@ const KrStoneIssueAndReceive = () => {
                     {items.map(item => (
                         <div
                             key={item.id}
-                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-violet-700 text-white' : ''}`}
+                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-primary text-white' : ''}`}
                         >
                             <Checkbox id="fix_rate" checked={item.checked}
                                 onCheckedChange={(checked) => handleCheckboxChange(section, item.id, setKarigars)}
@@ -203,7 +203,7 @@ const KrStoneIssueAndReceive = () => {
                     {items.map(item => (
                         <div
                             key={item.id}
-                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-violet-700 text-white' : ''}`}
+                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-primary text-white' : ''}`}
                         >
                             <Checkbox id="fix_rate" checked={item.checked}
                                 onCheckedChange={(checked) => handleCheckboxChange(section, item.id, setGroups)}
@@ -226,7 +226,7 @@ const KrStoneIssueAndReceive = () => {
                     {items.map(item => (
                         <div
                             key={item.id}
-                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-violet-700 text-white' : ''}`}
+                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-primary text-white' : ''}`}
                         >
                             <Checkbox id="fix_rate" checked={item.checked}
                                 onCheckedChange={(checked) => handleCheckboxChange(section, item.id, setShapes)}
@@ -249,7 +249,7 @@ const KrStoneIssueAndReceive = () => {
                     {items.map(item => (
                         <div
                             key={item.id}
-                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-violet-700 text-white' : ''}`}
+                            className={`flex items-center p-2 ${item.name === '22' && section === 'purity' && item.checked ? 'bg-primary text-white' : ''}`}
                         >
                             <Checkbox id="fix_rate" checked={item.checked}
                                 onCheckedChange={(checked) => handleCheckboxChange(section, item.id, setIssue)}
@@ -295,7 +295,7 @@ const KrStoneIssueAndReceive = () => {
     return (
         <div className="w-full max-w-6xl mx-auto font-sans">
             <div className="border border-gray-300 rounded p-4 bg-white">
-                <div className="text-center font-bold text-violet-900 mb-4">KARIGAR ISSUE/RECEIVE REGISTER</div>
+                <div className="text-center font-bold text-primary mb-4">KARIGAR ISSUE/RECEIVE REGISTER</div>
 
                 <div className="grid grid-cols-4 gap-4 mb-4">
                     {renderKarigarsSection('Karigar', karigars, 'Karigar')}
@@ -343,7 +343,7 @@ const KrStoneIssueAndReceive = () => {
                         />
                     </div>
                     <button
-                        className="bg-violet-600 text-white px-4 py-1 rounded"
+                        className="bg-primary text-white px-4 py-1 rounded"
                         onClick={onGo}
                     >
                         GO
@@ -352,7 +352,7 @@ const KrStoneIssueAndReceive = () => {
 
                 {/* Print options */}
                 {showTable && (
-                    <div className="text-right text-violet-600 mb-2">
+                    <div className="text-right text-primary mb-2">
                         <button className="mr-2">Print</button>
                         <button>Export</button>
                     </div>

@@ -138,7 +138,7 @@ function FiscalYearManager() {
             handleFyCodeChange(code);
             setShowForm(true);
           }}
-          className="gap-1.5 bg-violet-700 hover:bg-violet-800"
+          className="gap-1.5 bg-primary hover:bg-primary"
         >
           <Plus className="w-4 h-4" /> New Fiscal Year
         </Button>
@@ -147,7 +147,7 @@ function FiscalYearManager() {
       {/* Create Form */}
       {showForm && (
         <div className="rounded-xl border border-violet-100 bg-violet-50 p-6 mb-6 space-y-4">
-          <p className="text-sm font-semibold text-violet-900 uppercase tracking-widest">Create Fiscal Year</p>
+          <p className="text-sm font-semibold text-primary uppercase tracking-widest">Create Fiscal Year</p>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label className="text-xs text-gray-500">FY Code (e.g., 25-26)</Label>
@@ -179,7 +179,7 @@ function FiscalYearManager() {
             </div>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleCreate} disabled={submitting} className="bg-violet-700 hover:bg-violet-800">
+            <Button onClick={handleCreate} disabled={submitting} className="bg-primary hover:bg-primary">
               {submitting ? 'Creating...' : 'Create'}
             </Button>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -212,10 +212,10 @@ function FiscalYearManager() {
               <div className="flex items-center gap-4">
                 <div className={`flex items-center justify-center w-12 h-12 rounded-full font-bold text-lg ${
                   fy.is_active
-                    ? 'bg-violet-700 text-white'
+                    ? 'bg-primary text-white'
                     : fy.is_closed
                     ? 'bg-gray-300 text-gray-600'
-                    : 'bg-violet-100 text-violet-800'
+                    : 'bg-violet-100 text-primary'
                 }`}>
                   {fy.fy_code}
                 </div>
@@ -223,7 +223,7 @@ function FiscalYearManager() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-900">FY {fy.fy_code}</span>
                     {fy.is_active && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-200 text-violet-800 uppercase tracking-wider">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-200 text-primary uppercase tracking-wider">
                         Active
                       </span>
                     )}
@@ -250,7 +250,7 @@ function FiscalYearManager() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleSetActive(fy.id, fy.fy_code)}
-                    className="gap-1 text-violet-700 border-violet-300 hover:bg-violet-50"
+                    className="gap-1 text-primary border-violet-300 hover:bg-violet-50"
                   >
                     <Star className="w-3.5 h-3.5" /> Set Active
                   </Button>

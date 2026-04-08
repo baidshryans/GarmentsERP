@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
+import { useEnterAsTab } from "@/hooks/useEnterAsTab";
 import { Edit, Trash2 } from "lucide-react";
 import {
   Select,
@@ -36,7 +37,7 @@ import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">
+    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
       {number}
     </span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
@@ -46,7 +47,7 @@ const SectionHeader = ({ number, title }) => (
 
 const TH = ({ children, className = "" }) => (
   <TableCell
-    className={`px-4 py-2.5 border text-xs font-semibold text-violet-800 uppercase tracking-wider whitespace-nowrap ${className}`}
+    className={`px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}
   >
     {children}
   </TableCell>
@@ -305,6 +306,8 @@ const PurchaseReturnAdd = () => {
   };
 
   useF4Submit(handleSubmit(handleSubmitForm));
+  const formRef = useRef(null);
+  useEnterAsTab(formRef);
 
   const billSummaryRows = [
     { label: "Discount",      field: "form.discount",       editable: true, step: "0.01" },
@@ -322,12 +325,13 @@ const PurchaseReturnAdd = () => {
   return (
     <div className="mt-5">
       <form
+        ref={formRef}
         className="p-6 shadow-sm rounded-xl bg-white border border-gray-100"
         onSubmit={handleSubmit(handleSubmitForm)}
       >
         {/* Title */}
         <div className="flex items-center gap-3 my-5">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-[11px] font-bold shrink-0">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
             ↩
           </span>
           <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">
@@ -348,7 +352,7 @@ const PurchaseReturnAdd = () => {
           <FieldContainer>
             <Label>Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-violet-800 text-sm font-semibold min-w-0 flex-1 truncate">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || (
                   <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>
                 )}
@@ -631,7 +635,7 @@ const PurchaseReturnAdd = () => {
                         <span className="text-xs text-gray-400 font-semibold mr-1">{idx + 1}</span>
                         <Edit
                           size={15}
-                          className="cursor-pointer text-gray-500 hover:text-violet-700"
+                          className="cursor-pointer text-gray-500 hover:text-primary"
                           onClick={() => handleEdit(idx)}
                         />
                         <Trash2
@@ -700,7 +704,7 @@ const PurchaseReturnAdd = () => {
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white">
+          <Button type="submit" className="bg-primary hover:bg-primary text-white">
             Save
           </Button>
         </div>

@@ -9,6 +9,13 @@ from sales.models import CustomerOrder, CustomerOrderItems
 from purchase.models import PurchaseVoucher
 from django.db import   transaction
 
+from rest_framework.exceptions import ValidationError as _LedgerConfigError
+def _raise_missing_ledger(label):
+    raise _LedgerConfigError(
+        {'ledger_config': f"Required ledger '{label}' is not configured on master. Please configure it in Company/GSTIN/Retail master before saving vouchers."}
+    )
+
+
 class CustomerOrderSerializer(ModelSerializer):
     class Meta:
         model = CustomerOrder
@@ -336,7 +343,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 from accounting.utils import get_customer_cash_received
                 customer_ldgr = validated_data.get('ldgr')
                 fy = validated_data.get('fiscal_year') or request.retail.active_fy
-                limit = Decimal(str(request.retail.max_cash_receipt_limit))
+                from accounting.utils import get_company_cash_limits
+                limit, _ = get_company_cash_limits(request.retail)
                 already = get_customer_cash_received(request.retail, fy, customer_ldgr)
                 if already + new_cash > limit:
                     remaining = max(Decimal('0'), limit - already)
@@ -418,14 +426,14 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else "OUTPUT CGST"
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else "OUTPUT SGST"
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else "OUTPUT IGST"
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else "Making Charge Receive"
-            _discount_ldgr    = _co.discount_ldgr.ac_name       if _co and _co.discount_ldgr       else "Sale Discount"
-            _cash_ldgr        = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr        else "CASH"
+            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else "TCS"
+            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
@@ -447,7 +455,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                             'debit':0,
                                             'credit':f"{sales_vou_instance.igst_amt:.2f}"
                                         },
-                                        {'account': sales_vou_instance.tcs_section.ledger.ac_name if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger else "TCS",
+                                        {'account': sales_vou_instance.tcs_section.ledger.ac_name if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger else _raise_missing_ledger("TCS Payable (configure TCS Section master)"),
                                             'debit':0,
                                             'credit':f"{sales_vou_instance.tcs_amt:.2f}"
                                         },
@@ -578,14 +586,14 @@ class SalesVouSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else "OUTPUT CGST"
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else "OUTPUT SGST"
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else "OUTPUT IGST"
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else "Making Charge Receive"
-            _discount_ldgr    = _co.discount_ldgr.ac_name       if _co and _co.discount_ldgr       else "Sale Discount"
-            _cash_ldgr        = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr        else "CASH"
+            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else "TCS"
+            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
@@ -607,7 +615,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                             'debit':0,
                                             'credit':f"{sales_vou_instance.igst_amt:.2f}"
                                         },
-                                        {'account': sales_vou_instance.tcs_section.ledger.ac_name if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger else "TCS",
+                                        {'account': sales_vou_instance.tcs_section.ledger.ac_name if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger else _raise_missing_ledger("TCS Payable (configure TCS Section master)"),
                                             'debit':0,
                                             'credit':f"{sales_vou_instance.tcs_amt:.2f}"
                                         },
@@ -740,6 +748,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             'id',
             'date1',
             'billno',
+            'sales_voucher_ref',
             "igst_per",
            "cgst_per",
            "sgst_per",
@@ -783,14 +792,14 @@ class SaleReturnSerializer(serializers.ModelSerializer):
 
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else "OUTPUT CGST"
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else "OUTPUT SGST"
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else "OUTPUT IGST"
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else "Making Charge Receive"
-            _discount_ldgr    = _co.discount_ldgr.ac_name       if _co and _co.discount_ldgr       else "Sale Discount"
-            _cash_ldgr        = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr        else "CASH"
+            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else "TCS"
+            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
                         "narration":f"Sale Return Narration",
@@ -886,14 +895,14 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else "OUTPUT CGST"
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else "OUTPUT SGST"
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else "OUTPUT IGST"
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else "Making Charge Receive"
-            _discount_ldgr    = _co.discount_ldgr.ac_name       if _co and _co.discount_ldgr       else "Sale Discount"
-            _cash_ldgr        = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr        else "CASH"
+            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else "TCS"
+            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
                         "narration":f"Sale Return Narration",

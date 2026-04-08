@@ -49,7 +49,7 @@ function RefinaryReceiveList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <Link to={`${row.original.id}`} className="text-violet-500 hover:text-violet-700">
+          <Link to={`${row.original.id}`} className="text-primary hover:text-primary">
             <Edit size={16} />
           </Link>
           <button
@@ -143,7 +143,7 @@ function RefinaryReceiveList() {
             </SelectContent>
           </Select>
           <Link to="add/">
-            <Button className="bg-violet-700 hover:bg-violet-800 text-white">+ Add New</Button>
+            <Button className="bg-primary hover:bg-primary text-white">+ Add New</Button>
           </Link>
         </div>
       </div>

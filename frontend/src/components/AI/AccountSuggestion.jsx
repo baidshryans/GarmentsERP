@@ -67,7 +67,7 @@ export default function AccountSuggestion({ narration, voucherType = "JRNL", amo
   return (
     <div className="mt-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm">
       {status === "loading" && (
-        <div className="flex items-center gap-2 text-violet-700">
+        <div className="flex items-center gap-2 text-primary">
           <Loader2 size={13} className="animate-spin" />
           <span className="text-xs">Getting account suggestion…</span>
         </div>
@@ -76,10 +76,10 @@ export default function AccountSuggestion({ narration, voucherType = "JRNL", amo
       {status === "ready" && suggestion && (
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
-            <Lightbulb size={14} className="text-violet-500 mt-0.5 shrink-0" />
+            <Lightbulb size={14} className="text-primary mt-0.5 shrink-0" />
             <div className="text-xs text-gray-700">
               <span className="font-medium">Suggested: </span>
-              <span className="text-violet-700 font-medium">Dr {suggestion.debit_account}</span>
+              <span className="text-primary font-medium">Dr {suggestion.debit_account}</span>
               <span className="text-gray-500"> / </span>
               <span className="text-red-700 font-medium">Cr {suggestion.credit_account}</span>
               {suggestion.confidence != null && (
@@ -96,7 +96,7 @@ export default function AccountSuggestion({ narration, voucherType = "JRNL", amo
             <button
               type="button"
               onClick={handleApply}
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-violet-500 hover:bg-violet-600 text-white transition-colors"
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-primary hover:bg-primary text-white transition-colors"
             >
               <CheckCircle size={11} />
               Apply

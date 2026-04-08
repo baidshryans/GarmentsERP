@@ -66,7 +66,7 @@ const SECTIONS = {
     items: [
       { title: "Estimate",          url: "/sales/estimate",                icon: Calculator,       desc: "Prepare sales estimates for customers" },
       { title: "Customer Order",    url: "/sales/customerorder/list/",     icon: BookOpen,         desc: "Customer order book with advance tracking" },
-      { title: "Sales Voucher",     url: "/sales/salesvoucher/list/",      icon: BookOpen,         desc: "Create and manage sales invoices" },
+      { title: "Sales Voucher",     url: "/sales/list/",                   icon: BookOpen,         desc: "Create and manage sales invoices" },
       { title: "Sales Return",      url: "/sales/salesreturn/list/",       icon: PackageXIcon,     desc: "Process sales return notes" },
       { title: "Sales Approval",    url: "/sales/salesapproval/list/",     icon: PackageCheckIcon, desc: "Approval-based vouchers" },
     ],
@@ -76,7 +76,7 @@ const SECTIONS = {
     title: "Purchases",
     description: "Record goods receipts, purchase orders, returns and approval vouchers.",
     items: [
-      { title: "Purchase Voucher",       url: "/purchase/purchasevoucher/list/",   icon: ShoppingCart,     desc: "Purchase vouchers from suppliers" },
+      { title: "Purchase Voucher",       url: "/purchase/list/",                  icon: ShoppingCart,     desc: "Purchase vouchers from suppliers" },
       { title: "Purchase Return",        url: "/purchase/purchasereturn/list/",    icon: PackageXIcon,     desc: "Return goods to supplier" },
       { title: "Purchase Approval",      url: "/purchase/purchaseapproval/list/",  icon: PackageCheckIcon, desc: "Approval-based purchase vouchers" },
       { title: "Purchase Order",         url: "/purchase/purchaseorder/list/",     icon: BookOpen,         desc: "Raise and track purchase orders" },
@@ -121,12 +121,11 @@ const SECTIONS = {
     title: "Manufacturing — Reports",
     description: "Manufacturing reports and analytics.",
     items: [
-      { title: "Kr Stone Issue / Receive",  url: "/manufacturing/reports/krstoneissandrec",  icon: Package, desc: "" },
+      { title: "Karigar Stone Transactions", url: "/manufacturing/reports/karigarstonetxns", icon: Package, desc: "" },
       { title: "Hallmark Issue / Receive",  url: "/manufacturing/reports/hallmarkissandrec", icon: Tag,     desc: "" },
       { title: "Hallmark Receive",          url: "/manufacturing/reports/hallmarkreceive",   icon: Tag,     desc: "" },
       { title: "Hallmark Issue",            url: "/manufacturing/reports/hmissue",           icon: Tag,     desc: "" },
       { title: "Finished Item Receive",     url: "/manufacturing/reports/finisheditemrec",   icon: Package, desc: "" },
-      { title: "Job Order",                 url: "/manufacturing/reports/joborder",          icon: BookOpen, desc: "" },
       { title: "Karigar – Job Work",        url: "/manufacturing/reports/karigar-jobwork",   icon: Hammer,  desc: "" },
       { title: "Refinery Report",           url: "/manufacturing/reports/refinery",          icon: Package, desc: "" },
     ],
@@ -242,12 +241,12 @@ export default function SectionIndexPage() {
             >
               {/* Icon badge */}
               <div className="flex-shrink-0 w-8 h-8 rounded-md bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
-                <Icon className="w-4 h-4 text-violet-600" />
+                <Icon className="w-4 h-4 text-primary" />
               </div>
 
               {/* Text */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-800 group-hover:text-violet-700 transition-colors leading-tight">
+                <p className="text-sm font-semibold text-gray-800 group-hover:text-primary transition-colors leading-tight">
                   {item.title}
                 </p>
                 {item.desc && (

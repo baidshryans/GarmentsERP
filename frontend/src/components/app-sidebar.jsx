@@ -10,6 +10,7 @@ import { RetailSwitcher } from "@/components/shared/RetailSwitcher"
 import { navData, navSections } from "@/config/navData"
 import { useLayout } from "@/contexts/LayoutContext"
 import { useLicense } from "@/contexts/LicenseContext"
+import { getRetails } from "@/services/apiService"
 import {
   Sidebar,
   SidebarContent,
@@ -43,6 +44,15 @@ function useLicensedSections() {
 export function AppSidebar({ ...props }) {
   const { setLayout } = useLayout()
   const sections = useLicensedSections()
+  const [companyName, setCompanyName] = React.useState("")
+
+  React.useEffect(() => {
+    getRetails().then((res) => {
+      if (res.success && res.data.results?.length > 0) {
+        setCompanyName(res.data.results[0].company_name || "")
+      }
+    })
+  }, [])
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -55,7 +65,7 @@ export function AppSidebar({ ...props }) {
                   <Gem className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold tracking-wide text-sidebar-accent-foreground">JEWEL INDIA</span>
+                  <span className="font-semibold tracking-wide text-sidebar-accent-foreground">{companyName || "ERP"}</span>
                   <span className="text-xs text-sidebar-foreground/60">ERP v1.0.0</span>
                 </div>
               </a>

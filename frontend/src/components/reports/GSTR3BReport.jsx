@@ -17,7 +17,7 @@ function SummaryCard({ label, value, color = "violet", sub }) {
     red:    "border-red-200 bg-red-50",
   };
   const textColors = {
-    violet: "text-violet-800",
+    violet: "text-primary",
     green:  "text-green-800",
     amber:  "text-amber-800",
     red:    "text-red-800",
@@ -84,7 +84,7 @@ export default function GSTR3BReport() {
             onChange={(e) => setFilters((f) => ({ ...f, to_date: e.target.value }))}
           />
         </div>
-        <Button size="sm" onClick={handleSearch} className="bg-violet-700 hover:bg-violet-800 text-white h-9">
+        <Button size="sm" onClick={handleSearch} className="bg-primary hover:bg-primary text-white h-9">
           <Search className="size-4 mr-1" /> Generate
         </Button>
       </div>
@@ -194,7 +194,7 @@ export default function GSTR3BReport() {
                   </tr>
                   <tr className="bg-violet-50">
                     <td className="py-2.5 px-0 font-bold">Net tax payable (cash)</td>
-                    <td className="py-2.5 text-right font-mono font-bold text-violet-800 text-base">
+                    <td className="py-2.5 text-right font-mono font-bold text-primary text-base">
                       ₹{fmt(data.summary?.net_payable)}
                     </td>
                   </tr>

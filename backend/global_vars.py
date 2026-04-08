@@ -44,6 +44,8 @@ CUSTOMER_TYPE = [
     ("KR","KARIGAR"),
     ("VD","VENDOR"),
     ("DL","DEALER"),
+    ("REF","REFINERY"),
+    ("MLT","MELTING HOUSE"),
     ("HM","HALLMARK"),
     ("INC","INCOME"),
     ("EXP","EXPENSE"),

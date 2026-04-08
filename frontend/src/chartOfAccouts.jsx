@@ -48,7 +48,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 <button
                     onClick={() => hasChildren && onToggle(node.id)}
                     className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors
-                        ${hasChildren ? 'hover:bg-violet-100 text-violet-700 cursor-pointer' : 'cursor-default opacity-0'}`}
+                        ${hasChildren ? 'hover:bg-violet-100 text-primary cursor-pointer' : 'cursor-default opacity-0'}`}
                     tabIndex={hasChildren ? 0 : -1}
                 >
                     {isOpen
@@ -60,8 +60,8 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 {/* Folder icon */}
                 {hasChildren
                     ? isOpen
-                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${isRoot ? 'text-violet-600' : 'text-violet-400'}`} />
-                        : <Folder className={`w-4 h-4 shrink-0 ${isRoot ? 'text-violet-600' : 'text-violet-400'}`} />
+                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-violet-400'}`} />
+                        : <Folder className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-violet-400'}`} />
                     : <span className="w-4 h-4 shrink-0 flex items-center justify-center">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
                     </span>
@@ -71,14 +71,14 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 {code && (
                     <span className={`
                         text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider font-mono
-                        ${isRoot ? 'bg-violet-200 text-violet-800' : 'bg-muted text-muted-foreground'}
+                        ${isRoot ? 'bg-violet-200 text-primary' : 'bg-muted text-muted-foreground'}
                     `}>
                         {code}
                     </span>
                 )}
 
                 {/* Name */}
-                <span className={`text-sm truncate flex-1 ${isRoot ? 'text-violet-900' : 'text-foreground'}`}>
+                <span className={`text-sm truncate flex-1 ${isRoot ? 'text-primary' : 'text-foreground'}`}>
                     {name}
                 </span>
 
@@ -101,7 +101,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <Link
                         to={`/accounting/account-edit/${node.id}`}
-                        className="p-1 rounded hover:bg-violet-100 text-violet-600 transition-colors"
+                        className="p-1 rounded hover:bg-violet-100 text-primary transition-colors"
                         title="Edit name"
                     >
                         <Pencil className="w-3.5 h-3.5" />
@@ -230,7 +230,7 @@ const AccountTree = () => {
                         {allExpanded ? 'Collapse All' : 'Expand All'}
                     </Button>
                     <Link to="/accounting/account-create">
-                        <Button size="sm" className="gap-1.5 bg-violet-700 hover:bg-violet-800 text-white">
+                        <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-white">
                             <Plus className="w-3.5 h-3.5" />
                             Add Group
                         </Button>
@@ -253,7 +253,7 @@ const AccountTree = () => {
             {/* Tree card */}
             <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3 bg-muted/50 border-b border-border">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-violet-700 text-white text-xs font-bold shrink-0">≡</span>
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                     <span className="text-sm font-semibold tracking-wider uppercase text-foreground">Account Groups</span>
                 </div>
 
@@ -287,7 +287,7 @@ const AccountTree = () => {
                                 </p>
                             </div>
                             <Link to="/settings/setup">
-                                <Button size="sm" className="gap-2 bg-violet-700 hover:bg-violet-800 text-white">
+                                <Button size="sm" className="gap-2 bg-primary hover:bg-primary text-white">
                                     Open Setup Wizard
                                 </Button>
                             </Link>

@@ -21,7 +21,7 @@ function OccasionBadge({ occasion }) {
       🎂 Birthday
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-primary border border-purple-200">
       💍 Anniversary
     </span>
   );
@@ -35,7 +35,7 @@ function InitialsAvatar({ name, occasion }) {
     .join("");
   const bg = occasion === "birthday"
     ? "bg-pink-500"
-    : "bg-purple-500";
+    : "bg-primary";
   return (
     <div className={`w-9 h-9 rounded-full ${bg} text-white flex items-center justify-center text-sm font-bold flex-shrink-0`}>
       {initials || <User className="w-4 h-4" />}

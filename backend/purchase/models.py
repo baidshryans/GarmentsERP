@@ -51,6 +51,10 @@ class PurchaseVoucher(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_return = models.BooleanField(default=False)
+    is_rcm = models.BooleanField(
+        default=False,
+        help_text="Reverse charge applies — old gold purchased from unregistered individual"
+    )
 
     ac_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True)
 
@@ -195,6 +199,11 @@ class PurchaseOrderItems(models.Model):
 class PurchaseReturn(models.Model):
     billno = models.CharField(max_length=30)
     pv_billno=models.CharField(max_length=30,null=True, blank=True)
+    # Header-level reference back to the original purchase voucher being returned
+    purchase_voucher_ref = models.ForeignKey(
+        PurchaseVoucher, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='purchase_returns'
+    )
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
     date1 = models.DateField(auto_now_add=True)
     ldgr = models.ForeignKey(Ledger, on_delete = models.CASCADE)

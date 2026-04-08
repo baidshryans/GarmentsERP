@@ -54,7 +54,7 @@ function SalesApprovalList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="text-violet-500 flex items-center">
+          <Link to={`/sales/salesapproval/${row.original.id}`} className="text-primary flex items-center">
             <Edit className="mr-1" />
           </Link>
           <button
@@ -156,7 +156,7 @@ function SalesApprovalList() {
               </div>
 
               <div className="flex justify-end mt-4">
-                <Link to="add/">
+                <Link to="/sales/salesapproval/add/">
                   <Button>Add New</Button>
                 </Link>
               </div>

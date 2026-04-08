@@ -18,7 +18,7 @@ import { Scissors, ScanBarcode, Plus, Pencil, Trash2 } from "lucide-react";
 // ── Section header (matches ERP design language) ────────────────────────────
 const SectionHeader = ({ icon: Icon, title, subtitle }) => (
   <div className="flex items-center gap-3 mb-4">
-    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-violet-700 text-white shrink-0">
+    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white shrink-0">
       <Icon size={16} />
     </span>
     <div>
@@ -557,7 +557,7 @@ const BarcodeSplit = () => {
                                     {toprs.map((item, idx) => (
                                         <React.Fragment key={idx}>
                                             <tr className="bg-violet-50 border-t border-violet-100">
-                                                <td className="px-2 py-1.5 font-semibold text-violet-800">{item.barcode}</td>
+                                                <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
                                                 <td className="px-2 py-1.5">{item.item}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
@@ -781,7 +781,7 @@ const BarcodeSplit = () => {
                                     {rs.map((item, idx) => (
                                         <React.Fragment key={idx}>
                                             <tr className="bg-violet-50 border-t border-violet-100">
-                                                <td className="px-2 py-1.5 font-semibold text-violet-800">{item.barcode}</td>
+                                                <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
                                                 <td className="px-2 py-1.5">{item.item}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
@@ -796,7 +796,7 @@ const BarcodeSplit = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => handleEdit(idx)}
-                                                            className="p-1 rounded text-violet-600 hover:bg-violet-50"
+                                                            className="p-1 rounded text-primary hover:bg-violet-50"
                                                         >
                                                             <Pencil size={13} />
                                                         </button>
@@ -845,7 +845,7 @@ const BarcodeSplit = () => {
                     </Button>
                     <Button
                         type="submit"
-                        className="bg-violet-700 hover:bg-violet-800 text-white font-semibold tracking-wide px-6"
+                        className="bg-primary hover:bg-primary text-white font-semibold tracking-wide px-6"
                     >
                         <Scissors size={15} className="mr-2" /> Save Split
                     </Button>

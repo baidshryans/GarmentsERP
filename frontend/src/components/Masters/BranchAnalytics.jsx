@@ -24,7 +24,7 @@ function fmt(v) {
 
 function KpiTile({ label, value, icon: Icon, color }) {
   const colors = {
-    violet: "bg-violet-50 text-violet-700 border-violet-200",
+    violet: "bg-violet-50 text-primary border-violet-200",
     emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
     sky:    "bg-sky-50    text-sky-700    border-sky-200",
     amber:  "bg-amber-50  text-amber-700  border-amber-200",
@@ -52,7 +52,7 @@ function RetailRow({ stat, maxMonth }) {
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="size-7 rounded-md bg-violet-100 flex items-center justify-center">
-            <Store className="size-3.5 text-violet-700" />
+            <Store className="size-3.5 text-primary" />
           </div>
           <div>
             <p className="text-sm font-medium">{stat.retail_name}</p>
@@ -68,7 +68,7 @@ function RetailRow({ stat, maxMonth }) {
           <p className="text-sm font-semibold text-right">₹{fmt(stat.month_sales)}</p>
           <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-violet-500 rounded-full transition-all"
+              className="h-full bg-primary rounded-full transition-all"
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -151,7 +151,7 @@ export default function BranchAnalytics() {
         </button>
         <div className="flex items-center gap-2">
           <div className="size-8 rounded-lg bg-violet-100 flex items-center justify-center">
-            <BarChart2 className="size-4 text-violet-700" />
+            <BarChart2 className="size-4 text-primary" />
           </div>
           <div>
             <h1 className="text-base font-bold leading-tight">{branch.branch_name}</h1>
@@ -222,9 +222,9 @@ export default function BranchAnalytics() {
               {/* Totals row */}
               <tfoot>
                 <tr className="bg-violet-50 border-t-2 border-violet-200 font-semibold">
-                  <td className="px-4 py-2.5 text-sm text-violet-900">Branch Total</td>
+                  <td className="px-4 py-2.5 text-sm text-primary">Branch Total</td>
                   <td className="px-4 py-2.5 text-right text-sm text-emerald-700">₹{fmt(totals.today_sales)}</td>
-                  <td className="px-4 py-2.5 text-right text-sm text-violet-900">₹{fmt(totals.month_sales)}</td>
+                  <td className="px-4 py-2.5 text-right text-sm text-primary">₹{fmt(totals.month_sales)}</td>
                   <td className="px-4 py-2.5 text-right text-sm text-rose-600">₹{fmt(totals.today_purchases)}</td>
                   <td className="px-4 py-2.5 text-right text-sm">₹{fmt(totals.month_purchases)}</td>
                   <td className="px-4 py-2.5 text-right text-sm text-amber-700">₹{fmt(totals.outstanding)}</td>

@@ -161,7 +161,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
         'CONN_MAX_AGE': 0,
         'OPTIONS': {
-            'timeout': 30,  # Increase SQLite lock timeout to 30 seconds
+            'timeout': 30,       # Wait up to 30 s for a lock to clear
         }
     }
 }

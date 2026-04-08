@@ -91,3 +91,13 @@ def run_crm_scheduler():
                     )
     except Exception as e:
         logger.error(f"CRM scheduler tick error: {e}", exc_info=True)
+    finally:
+        # Always close the DB connection after each tick.
+        # APScheduler runs in a background thread that Django's connection
+        # management doesn't clean up automatically.  Leaving the connection
+        # open holds a SQLite shared lock that blocks the setup wizard's writes.
+        try:
+            from django.db import connection
+            connection.close()
+        except Exception:
+            pass

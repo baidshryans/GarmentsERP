@@ -148,16 +148,27 @@ def seed_states(request):
     """Run the setup_states management command to populate all Indian states/UTs."""
     from django.core.management import call_command
     from io import StringIO
+    import time
 
-    try:
-        out = StringIO()
-        call_command('setup_states', stdout=out)
-        return Response({'detail': out.getvalue(), 'success': True})
-    except Exception as e:
-        return Response(
-            {'detail': str(e), 'success': False},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+    last_error = None
+    for attempt in range(5):          # up to 5 attempts, ~4 s total back-off
+        try:
+            out = StringIO()
+            call_command('setup_states', stdout=out)
+            return Response({'detail': out.getvalue(), 'success': True})
+        except Exception as e:
+            last_error = e
+            msg = str(e).lower()
+            if 'database is locked' in msg or 'operational' in msg:
+                time.sleep(0.5 * (attempt + 1))   # 0.5 s, 1 s, 1.5 s …
+                continue
+            # Non-lock error — fail immediately
+            break
+
+    return Response(
+        {'detail': str(last_error), 'success': False},
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
 
 
 @api_view(['POST'])
@@ -166,10 +177,25 @@ def seed_account_groups(request):
     """Run the setup_account_groups management command."""
     from django.core.management import call_command
     from io import StringIO
+    import time
 
-    out = StringIO()
-    call_command('setup_account_groups', stdout=out)
-    return Response({'detail': out.getvalue(), 'success': True})
+    last_error = None
+    for attempt in range(5):
+        try:
+            out = StringIO()
+            call_command('setup_account_groups', stdout=out)
+            return Response({'detail': out.getvalue(), 'success': True})
+        except Exception as e:
+            last_error = e
+            if 'database is locked' in str(e).lower():
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            break
+
+    return Response(
+        {'detail': str(last_error), 'success': False},
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
 
 
 @api_view(['POST'])
@@ -178,9 +204,28 @@ def seed_tds_tcs(request):
     """Run the setup_tds_initial_data management command and seed default purities."""
     from django.core.management import call_command
     from io import StringIO
+    import time
 
     out = StringIO()
-    call_command('setup_tds_initial_data', stdout=out)
+    last_error = None
+    for attempt in range(5):
+        try:
+            call_command('setup_tds_initial_data', stdout=out)
+            break
+        except Exception as e:
+            last_error = e
+            if 'database is locked' in str(e).lower():
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            return Response(
+                {'detail': str(e), 'success': False},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+    else:
+        return Response(
+            {'detail': str(last_error), 'success': False},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
     # Seed default purity masters (idempotent)
     from goldrates.models import PurityMaster

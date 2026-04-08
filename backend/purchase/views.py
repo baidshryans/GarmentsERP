@@ -25,6 +25,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.parsers import MultiPartParser
 # Create your views here.
 from global_vars import STATES_OF_INDIA
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -333,7 +334,143 @@ def tds_register(request):
     return Response(data)
 
 
+@api_view(['GET'])
+def rcm_register(request):
+    """RCM liability register — old gold purchased from unregistered individuals."""
+    retail = request.retail
+    from_date = request.GET.get('from_date')
+    to_date = request.GET.get('to_date')
+
+    qs = PurchaseVoucher.objects.filter(
+        retail=retail,
+        is_rcm=True,
+    ).select_related('ldgr')
+
+    if from_date:
+        qs = qs.filter(date1__gte=from_date)
+    if to_date:
+        qs = qs.filter(date1__lte=to_date)
+
+    data = [{
+        'bill_no': v.billno,
+        'date': v.date1,
+        'party': v.ldgr.ac_name if v.ldgr else '',
+        'item_total': float(v.item_total or 0),
+        'cgst': float(v.cgst or 0),
+        'sgst': float(v.sgst or 0),
+        'igst': float(v.igst or 0),
+        'bill_value': float(v.bill_value or 0),
+    } for v in qs]
+
+    return Response(data)
 
 
 
 
+
+
+# ── GSTR-2B Reconciliation ────────────────────────────────────────────────────
+
+class GSTR2BReconcileView(APIView):
+    """
+    POST /purchase/api/gstr2b-reconcile/
+    Body: multipart, field 'file' = GSTR-2B JSON downloaded from GST portal.
+    Matches portal invoices against PurchaseVoucher records by supplier GSTIN + invoice number.
+    Returns: { summary, results[] }
+    """
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=400)
+
+        try:
+            raw = json.loads(file.read().decode('utf-8-sig'))
+        except Exception:
+            return Response({'error': 'Invalid JSON file'}, status=400)
+
+        retail = request.retail
+
+        # Navigate GSTR-2B structure — try common paths
+        try:
+            b2b_list = (
+                raw.get('data', raw).get('docdata', {}).get('b2b', [])
+                or raw.get('b2b', [])
+            )
+        except AttributeError:
+            return Response({'error': 'Unexpected GSTR-2B JSON structure'}, status=400)
+
+        results = []
+        for supplier in b2b_list:
+            ctin = supplier.get('ctin', '')
+            for inv in supplier.get('inv', []):
+                inum    = (inv.get('inum') or '').strip()
+                dt_str  = inv.get('dt', '')
+                val     = float(inv.get('val') or 0)
+                itms    = inv.get('itms', [])
+                itm_det = itms[0].get('itm_det', {}) if itms else {}
+                cgst_2b = float(itm_det.get('cgst', 0))
+                sgst_2b = float(itm_det.get('sgst', 0))
+                igst_2b = float(itm_det.get('igst', 0))
+                txval   = float(itm_det.get('txval', 0))
+
+                # Match PurchaseVoucher: same retail, supplier GSTIN, bill/ref number
+                from django.db.models import Q
+                pv = PurchaseVoucher.objects.filter(
+                    retail=retail,
+                    ldgr__gst__iexact=ctin,
+                ).filter(
+                    Q(billno__iexact=inum) | Q(ref_no__iexact=inum)
+                ).select_related('ldgr').first()
+
+                if pv:
+                    our_cgst = float(pv.cgst or 0)
+                    our_sgst = float(pv.sgst or 0)
+                    our_igst = float(pv.igst or 0)
+                    cgst_diff = round(our_cgst - cgst_2b, 2)
+                    sgst_diff = round(our_sgst - sgst_2b, 2)
+                    igst_diff = round(our_igst - igst_2b, 2)
+                    has_diff  = abs(cgst_diff) > 1 or abs(sgst_diff) > 1 or abs(igst_diff) > 1
+                    status_flag = 'MISMATCH' if has_diff else 'MATCHED'
+                else:
+                    our_cgst = our_sgst = our_igst = None
+                    cgst_diff = sgst_diff = igst_diff = None
+                    status_flag = 'MISSING'
+
+                results.append({
+                    'status':          status_flag,
+                    'supplier_gstin':  ctin,
+                    'supplier_name':   pv.ldgr.ac_name if pv else None,
+                    'invoice_no_2b':   inum,
+                    'invoice_date_2b': dt_str,
+                    'val_2b':          val,
+                    'txval_2b':        txval,
+                    'cgst_2b':         cgst_2b,
+                    'sgst_2b':         sgst_2b,
+                    'igst_2b':         igst_2b,
+                    'our_billno':      pv.billno if pv else None,
+                    'our_date':        str(pv.date1) if pv else None,
+                    'our_bill_value':  float(pv.bill_value) if pv else None,
+                    'our_cgst':        our_cgst,
+                    'our_sgst':        our_sgst,
+                    'our_igst':        our_igst,
+                    'cgst_diff':       cgst_diff,
+                    'sgst_diff':       sgst_diff,
+                    'igst_diff':       igst_diff,
+                    'pv_id':           pv.id if pv else None,
+                })
+
+        matched  = sum(1 for r in results if r['status'] == 'MATCHED')
+        mismatch = sum(1 for r in results if r['status'] == 'MISMATCH')
+        missing  = sum(1 for r in results if r['status'] == 'MISSING')
+
+        return Response({
+            'summary': {
+                'total': len(results),
+                'matched':  matched,
+                'mismatch': mismatch,
+                'missing':  missing,
+            },
+            'results': results,
+        })

@@ -175,12 +175,54 @@ def seed_account_groups(request):
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def seed_tds_tcs(request):
-    """Run the setup_tds_initial_data management command."""
+    """Run the setup_tds_initial_data management command and seed default purities."""
     from django.core.management import call_command
     from io import StringIO
 
     out = StringIO()
     call_command('setup_tds_initial_data', stdout=out)
+
+    # Seed default purity masters (idempotent)
+    from goldrates.models import PurityMaster
+    DEFAULT_PURITIES = [
+        {'purity': '99.99', 'gw_per': 99.99},
+        {'purity': '99.9',  'gw_per': 99.90},
+        {'purity': '99.5',  'gw_per': 99.50},
+        {'purity': '22K',   'gw_per': 91.60},
+        {'purity': '18K',   'gw_per': 75.00},
+        {'purity': '14K',   'gw_per': 58.50},
+    ]
+    for p in DEFAULT_PURITIES:
+        PurityMaster.objects.get_or_create(purity=p['purity'], defaults={'gw_per': p['gw_per']})
+
+    # Seed default HSN master (idempotent)
+    from mastersconfig.models import Hsn
+    DEFAULT_HSNS = [
+        {'hsn_no': '711319',   'description': 'Jewellery Plain or Studded',      'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '710110',   'description': 'Pearls in Loose Form',            'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '71023910', 'description': 'Cut & Polished Diamonds',         'cgst': 0.750, 'sgst': 0.750, 'igst': 1.500},
+        {'hsn_no': '710490',   'description': 'Colored Gem Stone',               'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '710692',   'description': 'Silver Bar & Coins',              'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '71081300', 'description': 'Gold Bullion & Coins',            'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '711411',   'description': 'Gold & Silver Articles',          'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '71189000', 'description': 'Gold Coin',                       'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '710310',   'description': 'Precious, semi precious stones',  'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '71031041', 'description': 'Ruby',                            'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '71031031', 'description': 'Emerald',                         'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+        {'hsn_no': '71049120', 'description': 'Synthetic stone',                 'cgst': 1.500, 'sgst': 1.500, 'igst': 3.000},
+    ]
+    for h in DEFAULT_HSNS:
+        Hsn.objects.get_or_create(
+            hsn_no=h['hsn_no'],
+            defaults={
+                'description': h['description'],
+                'hsn_type': 'GD',
+                'cgst': h['cgst'],
+                'sgst': h['sgst'],
+                'igst': h['igst'],
+            },
+        )
+
     return Response({'detail': out.getvalue(), 'success': True})
 
 

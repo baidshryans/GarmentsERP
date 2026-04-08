@@ -48,8 +48,7 @@ import PurchaseReturnadd from "./components/manufacturing/purchases/PurchaseRetu
 import PurchaseVoucherList from "./components/manufacturing/purchases/PurchaseVoucherList";
 
 import IdGenerationReport from "./components/Inventory/BarcodeManagement/IdGenerationReport";
-import HallmarkIssueReceiveReport from "./hallmarkIssAndRecReport.jsx";
-import KrStoneIssueAndReceive from "./krStoneIssueAndReceive.jsx";
+import KarigarStoneTransactions from "./components/manufacturing/reports/KarigarStoneTransactions.jsx";
 import FinishedItemRecReport from "./finishItemreceiveReport.jsx";
 import GstInputRegister from "./GstInputRegister.jsx";
 import GstOutputRegister from "./GstOutputRegister.jsx";
@@ -68,6 +67,14 @@ import KarigarGoldIssuesList from "./components/manufacturing/issue/KarigarGoldI
 import KarigarStoneIssueList from "./components/manufacturing/issue/karigarStoneIssuesList.jsx";
 import RefinaryIssueList from "./components/manufacturing/issue/RefinaryIssueList.jsx";
 import RefinaryReceiveList from "./components/manufacturing/receive/refinaryReceiveList.jsx";
+import MeltingIssueList from "./components/manufacturing/issue/MeltingIssueList.jsx";
+import MeltingReceiveList from "./components/manufacturing/receive/meltingReceiveList.jsx";
+import AssayIssueList from "./components/manufacturing/issue/AssayIssueList.jsx";
+import AssayReceiveList from "./components/manufacturing/receive/assayReceiveList.jsx";
+import IssueToMelting from "./components/manufacturing/issue/IssueToMelting.jsx";
+import ReceiveFromMelting from "./components/manufacturing/receive/ReceiveFromMelting.jsx";
+import IssueToAssay from "./components/manufacturing/issue/IssueToAssay.jsx";
+import ReceiveFromAssay from "./components/manufacturing/receive/ReceiveFromAssay.jsx";
 import StockTransferList from "./StockTransferList.jsx";
 import AccountingVoucherList from "./accountingVoucherList.jsx";
 import VoucherTypeSelector from "./components/FinancialAccounting/vouchers/VoucherTypeSelector";
@@ -140,6 +147,8 @@ import SectionIndexPage from "./components/SectionIndexPage.jsx";
 import RepairJobCardList from "./components/manufacturing/repair/RepairJobCardList.jsx";
 import RepairJobCardForm from "./components/manufacturing/repair/RepairJobCardForm.jsx";
 import AppsPage from "./components/Apps/AppsPage.jsx";
+import CustomerPurchaseHistory from "./components/CRM/CustomerPurchaseHistory.jsx";
+import GSTR2BReconcile from "./components/purchase/GSTR2BReconcile.jsx";
 
 
 
@@ -174,6 +183,7 @@ const appRoutes = [
   { path: "crm/ledger/add", heading: "Add Ledger",   component: <LedgerForm /> },
   { path: "crm/ledger/:id", heading: "Edit Ledger",  component: <LedgerForm /> },
   { path: "crm/occasions",  heading: "Customer Occasions", component: <CRMDashboard /> },
+  { path: "crm/customer-history", heading: "Customer Purchase History", component: <CustomerPurchaseHistory /> },
 
   // ── Setup / Masters ───────────────────────────────────────────────────────
   { path: "setup/salesperson",   heading: "Sales Person",          component: <SalesPersonList /> },
@@ -243,6 +253,12 @@ const appRoutes = [
   { path: "manufacturing/issue/refinary/add", heading: "Issue To Refinery",        component: <IssueToRefinary /> },
   { path: "manufacturing/issue/refinary/:id", heading: "Edit Issue To Refinery",   component: <IssueToRefinary /> },
   { path: "manufacturing/issue/refinary/",    heading: "Refinery Issue List",      component: <RefinaryIssueList /> },
+  { path: "manufacturing/issue/melting/add",  heading: "Issue To Melting",         component: <IssueToMelting /> },
+  { path: "manufacturing/issue/melting/:id",  heading: "Edit Issue To Melting",    component: <IssueToMelting /> },
+  { path: "manufacturing/issue/melting/",     heading: "Melting Issue List",       component: <MeltingIssueList /> },
+  { path: "manufacturing/issue/assay/add",    heading: "Issue To Assay",           component: <IssueToAssay /> },
+  { path: "manufacturing/issue/assay/:id",    heading: "Edit Issue To Assay",      component: <IssueToAssay /> },
+  { path: "manufacturing/issue/assay/",       heading: "Assay Issue List",         component: <AssayIssueList /> },
   { path: "manufacturing/receive/jobworkreceive/",    heading: "Receive From Karigar",     component: <KarigarReceiveList /> },
   { path: "manufacturing/receive/jobworkreceive/add", heading: "Add Receive From Karigar", component: <JobWorkReceive /> },
   { path: "manufacturing/receive/jobworkreceive/:id", heading: "Edit Receive From Karigar", component: <JobWorkReceive /> },
@@ -255,11 +271,16 @@ const appRoutes = [
   { path: "manufacturing/receive/refinary/add", heading: "Add Refinery Receive",   component: <ReceiveFromRefinary /> },
   { path: "manufacturing/receive/refinary/:id", heading: "Edit Refinery Receive",  component: <ReceiveFromRefinary /> },
   { path: "manufacturing/receive/refinary/",    heading: "Refinery Receive List",  component: <RefinaryReceiveList /> },
+  { path: "manufacturing/receive/melting/add",  heading: "Add Melting Receive",    component: <ReceiveFromMelting /> },
+  { path: "manufacturing/receive/melting/:id",  heading: "Edit Melting Receive",   component: <ReceiveFromMelting /> },
+  { path: "manufacturing/receive/melting/",     heading: "Melting Receive List",   component: <MeltingReceiveList /> },
+  { path: "manufacturing/receive/assay/add",    heading: "Add Assay Receive",      component: <ReceiveFromAssay /> },
+  { path: "manufacturing/receive/assay/:id",    heading: "Edit Assay Receive",     component: <ReceiveFromAssay /> },
+  { path: "manufacturing/receive/assay/",       heading: "Assay Receive List",     component: <AssayReceiveList /> },
   { path: "manufacturing/repair/list/",  heading: "Repair Job Cards",      component: <RepairJobCardList /> },
   { path: "manufacturing/repair/new",    heading: "New Repair Job Card",   component: <RepairJobCardForm /> },
   { path: "manufacturing/repair/:id",    heading: "Edit Repair Job Card",  component: <RepairJobCardForm /> },
-  { path: "manufacturing/reports/krstoneissandrec",  heading: "Kr Stone Issue & Receive Report",  component: <KrStoneIssueAndReceive /> },
-  { path: "manufacturing/reports/hallmarkissandrec", heading: "Hallmark Issue & Receive Report",  component: <HallmarkIssueReceiveReport /> },
+  { path: "manufacturing/reports/karigarstonetxns",  heading: "Karigar Stone Transactions",       component: <KarigarStoneTransactions /> },
   { path: "manufacturing/reports/hallmarkreceive",   heading: "Hallmark Receive Report",          component: <HallmarkReceiveReport /> },
   { path: "manufacturing/reports/hmissue",           heading: "Hallmark Issue Report",            component: <HallmarkIssueReport /> },
   { path: "manufacturing/reports/finisheditemrec",   heading: "Finished Item Receive Report",     component: <FinishedItemRecReport /> },
@@ -268,9 +289,13 @@ const appRoutes = [
   { path: "manufacturing/reports/refinery",          heading: "Refinery Report",                  component: <RefineryReport /> },
 
   // ── Purchases ─────────────────────────────────────────────────────────────
-  { path: "purchase/purchasevoucher/list/",       heading: "Purchase Voucher List",  component: <PurchaseVoucherList /> },
-  { path: "purchase/purchasevoucher/list/add/",   heading: "Add Purchase Voucher",   component: <PurchaseVoucher /> },
-  { path: "purchase/purchasevoucher/list/:id",    heading: "Edit Purchase Voucher",  component: <PurchaseVoucher /> },
+  { path: "purchase/list/",                        heading: "Purchase Voucher List",  component: <PurchaseVoucherList /> },
+  { path: "purchase/add/",                         heading: "Add Purchase Voucher",   component: <PurchaseVoucher /> },
+  { path: "purchase/:id",                          heading: "Edit Purchase Voucher",  component: <PurchaseVoucher /> },
+  // Legacy aliases — kept for backward compatibility
+  { path: "purchase/purchasevoucher/list/",        heading: "Purchase Voucher List",  component: <PurchaseVoucherList /> },
+  { path: "purchase/purchasevoucher/list/add/",    heading: "Add Purchase Voucher",   component: <PurchaseVoucher /> },
+  { path: "purchase/purchasevoucher/list/:id",     heading: "Edit Purchase Voucher",  component: <PurchaseVoucher /> },
   { path: "purchase/add-purchase-voucher/add",    heading: "Add Purchase Voucher",   component: <PurchaseVoucher /> },
   { path: "purchase/add-purchase-voucher/:id",    heading: "Edit Purchase Voucher",  component: <PurchaseVoucher /> },
   { path: "purchase/add-rawpurchase-voucher/add", heading: "Add Purchase Voucher",   component: <PurchaseVoucher /> },
@@ -281,6 +306,7 @@ const appRoutes = [
   { path: "purchase/purchaseorder/list/",         heading: "Purchase Order List",    component: <PurchaseOrderList /> },
   { path: "purchase/purchaseorder/list/add",      heading: "Add Purchase Order",     component: <PurchaseOrder /> },
   { path: "purchase/purchaseorder/list/:id",      heading: "Edit Purchase Order",    component: <PurchaseOrder /> },
+  { path: "purchase/gstr2b-reconcile",            heading: "GSTR-2B Reconciliation", component: <GSTR2BReconcile /> },
   { path: "purchase/customerpurchase/list/",      heading: "Customer Purchase List", component: <PurchaseVoucherList voucherType="Customer" /> },
   { path: "purchase/customerpurchase/list/add/",  heading: "Add Customer Purchase",  component: <PurchaseVoucher /> },
   { path: "purchase/customerpurchase/list/:id",   heading: "Edit Customer Purchase", component: <PurchaseVoucher /> },
@@ -291,19 +317,17 @@ const appRoutes = [
   { path: "sales/customerorder/kanban/",   heading: "Customer Order Kanban", component: <CustomerOrderKanban /> },
   { path: "sales/customerorder/list/add/", heading: "Add Customer Order",   component: <CustomerOrderForm /> },
   { path: "sales/customerorder/list/:id",  heading: "Edit Customer Order",  component: <CustomerOrderForm /> },
-  { path: "sales/salesvoucher/list/",      heading: "Sales Voucher List",   component: <SalesVoucherList /> },
-  { path: "sales/salesvoucher/list/add/",  heading: "Add Sales Voucher",    component: <SalesVoucherAdd /> },
-  { path: "sales/salesvoucher/list/:id",   heading: "Edit Sales Voucher",   component: <SalesVoucherAdd /> },
-  { path: "sales/salesvoucher/add/",       heading: "Add Sales Voucher",    component: <SalesVoucherAdd /> },
+  { path: "sales/list/",                   heading: "Sales Voucher List",   component: <SalesVoucherList /> },
+  { path: "sales/add/",                    heading: "Add Sales Voucher",    component: <SalesVoucherAdd /> },
+  { path: "sales/:id",                     heading: "Edit Sales Voucher",   component: <SalesVoucherAdd /> },
   { path: "sales/rawsalesvoucher/add/",    heading: "Add Sales Voucher",    component: <SalesVoucherAdd /> },
   { path: "sales/salesreturn/list/",       heading: "Sales Return List",    component: <SalesReturnList /> },
-  { path: "sales/salesreturn/list/add/",   heading: "Add Sales Return",     component: <SalesReturnAdd /> },
-  { path: "sales/salesreturn/list/:id",    heading: "Edit Sales Return",    component: <SalesReturnAdd /> },
   { path: "sales/salesreturn/add/",        heading: "Add Sales Return",     component: <SalesReturnAdd /> },
+  { path: "sales/salesreturn/:id",         heading: "Edit Sales Return",    component: <SalesReturnAdd /> },
+  { path: "sales/salesapproval",           heading: null,                   component: <Navigate to="/sales/salesapproval/list/" replace /> },
   { path: "sales/salesapproval/list/",     heading: "Sales Approval List",  component: <SalesApprovalList /> },
-  { path: "sales/salesapproval/list/add/", heading: "Add Sales Approval",   component: <SalesApprovalAdd /> },
-  { path: "sales/salesapproval/list/:id",  heading: "Edit Sales Approval",  component: <SalesApprovalAdd /> },
   { path: "sales/salesapproval/add/",      heading: "Add Sales Approval",   component: <SalesApprovalAdd /> },
+  { path: "sales/salesapproval/:id",       heading: "Edit Sales Approval",  component: <SalesApprovalAdd /> },
   { path: "sales/reports/commission",      heading: "Salesperson Commission Report", component: <CommissionReport /> },
 
   // ── Inventory ─────────────────────────────────────────────────────────────

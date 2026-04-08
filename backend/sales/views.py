@@ -243,31 +243,37 @@ class GSTInputRegisterView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         from purchase.models import PurchaseVoucher
-        vouchers = PurchaseVoucher.objects.filter(
-            date1__range=[start_date, end_date]
-        ).select_related('ldgr').annotate(
-            party_name=F('ldgr__ac_name'),
-            gstin=F('ldgr__gst'),
-            pan=F('ldgr__pan'),
-            before_tax=Case(
+        gstin_id = request.query_params.get('gstin')
+        pv_qs = PurchaseVoucher.objects.filter(date1__range=[start_date, end_date])
+        if gstin_id:
+            pv_qs = pv_qs.filter(gstin_ref_id=gstin_id)
+        vouchers = pv_qs.select_related('ldgr').annotate(
+            _party_name=F('ldgr__ac_name'),
+            _gstin=F('ldgr__gst'),
+            _pan=F('ldgr__pan'),
+            _before_tax=Case(
                 When(discount_amt__isnull=False, then=ExpressionWrapper(F('discount_amt') * -1, output_field=DecimalField())),
                 default=Value(0),
                 output_field=DecimalField()
             ),
-            taxable_amount=ExpressionWrapper(
-                F('item_total') - F('discount_amt'),
+            _taxable_amount=ExpressionWrapper(
+                F('item_total') - Coalesce(F('discount_amt'), Value(0, output_field=DecimalField())),
                 output_field=DecimalField()
             ),
-            utgst=Value(0, output_field=DecimalField()),
-            add_less=Case(
-                When(round_off__isnull=False, then=F('round_off')),
-                default=Value(0),
-                output_field=DecimalField()
-            )
+            _utgst=Value(0, output_field=DecimalField()),
+            _add_less=Coalesce(F('round_off'), Value(0, output_field=DecimalField())),
         ).values(
-            'bill_no', 'bill_value', 'ref_no', 'gstin', 'sgst', 'cgst', 'igst', 'item_total', 'utgst', 'pan',
-            date=F('date1'), party_name=F('party_name'), group_value=F('item_total'), before_tax=F('before_tax'),
-            taxable_amount=F('taxable_amount'), add_less=F('add_less')
+            'billno', 'bill_value', 'ref_no', 'sgst', 'cgst', 'igst', 'item_total',
+            date=F('date1'),
+            bill_no=F('billno'),
+            party_name=F('_party_name'),
+            gstin=F('_gstin'),
+            pan=F('_pan'),
+            group_value=F('item_total'),
+            before_tax=F('_before_tax'),
+            taxable_amount=F('_taxable_amount'),
+            utgst=F('_utgst'),
+            add_less=F('_add_less'),
         )
 
         return Response(list(vouchers))
@@ -278,9 +284,12 @@ class GSTOutputRegisterView(APIView):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
+        gstin_id = request.query_params.get('gstin')
         sales_qs = SalesVou.objects.filter(
             date1__range=[start_date, end_date]
         ).select_related('ldgr', 'ac_voucher')
+        if gstin_id:
+            sales_qs = sales_qs.filter(gstin_ref_id=gstin_id)
 
         sales_annotated = sales_qs.annotate(
             vtype=F('ac_voucher__voucher_type'),
@@ -304,6 +313,8 @@ class GSTOutputRegisterView(APIView):
         return_qs = SaleReturn.objects.filter(
             date1__range=[start_date, end_date]
         ).select_related('ldgr', 'ac_voucher')
+        if gstin_id:
+            return_qs = return_qs.filter(retail__gstin_master_id=gstin_id)
 
         return_annotated = return_qs.annotate(
             vtype=F('ac_voucher__voucher_type'),
@@ -908,8 +919,10 @@ def customer_cash_received_view(request):
     except Ledger.DoesNotExist:
         return Response({'error': 'Customer not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    from accounting.utils import get_company_cash_limits
     fy = request.retail.active_fy
-    limit = float(request.retail.max_cash_receipt_limit)
+    receipt_limit, _ = get_company_cash_limits(request.retail)
+    limit = float(receipt_limit)
     already = float(get_customer_cash_received(request.retail, fy, customer_ldgr))
 
     return Response({
@@ -1388,3 +1401,92 @@ class EwayBillGenerateView(APIView):
         response['Content-Disposition'] = f'attachment; filename=EWAY_{bill}.json'
         return response
 
+
+
+# ── Customer Purchase History ─────────────────────────────────────────────────
+
+class CustomerPurchaseHistoryView(APIView):
+    """
+    GET /sales/api/customer-history/?ledger_id=<id>&from_date=YYYY-MM-DD&to_date=YYYY-MM-DD
+    Returns all sales, returns, orders and approvals for a customer, sorted newest first.
+    """
+    def get(self, request):
+        from itertools import chain
+
+        ledger_id = request.query_params.get('ledger_id')
+        from_date = request.query_params.get('from_date')
+        to_date   = request.query_params.get('to_date')
+        retail    = request.retail
+
+        if not ledger_id:
+            return Response({'error': 'ledger_id is required'}, status=400)
+
+        date_filter = {}
+        if from_date:
+            date_filter['date1__gte'] = from_date
+        if to_date:
+            date_filter['date1__lte'] = to_date
+
+        # ── Sales vouchers ──────────────────────────────────────────────────
+        sales = SalesVou.objects.filter(
+            ldgr_id=ledger_id, retail=retail, **date_filter
+        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'taxable_value', 'discount')
+
+        # ── Sale returns ────────────────────────────────────────────────────
+        returns = SaleReturn.objects.filter(
+            ldgr_id=ledger_id, retail=retail, **date_filter
+        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'taxable_value', 'discount')
+
+        # ── Customer orders ─────────────────────────────────────────────────
+        orders = CustomerOrder.objects.filter(
+            ldgr_id=ledger_id, retail=retail, **date_filter
+        ).values('id', 'order_no', 'date1', 'est_amount')
+
+        # ── Sales approvals ─────────────────────────────────────────────────
+        approvals = SalesApproval.objects.filter(
+            ldgr_id=ledger_id, retail=retail, **date_filter
+        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'taxable_value', 'discount')
+
+        def _bill_value(row):
+            taxable = float(row.get('taxable_value') or 0)
+            disc    = float(row.get('discount') or 0)
+            base    = taxable - disc
+            cgst    = base * float(row.get('cgst_per') or 0) / 100
+            sgst    = base * float(row.get('sgst_per') or 0) / 100
+            igst    = base * float(row.get('igst_per') or 0) / 100
+            return round(float(row.get('mrp') or 0), 2), round(cgst + sgst + igst, 2)
+
+        rows = []
+        for r in sales:
+            mrp, tax = _bill_value(r)
+            rows.append({'doc_type': 'Sale', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': mrp, 'tax': tax})
+        for r in returns:
+            mrp, tax = _bill_value(r)
+            rows.append({'doc_type': 'Return', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': mrp, 'tax': tax})
+        for r in orders:
+            rows.append({'doc_type': 'Order', 'doc_no': r['order_no'], 'date': str(r['date1']), 'id': r['id'], 'amount': float(r['est_amount'] or 0), 'tax': 0})
+        for r in approvals:
+            mrp, tax = _bill_value(r)
+            rows.append({'doc_type': 'Approval', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': mrp, 'tax': tax})
+
+        rows.sort(key=lambda x: x['date'], reverse=True)
+
+        total_sales   = sum(r['amount'] for r in rows if r['doc_type'] == 'Sale')
+        total_returns = sum(r['amount'] for r in rows if r['doc_type'] == 'Return')
+
+        try:
+            ledger = Ledger.objects.get(pk=ledger_id)
+            ledger_info = {'id': ledger.id, 'ac_name': ledger.ac_name, 'gst': ledger.gst or '', 'mobile': ledger.mobile1 or ''}
+        except Ledger.DoesNotExist:
+            ledger_info = {}
+
+        return Response({
+            'ledger': ledger_info,
+            'summary': {
+                'total_sales': round(total_sales, 2),
+                'total_returns': round(total_returns, 2),
+                'net': round(total_sales - total_returns, 2),
+                'order_count': sum(1 for r in rows if r['doc_type'] == 'Order'),
+            },
+            'transactions': rows,
+        })

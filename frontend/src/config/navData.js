@@ -68,7 +68,8 @@ export const navData = {
 
   // ── CRM (core) ─────────────────────────────────────────────────────────────
   navCRM: [
-    { title: "Ledger",                url: "/crm/ledger",    icon: BookOpen },
+    { title: "Ledger",                   url: "/crm/ledger",            icon: BookOpen },
+    { title: "Customer History",         url: "/crm/customer-history",  icon: History  },
   ],
 
   // ── CRM Occasions (addon) ─────────────────────────────────────────────────
@@ -88,6 +89,8 @@ export const navData = {
         { title: "Stone Issue",     url: "/manufacturing/issue/stoneissue/"    },
         { title: "Hallmark Issue",  url: "/manufacturing/issue/hallmarkissue/" },
         { title: "Refinery Issue",  url: "/manufacturing/issue/refinary/"      },
+        { title: "Melting Issue",   url: "/manufacturing/issue/melting/"       },
+        { title: "Assay Issue",     url: "/manufacturing/issue/assay/"         },
       ],
     },
     {
@@ -99,6 +102,8 @@ export const navData = {
         { title: "Stone Return",     url: "/manufacturing/receive/stonereturn/"     },
         { title: "Hallmark Receive", url: "/manufacturing/receive/hallmarkreceive/" },
         { title: "Refinery Receive", url: "/manufacturing/receive/refinary/"        },
+        { title: "Melting Receive",  url: "/manufacturing/receive/melting/"         },
+        { title: "Assay Receive",    url: "/manufacturing/receive/assay/"           },
       ],
     },
     {
@@ -114,15 +119,12 @@ export const navData = {
       url: "#",
       icon: FileBarChartIcon,
       items: [
-        { title: "Kr Stone Issue / Receive",  url: "/manufacturing/reports/krstoneissandrec"        },
-        { title: "Hallmark Issue / Receive",  url: "/manufacturing/reports/hallmarkissandrec"       },
+        { title: "Karigar Stone Transactions", url: "/manufacturing/reports/karigarstonetxns"      },
         { title: "Hallmark Receive",          url: "/manufacturing/reports/hallmarkreceive"         },
         { title: "Hallmark Issue",            url: "/manufacturing/reports/hmissue"                 },
         { title: "Finished Item Receive",     url: "/manufacturing/reports/finisheditemrec"         },
-        { title: "Job Order",                 url: "/manufacturing/reports/joborder"                },
         { title: "Karigar – Job Work",        url: "/manufacturing/reports/karigar-jobwork"         },
         { title: "Karigar – Broken Stones",   url: "#"                                             },
-        { title: "Karigar Subcontractor",     url: "#"                                             },
         { title: "Refinery Report",           url: "/manufacturing/reports/refinery"                },
       ],
     },
@@ -130,7 +132,7 @@ export const navData = {
 
   // ── Purchases ──────────────────────────────────────────────────────────────
   navPurchases: [
-    { title: "Purchase Voucher",       url: "/purchase/purchasevoucher/list/",   icon: ShoppingCart     },
+    { title: "Purchase Voucher",       url: "/purchase/list/",                  icon: ShoppingCart     },
     { title: "Purchase Return",        url: "/purchase/purchasereturn/list/",    icon: PackageXIcon     },
     { title: "Purchase Approval",      url: "/purchase/purchaseapproval/list/",  icon: PackageCheckIcon },
     { title: "Purchase Order",         url: "/purchase/purchaseorder/list/",     icon: ClipboardList    },
@@ -141,9 +143,10 @@ export const navData = {
   navMain2: [
     { title: "Estimate",       url: "/sales/estimate",            icon: Calculator       },
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList    },
-    { title: "Sales Voucher",  url: "/sales/salesvoucher/list/",  icon: ReceiptTextIcon  },
+    { title: "Sales Voucher",  url: "/sales/list/",               icon: ReceiptTextIcon  },
     { title: "Sales Return",   url: "/sales/salesreturn/list/",   icon: PackageXIcon     },
     { title: "Sales Approval", url: "/sales/salesapproval/list/", icon: PackageCheckIcon },
+    { title: "E-Way Bills",    url: "/sales/list/",               icon: FileText         },
     {
       title: "Reports",
       url: "#",
@@ -239,6 +242,7 @@ export const navData = {
         { title: "GST Output Register",         url: "/accounting/gstoutputregister"         },
         { title: "GSTR-1 (B2B / B2CL / B2CS)", url: "/accounting/reports/gstr1"             },
         { title: "GSTR-3B Summary",             url: "/accounting/reports/gstr3b"            },
+        { title: "GSTR-2B Reconciliation",      url: "/purchase/gstr2b-reconcile"            },
         { title: "TDS Register",                url: "/accounting/reports/tds-register"      },
         { title: "TCS Register",                url: "/accounting/reports/tcs-register"      },
       ],

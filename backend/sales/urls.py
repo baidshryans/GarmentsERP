@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/gstr3b/', views.gstr3b_report),
     path('api/sale-voucher/<int:pk>/eway-transport/', views.eway_transport_update),
     path('api/generate-eway-bill', views.EwayBillGenerateView.as_view()),
+    path('api/customer-history/', views.CustomerPurchaseHistoryView.as_view(), name='customer_history'),
     path('api/customer-orders/delivery-overview/', views.customer_order_delivery_overview),
     path('api/customer-orders/<int:pk>/update-delivery/', views.customer_order_update_delivery),
 ]

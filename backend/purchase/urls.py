@@ -32,6 +32,8 @@ urlpatterns = [
     # Serve attachment files from the dynamically configured storage path
     re_path(r'^api/attachment-file/(?P<name>.+)$', views.serve_attachment_file),
     path('api/tds-register/', views.tds_register, name='tds_register'),
+    path('api/rcm-register/', views.rcm_register, name='rcm_register'),
     path('api/customer-purchases-for-adjustment/', views.customer_purchases_for_adjustment),
+    path('api/gstr2b-reconcile/', views.GSTR2BReconcileView.as_view(), name='gstr2b_reconcile'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

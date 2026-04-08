@@ -586,6 +586,11 @@ class AssayIssue(models.Model):
     date1       = models.DateField()
     billno      = models.CharField(max_length=30)
     ldgr        = models.ForeignKey(Ledger, on_delete=models.PROTECT)
+    melt_recv   = models.ForeignKey(
+        "MeltingReceive", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="assay_issues",
+        help_text="Source melting receive this assay sample was drawn from."
+    )
     rec_status  = models.BooleanField(default=False)
     retail      = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
@@ -593,6 +598,10 @@ class AssayIssue(models.Model):
     @property
     def ldgr_name(self):
         return self.ldgr.ac_name
+
+    @property
+    def melt_recv_billno(self):
+        return self.melt_recv.billno if self.melt_recv_id else None
 
     class Meta:
         db_table = "assay_issue"

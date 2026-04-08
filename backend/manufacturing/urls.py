@@ -20,6 +20,7 @@ from .views import (
     CombinedGoldTransactionView,
     RepairJobCardViewSet,
     KarigarSubcontractorLedgerView,
+    AvailableMeltingReceivesView,
 )
 
 
@@ -105,5 +106,6 @@ urlpatterns = [
     path('api/refinery-report/', views.refinery_report, name='refinery_report'),
     path('api/repair-job-card-no/', views.repair_job_card_billno_view, name='rjc_billno'),
     path('api/karigar-subcontractor-ledger/', KarigarSubcontractorLedgerView.as_view(), name='karigar_subcontractor_ledger'),
+    path('api/available-melting-receives/', AvailableMeltingReceivesView.as_view(), name='available_melting_receives'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

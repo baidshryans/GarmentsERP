@@ -885,6 +885,41 @@ class AssayReceiveViewset(views.RetailBaseViewset):
     ordering = ['billno']
 
 
+class AvailableMeltingReceivesView(APIView):
+    """
+    Returns MeltingReceive vouchers available to be referenced by a new (or edited) AssayIssue.
+
+    A receive is "available" if it has no AssayIssue linked to it yet.
+    In edit mode pass ?exclude_assay_issue=<id> so the currently-linked receive is
+    also included (otherwise it would vanish from the picker on edit).
+    """
+    def get(self, request):
+        exclude_id = request.query_params.get("exclude_assay_issue")
+        retail = getattr(request, "retail", None)
+
+        # Receives that are still unclaimed
+        available_qs = MeltingReceive.objects.filter(
+            retail=retail, assay_issues__isnull=True
+        )
+
+        if exclude_id:
+            # Also include the receive that is already linked to the assay issue being edited
+            try:
+                current_issue = AssayIssue.objects.get(pk=exclude_id)
+                if current_issue.melt_recv_id:
+                    already_linked = MeltingReceive.objects.filter(
+                        pk=current_issue.melt_recv_id, retail=retail
+                    )
+                    from django.db.models import QuerySet
+                    available_qs = (available_qs | already_linked).distinct()
+            except AssayIssue.DoesNotExist:
+                pass
+
+        available_qs = available_qs.prefetch_related("meltingreceivedetail_set").order_by("-date1")
+        serializer = MeltingReceiveSerializer(available_qs, many=True)
+        return Response({"results": serializer.data})
+
+
 class HallmarkIssueReportView(APIView):
     def get(self, request):
         today = datetime.today().date()

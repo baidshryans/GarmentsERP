@@ -1347,14 +1347,19 @@ class AssayIssueDetailSerializer(serializers.ModelSerializer):
 
 class AssayIssueSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
+    melt_recv = serializers.SlugRelatedField(
+        queryset=MeltingReceive.objects.all(), slug_field="billno",
+        allow_null=True, required=False
+    )
     assayissuedetail_set = AssayIssueDetailSerializer(many=True)
 
     class Meta:
         model = AssayIssue
-        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'rec_status', 'retail', 'assayissuedetail_set']
+        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'melt_recv', 'melt_recv_billno', 'rec_status', 'retail', 'assayissuedetail_set']
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
             'ldgr_name': {'read_only': True},
+            'melt_recv_billno': {'read_only': True},
         }
 
     def create(self, validated_data):

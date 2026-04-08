@@ -1729,6 +1729,17 @@ export async function fetchAssayIssueWithBillno(billno) {
   }
 }
 
+export async function fetchAvailableMeltingReceives(excludeAssayIssueId = null) {
+  try {
+    const params = excludeAssayIssueId ? `?exclude_assay_issue=${excludeAssayIssueId}` : "";
+    const response = await apiClient.get(`manufacturing/api/available-melting-receives/${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch available melting receives:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchPurchaseRetun({ search = "", page = 1, ordering = "" } = {}) {
   try {
     const params = new URLSearchParams();

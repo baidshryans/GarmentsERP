@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Table, TableRow, TableCell, TableBody, TableHeader, TableHead } from "@/components/ui/table";
-import { fetchMainItem, fetchPurity, getLedgers, fetchPackets } from "@/services/apiService";
+import { fetchMainItem, fetchPurity, getLedgers, fetchPackets, fetchAvailableMeltingReceives } from "@/services/apiService";
 import { createAssayIssue, fetchNextAssayIssueNo, fetchAssayIssueForEdit, updateAssayIssueForEdit } from "../../../services/apiService";
 import { useParams, useNavigate } from "react-router-dom";
 import { Edit, Trash2 } from "lucide-react";
@@ -42,6 +42,7 @@ const IssueToAssay = () => {
                 billno: "",
                 ldgr: "",
                 ldgr_name: "",
+                melt_recv: "",
             },
             table: { ...tableDefault },
         },
@@ -52,21 +53,24 @@ const IssueToAssay = () => {
     const [mainItemData, setMainItemData] = useState([]);
     const [purityData, setPurityData] = useState([]);
     const [packets, setPackets] = useState([]);
+    const [availableReceives, setAvailableReceives] = useState([]);
 
     useEffect(() => {
         async function fetchData() {
-            const [mltRes, itemRes, purityRes, packetRes, billNoRes] = await Promise.all([
+            const [mltRes, itemRes, purityRes, packetRes, billNoRes, recvRes] = await Promise.all([
                 getLedgers({ type: "MLT" }),
                 fetchMainItem(),
                 fetchPurity(),
                 fetchPackets(),
                 fetchNextAssayIssueNo(),
+                fetchAvailableMeltingReceives(id || null),
             ]);
             if (mltRes.success) setMeltingHouses(mltRes.data.results);
             if (itemRes.success) setMainItemData(itemRes.data);
             if (purityRes.success) setPurityData(purityRes.data);
             if (packetRes.success) setPackets(packetRes.data.results ?? packetRes.data);
             if (billNoRes.success) setValue("form.billno", billNoRes.data.bill_no);
+            if (recvRes.success) setAvailableReceives(recvRes.data.results ?? []);
         }
 
         fetchData().then(() => {
@@ -86,6 +90,34 @@ const IssueToAssay = () => {
             }
         });
     }, []);
+
+    // Auto-fill table rows when a melting receive is selected
+    const handleReceiveLoad = (billno) => {
+        if (!billno) return;
+        const recv = availableReceives.find((r) => r.billno === billno);
+        if (!recv) return;
+
+        const details = recv.meltingreceivedetail_set || [];
+        if (details.length === 0) {
+            toast({ title: "Selected receive has no detail rows." });
+            return;
+        }
+
+        // Map melting receive detail rows → assay issue rows
+        // Use conv_purity (the purity AFTER melting) as the issue purity for the assay sample
+        const newRows = details.map((d) => ({
+            packet: d.packet,
+            item: d.item,
+            metal_purity: d.conv_purity || d.metal_purity,
+            pcs: d.pcs,
+            ct: d.ct,
+            gw: "",          // operator sets the sample weight manually
+            remarks: `Sample from melting recv ${recv.billno}`,
+        }));
+
+        setRows(newRows);
+        toast({ title: `Loaded ${newRows.length} row(s) from ${recv.billno}. Set the sample GW for each row.` });
+    };
 
     const handleAddRow = () => {
         const row = getValues("table");
@@ -122,6 +154,7 @@ const IssueToAssay = () => {
         }
         const form = { ...getValues("form") };
         delete form.ldgr_name;
+        if (!form.melt_recv) delete form.melt_recv;
         form.assayissuedetail_set = rs;
 
         (id ? updateAssayIssueForEdit(form, id) : createAssayIssue(form))
@@ -140,6 +173,8 @@ const IssueToAssay = () => {
     };
 
     useF4Submit(handleSubmit(onSubmit));
+
+    const selectedRecv = watch("form.melt_recv");
 
     return (
         <div className="mt-4 px-4">
@@ -184,6 +219,57 @@ const IssueToAssay = () => {
                             ))}
                         </datalist>
                     </Field>
+                </div>
+
+                {/* ── Melting Receive Reference ── */}
+                <div className="rounded border border-amber-200 bg-amber-50/40 p-3">
+                    <div className="flex flex-wrap items-end gap-3">
+                        <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
+                            <Label className="text-xs font-medium text-gray-600">
+                                Source Melting Receive <span className="text-gray-400 font-normal">(optional — auto-fills rows)</span>
+                            </Label>
+                            <Controller
+                                name="form.melt_recv"
+                                control={control}
+                                render={({ field }) => (
+                                    <Select
+                                        value={field.value || ""}
+                                        onValueChange={(val) => {
+                                            field.onChange(val);
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-9 text-sm">
+                                            <SelectValue placeholder={
+                                                availableReceives.length === 0
+                                                    ? "No available melting receives"
+                                                    : "Select a melting receive to reference…"
+                                            } />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableReceives.map((r) => (
+                                                <SelectItem key={r.billno} value={r.billno}>
+                                                    {r.billno} — {r.ldgr_name} — {r.date1}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={!selectedRecv}
+                            onClick={() => handleReceiveLoad(selectedRecv)}
+                            className="text-amber-700 border-amber-300 hover:bg-amber-100"
+                        >
+                            Load Rows
+                        </Button>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-2">
+                        Each melting receive can only be referenced by one assay issue. Already-referenced receives are hidden from this list.
+                        Set the GW (sample weight) for each loaded row before saving.
+                    </p>
                 </div>
 
                 <div className="overflow-x-auto rounded border border-gray-200">
@@ -285,9 +371,7 @@ const IssueToAssay = () => {
                                         onBlur={(e) => {
                                             if (e.target.value) {
                                                 const val = parseFloat(e.target.value);
-                                                if (!isNaN(val)) {
-                                                    e.target.value = val.toFixed(3);
-                                                }
+                                                if (!isNaN(val)) e.target.value = val.toFixed(3);
                                             }
                                         }}
                                     />
@@ -304,9 +388,7 @@ const IssueToAssay = () => {
                                         onBlur={(e) => {
                                             if (e.target.value) {
                                                 const val = parseFloat(e.target.value);
-                                                if (!isNaN(val)) {
-                                                    e.target.value = val.toFixed(3);
-                                                }
+                                                if (!isNaN(val)) e.target.value = val.toFixed(3);
                                             }
                                         }}
                                     />
@@ -326,7 +408,7 @@ const IssueToAssay = () => {
                             {rs.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center text-gray-400 py-6 text-xs">
-                                        No items added yet. Fill the row above and press Tab or click Add.
+                                        No items added yet. Select a melting receive above to auto-fill, or fill the row manually and press Tab or click Add.
                                     </TableCell>
                                 </TableRow>
                             ) : (
@@ -360,7 +442,7 @@ const IssueToAssay = () => {
                                         <TableCell className="px-3 py-1.5">{item.metal_purity}</TableCell>
                                         <TableCell className="px-3 py-1.5 text-right">{item.pcs}</TableCell>
                                         <TableCell className="px-3 py-1.5 text-right">{typeof item.ct === 'number' ? item.ct.toFixed(3) : item.ct}</TableCell>
-                                        <TableCell className="px-3 py-1.5 text-right">{typeof item.gw === 'number' ? item.gw.toFixed(3) : item.gw}</TableCell>
+                                        <TableCell className="px-3 py-1.5 text-right font-medium">{typeof item.gw === 'number' ? item.gw.toFixed(3) : (item.gw || <span className="text-amber-500">set GW</span>)}</TableCell>
                                         <TableCell className="px-3 py-1.5 text-gray-500">{item.remarks}</TableCell>
                                     </TableRow>
                                 ))

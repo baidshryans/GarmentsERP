@@ -89,9 +89,9 @@ const IssueToMelting = () => {
 
     const handleAddRow = () => {
         const row = getValues("table");
-        // Validate that at least one required field is filled
-        if (!row.item && !row.gw && !row.pcs && !row.ct) {
-            toast({ title: "Please fill at least Item or Weight details before adding row." });
+        // Validate required fields: item, purity, and gw
+        if (!row.item || !row.metal_purity || !row.gw) {
+            toast({ title: "Item, Purity, and Gross Weight are required before adding row." });
             return;
         }
         setRows((prev) => [...prev, { ...row }]);
@@ -275,9 +275,18 @@ const IssueToMelting = () => {
                                     <Input
                                         type="number"
                                         step="0.001"
+                                        min="0"
                                         {...register("table.ct")}
                                         className="h-8 text-sm w-full text-right"
                                         placeholder="0.000"
+                                        onBlur={(e) => {
+                                            if (e.target.value) {
+                                                const val = parseFloat(e.target.value);
+                                                if (!isNaN(val)) {
+                                                    e.target.value = val.toFixed(3);
+                                                }
+                                            }
+                                        }}
                                     />
                                 </TableCell>
 
@@ -285,9 +294,18 @@ const IssueToMelting = () => {
                                     <Input
                                         type="number"
                                         step="0.001"
+                                        min="0"
                                         {...register("table.gw")}
                                         className="h-8 text-sm w-full text-right"
                                         placeholder="0.000"
+                                        onBlur={(e) => {
+                                            if (e.target.value) {
+                                                const val = parseFloat(e.target.value);
+                                                if (!isNaN(val)) {
+                                                    e.target.value = val.toFixed(3);
+                                                }
+                                            }
+                                        }}
                                     />
                                 </TableCell>
 
@@ -338,8 +356,8 @@ const IssueToMelting = () => {
                                         <TableCell className="px-3 py-1.5">{item.item}</TableCell>
                                         <TableCell className="px-3 py-1.5">{item.metal_purity}</TableCell>
                                         <TableCell className="px-3 py-1.5 text-right">{item.pcs}</TableCell>
-                                        <TableCell className="px-3 py-1.5 text-right">{item.ct}</TableCell>
-                                        <TableCell className="px-3 py-1.5 text-right">{item.gw}</TableCell>
+                                        <TableCell className="px-3 py-1.5 text-right">{typeof item.ct === 'number' ? item.ct.toFixed(3) : item.ct}</TableCell>
+                                        <TableCell className="px-3 py-1.5 text-right">{typeof item.gw === 'number' ? item.gw.toFixed(3) : item.gw}</TableCell>
                                         <TableCell className="px-3 py-1.5 text-gray-500">{item.remarks}</TableCell>
                                     </TableRow>
                                 ))

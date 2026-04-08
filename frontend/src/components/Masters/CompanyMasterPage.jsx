@@ -26,6 +26,17 @@ const emptyForm = {
   max_cash_payment_limit: 10000,
 };
 
+// CIN format: L/U + 5 digits + 2 alpha (state) + 4 digits + 3 alpha (company type) + 6 digits
+// e.g. U74999MH2011PTC123456 or L17110MH1973PLC019786
+const CIN_REGEX = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+
+function validateCIN(cin) {
+  if (!cin || !cin.trim()) return "CIN is required for registered companies.";
+  if (!CIN_REGEX.test(cin.trim().toUpperCase()))
+    return "Invalid CIN format. Expected: L/U + 5 digits + state code + 4 digits + company type + 6 digits (e.g. U74999MH2011PTC123456)";
+  return null;
+}
+
 export default function CompanyMasterPage() {
   const { toast }   = useToast();
   const [rows, setRows]               = useState([]);
@@ -34,6 +45,7 @@ export default function CompanyMasterPage() {
   const [editingId, setEditingId]     = useState(null);
   const [form, setForm]               = useState(emptyForm);
   const [submitting, setSubmitting]   = useState(false);
+  const [cinError, setCinError]       = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -50,11 +62,14 @@ export default function CompanyMasterPage() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+    if (name === "cin") setCinError(validateCIN(value));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.company_name.trim()) return;
+    const cinErr = validateCIN(form.cin);
+    if (cinErr) { setCinError(cinErr); return; }
     setSubmitting(true);
 
     const res = editingId
@@ -117,6 +132,7 @@ export default function CompanyMasterPage() {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
+    setCinError(null);
   };
 
   const columns = [
@@ -258,15 +274,25 @@ export default function CompanyMasterPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1 md:col-span-2">
-                  <Label className="text-xs">CIN <span className="text-muted-foreground font-normal">(Corporate Identification Number)</span></Label>
+                  <Label className="text-xs">
+                    CIN * <span className="text-muted-foreground font-normal">(Corporate Identification Number)</span>
+                  </Label>
                   <Input
                     name="cin"
                     value={form.cin}
                     onChange={handleChange}
-                    placeholder="21 character CIN"
-                    className="h-9 text-sm uppercase"
+                    onBlur={(e) => setCinError(validateCIN(e.target.value))}
+                    placeholder="e.g. U74999MH2011PTC123456"
+                    className={`h-9 text-sm uppercase ${cinError ? "border-red-400 focus-visible:ring-red-300" : ""}`}
                     maxLength={21}
+                    required
                   />
+                  {cinError && (
+                    <p className="text-xs text-red-500 mt-0.5">{cinError}</p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground">
+                    Format: L/U · 5 digits · state (2 letters) · 4 digits · company type (3 letters) · 6 digits
+                  </p>
                 </div>
               </div>
             </div>
@@ -386,7 +412,7 @@ export default function CompanyMasterPage() {
               <Button
                 type="submit"
                 size="sm"
-                disabled={submitting || !form.company_name.trim()}
+                disabled={submitting || !form.company_name.trim() || !!cinError || !form.cin.trim()}
                 className="bg-primary hover:bg-primary text-white"
               >
                 <Check className="size-4 mr-1" />

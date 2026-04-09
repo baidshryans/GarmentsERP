@@ -12,7 +12,7 @@ import { fetchMainItem, fetchNextStoneBillNo, getStates, fetchPurity, fetchPacke
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchStoneIssueForEdit, updateKarigarStoneIssue } from "../../../services/apiService";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router-dom";
 
@@ -520,7 +520,7 @@ const StoneIssue = () => {
               <TableRow key={index} className="w-full bg-white">
                 <TableCell className="w-32 px-4 py-2 border">
                   <div className="flex gap-4">
-                    <Edit size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
+                    <SquarePen size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
 
                     <Trash2 size={24} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
                 </div>

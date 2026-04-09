@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deletePurchaseOrder } from '../../../services/apiService';
 import { useSearchParams } from 'react-router-dom';
@@ -54,12 +54,12 @@ function PurchaseOrderList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="text-primary flex items-center">
-            <Edit className="mr-1" /> 
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+            <SquarePen className="mr-1" /> 
           </Link>
           <button
             onClick={() => deletePurchaseOrder(row.original.id, toast)}
-            className="text-red-500 flex items-center"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
             <Trash2 className="mr-1" />
           </button>

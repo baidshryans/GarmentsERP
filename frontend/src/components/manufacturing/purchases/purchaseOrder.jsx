@@ -12,7 +12,7 @@ import { fetchMainItem, fetchNextStoneBillNo, getStates, fetchPurity, fetchPacke
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchPoNoNext, fetchPurchaseOrderForEdit, updatePurchaseOrderForEdit } from "../../../services/apiService";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router";
 
@@ -420,7 +420,7 @@ const PurchaseOrder = () => {
                              <TableRow key={index} className="w-full bg-white">
                                <TableCell className="w-28 px-4 py-2 border">
                                  <div className="flex gap-4">
-                                   <Edit size={20} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
+                                   <SquarePen size={20} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
 
                                    <Trash2 size={20} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
                                  </div>

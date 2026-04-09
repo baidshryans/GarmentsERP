@@ -6,6 +6,7 @@ from rest_framework import routers
 router = routers.DefaultRouter()
 router.register('journal', views.JournalEntryViewSet, basename='journal')
 router.register('open-balance', views.LedgerOpenBalanceViewSet, basename='open-balance')
+router.register('credit-debit-notes', views.CreditDebitNoteViewSet, basename='credit-debit-notes')
 
 accounts_router = routers.SimpleRouter()
 accounts_router.register('', views.AccountViewSet, basename='accounts')
@@ -20,6 +21,9 @@ urlpatterns = [
     path('initial-data/', views.initial_data_view, name='initial_data'),
     path('api/due-payments/',views.PurchaseVoucherView.as_view(),name="due-payments-api"),
     path('api/due-payments/sale/',views.SaleVoucherView.as_view(),name="due-payments-api-sale"),
+    path('api/outstanding-bills/', views.OutstandingBillsView.as_view(), name='outstanding-bills'),
+    path('api/aged-receivables/', views.AgedReceivablesView.as_view(), name='aged-receivables'),
+    path('api/advance-register/', views.AdvanceRegisterView.as_view(), name='advance-register'),
     path('api/gc/',views.GoldCashConversionView.as_view()),
     path('api/gc-no/',views.get_next_gc_no),
     path('api/vou-no/<str:type>/',views.get_next_vou_no),
@@ -44,6 +48,8 @@ urlpatterns = [
     path('api/bank-statement/<int:pk>/', views.BankStatementDetail.as_view(), name='bank-statement-detail'),
     path('api/bank-statement/<int:pk>/match/', views.bank_statement_match, name='bank-statement-match'),
     path('api/bank-reconciliation/book-entries/', views.bank_book_for_recon, name='bank-recon-book'),
+    # Credit / Debit Notes
+    path('api/cn-dn-no/<str:note_type>/', views.NextCNDNNumberView.as_view(), name='cn-dn-next-no'),
 
 ]
 

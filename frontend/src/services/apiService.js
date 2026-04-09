@@ -3204,6 +3204,54 @@ export async function fetchDuePaymentsSale(id) {
   }
 }
 
+/**
+ * Fetch outstanding bills for a ledger, compact shape for the BillAllocationTable.
+ * kind: 'sales' (for Receipt vouchers) | 'purchase' (for Payment vouchers)
+ * Returns: [{id, billno, date, total, due_amt}, ...]
+ */
+export async function fetchOutstandingBills(ledgerId, kind) {
+  try {
+    const response = await apiClient.get(
+      `/accounting/api/outstanding-bills/?ledger=${ledgerId}&type=${kind}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch outstanding bills:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+/**
+ * Aged Receivables / Aged Payables report.
+ * kind: 'sales' (receivable) | 'purchase' (payable)
+ * Returns: { as_of, kind, rows: [{ldgr_id, ldgr_name, b0_30, b31_60, b61_90, b90_plus, total, bills:[…]}], totals: {…} }
+ */
+export async function fetchAgedReceivables(kind = "sales") {
+  try {
+    const response = await apiClient.get(
+      `/accounting/api/aged-receivables/?kind=${kind}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch aged receivables:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+/**
+ * Advance Register — every CustomerOrder with an advance receipt.
+ * Returns: { rows: [{order_id, order_no, date, ldgr_name, status, received, reconciled, remaining}], totals: {…} }
+ */
+export async function fetchAdvanceRegister() {
+  try {
+    const response = await apiClient.get(`/accounting/api/advance-register/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch advance register:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function getGoldRate(date) {
 
   try {
@@ -4642,6 +4690,230 @@ export async function fetchRcmRegister({ from_date, to_date } = {}) {
 export async function fetchAllApps() {
   try {
     const response = await apiClient.get("/licensing/api/all-apps/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Credit / Debit Notes ─────────────────────────────────────────────────────
+
+export async function fetchCreditDebitNotes(noteType) {
+  try {
+    const params = noteType ? `?note_type=${noteType}` : "";
+    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCreditDebitNote(id) {
+  try {
+    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createCreditDebitNote(data) {
+  try {
+    const response = await apiClient.post("/accounting/api/credit-debit-notes/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCNDNPrintData(id) {
+  try {
+    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${id}/print-data/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function cancelCreditDebitNote(id) {
+  try {
+    const response = await apiClient.post(`/accounting/api/credit-debit-notes/${id}/cancel/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchNextCNDNNumber(noteType) {
+  try {
+    const response = await apiClient.get(`/accounting/api/cn-dn-no/${noteType}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── E-Way Bills ──────────────────────────────────────────────────────────────
+
+export async function fetchEWayBills({ search = "", status = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (status) params.append("status", status);
+    const response = await apiClient.get(`/sales/api/eway-bills/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function cancelEWayBill(id, reason = "") {
+  try {
+    const response = await apiClient.post(`/sales/api/eway-bills/${id}/cancel/`, { reason });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateEWayBillEBN(id, data) {
+  try {
+    const response = await apiClient.patch(`/sales/api/eway-bills/${id}/update-ebn/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteEWayBill(id) {
+  try {
+    await apiClient.delete(`/sales/api/eway-bills/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Gold Schemes
+// ---------------------------------------------------------------------------
+
+export async function fetchSchemes() {
+  try {
+    const response = await apiClient.get("/goldscheme/api/schemes/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function createScheme(data) {
+  try {
+    const response = await apiClient.post("/goldscheme/api/schemes/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function updateScheme(id, data) {
+  try {
+    const response = await apiClient.put(`/goldscheme/api/schemes/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function deleteScheme(id) {
+  try {
+    await apiClient.delete(`/goldscheme/api/schemes/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSchemeEnrollments(params = {}) {
+  try {
+    const response = await apiClient.get("/goldscheme/api/enrollments/", { params });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function fetchSchemeEnrollment(id) {
+  try {
+    const response = await apiClient.get(`/goldscheme/api/enrollments/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function createSchemeEnrollment(data) {
+  try {
+    const response = await apiClient.post("/goldscheme/api/enrollments/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function schemeEnrollmentPay(id, data) {
+  try {
+    const response = await apiClient.post(`/goldscheme/api/enrollments/${id}/pay/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function fetchSchemeStatement(id) {
+  try {
+    const response = await apiClient.get(`/goldscheme/api/enrollments/${id}/statement/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function fetchSchemeBenefit(id) {
+  try {
+    const response = await apiClient.get(`/goldscheme/api/enrollments/${id}/benefit/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function redeemSchemeEnrollment(id, data) {
+  try {
+    const response = await apiClient.post(`/goldscheme/api/enrollments/${id}/redeem/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function cancelSchemeEnrollment(id, data) {
+  try {
+    const response = await apiClient.post(`/goldscheme/api/enrollments/${id}/cancel/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function fetchSchemeSummary() {
+  try {
+    const response = await apiClient.get("/goldscheme/api/reports/scheme-summary/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function fetchMaturityCalendar(params = {}) {
+  try {
+    const response = await apiClient.get("/goldscheme/api/reports/maturity-calendar/", { params });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+export async function fetchOverduePayments() {
+  try {
+    const response = await apiClient.get("/goldscheme/api/reports/overdue-payments/");
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

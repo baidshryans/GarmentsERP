@@ -22,37 +22,38 @@ _GST_REGISTERS = [
 ]
 
 # ── Operational ledger definitions (company-wide, stored as FK on CompanyMaster) ─
+# (fk_field_name, ledger_label, account_group_code, ledger_role)
 _OPERATIONAL_LEDGERS = [
-    ('sale_discount_ldgr',          'Sale Discount',          'EXP-IND-MSC'),
-    ('discount_ldgr',               'Discount',               'EX-OTH'),
-    ('round_off_ldgr',              'Round Off',              'EX-OTH'),
-    ('hallmark_charge_ldgr',        'Hallmark Charges',       'EX-OTH'),
-    ('making_receive_ldgr',         'Making Receive',         'IN-OTH'),
-    ('gold_conversion_ldgr',        'Gold Conversion',        'IN-OTH'),
-    ('carriage_inward_ldgr',        'Carriage Inward',        'EX-OTH'),
-    ('making_charge_purchase_ldgr', 'Making Charge Purchase', 'EX-OTH'),
+    # sale_discount_ldgr removed — unused FK (no serializer reads it)
+    ('discount_ldgr',               'Sales Discount',          'INC-DIR-SAL', 'INC'),
+    ('round_off_ldgr',              'Round Off',               'EXP-IND-ROF', 'EXP'),
+    ('hallmark_charge_ldgr',        'Hallmark Charges',        'EXP-DIR',     'EXP'),
+    ('making_receive_ldgr',         'Making Charge Received',  'INC-DIR-SAL', 'INC'),
+    # gold_conversion_ldgr omitted from seeding — assign manually per company
+    ('carriage_inward_ldgr',        'Carriage Inward',         'EXP-DIR-FRT', 'EXP'),
+    ('making_charge_purchase_ldgr', 'Making Charge Purchase',  'EXP-DIR-PUR', 'EXP'),
 ]
 
 # ── Trading ledgers (Purchase / Sales accounts, per commodity) ────────────────
-# (label, account_code) — created once per company, not stored as FK on company
+# (label, account_code, ledger_role) — created once per company, not stored as FK on company
 _TRADING_LEDGERS = [
-    # Purchases → EXP-DIR-PUR
-    ('Gold Purchase',           'EXP-DIR-PUR'),
-    ('Diamond Purchase',        'EXP-DIR-PUR'),
-    ('Emerald Purchase',        'EXP-DIR-PUR'),
-    ('Ruby Purchase',           'EXP-DIR-PUR'),
-    ('Semi Precious Purchase',  'EXP-DIR-PUR'),
-    ('Old Gold Purchase',       'EXP-DIR-PUR'),
-    ('Standard Bar Purchase',   'EXP-DIR-PUR'),
-    ('Other Purchase',          'EXP-DIR-PUR'),
-    # Sales → INC-DIR-SAL
-    ('Gold Sales',              'INC-DIR-SAL'),
-    ('Diamond Sales',           'INC-DIR-SAL'),
-    ('Emerald Sales',           'INC-DIR-SAL'),
-    ('Ruby Sales',              'INC-DIR-SAL'),
-    ('Semi Precious Sales',     'INC-DIR-SAL'),
-    ('Standard Bar Sales',      'INC-DIR-SAL'),
-    ('Other Sales',             'INC-DIR-SAL'),
+    # Purchases → EXP-DIR-PUR, role EXP
+    ('Gold Purchase',           'EXP-DIR-PUR', 'EXP'),
+    ('Diamond Purchase',        'EXP-DIR-PUR', 'EXP'),
+    ('Emerald Purchase',        'EXP-DIR-PUR', 'EXP'),
+    ('Ruby Purchase',           'EXP-DIR-PUR', 'EXP'),
+    ('Semi Precious Purchase',  'EXP-DIR-PUR', 'EXP'),
+    ('Old Gold Purchase',       'EXP-DIR-PUR', 'EXP'),
+    ('Standard Bar Purchase',   'EXP-DIR-PUR', 'EXP'),
+    ('Other Purchase',          'EXP-DIR-PUR', 'EXP'),
+    # Sales → INC-DIR-SAL, role INC
+    ('Gold Sales',              'INC-DIR-SAL', 'INC'),
+    ('Diamond Sales',           'INC-DIR-SAL', 'INC'),
+    ('Emerald Sales',           'INC-DIR-SAL', 'INC'),
+    ('Ruby Sales',              'INC-DIR-SAL', 'INC'),
+    ('Semi Precious Sales',     'INC-DIR-SAL', 'INC'),
+    ('Standard Bar Sales',      'INC-DIR-SAL', 'INC'),
+    ('Other Sales',             'INC-DIR-SAL', 'INC'),
 ]
 
 # ── Misc statutory / asset / expense ledgers ─────────────────────────────────
@@ -122,11 +123,11 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
     from accounting.models import Account
 
     acct_cache = {}
-    for code in ('EX-OTH', 'IN-OTH', 'EXP-IND-MSC'):
+    for code in ('INC-DIR-SAL', 'EXP-IND-ROF', 'EXP-DIR', 'EXP-DIR-FRT', 'EXP-DIR-PUR'):
         acct_cache[code] = Account.objects.filter(code=code).first()
 
     update_fields = []
-    for field_name, label, acct_code in _OPERATIONAL_LEDGERS:
+    for field_name, label, acct_code, role in _OPERATIONAL_LEDGERS:
         ledger, _ = Ledger.objects.get_or_create(
             ac_name=label,
             is_system=True,
@@ -135,7 +136,7 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
                 'ac_group': acct_cache.get(acct_code),
             },
         )
-        LedgerRole.objects.get_or_create(ledger=ledger, role='OTH', defaults={'is_primary': True})
+        LedgerRole.objects.get_or_create(ledger=ledger, role=role, defaults={'is_primary': True})
         setattr(instance, field_name, ledger)
         update_fields.append(f"{field_name}_id")
 
@@ -161,8 +162,8 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
         )
         LedgerRole.objects.create(ledger=ldgr, role=role, is_primary=True)
 
-    for label, code in _TRADING_LEDGERS:
-        _make(label, code)
+    for label, code, role in _TRADING_LEDGERS:
+        _make(label, code, role)
     for label, code in _MISC_LEDGERS:
         _make(label, code)
     for label, code in _OFFICE_EQUIPMENT_LEDGERS:

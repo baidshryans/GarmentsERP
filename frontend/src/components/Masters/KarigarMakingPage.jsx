@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable } from "@/table";
-import { Edit, Plus, X, Check, Hammer, Trash2, Info } from "lucide-react";
+import { SquarePen, Plus, X, Check, Hammer, Trash2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import {
@@ -162,14 +162,14 @@ export default function KarigarMakingPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleEdit(row.original)}
-            className="text-primary hover:text-primary"
+            className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors"
             title="Edit"
           >
-            <Edit className="size-4" />
+            <SquarePen className="size-4" />
           </button>
           <button
             onClick={() => handleDelete(row.original)}
-            className="text-rose-400 hover:text-rose-600"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
             title="Delete"
           >
             <Trash2 className="size-4" />

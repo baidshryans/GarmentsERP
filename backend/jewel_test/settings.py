@@ -70,6 +70,7 @@ EXTERNAL_APPS = [
     'purchase',
     'ai_layer',
     'licensing',
+    'goldscheme',
 ]
 
 INSTALLED_APPS = INSTALLED_APPS + EXTERNAL_APPS

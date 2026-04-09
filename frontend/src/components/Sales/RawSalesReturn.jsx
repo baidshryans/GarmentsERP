@@ -21,7 +21,7 @@ import {
   TableHead,
   TableBody
 } from "@/components/ui/table";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 
 import {
   fetchMainItem,
@@ -758,7 +758,7 @@ const RawSalesReturn = () => {
               <React.Fragment key={idx}>
                 <TableRow className="bg-gray-100">
                   <TableCell className="px-4 py-2 border flex flex-row justify-center items-center gap-2">
-                    <Edit
+                    <SquarePen
                       size={20}
                       className="cursor-pointer"
                       onClick={() => handleEdit(idx)}

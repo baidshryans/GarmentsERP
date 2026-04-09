@@ -12,7 +12,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Edit, Plus, Building2, UserCheck, UserX, ShieldCheck } from "lucide-react";
+import { SquarePen, Plus, Building2, UserCheck, UserX, ShieldCheck } from "lucide-react";
 import {
   fetchUsers, createUser, updateUser, assignUserRetail, fetchRetails,
   fetchRoles, assignUserRole,
@@ -165,7 +165,7 @@ export default function UserManagement() {
         return (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => openEdit(u)}>
-              <Edit className="size-3 mr-1" /> Edit
+              <SquarePen className="size-3 mr-1" /> Edit
             </Button>
             <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => openRetail(u)}>
               <Building2 className="size-3 mr-1" /> Retails

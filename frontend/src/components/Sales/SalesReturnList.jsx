@@ -6,9 +6,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteSalesReturn } from '../../services/apiService';
+import { deleteSalesReturn, fetchCNDNPrintData, createCreditDebitNote } from '../../services/apiService';
+import { openAndPrint } from "@/services/print/utils";
+import CreditDebitNotePrint from "@/services/print/CreditDebitNote";
 import { useSearchParams } from 'react-router-dom';
 
 function SalesReturnList() {
@@ -46,18 +48,42 @@ function SalesReturnList() {
     
       
 
+    const handlePrintCN = async (row) => {
+      // Check if a CN already exists for this return via the credit_note relation
+      if (row.credit_note_id) {
+        const res = await fetchCNDNPrintData(row.credit_note_id);
+        if (res.success) { openAndPrint(<CreditDebitNotePrint data={res.data} />); return; }
+      }
+      // Navigate to CN form pre-filled
+      const params = new URLSearchParams({
+        type: 'CN',
+        ref_sale_return: row.id,
+        ldgr_name: row.ldgr_name || '',
+        bill_no: row.billno || '',
+        amount: row.total_bill_value || '',
+      });
+      window.open(`/accounting/credit-debit-notes/add?${params.toString()}`, '_blank');
+    };
+
     const columns = [
            {
              header: "Action",
              accessorKey: "id",
              cell: ({ row }) => (
                <div className="flex space-x-4">
-                 <Link to={`/sales/salesreturn/${row.original.id}`} className="text-primary flex items-center">
-                   <Edit className="mr-1" /> 
+                 <Link to={`/sales/salesreturn/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+                   <SquarePen className="mr-1" />
                  </Link>
-                 <button 
-                           onClick={() => deleteSalesReturn(row.original.id,toast)} 
-                           className="text-red-500 flex items-center"
+                 <button
+                   onClick={() => handlePrintCN(row.original)}
+                   className="p-1.5 rounded text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center"
+                   title="Print Credit Note"
+                 >
+                   <FileText className="mr-1" />
+                 </button>
+                 <button
+                           onClick={() => deleteSalesReturn(row.original.id,toast)}
+                           className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
                          >
                            <Trash2 className="mr-1" />
                          </button>

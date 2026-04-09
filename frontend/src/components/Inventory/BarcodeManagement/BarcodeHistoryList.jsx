@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import {
   ResizableHandle,
   ResizablePanel,

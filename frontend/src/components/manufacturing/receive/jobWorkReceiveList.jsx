@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Printer, Trash2, X } from "lucide-react";
+import { SquarePen, Printer, Trash2, X } from "lucide-react";
 import { fetchKarigarIssues, fetchKarigarReceive, getLedgers } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -63,13 +63,13 @@ const KarigarReceive = () => {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="text-primary flex items-center">
-            <Edit className="mr-1" /> 
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+            <SquarePen className="mr-1" /> 
           </Link>
           {/* <Button onClick={(e)=>setDetails(row.original)}>Details </Button> */}
           <button
             onClick={() => deleteJobWorkReceive(row.original.id, toast)}
-            className="text-red-500 flex items-center"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
             <Trash2 className="mr-1" />
           </button>

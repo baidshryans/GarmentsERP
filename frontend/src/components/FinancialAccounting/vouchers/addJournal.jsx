@@ -9,23 +9,31 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, createJournalEntry, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment } from "@/services/apiService";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchAccountingVoucher, fetchJournalEntryForEdit, fetchVoucherNoNext, updateJournalEntryForEdit } from "../../../services/apiService";
-import { Edit, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
+import { SquarePen, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
 import AccountSuggestion from "@/components/AI/AccountSuggestion";
+import BillAllocationTable from "./BillAllocationTable";
 
 const AddJournal = () => {
   const { toast } = useToast()
   const {id} = useParams()
   const { journal_type } = useParams();
+  const [searchParams] = useSearchParams();
+  // Pre-fill linkage from query string when launched from a Customer Order
+  // (e.g. .../accounting/AddJournal/RCPT/add?customer_order=12&order_no=CO-1 ).
+  const preCustomerOrderId = searchParams.get("customer_order") || "";
+  const preOrderNo         = searchParams.get("order_no")       || "";
+  const preLedgerName      = searchParams.get("ldgr_name")      || "";
   const { register, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
     defaultValues: {
 
       form: {
         date: new Date().toISOString().split("T")[0],
 
-        voucher_type: ""
+        voucher_type: "",
+        customer_order: preCustomerOrderId || null,
       },
       table: { credit: 0, debit: 0 }
 
@@ -34,6 +42,7 @@ const AddJournal = () => {
   const [rs, setRows] = useState([]);
   const [salespersonData, setSalespersonData] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
+  const [allocations, setAllocations] = useState([]);  // bill-wise allocations for current party row
   const [narrationForSuggestion, setNarrationForSuggestion] = useState(null);
   const [savedVoucherId, setSavedVoucherId] = useState(id || null);
   const [savedAttachments, setSavedAttachments] = useState([]);   // already uploaded (edit mode)
@@ -208,9 +217,55 @@ const AddJournal = () => {
 
     if (e.key === "Tab") {
       const row = getValues("table");
-      console.log(row)
-      console.log(rs)
-      
+
+      // ── If the user has picked bills in the BillAllocationTable, commit
+      // the party row as multiple voucher_detail rows (one per allocated bill
+      // + one "on account" row for any remainder). This is the multi-bill
+      // payment path: e.g., 1,75,000 paid against bill-1 (1,50,000) and
+      // bill-2 (25,000 of 50,000 outstanding).
+      if ((journal_type === "PMNT" || journal_type === "RCPT") && allocations.length > 0) {
+        const partyAmt = parseFloat(row.debit || 0) + parseFloat(row.credit || 0);
+        const totalAlloc = allocations.reduce((s, a) => s + parseFloat(a.amount || 0), 0);
+
+        if (totalAlloc > partyAmt + 0.01) {
+          toast({
+            title: "Allocation exceeds amount",
+            description: `You've allocated ₹${totalAlloc.toLocaleString("en-IN")} across bills but the party row is only ₹${partyAmt.toLocaleString("en-IN")}.`,
+            variant: "destructive",
+          });
+          e.preventDefault();
+          return;
+        }
+
+        const isDebit = parseFloat(row.debit || 0) > 0;
+        const expanded = allocations.map(a => ({
+          account:    row.account,
+          status:     "",
+          ref_bill_no: a.billno,
+          debit:      isDebit ? a.amount : 0,
+          credit:     !isDebit ? a.amount : 0,
+        }));
+
+        // Remainder becomes an "on account" line with no ref_bill_no
+        const remainder = partyAmt - totalAlloc;
+        if (remainder > 0.01) {
+          expanded.push({
+            account:    row.account,
+            status:     "",
+            ref_bill_no: "",
+            debit:      isDebit ? remainder : 0,
+            credit:     !isDebit ? remainder : 0,
+          });
+        }
+
+        setRows(prev => [...prev, ...expanded]);
+        setAllocations([]);
+        reset({ ...getValues(), table: { account: "", status: "", ref_bill_no: "", debit: "", credit: "" } });
+        e.preventDefault();
+        return;
+      }
+
+      // Default: single-row add
       setRows(prev => [...prev, { ...row }])
       reset({...getValues(),
         table:{
@@ -256,6 +311,20 @@ const AddJournal = () => {
       >
         <h6 className="text-lg font-semibold">Add Journal Entry</h6>
         <hr className="my-3" />
+        {preCustomerOrderId && (journal_type === "RCPT" || journal_type === "RCPT-SALE") && (
+          <div className="my-3 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <div className="flex-1 text-sm">
+              <div className="font-semibold text-emerald-900">
+                Advance receipt for order {preOrderNo || `#${preCustomerOrderId}`}
+              </div>
+              <div className="text-emerald-700 text-xs mt-0.5">
+                This receipt will be linked to the customer order and automatically
+                applied to the sales bill when the order is billed.
+                {preLedgerName && <> Customer: <strong>{preLedgerName}</strong>.</>}
+              </div>
+            </div>
+          </div>
+        )}
         <br></br>
         <div className="grid grid-cols-4 gap-4 mb-4">
           <FieldContainer>
@@ -298,13 +367,16 @@ const AddJournal = () => {
 
         <br></br>
 
+        {(() => {
+          const showStatus = journal_type !== "PMNT" && journal_type !== "RCPT";
+          return (
         <Table className="w-full table-fixed border-collapse">
           <TableBody>
             <TableRow className=" w-full bg-gray-100">
               <TableCell className="w-28 px-4 py-2 border">Options</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Account</TableCell>
 
-              <TableCell className="w-28 px-4 py-2 border">Status</TableCell>
+              {showStatus && <TableCell className="w-28 px-4 py-2 border">Status</TableCell>}
               <TableCell className="w-28 px-4 py-2 border">Ref Bill No</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Debit</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Credit</TableCell>
@@ -321,16 +393,18 @@ const AddJournal = () => {
 
                 </datalist>
               </TableCell>
-              <TableCell className="w-28 px-4 py-2 border">
-                <Input list="status_list" {...register("table.status")} onKeyDown={(e) => handleStatusKeyDown(e)} />
-                <datalist id="status_list">
+              {showStatus && (
+                <TableCell className="w-28 px-4 py-2 border">
+                  <Input list="status_list" {...register("table.status")} onKeyDown={(e) => handleStatusKeyDown(e)} />
+                  <datalist id="status_list">
 
-                  <option key={1} value={"onAccount"}  > {"onAccount"}</option>
-                  <option key={2} value={"Against_Ref"}  > {"Against_Ref"}</option>
+                    <option key={1} value={"onAccount"}  > {"onAccount"}</option>
+                    <option key={2} value={"Against_Ref"}  > {"Against_Ref"}</option>
 
 
-                </datalist>
-              </TableCell>
+                  </datalist>
+                </TableCell>
+              )}
 
               <TableCell className="w-28 px-4 py-2 border">
                 <Input type="number" {...register("table.ref_bill_no")} />
@@ -349,7 +423,7 @@ const AddJournal = () => {
               <TableRow key={index} className="w-full bg-white">
                 <TableCell className="w-28 px-4 py-2 border">
                   <div className="flex justify-center items-center gap-2">
-                    <Edit
+                    <SquarePen
                       size={20}
                       className="cursor-pointer text-primary hover:text-primary"
                       onClick={() => handleEdit(index)}
@@ -364,8 +438,8 @@ const AddJournal = () => {
 
                 </TableCell>
                 <TableCell className="w-20 px-4 py-2 border">{row.account}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.status}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.ref_bill_no}</TableCell>
+                {showStatus && <TableCell className="w-16 px-4 py-2 border">{row.status}</TableCell>}
+                <TableCell className="w-16 px-4 py-2 border">{row.ref_bill_no || (row.account && !showStatus ? <span className="text-muted-foreground italic">on account</span> : "")}</TableCell>
                 <TableCell className="w-24 px-4 py-2 border">{row.debit}</TableCell>
                 <TableCell className="w-32 px-4 py-2 border">{row.credit}</TableCell>
               </TableRow>
@@ -374,7 +448,7 @@ const AddJournal = () => {
             <TableRow>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
-              <TableCell className="w-32 px-4 py-2 border"></TableCell>
+              {showStatus && <TableCell className="w-32 px-4 py-2 border"></TableCell>}
               <TableCell className="w-32 px-4 py-2 border">Total : </TableCell>
               <TableCell className="w-32 px-4 py-2 border">{totalDebit}</TableCell>
 
@@ -383,7 +457,7 @@ const AddJournal = () => {
             <TableRow>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
-              <TableCell className="w-32 px-4 py-2 border"></TableCell>
+              {showStatus && <TableCell className="w-32 px-4 py-2 border"></TableCell>}
               <TableCell className="w-32 px-4 py-2 border">Difference : </TableCell>
               <TableCell className="w-32 px-4 py-2 border">{totalCredit - totalDebit}</TableCell>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
@@ -393,7 +467,33 @@ const AddJournal = () => {
 
           </TableBody>
         </Table>
-        <br></br> <br></br>
+          );
+        })()}
+        <br></br>
+
+        {/* ── Bill-wise allocation picker (PMNT / RCPT only) ────────────────
+            Pick the party ledger + enter the total payable/receivable in the
+            row above, then allocate that amount across one or more
+            outstanding bills here. On Tab from the Credit field, the single
+            party row is expanded into N voucher_detail rows (one per
+            allocated bill, plus one "on account" row for any remainder).
+            Backend validates sums, ledger-match and overpayment. */}
+        {(journal_type === "PMNT" || journal_type === "RCPT") && (() => {
+          const accountName = watch("table.account");
+          const partyAmt    = parseFloat(watch("table.debit") || 0) + parseFloat(watch("table.credit") || 0);
+          const currentLedger = customers.find(c => c.ac_name === accountName);
+          return (
+            <BillAllocationTable
+              ledgerId={currentLedger?.id}
+              kind={journal_type === "PMNT" ? "purchase" : "sales"}
+              partyAmount={partyAmt}
+              allocations={allocations}
+              onChange={setAllocations}
+            />
+          );
+        })()}
+
+        <br></br>
 
         <div className="grid grid-cols-1 gap-4 mb-4">
 

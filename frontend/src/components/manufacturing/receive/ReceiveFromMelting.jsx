@@ -285,7 +285,7 @@ const ReceiveFromMelting = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => remove(index)}
-                                                className="text-red-400 hover:text-red-600"
+                                                className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
                                                 title="Remove row"
                                             >
                                                 <Trash2 size={16} />

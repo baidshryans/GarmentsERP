@@ -11,7 +11,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { DataTable } from "@/table";
-import { Edit, Trash2, Plus, X, Check } from "lucide-react";
+import { SquarePen, Trash2, Plus, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import {
@@ -179,10 +179,10 @@ export default function PacketMaster() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-3">
-          <button onClick={() => handleEdit(row.original)} className="text-primary">
-            <Edit className="size-4" />
+          <button onClick={() => handleEdit(row.original)} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+            <SquarePen className="size-4" />
           </button>
-          <button onClick={() => handleDelete(row.original.id)} className="text-red-500">
+          <button onClick={() => handleDelete(row.original.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors">
             <Trash2 className="size-4" />
           </button>
         </div>

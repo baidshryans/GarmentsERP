@@ -1133,7 +1133,23 @@ class StockTransferViewset(RetailBaseViewset):
         retail = getattr(self.request, 'retail', None)
         return StockTransfer.objects.filter(
             Q(retail=retail) | Q(to_rt_code=retail)
-        ).select_related('retail', 'to_rt_code').order_by('-date', '-billno')
+        ).select_related('retail', 'to_rt_code').order_by('-date1', '-billno')
+
+    def destroy(self, request, *args, **kwargs):
+        transfer = self.get_object()
+        if transfer.rec_status:
+            return Response(
+                {'detail': 'Cannot delete a received transfer.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            barcode_ids = list(transfer.stocktransfermain_set.values_list('barcode_id', flat=True))
+            if transfer.sent_status:
+                # Restore barcodes to sender's inventory
+                BarcodeMain.objects.filter(id__in=barcode_ids).update(stk_status=True)
+            # Clean up barcode transaction audit records
+            BarcodeTransaction.objects.filter(billno=transfer.billno).delete()
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'], url_path='mark-sent')
     def mark_sent(self, request, pk=None):

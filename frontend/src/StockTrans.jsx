@@ -9,7 +9,7 @@ import { fetchBarcodes, fetchNextStockTransferNo, fetchStockTransferForEdit, upd
 import { createStockTransfer, fetchRetails } from "./services/apiService";
 import { useNavigate, useParams } from "react-router-dom";
 import { renderErrorTree } from "./Utils";
-import { Edit, Trash2, ArrowRight, PackageCheck, SendHorizontal, Hash, Scale, Barcode, ScanBarcode } from "lucide-react";
+import { SquarePen, Trash2, ArrowRight, PackageCheck, SendHorizontal, Hash, Scale, Barcode, ScanBarcode } from "lucide-react";
 
 const RetToRetstockTransfer = () => {
     const { toast } = useToast()
@@ -546,7 +546,7 @@ const RetToRetstockTransfer = () => {
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button type="button" onClick={() => handleEdit(index)}
                                                             className="text-primary hover:text-primary transition-colors">
-                                                            <Edit className="size-3.5" />
+                                                            <SquarePen className="size-3.5" />
                                                         </button>
                                                         <button type="button" onClick={() => handleDelete(index)}
                                                             className="text-red-400 hover:text-red-600 transition-colors">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Edit, PlusCircle, Printer, Trash2, Wrench } from "lucide-react";
+import { SquarePen, PlusCircle, Printer, Trash2, Wrench } from "lucide-react";
 import { fetchRepairJobCards, deleteRepairJobCard, fetchRepairJobCardById } from "@/services/apiService";
 import { openAndPrint } from "@/services/print/utils";
 import RepairJobCardPrint from "@/services/print/RepairJobCard";
@@ -72,13 +72,13 @@ export default function RepairJobCardList() {
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Link to={`/manufacturing/repair/${row.original.id}`}>
-            <Edit className="size-4 text-primary" />
+            <SquarePen className="size-4 text-primary" />
           </Link>
           <button onClick={() => handlePrint(row.original.id)} title="Print receipt">
             <Printer className="size-4 text-muted-foreground hover:text-foreground" />
           </button>
-          <button onClick={() => handleDelete(row.original.id)}>
-            <Trash2 className="size-4 text-red-500" />
+          <button onClick={() => handleDelete(row.original.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors">
+            <Trash2 className="size-4" />
           </button>
         </div>
       ),

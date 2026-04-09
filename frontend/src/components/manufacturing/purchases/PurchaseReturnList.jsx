@@ -6,9 +6,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deletePurchaseReturn } from '../../../services/apiService';
+import { openAndPrint } from "@/services/print/utils";
+import CreditDebitNotePrint from "@/services/print/CreditDebitNote";
 import { useSearchParams } from 'react-router-dom';
 
 
@@ -48,18 +50,35 @@ function PurchaseReturnList() {
 
 
 
+  const handlePrintDN = (row) => {
+    const params = new URLSearchParams({
+      type: 'DN',
+      ref_purchase_return: row.id,
+      ldgr_name: row.ldgr_name || '',
+      bill_no: row.billno || '',
+    });
+    window.open(`/accounting/credit-debit-notes/add?${params.toString()}`, '_blank');
+  };
+
   const columns = [
     {
       header: "Action",
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="text-primary flex items-center">
-            <Edit className="mr-1" />   
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+            <SquarePen className="mr-1" />
           </Link>
           <button
+            onClick={() => handlePrintDN(row.original)}
+            className="p-1.5 rounded text-amber-600 hover:bg-amber-50 transition-colors flex items-center"
+            title="Print Debit Note"
+          >
+            <FileText className="mr-1" />
+          </button>
+          <button
             onClick={() => deletePurchaseReturn(row.original.id, toast)}
-            className="text-red-500 flex items-center"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
             <Trash2 className="mr-1" />
           </button>

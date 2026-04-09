@@ -13,7 +13,7 @@ import { fetchMainItem, fetchOrderItem, fetchReceiveSlipNo, fetchKarigarIssues, 
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchPRNoNext, fetchPurchaseReturnForEdit, updatePurchaseReturnForEdit } from "../../../services/apiService";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router";
 
@@ -846,7 +846,7 @@ const PurchaseReturnadd = () => {
 
                   <TableCell className="px-4 py-2 border flex flex-row justify-center items-center gap-3">
 
-                      <Edit size={20} className="mr-1 cursor-pointer" onClick={() => handleEdit(idx)} />
+                      <SquarePen size={20} className="mr-1 cursor-pointer" onClick={() => handleEdit(idx)} />
 
                       <Trash2 size={20} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(idx)} />
                     </TableCell>

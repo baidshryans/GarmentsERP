@@ -636,7 +636,7 @@ class StockTransferMainSerializer(serializers.ModelSerializer):
 
     def get_item_name(self, obj):
         try:
-            return obj.barcode.main_item.item_name if obj.barcode.main_item else None
+            return obj.barcode.item.item_name if obj.barcode.item else None
         except Exception:
             return None
 
@@ -694,6 +694,8 @@ class StockTransferSerializer(serializers.ModelSerializer):
             return parent_instance
 
     def update(self, instance, validated_data):
+        if instance.sent_status:
+            raise serializers.ValidationError("Cannot edit a transfer that has been sent.")
         with transaction.atomic():
             detail_data = validated_data.pop('stocktransfermain_set', [])
             for attr, value in validated_data.items():

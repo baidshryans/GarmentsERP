@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable } from "@/table";
-import { Edit, Plus, X, Check, Store, Zap } from "lucide-react";
+import { SquarePen, Plus, X, Check, Store, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import {
@@ -155,8 +155,8 @@ export default function RetailMasterPage() {
     {
       header: "Action",
       cell: ({ row }) => (
-        <button onClick={() => handleEdit(row.original)} className="text-primary hover:text-primary">
-          <Edit className="size-4" />
+        <button onClick={() => handleEdit(row.original)} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+          <SquarePen className="size-4" />
         </button>
       ),
     },

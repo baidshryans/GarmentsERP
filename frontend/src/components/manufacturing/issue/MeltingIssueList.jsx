@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { deleteMeltingIssue, fetchMeltingIssue } from '../../../services/apiService';
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from 'react-router-dom';
@@ -49,12 +49,12 @@ function MeltingIssueList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <Link to={`${row.original.id}`} className="text-primary hover:text-primary">
-            <Edit size={16} />
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+            <SquarePen size={16} />
           </Link>
           <button
             onClick={() => handleDelete(row.original.id)}
-            className="text-red-400 hover:text-red-600"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
             <Trash2 size={16} />
           </button>

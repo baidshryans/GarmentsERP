@@ -15,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { convertBarcode, fetchBarcodes, fetchKarigarIssueForEdit, fetchUnBarcodedList, updateKarigarIssue } from "../../../services/apiService";
 
 import { default as MulSelect } from "react-select";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { selectRowsFn } from "@tanstack/react-table";
 import { renderErrorTree } from "../../../Utils";
 
@@ -449,7 +449,7 @@ function transformData(jsonData, labelKey) {
               <TableRow key={index} className="w-full bg-white">
                 <TableCell className="w-32 px-4 py-2 border">
                   <div className="flex gap-4">
-                    <Edit size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
+                    <SquarePen size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
 
                     <Trash2 size={24} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
                   </div>

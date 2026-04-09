@@ -13,7 +13,7 @@ from .models import *
 from django.contrib.auth.decorators import login_required
 from userauth import views
 from rest_framework.generics import ListCreateAPIView,RetrieveUpdateDestroyAPIView
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
 from rest_framework import status
 #import other relevant models
@@ -80,7 +80,26 @@ class CustomerOrderViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['order_no'] 
+    ordering = ['order_no']
+
+    @action(detail=True, methods=['get'], url_path='advance-available')
+    def advance_available(self, request, pk=None):
+        """
+        Returns the order's advance state, derived from linked RCPT vouchers:
+          - advance_amt:        total advance received (SUM of linked receipts)
+          - advance_reconciled: total already applied to sales bills
+          - advance_available:  remaining that can be applied to a new bill
+        The frontend should use `advance_available` as a read-only display;
+        the server auto-applies it when the sale is created.
+        """
+        order = self.get_object()
+        return Response({
+            'order_no':           order.order_no,
+            'advance_amt':        float(order.advance_amt),
+            'advance_reconciled': float(order.advance_reconciled),
+            'advance_available':  float(order.advance_available),
+        })
+
 
 class CustomerOrderNumberView(ListCreateAPIView):
 
@@ -1397,10 +1416,111 @@ class EwayBillGenerateView(APIView):
         }
 
         json_data = json.dumps(eway_json, cls=DecimalEncoder, indent=4)
+
+        # Create EWayBill tracking record
+        from .models import EWayBill
+        EWayBill.objects.create(
+            sales_vou=voucher,
+            vehicle_no=voucher.vehicle_no or '',
+            transporter_name=voucher.transporter_name or '',
+            transporter_id=voucher.transporter_id or '',
+            trans_distance=voucher.trans_distance or 0,
+            mode_of_transport=voucher.mode_of_transport or 'Road',
+            json_payload=json_data,
+            retail=request.retail,
+            fiscal_year=getattr(request.retail, 'active_fy', None),
+        )
+
         response = HttpResponse(json_data, content_type='application/octet-stream')
         response['Content-Disposition'] = f'attachment; filename=EWAY_{bill}.json'
         return response
 
+
+class EWayBillListView(APIView):
+    """GET /sales/api/eway-bills/ — list all E-Way bills for the current retail."""
+
+    def get(self, request):
+        from .models import EWayBill
+        qs = EWayBill.objects.filter(retail=request.retail).select_related(
+            'sales_vou', 'sales_vou__ldgr',
+            'sales_approval', 'sales_approval__ldgr',
+        ).order_by('-generated_date')
+
+        search = request.query_params.get('search', '')
+        if search:
+            qs = qs.filter(
+                Q(eway_bill_no__icontains=search) |
+                Q(sales_vou__billno__icontains=search) |
+                Q(sales_approval__billno__icontains=search) |
+                Q(sales_vou__ldgr__ac_name__icontains=search) |
+                Q(sales_approval__ldgr__ac_name__icontains=search) |
+                Q(vehicle_no__icontains=search)
+            )
+
+        status_filter = request.query_params.get('status', '')
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        from .serializers import EWayBillSerializer
+        serializer = EWayBillSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
+@api_view(['POST'])
+def eway_bill_cancel(request, pk):
+    """POST /sales/api/eway-bills/<pk>/cancel/ — cancel an E-Way bill."""
+    from .models import EWayBill
+    from django.utils import timezone
+    try:
+        ewb = EWayBill.objects.get(pk=pk, retail=request.retail)
+    except EWayBill.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if ewb.status == 'CANCELLED':
+        return Response({'detail': 'Already cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    ewb.status = 'CANCELLED'
+    ewb.cancelled_date = timezone.now()
+    ewb.cancel_reason = request.data.get('reason', '')
+    ewb.save(update_fields=['status', 'cancelled_date', 'cancel_reason'])
+    return Response({'detail': 'E-Way Bill cancelled.'})
+
+
+@api_view(['PATCH'])
+def eway_bill_update_ebn(request, pk):
+    """PATCH /sales/api/eway-bills/<pk>/update-ebn/ — save EBN after NIC upload."""
+    from .models import EWayBill
+    try:
+        ewb = EWayBill.objects.get(pk=pk, retail=request.retail)
+    except EWayBill.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    ewb.eway_bill_no = request.data.get('eway_bill_no', ewb.eway_bill_no)
+    if request.data.get('valid_from'):
+        ewb.valid_from = request.data['valid_from']
+    if request.data.get('valid_until'):
+        ewb.valid_until = request.data['valid_until']
+    ewb.save(update_fields=['eway_bill_no', 'valid_from', 'valid_until'])
+    from .serializers import EWayBillSerializer
+    return Response(EWayBillSerializer(ewb).data)
+
+
+@api_view(['DELETE'])
+def eway_bill_delete(request, pk):
+    """DELETE /sales/api/eway-bills/<pk>/ — hard delete (only if no EBN assigned)."""
+    from .models import EWayBill
+    try:
+        ewb = EWayBill.objects.get(pk=pk, retail=request.retail)
+    except EWayBill.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if ewb.eway_bill_no:
+        return Response(
+            {'detail': 'Cannot delete an E-Way Bill with an assigned EBN. Cancel it instead.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    ewb.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ── Customer Purchase History ─────────────────────────────────────────────────

@@ -64,3 +64,7 @@ class VoucherType:
     sale_ret = "SALE-RET"
     rcpt = "RCPT"
     rcpt_sale = "RCPT-SALE"
+    credit_note = "CN"
+    debit_note = "DN"
+    scheme = "SCHM"
+    scheme_redeem = "SCHM-R"

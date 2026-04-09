@@ -284,7 +284,7 @@ export default function BankReconciliation() {
                                 <Unlink className="size-3" />
                               </button>
                             )}
-                            <button onClick={() => handleDelete(r.id)} className="text-red-400 hover:text-red-600">
+                            <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors">
                               <Trash2 className="size-3" />
                             </button>
                           </div>

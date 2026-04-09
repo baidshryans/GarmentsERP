@@ -22,20 +22,60 @@ class Command(BaseCommand):
         )
 
         # ── Account group cache ──────────────────────────────────────────────
-        all_codes = {
-            code
-            for *_, code in _OPERATIONAL_LEDGERS + _TRADING_LEDGERS + _MISC_LEDGERS + _OFFICE_EQUIPMENT_LEDGERS
-        } | {'CA-GST', 'CL-DT-GST', 'CA-CSH'}
+        # _OPERATIONAL_LEDGERS: (field_name, label, code, role) → code at index 2
+        # _TRADING_LEDGERS:     (label, code, role)             → code at index 1
+        # _MISC/_OFFICE:        (label, code)                   → code at index 1
+        all_codes = (
+            {row[2] for row in _OPERATIONAL_LEDGERS}
+            | {row[1] for row in _TRADING_LEDGERS + _MISC_LEDGERS + _OFFICE_EQUIPMENT_LEDGERS}
+            | {'CA-GST', 'CL-DT-GST', 'CA-CSH'}
+        )
         acct = {c: Account.objects.filter(code=c).first() for c in all_codes}
 
         def _ensure(ac_name, display_name, group_code, role='OTH'):
+            group = acct.get(group_code)
             ldgr, created = Ledger.objects.get_or_create(
                 ac_name=ac_name,
                 is_system=True,
-                defaults={'display_name': display_name, 'ac_group': acct.get(group_code)},
+                defaults={'display_name': display_name, 'ac_group': group},
             )
-            LedgerRole.objects.get_or_create(ledger=ldgr, role=role, defaults={'is_primary': True})
+            # Fix missing ac_group on existing ledgers (created before account groups were seeded)
+            if not created and group and ldgr.ac_group_id != group.pk:
+                ldgr.ac_group = group
+                ldgr.save(update_fields=['ac_group'])
+            # Fix wrong role on existing ledgers
+            primary_role = LedgerRole.objects.filter(ledger=ldgr, is_primary=True).first()
+            if primary_role is None:
+                LedgerRole.objects.get_or_create(ledger=ldgr, role=role, defaults={'is_primary': True})
+            elif primary_role.role != role and role != 'OTH':
+                primary_role.role = role
+                primary_role.save(update_fields=['role'])
             return ldgr, created
+
+        # ── 0. Rename stale ledger names from old seeding (idempotent) ─────────
+        # Maps old ac_name → (new ac_name, correct group_code, correct role)
+        RENAMES = {
+            'Discount':       ('Sales Discount',         'INC-DIR-SAL', 'INC'),
+            'Making Receive': ('Making Charge Received', 'INC-DIR-SAL', 'INC'),
+            'Sale Discount':  ('Sales Discount',         'INC-DIR-SAL', 'INC'),
+        }
+        with transaction.atomic():
+            for old_name, (new_name, group_code, role) in RENAMES.items():
+                group = acct.get(group_code)
+                qs = Ledger.objects.filter(ac_name=old_name, is_system=True)
+                if qs.exists() and not Ledger.objects.filter(ac_name=new_name, is_system=True).exists():
+                    updated = qs.update(
+                        ac_name=new_name,
+                        display_name=new_name,
+                        **(({'ac_group': group} if group else {})),
+                    )
+                    # Fix role
+                    for ldgr in Ledger.objects.filter(ac_name=new_name, is_system=True):
+                        pr = LedgerRole.objects.filter(ledger=ldgr, is_primary=True).first()
+                        if pr and pr.role != role:
+                            pr.role = role
+                            pr.save(update_fields=['role'])
+                    self.stdout.write(self.style.SUCCESS(f"  [RENAMED] '{old_name}' → '{new_name}'"))
 
         # ── 1. Company-level ledgers ─────────────────────────────────────────
         with transaction.atomic():
@@ -43,16 +83,22 @@ class Command(BaseCommand):
                 update_fields = {}
 
                 # FK-backed operational ledgers
-                for field_name, label, code in _OPERATIONAL_LEDGERS:
-                    ldgr, created = _ensure(label, label, code)
+                for field_name, label, code, role in _OPERATIONAL_LEDGERS:
+                    ldgr, created = _ensure(label, label, code, role=role)
                     if created:
                         self.stdout.write(f"  [NEW] {label}")
                     fk_field = f"{field_name}_id"
                     if getattr(company, fk_field) is None:
                         update_fields[fk_field] = ldgr.pk
 
-                # Non-FK ledgers: trading, misc, equipment
-                for label, code in _TRADING_LEDGERS + _MISC_LEDGERS + _OFFICE_EQUIPMENT_LEDGERS:
+                # Trading ledgers — purchase (EXP) and sales (INC) roles
+                for label, code, role in _TRADING_LEDGERS:
+                    _, created = _ensure(label, label, code, role=role)
+                    if created:
+                        self.stdout.write(f"  [NEW] {label}")
+
+                # Misc + equipment ledgers
+                for label, code in _MISC_LEDGERS + _OFFICE_EQUIPMENT_LEDGERS:
                     _, created = _ensure(label, label, code)
                     if created:
                         self.stdout.write(f"  [NEW] {label}")

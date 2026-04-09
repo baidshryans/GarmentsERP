@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/table";
-import { Building2, Edit, Plus, X, Check, Trash2, GitBranch, Globe } from "lucide-react";
+import { Building2, SquarePen, Plus, X, Check, Trash2, GitBranch, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { fetchCompanies, createCompany, updateCompany, deleteCompany } from "@/services/apiService";
@@ -140,8 +140,8 @@ export default function CompanyMasterPage() {
       header: "Actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <button onClick={() => handleEdit(row.original)} className="text-primary hover:text-primary" title="Edit">
-            <Edit className="size-4" />
+          <button onClick={() => handleEdit(row.original)} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors" title="Edit">
+            <SquarePen className="size-4" />
           </button>
           <button onClick={() => handleDelete(row.original)} className="text-rose-400 hover:text-rose-600" title="Delete">
             <Trash2 className="size-4" />

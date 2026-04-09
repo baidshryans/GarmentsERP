@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { Edit, Plus, Printer, Trash2, FileJson, Truck } from "lucide-react";
+import { SquarePen, Plus, Printer, Trash2, FileJson, Truck } from "lucide-react";
 import { openAndPrint } from '@/services/print/utils';
 import SalesInvoice from '@/services/print/SalesInvoice';
 import { useToast } from "@/hooks/use-toast";
@@ -113,12 +113,12 @@ function SalesVoucherList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Link to={`/sales/${row.original.id}`} className="text-primary hover:text-primary/80">
-            <Edit className="w-4 h-4" />
+          <Link to={`/sales/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+            <SquarePen className="w-4 h-4" />
           </Link>
           <button
             onClick={() => deleteSalesVoucher(row.original.id, toast)}
-            className="text-destructive hover:text-destructive/80"
+            className="p-1.5 rounded text-destructive hover:bg-red-50 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -160,7 +160,7 @@ function SalesVoucherList() {
                 toast({ title: 'JSON generation failed', description: detail, variant: 'destructive' });
               }
             }}
-            className="text-primary hover:text-primary"
+            className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors"
           >
             <FileJson className="w-4 h-4" />
           </button>

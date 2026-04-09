@@ -722,6 +722,29 @@ class JournalEntryViewSet(RetailBaseViewset):
             VoucherType.sale_ret, VoucherType.rcpt_sale,
         ]
         return qs.exclude(voucher_type__in=excluded)
+
+    from rest_framework.decorators import action as _drf_action
+    @_drf_action(detail=True, methods=['post'], url_path='cancel')
+    def cancel(self, request, pk=None):
+        """
+        Soft-cancel a posted voucher: reverse its invoice `due_amt` effects
+        and mark status='cancelled'. The row is preserved for audit —
+        prefer this over DELETE in production.
+        """
+        from .signals import cancel_voucher
+        voucher = self.get_object()
+        if voucher.status == 'cancelled':
+            return Response(
+                {'detail': 'Voucher is already cancelled.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        cancel_voucher(voucher, user=request.user)
+        return Response({
+            'id':        voucher.id,
+            'voucher_no': voucher.voucher_no,
+            'status':    voucher.status,
+            'detail':    'Voucher cancelled and ledger effects reversed.',
+        })
     def perform_create(self, serializer):
         with transaction.atomic():
             serializer.save(retail=self.request.retail)
@@ -819,8 +842,199 @@ class PurchaseVoucherView(ListAPIView):
 
     def get_queryset(self):
         ldgr_id = self.request.query_params.get("ldgr_id")
-        
+
         return self.serializer_class.Meta.model.objects.filter(retail =self.request.retail ,ldgr_id=ldgr_id, due_amt__gt=0)
+
+
+class AgedReceivablesView(APIView):
+    """
+    GET /accounting/api/aged-receivables/?kind=sales|purchase
+
+    Buckets outstanding invoices by age-of-due relative to today:
+      0-30 / 31-60 / 61-90 / 90+ days.
+
+    Returns one row per party with totals per bucket. Drives the
+    "Aged Receivables" / "Aged Payables" dashboard report.
+    """
+
+    def get(self, request):
+        from datetime import date as _date
+        kind = (request.query_params.get('kind') or 'sales').lower()
+        retail = request.retail
+        today = _date.today()
+
+        if kind == 'sales':
+            qs = SalesVou.objects.filter(retail=retail, due_amt__gt=0) \
+                .select_related('ldgr').order_by('ldgr__ac_name', 'date1')
+            date_field = 'date1'
+            bill_field = 'billno'
+        elif kind == 'purchase':
+            qs = PurchaseVoucher.objects.filter(retail=retail, due_amt__gt=0) \
+                .select_related('ldgr').order_by('ldgr__ac_name', 'date1')
+            date_field = 'date1'
+            bill_field = 'billno'
+        else:
+            return Response(
+                {'error': "kind must be 'sales' or 'purchase'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Party → {b0_30, b31_60, b61_90, b90_plus, total, bills[]}
+        parties = {}
+        for bill in qs:
+            ldgr = bill.ldgr
+            if not ldgr:
+                continue
+            age = (today - getattr(bill, date_field)).days
+            if age <= 30:
+                bucket = 'b0_30'
+            elif age <= 60:
+                bucket = 'b31_60'
+            elif age <= 90:
+                bucket = 'b61_90'
+            else:
+                bucket = 'b90_plus'
+
+            key = ldgr.id
+            if key not in parties:
+                parties[key] = {
+                    'ldgr_id':   ldgr.id,
+                    'ldgr_name': ldgr.ac_name,
+                    'b0_30':     Decimal('0'),
+                    'b31_60':    Decimal('0'),
+                    'b61_90':    Decimal('0'),
+                    'b90_plus':  Decimal('0'),
+                    'total':     Decimal('0'),
+                    'bills':     [],
+                }
+            due = Decimal(str(bill.due_amt or 0))
+            parties[key][bucket] += due
+            parties[key]['total'] += due
+            parties[key]['bills'].append({
+                'billno':  getattr(bill, bill_field),
+                'date':    getattr(bill, date_field),
+                'age':     age,
+                'due_amt': float(due),
+            })
+
+        # Serialize Decimals to float for JSON
+        rows = []
+        for p in parties.values():
+            rows.append({
+                'ldgr_id':   p['ldgr_id'],
+                'ldgr_name': p['ldgr_name'],
+                'b0_30':     float(p['b0_30']),
+                'b31_60':    float(p['b31_60']),
+                'b61_90':    float(p['b61_90']),
+                'b90_plus':  float(p['b90_plus']),
+                'total':     float(p['total']),
+                'bills':     p['bills'],
+            })
+        rows.sort(key=lambda r: -r['total'])
+
+        totals = {
+            'b0_30':    sum(r['b0_30']    for r in rows),
+            'b31_60':   sum(r['b31_60']   for r in rows),
+            'b61_90':   sum(r['b61_90']   for r in rows),
+            'b90_plus': sum(r['b90_plus'] for r in rows),
+            'total':    sum(r['total']    for r in rows),
+        }
+        return Response({'as_of': today, 'kind': kind, 'rows': rows, 'totals': totals})
+
+
+class AdvanceRegisterView(APIView):
+    """
+    GET /accounting/api/advance-register/
+
+    Lists all Customer Orders that have ever had an advance receipt, with:
+      received / reconciled / remaining columns driven by
+      CustomerOrder.advance_amt (computed property) and advance_reconciled.
+    """
+
+    def get(self, request):
+        from sales.models import CustomerOrder
+        retail = request.retail
+        orders = CustomerOrder.objects.filter(
+            retail=retail, receipts__isnull=False,
+        ).select_related('ldgr').distinct().order_by('-date1', '-id')
+
+        rows = []
+        for o in orders:
+            received    = o.advance_amt
+            reconciled  = o.advance_reconciled
+            remaining   = o.advance_available
+            if received <= 0:
+                continue
+            rows.append({
+                'order_id':   o.id,
+                'order_no':   o.order_no,
+                'date':       o.date1,
+                'ldgr_id':    o.ldgr_id,
+                'ldgr_name':  o.ldgr.ac_name if o.ldgr else None,
+                'status':     o.status,
+                'received':   float(received),
+                'reconciled': float(reconciled),
+                'remaining':  float(remaining),
+            })
+
+        totals = {
+            'received':   sum(r['received']   for r in rows),
+            'reconciled': sum(r['reconciled'] for r in rows),
+            'remaining':  sum(r['remaining']  for r in rows),
+        }
+        return Response({'rows': rows, 'totals': totals})
+
+
+class OutstandingBillsView(APIView):
+    """
+    Unified bill-allocation picker endpoint.
+
+    GET /accounting/api/outstanding-bills/?ledger={id}&type={sales|purchase}
+
+    Returns bills with `due_amt > 0` for the given ledger, compact shape:
+      [{id, billno, date, total, due_amt}, ...]
+
+    Used by the BillAllocationTable component in the Payment/Receipt voucher UI.
+    """
+
+    def get(self, request):
+        ldgr_id = request.query_params.get('ledger')
+        kind    = (request.query_params.get('type') or '').lower()
+        if not ldgr_id or kind not in ('sales', 'purchase'):
+            return Response(
+                {'error': "Query params 'ledger' and 'type' (sales|purchase) are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        retail = request.retail
+        if kind == 'sales':
+            qs = SalesVou.objects.filter(
+                retail=retail, ldgr_id=ldgr_id, due_amt__gt=0,
+            ).order_by('date1', 'id')
+            data = [
+                {
+                    'id':       sv.id,
+                    'billno':   sv.billno,
+                    'date':     sv.date1,
+                    'total':    float(sv.total_bill_value or 0),
+                    'due_amt':  float(sv.due_amt or 0),
+                }
+                for sv in qs
+            ]
+        else:
+            qs = PurchaseVoucher.objects.filter(
+                retail=retail, ldgr_id=ldgr_id, due_amt__gt=0,
+            ).order_by('date1', 'id')
+            data = [
+                {
+                    'id':       pv.id,
+                    'billno':   pv.billno,
+                    'date':     pv.date1,
+                    'total':    float(pv.bill_value or pv.item_total or 0),
+                    'due_amt':  float(pv.due_amt or 0),
+                }
+                for pv in qs
+            ]
+        return Response(data)
 
 class SaleVoucherView(ListAPIView):
     serializer_class = SalesVouSerializer
@@ -1599,3 +1813,130 @@ class AuditMarkView(APIView):
         ).delete()
 
         return Response({'unmarked': deleted})
+
+
+# ── Credit / Debit Notes ──────────────────────────────────────────────────────
+
+class CreditDebitNoteViewSet(RetailBaseViewset):
+    from .models import CreditDebitNote
+    from .serializers import CreditDebitNoteSerializer
+    serializer_class = CreditDebitNoteSerializer
+    queryset = CreditDebitNote.objects.select_related(
+        'ldgr', 'adjustment_ldgr', 'ref_sales_vou', 'ref_purchase_vou', 'ac_voucher',
+    ).all()
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    filterset_fields = ['note_type']
+    search_fields = ['note_no', 'ldgr__ac_name', 'reason']
+    ordering = ['-date', '-id']
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    def destroy(self, request, *args, **kwargs):
+        note = self.get_object()
+        if note.ac_voucher and note.ac_voucher.status != 'cancelled':
+            from .signals import cancel_voucher
+            cancel_voucher(note.ac_voucher, user=request.user)
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        retail = self.request.retail
+        serializer.save(
+            retail=retail,
+            fiscal_year=retail.active_fy,
+            gstin_ref=retail.active_gstin if hasattr(retail, 'active_gstin') else None,
+            branch_ref=retail.branch if hasattr(retail, 'branch') else None,
+        )
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_201_CREATED:
+            return Response({'success': True, 'data': response.data}, status=status.HTTP_201_CREATED)
+        return Response({'success': False, 'errors': response.data}, status=status.HTTP_400_BAD_REQUEST)
+
+    from rest_framework.decorators import action as _drf_action
+
+    @_drf_action(detail=True, methods=['get'], url_path='print-data')
+    def print_data(self, request, pk=None):
+        """Return all data needed by the frontend print component."""
+        note = self.get_object()
+        retail = request.retail
+
+        # Company info
+        company = retail.branch.company if retail.branch_id and retail.branch else None
+        company_name = company.company_name if company else (retail.name if hasattr(retail, 'name') else '')
+        company_address = ', '.join(filter(None, [
+            getattr(retail, 'address_line1', ''),
+            getattr(retail, 'address_line2', ''),
+            getattr(retail, 'city', ''),
+            getattr(retail, 'pincode', ''),
+        ]))
+        company_gstin = retail.gstin or ''
+        company_state = retail.state.name if getattr(retail, 'state', None) else ''
+
+        # Party info
+        ldgr = note.ldgr
+        party_address = ', '.join(filter(None, [
+            ldgr.add1 or '', ldgr.add2 or '', ldgr.city or '', ldgr.pincode or '',
+        ]))
+
+        # Original invoice info
+        ref_invoice_no = ''
+        ref_invoice_date = ''
+        if note.ref_sales_vou:
+            ref_invoice_no = note.ref_sales_vou.billno
+            ref_invoice_date = str(note.ref_sales_vou.date1 or '')
+        elif note.ref_purchase_vou:
+            ref_invoice_no = note.ref_purchase_vou.billno
+            ref_invoice_date = str(note.ref_purchase_vou.date1 or '')
+
+        data = {
+            'note_type': note.note_type,
+            'note_type_display': note.get_note_type_display(),
+            'note_no': note.note_no,
+            'date': str(note.date),
+            'company_name': company_name,
+            'company_address': company_address,
+            'company_gstin': company_gstin,
+            'company_state': company_state,
+            'party_name': ldgr.ac_name,
+            'party_address': party_address,
+            'party_gstin': ldgr.gst or '',
+            'party_state': ldgr.state or '',
+            'ref_invoice_no': ref_invoice_no,
+            'ref_invoice_date': ref_invoice_date,
+            'reason': note.reason,
+            'taxable_value': float(note.taxable_value),
+            'cgst_per': float(note.cgst_per),
+            'cgst_amt': float(note.cgst_amt),
+            'sgst_per': float(note.sgst_per),
+            'sgst_amt': float(note.sgst_amt),
+            'igst_per': float(note.igst_per),
+            'igst_amt': float(note.igst_amt),
+            'amount': float(note.amount),
+            'adjustment_ledger': note.adjustment_ldgr.ac_name,
+        }
+        return Response(data)
+
+    @_drf_action(detail=True, methods=['post'], url_path='cancel')
+    def cancel_note(self, request, pk=None):
+        """Cancel a CN/DN: reverse the accounting voucher and mark it cancelled."""
+        from .signals import cancel_voucher
+        note = self.get_object()
+        if not note.ac_voucher:
+            return Response({'error': 'No accounting voucher linked.'}, status=400)
+        if note.ac_voucher.status == 'cancelled':
+            return Response({'error': 'Already cancelled.'}, status=400)
+        cancel_voucher(note.ac_voucher, user=request.user)
+        return Response({'detail': 'Credit/Debit Note cancelled and ledger effects reversed.'})
+
+
+class NextCNDNNumberView(APIView):
+    """GET /accounting/api/cn-dn-no/{type}/  →  next note number."""
+
+    def get(self, request, note_type):
+        note_type = note_type.upper()
+        if note_type not in ('CN', 'DN'):
+            return Response({'error': "type must be 'CN' or 'DN'"}, status=400)
+        from .utils import peek_next_bill_number
+        retail = request.retail
+        next_no = peek_next_bill_number(retail, note_type)
+        return Response({'next_no': next_no})

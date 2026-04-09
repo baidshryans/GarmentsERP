@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { Edit, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem } from "lucide-react";
+import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -705,7 +705,7 @@ const SalesVoucherAdd = () => {
     { label: 'TCS',            field: 'form.tcs_amt' },
     { isSeparator: true },
     { label: 'Total',          field: 'form.total_bill_value', isTotal: true, isEditableTotal: true },
-    ...(selectedOrder ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: true, step: '1' }] : []),
+    ...(selectedOrder ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: false, step: '1' }] : []),
     ...(selectedPurchase ? [{ label: 'Old Gold Adjusted', field: 'form.old_gold_adjusted', editable: true, step: '1' }] : []),
   ];
 
@@ -994,8 +994,8 @@ const SalesVoucherAdd = () => {
               <div className="mt-3 flex items-center gap-3">
                 <AlertCircle className="size-3.5 text-amber-600 shrink-0" />
                 <p className="text-xs text-amber-700">
-                  Advance deducted reduces the <strong>due amount</strong> on this bill.
-                  Adjust the "Advance Deducted" field in the bill summary if you want to apply a partial amount.
+                  The full available advance is applied automatically. Any surplus
+                  stays on the order and will roll into the next bill against it.
                 </p>
               </div>
             )}
@@ -1508,7 +1508,7 @@ const SalesVoucherAdd = () => {
                 <TableRow key={index}>
                   <TableCell className="px-3 py-2 border">
                     <div className="flex gap-3">
-                      <Edit size={16} className="cursor-pointer" onClick={() => handleEditBank(index)} />
+                      <SquarePen size={16} className="cursor-pointer" onClick={() => handleEditBank(index)} />
                       <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteBank(index)} />
                     </div>
                   </TableCell>

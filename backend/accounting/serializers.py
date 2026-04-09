@@ -78,13 +78,15 @@ class VoucherDetailSerializer(serializers.ModelSerializer):
         fields=[
         "voucher_no",
         "ref_bill_no",
+        "ref_sales_vou",
+        "ref_purchase_vou",
         "voucher_type",
         "account",
         "status",
         "debit",
         "credit",
         "party_bank_name",
-        "chq_no", 
+        "chq_no",
         "chq_date"
         ]
         extra_kwargs = {
@@ -176,6 +178,14 @@ class JournalEntrySerializer(serializers.Serializer):
     voucher_type = serializers.CharField(max_length=10)
     retail = serializers.PrimaryKeyRelatedField(queryset=RetailMaster.objects.all())
     status = serializers.CharField(max_length=200,required=False)
+    # customer_order: accepted as a plain integer ID on input and resolved in
+    # create(). Using PrimaryKeyRelatedField here would force a module-load-time
+    # import of sales.CustomerOrder, which pulls in sales.serializers, which
+    # already imports from accounting.serializers → circular import.
+    customer_order = serializers.IntegerField(
+        required=False, allow_null=True,
+        help_text="For RCPT vouchers: link this receipt to an advance on a Customer Order (PK)"
+    )
     voucher_details = VoucherDetailSerializer(many=True,source='transactions')
     """
     {
@@ -186,6 +196,20 @@ class JournalEntrySerializer(serializers.Serializer):
     @transaction.atomic
     def create(self, validated_data):
         voucher_details = validated_data.pop('transactions')
+
+        # ── Resolve customer_order ID → instance (lazy import breaks cycle) ──
+        co_id = validated_data.pop('customer_order', None)
+        vtype_upper = validated_data.get('voucher_type', '').strip().upper()
+        if co_id:
+            if vtype_upper not in ('RCPT', 'RCPT-SALE'):
+                raise ValidationError(
+                    "customer_order can only be linked to a RCPT/RCPT-SALE voucher."
+                )
+            from sales.models import CustomerOrder
+            try:
+                validated_data['customer_order'] = CustomerOrder.objects.get(pk=co_id)
+            except CustomerOrder.DoesNotExist:
+                raise ValidationError(f"CustomerOrder id={co_id} not found.")
 
         # ── Section 269ST cash receipt limit check (standalone RCPT only) ────
         retail_obj = validated_data.get('retail')
@@ -275,6 +299,33 @@ class JournalEntrySerializer(serializers.Serializer):
 
         if round(Decimal(str(debit_total)), 2) != round(Decimal(str(credit_total)), 2):
             raise ValidationError(f"Total debit and credit amounts must be equal credit:{credit_total} debit:{debit_total} \n det :{voucher_details}")
+
+        # ── Bill-wise allocation sanity: per-ledger, the sum of all ref_bill_no
+        # line amounts must not exceed the party-leg amount on that ledger in
+        # this voucher. (It's allowed to be less — that's an "on account"
+        # balance for the remainder.) This catches fat-finger errors where the
+        # user allocates ₹10,000 across bills while only receiving ₹8,000.
+        if vtype_upper in ('PMNT', 'RCPT'):
+            per_ledger_party = {}     # ledger_id → total party-leg amount in this voucher
+            per_ledger_alloc = {}     # ledger_id → total allocated to specific bills
+            for d in voucher_details:
+                acct = d.get('account')
+                if acct is None:
+                    continue
+                if _has_role(acct, 'CA') or _has_role(acct, 'BA'):
+                    continue  # cash/bank legs are not party legs
+                amt = Decimal(str(d.get('debit') or d.get('credit') or 0))
+                per_ledger_party[acct.id] = per_ledger_party.get(acct.id, Decimal('0')) + amt
+                if d.get('ref_bill_no'):
+                    per_ledger_alloc[acct.id] = per_ledger_alloc.get(acct.id, Decimal('0')) + amt
+            for ldgr_id, allocated in per_ledger_alloc.items():
+                party_amt = per_ledger_party.get(ldgr_id, Decimal('0'))
+                if allocated > party_amt + Decimal('0.01'):
+                    raise ValidationError(
+                        f"Bill allocation (₹{allocated}) exceeds the amount posted to "
+                        f"this ledger (₹{party_amt}) in this voucher."
+                    )
+
         for detail in voucher_details:
 
             if detail['debit'] == 0 and detail['credit'] == 0:
@@ -290,15 +341,27 @@ class JournalEntrySerializer(serializers.Serializer):
             except Ledger.DoesNotExist:
                 raise ValidationError(f"Ledger with {detail['account']} not found")
            
+            # Auto-populate ref_sales_vou / ref_purchase_vou from ref_bill_no text
+            # (backfill strongly-typed FK for new rows so reports don't need text matching)
+            if detail.get('ref_bill_no') and not detail.get('ref_sales_vou') and not detail.get('ref_purchase_vou'):
+                if vtype_upper in ('RCPT', 'RCPT-SALE'):
+                    sv = SalesVou.objects.filter(billno=detail['ref_bill_no']).first()
+                    if sv:
+                        detail['ref_sales_vou'] = sv
+                elif vtype_upper == 'PMNT':
+                    pv = PurchaseVoucher.objects.filter(billno=detail['ref_bill_no']).first()
+                    if pv:
+                        detail['ref_purchase_vou'] = pv
+
             voucher_detail = VoucherDetail.objects.create(
                 voucher_main=voucher_main,
                 voucher_no=validated_data['voucher_no'],
                 voucher_type=validated_data['voucher_type'],
-                
+
                 account=account_instance,
                 **detail
             )
-            
+
             # Reference Bills creation logic
             if detail.get('ref_bill_no',False):
                 ReferenceBills.objects.create(
@@ -320,15 +383,90 @@ class JournalEntrySerializer(serializers.Serializer):
                 )
 
             # Update due amount if PMNT voucher type
-            if (validated_data['voucher_type'].strip().upper() == "PMNT" and detail.get('ref_bill_no',False) and detail.get('ref_bill_no',False) != ''):
-                purchase_voucher = PurchaseVoucher.objects.select_for_update().get(bill_no=detail['ref_bill_no'])
-                purchase_voucher.due_amt -= Decimal(str(detail['debit'] or detail['credit'] or 0))
+            if vtype_upper == "PMNT" and detail.get('ref_bill_no'):
+                try:
+                    purchase_voucher = PurchaseVoucher.objects.select_for_update().get(billno=detail['ref_bill_no'])
+                except PurchaseVoucher.DoesNotExist:
+                    raise ValidationError(
+                        f"Purchase voucher '{detail['ref_bill_no']}' not found — cannot allocate payment."
+                    )
+                # Ledger must match — can't pay Vendor A's bill from Vendor B's ledger
+                if purchase_voucher.ldgr_id != account_instance.id:
+                    raise ValidationError(
+                        f"Ledger mismatch: purchase {purchase_voucher.billno} belongs to "
+                        f"'{purchase_voucher.ldgr.ac_name}', but this line is posted to "
+                        f"'{account_instance.ac_name}'."
+                    )
+                amt = Decimal(str(detail['debit'] or detail['credit'] or 0))
+                if amt > purchase_voucher.due_amt:
+                    raise ValidationError(
+                        f"Overpayment on purchase {purchase_voucher.billno}: "
+                        f"outstanding ₹{purchase_voucher.due_amt}, attempted ₹{amt}."
+                    )
+                purchase_voucher.due_amt -= amt
                 purchase_voucher.save()
 
-            if (validated_data['voucher_type'].strip().upper() == "RCPT" and detail.get('ref_bill_no',False) and detail.get('ref_bill_no',False) != ''):
-                sale_voucher = SalesVou.objects.select_for_update().get(billno=detail['ref_bill_no'])
-                sale_voucher.due_amt -= Decimal(str(detail['debit'] or detail['credit'] or 0))
+            if vtype_upper == "RCPT" and detail.get('ref_bill_no'):
+                try:
+                    sale_voucher = SalesVou.objects.select_for_update().get(billno=detail['ref_bill_no'])
+                except SalesVou.DoesNotExist:
+                    raise ValidationError(
+                        f"Sales voucher '{detail['ref_bill_no']}' not found — cannot allocate receipt."
+                    )
+                if sale_voucher.ldgr_id != account_instance.id:
+                    raise ValidationError(
+                        f"Ledger mismatch: sale {sale_voucher.billno} belongs to "
+                        f"'{sale_voucher.ldgr.ac_name}', but this line is posted to "
+                        f"'{account_instance.ac_name}'."
+                    )
+                amt = Decimal(str(detail['debit'] or detail['credit'] or 0))
+                if amt > sale_voucher.due_amt:
+                    raise ValidationError(
+                        f"Over-receipt on sale {sale_voucher.billno}: "
+                        f"outstanding ₹{sale_voucher.due_amt}, attempted ₹{amt}."
+                    )
+                sale_voucher.due_amt -= amt
                 sale_voucher.save()
+
+            # ── JRNL vouchers can adjust invoice due_amt (credit notes,
+            # post-billing discounts, bad-debt write-offs). The direction is
+            # driven by which side (Dr/Cr) the party ledger is posted on,
+            # matching the PMNT/RCPT semantics:
+            #   - JRNL + ref_bill_no matching a SalesVou  + CREDIT on party
+            #     ledger  ⇒ write down customer receivable (like an RCPT)
+            #   - JRNL + ref_bill_no matching a Purchase  + DEBIT on party
+            #     ledger  ⇒ write down vendor payable (like a PMNT)
+            # If both match, prefer the one whose ledger matches account_instance.
+            if vtype_upper in ("JRNL", "CN", "DN") and detail.get('ref_bill_no'):
+                d_amt = Decimal(str(detail.get('debit') or 0))
+                c_amt = Decimal(str(detail.get('credit') or 0))
+                sv = SalesVou.objects.select_for_update().filter(
+                    billno=detail['ref_bill_no'], ldgr_id=account_instance.id
+                ).first()
+                pv = PurchaseVoucher.objects.select_for_update().filter(
+                    billno=detail['ref_bill_no'], ldgr_id=account_instance.id
+                ).first()
+                if sv and c_amt > 0:
+                    if c_amt > sv.due_amt:
+                        raise ValidationError(
+                            f"JRNL adjustment ₹{c_amt} exceeds outstanding ₹{sv.due_amt} "
+                            f"on sale {sv.billno}."
+                        )
+                    sv.due_amt -= c_amt
+                    sv.save(update_fields=['due_amt'])
+                elif pv and d_amt > 0:
+                    if d_amt > pv.due_amt:
+                        raise ValidationError(
+                            f"JRNL adjustment ₹{d_amt} exceeds outstanding ₹{pv.due_amt} "
+                            f"on purchase {pv.billno}."
+                        )
+                    pv.due_amt -= d_amt
+                    pv.save(update_fields=['due_amt'])
+                elif not sv and not pv:
+                    raise ValidationError(
+                        f"JRNL ref_bill_no '{detail['ref_bill_no']}' does not match any "
+                        f"sale or purchase voucher for ledger '{account_instance.ac_name}'."
+                    )
 
 
         return voucher_main
@@ -345,18 +483,22 @@ class JournalEntrySerializer(serializers.Serializer):
                 amt = old_detail.debit or old_detail.credit or Decimal(0)
                 if voucher_type == "PMNT" and ref_bill_no:
                     try:
-                        purchase_voucher = PurchaseVoucher.objects.select_for_update().get(bill_no=ref_bill_no)
+                        purchase_voucher = PurchaseVoucher.objects.select_for_update().get(billno=ref_bill_no)
                         purchase_voucher.due_amt += amt
                         purchase_voucher.save()
                     except PurchaseVoucher.DoesNotExist:
-                        pass
+                        raise ValidationError(
+                            f"Cannot reverse original allocation: purchase voucher '{ref_bill_no}' no longer exists."
+                        )
                 elif voucher_type == "RCPT" and ref_bill_no:
                     try:
                         sale_voucher = SalesVou.objects.select_for_update().get(billno=ref_bill_no)
                         sale_voucher.due_amt += amt
                         sale_voucher.save()
                     except SalesVou.DoesNotExist:
-                        pass
+                        raise ValidationError(
+                            f"Cannot reverse original allocation: sales voucher '{ref_bill_no}' no longer exists."
+                        )
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
@@ -367,18 +509,32 @@ class JournalEntrySerializer(serializers.Serializer):
                 amt = Decimal(detail.get('debit') or detail.get('credit') or 0)
                 if voucher_type == "PMNT" and ref_bill_no:
                     try:
-                        purchase_voucher = PurchaseVoucher.objects.select_for_update().get(bill_no=ref_bill_no)
-                        purchase_voucher.due_amt -= amt
-                        purchase_voucher.save()
+                        purchase_voucher = PurchaseVoucher.objects.select_for_update().get(billno=ref_bill_no)
                     except PurchaseVoucher.DoesNotExist:
-                        pass
+                        raise ValidationError(
+                            f"Purchase voucher '{ref_bill_no}' not found — cannot allocate payment."
+                        )
+                    if amt > purchase_voucher.due_amt:
+                        raise ValidationError(
+                            f"Overpayment on purchase {purchase_voucher.billno}: "
+                            f"outstanding ₹{purchase_voucher.due_amt}, attempted ₹{amt}."
+                        )
+                    purchase_voucher.due_amt -= amt
+                    purchase_voucher.save()
                 elif voucher_type == "RCPT" and ref_bill_no:
                     try:
                         sale_voucher = SalesVou.objects.select_for_update().get(billno=ref_bill_no)
-                        sale_voucher.due_amt -= amt
-                        sale_voucher.save()
                     except SalesVou.DoesNotExist:
-                        pass
+                        raise ValidationError(
+                            f"Sales voucher '{ref_bill_no}' not found — cannot allocate receipt."
+                        )
+                    if amt > sale_voucher.due_amt:
+                        raise ValidationError(
+                            f"Over-receipt on sale {sale_voucher.billno}: "
+                            f"outstanding ₹{sale_voucher.due_amt}, attempted ₹{amt}."
+                        )
+                    sale_voucher.due_amt -= amt
+                    sale_voucher.save()
             return instance
 
 
@@ -434,3 +590,151 @@ class PurchaseVoucherSerializer(serializers.ModelSerializer):
     class Meta:
         model = PurchaseVoucher
         fields = "__all__"
+
+
+class CreditDebitNoteSerializer(serializers.ModelSerializer):
+    ldgr_name = serializers.CharField(source='ldgr.ac_name', read_only=True)
+    adjustment_ldgr_name = serializers.CharField(source='adjustment_ldgr.ac_name', read_only=True)
+    ref_bill_no = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        from .models import CreditDebitNote
+        model = CreditDebitNote
+        fields = [
+            'id', 'note_type', 'note_no', 'date',
+            'ldgr', 'ldgr_name',
+            'adjustment_ldgr', 'adjustment_ldgr_name',
+            'ref_sales_vou', 'ref_purchase_vou',
+            'ref_sale_return', 'ref_purchase_return',
+            'ref_bill_no',
+            'reason', 'amount', 'taxable_value',
+            'cgst_per', 'cgst_amt', 'sgst_per', 'sgst_amt',
+            'igst_per', 'igst_amt',
+            'ac_voucher', 'retail', 'fiscal_year', 'gstin_ref', 'branch_ref',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'note_no', 'ac_voucher', 'created_at', 'updated_at']
+
+    def get_ref_bill_no(self, obj):
+        if obj.ref_sales_vou_id:
+            return obj.ref_sales_vou.billno
+        if obj.ref_purchase_vou_id:
+            return obj.ref_purchase_vou.billno
+        return None
+
+    @transaction.atomic
+    def create(self, validated_data):
+        from .models import CreditDebitNote
+        from accounting.utils import generate_voucher_no, get_next_bill_number
+        from mastersconfig.models import GSTINMaster
+
+        note_type = validated_data['note_type']
+        ldgr = validated_data['ldgr']
+        adjustment_ldgr = validated_data['adjustment_ldgr']
+        retail = validated_data['retail']
+        gstin_ref = validated_data.get('gstin_ref')
+
+        # Generate note_no in standard ERP format: CN/R001/26-27/00001
+        validated_data['note_no'] = get_next_bill_number(retail, note_type)
+
+        taxable = validated_data['taxable_value']
+        cgst_amt = validated_data.get('cgst_amt', Decimal('0'))
+        sgst_amt = validated_data.get('sgst_amt', Decimal('0'))
+        igst_amt = validated_data.get('igst_amt', Decimal('0'))
+        total = taxable + cgst_amt + sgst_amt + igst_amt
+        validated_data['amount'] = total
+
+        # Resolve GST ledgers from GSTINMaster
+        gstin = gstin_ref or (GSTINMaster.objects.filter(retail=retail).first() if retail else None)
+
+        # Build voucher detail lines
+        voucher_details = []
+        ref_bill_no = None
+        if validated_data.get('ref_sales_vou'):
+            ref_bill_no = validated_data['ref_sales_vou'].billno
+        elif validated_data.get('ref_purchase_vou'):
+            ref_bill_no = validated_data['ref_purchase_vou'].billno
+
+        if note_type == 'CN':
+            # Credit Note: Dr adjustment + Dr taxes, Cr customer
+            voucher_details.append({
+                'account': adjustment_ldgr.ac_name,
+                'debit': float(taxable),
+                'credit': 0,
+            })
+            if cgst_amt > 0 and gstin and gstin.output_cgst:
+                voucher_details.append({
+                    'account': gstin.output_cgst.ac_name,
+                    'debit': float(cgst_amt),
+                    'credit': 0,
+                })
+            if sgst_amt > 0 and gstin and gstin.output_sgst:
+                voucher_details.append({
+                    'account': gstin.output_sgst.ac_name,
+                    'debit': float(sgst_amt),
+                    'credit': 0,
+                })
+            if igst_amt > 0 and gstin and gstin.output_igst:
+                voucher_details.append({
+                    'account': gstin.output_igst.ac_name,
+                    'debit': float(igst_amt),
+                    'credit': 0,
+                })
+            # Party leg (credit reduces receivable)
+            voucher_details.append({
+                'account': ldgr.ac_name,
+                'debit': 0,
+                'credit': float(total),
+                'ref_bill_no': ref_bill_no or '',
+            })
+        else:
+            # Debit Note: Dr vendor (reduces payable), Cr adjustment + Cr taxes
+            voucher_details.append({
+                'account': ldgr.ac_name,
+                'debit': float(total),
+                'credit': 0,
+                'ref_bill_no': ref_bill_no or '',
+            })
+            voucher_details.append({
+                'account': adjustment_ldgr.ac_name,
+                'debit': 0,
+                'credit': float(taxable),
+            })
+            if cgst_amt > 0 and gstin and gstin.input_cgst:
+                voucher_details.append({
+                    'account': gstin.input_cgst.ac_name,
+                    'debit': 0,
+                    'credit': float(cgst_amt),
+                })
+            if sgst_amt > 0 and gstin and gstin.input_sgst:
+                voucher_details.append({
+                    'account': gstin.input_sgst.ac_name,
+                    'debit': 0,
+                    'credit': float(sgst_amt),
+                })
+            if igst_amt > 0 and gstin and gstin.input_igst:
+                voucher_details.append({
+                    'account': gstin.input_igst.ac_name,
+                    'debit': 0,
+                    'credit': float(igst_amt),
+                })
+
+        # Create the accounting voucher via JournalEntrySerializer
+        vou_type = global_vars.VoucherType.credit_note if note_type == 'CN' else global_vars.VoucherType.debit_note
+        journal_data = {
+            'date': str(validated_data['date']),
+            'voucher_no': generate_voucher_no(type=vou_type, retail=retail),
+            'narration': f"{'Credit Note' if note_type == 'CN' else 'Debit Note'}: {validated_data.get('reason', '')}",
+            'voucher_type': vou_type,
+            'retail': retail.pk,
+            'voucher_details': voucher_details,
+        }
+        request = self.context.get('request')
+        je_serializer = JournalEntrySerializer(data=journal_data, context={'request': request})
+        je_serializer.is_valid(raise_exception=True)
+        voucher_main = je_serializer.save()
+
+        # Create the CreditDebitNote record
+        validated_data['ac_voucher'] = voucher_main
+        note = CreditDebitNote.objects.create(**validated_data)
+        return note

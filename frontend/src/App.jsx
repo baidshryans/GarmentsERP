@@ -37,12 +37,20 @@ import CustomerOrderForm from "./CustomerOrderForm";
 import SalesVoucherList from "./components/Sales/SalesVoucherList";
 import SalesApprovalList from "./components/Sales/SalesApprovalList";
 import SalesReturnList from "./components/Sales/SalesReturnList";
+import EWayBillList from "./components/Sales/EWayBillList";
 import PurchaseReturnList from "./components/manufacturing/purchases/PurchaseReturnList";
 import PurchaseApprovalList from "./components/manufacturing/purchases/PurchaseApprovalList.jsx";
 import Header from "./breadCrumbDecor";
 import NotFoundPage from "./pageNotFound";
 import { LoginPage } from "./login"
 import HallmarkIssueAdd from "./components/manufacturing/issue/hallmarkIssueAdd";
+import SchemeMasterPage from "./components/GoldScheme/SchemeMasterPage";
+import SchemeEnrollmentList from "./components/GoldScheme/SchemeEnrollmentList";
+import SchemeEnrollmentForm from "./components/GoldScheme/SchemeEnrollmentForm";
+import SchemePaymentForm from "./components/GoldScheme/SchemePaymentForm";
+import SchemeStatement from "./components/GoldScheme/SchemeStatement";
+import SchemeDashboard from "./components/GoldScheme/SchemeDashboard";
+import PortalApp from "./portal/PortalApp";
 import HallmarkReceiveAdd from "./components/manufacturing/receive/hallmarkReceiveAdd";
 import PurchaseReturnadd from "./components/manufacturing/purchases/PurchaseReturnAdd";
 import PurchaseVoucherList from "./components/manufacturing/purchases/PurchaseVoucherList";
@@ -81,6 +89,10 @@ import VoucherTypeSelector from "./components/FinancialAccounting/vouchers/Vouch
 import LedgerStatement from "./components/FinancialAccounting/reports/LedgerStatement";
 import DayBook from "./components/FinancialAccounting/reports/DayBook";
 import OutstandingReport from "./components/FinancialAccounting/reports/OutstandingReport";
+import AgedReceivables from "./components/FinancialAccounting/reports/AgedReceivables";
+import AdvanceRegister from "./components/FinancialAccounting/reports/AdvanceRegister";
+import CreditDebitNoteList from "./components/FinancialAccounting/CreditDebitNoteList";
+import CreditDebitNoteAdd from "./components/FinancialAccounting/CreditDebitNoteAdd";
 import BankReconciliation from "./components/FinancialAccounting/BankReconciliation";
 import BarcodeHistoryList from "./components/Inventory/BarcodeManagement/BarcodeHistoryList.jsx";
 import GoldRateForm from "./components/GoldRates/goldrate.jsx";
@@ -218,6 +230,11 @@ const appRoutes = [
   { path: "accounting/cashgoldconversion",        heading: "Cash Gold Conversion",     component: <CashGoldConversion /> },
   { path: "accounting/ledger-statement",          heading: "Ledger Account Statement", component: <LedgerStatement /> },
   { path: "accounting/outstanding",               heading: "Outstanding Report",       component: <OutstandingReport /> },
+  { path: "accounting/aged-receivables",          heading: "Aged Receivables / Payables", component: <AgedReceivables /> },
+  { path: "accounting/advance-register",          heading: "Advance Register",         component: <AdvanceRegister /> },
+  { path: "accounting/credit-debit-notes",         heading: "Credit / Debit Notes",     component: <CreditDebitNoteList /> },
+  { path: "accounting/credit-debit-notes/add",     heading: "New Credit / Debit Note",  component: <CreditDebitNoteAdd /> },
+  { path: "accounting/credit-debit-notes/:id",     heading: "Credit / Debit Note",      component: <CreditDebitNoteAdd /> },
   { path: "accounting/day-book",                  heading: "Day Book",                 component: <DayBook /> },
   { path: "accounting/bank-reconciliation",       heading: "Bank Reconciliation",      component: <BankReconciliation /> },
   { path: "accounting/trialbalance",              heading: "Trial Balance",            component: <TrialBalance /> },
@@ -329,6 +346,7 @@ const appRoutes = [
   { path: "sales/salesapproval/add/",      heading: "Add Sales Approval",   component: <SalesApprovalAdd /> },
   { path: "sales/salesapproval/:id",       heading: "Edit Sales Approval",  component: <SalesApprovalAdd /> },
   { path: "sales/reports/commission",      heading: "Salesperson Commission Report", component: <CommissionReport /> },
+  { path: "sales/eway-bills",              heading: "E-Way Bills",          component: <EWayBillList /> },
 
   // ── Inventory ─────────────────────────────────────────────────────────────
   { path: "inventory/barcodemanagement/list/",      heading: "Barcode List",           component: <BarcodeListView /> },
@@ -360,6 +378,14 @@ const appRoutes = [
   { path: "inventory/reports/raw-material-ledger",  heading: "Raw Material Ledger",    component: <RawMaterialLedger /> },
   { path: "inventory/reports/semi-finished",        heading: "Semi-Finished Stock",    component: <SemiFinishedStockReport /> },
 
+  // ── Gold Schemes ──────────────────────────────────────────────────────────
+  { path: "scheme/dashboard",                    heading: "Gold Scheme Dashboard",  component: <SchemeDashboard /> },
+  { path: "scheme/master",                       heading: "Scheme Master",          component: <SchemeMasterPage /> },
+  { path: "scheme/enrollments",                  heading: "Scheme Enrollments",     component: <SchemeEnrollmentList /> },
+  { path: "scheme/enrollments/add",              heading: "New Enrollment",         component: <SchemeEnrollmentForm /> },
+  { path: "scheme/enrollments/:id/pay",          heading: "Record Payment",         component: <SchemePaymentForm /> },
+  { path: "scheme/enrollments/:id/statement",    heading: "Scheme Statement",       component: <SchemeStatement /> },
+
   // ── Gold Rates ────────────────────────────────────────────────────────────
   { path: "goldrate/form", heading: "Update Gold Rate", component: <GoldRateForm /> },
 
@@ -388,6 +414,7 @@ const appRoutes = [
   { path: "inventory",                heading: "Inventory",                 component: <SectionIndexPage /> },
   { path: "inventory/barcodemanagement", heading: "Barcode Management",     component: <SectionIndexPage /> },
   { path: "inventory/reports",         heading: "Inventory — Reports",      component: <SectionIndexPage /> },
+  { path: "scheme",                   heading: "Gold Schemes",             component: <SectionIndexPage /> },
 ];
 
 
@@ -422,6 +449,9 @@ function App() {
       <Route path="login" element={<LoginPage />} />
       {/* Forbidden page — rendered on 403 redirect from apiClient */}
       <Route path="forbidden" element={<ForbiddenPage />} />
+
+      {/* Customer Portal (standalone, separate from ERP auth) */}
+      <Route path="portal/*" element={<PortalApp />} />
     </Routes>
   );
 }

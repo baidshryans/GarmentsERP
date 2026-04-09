@@ -10,7 +10,7 @@ import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/u
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit } from "./services/apiService";
-import { Edit, Search, Trash2 } from "lucide-react";
+import { SquarePen, Search, Trash2 } from "lucide-react";
 import { arrayToObject } from "./Utils";
 import { useNavigate } from "react-router-dom";
 import { renderErrorTree } from "./Utils";
@@ -35,9 +35,7 @@ const CustomerOrderForm = () => {
         rate_18kt: 0,
         rate_22kt: 0,
         rate_24kt: 0,
-        advance_amt
-          :
-          0,
+        // advance_amt is derived from linked RCPT vouchers (backend property)
         est_amount
           :
           0,
@@ -136,8 +134,14 @@ const CustomerOrderForm = () => {
   }, []);
 
   const onSubmit = (da) => {
-    
+
     const data = getValues("form")
+
+    // advance_amt is now a computed backend property — never send it as part
+    // of the order payload. It is derived from linked Receipt Vouchers.
+    delete data.advance_amt;
+    delete data.advance_reconciled;
+    delete data.advance_available;
 
     data.items = [...rs];
 
@@ -328,8 +332,42 @@ const CustomerOrderForm = () => {
 
               </div>
               <div>
-              <Label htmlFor="advance_amt">Advance</Label>
-              <Input type="number" {...register("form.advance_amt")} />
+              <Label htmlFor="advance_amt">Advance (from receipts)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={watch("form.advance_amt") || 0}
+                  readOnly
+                  disabled
+                  className="bg-gray-50"
+                />
+                {id && watch("form.ldgr") && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const ldgrId = watch("form.ldgr");
+                      const ldgrName = watch("form.ldgr_code_name") || "";
+                      const orderNo = watch("form.order_no") || "";
+                      const qs = new URLSearchParams({
+                        customer_order: String(id),
+                        order_no: orderNo,
+                        ldgr: String(ldgrId),
+                        ldgr_name: ldgrName,
+                      }).toString();
+                      window.open(`/accounting/AddJournal/RCPT/add?${qs}`, "_blank");
+                    }}
+                  >
+                    + Receipt
+                  </Button>
+                )}
+              </div>
+              {id && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Advance is the sum of linked receipt vouchers — click <strong>+ Receipt</strong> to record one.
+                </p>
+              )}
               </div>
               <div>
               <Label htmlFor="est_amount">Estimated Amount</Label>
@@ -486,7 +524,7 @@ const CustomerOrderForm = () => {
               <TableRow key={index} className="w-full bg-white">
                 <TableCell className="w-32 px-4 py-2 border">
                   <div className="flex gap-4">
-                    <Edit size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
+                    <SquarePen size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
 
                     <Trash2 size={24} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
                   </div>

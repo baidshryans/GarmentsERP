@@ -10,7 +10,7 @@ import { Table, TableRow, TableCell, TableBody, TableHeader, TableHead } from "@
 import { fetchMainItem, fetchPurity, getLedgers, fetchPackets, fetchMeltingReceive, fetchAssayReceive } from "@/services/apiService";
 import { createRefinaryIssue, fetchNextRefinaryIssueNo, fetchRefinaryIssueForEdit, updateRefinaryIssueForEdit } from "../../../services/apiService";
 import { useParams, useNavigate } from "react-router-dom";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
 
 /* Vertical label + input stacking */
@@ -448,12 +448,12 @@ const IssueToRefinary = () => {
                                                     className="text-violet-400 hover:text-primary"
                                                     title="Edit"
                                                 >
-                                                    <Edit size={15} />
+                                                    <SquarePen size={15} />
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDelete(index)}
-                                                    className="text-red-400 hover:text-red-600"
+                                                    className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
                                                     title="Delete"
                                                 >
                                                     <Trash2 size={15} />

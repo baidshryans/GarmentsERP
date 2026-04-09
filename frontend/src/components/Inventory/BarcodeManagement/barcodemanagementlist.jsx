@@ -12,7 +12,7 @@ import { fetchMainItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, get
 import { Link, useLocation, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchBarcodeForEdit,fetchPurhcaseItemsForBarcode,updateBarcodeForEdit} from "../../../services/apiService";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router-dom";
 

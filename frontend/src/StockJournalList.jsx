@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Printer, Trash2 } from "lucide-react";
+import { SquarePen, Printer, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,12 +134,12 @@ const StockJournalList = () => {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex items-center space-x-3">
-          <Link to={`${row.original.id}`} className="text-primary">
-            <Edit size={16} />
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+            <SquarePen size={16} />
           </Link>
           <button
             onClick={() => deleteStockJournal(row.original.id, toast)}
-            className="text-red-500"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
             <Trash2 size={16} />
           </button>

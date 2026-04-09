@@ -174,7 +174,11 @@ def seed_states(request):
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def seed_account_groups(request):
-    """Run the setup_account_groups management command."""
+    """
+    Run the setup_account_groups management command, then backfill all system
+    ledgers so that any ledgers created before account groups were seeded get
+    their ac_group and role corrected.
+    """
     from django.core.management import call_command
     from io import StringIO
     import time
@@ -184,18 +188,36 @@ def seed_account_groups(request):
         try:
             out = StringIO()
             call_command('setup_account_groups', stdout=out)
-            return Response({'detail': out.getvalue(), 'success': True})
+            break
         except Exception as e:
             last_error = e
             if 'database is locked' in str(e).lower():
                 time.sleep(0.5 * (attempt + 1))
                 continue
-            break
+            return Response(
+                {'detail': str(e), 'success': False},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+    else:
+        return Response(
+            {'detail': str(last_error), 'success': False},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
-    return Response(
-        {'detail': str(last_error), 'success': False},
-        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    )
+    # Backfill system ledgers: fix ac_group + role on any ledgers created before
+    # account groups existed (idempotent — safe to re-run).
+    for attempt in range(5):
+        try:
+            call_command('seed_system_ledgers', stdout=out)
+            break
+        except Exception as e:
+            last_error = e
+            if 'database is locked' in str(e).lower():
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            break  # Non-lock error — proceed anyway, don't block the response
+
+    return Response({'detail': out.getvalue(), 'success': True})
 
 
 @api_view(['POST'])

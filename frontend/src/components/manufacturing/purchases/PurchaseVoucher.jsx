@@ -15,7 +15,7 @@ import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedg
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchCustomerOrders, fetchOrderItem, fetchPurchaseVoucherForEdit, fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, updatePurchaseVoucherForEdit } from "../../../services/apiService";
-import { Edit, Trash2, Paperclip, X, Upload, FileText } from "lucide-react";
+import { SquarePen, Trash2, Paperclip, X, Upload, FileText } from "lucide-react";
 import InvoiceUpload from "@/components/AI/InvoiceUpload";
 import PurchaseAttachments from "./PurchaseAttachments";
 import { uploadPurchaseAttachment } from "@/services/apiService";
@@ -1381,7 +1381,7 @@ const PurchaseVoucher = () => {
                     <TableCell className="px-4 py-2 border align-middle">
                       <div className="flex flex-row justify-center items-center gap-3">
 
-                        <Edit size={20} className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleEdit(rs.indexOf(item))} />
+                        <SquarePen size={20} className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleEdit(rs.indexOf(item))} />
                         <Trash2 size={20} color="#d45959" className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleDelete(rs.indexOf(item))} />
                       </div>
                     </TableCell>
@@ -1411,7 +1411,7 @@ const PurchaseVoucher = () => {
                     <TableRow key={sub_id} className="bg-white">
                       <TableCell className="px-4 py-2 border align-middle">
                         <div className="flex flex-row justify-center items-center gap-1">
-                          <Edit size={16} color="#6d6d6d" className="cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                          <SquarePen size={16} color="#6d6d6d" className="cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
                           <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
                         </div>
                       </TableCell>

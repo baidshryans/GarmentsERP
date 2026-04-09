@@ -17,7 +17,7 @@ import {
 } from "@/services/apiService";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { Edit, Trash2, Save, X } from "lucide-react";
+import { SquarePen, Trash2, Save, X } from "lucide-react";
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 const StockJournal = () => {
@@ -425,7 +425,7 @@ const StockJournal = () => {
                   >
                     <TableCell className="px-2 py-1.5 border">
                       <div className="flex justify-center items-center gap-1.5">
-                        <Edit
+                        <SquarePen
                           size={15}
                           className="cursor-pointer text-primary hover:text-primary"
                           onClick={() => handleEdit(index)}

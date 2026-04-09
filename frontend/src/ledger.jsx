@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Trash2, Plus } from "lucide-react";
+import { SquarePen, Trash2, Plus } from "lucide-react";
 import { getLedgers } from "@/services/apiService";
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,12 +44,12 @@ const Ledger = () => {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Link to={`${row.original.id}`} className="text-primary hover:text-primary/80">
-            <Edit className="w-4 h-4" />
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+            <SquarePen className="w-4 h-4" />
           </Link>
           <button
             onClick={() => deleteLedger(row.original.id, toast)}
-            className="text-destructive hover:text-destructive/80"
+            className="p-1.5 rounded text-destructive hover:bg-red-50 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>

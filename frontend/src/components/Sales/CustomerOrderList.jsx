@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
-import { Edit, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard } from "lucide-react";
+import { SquarePen, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard } from "lucide-react";
 import { openAndPrint } from '@/services/print/utils';
 import CustomerOrder from '@/services/print/CustomerOrder';
 import { useToast } from "@/hooks/use-toast";
@@ -308,12 +308,12 @@ function CustomerOrderList() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-2 items-center">
-          <Link to={`${row.original.id}`} className="text-primary">
-            <Edit className="w-4 h-4" />
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+            <SquarePen className="w-4 h-4" />
           </Link>
           <button
             onClick={() => deleteCustomerOrder(row.original.id, toast)}
-            className="text-red-500"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>

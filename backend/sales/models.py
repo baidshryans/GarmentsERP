@@ -14,7 +14,6 @@ class CustomerOrder(models.Model):
     rate_24kt = models.IntegerField(default=0)
     salesman_1 = models.ForeignKey(SalesPersonMaster, related_name = "salesman_1", on_delete = models.SET_NULL, null=True)
     salesman_2 = models.ForeignKey(SalesPersonMaster, related_name = "salesman_2", on_delete = models.SET_NULL, null=True, blank=True)
-    advance_amt = models.IntegerField(null=True, default=0)
     est_amount = models.IntegerField(null=True, default=0)
     nature = models.CharField(max_length=20, default="New Booking",blank=True)
     status = models.CharField(max_length=20, default="",blank=True)
@@ -42,6 +41,33 @@ class CustomerOrder(models.Model):
     @property
     def ldgr_code_name(self):
         return self.ldgr.ac_name if self.ldgr else None
+
+    @property
+    def advance_amt(self):
+        """
+        Total advance received on this order, derived from linked RCPT vouchers.
+        Single source of truth: accounting.VoucherMain.customer_order FK.
+        """
+        from decimal import Decimal
+        from django.db.models import Sum
+        total = self.receipts.filter(
+            voucher_type__in=['RCPT', 'RCPT-SALE'],
+            status='posted',
+        ).aggregate(s=Sum('amount'))['s']
+        return Decimal(total) if total else Decimal('0')
+
+    @property
+    def advance_reconciled(self):
+        """Total of this order's advance already applied to sales bills."""
+        from decimal import Decimal
+        from django.db.models import Sum
+        total = self.linked_vouchers.aggregate(s=Sum('advance_deducted'))['s']
+        return Decimal(total) if total else Decimal('0')
+
+    @property
+    def advance_available(self):
+        """Advance received on the order that is not yet applied to any bill."""
+        return self.advance_amt - self.advance_reconciled
 
     class Meta:
         db_table="customer_order"
@@ -406,6 +432,15 @@ class SalesApproval(models.Model):
     def total_incl_taxes(self):
         return self.taxable_value - self.discount + self.cgst_amt + self.sgst_amt + self.igst_amt
 
+    # ── E-Way Bill transport fields ────────────────────────────────────────────
+    vehicle_no       = models.CharField(max_length=20,  blank=True, default='')
+    transporter_name = models.CharField(max_length=100, blank=True, default='')
+    transporter_id   = models.CharField(max_length=20,  blank=True, default='')
+    trans_distance   = models.IntegerField(default=0)
+    trans_doc_no     = models.CharField(max_length=30,  blank=True, default='')
+    trans_doc_date   = models.DateField(null=True, blank=True)
+    mode_of_transport = models.CharField(max_length=200, null=True, blank=True)
+
     class Meta:
         db_table = "sales_vou_appr"
         indexes = [
@@ -457,3 +492,45 @@ class SalesApprovalItemDetails(models.Model):
 
     class Meta:
         db_table = "sales_vou_appr_detail"
+
+
+# ============= E-Way Bill Model =============
+
+class EWayBill(models.Model):
+    STATUS_CHOICES = [('GENERATED', 'Generated'), ('CANCELLED', 'Cancelled')]
+
+    sales_vou = models.ForeignKey(
+        SalesVou, null=True, blank=True, on_delete=models.SET_NULL, related_name='eway_bills',
+    )
+    sales_approval = models.ForeignKey(
+        SalesApproval, null=True, blank=True, on_delete=models.SET_NULL, related_name='eway_bills',
+    )
+    eway_bill_no = models.CharField(
+        max_length=30, blank=True, default='',
+        help_text="EBN from NIC portal (user enters after upload)",
+    )
+    generated_date = models.DateTimeField(auto_now_add=True)
+    valid_from = models.DateTimeField(null=True, blank=True)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='GENERATED')
+    cancelled_date = models.DateTimeField(null=True, blank=True)
+    cancel_reason = models.CharField(max_length=200, blank=True, default='')
+    # Transport snapshot (copied from voucher at generation time)
+    vehicle_no = models.CharField(max_length=20, blank=True, default='')
+    transporter_name = models.CharField(max_length=100, blank=True, default='')
+    transporter_id = models.CharField(max_length=20, blank=True, default='')
+    trans_distance = models.IntegerField(default=0)
+    mode_of_transport = models.CharField(max_length=20, blank=True, default='Road')
+    # JSON payload stored for reference
+    json_payload = models.TextField(blank=True, default='', help_text="Generated JSON sent to NIC")
+
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.CASCADE, related_name='eway_bills')
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "eway_bill"
+        ordering = ['-generated_date']
+
+    def __str__(self):
+        source = self.sales_vou.billno if self.sales_vou else (self.sales_approval.billno if self.sales_approval else '—')
+        return f"EWB-{self.id} ({source})"

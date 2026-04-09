@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/table";
-import { Edit, Plus, X, Check, GitBranch, Trash2, BarChart2 } from "lucide-react";
+import { SquarePen, Plus, X, Check, GitBranch, Trash2, BarChart2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useNavigate } from "react-router-dom";
@@ -119,10 +119,10 @@ export default function BranchMasterPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleEdit(row.original)}
-            className="text-primary hover:text-primary"
+            className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors"
             title="Edit"
           >
-            <Edit className="size-4" />
+            <SquarePen className="size-4" />
           </button>
           <button
             onClick={() => navigate(`/setup/branch/${row.original.id}/analytics`)}
@@ -133,7 +133,7 @@ export default function BranchMasterPage() {
           </button>
           <button
             onClick={() => handleDelete(row.original)}
-            className="text-rose-400 hover:text-rose-600"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
             title="Delete"
           >
             <Trash2 className="size-4" />

@@ -7,7 +7,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { DataTable } from "@/table";
-import { Edit, Plus, X, Check, MapPin, Zap, ZapOff, Trash2 } from "lucide-react";
+import { SquarePen, Plus, X, Check, MapPin, Zap, ZapOff, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import {
@@ -108,8 +108,8 @@ export default function ExhibitionMaster() {
         const r = row.original;
         return (
           <div className="flex items-center gap-2">
-            <button onClick={() => handleEdit(r)} className="text-primary hover:text-primary" title="Edit">
-              <Edit className="size-4" />
+            <button onClick={() => handleEdit(r)} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors" title="Edit">
+              <SquarePen className="size-4" />
             </button>
             <button
               onClick={() => handleToggle(r)}
@@ -119,7 +119,7 @@ export default function ExhibitionMaster() {
             >
               {r.is_active ? <ZapOff className="size-4" /> : <Zap className="size-4" />}
             </button>
-            <button onClick={() => handleDelete(r.id)} className="text-red-400 hover:text-red-600" title="Delete">
+            <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors" title="Delete">
               <Trash2 className="size-4" />
             </button>
           </div>

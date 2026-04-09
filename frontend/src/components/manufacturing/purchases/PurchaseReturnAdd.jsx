@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -633,7 +633,7 @@ const PurchaseReturnAdd = () => {
                     <TableCell className="px-3 py-2 border">
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-400 font-semibold mr-1">{idx + 1}</span>
-                        <Edit
+                        <SquarePen
                           size={15}
                           className="cursor-pointer text-gray-500 hover:text-primary"
                           onClick={() => handleEdit(idx)}

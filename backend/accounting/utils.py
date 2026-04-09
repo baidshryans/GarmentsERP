@@ -83,6 +83,8 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
     from inventory.models import StockJournal
     from global_vars import VoucherType
 
+    from accounting.models import CreditDebitNote
+
     model_map_resolved = {
         'SV': (SalesVou, 'billno'),
         'SR': (SaleReturn, 'billno'),
@@ -93,6 +95,8 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'GC': (CashGoldConversion, 'billno'),
         'CG': (CashGoldConversion, 'billno'),
         'SJ': (StockJournal, 'billno'),
+        'CN': (CreditDebitNote, 'note_no'),
+        'DN': (CreditDebitNote, 'note_no'),
     }
 
     # Build FY date filter if fiscal year is provided
@@ -105,6 +109,8 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         qs = Model.objects.filter(retail=retail, **fy_filter)
         if prefix in ('GC', 'CG'):
             qs = qs.filter(conv_type=prefix)
+        if prefix in ('CN', 'DN'):
+            qs = qs.filter(note_type=prefix)
         last = qs.order_by(f'-{field}').values_list(field, flat=True).first()
         if last:
             match = re.search(r'(\d+)$', last)

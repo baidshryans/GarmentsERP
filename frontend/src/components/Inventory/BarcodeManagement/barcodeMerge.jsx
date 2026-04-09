@@ -11,7 +11,7 @@ import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/u
 import { fetchMainItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, getLedgers, createCustomerOrder, getStates, fetchNextBarcode, fetchBarcodeList, mergeBarcode } from "@/services/apiService";
 import { Link } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { Edit, Trash2 } from "lucide-react";
+import { SquarePen, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { renderErrorTree } from "../../../Utils";
 
@@ -288,7 +288,7 @@ const MergeBarcode = () => {
                                         size="sm"
                                         onClick={() => handleEdit(index)}
                                     >
-                                        <Edit className="mr-1" />
+                                        <SquarePen className="mr-1" />
                                     </Button>
                                     <Button
                                         variant="outline"

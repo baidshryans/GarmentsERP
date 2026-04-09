@@ -57,19 +57,23 @@ class CustomerOrderItemsSerializer1(serializers.ModelSerializer):
 
 class CustomerOrderSerializer(serializers.ModelSerializer):
     items = CustomerOrderItemsSerializer(many=True)
+    # advance_amt / advance_reconciled / advance_available are @property on the model
+    # (single source of truth = linked RCPT vouchers via VoucherMain.customer_order FK).
+    advance_amt        = serializers.SerializerMethodField(read_only=True)
     advance_reconciled = serializers.SerializerMethodField(read_only=True)
     advance_available  = serializers.SerializerMethodField(read_only=True)
     linked_bill_count  = serializers.SerializerMethodField(read_only=True)
     is_overdue         = serializers.SerializerMethodField(read_only=True)
     days_overdue       = serializers.SerializerMethodField(read_only=True)
 
+    def get_advance_amt(self, obj):
+        return float(obj.advance_amt)
+
     def get_advance_reconciled(self, obj):
-        from django.db.models import Sum
-        total = obj.linked_vouchers.aggregate(s=Sum('advance_deducted'))['s']
-        return float(total) if total else 0.0
+        return float(obj.advance_reconciled)
 
     def get_advance_available(self, obj):
-        return float(obj.advance_amt or 0) - self.get_advance_reconciled(obj)
+        return float(obj.advance_available)
 
     def get_linked_bill_count(self, obj):
         return obj.linked_vouchers.count()
@@ -359,24 +363,20 @@ class SalesVouSerializer(serializers.ModelSerializer):
             # ─────────────────────────────────────────────────────────────────
 
             # ── Compute server-side due_amt (patched after instance creation) ──
-            advance_deducted = Decimal(str(validated_data.get('advance_deducted', 0) or 0))
             cash_amt         = Decimal(str(validated_data.get('cash', 0) or 0))
             bank_total       = sum(Decimal(str(b.get('amount', 0) or 0)) for b in bank_details)
             # total_bill_value is a model property; read after instance creation below
 
-            # ── Validate advance_deducted against order's available advance ───
+            # ── Auto-apply CustomerOrder advance (single source of truth) ─────
+            # The client MUST NOT send advance_deducted. It is computed on the
+            # server from the order's linked receipts so the ledger and the
+            # advance adjustment can never drift apart.
             customer_order = validated_data.get('customer_order')
-            if customer_order and advance_deducted > 0:
-                from django.db.models import Sum as _Sum
-                already = customer_order.linked_vouchers.aggregate(s=_Sum('advance_deducted'))['s'] or Decimal('0')
-                available = Decimal(str(customer_order.advance_amt or 0)) - already
-                if advance_deducted > available:
-                    raise ValidationError({
-                        'advance_deducted': (
-                            f"Cannot deduct ₹{advance_deducted:,.0f} — only ₹{available:,.0f} "
-                            f"is available from order {customer_order.order_no}."
-                        )
-                    })
+            if customer_order:
+                advance_deducted = customer_order.advance_available
+            else:
+                advance_deducted = Decimal('0')
+            validated_data['advance_deducted'] = advance_deducted
 
             # ── Validate old_gold_adjusted against purchase's available balance ──
             old_gold_adjusted = Decimal(str(validated_data.get('old_gold_adjusted', 0) or 0))
@@ -398,8 +398,53 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
             # Patch due_amt now that the instance exists (total_bill_value is a property)
             total_bill = Decimal(str(sales_vou_instance.total_bill_value))
-            sales_vou_instance.due_amt = max(Decimal('0'), total_bill - cash_amt - bank_total - advance_deducted - old_gold_adjusted)
+
+            # Cap advance_deducted to the portion of the bill not covered by
+            # cash / bank / old gold — any surplus order advance stays on the
+            # order to be consumed by future bills against the same order.
+            room_for_advance = max(Decimal('0'), total_bill - cash_amt - bank_total - old_gold_adjusted)
+            if advance_deducted > room_for_advance:
+                advance_deducted = room_for_advance
+                sales_vou_instance.advance_deducted = advance_deducted
+                sales_vou_instance.save(update_fields=['advance_deducted'])
+
+            sales_vou_instance.due_amt = max(
+                Decimal('0'),
+                total_bill - cash_amt - bank_total - advance_deducted - old_gold_adjusted
+            )
             # (saved again after ac_voucher is assigned below)
+
+            # ── Write ReferenceBills rows linking order receipts → this sale ──
+            # Splits the advance across receipts in FIFO order. This is the
+            # audit trail that says "RCPT-123 was used to pay SV-456 for ₹X".
+            if customer_order and advance_deducted > 0:
+                from django.db.models import Sum as _Sum
+                from accounting.models import ReferenceBills as _RefBills
+                remaining = advance_deducted
+                order_receipts = customer_order.receipts.filter(
+                    voucher_type__in=['RCPT', 'RCPT-SALE'],
+                    status='posted',
+                ).order_by('date', 'id')
+                for rcpt in order_receipts:
+                    if remaining <= 0:
+                        break
+                    # How much of this receipt is still unallocated against any bill?
+                    already = _RefBills.objects.filter(voucher=rcpt).aggregate(
+                        s=_Sum('amount')
+                    )['s'] or Decimal('0')
+                    rcpt_available = Decimal(rcpt.amount) - already
+                    if rcpt_available <= 0:
+                        continue
+                    alloc = min(remaining, rcpt_available)
+                    _RefBills.objects.create(
+                        ldgr=sales_vou_instance.ldgr,
+                        voucher=rcpt,
+                        amount=alloc,
+                        vendor_bill_no="",
+                        ref_bill=None,
+                        ref_bill_txt=sales_vou_instance.billno,
+                    )
+                    remaining -= alloc
 
             # Create related SalesVouItem instances
             item_instances = []
@@ -525,11 +570,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
             # ── Update CustomerOrder status to reflect billing ────────────────
             if customer_order:
-                from django.db.models import Sum as _Sum
-                total_reconciled = customer_order.linked_vouchers.aggregate(
-                    s=_Sum('advance_deducted')
-                )['s'] or Decimal('0')
-                advance_total = Decimal(str(customer_order.advance_amt or 0))
+                total_reconciled = customer_order.advance_reconciled
+                advance_total    = customer_order.advance_amt
                 if advance_total > 0 and total_reconciled >= advance_total:
                     customer_order.status = 'Billed'
                 elif total_reconciled > 0:
@@ -1163,3 +1205,44 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
                         retail=request.retail
                     )
             return instance
+
+
+class EWayBillSerializer(serializers.ModelSerializer):
+    source_billno = serializers.SerializerMethodField(read_only=True)
+    source_type = serializers.SerializerMethodField(read_only=True)
+    party_name = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        from .models import EWayBill
+        model = EWayBill
+        fields = [
+            'id', 'sales_vou', 'sales_approval',
+            'source_billno', 'source_type', 'party_name',
+            'eway_bill_no', 'generated_date', 'valid_from', 'valid_until',
+            'status', 'cancelled_date', 'cancel_reason',
+            'vehicle_no', 'transporter_name', 'transporter_id',
+            'trans_distance', 'mode_of_transport',
+            'json_payload', 'retail', 'fiscal_year',
+        ]
+        read_only_fields = ['id', 'generated_date', 'json_payload', 'retail', 'fiscal_year']
+
+    def get_source_billno(self, obj):
+        if obj.sales_vou_id:
+            return obj.sales_vou.billno
+        if obj.sales_approval_id:
+            return obj.sales_approval.billno
+        return None
+
+    def get_source_type(self, obj):
+        if obj.sales_vou_id:
+            return 'Invoice'
+        if obj.sales_approval_id:
+            return 'Approval'
+        return None
+
+    def get_party_name(self, obj):
+        if obj.sales_vou_id:
+            return obj.sales_vou.ldgr.ac_name
+        if obj.sales_approval_id:
+            return obj.sales_approval.ldgr.ac_name
+        return None

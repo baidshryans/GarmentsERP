@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Edit, Trash2, SendHorizontal, PackageCheck, ArrowUpRight, ArrowDownLeft, ScanBarcode, ArrowRight } from "lucide-react";
+import { SquarePen, Trash2, SendHorizontal, PackageCheck, ArrowUpRight, ArrowDownLeft, ScanBarcode, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,11 +161,11 @@ const StockTransferList = () => {
           <div className="flex items-center gap-1.5">
             {!t.sent_status && !t.rec_status && (
               <>
-                <Link to={`${t.id}`} className="text-primary hover:text-primary">
-                  <Edit className="size-4" />
+                <Link to={`${t.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+                  <SquarePen className="size-4" />
                 </Link>
                 <button onClick={() => deleteStockTransfer(t.id, toast).then(loadTransfers)}
-                  className="text-red-400 hover:text-red-600">
+                  className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors">
                   <Trash2 className="size-4" />
                 </button>
                 <Button size="sm" variant="outline" disabled={busy}

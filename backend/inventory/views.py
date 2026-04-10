@@ -22,7 +22,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.decorators import api_view, action
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
-from django.db.models import OuterRef, Subquery, Sum, IntegerField, Q, F, ExpressionWrapper
+from django.db.models import OuterRef, Subquery, Sum, IntegerField, Q, F, ExpressionWrapper, Prefetch
 
 
 @api_view()
@@ -992,7 +992,6 @@ from django.contrib.contenttypes.models import ContentType
 from .models import CVDTest
 from django_filters import rest_framework as filters
 from datetime import datetime, timedelta
-from django.db.models import Prefetch
 
 class CVDTestSerializer(serializers.ModelSerializer):
     class Meta:

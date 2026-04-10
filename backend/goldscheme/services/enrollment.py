@@ -42,13 +42,24 @@ def create_enrollment(scheme, customer, amount, retail, fiscal_year=None, salesp
     locked_rate = None
     locked_purity = None
     if scheme.gold_price_mode == 'LOCKED':
-        # Lock the current gold rate for the scheme's accumulation purity (or default 22K)
+        # Lock the current gold rate for the scheme's accumulation purity
         purity = scheme.accumulation_purity
-        if purity:
-            latest_rate = GoldRates.objects.filter(purity=purity).order_by('-date1').first()
-            if latest_rate:
-                locked_rate = Decimal(str(latest_rate.rate))
-                locked_purity = purity
+        if not purity:
+            raise ValueError(
+                "Cannot enroll in a LOCKED price scheme: accumulation purity is not configured on the scheme."
+            )
+        latest_rate = GoldRates.objects.filter(purity=purity).order_by('-date1').first()
+        if not latest_rate or not latest_rate.rate:
+            raise ValueError(
+                f"Cannot enroll in a LOCKED price scheme: no gold rate found for purity '{purity}'. "
+                f"Please ensure today's gold rate is entered before creating enrollments."
+            )
+        locked_rate = Decimal(str(latest_rate.rate))
+        if locked_rate <= 0:
+            raise ValueError(
+                f"Cannot enroll in a LOCKED price scheme: gold rate for purity '{purity}' is zero or negative."
+            )
+        locked_purity = purity
 
     with transaction.atomic():
         enrollment = SchemeEnrollment.objects.create(
@@ -72,8 +83,16 @@ def create_enrollment(scheme, customer, amount, retail, fiscal_year=None, salesp
 def check_and_update_maturity(enrollment):
     """
     If the enrollment has reached maturity date and is still ACTIVE, update status to MATURED.
+    Uses select_for_update() to prevent race conditions on concurrent requests.
     """
+    from goldscheme.models import SchemeEnrollment
+
     if enrollment.status == 'ACTIVE' and enrollment.is_matured:
-        enrollment.status = 'MATURED'
-        enrollment.save(update_fields=['status', 'updated_at'])
+        with transaction.atomic():
+            locked = SchemeEnrollment.objects.select_for_update().get(pk=enrollment.pk)
+            if locked.status == 'ACTIVE' and locked.is_matured:
+                locked.status = 'MATURED'
+                locked.save(update_fields=['status', 'updated_at'])
+                # Refresh the original object so the caller sees the update
+                enrollment.status = locked.status
     return enrollment

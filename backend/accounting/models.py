@@ -1,9 +1,12 @@
-from django.db import models
+from decimal import Decimal
+
 from django.contrib.auth.models import User
-from contacts.models import Ledger
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MinValueValidator
+from django.db import models
 
+from contacts.models import Ledger
 from mastersconfig.models import RetailMaster
 
 # Create your models here.
@@ -229,7 +232,7 @@ class CreditDebitNote(models.Model):
 
 class LedgerOpenBalance(models.Model):
     ldgr = models.ForeignKey(Ledger, on_delete = models.CASCADE)
-    debit = models.FloatField(default=0)
+    debit = models.DecimalField(max_digits=11, decimal_places=2, default=0)
     credit = models.DecimalField(max_digits=11, decimal_places=2, default=0.00)
     acc_year = models.CharField(max_length=25)
     retail= models.ForeignKey(RetailMaster, on_delete= models.CASCADE)
@@ -259,3 +262,179 @@ class AuditMark(models.Model):
 
     def __str__(self):
         return f"Audited: {self.voucher.voucher_no} by {self.audited_by}"
+
+
+# ---------------------------------------------------------------------------
+# Fixed Assets & Depreciation (merged from fixedassets app)
+# ---------------------------------------------------------------------------
+
+IT_BLOCK_RATES = {
+    "BLDG_RES": ("Buildings (Residential)", Decimal("5")),
+    "BLDG_COM": ("Buildings (Non-residential / Factory)", Decimal("10")),
+    "FURN":     ("Furniture & Fittings", Decimal("10")),
+    "PLANT":    ("Plant & Machinery (general)", Decimal("15")),
+    "VEHICLE":  ("Motor Vehicles (not used for hire)", Decimal("15")),
+    "COMPUTER": ("Computers & Peripherals", Decimal("40")),
+    "BOOKS":    ("Books (professional libraries)", Decimal("60")),
+    "INTANG":   ("Intangible Assets (know-how, patents, copyrights)", Decimal("25")),
+}
+
+IT_BLOCK_CHOICES = [(k, v[0]) for k, v in IT_BLOCK_RATES.items()]
+
+DEPRECIATION_METHOD_CHOICES = [
+    ("WDV", "WDV \u2013 Written Down Value (Income Tax Act)"),
+    ("SLM", "SLM \u2013 Straight Line Method (Companies Act 2013, Schedule II)"),
+]
+
+ASSET_STATUS_CHOICES = [
+    ("ACTIVE",            "Active"),
+    ("DISPOSED",          "Disposed"),
+    ("FULLY_DEPRECIATED", "Fully Depreciated"),
+]
+
+SUGGESTION_STATUS_CHOICES = [
+    ("PENDING",  "Pending"),
+    ("APPROVED", "Approved"),
+    ("REJECTED", "Rejected"),
+]
+
+
+class FixedAsset(models.Model):
+    retail      = models.ForeignKey(RetailMaster, on_delete=models.PROTECT, related_name='fixed_assets')
+    asset_code  = models.CharField(max_length=20)
+    asset_name  = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+
+    purchase_date  = models.DateField()
+    purchase_cost  = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    residual_value = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'), validators=[MinValueValidator(Decimal('0'))])
+
+    depreciation_method = models.CharField(max_length=3, choices=DEPRECIATION_METHOD_CHOICES, default='WDV')
+    rate_or_life        = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('0'), validators=[MinValueValidator(Decimal('0'))])
+    it_block_category   = models.CharField(max_length=20, choices=IT_BLOCK_CHOICES, blank=True, null=True)
+
+    asset_ledger                = models.ForeignKey('contacts.Ledger', on_delete=models.PROTECT,
+                                                    null=True, blank=True, related_name='fa_asset_ledger')
+    accum_depreciation_ledger   = models.ForeignKey('contacts.Ledger', on_delete=models.SET_NULL,
+                                                    null=True, blank=True, related_name='fa_accum_dep_ledger')
+    depreciation_expense_ledger = models.ForeignKey('contacts.Ledger', on_delete=models.SET_NULL,
+                                                    null=True, blank=True, related_name='fa_dep_expense_ledger')
+
+    accumulated_depreciation = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+    status       = models.CharField(max_length=20, choices=ASSET_STATUS_CHOICES, default='ACTIVE')
+    disposal_date  = models.DateField(null=True, blank=True)
+    disposal_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table        = 'fa_fixed_asset'
+        unique_together = (('retail', 'asset_code'),)
+        ordering        = ['asset_code']
+
+    def __str__(self):
+        return f"{self.asset_code} \u2013 {self.asset_name}"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        if self.status == 'DISPOSED':
+            if not self.disposal_date:
+                errors['disposal_date'] = "Disposal date is required when status is 'Disposed'."
+            if self.disposal_value is None:
+                errors['disposal_value'] = "Disposal value is required when status is 'Disposed'."
+        if self.disposal_date and self.disposal_date < self.purchase_date:
+            errors['disposal_date'] = "Disposal date cannot be before purchase date."
+        if self.residual_value > self.purchase_cost:
+            errors['residual_value'] = "Residual value cannot exceed purchase cost."
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def current_wdv(self):
+        return self.purchase_cost - self.accumulated_depreciation
+
+    @property
+    def is_fully_depreciated(self):
+        return self.current_wdv <= self.residual_value
+
+
+class DepreciationSuggestion(models.Model):
+    retail      = models.ForeignKey(RetailMaster, on_delete=models.CASCADE, related_name='depreciation_suggestions')
+    fiscal_year = models.ForeignKey('mastersconfig.FiscalYearMaster', on_delete=models.SET_NULL,
+                                    null=True, blank=True, related_name='depreciation_suggestions')
+    label       = models.CharField(max_length=150)
+    period_from = models.DateField()
+    period_to   = models.DateField()
+    status       = models.CharField(max_length=10, choices=SUGGESTION_STATUS_CHOICES, default='PENDING')
+    total_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+    notes        = models.TextField(blank=True)
+    voucher      = models.ForeignKey('VoucherMain', on_delete=models.SET_NULL,
+                                     null=True, blank=True, related_name='depreciation_suggestions')
+    created_at   = models.DateTimeField(auto_now_add=True)
+    approved_at  = models.DateTimeField(null=True, blank=True)
+    approved_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='approved_depreciation_suggestions')
+
+    class Meta:
+        db_table = 'fa_depreciation_suggestion'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.label} [{self.status}]"
+
+
+class DepreciationSuggestionLine(models.Model):
+    suggestion = models.ForeignKey(DepreciationSuggestion, on_delete=models.CASCADE, related_name='lines')
+    asset      = models.ForeignKey(FixedAsset, on_delete=models.PROTECT, related_name='suggestion_lines')
+    opening_wdv       = models.DecimalField(max_digits=14, decimal_places=2)
+    calculated_amount = models.DecimalField(max_digits=14, decimal_places=2)
+    approved_amount   = models.DecimalField(max_digits=14, decimal_places=2)
+    overridden        = models.BooleanField(default=False)
+    narration         = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        db_table = 'fa_suggestion_line'
+        ordering = ['asset__asset_code']
+
+    def __str__(self):
+        return f"{self.asset.asset_code} \u2013 \u20b9{self.approved_amount}"
+
+
+class FixedAssetSettings(models.Model):
+    retail = models.OneToOneField(RetailMaster, on_delete=models.CASCADE, related_name='fa_settings')
+    default_depreciation_expense_ldgr = models.ForeignKey(
+        'contacts.Ledger', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='fa_settings_expense_ldgr',
+    )
+    default_accum_depreciation_ldgr = models.ForeignKey(
+        'contacts.Ledger', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='fa_settings_accum_ldgr',
+    )
+
+    class Meta:
+        db_table = 'fa_settings'
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        errors = {}
+        # Validate that linked ledgers belong to the same retail or are global (no retail)
+        for field_name in ('default_depreciation_expense_ldgr', 'default_accum_depreciation_ldgr'):
+            ldgr = getattr(self, field_name, None)
+            if ldgr and hasattr(ldgr, 'retail') and ldgr.retail_id and ldgr.retail_id != self.retail_id:
+                errors[field_name] = (
+                    f"Ledger '{ldgr.ac_name}' belongs to a different retail location. "
+                    f"Please select a ledger from this retail."
+                )
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Fixed Asset Settings \u2013 {self.retail}"

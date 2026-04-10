@@ -40,18 +40,20 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && error.response.status === 401) {
+    // Don't redirect during setup wizard or login — those pages handle errors themselves
+    const path = window.location.pathname;
+    const isSetupOrLogin = path.startsWith("/settings/setup") || path === "/login" || path === "/config";
+
+    if (error.response && error.response.status === 401 && !isSetupOrLogin) {
       console.log("Unauthorized. Redirecting to login...");
       localStorage.removeItem("Token");
       localStorage.removeItem("user");
       window.location.href = "/login";
     }
 
-    if (error.response && error.response.status === 403) {
-      // Handle unauthorized error (e.g., redirect to login)
+    if (error.response && error.response.status === 403 && !isSetupOrLogin) {
       console.log("Forbidden. Redirecting to forbidden...");
       window.location.href = "/forbidden";
-      // Optional: Add code to redirect to login or clear session storage
     }
     return Promise.reject(error);
   }

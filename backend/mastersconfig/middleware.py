@@ -29,8 +29,10 @@ class RetailMiddleware(MiddlewareMixin):
                     retail = RetailMaster.objects.select_related('state', 'active_fy').get(retail_code=model_id)
                     cache.set(cache_key, retail, timeout=300)
                 except RetailMaster.DoesNotExist:
-                    request.retail = None
-                    return
+                    return JsonResponse(
+                        {"error": f"Retail location '{model_id}' not found. Check the X-RETAIL-ID header."},
+                        status=400,
+                    )
             request.retail = retail
             request.fiscal_year = getattr(retail, 'active_fy', None)
 

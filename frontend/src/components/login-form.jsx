@@ -47,7 +47,10 @@ export function LoginForm() {
         // Status check failed — go to setup wizard which will auto-detect state
         navigate("/settings/setup", { replace: true });
       }
-      window.location.reload();
+      // No window.location.reload() — navigate() alone handles the routing.
+      // A hard reload destroys React state and triggers a burst of API calls
+      // that can fail during first-time setup (no retail configured yet),
+      // causing the 401 interceptor to strip the token and redirect to /login.
     } else {
       setError("Invalid username or password.");
     }

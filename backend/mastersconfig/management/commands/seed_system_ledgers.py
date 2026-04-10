@@ -28,7 +28,7 @@ class Command(BaseCommand):
         all_codes = (
             {row[2] for row in _OPERATIONAL_LEDGERS}
             | {row[1] for row in _TRADING_LEDGERS + _MISC_LEDGERS + _OFFICE_EQUIPMENT_LEDGERS}
-            | {'CA-GST', 'CL-DT-GST', 'CA-CSH'}
+            | {'CA-GST', 'CL-DT-GST', 'CA-CSH', 'CL-SC'}
         )
         acct = {c: Account.objects.filter(code=c).first() for c in all_codes}
 

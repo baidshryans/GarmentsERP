@@ -66,6 +66,28 @@ _MISC_LEDGERS = [
     ('Interest Received',        'INC-IND'),     # Indirect Income
     ('Interest Paid',            'EXP-IND'),     # Indirect Expenses
     ('Sales Commission',         'EXP-IND'),     # Indirect Expenses
+
+    # ── HR / Payroll ledgers ─────────────────────────────────────────────────
+    ('Salary & Wages',           'EXP-IND-SAL'), # Salary expense account
+    ('Employee Payable',         'CL'),          # Net salary payable to employees
+    ('Provident Fund Payable',   'CL'),          # PF liability (employee + employer)
+    ('ESI Payable',              'CL'),          # ESI liability (employee + employer)
+    ('Professional Tax Payable', 'CL-DT'),       # PT deducted from employees
+    ('TDS on Salary Payable',    'CL-DT-TDS'),   # TDS deducted from employees
+
+    # ── Gold Scheme ──────────────────────────────────────────────────────────
+    ('Gold Scheme Liability',    'CL'),          # Money collected under gold schemes
+
+    # ── Fixed Asset / Depreciation ───────────────────────────────────────────
+    ('Depreciation Expense',        'EXP-IND-DEP'), # P&L charge for depreciation
+    ('Accumulated Depreciation',    'FA-AD'),        # Contra-asset: total depreciation to date
+
+    # ── General / Other ──────────────────────────────────────────────────────
+    ('Customer Advance',         'CL'),          # Advance received on customer orders
+    ('Suspense Account',         'CL'),          # Temporary parking for unmatched entries
+    ('Opening Balance Equity',   'CAP-RES'),     # Plug account for trial balance during setup
+    ('Stock-in-Transit',         'CA-STK'),      # Inventory moving between retail locations
+    ('Petty Cash',               'CA-CSH'),      # Small-value cash fund
 ]
 
 # ── Office Equipment fixed-asset ledgers ──────────────────────────────────────
@@ -148,6 +170,8 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
     extra_codes = {
         'EXP-DIR-PUR', 'INC-DIR-SAL', 'CA', 'CL', 'FA-CE',
         'INC-IND', 'EXP-DIR-FRT', 'EXP-IND-BNK', 'EXP-IND',
+        'EXP-IND-SAL', 'CL-DT', 'CL-DT-TDS', 'EXP-IND-DEP',
+        'FA-AD', 'CAP-RES', 'CA-STK', 'CA-CSH',
     }
     extra_cache = {c: Account.objects.filter(code=c).first() for c in extra_codes}
 

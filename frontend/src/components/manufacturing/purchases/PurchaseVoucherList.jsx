@@ -228,7 +228,7 @@ const totalPages = data?.data?.total_pages ?? 1;
               </div>
 
               <div className="flex justify-end mt-4">
-                <Link to={voucherType ? `add/?vou_type=${voucherType}` : "add/"}>
+                <Link to={voucherType ? `/purchase/customerpurchase/list/add/?vou_type=${voucherType}` : "/purchase/add/"}>
                   <Button>Add New</Button>
                 </Link>
               </div>

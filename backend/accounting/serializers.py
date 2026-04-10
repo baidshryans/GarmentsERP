@@ -71,8 +71,8 @@ class LedgerSerializer(serializers.ModelSerializer):
 
 class VoucherDetailSerializer(serializers.ModelSerializer):
     account = serializers.SlugRelatedField(queryset=Ledger.objects.all(),slug_field="ac_name")
-    credit = serializers.FloatField(default=0)
-    debit = serializers.FloatField(default=0)
+    credit = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
+    debit = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
     class Meta:
         model = VoucherDetail
         fields=[
@@ -174,9 +174,9 @@ class JournalEntrySerializer(serializers.Serializer):
     id = serializers.IntegerField(required=False,read_only=False)
     date = serializers.DateField()
     voucher_no = serializers.CharField(max_length=50)
-    narration = serializers.CharField(max_length=200)
+    narration = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
     voucher_type = serializers.CharField(max_length=10)
-    retail = serializers.PrimaryKeyRelatedField(queryset=RetailMaster.objects.all())
+    retail = serializers.PrimaryKeyRelatedField(queryset=RetailMaster.objects.all(), required=False)
     status = serializers.CharField(max_length=200,required=False)
     # customer_order: accepted as a plain integer ID on input and resolved in
     # create(). Using PrimaryKeyRelatedField here would force a module-load-time
@@ -210,6 +210,23 @@ class JournalEntrySerializer(serializers.Serializer):
                 validated_data['customer_order'] = CustomerOrder.objects.get(pk=co_id)
             except CustomerOrder.DoesNotExist:
                 raise ValidationError(f"CustomerOrder id={co_id} not found.")
+
+        # ── Fiscal year boundary check ──────────────────────────────────────
+        retail_obj = validated_data.get('retail')
+        if retail_obj:
+            fy = getattr(retail_obj, 'active_fy', None)
+            voucher_date = validated_data.get('date')
+            if fy and voucher_date:
+                if voucher_date < fy.fy_start or voucher_date > fy.fy_end:
+                    raise ValidationError(
+                        f"Voucher date {voucher_date} falls outside the active fiscal year "
+                        f"({fy.fy_start} to {fy.fy_end}). Please select the correct fiscal year."
+                    )
+                if fy.is_hard_closed:
+                    raise ValidationError(
+                        f"Fiscal year {fy.fy_code} is hard-closed. No entries can be posted. "
+                        f"Contact your administrator to reopen the fiscal year."
+                    )
 
         # ── Section 269ST cash receipt limit check (standalone RCPT only) ────
         retail_obj = validated_data.get('retail')
@@ -289,16 +306,23 @@ class JournalEntrySerializer(serializers.Serializer):
                     )
         # ─────────────────────────────────────────────────────────────────────
 
+        # ── Double-entry validation (must happen BEFORE creating the voucher) ──
+        debit_total = Decimal('0')
+        credit_total = Decimal('0')
+        for d in voucher_details:
+            debit_total += Decimal(str(d.get('debit') or 0))
+            credit_total += Decimal(str(d.get('credit') or 0))
+
+        if debit_total.quantize(Decimal('0.01')) != credit_total.quantize(Decimal('0.01')):
+            raise ValidationError(
+                f"Total debit and credit amounts must be equal. "
+                f"Debit: {debit_total}, Credit: {credit_total}."
+            )
+
         voucher_main = VoucherMain.objects.create(
             **validated_data,
-            amount=sum(float(detail['debit'] or 0) for detail in voucher_details)
+            amount=debit_total,
         )
-
-        debit_total = sum(d.get("debit", 0) for d in voucher_details)
-        credit_total = sum(d.get("credit", 0) for d in voucher_details)
-
-        if round(Decimal(str(debit_total)), 2) != round(Decimal(str(credit_total)), 2):
-            raise ValidationError(f"Total debit and credit amounts must be equal credit:{credit_total} debit:{debit_total} \n det :{voucher_details}")
 
         # ── Bill-wise allocation sanity: per-ledger, the sum of all ref_bill_no
         # line amounts must not exceed the party-leg amount on that ledger in
@@ -363,7 +387,7 @@ class JournalEntrySerializer(serializers.Serializer):
             )
 
             # Reference Bills creation logic
-            if detail.get('ref_bill_no',False):
+            if detail.get('ref_bill_no'):
                 ReferenceBills.objects.create(
                     ldgr=account_instance,
                     voucher=voucher_main,
@@ -373,11 +397,12 @@ class JournalEntrySerializer(serializers.Serializer):
                     ref_bill_txt=detail['ref_bill_no']
                 )
             elif voucher_main.vendor_bill:
+                # Link voucher detail to vendor's bill number (no ref_bill_no on the detail line)
                 ReferenceBills.objects.create(
                     ldgr=account_instance,
                     voucher=voucher_main,
                     amount=detail['debit'] if detail['debit'] else detail['credit'],
-                    vendor_bill_no=detail['ref_bill_no'],
+                    vendor_bill_no=voucher_main.vendor_bill,
                     ref_bill=None,
                     ref_bill_txt=""
                 )
@@ -647,6 +672,29 @@ class CreditDebitNoteSerializer(serializers.ModelSerializer):
         # Resolve GST ledgers from GSTINMaster
         gstin = gstin_ref or (GSTINMaster.objects.filter(retail=retail).first() if retail else None)
 
+        # Validate GST ledgers exist when GST amounts are specified
+        if cgst_amt > 0:
+            if not gstin:
+                raise ValidationError("CGST amount specified but no GSTIN is configured for this retail.")
+            if note_type == 'CN' and not gstin.output_cgst:
+                raise ValidationError("CGST amount specified but Output CGST ledger is not configured on GSTIN master.")
+            if note_type == 'DN' and not gstin.input_cgst:
+                raise ValidationError("CGST amount specified but Input CGST ledger is not configured on GSTIN master.")
+        if sgst_amt > 0:
+            if not gstin:
+                raise ValidationError("SGST amount specified but no GSTIN is configured for this retail.")
+            if note_type == 'CN' and not gstin.output_sgst:
+                raise ValidationError("SGST amount specified but Output SGST ledger is not configured on GSTIN master.")
+            if note_type == 'DN' and not gstin.input_sgst:
+                raise ValidationError("SGST amount specified but Input SGST ledger is not configured on GSTIN master.")
+        if igst_amt > 0:
+            if not gstin:
+                raise ValidationError("IGST amount specified but no GSTIN is configured for this retail.")
+            if note_type == 'CN' and not gstin.output_igst:
+                raise ValidationError("IGST amount specified but Output IGST ledger is not configured on GSTIN master.")
+            if note_type == 'DN' and not gstin.input_igst:
+                raise ValidationError("IGST amount specified but Input IGST ledger is not configured on GSTIN master.")
+
         # Build voucher detail lines
         voucher_details = []
         ref_bill_no = None
@@ -738,3 +786,69 @@ class CreditDebitNoteSerializer(serializers.ModelSerializer):
         validated_data['ac_voucher'] = voucher_main
         note = CreditDebitNote.objects.create(**validated_data)
         return note
+
+
+# ---------------------------------------------------------------------------
+# Fixed Assets serializers
+# ---------------------------------------------------------------------------
+
+from .models import (  # noqa: E402 — appended block; same module
+    FixedAsset, DepreciationSuggestion, DepreciationSuggestionLine,
+    FixedAssetSettings, IT_BLOCK_RATES,
+)
+
+
+class FixedAssetSerializer(serializers.ModelSerializer):
+    current_wdv          = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+    is_fully_depreciated = serializers.BooleanField(read_only=True)
+    it_block_rate        = serializers.SerializerMethodField()
+    asset_ledger_name    = serializers.CharField(source='asset_ledger.ac_name', read_only=True, default='')
+    method_display       = serializers.CharField(source='get_depreciation_method_display', read_only=True)
+
+    class Meta:
+        model  = FixedAsset
+        fields = '__all__'
+        read_only_fields = ('accumulated_depreciation', 'created_at')
+
+    def get_it_block_rate(self, obj):
+        if obj.it_block_category and obj.it_block_category in IT_BLOCK_RATES:
+            return str(IT_BLOCK_RATES[obj.it_block_category][1])
+        return None
+
+
+class DepreciationSuggestionLineSerializer(serializers.ModelSerializer):
+    asset_code         = serializers.CharField(source='asset.asset_code', read_only=True)
+    asset_name         = serializers.CharField(source='asset.asset_name', read_only=True)
+    asset_method       = serializers.CharField(source='asset.depreciation_method', read_only=True)
+    asset_rate_or_life = serializers.DecimalField(source='asset.rate_or_life', max_digits=6,
+                                                   decimal_places=2, read_only=True)
+    purchase_cost      = serializers.DecimalField(source='asset.purchase_cost', max_digits=14,
+                                                   decimal_places=2, read_only=True)
+
+    class Meta:
+        model  = DepreciationSuggestionLine
+        fields = '__all__'
+
+
+class DepreciationSuggestionSerializer(serializers.ModelSerializer):
+    lines            = DepreciationSuggestionLineSerializer(many=True, read_only=True)
+    voucher_no       = serializers.CharField(source='voucher.voucher_no', read_only=True, default=None)
+    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, default=None)
+
+    class Meta:
+        model  = DepreciationSuggestion
+        fields = '__all__'
+        read_only_fields = ('status', 'total_amount', 'voucher', 'approved_at', 'approved_by', 'created_at')
+
+
+class FixedAssetSettingsSerializer(serializers.ModelSerializer):
+    expense_ldgr_name = serializers.CharField(
+        source='default_depreciation_expense_ldgr.ac_name', read_only=True, default=''
+    )
+    accum_ldgr_name = serializers.CharField(
+        source='default_accum_depreciation_ldgr.ac_name', read_only=True, default=''
+    )
+
+    class Meta:
+        model  = FixedAssetSettings
+        fields = '__all__'

@@ -1,4 +1,5 @@
 from rest_framework.serializers import ModelSerializer
+from rest_framework.exceptions import ValidationError
 
 from accounting.serializers import JournalEntrySerializer
 from accounting.utils import generate_voucher_no
@@ -157,7 +158,6 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
             for detail_data in details_data:
                 ret_item = PurchaseReturnDetails.objects.create(main_item=purchase_return_item_instance, **detail_data)
                 item_detail_instances.append(ret_item)
-        print(item_instances)
         retail = self.context.get('request').retail
         _gm = retail.gstin_master
         _co = retail.branch.company if retail.branch_id and retail.branch else None
@@ -244,7 +244,6 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
             item_instances.append(item_data)
             for detail in item_data.purchasereturndetails_set.all():
                 item_detail_instances.append(detail)
-        print(item_instances)
         retail = self.context.get('request').retail
         _gm = retail.gstin_master
         _co = retail.branch.company if retail.branch_id and retail.branch else None
@@ -418,7 +417,7 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
         instance.save()
         create_or_update_nested(PurchaseVoucherDetailsSerializer, instance, 'purchasevoucherdetails_set',  'main_item',PurchaseVoucherDetailsSerializer(detail_data,many=True).data)
         return instance
-from rest_framework.exceptions import ValidationError
+
 class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
 
     # Nested serializers
@@ -525,10 +524,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                     'debit':f"{purchase_voucher_instance.hallmark_charge:.2f}" if purchase_voucher_instance.hallmark_charge else'0.0'
                                 },
                                 {'account':_carriage_ldgr,
-                                    'debit':f"{purchase_voucher_instance.freight_amt:.2f}"
+                                    'debit':f"{purchase_voucher_instance.freight_amt:.2f}" if purchase_voucher_instance.freight_amt else '0.0'
                                 },
                                 {'account':_discount_ldgr,
-                                  'credit': f"{(purchase_voucher_instance.round_off + purchase_voucher_instance.discount_amt):.2f}" },
+                                  'credit': f"{((purchase_voucher_instance.round_off or 0) + (purchase_voucher_instance.discount_amt or 0)):.2f}" },
                             ] +
                             [{'account':_making_purc_ldgr,
                                 'debit':f"{item.making_value:.2f}"if item.making_value else'0.0'
@@ -625,10 +624,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                     'debit':f"{purchase_voucher_instance.hallmark_charge:.2f}" if purchase_voucher_instance.hallmark_charge else'0.0'
                                 },
                                 {'account':_carriage_ldgr,
-                                    'debit':f"{purchase_voucher_instance.freight_amt:.2f}"
+                                    'debit':f"{purchase_voucher_instance.freight_amt:.2f}" if purchase_voucher_instance.freight_amt else '0.0'
                                 },
                                 {'account':_discount_ldgr,
-                                    'credit': f"{(purchase_voucher_instance.round_off + purchase_voucher_instance.discount_amt):.2f}"
+                                    'credit': f"{((purchase_voucher_instance.round_off or 0) + (purchase_voucher_instance.discount_amt or 0)):.2f}"
                                 },
                             ] +
                             [{'account':_making_purc_ldgr,

@@ -467,7 +467,7 @@ def fetch_main_details(request):
             'loss_pcs': 0,
             'loss_gw': 0,
             'loss_ct': 0,
-            'balance_ct':issue_data.get('pcs', 0),
+            'balance_ct':issue_data.get('ct', 0),
             'balance_gw':issue_data.get('gw', 0),
             'balance_pcs':issue_data.get('pcs', 0),
 

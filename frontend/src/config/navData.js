@@ -24,8 +24,12 @@ import {
   ShoppingCart,
   Sparkles,
   Tag,
+  TrendingDown,
   Users,
+  UserCog,
+  Wallet,
   Wrench,
+  Layers,
 } from "lucide-react"
 
 export const navData = {
@@ -249,6 +253,24 @@ export const navData = {
         { title: "TCS Register",                url: "/accounting/reports/tcs-register"      },
       ],
     },
+    {
+      title: "Fixed Assets",
+      url: "#",
+      icon: Layers,
+      items: [
+        { title: "Asset Master",           url: "/fixed-assets/master"       },
+        { title: "Depreciation Worksheet", url: "/fixed-assets/depreciation" },
+        { title: "FA Settings",            url: "/fixed-assets/settings"     },
+      ],
+    },
+  ],
+
+  // ── HR ─────────────────────────────────────────────────────────────────────
+  navHR: [
+    { title: "Employees",          url: "/hr/employees",          icon: UserCog      },
+    { title: "Salary Structure",   url: "/hr/salary-structure",   icon: Wallet       },
+    { title: "Salary Processing",  url: "/hr/salary-processing",  icon: FileText     },
+    { title: "HR Settings",        url: "/hr/settings",           icon: Settings     },
   ],
 
   // ── AI ─────────────────────────────────────────────────────────────────────
@@ -292,6 +314,7 @@ export const navSections = [
   { label: "Sales",                parts: [{ key: "navMain2",          items: navData.navMain2 }] },
   { label: "Inventory",            parts: [{ key: "navMain3",          items: navData.navMain3 }] },
   { label: "Financial Accounting", parts: [{ key: "navMain4",          items: navData.navMain4 }] },
+  { label: "HR",                   parts: [{ key: "navHR",             items: navData.navHR }] },
   { label: "AI",                   parts: [{ key: "navMainAI",         items: navData.navMainAI }] },
   { label: "System",               parts: [{ key: "navSettings",       items: navData.navSettings }] },
 ]

@@ -4,12 +4,16 @@ Signals for the Gold Scheme module.
 1. Auto-create a SCHM accounting voucher when a SchemePayment is created.
 2. Auto-create the "Scheme Liability" system ledger per retail when first needed.
 """
+import logging
+
 from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from global_vars import VoucherType
 from .models import SchemePayment
+
+logger = logging.getLogger(__name__)
 
 
 def _get_or_create_scheme_liability_ledger(retail):
@@ -58,46 +62,53 @@ def create_scheme_voucher(sender, instance, created, **kwargs):
     retail = payment.retail
     fiscal_year = payment.fiscal_year or getattr(retail, 'active_fy', None)
 
-    scheme_liability = _get_or_create_scheme_liability_ledger(retail)
-    voucher_no = generate_voucher_no(VoucherType.scheme, retail, fiscal_year)
+    try:
+        scheme_liability = _get_or_create_scheme_liability_ledger(retail)
+        voucher_no = generate_voucher_no(VoucherType.scheme, retail, fiscal_year)
 
-    narration = (
-        f"Scheme payment {payment.payment_no} — "
-        f"{payment.enrollment.customer.ac_name} — "
-        f"{payment.enrollment.scheme.name} (Inst #{payment.installment_number})"
-    )
-
-    with transaction.atomic():
-        voucher = VoucherMain.objects.create(
-            date=payment.date,
-            voucher_no=voucher_no,
-            narration=narration[:150],
-            amount=payment.amount,
-            voucher_type=VoucherType.scheme,
-            retail=retail,
-            fiscal_year=fiscal_year,
+        narration = (
+            f"Scheme payment {payment.payment_no} — "
+            f"{payment.enrollment.customer.ac_name} — "
+            f"{payment.enrollment.scheme.name} (Inst #{payment.installment_number})"
         )
 
-        # Debit: Cash/Bank (the payment ledger)
-        VoucherDetail.objects.create(
-            voucher_main=voucher,
-            voucher_no=voucher_no,
-            voucher_type=VoucherType.scheme,
-            account=payment.payment_ledger,
-            debit=payment.amount,
-            credit=0,
-        )
+        with transaction.atomic():
+            voucher = VoucherMain.objects.create(
+                date=payment.date,
+                voucher_no=voucher_no,
+                narration=narration[:150],
+                amount=payment.amount,
+                voucher_type=VoucherType.scheme,
+                retail=retail,
+                fiscal_year=fiscal_year,
+            )
 
-        # Credit: Scheme Liability
-        VoucherDetail.objects.create(
-            voucher_main=voucher,
-            voucher_no=voucher_no,
-            voucher_type=VoucherType.scheme,
-            account=scheme_liability,
-            debit=0,
-            credit=payment.amount,
-        )
+            # Debit: Cash/Bank (the payment ledger)
+            VoucherDetail.objects.create(
+                voucher_main=voucher,
+                voucher_no=voucher_no,
+                voucher_type=VoucherType.scheme,
+                account=payment.payment_ledger,
+                debit=payment.amount,
+                credit=0,
+            )
 
-        # Link the voucher to the payment
-        payment.voucher = voucher
-        payment.save(update_fields=['voucher'])
+            # Credit: Scheme Liability
+            VoucherDetail.objects.create(
+                voucher_main=voucher,
+                voucher_no=voucher_no,
+                voucher_type=VoucherType.scheme,
+                account=scheme_liability,
+                debit=0,
+                credit=payment.amount,
+            )
+
+            # Link the voucher to the payment
+            payment.voucher = voucher
+            payment.save(update_fields=['voucher'])
+    except Exception:
+        logger.exception(
+            "Failed to create SCHM voucher for payment %s (enrollment %s). "
+            "Payment saved but accounting entry is missing — manual JV required.",
+            payment.payment_no, payment.enrollment.enrollment_no,
+        )

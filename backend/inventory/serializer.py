@@ -214,12 +214,14 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
     )
     pur_voucher = serializers.PrimaryKeyRelatedField(
         queryset=PurchaseVoucherItems.objects.all(),
-        required=False
+        required=False,
+        allow_null=True
     )
 
     rec_item = serializers.PrimaryKeyRelatedField(
         queryset=KarigarReceiveItem.objects.all(),
-        required=False
+        required=False,
+        allow_null=True
     )
 
     kr_code = serializers.PrimaryKeyRelatedField(
@@ -303,15 +305,15 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 ip_address=ip,
                 retail=request.retail
             )
-        if pur:
-            pur.pending_pcs = pur.pending_pcs - child.pcs
-            pur.pending_gw = pur.pending_gw - child.gw
-            pur.save()
-            
-        if rec_item:
-            rec_item.pending_pcs = rec_item.pending_pcs - child.pcs
-            rec_item.pending_gw = rec_item.pending_gw - child.gw
-            rec_item.save()
+            if pur:
+                pur.pending_pcs = pur.pending_pcs - child.pcs
+                pur.pending_gw = pur.pending_gw - child.gw
+                pur.save()
+
+            if rec_item:
+                rec_item.pending_pcs = rec_item.pending_pcs - child.pcs
+                rec_item.pending_gw = rec_item.pending_gw - child.gw
+                rec_item.save()
         return child
 
     def update(self, instance, validated_data):
@@ -682,13 +684,13 @@ class StockTransferSerializer(serializers.ModelSerializer):
                 StockTransferMainSerializer(detail_data, many=True).data,
             )
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
-            for item_br in detail_data:
+            for stm in parent_instance.stocktransfermain_set.select_related('barcode').all():
                 BarcodeTransaction.objects.create(
-                    barcode=item_br["barcode"], billno=parent_instance.billno,
+                    barcode=stm.barcode, billno=parent_instance.billno,
                     trans_type="TRF-RR-OUT", user=request.user, ip_address=ip, retail=request.retail,
                 )
                 BarcodeTransaction.objects.create(
-                    barcode=item_br["barcode"], billno=parent_instance.billno,
+                    barcode=stm.barcode, billno=parent_instance.billno,
                     trans_type="TRF-RR-IN", user=request.user, ip_address=ip, retail=parent_instance.to_rt_code,
                 )
             return parent_instance

@@ -19,12 +19,12 @@ export default function SchemeEnrollmentList() {
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("__all__");
 
   const load = async () => {
     setLoading(true);
     const params = {};
-    if (statusFilter) params.status = statusFilter;
+    if (statusFilter && statusFilter !== "__all__") params.status = statusFilter;
     const res = await fetchSchemeEnrollments(params);
     if (res.success) {
       const d = res.data;
@@ -95,7 +95,7 @@ export default function SchemeEnrollmentList() {
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-40"><SelectValue placeholder="All statuses" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All</SelectItem>
+              <SelectItem value="__all__">All</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="MATURED">Matured</SelectItem>
               <SelectItem value="REDEEMED">Redeemed</SelectItem>

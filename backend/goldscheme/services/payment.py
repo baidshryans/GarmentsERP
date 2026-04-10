@@ -76,18 +76,33 @@ def record_payment(enrollment, amount, payment_mode, payment_ledger, payment_dat
 
     if enrollment.scheme.gold_price_mode == 'ACCUMULATED':
         purity = enrollment.scheme.accumulation_purity
-        if purity:
-            gold_weight, gold_rate = calculate_gold_weight(amount, purity)
+        if not purity:
+            raise ValueError(
+                "Cannot record payment: accumulation purity is not configured on the scheme."
+            )
+        gold_weight, gold_rate = calculate_gold_weight(amount, purity)
+        if not gold_rate or gold_rate <= 0:
+            raise ValueError(
+                f"Cannot record payment: no gold rate found for purity '{purity}'. "
+                f"Please ensure today's gold rate is entered before accepting payments."
+            )
 
     with transaction.atomic():
+        # Lock the enrollment row to prevent race conditions on running totals
+        from goldscheme.models import SchemeEnrollment
+        locked_enrollment = SchemeEnrollment.objects.select_for_update().get(pk=enrollment.pk)
+
+        if locked_enrollment.status not in ('ACTIVE',):
+            raise ValueError(f"Enrollment is {locked_enrollment.status}, cannot accept payments.")
+
         payment = SchemePayment.objects.create(
-            enrollment=enrollment,
+            enrollment=locked_enrollment,
             payment_no=payment_no,
             date=pay_date,
             amount=amount,
             payment_mode=payment_mode,
             payment_ledger=payment_ledger,
-            installment_number=enrollment.next_installment_number,
+            installment_number=locked_enrollment.next_installment_number,
             gold_rate_at_payment=gold_rate,
             gold_weight_added=gold_weight,
             retail=retail,
@@ -96,12 +111,16 @@ def record_payment(enrollment, amount, payment_mode, payment_ledger, payment_dat
         )
 
         # Update enrollment running totals
-        enrollment.total_paid += amount
-        enrollment.payments_made += 1
+        locked_enrollment.total_paid += amount
+        locked_enrollment.payments_made += 1
         if gold_weight:
-            enrollment.gold_accumulated_wt += gold_weight
-        enrollment.save(update_fields=[
+            locked_enrollment.gold_accumulated_wt += gold_weight
+        locked_enrollment.save(update_fields=[
             'total_paid', 'payments_made', 'gold_accumulated_wt', 'updated_at'
         ])
+        # Sync the caller's enrollment object
+        enrollment.total_paid = locked_enrollment.total_paid
+        enrollment.payments_made = locked_enrollment.payments_made
+        enrollment.gold_accumulated_wt = locked_enrollment.gold_accumulated_wt
 
     return payment

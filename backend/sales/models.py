@@ -171,21 +171,24 @@ class SalesVou(models.Model):
 
     @property
     def taxable_value(self):
-        return float(self.mrp) - float(self.discount)
+        return float(self.mrp or 0) - float(self.discount or 0)
+
     @property
     def ldgr_name(self):
-        return self.ldgr.ac_name
+        return self.ldgr.ac_name if self.ldgr else None
+
     @property
     def sgst_amt(self):
-        return (float(self.taxable_value) - float(self.discount)) * float(self.sgst_per)/100
+        # taxable_value already = mrp - discount, so use it directly
+        return float(self.taxable_value) * float(self.sgst_per or 0) / 100
 
     @property
     def cgst_amt(self):
-        return (float(self.taxable_value) - float(self.discount)) * float(self.cgst_per)/100
+        return float(self.taxable_value) * float(self.cgst_per or 0) / 100
 
     @property
     def igst_amt(self):
-        return (float(self.taxable_value) - float(self.discount)) * float(self.igst_per)/100
+        return float(self.taxable_value) * float(self.igst_per or 0) / 100
 
     @property
     def total_bill_value(self):
@@ -193,20 +196,16 @@ class SalesVou(models.Model):
 
     @property
     def tcs_amt(self):
-        tcs_value = float(self.total_bill_value) * float(self.tcs_per)/100
+        tcs_value = float(self.total_bill_value) * float(self.tcs_per or 0) / 100
         return tcs_value if tcs_value > 5000000 else 0  # Return only if greater than 5,000,000
 
     def clean(self):
-        # Ensure that if both cgst and sgst are defined, igst should be 0
-        if self.cgst_amt is not None and self.sgst_amt is not None:
-            if self.igst_amt != 0:
-                raise ValidationError("IGST must be 0 if both CGST and SGST are defined.")
+        # Validate on percentage fields (actual DB columns), not computed properties
+        if self.cgst_per and self.sgst_per and self.igst_per:
+            raise ValidationError("IGST must be 0 if both CGST and SGST are defined.")
+        if self.igst_per and (self.cgst_per or self.sgst_per):
+            raise ValidationError("CGST and SGST must be 0 if IGST is defined.")
 
-        # You can add more conditions if needed
-        # For example, you may want to ensure that if igst is defined, cgst and sgst should be None
-        if self.igst_amt is not None:
-            if self.cgst_amt or self.sgst_amt:
-                raise ValidationError("CGST and SGST must be None if IGST is defined.")
     class Meta:
         db_table = "sales_vou"
         indexes = [
@@ -304,22 +303,24 @@ class SaleReturn(models.Model):
 
     @property
     def taxable_value(self):
-        return float(self.mrp) - float(self.discount)
+        return float(self.mrp or 0) - float(self.discount or 0)
 
     @property
     def ldgr_name(self):
-        return self.ldgr.ac_name
+        return self.ldgr.ac_name if self.ldgr else None
+
     @property
     def sgst_amt(self):
-        return (float(self.taxable_value) - float(self.discount)) * float(self.sgst_per)/100
+        # taxable_value already = mrp - discount, so use it directly
+        return float(self.taxable_value) * float(self.sgst_per or 0) / 100
 
     @property
     def cgst_amt(self):
-        return (float(self.taxable_value) - float(self.discount)) * float(self.cgst_per)/100
+        return float(self.taxable_value) * float(self.cgst_per or 0) / 100
 
     @property
     def igst_amt(self):
-        return (float(self.taxable_value) - float(self.discount)) * float(self.igst_per)/100
+        return float(self.taxable_value) * float(self.igst_per or 0) / 100
 
     @property
     def total_bill_value(self):
@@ -327,7 +328,7 @@ class SaleReturn(models.Model):
 
     @property
     def tcs_amt(self):
-        tcs_value = float(self.total_bill_value) * float(self.tcs_per)/100
+        tcs_value = float(self.total_bill_value) * float(self.tcs_per or 0) / 100
         return tcs_value if tcs_value > 5000000 else 0  # Return only if greater than 5,000,000
 
 
@@ -397,24 +398,24 @@ class SalesApproval(models.Model):
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     def clean(self):
-        # Ensure that if both cgst and sgst are defined, igst should be 0
-        if self.cgst_amt is not None and self.sgst_amt is not None:
-            if self.igst_amt != 0:
-                raise ValidationError("IGST must be 0 if both CGST and SGST are defined.")
+        # Validate on percentage fields (actual DB columns), not computed properties
+        if self.cgst_per and self.sgst_per and self.igst_per:
+            raise ValidationError("IGST must be 0 if both CGST and SGST are defined.")
+        if self.igst_per and (self.cgst_per or self.sgst_per):
+            raise ValidationError("CGST and SGST must be 0 if IGST is defined.")
 
-        # You can add more conditions if needed
-        # For example, you may want to ensure that if igst is defined, cgst and sgst should be None
-        if self.igst_amt is not None:
-            if self.cgst_amt or self.sgst_amt:
-                raise ValidationError("CGST and SGST must be None if IGST is defined.")
+    @property
+    def net_taxable(self):
+        """Taxable value after discount — base for GST calculation."""
+        return (self.taxable_value or Decimal(0)) - (self.discount or Decimal(0))
 
     @property
     def total_bill_value(self):
-        return self.taxable_value + self.cgst_amt + self.sgst_amt + self.igst_amt
+        return self.net_taxable + self.cgst_amt + self.sgst_amt + self.igst_amt
 
     @property
     def sgst_amt(self):
-        return (self.taxable_value - self.discount) * self.sgst_per
+        return self.net_taxable * (self.sgst_per or Decimal(0)) / Decimal(100)
 
     @property
     def ldgr_name(self):
@@ -422,15 +423,15 @@ class SalesApproval(models.Model):
 
     @property
     def cgst_amt(self):
-        return (self.taxable_value - self.discount) * self.cgst_per
+        return self.net_taxable * (self.cgst_per or Decimal(0)) / Decimal(100)
 
     @property
     def igst_amt(self):
-        return (self.taxable_value - self.discount) * self.igst_per
+        return self.net_taxable * (self.igst_per or Decimal(0)) / Decimal(100)
 
     @property
     def total_incl_taxes(self):
-        return self.taxable_value - self.discount + self.cgst_amt + self.sgst_amt + self.igst_amt
+        return self.net_taxable + self.cgst_amt + self.sgst_amt + self.igst_amt
 
     # ── E-Way Bill transport fields ────────────────────────────────────────────
     vehicle_no       = models.CharField(max_length=20,  blank=True, default='')

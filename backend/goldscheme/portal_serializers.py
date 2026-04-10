@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import serializers
 
 
@@ -19,5 +20,5 @@ class PortalSetPasswordSerializer(serializers.Serializer):
 
 class PortalPaymentSerializer(serializers.Serializer):
     enrollment_no = serializers.CharField(max_length=30)
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=1)
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('1'))
     upi_reference = serializers.CharField(max_length=100, required=False, default='')

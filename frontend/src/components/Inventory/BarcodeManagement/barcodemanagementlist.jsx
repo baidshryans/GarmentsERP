@@ -397,7 +397,7 @@ const BarcodeManagementList = () => {
           <Button type="submit" className="mr-4">
             Save
           </Button>
-          <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>
       </form>
     </div>

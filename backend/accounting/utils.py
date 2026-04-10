@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import Sum, F
 
-from inventory.models import RawMaterialInventory, UnBarcodedDetails
+from inventory.models import RawMaterialInventory, UnBarcodedDetails, BarcodeDetails
 from mastersconfig.models import BillNumberSequence
 from .models import *
 from purchase.models import *

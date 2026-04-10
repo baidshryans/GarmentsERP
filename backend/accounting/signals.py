@@ -13,6 +13,7 @@ When a VoucherMain is deleted (or soft-cancelled via cancel_voucher), we must:
 Only PMNT / RCPT / RCPT-SALE affect invoice due_amt today. JRNL will be added
 in Phase 4 when credit-note adjustment is implemented.
 """
+import logging
 from decimal import Decimal
 
 from django.db import transaction
@@ -20,6 +21,8 @@ from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 
 from .models import VoucherMain, ReferenceBills
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(pre_delete, sender=VoucherMain)
@@ -35,6 +38,12 @@ def reverse_voucher_effects(sender, instance, **kwargs):
 
     vtype = (instance.voucher_type or '').strip().upper()
     if vtype not in ('PMNT', 'RCPT', 'RCPT-SALE', 'JRNL', 'CN', 'DN'):
+        if instance.transactions.filter(ref_bill_no__isnull=False).exclude(ref_bill_no='').exists():
+            logger.warning(
+                "Deleting voucher %s (type=%s) which has ref_bill_no allocations "
+                "but no reversal handler. Invoice due_amt may be stale.",
+                instance.voucher_no, vtype,
+            )
         ReferenceBills.objects.filter(voucher=instance).delete()
         return
 

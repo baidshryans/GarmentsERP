@@ -50,7 +50,7 @@ export default function CreditDebitNoteAdd() {
   // Party ledger search
   useEffect(() => {
     if (ldgrSearch.length < 2) { setLdgrOptions([]); return; }
-    const role = noteType === "CN" ? "SD" : "SC";
+    const role = noteType === "CN" ? "CO,SD,DL" : "VD,SC";
     const timer = setTimeout(async () => {
       const res = await getLedgers({ search: ldgrSearch, type: role, page_size: 20 });
       if (res.success) setLdgrOptions(res.data.results || []);

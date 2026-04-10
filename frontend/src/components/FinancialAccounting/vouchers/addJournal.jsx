@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, createJournalEntry, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment } from "@/services/apiService";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchAccountingVoucher, fetchJournalEntryForEdit, fetchVoucherNoNext, updateJournalEntryForEdit } from "../../../services/apiService";
 import { SquarePen, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
@@ -18,6 +18,7 @@ import BillAllocationTable from "./BillAllocationTable";
 
 const AddJournal = () => {
   const { toast } = useToast()
+  const navigate = useNavigate();
   const {id} = useParams()
   const { journal_type } = useParams();
   const [searchParams] = useSearchParams();
@@ -89,8 +90,8 @@ const AddJournal = () => {
   }, [journal_type, setValue]);
 
   useEffect(() => {
-    const totalDebit = rs.reduce((acc, row) => acc + parseFloat(row.debit), 0);
-    const totalCredit = rs.reduce((acc, row) => acc + parseFloat(row.credit), 0);
+    const totalDebit = rs.reduce((acc, row) => acc + (parseFloat(row.debit) || 0), 0);
+    const totalCredit = rs.reduce((acc, row) => acc + (parseFloat(row.credit) || 0), 0);
     settotalDebit(totalDebit);
     settotalCredit(totalCredit);
 
@@ -124,11 +125,23 @@ const AddJournal = () => {
 
   const onSubmit = (data) => {
     const form = getValues('form')
-    form.voucher_details = [...rs];
+    form.voucher_details = rs.map(row => ({
+      ...row,
+      debit:  parseFloat(row.debit)  || 0,
+      credit: parseFloat(row.credit) || 0,
+    }));
 
     console.log(form)
-    if (totalCredit - totalDebit !== 0) {
-      toast({ title: "Debit and Credit should be equal" });
+    if (rs.length === 0) {
+      toast({ title: "Add at least one line item", variant: "destructive" });
+      return;
+    }
+    if (totalDebit === 0 && totalCredit === 0) {
+      toast({ title: "Voucher amounts cannot be zero", variant: "destructive" });
+      return;
+    }
+    if (Math.abs(totalCredit - totalDebit) > 0.01) {
+      toast({ title: "Debit and Credit should be equal", description: `Difference: ₹${Math.abs(totalCredit - totalDebit).toLocaleString("en-IN")}`, variant: "destructive" });
       return;
     }
 
@@ -156,6 +169,7 @@ const AddJournal = () => {
           }
 
           toast({ title: "Voucher saved successfully!" });
+          navigate(`/accounting/AddJournal/${journal_type}`);
         } else {
           // Surface the actual server-side error message (covers 269ST / 40A(3) limit errors)
           const err = response.error;
@@ -261,6 +275,19 @@ const AddJournal = () => {
         setRows(prev => [...prev, ...expanded]);
         setAllocations([]);
         reset({ ...getValues(), table: { account: "", status: "", ref_bill_no: "", debit: "", credit: "" } });
+        e.preventDefault();
+        return;
+      }
+
+      // Validate: account must be filled, and at least one of debit/credit must be > 0
+      const rowDebit = parseFloat(row.debit) || 0;
+      const rowCredit = parseFloat(row.credit) || 0;
+      if (!row.account || !row.account.trim()) {
+        e.preventDefault();
+        return;
+      }
+      if (rowDebit <= 0 && rowCredit <= 0) {
+        toast({ title: "Enter a debit or credit amount", variant: "destructive" });
         e.preventDefault();
         return;
       }
@@ -451,7 +478,6 @@ const AddJournal = () => {
               {showStatus && <TableCell className="w-32 px-4 py-2 border"></TableCell>}
               <TableCell className="w-32 px-4 py-2 border">Total : </TableCell>
               <TableCell className="w-32 px-4 py-2 border">{totalDebit}</TableCell>
-
               <TableCell className="w-32 px-4 py-2 border">{totalCredit}</TableCell>
             </TableRow>
             <TableRow>
@@ -461,7 +487,6 @@ const AddJournal = () => {
               <TableCell className="w-32 px-4 py-2 border">Difference : </TableCell>
               <TableCell className="w-32 px-4 py-2 border">{totalCredit - totalDebit}</TableCell>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
-
             </TableRow>
 
 

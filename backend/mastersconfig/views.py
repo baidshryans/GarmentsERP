@@ -138,8 +138,34 @@ class ListCreateSalesPersonMaster(ListCreateAPIView):
         return SalesPersonMaster.objects.all()
 
     def perform_create(self, serializer):
+        from django.db import transaction
+        from contacts.models import Ledger, LedgerRole
+        from accounting.models import Account
+
         retail = getattr(self.request, "retail", None)
-        serializer.save(retail=retail)
+
+        with transaction.atomic():
+            # If no ledger was explicitly provided, auto-create a
+            # "Sales Commission Payable" ledger under Sundry Creditors
+            ledger = serializer.validated_data.get('ledger')
+            if not ledger:
+                sp_name = serializer.validated_data['salesperson_name']
+                ledger_name = f"Commission Payable - {sp_name}"
+
+                sc_group = Account.objects.filter(code='CL-SC').first()
+
+                ledger = Ledger.objects.create(
+                    ac_name=ledger_name,
+                    display_name=ledger_name,
+                    ac_group=sc_group,
+                    retail_code=retail,
+                    is_system=True,
+                )
+                LedgerRole.objects.create(
+                    ledger=ledger, role='SC', is_primary=True,
+                )
+
+            serializer.save(retail=retail, ledger=ledger)
 
 class RetrieveUpdateDestroySalesPersonMaster(RetrieveUpdateDestroyAPIView):
     serializer_class = SalesPersonMasterSerializer

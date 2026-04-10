@@ -36,6 +36,7 @@ urlpatterns = [
     path('ai/', include('ai_layer.urls')),
     path('licensing/', include('licensing.urls')),
     path('goldscheme/', include('goldscheme.urls')),
+    path('hr/', include('hr.urls')),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root = settings.STATIC_ROOT)

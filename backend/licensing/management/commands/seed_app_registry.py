@@ -98,6 +98,15 @@ APPS = [
         "Natural-language queries and AI-powered insights across your ERP data.",
         ["navMainAI"],
     ),
+    (
+        "hr",
+        "Human Resources",
+        "hr",
+        "UserCog",
+        False, 499, 110,
+        "Employee records, salary structures, payroll processing, and HR settings.",
+        ["navHR"],
+    ),
 ]
 
 

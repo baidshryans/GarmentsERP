@@ -77,7 +77,7 @@ export default function SchemeMasterPage() {
         ...t,
         min_months: parseInt(t.min_months),
         max_months: parseInt(t.max_months),
-        lc_discount_pct: parseFloat(t.lc_discount_pct),
+        lc_discount_pct: parseFloat(t.lc_discount_pct) || 0,
         value_discount_pct: parseFloat(t.value_discount_pct) || 0,
       })),
     };
@@ -179,10 +179,10 @@ export default function SchemeMasterPage() {
             <div><Label>Min Amount (₹)</Label><Input name="min_amount" type="number" value={form.min_amount} onChange={handleChange} /></div>
             <div><Label>Max Amount (₹)</Label><Input name="max_amount" type="number" value={form.max_amount} onChange={handleChange} placeholder="Unlimited" /></div>
             <div><Label>Accumulation Purity</Label>
-              <Select value={String(form.accumulation_purity || "")} onValueChange={(v) => setForm((f) => ({ ...f, accumulation_purity: v || null }))}>
+              <Select value={form.accumulation_purity ? String(form.accumulation_purity) : "__none__"} onValueChange={(v) => setForm((f) => ({ ...f, accumulation_purity: v === "__none__" ? null : v }))}>
                 <SelectTrigger><SelectValue placeholder="Select purity" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {purities.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.purity}</SelectItem>)}
                 </SelectContent>
               </Select>

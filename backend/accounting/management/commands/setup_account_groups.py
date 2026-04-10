@@ -28,6 +28,7 @@ ACCOUNT_TREE = [
     ("FA-FF", "Furniture & Fixtures", "FA"),
     ("FA-CE", "Office Equipment", "FA"),
     ("FA-VH", "Vehicles", "FA"),
+    ("FA-AD", "Accumulated Depreciation", "FA"),  # Contra-asset: reduces total FA
 
     # Investments
     ("INV", "Investments", "AS"),

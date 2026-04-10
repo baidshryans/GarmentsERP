@@ -23,14 +23,38 @@ from .services.redemption import get_applicable_benefits
 
 def _find_customer_by_mobile(mobile):
     """Find a customer Ledger by mobile number across all retails.
-    Returns the first customer Ledger that has a CO role."""
+    Returns the customer Ledger that has a CO role.
+    Raises ValueError if multiple customers share the same mobile within a retail.
+    """
     candidates = Ledger.objects.filter(
         Q(mobile1=mobile) | Q(mobile2=mobile) | Q(phone1=mobile)
     )
     customer_ids = LedgerRole.objects.filter(
         ledger__in=candidates, role='CO'
     ).values_list('ledger_id', flat=True)
-    return Ledger.objects.filter(id__in=customer_ids).first()
+    customers = Ledger.objects.filter(id__in=customer_ids)
+
+    if not customers.exists():
+        return None
+
+    # Check for ambiguity: multiple customers with portal credentials sharing the mobile
+    portal_customers = customers.filter(portal_credential__is_active=True)
+    if portal_customers.count() > 1:
+        # Group by retail to give a clearer error
+        retail_codes = list(
+            portal_customers.values_list('retail_code__retail_code', flat=True).distinct()
+        )
+        raise ValueError(
+            f"Multiple customer accounts are linked to mobile {mobile} "
+            f"(retails: {', '.join(str(r) for r in retail_codes)}). "
+            f"Please contact the shop to resolve the ambiguity."
+        )
+
+    if portal_customers.count() == 1:
+        return portal_customers.first()
+
+    # Fallback: return first customer (no portal credentials yet, or single match)
+    return customers.first()
 
 
 def _find_all_customer_ledgers(mobile):
@@ -59,7 +83,10 @@ class PortalRequestOTPView(APIView):
 
         mobile = ser.validated_data['mobile'].strip()
 
-        customer = _find_customer_by_mobile(mobile)
+        try:
+            customer = _find_customer_by_mobile(mobile)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
         if not customer:
             return Response(
                 {'error': 'No customer found with this mobile number.'},
@@ -105,7 +132,10 @@ class PortalVerifyOTPView(APIView):
 
         mobile = ser.validated_data['mobile'].strip()
 
-        customer = _find_customer_by_mobile(mobile)
+        try:
+            customer = _find_customer_by_mobile(mobile)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
         if not customer:
             return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -176,7 +206,10 @@ class PortalSetPasswordView(APIView):
 
         mobile = ser.validated_data['mobile'].strip()
 
-        customer = _find_customer_by_mobile(mobile)
+        try:
+            customer = _find_customer_by_mobile(mobile)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
         if not customer:
             return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
 

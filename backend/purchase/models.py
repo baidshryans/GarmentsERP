@@ -231,7 +231,9 @@ class PurchaseReturn(models.Model):
 
     @property
     def total_incl_tax(self):
-        return self.item_total + -self.discount + self.cgst_amt + self.sgst_amt + self.igst_amt + self.tcs_amt
+        return (self.bill_value or Decimal(0)) - (self.discount or Decimal(0)) + \
+               (self.cgst_amt or Decimal(0)) + (self.sgst_amt or Decimal(0)) + \
+               (self.igst_amt or Decimal(0)) + (self.tcs_amt or Decimal(0))
 
     class Meta:
         db_table = "purchase_return"

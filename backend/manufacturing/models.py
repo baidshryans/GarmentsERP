@@ -143,15 +143,15 @@ class KarigarStoneIssue(models.Model):
     pcs = models.IntegerField()
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     gw = models.DecimalField(max_digits=10, decimal_places=3)
-    cgst = models.DecimalField(max_digits=10, decimal_places=0)
-    sgst = models.DecimalField(max_digits=10, decimal_places=0)
-    igst = models.DecimalField(max_digits=10, decimal_places=0)
-    rate = models.DecimalField(max_digits=10, decimal_places=0)
-    taxable_value = models.DecimalField(max_digits=10, decimal_places=0)
-    tot_val = models.DecimalField(max_digits=10, decimal_places=0)
+    cgst = models.DecimalField(max_digits=10, decimal_places=2)
+    sgst = models.DecimalField(max_digits=10, decimal_places=2)
+    igst = models.DecimalField(max_digits=10, decimal_places=2)
+    rate = models.DecimalField(max_digits=10, decimal_places=2)
+    taxable_value = models.DecimalField(max_digits=10, decimal_places=2)
+    tot_val = models.DecimalField(max_digits=10, decimal_places=2)
 
     packet = models.ForeignKey(Packet, on_delete=models.SET_NULL, null=True)
-    
+
     remarks = models.CharField(max_length=100, null=True, blank=True)
     place_of_supply = models.CharField(max_length=100, null=True, blank=True)
 
@@ -200,10 +200,10 @@ class KarigarStoneReceive(models.Model):
     loss_ct = models.DecimalField(max_digits=10, decimal_places=3, default=0, blank=True, null=True)
     loss_gw = models.DecimalField(max_digits=10, decimal_places=3, default=0, blank=True, null=True)
     
-    cgst = models.DecimalField(max_digits=10, decimal_places=0)
-    sgst = models.DecimalField(max_digits=10, decimal_places=0)
-    igst = models.DecimalField(max_digits=10, decimal_places=0)
-    rate = models.DecimalField(max_digits=10, decimal_places=0)
+    cgst = models.DecimalField(max_digits=10, decimal_places=2)
+    sgst = models.DecimalField(max_digits=10, decimal_places=2)
+    igst = models.DecimalField(max_digits=10, decimal_places=2)
+    rate = models.DecimalField(max_digits=10, decimal_places=2)
     taxable_value = models.DecimalField(max_digits=10, decimal_places=2)
     tot_val = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
     
@@ -224,8 +224,8 @@ class KarigarStoneReceive(models.Model):
 class KarigarMaster(models.Model):
     karigar = models.ForeignKey(Ledger, on_delete = models.CASCADE)
     kr_code = models.CharField(max_length=10, null=True)
-    making_per_gm = models.DecimalField(max_digits=10, decimal_places=0)
-    making_per_pc = models.DecimalField(max_digits=10, decimal_places=0)
+    making_per_gm = models.DecimalField(max_digits=10, decimal_places=2)
+    making_per_pc = models.DecimalField(max_digits=10, decimal_places=2)
     loss_rate = models.DecimalField(max_digits=10, decimal_places=3)
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
@@ -332,8 +332,8 @@ class KarigarReceiveItemDetails(models.Model):
     balance_pcs = models.IntegerField() #to be passed to barcode creation
     balance_ct = models.DecimalField(max_digits=10, decimal_places=3, default=0, blank=True, null=True) #to be passed to barcode creation
     balance_gw = models.DecimalField(max_digits=10, decimal_places=3, default=0, blank=True, null=True) #to be passed to barcode creation
-    rate = models.DecimalField(max_digits=10, decimal_places=0, default=0, blank=True, null=True) #to be passed to barcode creation
-    amt = models.DecimalField(max_digits=10, decimal_places=0, default=0, blank=True, null=True) #to be passed to barcode creation
+    rate = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True) #to be passed to barcode creation
+    amt = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True) #to be passed to barcode creation
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
 

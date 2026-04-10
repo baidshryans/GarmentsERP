@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jewel India ERP — India's First Jewellery-Specific ERP Software</title>
+  <meta name="description" content="Modern ERP built for Indian jewellers. Gold scheme management, customer portal, hallmark tracking, GST compliance, and AI-powered insights. Modernize your jewellery business today.">
+  <meta name="keywords" content="jewellery ERP, gold scheme software, Indian jeweller software, hallmark tracking, HUID management, jewellery billing software, GST jewellery">
+  <meta property="og:title" content="Jewel India ERP — India's First Jewellery-Specific ERP">
+  <meta property="og:description" content="Modern ERP built for Indian jewellers. Gold scheme management, customer portal, hallmark tracking, GST compliance, and AI-powered insights.">
+  <meta property="og:type" content="website">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@200..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ═══════════════ NAVBAR ═══════════════ -->
+  <nav class="navbar" id="navbar">
+    <div class="container navbar-inner">
+      <a href="#" class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="36" height="36">
+          <defs>
+            <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#8b8df0"/>
+              <stop offset="100%" stop-color="#5b5fd1"/>
+            </linearGradient>
+            <linearGradient id="gem-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ffffff"/>
+              <stop offset="60%" stop-color="#e5e7ff"/>
+              <stop offset="100%" stop-color="#a5a8f5"/>
+            </linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="12" fill="url(#bg-grad)"/>
+          <polygon points="32,10 50,26 32,56 14,26" fill="url(#gem-grad)" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/>
+          <polyline points="14,26 50,26 32,56" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/>
+          <line x1="32" y1="10" x2="32" y2="26" stroke="#ffffff" stroke-width="1.4"/>
+          <line x1="23" y1="26" x2="32" y2="56" stroke="#ffffff" stroke-width="0.9" opacity="0.7"/>
+          <line x1="41" y1="26" x2="32" y2="56" stroke="#ffffff" stroke-width="0.9" opacity="0.7"/>
+        </svg>
+        <span>Jewel India ERP</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#features">Features</a>
+        <a href="#why-us">Why Us</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+        <a href="#contact" class="btn btn-primary btn-sm">Request Demo</a>
+      </div>
+      <button class="hamburger" id="hamburger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ═══════════════ HERO ═══════════════ -->
+  <section class="hero" id="hero">
+    <div class="container hero-inner">
+      <div class="hero-content">
+        <div class="hero-badge reveal">Built exclusively for Indian Jewellers</div>
+        <h1 class="reveal">India's First<br><span class="gradient-text">Jewellery-Specific</span> ERP</h1>
+        <p class="hero-sub reveal">Stop juggling spreadsheets, manual ledgers, and disconnected software. One modern platform for gold schemes, hallmark tracking, GST compliance, inventory, manufacturing, and more.</p>
+        <div class="hero-ctas reveal">
+          <a href="#contact" class="btn btn-primary btn-lg">Request a Free Demo</a>
+          <a href="#features" class="btn btn-outline btn-lg">Explore Features</a>
+        </div>
+        <div class="hero-stats reveal">
+          <div class="stat">
+            <strong>10+</strong>
+            <span>Integrated Modules</span>
+          </div>
+          <div class="stat">
+            <strong>100%</strong>
+            <span>GST Compliant</span>
+          </div>
+          <div class="stat">
+            <strong>AI</strong>
+            <span>Powered Insights</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual reveal">
+        <div class="hero-gem">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="floating-gem">
+            <defs>
+              <linearGradient id="hero-gem-bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#8b8df0"/>
+                <stop offset="100%" stop-color="#5b5fd1"/>
+              </linearGradient>
+              <linearGradient id="hero-gem-face" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#ffffff"/>
+                <stop offset="60%" stop-color="#e5e7ff"/>
+                <stop offset="100%" stop-color="#a5a8f5"/>
+              </linearGradient>
+            </defs>
+            <circle cx="100" cy="100" r="90" fill="url(#hero-gem-bg)" opacity="0.12"/>
+            <circle cx="100" cy="100" r="70" fill="url(#hero-gem-bg)" opacity="0.08"/>
+            <polygon points="100,30 155,75 100,170 45,75" fill="url(#hero-gem-face)" stroke="#6965db" stroke-width="2" stroke-linejoin="round"/>
+            <polyline points="45,75 155,75 100,170" fill="none" stroke="#6965db" stroke-width="1.5" stroke-linejoin="round"/>
+            <line x1="100" y1="30" x2="100" y2="75" stroke="#6965db" stroke-width="1.5"/>
+            <line x1="72" y1="75" x2="100" y2="170" stroke="#6965db" stroke-width="1" opacity="0.5"/>
+            <line x1="128" y1="75" x2="100" y2="170" stroke="#6965db" stroke-width="1" opacity="0.5"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="hero-wave">
+      <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
+        <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="#ffffff"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ═══════════════ PAIN POINTS ═══════════════ -->
+  <section class="section" id="pain-points">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2>Why Jewellers Are Struggling Today</h2>
+        <p>Most jewellery businesses run on outdated tools that were never designed for this industry. Sound familiar?</p>
+      </div>
+      <div class="grid-3 pain-grid">
+        <div class="pain-card reveal">
+          <div class="pain-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <h3>Manual Gold Scheme Ledgers</h3>
+          <p>Handwritten ledgers for gold savings schemes are error-prone, hard to audit, and lead to customer disputes that damage trust.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="pain-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>No Customer Self-Service</h3>
+          <p>Your customers call or visit just to check their gold balance. There's no portal, no app — no way for them to pay installments online.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="pain-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3>Chained to One Desktop</h3>
+          <p>Your software only runs on one PC. You can't check stock from the store floor, approve sales remotely, or manage branches from home.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="pain-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <h3>No Hallmark / HUID Tracking</h3>
+          <p>With mandatory hallmarking, you need to track every item from karigar to hallmark center to customer. Most software can't do this.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="pain-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </div>
+          <h3>Too Many Disconnected Tools</h3>
+          <p>One tool for billing, another for inventory, a third for GST returns, and Excel for everything else. Nothing talks to each other.</p>
+        </div>
+        <div class="pain-card reveal">
+          <div class="pain-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <h3>No Intelligence or Analytics</h3>
+          <p>Business decisions based on gut feeling. No real-time dashboards, no AI insights, no way to instantly know your best-selling designs or karigar performance.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ FEATURES ═══════════════ -->
+  <section class="section section-accent" id="features">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2>Everything You Need. One Platform.</h2>
+        <p>From gold scheme management to AI-powered insights — every module built specifically for the jewellery industry.</p>
+      </div>
+      <div class="grid-3 features-grid">
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
+          </div>
+          <h3>Gold Scheme Management</h3>
+          <p>Run installment, accumulation, and lump sum gold savings schemes with automatic benefit tiers. Track enrollments, payments, and redemptions — all in one place.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <h3>Customer Portal</h3>
+          <p>Your customers log in with OTP, check their gold balance, view payment history, and pay installments — all from their phone. No app download needed.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5v3H7V7a5 5 0 0 1 5-5z"/><path d="M19 10H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2z"/><circle cx="12" cy="16" r="1"/></svg>
+          </div>
+          <h3>AI-Powered Insights</h3>
+          <p>Ask questions in plain English — "What were my top 5 selling designs this month?" — and get instant answers. Powered by the latest AI technology.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Hallmark & Assay Tracking</h3>
+          <p>Track every item through hallmark, assay, melting, and refinery operations. Capture HUID numbers and maintain complete chain of custody from karigar to customer.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
+          <h3>Complete GST Compliance</h3>
+          <p>CGST, SGST, IGST, TCS, TDS, RCM, E-Way Bills, GSTR-1, GSTR-3B — everything handled automatically. Never worry about compliance again.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <h3>Multi-Store Management</h3>
+          <p>Manage your entire business — Company, Branch, GSTIN, Retail — in one hierarchy. Transfer stock, compare performance, and control access across all locations.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <h3>Barcode & Inventory</h3>
+          <p>Generate EAN-13 barcodes and QR codes. Track every piece through stock journals, inter-store transfers, split/merge operations, and real-time stock valuation.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <h3>Manufacturing</h3>
+          <p>Complete karigar job work management — gold issuance, stone setting, repair job cards, and receiving. Track every gram issued and returned with fine weight calculations.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <h3>CRM & WhatsApp Automation</h3>
+          <p>Automatically send birthday and anniversary wishes via WhatsApp. Track customer purchase history, preferences, and build lasting relationships.</p>
+        </div>
+        <div class="feature-card reveal">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <h3>Financial Accounting</h3>
+          <p>Double-entry accounting with trial balance, P&L, balance sheet, bank reconciliation, and financial ratios. Complete audit trail for every transaction.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ WHY US ═══════════════ -->
+  <section class="section" id="why-us">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2>Why Jewel India?</h2>
+        <p>See what sets us apart from traditional ERPs and generic billing software.</p>
+      </div>
+      <div class="diff-list">
+        <div class="diff-item reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Built for Jewellery, Not Adapted</h3>
+            <p>Unlike generic ERPs that bolt on jewellery features as an afterthought, every single screen in Jewel India is designed for gold, diamond, and silver workflows from day one. Purity tracking, tunch calculations, old gold adjustments — it's all native.</p>
+          </div>
+        </div>
+        <div class="diff-item diff-item-reverse reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Gold Scheme Management — An Industry First</h3>
+            <p>The only ERP with built-in savings schemes — installment, accumulation, and lump sum — with automatic benefit tiers based on tenure. No plugins, no workarounds, no third-party integrations. It just works.</p>
+          </div>
+        </div>
+        <div class="diff-item reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Customer Portal — Let Your Customers Self-Serve</h3>
+            <p>Your customers log in with a simple OTP, check their gold balance, view every payment they've made, and pay installments — all from their phone. No other jewellery software in India offers this.</p>
+          </div>
+        </div>
+        <div class="diff-item diff-item-reverse reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a5 5 0 0 1 5 5v3H7V7a5 5 0 0 1 5-5z"/><path d="M19 10H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2z"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>AI-Powered — A First in the Industry</h3>
+            <p>Ask questions in plain English and get instant answers about your sales, stock, profits, and customers. Powered by the latest AI. No more digging through reports — just ask and know.</p>
+          </div>
+        </div>
+        <div class="diff-item reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Cloud-Ready, Not Desktop-Locked</h3>
+            <p>Access your entire business from any device, any location. Approve sales from home, check stock from the store floor, manage branches remotely. No more being chained to one PC in your shop.</p>
+          </div>
+        </div>
+        <div class="diff-item diff-item-reverse reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Complete Hallmark & HUID Lifecycle</h3>
+            <p>Track every item from karigar to hallmark center to customer — with HUID capture at every stage. Melting, assay, refinery, rhodium plating — complete chain of custody that no generic software can match.</p>
+          </div>
+        </div>
+        <div class="diff-item reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Real Multi-Store Architecture</h3>
+            <p>Company, Branch, GSTIN, Retail — a proper hierarchy, not just "multi-company" as an afterthought. Each level with its own permissions, ledgers, and reporting. Scale from 1 shop to 100.</p>
+          </div>
+        </div>
+        <div class="diff-item diff-item-reverse reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Modern Technology, Not Legacy Code</h3>
+            <p>Built on the same technology used by the world's leading tech companies. Fast, secure, and always improving. Regular updates, modern interface, and a codebase that won't become obsolete.</p>
+          </div>
+        </div>
+        <div class="diff-item reveal">
+          <div class="diff-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="diff-content">
+            <h3>Modular Pricing — Pay Only for What You Use</h3>
+            <p>Pure retailer? Don't pay for manufacturing. Don't run gold schemes? Don't pay for that module. Every feature is an add-on so you only invest in what your business actually needs.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ HOW IT WORKS ═══════════════ -->
+  <section class="section section-accent" id="how-it-works">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2>Get Started in 4 Simple Steps</h2>
+        <p>From setup to your first sale — we make the transition seamless.</p>
+      </div>
+      <div class="steps reveal">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Setup Wizard</h3>
+          <p>Configure your company, branches, GSTINs, and retail locations. The guided wizard gets you up and running in minutes.</p>
+        </div>
+        <div class="step-line"></div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Import Your Data</h3>
+          <p>Bring in your items, ledgers, purities, and opening balances. We support bulk imports so you don't start from scratch.</p>
+        </div>
+        <div class="step-line"></div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Start Transacting</h3>
+          <p>Create sales, purchases, issue to karigars, generate barcodes — your daily operations, streamlined and connected.</p>
+        </div>
+        <div class="step-line"></div>
+        <div class="step">
+          <div class="step-number">4</div>
+          <h3>Grow with Add-Ons</h3>
+          <p>As your business grows, activate gold schemes, CRM automation, AI insights, and customer portal — pay only for what you need.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ TESTIMONIALS ═══════════════ -->
+  <section class="section" id="testimonials">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2>Trusted by Jewellers Across India</h2>
+        <p>Hear from businesses that made the switch.</p>
+      </div>
+      <div class="grid-3 testimonials-grid">
+        <div class="testimonial-card reveal">
+          <div class="testimonial-quote">"</div>
+          <p>The gold scheme module alone saved us 10 hours a week in manual ledger work. Our customers love checking their balance from their phone.</p>
+          <div class="testimonial-author">
+            <strong>Rajesh Kumar</strong>
+            <span>Rajesh Jewellers, Jaipur</span>
+          </div>
+        </div>
+        <div class="testimonial-card reveal">
+          <div class="testimonial-quote">"</div>
+          <p>We tried three different ERPs before this one. None of them understood hallmark tracking or karigar workflows the way Jewel India does. It's built by people who know our industry.</p>
+          <div class="testimonial-author">
+            <strong>Priya Reddy</strong>
+            <span>Laxmi Gold, Hyderabad</span>
+          </div>
+        </div>
+        <div class="testimonial-card reveal">
+          <div class="testimonial-quote">"</div>
+          <p>Managing 4 retail locations used to be a nightmare. Now I see real-time stock across all stores, transfer items with one click, and get my GST returns prepared automatically.</p>
+          <div class="testimonial-author">
+            <strong>Mehul Shah</strong>
+            <span>Shree Krishna Jewellers, Surat</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ PRICING ═══════════════ -->
+  <section class="section section-accent" id="pricing">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2>Simple, Modular Pricing</h2>
+        <p>Start with what you need. Add modules as you grow. No hidden fees.</p>
+      </div>
+      <div class="grid-3 pricing-grid">
+        <div class="pricing-card reveal">
+          <div class="pricing-tier">Core</div>
+          <div class="pricing-desc">For single-store retailers getting started</div>
+          <div class="pricing-price">
+            <span class="pricing-currency">Contact Us</span>
+          </div>
+          <ul class="pricing-features">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Sales & Billing</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Purchase Management</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Financial Accounting</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> GST Compliance</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Basic Inventory</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> CRM & Contacts</li>
+          </ul>
+          <a href="#contact" class="btn btn-outline btn-block">Get Started</a>
+        </div>
+        <div class="pricing-card pricing-card-popular reveal">
+          <div class="pricing-badge">Most Popular</div>
+          <div class="pricing-tier">Professional</div>
+          <div class="pricing-desc">For growing businesses with manufacturing</div>
+          <div class="pricing-price">
+            <span class="pricing-currency">Contact Us</span>
+          </div>
+          <ul class="pricing-features">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Everything in Core</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Manufacturing & Karigar</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Gold Scheme Management</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Barcode & Advanced Inventory</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> CRM Automation & WhatsApp</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Hallmark & Assay Tracking</li>
+          </ul>
+          <a href="#contact" class="btn btn-primary btn-block">Get Started</a>
+        </div>
+        <div class="pricing-card reveal">
+          <div class="pricing-tier">Enterprise</div>
+          <div class="pricing-desc">For multi-store chains and large operations</div>
+          <div class="pricing-price">
+            <span class="pricing-currency">Contact Us</span>
+          </div>
+          <ul class="pricing-features">
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Everything in Professional</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> AI-Powered Insights</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Customer Portal</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Multi-Store Management</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Priority Support</li>
+            <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Custom Integrations</li>
+          </ul>
+          <a href="#contact" class="btn btn-outline btn-block">Contact Sales</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ FAQ ═══════════════ -->
+  <section class="section" id="faq">
+    <div class="container container-narrow">
+      <div class="section-header reveal">
+        <h2>Frequently Asked Questions</h2>
+      </div>
+      <div class="faq-list">
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>How does migration from my current software work?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>We provide a guided migration process. Our team helps you export data from your existing software, maps it to the Jewel India format, and imports it — including opening balances, ledgers, and item masters. Most migrations are completed within a week.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>Is it cloud-based or on-premise?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Both! Jewel India can be deployed in the cloud for anywhere-access, or installed on your own server for complete data control. Many jewellers start with on-premise and move to cloud as they grow.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>Is my data secure?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Absolutely. We use industry-standard encryption, role-based access control, and complete audit logging. Every action is tracked — who did what, when, and from where. Your data never leaves your control.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>Do you support multi-branch operations?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes — it's one of our strongest features. Manage Company, Branch, GSTIN, and Retail as a proper hierarchy. Each level has its own permissions, ledgers, and reporting. Transfer stock between stores, compare performance, and maintain centralized control.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>What kind of support do you offer?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>We offer phone, email, and WhatsApp support. Professional and Enterprise plans include priority support with guaranteed response times. We also provide on-site training for your staff during onboarding.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>Can I try before buying?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes! We offer a free demo with your own sample data so you can see exactly how Jewel India works for your business. No obligations, no pressure. Request a demo using the form below.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>Does it work on mobile and tablet?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes. Jewel India is a modern web application that works on any device with a browser — desktop, laptop, tablet, or phone. The customer portal is specifically designed for mobile use.</p>
+          </div>
+        </div>
+        <div class="faq-item reveal">
+          <button class="faq-question">
+            <span>What about internet connectivity issues?</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="faq-answer">
+            <p>For on-premise deployments, the ERP works entirely on your local network — no internet required for day-to-day operations. Cloud deployments need internet, but the system handles temporary disconnections gracefully.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ CONTACT / CTA ═══════════════ -->
+  <section class="section section-cta" id="contact">
+    <div class="container">
+      <div class="cta-grid">
+        <div class="cta-form-wrap reveal">
+          <h2>Ready to Modernize Your Jewellery Business?</h2>
+          <p>Fill in your details and we'll schedule a personalized demo for you.</p>
+          <form id="demoForm" class="demo-form">
+            <div class="form-group">
+              <input type="text" name="name" placeholder="Your Name" required>
+            </div>
+            <div class="form-group">
+              <input type="text" name="business" placeholder="Business Name" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <input type="tel" name="phone" placeholder="Phone Number" required>
+              </div>
+              <div class="form-group">
+                <input type="email" name="email" placeholder="Email Address" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <input type="text" name="city" placeholder="City">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg btn-block">Request Free Demo</button>
+          </form>
+          <div id="formSuccess" class="form-success" style="display:none;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1B7A6A" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <h3>Thank you!</h3>
+            <p>We'll get in touch within 24 hours to schedule your demo.</p>
+          </div>
+        </div>
+        <div class="cta-info reveal">
+          <h3>Prefer to talk directly?</h3>
+          <div class="cta-contact-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            <span>+91 XXXXX XXXXX</span>
+          </div>
+          <div class="cta-contact-item">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <span>hello@jewelindiaerp.com</span>
+          </div>
+          <a href="#" class="btn-whatsapp">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Chat on WhatsApp
+          </a>
+          <div class="made-in-india">
+            <div class="india-flag">
+              <span class="flag-saffron"></span>
+              <span class="flag-white"></span>
+              <span class="flag-green"></span>
+            </div>
+            <span>Proudly Made in India</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="#" class="logo logo-light">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="32" height="32">
+              <defs>
+                <linearGradient id="footer-bg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#8b8df0"/>
+                  <stop offset="100%" stop-color="#5b5fd1"/>
+                </linearGradient>
+                <linearGradient id="footer-gem" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#ffffff"/>
+                  <stop offset="60%" stop-color="#e5e7ff"/>
+                  <stop offset="100%" stop-color="#a5a8f5"/>
+                </linearGradient>
+              </defs>
+              <rect width="64" height="64" rx="12" fill="url(#footer-bg)"/>
+              <polygon points="32,10 50,26 32,56 14,26" fill="url(#footer-gem)" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/>
+              <polyline points="14,26 50,26 32,56" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linejoin="round"/>
+              <line x1="32" y1="10" x2="32" y2="26" stroke="#ffffff" stroke-width="1.4"/>
+            </svg>
+            <span>Jewel India ERP</span>
+          </a>
+          <p>India's first jewellery-specific ERP. Modern, modular, and built for the way you do business.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#why-us">Why Us</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <div class="footer-col">
+          <h4>Modules</h4>
+          <a href="#features">Gold Schemes</a>
+          <a href="#features">Manufacturing</a>
+          <a href="#features">Inventory</a>
+          <a href="#features">Accounting</a>
+        </div>
+        <div class="footer-col">
+          <h4>Contact</h4>
+          <a href="mailto:hello@jewelindiaerp.com">hello@jewelindiaerp.com</a>
+          <a href="#">+91 XXXXX XXXXX</a>
+          <a href="#contact">Request Demo</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 Jewel India ERP. All rights reserved.</p>
+        <div class="footer-made-india">
+          <div class="india-flag india-flag-sm">
+            <span class="flag-saffron"></span>
+            <span class="flag-white"></span>
+            <span class="flag-green"></span>
+          </div>
+          Made in India
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

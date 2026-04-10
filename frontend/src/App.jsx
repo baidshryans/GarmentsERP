@@ -51,6 +51,14 @@ import SchemePaymentForm from "./components/GoldScheme/SchemePaymentForm";
 import SchemeStatement from "./components/GoldScheme/SchemeStatement";
 import SchemeDashboard from "./components/GoldScheme/SchemeDashboard";
 import PortalApp from "./portal/PortalApp";
+import EmployeeMasterPage from "./components/HR/EmployeeMasterPage";
+import SalaryStructurePage from "./components/HR/SalaryStructurePage";
+import SalaryProcessingPage from "./components/HR/SalaryProcessingPage";
+import HRSettingsPage from "./components/HR/HRSettingsPage";
+import HRPortalApp from "./hr-portal/HRPortalApp";
+import FixedAssetMasterPage from "./components/FixedAssets/FixedAssetMasterPage";
+import DepreciationWorksheetPage from "./components/FixedAssets/DepreciationWorksheetPage";
+import FixedAssetSettingsPage from "./components/FixedAssets/FixedAssetSettingsPage";
 import HallmarkReceiveAdd from "./components/manufacturing/receive/hallmarkReceiveAdd";
 import PurchaseReturnadd from "./components/manufacturing/purchases/PurchaseReturnAdd";
 import PurchaseVoucherList from "./components/manufacturing/purchases/PurchaseVoucherList";
@@ -386,6 +394,19 @@ const appRoutes = [
   { path: "scheme/enrollments/:id/pay",          heading: "Record Payment",         component: <SchemePaymentForm /> },
   { path: "scheme/enrollments/:id/statement",    heading: "Scheme Statement",       component: <SchemeStatement /> },
 
+  // ── HR ────────────────────────────────────────────────────────────────────
+  { path: "hr/employees",         heading: "Employee Master",      component: <EmployeeMasterPage /> },
+  { path: "hr/salary-structure",  heading: "Salary Structure",     component: <SalaryStructurePage /> },
+  { path: "hr/salary-processing", heading: "Salary Processing",    component: <SalaryProcessingPage /> },
+  { path: "hr/settings",          heading: "HR Settings",          component: <HRSettingsPage /> },
+  { path: "hr",                   heading: "Human Resources",      component: <SectionIndexPage /> },
+
+  // ── Fixed Assets ─────────────────────────────────────────────────────────
+  { path: "fixed-assets/master",       heading: "Fixed Asset Master",       component: <FixedAssetMasterPage /> },
+  { path: "fixed-assets/depreciation", heading: "Depreciation Worksheet",   component: <DepreciationWorksheetPage /> },
+  { path: "fixed-assets/settings",     heading: "Fixed Asset Settings",     component: <FixedAssetSettingsPage /> },
+  { path: "fixed-assets",              heading: "Fixed Assets",             component: <SectionIndexPage /> },
+
   // ── Gold Rates ────────────────────────────────────────────────────────────
   { path: "goldrate/form", heading: "Update Gold Rate", component: <GoldRateForm /> },
 
@@ -452,6 +473,9 @@ function App() {
 
       {/* Customer Portal (standalone, separate from ERP auth) */}
       <Route path="portal/*" element={<PortalApp />} />
+
+      {/* HR Employee Portal (uses ERP Token auth — employees are Django Users) */}
+      <Route path="hr-portal/*" element={<HRPortalApp />} />
     </Routes>
   );
 }

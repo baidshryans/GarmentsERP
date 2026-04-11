@@ -106,7 +106,7 @@ const SalesApprovalAdd = () => {
       const [states, ledgersRes, billNoRes, mainItemRes, purityRes, hsnRes,
              packetsRes, custOrdersRes, salesPersonRes] = await Promise.all([
         getStates(),
-        getLedgers(),
+        getLedgers({ type: "CO,VD", page_size: 10000 }),
         fetchNextSaleAppNo(),
         fetchMainItem(),
         fetchPurity(),

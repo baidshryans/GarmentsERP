@@ -118,6 +118,7 @@ const AccountCreate = () => {
     const [flatAccounts, setFlatAccounts] = useState([]);
     const [accountTree, setAccountTree] = useState([]);
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [isSystemGroup, setIsSystemGroup] = useState(false);
 
     const watchedParent = useWatch({ control, name: 'parent' });
 
@@ -154,6 +155,7 @@ const AccountCreate = () => {
                     code: d.code,
                     parent: d.parent ? String(d.parent) : '',
                 });
+                setIsSystemGroup(!d.can_be_deleted);
             }
         };
         init();
@@ -203,14 +205,23 @@ const AccountCreate = () => {
                 </div>
                 <div className="flex gap-3 mt-1">
                     <Button type="button" variant="outline" className="h-10 px-5" onClick={() => navigate('/accounting/account-tree')}>
-                        Cancel
+                        {isSystemGroup ? 'Back' : 'Cancel'}
                     </Button>
-                    <Button type="submit" form="accountForm" disabled={isSubmitting}
-                        className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
-                        {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
-                    </Button>
+                    {!isSystemGroup && (
+                        <Button type="submit" form="accountForm" disabled={isSubmitting}
+                            className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
+                            {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
+                        </Button>
+                    )}
                 </div>
             </div>
+
+            {/* ── System group banner ─────────────────────────────────────── */}
+            {isSystemGroup && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 mb-6 text-sm text-amber-800">
+                    <strong>System group — read only.</strong> This account group was created during initial setup and cannot be modified.
+                </div>
+            )}
 
             {/* ── Form card ───────────────────────────────────────────────── */}
             <div className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden">
@@ -226,6 +237,7 @@ const AccountCreate = () => {
                             <Input
                                 className={inputCls}
                                 placeholder="e.g. Current Assets"
+                                disabled={isSystemGroup}
                                 {...register("name", {
                                     required: "Group name is required",
                                     minLength: { value: 3, message: "At least 3 characters" },
@@ -249,6 +261,7 @@ const AccountCreate = () => {
                                 className={`${inputCls} uppercase`}
                                 placeholder="e.g. CA-INV"
                                 maxLength={20}
+                                disabled={isSystemGroup}
                                 {...register("code", {
                                     required: "Group code is required",
                                     minLength: { value: 2, message: "At least 2 characters" },
@@ -336,15 +349,17 @@ const AccountCreate = () => {
             </div>
 
             {/* ── Footer ───────────────────────────────────────────────────── */}
-            <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" className="h-10 px-5" onClick={() => navigate('/accounting/account-tree')}>
-                    Cancel
-                </Button>
-                <Button type="submit" form="accountForm" disabled={isSubmitting}
-                    className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
-                    {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
-                </Button>
-            </div>
+            {!isSystemGroup && (
+                <div className="flex justify-end gap-3 pt-4">
+                    <Button type="button" variant="outline" className="h-10 px-5" onClick={() => navigate('/accounting/account-tree')}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" form="accountForm" disabled={isSubmitting}
+                        className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
+                        {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
+                    </Button>
+                </div>
+            )}
 
         </div>
     );

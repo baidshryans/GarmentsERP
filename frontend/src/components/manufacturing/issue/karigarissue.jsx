@@ -18,6 +18,8 @@ import { default as MulSelect } from "react-select";
 import { SquarePen, Trash2 } from "lucide-react";
 import { selectRowsFn } from "@tanstack/react-table";
 import { renderErrorTree } from "../../../Utils";
+import Fuse from 'fuse.js';
+import { useSpellCheck } from '@/hooks/useSpellCheck';
 
 
 const KarigarIssue = () => {
@@ -33,6 +35,7 @@ const KarigarIssue = () => {
 
     },
   });
+  const spellCheckEnabled = useSpellCheck();
   const [karigars, setKarigars] = useState([]);
   const [rs, setRows] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
@@ -419,10 +422,15 @@ function transformData(jsonData, labelKey) {
                       isMulti
                       options={unbarcodedList}
                       onChange={(selectedOption) => {
-                        
+
                         field.onChange(selectedOption )}
-                        
+
                       }
+                      filterOption={spellCheckEnabled ? (option, inputValue) => {
+                        if (!inputValue) return true;
+                        const fuse = new Fuse([{ label: option.label }], { keys: ['label'], threshold: 0.4 });
+                        return fuse.search(inputValue).length > 0;
+                      } : undefined}
                     />
                   )}
                 />

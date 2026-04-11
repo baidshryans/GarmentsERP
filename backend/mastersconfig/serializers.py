@@ -89,10 +89,27 @@ class PacketWithTotalSerializer(ModelSerializer):
         depth = 2
 
 class PacketSerializer(ModelSerializer):
+    # Resolve FK names for read convenience without expensive depth=2 nesting
+    packet_group_name = serializers.SerializerMethodField(read_only=True)
+    stone_item_name   = serializers.SerializerMethodField(read_only=True)
+    color_name        = serializers.SerializerMethodField(read_only=True)
+    shape_name        = serializers.SerializerMethodField(read_only=True)
+
+    def get_packet_group_name(self, obj):
+        return obj.packet_group.packet_group_name if obj.packet_group else None
+
+    def get_stone_item_name(self, obj):
+        return obj.stone_item_id.item_name if obj.stone_item_id else None
+
+    def get_color_name(self, obj):
+        return obj.color.color_name if obj.color else None
+
+    def get_shape_name(self, obj):
+        return obj.shape.shape_name if obj.shape else None
+
     class Meta:
-        model= Packet
+        model  = Packet
         fields = "__all__"
-        depth = 2
 
 class SalesPersonMasterSerializer(ModelSerializer):
     ledger_name = serializers.SerializerMethodField(read_only=True)
@@ -260,7 +277,7 @@ class TCSSectionMasterSerializer(ModelSerializer):
 class SystemSettingsSerializer(ModelSerializer):
     class Meta:
         model  = SystemSettings
-        fields = ['attachment_storage_path', 'barcode_image_storage_path', 'bill_total_auto_calc', 'updated_at']
+        fields = ['attachment_storage_path', 'barcode_image_storage_path', 'bill_total_auto_calc', 'spell_check_enabled', 'updated_at']
         read_only_fields = ['updated_at']
 
 

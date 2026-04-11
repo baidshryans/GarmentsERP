@@ -1,5 +1,6 @@
 import {
   ArrowUpFromLine,
+  Landmark,
   BookOpen,
   Building2,
   Calculator,
@@ -151,6 +152,7 @@ export const navData = {
     { title: "Sales Return",   url: "/sales/salesreturn/list/",   icon: PackageXIcon     },
     { title: "Sales Approval", url: "/sales/salesapproval/list/", icon: PackageCheckIcon },
     { title: "E-Way Bills",    url: "/sales/eway-bills",            icon: FileText         },
+    { title: "Pending Cheques", url: "/sales/pending-cheques",     icon: Landmark         },
     {
       title: "Reports",
       url: "#",

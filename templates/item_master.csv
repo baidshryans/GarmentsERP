@@ -1,0 +1,66 @@
+item_id,short_code,barcode_short_code,grp,sub_grp,item,item_type,uom,rate,cost,percentage,min_qty,desc1,rate_whole,vat_per,cst_per,metal_purity,diamond_purity,dt,purchase_ledger,sale_ledger,show_in_pcs_report,hsn_no
+10,FG,FG,1,0,Fine Gold,R,Gm,0,0,0,0,,0,0,0,1,0,16-07-2025,Standard Bar Purchase,Standard Bar Sales,1,6
+31,Gold,Gold,1,0,Gold,R,Gm,0,0,0,0,,0,0,0,1,0,26-04-2025,Gold Purchase,Gold Sales,0,0
+49,NDJ,NDJ,1,0,New Diamond Jewellery,M,Gm,0,0,0,0,,0,0,0,0,0,26-04-2025,Ornament Purchase,Ornament Sales,0,1
+51,RBG,RBG,16,0,Ruby Diamond Bangles,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,0,1
+52,EBG,EBG,16,0,Emerald Diamond Bangles,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,0,1
+92,PR,PR,4,0,Pearl,R,Gm,0,0,0,0,,0,0,0,0,0,01-06-2025,Pearls Purchase,Pearls Sales,1,2
+94,Beads,Beads,7,0,Beads,R,Gm,0,0,0,0,,0,0,0,0,0,15-07-2025,Other Purchase,Other Sales,1,0
+96,ED,ED,8,0,Emerald ,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Emerald Purchase,Emerald Sales,0,9
+97,RU,RU,9,0,Ruby,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Ruby Purchase,Ruby Sales,0,9
+98,SP,SP,12,0,Semi Precious,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Semi Precious Purchase,Semi Precious Sales,0,9
+99,MS,MS,11,0,Multi Sapphire,S,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Multi Sapphire Purchase,Multi Sapphire Sales,0,9
+100,BS,BS,10,0,Blue Sapphire,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Blue Sapphire Purchase,Blue Sapphire Sales,0,9
+101,IM,IM,6,0,Immitation Gm,R,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Imitation Purchase,Imitation Sales,0,0
+102,IP,IP,15,0,Immitation Pcs,P_G,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Imitation Purchase,Imitation Sales,0,0
+105,LOK,LOk,7,0,Lock,R,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Other Purchase,Other Sales,0,0
+108,GMS,GMS,1,0,Gold Mangalsutra,M,Gm,0,0,0,0,,0,0,0,0,0,09-08-2025,Ornament Purchase,Ornament Sales,1,1
+109,GCH,GCH,1,0,Gold Chain,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+171,OG,OG,1,0,Old Gold,R,Gm,0,0,0,0,,0,0,0,1,0,25-01-2025,Old Gold Purchase,Old Gold Sales,0,0
+207,CS,CS,7,0,Customer Stone,S,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Other Purchase,Other Sales,0,0
+234,TZ,TZ,12,0,Tanzanite,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Semi Precious Purchase,Semi Precious Sales,0,9
+238,CO,CO,12,0,Coral,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Semi Precious Purchase,Semi Precious Sales,0,9
+239,LS,LS1,7,0,LOCK & S,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,0,0
+248,GS,GS,1,0,Gold Screw,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+257,NAV,NAV,12,0,Navratna,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Semi Precious Purchase,Semi Precious Sales,0,4
+258,EBD,EBD,8,0,Emerald Beads,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Emerald Purchase,Emerald Sales,0,9
+259,ECR,ECR,8,0,Emerald Carvings,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Emerald Purchase,Emerald Sales,0,0
+260,EK,EK,8,0,Emerald Kharbooja,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Emerald Purchase,Emerald Sales,0,0
+261,EU,EU,8,0,Emerald Pota,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Emerald Purchase,Emerald Sales,0,0
+262,EMN,EMN,8,0,Emerald Mani,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Emerald Purchase,Emerald Sales,0,0
+264,TO,TO,12,0,Tourmaline,S,Ct,0,0,0,0,,0,0,0,0,0,25-01-2025,Semi Precious Purchase,Semi Precious Sales,0,9
+271,RHC,RHC,7,0,Rhodium Charge,O,Pcs,0,0,0,0,,0,0,0,0,0,25-01-2025,Other Purchase,Other Sales,0,0
+272,HMC,HMC,7,0,Hallmarking Charges,O,Pcs,80,0,0,0,,0,0,0,0,0,25-01-2025,Other Purchase,Other Sales,0,0
+275,PCH,PCH,7,0,Puwai Charges,O,Pcs,0,0,0,0,,0,0,0,0,0,25-01-2025,Other Purchase,Ornament Sales,0,0
+276,CCH,CCH,7,0,Certification Charges,O,Pcs,0,0,0,0,,0,0,0,0,0,25-01-2025,Other Purchase,Other Sales,0,0
+277,HDC,HDC,7,0,Handling Charges,O,Pcs,0,0,0,0,,0,0,0,0,0,25-01-2025,Other Purchase,Other Sales,0,0
+279,LG,LG,16,0,Laboratory Grown Diamond,S,Ct,0,0,0,0,,0,0,0,0,1,25-01-2025,Lab Grown Diamond Purchase,Lab Grown Diamond Sales,0,12
+285,LBG,LBG,16,0,Lab Diamond Bangles,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+287,LDR,LDR,16,0,Lab Diamond Danglers,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+288,LET,LET,16,0,Lab Diamond Ear Tops,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+289,LER,LER,16,0,Lab Diamond Ear Ring,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+290,LGB,LGB,16,0,Lab Diamond Gents Bracelet,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+291,LGR,LGR,16,0,Lab Diamond Gents Ring,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+292,LLB,LLB,16,0,Lab Diamond Ladies Bracelet,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+293,LLR,LLR,16,0,Lab Diamond Ladies Ring,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+294,LMT,LMT,16,0,Lab Diamond Mangtika,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+295,LNT,LNT,16,0,Lab Diamond Nath,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+296,LNK,LNK,16,0,Lab Diamond Necklace,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+297,LNS,LNS,16,0,Lab Diamond Necklace Set,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+298,LNP,LNP,16,0,Lab Diamond Nose Pin,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+299,LPC,LPC,16,0,Lab Diamond Pachali,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+300,LPS,LPS,16,0,Lab Diamond Pendent Set,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+301,LSP,LSP,16,0,Lab Diamond S.Pendant,M,Gm,0,0,0,0,,0,0,0,0,0,22-12-2024,Ornament Purchase,Ornament Sales,1,1
+302,LKT,LKT,16,0,Lab Diamond Kanoti,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+303,LBR,LBR,16,0,Lab Diamond Brooch,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+304,LBK,LBK,16,0,Lab Diamond Buckle,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+305,LBC,LBC,16,0,Lab Diamond Button Case,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+306,LBS,LBS,16,0,Lab Diamond Button Set,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+307,LCF,LCF,16,0,Lab Diamond Cufflink,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+308,LHP,LHP,16,0,Lab Diamond Hair Pin,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+309,LNR,LNR,16,0,Lab Diamond Najaria,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+310,LTP,LTP,16,0,Lab Diamond Tie Pin,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+311,LWT,LWT,16,0,Lab Diamond Watch,M,Gm,0,0,0,0,,0,0,0,0,0,25-01-2025,Ornament Purchase,Ornament Sales,1,1
+312,NGO,NGO,1,0,New Gold Ornament,M,Gm,0,0,0,0,,0,0,0,0,0,10-05-2025,Other Purchase,Ornament Sales,1,1
+313,LK,LK,7,0,Lakh,R,Gm,0,0,0,0,,0,0,0,0,0,27-06-2025,Other Purchase,Other Sales,1,0
+315,LDP,LDP,16,0,Lab Diamond Double Loop Pendent Set,M,Gm,0,0,0,0,,0,0,0,0,0,22-07-2025,Ornament Purchase,Ornament Sales,1,1

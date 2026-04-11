@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework import status
 #import other relevant models
 from goldrates.models import PurityMaster
-from contacts.models import Ledger
+from contacts.models import Ledger, LedgerRole
 from mastersconfig.models import Item
 from .models import *
 
@@ -415,7 +415,14 @@ def gstr1_report(request):
         retail=retail, date1__range=[from_date, to_date]
     ).select_related('ldgr', 'ldgr__state')
 
-    b2b = {}      # keyed by customer GSTIN
+    # Pre-load dealer ledger IDs (single query) so we can determine B2B status
+    # without per-voucher role lookups.  Dealers are inherently GST-registered
+    # businesses, so their sales are always treated as B2B.
+    dealer_ldgr_ids = set(
+        LedgerRole.objects.filter(role='DL').values_list('ledger_id', flat=True)
+    )
+
+    b2b = {}      # keyed by GSTIN (or "DL_<id>" for dealers missing GSTIN)
     b2cl = []     # large unregistered inter-state invoices (≥ ₹2.5L)
     b2cs = {}     # small B2C grouped by pos + rate
 
@@ -428,7 +435,9 @@ def gstr1_report(request):
         bill_val = round(taxable + sgst + cgst + igst, 2)
 
         customer_gstin = (v.ldgr.gst or '').strip() if v.ldgr else ''
-        is_b2b = bool(customer_gstin)
+        is_dealer = (v.ldgr_id in dealer_ldgr_ids) if v.ldgr else False
+        # B2B if customer has a GST number OR is a registered dealer
+        is_b2b = bool(customer_gstin) or is_dealer
         pos = v.place_of_supply or ''
         is_inter = pos != retail_state_code
 
@@ -444,18 +453,25 @@ def gstr1_report(request):
         }
 
         if is_b2b:
-            if customer_gstin not in b2b:
-                b2b[customer_gstin] = {
-                    'ctin': customer_gstin,
+            # Prefer the actual GSTIN; for dealers without a GSTIN on file use a
+            # synthetic key so their invoices still appear in the B2B section with
+            # a 'missing_gstin' warning prompting the user to fill it in.
+            b2b_key = customer_gstin if customer_gstin else f"DL_{v.ldgr_id}"
+            if b2b_key not in b2b:
+                entry = {
+                    'ctin':  customer_gstin,
                     'cname': v.ldgr.ac_name if v.ldgr else '',
-                    'inv': [],
+                    'inv':   [],
                     'txval': 0, 'iamt': 0, 'camt': 0, 'samt': 0,
                 }
-            b2b[customer_gstin]['inv'].append(inv)
-            b2b[customer_gstin]['txval'] += round(taxable, 2)
-            b2b[customer_gstin]['iamt']  += igst
-            b2b[customer_gstin]['camt']  += cgst
-            b2b[customer_gstin]['samt']  += sgst
+                if is_dealer and not customer_gstin:
+                    entry['missing_gstin'] = True   # frontend can warn before filing
+                b2b[b2b_key] = entry
+            b2b[b2b_key]['inv'].append(inv)
+            b2b[b2b_key]['txval'] += round(taxable, 2)
+            b2b[b2b_key]['iamt']  += igst
+            b2b[b2b_key]['camt']  += cgst
+            b2b[b2b_key]['samt']  += sgst
         else:
             if is_inter and taxable >= 250000:
                 b2cl.append({**inv})
@@ -488,6 +504,7 @@ def gstr1_report(request):
         cgst = round(taxable * float(r.cgst_per or 0) / 100, 2)
         igst = round(taxable * float(r.igst_per or 0) / 100, 2)
         customer_gstin = (r.ldgr.gst or '').strip() if r.ldgr else ''
+        is_dealer_return = (r.ldgr_id in dealer_ldgr_ids) if r.ldgr else False
 
         note = {
             'ntNum': r.billno,
@@ -498,14 +515,18 @@ def gstr1_report(request):
             'iamt': igst, 'camt': cgst, 'samt': sgst, 'csamt': 0,
         }
 
-        if customer_gstin:
-            if customer_gstin not in cdnr:
-                cdnr[customer_gstin] = {
-                    'ctin': customer_gstin,
+        if customer_gstin or is_dealer_return:
+            cdnr_key = customer_gstin if customer_gstin else f"DL_{r.ldgr_id}"
+            if cdnr_key not in cdnr:
+                entry = {
+                    'ctin':  customer_gstin,
                     'cname': r.ldgr.ac_name if r.ldgr else '',
-                    'nt': [],
+                    'nt':    [],
                 }
-            cdnr[customer_gstin]['nt'].append(note)
+                if is_dealer_return and not customer_gstin:
+                    entry['missing_gstin'] = True
+                cdnr[cdnr_key] = entry
+            cdnr[cdnr_key]['nt'].append(note)
         else:
             cdnur.append(note)
 
@@ -1610,3 +1631,100 @@ class CustomerPurchaseHistoryView(APIView):
             },
             'transactions': rows,
         })
+
+
+# ── Cheque Management ──────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+def pending_cheques(request):
+    """List all received cheques that are still pending deposit for this retail."""
+    retail = getattr(request, 'retail', None)
+    qs = BankDetail.objects.filter(
+        payment_mode='CHEQUE',
+        cheque_status='PENDING',
+        sales_vou__retail=retail,
+    ).select_related('sales_vou', 'sales_vou__ldgr', 'ledger')
+
+    data = []
+    for bd in qs:
+        data.append({
+            'id':          bd.id,
+            'bill_no':     bd.sales_vou.billno,
+            'sale_date':   bd.sales_vou.date1,
+            'customer':    bd.sales_vou.ldgr.ac_name if bd.sales_vou.ldgr else '',
+            'amount':      bd.amount,
+            'chq_no':      bd.chq_no,
+            'chq_date':    bd.chq_date,
+            'bank_name':   bd.bank_name,
+            'deposit_bank_id':   bd.ledger_id,
+            'deposit_bank_name': bd.ledger.ac_name if bd.ledger else '',
+        })
+    return Response(data)
+
+
+@api_view(['POST'])
+def deposit_cheque(request, pk):
+    """
+    Mark a pending cheque as deposited and create the Contra voucher:
+        Dr  Bank A/c (deposit_bank_ledger_id)
+        Cr  Cheques in Hand
+    Body: { deposit_date, bank_ledger_id }
+    """
+    retail      = getattr(request, 'retail', None)
+    fiscal_year = getattr(request, 'fiscal_year', None)
+
+    try:
+        bd = BankDetail.objects.select_related('sales_vou').get(
+            pk=pk, sales_vou__retail=retail,
+            payment_mode='CHEQUE', cheque_status='PENDING',
+        )
+    except BankDetail.DoesNotExist:
+        return Response({'detail': 'Cheque not found or already processed.'}, status=status.HTTP_404_NOT_FOUND)
+
+    deposit_date   = request.data.get('deposit_date')
+    bank_ledger_id = request.data.get('bank_ledger_id')
+
+    if not deposit_date or not bank_ledger_id:
+        return Response({'detail': 'deposit_date and bank_ledger_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        bank_ledger = Ledger.objects.get(pk=bank_ledger_id)
+    except Ledger.DoesNotExist:
+        return Response({'detail': 'Bank ledger not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        cheques_in_hand = Ledger.objects.get(ac_name='Cheques in Hand', is_system=True)
+    except Ledger.DoesNotExist:
+        return Response({'detail': 'System ledger "Cheques in Hand" not found. Please re-run seed-accounts from Setup.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    from accounting.serializers import JournalEntrySerializer
+    from accounting.utils import get_next_bill_number
+    from global_vars import VoucherType
+
+    with transaction.atomic():
+        voucher_no = get_next_bill_number(retail, VoucherType.cntr, fiscal_year)
+        narration  = f"Cheque deposit — {bd.chq_no} — {bd.bank_name}"
+
+        ser = JournalEntrySerializer(data={
+            'date':         deposit_date,
+            'voucher_no':   voucher_no,
+            'retail':       retail.id,
+            'narration':    narration[:150],
+            'voucher_type': VoucherType.cntr,
+            'voucher_details': [
+                {'account': bank_ledger.ac_name,        'debit': str(bd.amount), 'credit': 0},
+                {'account': cheques_in_hand.ac_name,    'debit': 0, 'credit': str(bd.amount),
+                 'chq_no': bd.chq_no, 'chq_date': str(bd.chq_date) if bd.chq_date else None},
+            ],
+        }, context={'request': request})
+
+        ser.is_valid(raise_exception=True)
+        voucher = ser.save()
+
+        bd.cheque_status   = 'DEPOSITED'
+        bd.deposit_date    = deposit_date
+        bd.deposit_voucher = voucher
+        bd.save(update_fields=['cheque_status', 'deposit_date', 'deposit_voucher'])
+
+    from sales.serializers import BankDetails
+    return Response(BankDetails(bd).data)

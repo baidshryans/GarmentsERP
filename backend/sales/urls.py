@@ -39,5 +39,7 @@ urlpatterns = [
     path('api/customer-history/', views.CustomerPurchaseHistoryView.as_view(), name='customer_history'),
     path('api/customer-orders/delivery-overview/', views.customer_order_delivery_overview),
     path('api/customer-orders/<int:pk>/update-delivery/', views.customer_order_update_delivery),
+    path('api/pending-cheques/', views.pending_cheques, name='pending-cheques'),
+    path('api/deposit-cheque/<int:pk>/', views.deposit_cheque, name='deposit-cheque'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

@@ -29,6 +29,8 @@
 19. [Best Practices](#19-best-practices)
 20. [Troubleshooting](#20-troubleshooting)
 21. [Glossary](#21-glossary)
+22. [Migrating from an Existing ERP](#22-migrating-from-an-existing-erp)
+23. [AI Assistant & MCP Server Setup](#23-ai-assistant--mcp-server-setup)
 
 ---
 
@@ -1403,12 +1405,304 @@ A separate web portal for customers to access their scheme information.
 
 ---
 
+## 22. Migrating from an Existing ERP
+
+If you are transitioning from another ERP (Tally, Marg, Busy, Wonder, or any custom system), you do **not** start fresh. Instead, you bring your existing balances and master data into Jewel India ERP on a **cut-over date** — typically the first day of a new financial year or the first day of the current month.
+
+### 22.1 Overview of the Migration Flow
+
+The data must be entered in the following order. Each step depends on the previous one being complete.
+
+```
+1. Company, Branch, GSTIN, Retail, Fiscal Year  (Setup Wizard)
+       ↓
+2. Account Groups + System Ledgers              (Setup Wizard: auto-seeded)
+       ↓
+3. States, TDS/TCS Sections, HSN Codes, Purities (Setup Wizard: auto-seeded)
+       ↓
+4. Item Masters & Packets                        (Masters section)
+       ↓
+5. Ledger Masters (Customers, Vendors, Banks,    (CRM → Ledgers)
+   Karigars, etc.) with opening balances
+       ↓
+6. Opening Stock (Barcoded & Raw)               (Inventory section)
+       ↓
+7. Fixed Assets with opening WDV                (Fixed Assets section)
+       ↓
+8. Ledger Opening Balances (Trial Balance)       (Financial Accounting)
+       ↓
+9. Pending Orders & Job Cards (optional)         (Sales / Manufacturing)
+```
+
+### 22.2 Step-by-Step Instructions
+
+#### Step 1 — Complete the Setup Wizard
+
+Run the setup wizard at **Settings > Setup Wizard** if you have not already done so. This creates your company, branch, GSTIN, at least one retail location, and the active fiscal year. The wizard also auto-seeds:
+
+- All Indian states/UTs
+- Chart of accounts (account groups)
+- TDS and TCS sections
+- Default HSN codes for jewellery
+- Default purity masters
+
+Do not skip any wizard step before proceeding.
+
+#### Step 2 — Create Item Masters
+
+Before entering any stock, set up your item hierarchy:
+
+1. Navigate to **Masters > Item Group** — create main categories (Gold Jewellery, Diamond Jewellery, Silver, etc.)
+2. Navigate to **Masters > Item Master** — create individual items within each group
+3. Navigate to **Masters > Packet Master** — define stone specification packets if you carry stones
+
+Pull this data from your old ERP's item list or stock registers.
+
+#### Step 3 — Create Ledger Masters
+
+Create ledger accounts for every party you transact with. Navigate to **CRM > Ledgers > New Ledger** for each.
+
+| Ledger Type | Role to Assign | Account Group |
+|---|---|---|
+| Customer | Customer (CO) | Sundry Debtors |
+| Wholesale Dealer | Dealer (DL) | Sundry Debtors |
+| Supplier / Vendor | Vendor (VD) | Sundry Creditors |
+| Karigar | Karigar (KR) | Sundry Creditors |
+| Bank Account | Bank Account (BA) | Bank Accounts |
+| Cash Account | Cash (CA) | Cash-in-Hand |
+| Expense accounts | — | Relevant expense group |
+
+**Tips:**
+- If a party is both a customer and a supplier, assign both roles (CO + VD) on the same ledger
+- GST number, PAN, and state are required for B2B parties for correct tax treatment
+- For banks, enter the account number and IFSC in the contact section
+
+#### Step 4 — Enter Opening Stock
+
+##### Barcoded Stock
+
+For each barcoded item in hand on your cut-over date:
+
+1. Navigate to **Inventory > Barcode Management > Barcodes**
+2. Click **Add New Barcode**
+3. Enter all fields: barcode number, item, purity, gross weight, pcs, making type, making value, and packet details (for stone items)
+4. Set **Status** to `In Stock`
+
+If you have many barcodes, use the **Import** feature: navigate to **Masters > Import Data**, download the barcode import template, fill it from your old system's stock report, and upload.
+
+##### Raw / Unbarcoded Stock
+
+For raw material (gold bars, silver, loose stones) that is not barcoded:
+
+1. Navigate to **Inventory > Raw Material Ledger**
+2. Enter an opening balance entry for each material type and purity
+3. Enter quantity (in grams), purity, and value
+
+#### Step 5 — Enter Fixed Asset Opening Balances
+
+For each fixed asset on your balance sheet on the cut-over date:
+
+1. Navigate to **Financial Accounting > Fixed Assets > Asset Master**
+2. Click **Add Asset**
+3. Fill in the following fields:
+
+| Field | What to Enter |
+|---|---|
+| Asset Code | Unique code (e.g., `COMP-001`, `VEH-001`) |
+| Asset Name | Descriptive name (e.g., "Dell Laptop — Accounts") |
+| Purchase Date | Original date of purchase (not the cut-over date) |
+| Purchase Cost | Original cost at the time of purchase |
+| Residual Value | Expected scrap value at end of life |
+| Depreciation Method | WDV (Income Tax Act) or SLM (Companies Act) |
+| IT Block Category | Select the applicable IT Act block |
+| Rate or Useful Life | Depreciation % (WDV) or years (SLM) |
+
+> **For migration specifically:** After saving the asset, the system will calculate accumulated depreciation from the purchase date to the cut-over date automatically when you run the Depreciation Worksheet. Review and approve this opening depreciation to establish the correct **Written Down Value (WDV)** as of the cut-over date. Do this before recording any new depreciation for the current year.
+
+If you already know the WDV as of the cut-over date from your old ERP's fixed asset register:
+- Cross-check it against the system's calculated WDV
+- If there is a difference (rounding, block-pooling in old system), enter a one-time adjusting journal entry to the accumulated depreciation ledger
+
+#### Step 6 — Enter Ledger Opening Balances
+
+Enter the opening trial balance — the balances of all ledgers as of the cut-over date from your old ERP's trial balance report.
+
+1. Navigate to **Financial Accounting > Vouchers > Journal**
+2. Select voucher type **OPENING** (or the fiscal year's first date)
+3. Enter each ledger with its Dr/Cr balance:
+   - All customer balances as **Debit** (they owe you)
+   - All supplier/karigar balances as **Credit** (you owe them)
+   - Bank account balances as **Debit**
+   - Cash balance as **Debit**
+   - Loan/liability balances as **Credit**
+   - Capital account as **Credit**
+   - Fixed asset account totals as **Debit** (gross cost)
+   - Accumulated depreciation as **Credit**
+   - Retained earnings / P&L carried forward as **Credit**
+4. The journal must balance (Total Debit = Total Credit) before saving
+
+> **Important:** The fixed asset account in the journal represents the gross cost of all assets. The accumulated depreciation account represents all depreciation up to the cut-over date. The difference between the two equals the total WDV, which should match the sum of individual asset WDVs from Step 5.
+
+#### Step 7 — Enter Pending Customer Orders (Optional)
+
+If you have open customer orders that were taken in your old system and have not yet been delivered, enter them in **Sales > Customer Orders** so they flow correctly into manufacturing job cards and pending reports. Only enter orders that are still open (not yet fully delivered).
+
+#### Step 8 — Enter Pending Karigar Job Cards (Optional)
+
+If you have gold or stones currently issued to karigars and not yet received back, enter opening issue records in **Manufacturing > Issue > Job Work**. This ensures your karigar-wise outstanding reports are accurate from day one.
+
+### 22.3 Verification Checklist
+
+After completing migration, verify the following before going live:
+
+- [ ] Trial balance Total Debit = Total Credit
+- [ ] Bank ledger balances match bank statements on cut-over date
+- [ ] Cash ledger balance matches physical cash count
+- [ ] Total barcoded stock WGT matches your old system's stock report
+- [ ] Total raw material balance matches your old system
+- [ ] Fixed asset WDV total in ERP matches fixed asset register from old ERP
+- [ ] Customer outstanding total matches old system's debtors report
+- [ ] Vendor outstanding total matches old system's creditors report
+- [ ] All GST input/output credit carry-forwards are entered if applicable
+
+### 22.4 What NOT to Enter
+
+Avoid entering the following historical data unless specifically required:
+
+- Completed past vouchers (old invoices, old receipts) — only opening balances are needed
+- Closed job cards and completed orders — only open/pending ones matter
+- Historical depreciation voucher-by-voucher — enter opening accumulated depreciation as a single lump sum
+
+---
+
+## 23. AI Assistant & MCP Server Setup
+
+Jewel India ERP includes a built-in AI assistant powered by Claude (Anthropic). The AI can answer business questions in plain English, such as:
+
+- "What were total sales last month?"
+- "Show me outstanding dues from customers over ₹50,000"
+- "Which karigar has the most gold pending return?"
+- "What is the current gold stock valuation?"
+
+There are two ways to use the AI:
+
+1. **In-app AI Chat** — available directly in the ERP interface (no additional setup required)
+2. **MCP Server** — connects the ERP's data to Claude Desktop or other AI clients on your computer for a richer, conversational experience
+
+### 23.1 In-App AI Chat
+
+No setup required. Navigate to the **AI Assistant** section in the sidebar. Type your question in plain English and press Enter. The assistant has read access to all your ERP data but cannot modify records.
+
+### 23.2 MCP Server Setup (Claude Desktop)
+
+The MCP (Model Context Protocol) server exposes your ERP data as tools that Claude Desktop can call. This gives you a full conversational AI experience with your business data.
+
+#### Prerequisites
+
+- Claude Desktop installed on your computer ([download from claude.ai](https://claude.ai/download))
+- The ERP backend must be running (`python manage.py runserver`)
+- Python virtual environment must be active
+
+#### Configuration
+
+1. **Locate your Claude Desktop config file:**
+
+   - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+   - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+2. **Open the config file** in any text editor. If it does not exist, create it.
+
+3. **Add the MCP server entry:**
+
+```json
+{
+  "mcpServers": {
+    "jewel-india-erp": {
+      "command": "python",
+      "args": ["C:\\path\\to\\your\\Jewel India ERP\\backend\\mcp_server.py"],
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "jewel_test.settings"
+      }
+    }
+  }
+}
+```
+
+Replace `C:\\path\\to\\your\\Jewel India ERP` with the actual path where you installed the ERP. Use double backslashes (`\\`) on Windows.
+
+4. **Save the config file** and **restart Claude Desktop** completely (quit and reopen — not just close the window).
+
+5. **Verify the connection:** Open Claude Desktop and look for the hammer icon (🔨) in the chat input area. Click it — you should see tools listed like `get_sales_summary`, `get_outstanding_debtors`, `get_stock_summary`, etc. If you see these, the connection is working.
+
+#### Testing the Connection
+
+In Claude Desktop, type:
+
+> "Connect to Jewel India ERP and show me the available retail locations."
+
+Claude will call the ERP and respond with your retail location list. If it works, you can ask any business question.
+
+#### Available AI Tools
+
+| Tool | What It Does |
+|---|---|
+| `get_sales_summary` | Total sales, invoice count, top customers for a date range |
+| `get_outstanding_debtors` | All customers with unpaid balances |
+| `get_outstanding_creditors` | All vendors/karigars with payable balances |
+| `get_stock_summary` | Current barcoded stock count and weight by category |
+| `get_stock_valuation` | Stock value breakdown by item and purity |
+| `get_karigar_jobs_status` | Gold and stones currently with karigars |
+| `get_ledger_balance` | Balance of any specific ledger account |
+| `get_trial_balance_summary` | Summarised trial balance for a period |
+| `get_cash_position` | Current cash and bank balances |
+| `get_day_book` | All vouchers for a given date range |
+| `get_profit_and_loss` | P&L statement for a period |
+| `get_balance_sheet` | Balance sheet as of a date |
+| `get_gst_summary` | GST output, input, and net payable |
+| `get_scheme_summary` | Gold scheme enrollment and payment stats |
+| `get_dashboard_summary` | Combined business health snapshot |
+
+#### Multi-Location Usage
+
+If you have multiple retail locations, you can specify a retail code in your question:
+
+> "Show me outstanding debtors for the Borivali branch."
+
+Claude will pass the appropriate `retail_code` to filter results for that location.
+
+#### Troubleshooting the MCP Connection
+
+| Problem | Solution |
+|---|---|
+| Tools not appearing in Claude Desktop | Restart Claude Desktop completely; verify the path in config is correct |
+| "Django settings not found" error | Ensure `DJANGO_SETTINGS_MODULE` is set in the env block of the config |
+| "Database locked" errors | Make sure only one Django process is running; close the dev server and restart |
+| No data returned | Confirm the ERP backend is running on `http://127.0.0.1:8000` |
+| Python not found | Use the full path to the venv Python: `C:\\...\\backend\\env\\Scripts\\python.exe` |
+
+#### Using the Full Python Path (Recommended)
+
+To avoid "Python not found" errors, use the full path to the virtual environment's Python executable instead of just `python`:
+
+```json
+{
+  "mcpServers": {
+    "jewel-india-erp": {
+      "command": "C:\\path\\to\\Jewel India ERP\\backend\\env\\Scripts\\python.exe",
+      "args": ["C:\\path\\to\\Jewel India ERP\\backend\\mcp_server.py"]
+    }
+  }
+}
+```
+
+---
+
 ## Document Information
 
 | Field | Value |
 |-------|-------|
 | **Document Title** | Jewel India ERP - User Manual |
-| **Version** | 1.0 |
+| **Version** | 1.1 |
 | **Date** | April 2026 |
 | **Prepared For** | First-time ERP clients |
 | **Confidentiality** | Client-use only |

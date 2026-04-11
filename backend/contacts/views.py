@@ -92,7 +92,27 @@ class ListCreateLedger(ListCreateAPIView):
     # Optionally set default ordering
     ordering = ['ac_name']
 
+    # FA asset account groups that are managed exclusively via the Fixed Asset Master
+    FA_ASSET_GROUP_CODES = {'FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH'}
+
     def create(self, request, *args, **kwargs):
+        # Block ledger creation under FA asset account groups — use Asset Master instead
+        ac_group_id = request.data.get('ac_group')
+        if ac_group_id:
+            try:
+                from accounting.models import Account
+                group = Account.objects.get(pk=ac_group_id)
+                if group.code in self.FA_ASSET_GROUP_CODES:
+                    return Response(
+                        {'ac_group': (
+                            f"Ledgers under '{group.name}' are managed automatically. "
+                            "Please create the asset in Fixed Assets → Asset Master instead."
+                        )},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except Account.DoesNotExist:
+                pass
+
         # requested_roles may be passed in the payload for upfront uniqueness check
         requested_roles = request.data.get('requested_roles', [])
         is_customer_only = requested_roles and all(r == 'CO' for r in requested_roles)
@@ -600,6 +620,10 @@ class LedgerCSVUploadView(APIView):
     POST /contacts/api/ledger/csv-upload/?type=CO
     Accepts a filled-in ledger template CSV. Upserts ledgers by ac_name.
     Skips rows starting with '#'. Returns { created, updated, errors }.
+
+    Optimised: pre-loads all lookups (account groups, existing ledgers, existing
+    roles) in 3 queries, then uses bulk_update + bulk_create to avoid N+1 query
+    overhead on large imports.
     """
     parser_classes = [MultiPartParser]
 
@@ -613,40 +637,72 @@ class LedgerCSVUploadView(APIView):
         if ledger_type not in valid_types:
             return Response({'error': f'Provide ?type= param. Valid: {", ".join(sorted(valid_types))}'}, status=400)
 
-        created = updated = 0
-        errors  = []
-
         try:
             decoded = file.read().decode('utf-8-sig')
-            with transaction.atomic():
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+        created_count = updated_count = 0
+        errors = []
+        valid_codes = {code for code, _ in TYPE_CHOICES}
+
+        _BULK_UPDATE_FIELDS = [
+            'ac_group', 'display_name', 'add1', 'add2', 'city', 'state',
+            'pincode', 'phone1', 'mobile1', 'mobile2', 'mobile3', 'email',
+            'pan', 'gst', 'remarks', 'cheque_no',
+            'ship_add1', 'ship_city', 'ship_state', 'ship_pincode',
+            'salutation', 'aadhar', 'passport', 'dl_no', 'dob', 'anniversary',
+        ]
+
+        with transaction.atomic():
+            # ── Pre-load all lookup data (3 queries total, no N+1) ────────────
+            # Map: lower(ac_name) → Ledger obj
+            existing_map = {ldgr.ac_name.lower(): ldgr for ldgr in Ledger.objects.all()}
+            # Map: ledger_id → set of assigned role codes
+            roles_map = {}
+            for lr in LedgerRole.objects.values('ledger_id', 'role'):
+                roles_map.setdefault(lr['ledger_id'], set()).add(lr['role'])
+            # Set of lower-cased names for non-CO ledgers (for conflict detection)
+            non_customer_lower = {
+                ldgr.ac_name.lower()
+                for ldgr in existing_map.values()
+                if 'CO' not in roles_map.get(ldgr.id, set())
+            }
+            # Map: lower(group name) → Account obj
+            ag_map = {ag.name.lower(): ag for ag in Account.objects.all()}
+
+            # ── Parse rows into two buckets ───────────────────────────────────
+            to_create = []   # list of (ac_name, fields_dict, row_type, secondary_codes)
+            to_update = []   # list of (ledger_obj, row_type, secondary_codes)
+
+            try:
                 reader = csv.DictReader(io.StringIO(decoded))
                 for i, row in enumerate(reader, start=2):
-                    # Skip comment/sample rows
-                    first_val = next(iter(row.values()), '') or ''
-                    if first_val.strip().startswith('#'):
-                        continue
-
-                    ac_name = (row.get('ac_name') or '').strip()
-                    if not ac_name:
-                        continue
-
                     try:
-                        # ── Resolve account group ──────────────────────────
-                        ac_group = _resolve_account_group(row.get('ac_group_name', ''))
-                        if not ac_group and row.get('ac_group_name', '').strip():
+                        first_val = next(iter(row.values()), '') or ''
+                        if first_val.strip().startswith('#'):
+                            continue
+
+                        ac_name = (row.get('ac_name') or '').strip()
+                        if not ac_name:
+                            continue
+
+                        # Resolve account group from pre-loaded map
+                        ag_name_raw = (row.get('ac_group_name') or '').strip()
+                        ac_group = ag_map.get(ag_name_raw.lower()) if ag_name_raw else None
+                        if not ac_group and ag_name_raw:
                             errors.append(
-                                f"Row {i}: '{ac_name}' — group '{row['ac_group_name'].strip()}' "
+                                f"Row {i}: '{ac_name}' — group '{ag_name_raw}' "
                                 f"not found in Chart of Accounts; imported with no group."
                             )
 
-                        # ── Resolve primary role ──────────────────────────
-                        valid_codes = {code for code, _ in TYPE_CHOICES}
+                        # Resolve primary role
                         raw_primary = (row.get('primary_role') or row.get('type') or '').strip()
                         row_type = _TYPE_MAP.get(raw_primary.lower(), raw_primary.upper())
                         if row_type not in valid_codes:
                             row_type = ledger_type
 
-                        # ── Resolve secondary roles ────────────────────────
+                        # Resolve secondary roles
                         raw_secondary = (row.get('secondary_roles') or '').strip()
                         secondary_codes = []
                         if raw_secondary:
@@ -658,7 +714,6 @@ class LedgerCSVUploadView(APIView):
 
                         is_personal = row_type in _PERSONAL_TYPES
 
-                        # ── Build fields dict ──────────────────────────────
                         fields = {
                             'ac_group':     ac_group,
                             'display_name': (row.get('display_name') or '').strip()[:100],
@@ -676,73 +731,90 @@ class LedgerCSVUploadView(APIView):
                             'gst':          (row.get('gst') or '').strip()[:20],
                             'remarks':      (row.get('remarks') or '').strip()[:200],
                             'cheque_no':    (row.get('cheque_no') or '').strip()[:30],
-                            # Shipping
                             'ship_add1':    (row.get('ship_add1') or '').strip()[:200],
                             'ship_city':    (row.get('ship_city') or '').strip()[:100],
                             'ship_state':   (row.get('ship_state') or '').strip()[:100],
                             'ship_pincode': (row.get('ship_pincode') or '').strip()[:10],
                         }
 
-                        # ── Personal fields (only for personal types) ──────
                         if is_personal:
                             fields['salutation'] = (row.get('salutation') or '').strip()[:20]
                             fields['aadhar']     = (row.get('aadhar') or '').strip()[:20]
                             fields['passport']   = (row.get('passport') or '').strip()[:20]
                             fields['dl_no']      = (row.get('dl_no') or '').strip()[:30]
-
                             dob_raw = row.get('dob', '')
                             ann_raw = row.get('anniversary', '')
                             dob_parsed = _parse_date(dob_raw)
                             ann_parsed = _parse_date(ann_raw)
-
                             if dob_raw.strip() and not dob_parsed:
                                 errors.append(f"Row {i}: '{ac_name}' — unrecognised dob format '{dob_raw}'; skipped.")
                             if ann_raw.strip() and not ann_parsed:
                                 errors.append(f"Row {i}: '{ac_name}' — unrecognised anniversary format '{ann_raw}'; skipped.")
-
                             fields['dob']         = dob_parsed
                             fields['anniversary'] = ann_parsed
                         else:
-                            # Ensure personal fields are blank for non-personal types
                             fields.update({'salutation': '', 'aadhar': '', 'passport': '',
                                            'dl_no': '', 'dob': None, 'anniversary': None})
 
-                        # ── Upsert by ac_name (case-insensitive) ───────────
-                        existing = Ledger.objects.filter(ac_name__iexact=ac_name).first()
-                        # For new non-CO ledgers, reject if name already used by another non-CO ledger
-                        if not existing and row_type != 'CO' and _name_conflicts(ac_name):
+                        existing = existing_map.get(ac_name.lower())
+                        if not existing and row_type != 'CO' and ac_name.lower() in non_customer_lower:
                             errors.append(
                                 f"Row {i}: '{ac_name}' — a non-customer ledger with this name already exists. "
                                 f"Duplicate names are not allowed for non-customer ledgers."
                             )
                             continue
+
                         if existing:
                             for k, v in fields.items():
                                 setattr(existing, k, v)
-                            existing.save()
-                            # Ensure primary role exists
-                            LedgerRole.objects.get_or_create(
-                                ledger=existing, role=row_type,
-                                defaults={'is_primary': not existing.roles.exists()}
-                            )
-                            # Ensure secondary roles exist (non-primary)
-                            for sec in secondary_codes:
-                                LedgerRole.objects.get_or_create(
-                                    ledger=existing, role=sec,
-                                    defaults={'is_primary': False}
-                                )
-                            updated += 1
+                            to_update.append((existing, row_type, secondary_codes))
                         else:
-                            ldgr = Ledger.objects.create(ac_name=ac_name, **fields)
-                            LedgerRole.objects.create(ledger=ldgr, role=row_type, is_primary=True)
-                            for sec in secondary_codes:
-                                LedgerRole.objects.create(ledger=ldgr, role=sec, is_primary=False)
-                            created += 1
+                            to_create.append((ac_name, fields, row_type, secondary_codes))
 
                     except Exception as e:
                         errors.append(f"Row {i}: {str(e)}")
 
-        except Exception as e:
-            return Response({'error': str(e)}, status=400)
+            except Exception as e:
+                return Response({'error': str(e)}, status=400)
 
-        return Response({'created': created, 'updated': updated, 'errors': errors})
+            # ── Bulk-create new ledgers ───────────────────────────────────────
+            if to_create:
+                new_names = [ac_name for ac_name, _, _, _ in to_create]
+                new_objs  = [Ledger(ac_name=ac_name, **fields) for ac_name, fields, _, _ in to_create]
+                Ledger.objects.bulk_create(new_objs)
+                # Re-fetch to get DB-assigned PKs (needed for role creation)
+                created_map = {
+                    ldgr.ac_name.lower(): ldgr
+                    for ldgr in Ledger.objects.filter(ac_name__in=new_names)
+                }
+                new_roles = []
+                for ac_name, _, row_type, secondary_codes in to_create:
+                    ldgr = created_map.get(ac_name.lower())
+                    if ldgr:
+                        new_roles.append(LedgerRole(ledger=ldgr, role=row_type, is_primary=True))
+                        for sec in secondary_codes:
+                            new_roles.append(LedgerRole(ledger=ldgr, role=sec, is_primary=False))
+                if new_roles:
+                    LedgerRole.objects.bulk_create(new_roles, ignore_conflicts=True)
+                created_count = len(to_create)
+
+            # ── Bulk-update existing ledgers ──────────────────────────────────
+            if to_update:
+                update_objs = [ldgr for ldgr, _, _ in to_update]
+                Ledger.objects.bulk_update(update_objs, _BULK_UPDATE_FIELDS)
+                # Add any missing roles (only inserts — never removes existing roles)
+                missing_roles = []
+                for ldgr, row_type, secondary_codes in to_update:
+                    assigned = roles_map.get(ldgr.id, set())
+                    if row_type not in assigned:
+                        missing_roles.append(
+                            LedgerRole(ledger=ldgr, role=row_type, is_primary=not assigned)
+                        )
+                    for sec in secondary_codes:
+                        if sec not in assigned:
+                            missing_roles.append(LedgerRole(ledger=ldgr, role=sec, is_primary=False))
+                if missing_roles:
+                    LedgerRole.objects.bulk_create(missing_roles, ignore_conflicts=True)
+                updated_count = len(to_update)
+
+        return Response({'created': created_count, 'updated': updated_count, 'errors': errors})

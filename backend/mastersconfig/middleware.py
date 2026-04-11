@@ -6,8 +6,22 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 
+RETAIL_EXEMPT_PREFIXES = (
+    '/userauth/api/setup/',
+    '/userauth/api-token-auth/',
+    '/userauth/api/token-auth/',
+    '/admin/',
+)
+
 class RetailMiddleware(MiddlewareMixin):
     def process_view(self, request, view_func, view_args, view_kwargs):
+        # Skip retail validation entirely for setup/auth endpoints
+        if request.path.startswith(RETAIL_EXEMPT_PREFIXES):
+            request.retail = None
+            request.fiscal_year = None
+            request.exhibition = None
+            return None
+
         # Manual Token Authentication
         auth = TokenAuthentication()
         try:

@@ -3995,9 +3995,9 @@ export async function deleteHsn(id) {
 // Masters Config — Item  (fetchItemDataAPI exists; adding clean versions)
 // ---------------------------------------------------------------------------
 
-export async function fetchItems() {
+export async function fetchItems({ page_size = 10000 } = {}) {
   try {
-    const response = await apiClient.get("/mastersconfig/api/item/");
+    const response = await apiClient.get(`/mastersconfig/api/item/?page_size=${page_size}`);
     const raw = response.data;
     const data = Array.isArray(raw) ? raw : raw?.results ?? [];
     return { success: true, data };
@@ -4185,11 +4185,20 @@ export async function uploadLedgerCSV(file, type) {
     const response = await apiClient.post(
       `/contacts/api/ledger/csv-upload/?type=${type}`,
       formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 120000 }
     );
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
+export async function seedSystemLedgers() {
+  try {
+    const r = await apiClient.post('/userauth/api/setup/seed-system-ledgers/', {}, { timeout: 60000 });
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
   }
 }
 
@@ -4198,7 +4207,7 @@ export async function uploadHSNCSV(file) {
     const formData = new FormData();
     formData.append("file", file);
     const response = await apiClient.post("/mastersconfig/api/hsn/csv-upload/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -4211,7 +4220,7 @@ export async function uploadItemGroupCSV(file) {
     const formData = new FormData();
     formData.append("file", file);
     const response = await apiClient.post("/mastersconfig/api/item_group/csv-upload/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -4224,7 +4233,7 @@ export async function uploadItemCSV(file) {
     const formData = new FormData();
     formData.append("file", file);
     const response = await apiClient.post("/mastersconfig/api/item/csv-upload/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -4237,7 +4246,7 @@ export async function uploadPacketGroupCSV(file) {
     const formData = new FormData();
     formData.append("file", file);
     const response = await apiClient.post("/mastersconfig/api/packet_group/csv-upload/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -4250,7 +4259,7 @@ export async function uploadPacketCSV(file) {
     const formData = new FormData();
     formData.append("file", file);
     const response = await apiClient.post("/mastersconfig/api/packet/csv-upload/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -4263,7 +4272,7 @@ export async function uploadKarigarMakingCSV(file) {
     const formData = new FormData();
     formData.append("file", file);
     const response = await apiClient.post("/manufacturing/api/karigar-making/csv-upload/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -4274,7 +4283,7 @@ export async function uploadKarigarMakingCSV(file) {
 export async function runMySQLSync(tables = null) {
   try {
     const body = tables ? { tables } : {};
-    const response = await apiClient.post("/mastersconfig/api/mysql-sync/", body);
+    const response = await apiClient.post("/mastersconfig/api/mysql-sync/", body, { timeout: 300000 });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
@@ -5125,3 +5134,42 @@ export async function saveFASettings(data) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+
+// ── HR Settings ──────────────────────────────────────────────────────────────
+export async function seedHRLedgers() {
+  try {
+    const r = await apiClient.post('/userauth/api/setup/seed-hr-ledgers/');
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getHRSettings() {
+  try {
+    const r = await apiClient.get('/hr/api/hr-settings/');
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getPendingCheques() {
+  try {
+    const r = await apiClient.get('/sales/api/pending-cheques/');
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function depositCheque(id, data) {
+  try {
+    const r = await apiClient.post(`/sales/api/deposit-cheque/${id}/`, data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+

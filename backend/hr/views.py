@@ -293,6 +293,27 @@ class HRSettingsView(APIView):
     def put(self, request):
         retail = getattr(request, 'retail', None)
         obj, _ = HRSettings.objects.get_or_create(retail=retail)
+
+        # Ledger fields that are locked once any payslip has been approved
+        LEDGER_FIELDS = [
+            'salary_expense_ldgr', 'employee_payable_ldgr',
+            'pf_payable_ldgr', 'esi_payable_ldgr',
+            'pt_payable_ldgr', 'tds_payable_ldgr',
+        ]
+        slips_approved = SalarySlip.objects.filter(
+            employee__retail=retail, status='APPROVED', voucher__isnull=False
+        ).exists()
+        if slips_approved:
+            changed = [
+                f for f in LEDGER_FIELDS
+                if f in request.data or f"{f}_id" in request.data
+            ]
+            if changed:
+                return Response(
+                    {f: "Cannot change — salary slips have been approved using this ledger." for f in changed},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         ser = HRSettingsSerializer(obj, data=request.data, partial=True)
         ser.is_valid(raise_exception=True)
         ser.save()

@@ -192,6 +192,37 @@ const SECTIONS = {
     ],
   },
 
+  "/scheme": {
+    title: "Gold Scheme",
+    description: "Manage gold saving scheme masters, enrollments and payments.",
+    items: [
+      { title: "Dashboard",            url: "/scheme/dashboard",    icon: FileBarChartIcon, desc: "Overview of active schemes and collections" },
+      { title: "Scheme Master",        url: "/scheme/master",       icon: BookOpen,         desc: "Define scheme types, tiers and rules" },
+      { title: "Enrollments",          url: "/scheme/enrollments",  icon: Users,            desc: "Customer scheme enrollment records" },
+    ],
+  },
+
+  "/hr": {
+    title: "Human Resources",
+    description: "Manage employees, salary structures and payroll processing.",
+    items: [
+      { title: "Employees",            url: "/hr/employees",         icon: Users,            desc: "Employee master records" },
+      { title: "Salary Structure",     url: "/hr/salary-structure",  icon: Wallet,           desc: "Define CTC components per employee" },
+      { title: "Salary Processing",    url: "/hr/salary-processing", icon: Calculator,       desc: "Run and approve monthly payroll" },
+      { title: "HR Settings",          url: "/hr/settings",          icon: Settings,         desc: "Configure HR module defaults" },
+    ],
+  },
+
+  "/fixed-assets": {
+    title: "Fixed Assets",
+    description: "Manage asset register, depreciation and fixed asset settings.",
+    items: [
+      { title: "Asset Master",             url: "/fixed-assets/master",       icon: Building2,        desc: "Fixed asset records and details" },
+      { title: "Depreciation Worksheet",   url: "/fixed-assets/depreciation", icon: FileBarChartIcon, desc: "Calculate and post depreciation" },
+      { title: "Fixed Asset Settings",     url: "/fixed-assets/settings",     icon: Settings,         desc: "Depreciation methods and IT block rates" },
+    ],
+  },
+
   "/inventory/reports": {
     title: "Inventory — Reports",
     description: "Inventory, stock and barcode reports.",

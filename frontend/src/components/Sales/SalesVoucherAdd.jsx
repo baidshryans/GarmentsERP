@@ -121,7 +121,7 @@ const SalesVoucherAdd = () => {
   });
 
   const bankDefaultValue = {
-    amount: "", chq_no: "", bank_name: "", ledger: "", ledger_name: "", chq_date: "",
+    amount: "", payment_mode: "NEFT", chq_no: "", bank_name: "", ledger: "", ledger_name: "", chq_date: "",
   };
 
   // Monkey-patching register to trigger formula recalculation on any change
@@ -195,6 +195,9 @@ const SalesVoucherAdd = () => {
   const mainItemInputRef = useRef(null);
   const formRef = useRef(null);
   useEnterAsTab(formRef);
+
+  // ── Watch bank payment mode for conditional field rendering ──────────────
+  const bankPaymentMode = watch("bank.payment_mode") || "NEFT";
 
   // ── Watch manual detail fields ─────────────────────────────────────────────
   const detailPacket   = watch("details.packet");
@@ -1472,13 +1475,28 @@ const SalesVoucherAdd = () => {
             <TableBody>
               <TableRow className="bg-violet-50">
                 <TH className="w-20">Action</TH>
-                <TH>Amount</TH><TH>Chq / Card No</TH>
-                <TH>Bank Name</TH><TH>Our Bank A/C</TH><TH>Date</TH>
+                <TH>Mode</TH>
+                <TH>Amount</TH>
+                <TH>{bankPaymentMode === "CHEQUE" ? "Cheque No" : bankPaymentMode === "UPI" ? "UTR / Ref No" : "Ref No"}</TH>
+                <TH>{bankPaymentMode === "CHEQUE" ? "Drawee Bank" : "Bank Name"}</TH>
+                <TH>Our Bank A/C</TH>
+                {bankPaymentMode === "CHEQUE" && <TH>Cheque Date</TH>}
               </TableRow>
 
               {/* Bank detail input row */}
               <TableRow>
                 <TableCell className="w-20 px-3 py-2 border"></TableCell>
+                <TableCell className="px-3 py-2 border">
+                  <select
+                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+                    {...register("bank.payment_mode")}
+                  >
+                    <option value="NEFT">NEFT / IMPS</option>
+                    <option value="UPI">UPI</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="CARD">Card</option>
+                  </select>
+                </TableCell>
                 <TableCell className="px-3 py-2 border"><Input type="text" {...register("bank.amount")} /></TableCell>
                 <TableCell className="px-3 py-2 border"><Input type="text" {...register("bank.chq_no")} /></TableCell>
                 <TableCell className="px-3 py-2 border"><Input type="text" {...register("bank.bank_name")} /></TableCell>
@@ -1498,9 +1516,16 @@ const SalesVoucherAdd = () => {
                     ))}
                   </select>
                 </TableCell>
-                <TableCell className="px-3 py-2 border">
-                  <Input type="date" onKeyDown={handleKeyDown} {...register("bank.chq_date")} />
-                </TableCell>
+                {bankPaymentMode === "CHEQUE" && (
+                  <TableCell className="px-3 py-2 border">
+                    <Input type="date" onKeyDown={handleKeyDown} {...register("bank.chq_date")} />
+                  </TableCell>
+                )}
+                {bankPaymentMode !== "CHEQUE" && (
+                  <TableCell className="px-3 py-2 border">
+                    <Input type="date" onKeyDown={handleKeyDown} {...register("bank.chq_date")} className="invisible" />
+                  </TableCell>
+                )}
               </TableRow>
 
               {/* Saved bank entries */}
@@ -1512,11 +1537,22 @@ const SalesVoucherAdd = () => {
                       <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteBank(index)} />
                     </div>
                   </TableCell>
+                  <TableCell className="px-3 py-2 border text-xs">
+                    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      b?.payment_mode === "CHEQUE" ? "bg-amber-100 text-amber-800" :
+                      b?.payment_mode === "UPI"    ? "bg-green-100 text-green-800" :
+                      b?.payment_mode === "CARD"   ? "bg-blue-100 text-blue-800" :
+                                                      "bg-gray-100 text-gray-700"
+                    }`}>{b?.payment_mode || "NEFT"}</span>
+                    {b?.payment_mode === "CHEQUE" && b?.cheque_status && b.cheque_status !== "PENDING" && (
+                      <span className="ml-1 text-[10px] text-green-700 font-medium">{b.cheque_status}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="px-3 py-2 border text-xs">{b?.amount}</TableCell>
                   <TableCell className="px-3 py-2 border text-xs">{b?.chq_no}</TableCell>
                   <TableCell className="px-3 py-2 border text-xs">{b?.bank_name}</TableCell>
                   <TableCell className="px-3 py-2 border text-xs">{b?.ledger_name}</TableCell>
-                  <TableCell className="px-3 py-2 border text-xs">{b?.chq_date}</TableCell>
+                  <TableCell className="px-3 py-2 border text-xs">{b?.payment_mode === "CHEQUE" ? b?.chq_date : ""}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

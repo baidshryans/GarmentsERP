@@ -277,7 +277,7 @@ const PurchaseVoucher = () => {
         fetchPackets(),
         fetchBarcodes(),
         fetchCustomerOrders(),
-        getLedgers({type:"VD", page_size: 10000}),
+        getLedgers({type: vou_type === "Customer" ? "CO,DL" : "VD,KR", page_size: 10000}),
         getStates(),
         fetchSalesperson(),
         fetchMainItem(),
@@ -357,6 +357,15 @@ const PurchaseVoucher = () => {
 
   useEffect(() => { if (!add_chrg_cap1) setValue('form.add_chrg_amt1', 0); }, [add_chrg_cap1]);
   useEffect(() => { if (!add_chrg_cap2) setValue('form.add_chrg_amt2', 0); }, [add_chrg_cap2]);
+
+  // Re-fetch party list when voucher type changes in the dropdown
+  useEffect(() => {
+    if (!current_vou_type) return;
+    const roleFilter = current_vou_type === 'Customer' ? 'CO,DL' : 'VD,KR';
+    getLedgers({ type: roleFilter, page_size: 10000 }).then(res => {
+      if (res.success) setCustomers(res.data.results);
+    });
+  }, [current_vou_type]);
 
 
   // Total excl. taxes = items + all charges (before discount)
@@ -957,7 +966,7 @@ const PurchaseVoucher = () => {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select vendor…" />
+                    <SelectValue placeholder={isCustomer ? "Select customer / dealer…" : "Select vendor / karigar…"} />
                   </SelectTrigger>
                   <SelectContent>
                     {customers.map(c => (
@@ -1554,8 +1563,8 @@ const PurchaseVoucher = () => {
             </div>
           )}
 
-          {/* Bill Summary */}
-          <div className="w-80 shrink-0">
+          {/* Bill Summary — ml-auto pushes it right when no attachment panel is visible */}
+          <div className="w-80 shrink-0 ml-auto">
             <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} standalone={false} />
           </div>
         </div>

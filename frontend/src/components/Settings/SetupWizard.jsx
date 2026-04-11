@@ -36,6 +36,10 @@ import {
   setupRollback,
   seedStates,
   syncUserRetails,
+  seedHRLedgers,
+  getHRSettings,
+  saveHRSettings,
+  getLedgers,
 } from "@/services/apiService";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -48,6 +52,7 @@ const STEPS = [
   { key: "gstin",    label: "GSTIN",           description: "Register the GSTIN that owns GST ledgers" },
   { key: "retail",   label: "Create Retail",   description: "Set up your first retail location" },
   { key: "tds",      label: "TDS & TCS",       description: "Seed tax deduction sections and ledgers" },
+  { key: "hr",       label: "HR Settings",     description: "Configure payroll ledgers for salary processing" },
   { key: "fiscal",   label: "Fiscal Year",     description: "Create and activate a fiscal year" },
   { key: "review",   label: "Review & Finish", description: "Verify setup and start using the ERP" },
 ];
@@ -169,6 +174,9 @@ export default function SetupWizard() {
   const [states, setStates] = useState([]);
   const [retailForm, setRetailForm] = useState({ retail_code: "", retail_name: "", email: "", phone: "", bill_series: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
   const [fyForm, setFyForm] = useState({ fy_code: "", fy_start: "", fy_end: "" });
+  const [createdFYs, setCreatedFYs] = useState([]);
+  const [hrSettings, setHrSettings] = useState({ salary_expense_ldgr: "", employee_payable_ldgr: "", pf_payable_ldgr: "", esi_payable_ldgr: "", pt_payable_ldgr: "", tds_payable_ldgr: "" });
+  const [allLedgers, setAllLedgers] = useState([]);
   const [companyForm, setCompanyForm] = useState({ company_name: "", pan: "", phone: "", email: "", address: "", city: "", state: "", pincode: "" });
   const [branchForm, setBranchForm] = useState({ branch_name: "", branch_code: "", state: "", description: "", company: "" });
   const [gstinForm, setGstinForm] = useState({ gstin: "", legal_name: "", branch: "", state: "" });
@@ -215,6 +223,10 @@ export default function SetupWizard() {
         }
         res = await getSetupStatus();
       }
+      // States are included directly in the setup_status response
+      if (res.success && Array.isArray(res.data.states) && res.data.states.length > 0) {
+        setStates(res.data.states);
+      }
       if (res.success) {
         setSetupStatus(res.data);
         const done = new Set();
@@ -224,9 +236,10 @@ export default function SetupWizard() {
         if (res.data.account_groups_seeded) done.add("accounts");
         if (res.data.retails_created) done.add("retail");
         if (res.data.tds_tcs_seeded) done.add("tds");
+        if (res.data.hr_configured) done.add("hr");
         if (res.data.fiscal_years_created) done.add("fiscal");
         // Mark review complete when all prerequisite steps are done
-        const prereqs = ["company", "branch", "accounts", "gstin", "retail", "tds", "fiscal"];
+        const prereqs = ["company", "branch", "accounts", "gstin", "retail", "tds", "hr", "fiscal"];
         if (prereqs.every((k) => done.has(k))) done.add("review");
         setCompleted(done);
         // Jump to first incomplete step
@@ -270,11 +283,11 @@ export default function SetupWizard() {
 
   useEffect(() => {
     const stepKey = STEPS[current]?.key;
+    // Fallback: if states weren't loaded from setup_status, fetch them directly
     if (states.length === 0 && ["company", "branch", "gstin", "retail"].includes(stepKey)) {
       fetchStates().then(async (r) => {
         const list = r.success ? (Array.isArray(r.data) ? r.data : (r.data?.results || [])) : [];
         if (list.length === 0) {
-          // States not seeded yet — seed now and retry
           await seedStates();
           const r2 = await fetchStates();
           if (r2.success) setStates(Array.isArray(r2.data) ? r2.data : (r2.data?.results || []));
@@ -326,6 +339,36 @@ export default function SetupWizard() {
       });
     }
     if (stepKey === "accounts" && completed.has("accounts") && accountTree.length === 0) loadTree();
+    if (stepKey === "hr") {
+      // Load ledgers list for dropdowns
+      if (allLedgers.length === 0) {
+        getLedgers({ page_size: 9999 }).then(r => {
+          if (r.success) setAllLedgers(Array.isArray(r.data) ? r.data : (r.data?.results || []));
+        });
+      }
+      // Seed HR ledgers (idempotent) and pre-fill settings
+      handleSeedHR().then(() => {
+        // Also load any existing saved settings (in case returning to step)
+        getHRSettings().then(r => {
+          if (r.success) {
+            const s = r.data;
+            setHrSettings(prev => ({
+              salary_expense_ldgr:   String(s.salary_expense_ldgr   || prev.salary_expense_ldgr   || ""),
+              employee_payable_ldgr: String(s.employee_payable_ldgr || prev.employee_payable_ldgr || ""),
+              pf_payable_ldgr:       String(s.pf_payable_ldgr       || prev.pf_payable_ldgr       || ""),
+              esi_payable_ldgr:      String(s.esi_payable_ldgr      || prev.esi_payable_ldgr      || ""),
+              pt_payable_ldgr:       String(s.pt_payable_ldgr       || prev.pt_payable_ldgr       || ""),
+              tds_payable_ldgr:      String(s.tds_payable_ldgr      || prev.tds_payable_ldgr      || ""),
+            }));
+          }
+        });
+      });
+    }
+    if (stepKey === "fiscal") {
+      loadFYs().then((list) => {
+        setFyForm(suggestNextFY(list));
+      });
+    }
   }, [current]);
 
   // ─── Step: Create Company ───────────────────────────────────────────────
@@ -421,7 +464,73 @@ export default function SetupWizard() {
     setBusy(false);
   };
 
+  // ─── Step: HR Settings ─────────────────────────────────────────────────
+  const handleSeedHR = async () => {
+    setBusy(true);
+    const res = await seedHRLedgers();
+    if (res.success) {
+      const s = res.data?.settings || {};
+      setHrSettings({
+        salary_expense_ldgr:   String(s.salary_expense_ldgr   || ""),
+        employee_payable_ldgr: String(s.employee_payable_ldgr || ""),
+        pf_payable_ldgr:       String(s.pf_payable_ldgr       || ""),
+        esi_payable_ldgr:      String(s.esi_payable_ldgr      || ""),
+        pt_payable_ldgr:       String(s.pt_payable_ldgr       || ""),
+        tds_payable_ldgr:      String(s.tds_payable_ldgr      || ""),
+      });
+      toast({ title: "HR payroll ledgers seeded and pre-filled" });
+    } else {
+      toast({ title: "Error seeding HR ledgers", description: String(res.error), variant: "destructive" });
+    }
+    setBusy(false);
+  };
+
+  const handleSaveHR = async () => {
+    setBusy(true);
+    const payload = Object.fromEntries(
+      Object.entries(hrSettings).map(([k, v]) => [k, v || null])
+    );
+    const res = await saveHRSettings(payload);
+    if (res.success) {
+      toast({ title: "HR Settings saved" });
+      markDone("hr");
+      await refreshStatus();
+    } else {
+      const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+    setBusy(false);
+  };
+
   // ─── Step: Fiscal Year ─────────────────────────────────────────────────
+  function suggestNextFY(existing = []) {
+    // Find the latest end date among created FYs, or default to current Indian FY
+    let startYear;
+    if (existing.length > 0) {
+      const lastEnd = existing.reduce((max, fy) => (fy.fy_end > max ? fy.fy_end : max), "");
+      startYear = new Date(lastEnd).getFullYear() + 1;
+    } else {
+      const today = new Date();
+      startYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    }
+    const endYear = startYear + 1;
+    return {
+      fy_code: `${startYear}-${String(endYear).slice(-2)}`,
+      fy_start: `${startYear}-04-01`,
+      fy_end:   `${endYear}-03-31`,
+    };
+  }
+
+  async function loadFYs() {
+    const r = await getFiscalYears();
+    if (r.success) {
+      const list = Array.isArray(r.data) ? r.data : (r.data?.results || []);
+      setCreatedFYs(list);
+      return list;
+    }
+    return [];
+  }
+
   const handleCreateFY = async () => {
     if (!fyForm.fy_code.trim() || !fyForm.fy_start || !fyForm.fy_end) {
       toast({ title: "All fiscal year fields are required", variant: "destructive" });
@@ -433,6 +542,8 @@ export default function SetupWizard() {
       toast({ title: `Fiscal year "${fyForm.fy_code}" created` });
       markDone("fiscal");
       await refreshStatus();
+      const updated = await loadFYs();
+      setFyForm(suggestNextFY(updated));
     } else {
       const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -808,52 +919,124 @@ export default function SetupWizard() {
             </div>
           )}
 
-          {/* ── Step 4: Fiscal Year ───────────────────────────── */}
-          {step.key === "fiscal" && (
-            <div className="flex flex-col gap-4">
-              {completed.has("fiscal") && (
+          {/* ── Step: HR Settings ───────────────────────────── */}
+          {step.key === "hr" && (
+            <div className="flex flex-col gap-5">
+              {completed.has("hr") && (
                 <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
-                  <CheckCircle2 className="size-4" />
-                  Fiscal year configured
+                  <CheckCircle2 className="size-4" /> HR payroll ledgers configured
                 </div>
               )}
               <p className="text-sm text-muted-foreground">
-                Create your current financial year. In India, the FY typically runs from April 1 to March 31.
-                You can manage fiscal years later from Masters &rarr; Fiscal Years.
+                The 6 payroll ledgers below have been auto-seeded and pre-filled. You can reassign any of them
+                before saving. Once a salary slip is approved these cannot be changed.
               </p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">FY Code *</Label>
-                  <Input
-                    value={fyForm.fy_code}
-                    onChange={(e) => setFyForm((f) => ({ ...f, fy_code: e.target.value }))}
-                    placeholder="e.g. 2025-26"
-                    className="h-9 text-sm"
-                  />
+
+              {[
+                { field: "salary_expense_ldgr",   label: "Salary Expense Ledger *",          hint: "Debited for total CTC on every payslip" },
+                { field: "employee_payable_ldgr", label: "Salary Payable Ledger *",           hint: "Credited for net take-home salary" },
+                { field: "pf_payable_ldgr",       label: "PF Payable Ledger",                hint: "Credited for employee + employer PF" },
+                { field: "esi_payable_ldgr",      label: "ESI Payable Ledger",               hint: "Credited for employee + employer ESI" },
+                { field: "pt_payable_ldgr",       label: "Professional Tax Payable Ledger",  hint: "Credited for professional tax deducted" },
+                { field: "tds_payable_ldgr",      label: "TDS Payable Ledger",               hint: "Credited for TDS deducted from salary" },
+              ].map(({ field, label, hint }) => (
+                <div key={field} className="flex flex-col gap-1">
+                  <Label className="text-xs">{label}</Label>
+                  <select
+                    value={hrSettings[field] || ""}
+                    onChange={e => setHrSettings(f => ({ ...f, [field]: e.target.value }))}
+                    className="h-9 text-sm rounded-md border border-input bg-background px-3"
+                  >
+                    <option value="">— Select ledger —</option>
+                    {allLedgers.map(l => (
+                      <option key={l.id} value={String(l.id)}>{l.ac_name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground">{hint}</p>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">Start Date *</Label>
-                  <Input
-                    type="date"
-                    value={fyForm.fy_start}
-                    onChange={(e) => setFyForm((f) => ({ ...f, fy_start: e.target.value }))}
-                    className="h-9 text-sm"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">End Date *</Label>
-                  <Input
-                    type="date"
-                    value={fyForm.fy_end}
-                    onChange={(e) => setFyForm((f) => ({ ...f, fy_end: e.target.value }))}
-                    className="h-9 text-sm"
-                  />
-                </div>
-              </div>
-              <Button onClick={handleCreateFY} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
+              ))}
+
+              <Button onClick={handleSaveHR} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
                 {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
-                Create Fiscal Year
+                Save HR Settings
               </Button>
+            </div>
+          )}
+
+          {/* ── Step: Fiscal Year ────────────────────────────── */}
+          {step.key === "fiscal" && (
+            <div className="flex flex-col gap-5">
+              <p className="text-sm text-muted-foreground">
+                Create one or more financial years. In India the FY typically runs <strong>1 Apr – 31 Mar</strong>.
+                The first year you create becomes the active FY. You can add past or future years too.
+              </p>
+
+              {/* Created FYs list */}
+              {createdFYs.length > 0 && (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <div className="bg-muted/40 px-3 py-2 flex items-center gap-2 border-b">
+                    <CheckCircle2 className="size-4 text-green-600 shrink-0" />
+                    <span className="text-xs font-semibold text-green-700">
+                      {createdFYs.length} fiscal year{createdFYs.length > 1 ? "s" : ""} created
+                    </span>
+                  </div>
+                  <div className="divide-y">
+                    {createdFYs.map((fy, i) => (
+                      <div key={fy.id ?? i} className="flex items-center justify-between px-3 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-mono text-sm font-semibold text-primary">{fy.fy_code}</span>
+                          {i === 0 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">ACTIVE</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {fy.fy_start} → {fy.fy_end}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add FY form */}
+              <div className="rounded-lg border border-dashed border-border p-4 flex flex-col gap-3 bg-muted/20">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {createdFYs.length === 0 ? "Create your first fiscal year" : "Add another fiscal year"}
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs">FY Code *</Label>
+                    <Input
+                      value={fyForm.fy_code}
+                      onChange={(e) => setFyForm((f) => ({ ...f, fy_code: e.target.value }))}
+                      placeholder="e.g. 2025-26"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs">Start Date *</Label>
+                    <Input
+                      type="date"
+                      value={fyForm.fy_start}
+                      onChange={(e) => setFyForm((f) => ({ ...f, fy_start: e.target.value }))}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs">End Date *</Label>
+                    <Input
+                      type="date"
+                      value={fyForm.fy_end}
+                      onChange={(e) => setFyForm((f) => ({ ...f, fy_end: e.target.value }))}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+                <Button onClick={handleCreateFY} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
+                  {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
+                  {createdFYs.length === 0 ? "Create Fiscal Year" : "Add Fiscal Year"}
+                </Button>
+              </div>
             </div>
           )}
 

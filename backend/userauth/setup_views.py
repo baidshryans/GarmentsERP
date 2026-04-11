@@ -64,6 +64,22 @@ def _safe_count(model):
         return 0
 
 
+def _hr_configured():
+    """True if at least one HRSettings record has all 6 payroll ledgers filled."""
+    try:
+        from hr.models import HRSettings
+        return HRSettings.objects.filter(
+            salary_expense_ldgr__isnull=False,
+            employee_payable_ldgr__isnull=False,
+            pf_payable_ldgr__isnull=False,
+            esi_payable_ldgr__isnull=False,
+            pt_payable_ldgr__isnull=False,
+            tds_payable_ldgr__isnull=False,
+        ).exists()
+    except Exception:
+        return False
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def setup_status(request):
@@ -84,9 +100,14 @@ def setup_status(request):
     item_count = _safe_count(Item)
     fy_count = _safe_count(FiscalYearMaster)
 
+    from mastersconfig.serializers import StateSerializer
+    states_qs = State.objects.order_by('name') if states_count > 0 else State.objects.none()
+    states_data = StateSerializer(states_qs, many=True).data
+
     return Response({
         'states_seeded': states_count >= 35,
         'states_count': states_count,
+        'states': states_data,
         'company_created': company_count > 0,
         'company_count': company_count,
         'branch_created': branch_count > 0,
@@ -105,6 +126,7 @@ def setup_status(request):
         'masters_uploaded': hsn_count > 0 or item_count > 0,
         'hsn_count': hsn_count,
         'item_count': item_count,
+        'hr_configured': _hr_configured(),
         'is_setup_complete': (
             company_count > 0
             and branch_count > 0
@@ -140,6 +162,68 @@ def sync_user_retails(request):
         ul.save(update_fields=['default_location'])
 
     return Response({'detail': f'Synced {len(retails)} retail(s).', 'synced': len(retails)})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def seed_hr_ledgers(request):
+    """
+    Seed the 6 HR/payroll system ledgers and apply them as defaults in HRSettings
+    for every existing retail.  Called from the setup wizard HR step.
+    """
+    from django.core.management import call_command
+    from io import StringIO
+    import time
+
+    last_error = None
+    for attempt in range(5):
+        try:
+            out = StringIO()
+            call_command('seed_hr_ledgers', stdout=out)
+            # Return current HRSettings for the requesting retail so the wizard can pre-fill
+            from hr.models import HRSettings
+            from hr.serializers import HRSettingsSerializer
+            retail = getattr(request, 'retail', None)
+            if retail is None:
+                from mastersconfig.models import RetailMaster
+                retail = RetailMaster.objects.first()
+            settings_data = {}
+            if retail:
+                obj, _ = HRSettings.objects.get_or_create(retail=retail)
+                settings_data = HRSettingsSerializer(obj).data
+            return Response({'detail': out.getvalue(), 'success': True, 'settings': settings_data})
+        except Exception as e:
+            last_error = e
+            if 'database is locked' in str(e).lower():
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            break
+
+    return Response({'detail': str(last_error), 'success': False}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def seed_system_ledgers_view(request):
+    """Re-run seed_system_ledgers to create any missing system ledgers (idempotent)."""
+    from django.core.management import call_command
+    from io import StringIO
+    import time
+
+    last_error = None
+    for attempt in range(5):
+        try:
+            out = StringIO()
+            call_command('seed_system_ledgers', stdout=out)
+            return Response({'detail': out.getvalue(), 'success': True})
+        except Exception as e:
+            last_error = e
+            if 'database is locked' in str(e).lower():
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            break
+
+    return Response({'detail': str(last_error), 'success': False}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])

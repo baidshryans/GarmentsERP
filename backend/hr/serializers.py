@@ -96,6 +96,18 @@ class LeaveBalanceSerializer(serializers.ModelSerializer):
 
 
 class HRSettingsSerializer(serializers.ModelSerializer):
+    # True when at least one salary slip has been approved for this retail.
+    # Locked fields cannot be changed once a payroll voucher has been created.
+    locked = serializers.SerializerMethodField(read_only=True)
+
+    def get_locked(self, obj):
+        from .models import SalarySlip
+        return SalarySlip.objects.filter(
+            employee__retail=obj.retail,
+            status='APPROVED',
+            voucher__isnull=False,
+        ).exists()
+
     class Meta:
         model  = HRSettings
         fields = '__all__'

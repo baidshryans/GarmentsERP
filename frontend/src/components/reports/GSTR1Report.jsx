@@ -53,34 +53,54 @@ const TD = ({ children, right, bold }) => (
 function B2BTable({ data }) {
   if (!data?.length)
     return <p className="text-xs text-muted-foreground">No B2B invoices for this period.</p>;
-  const rows = data.flatMap((c) => c.inv.map((inv) => ({ ...inv, ctin: c.ctin, cname: c.cname })));
+
+  const missingGstin = data.filter((c) => c.missing_gstin);
+  const rows = data.flatMap((c) =>
+    c.inv.map((inv) => ({ ...inv, ctin: c.ctin, cname: c.cname, missing_gstin: c.missing_gstin }))
+  );
   const total = rows.reduce((s, r) => s + (parseFloat(r.txval) || 0), 0);
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-xs">
-        <thead>
-          <tr>
-            <TH>Customer</TH><TH>GSTIN</TH><TH>Invoice No</TH><TH>Date</TH>
-            <TH right>Taxable Value</TH><TH right>IGST</TH><TH right>CGST</TH><TH right>SGST</TH><TH right>Total</TH>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/20"}>
-              <TD>{r.cname}</TD><TD><span className="font-mono text-[10px]">{r.ctin}</span></TD>
-              <TD>{r.inum}</TD><TD>{r.idt}</TD>
-              <TD right>{fmt(r.txval)}</TD>
-              <TD right>{fmt(r.iamt)}</TD><TD right>{fmt(r.camt)}</TD><TD right>{fmt(r.samt)}</TD>
-              <TD right bold>{fmt(r.val)}</TD>
+    <div className="flex flex-col gap-2">
+      {missingGstin.length > 0 && (
+        <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <strong>⚠ GSTIN missing for {missingGstin.length} dealer{missingGstin.length > 1 ? 's' : ''}:</strong>{' '}
+          {missingGstin.map((c) => c.cname).join(', ')}.
+          {' '}Please add their GSTIN in the Ledger Master before filing.
+        </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              <TH>Customer</TH><TH>GSTIN</TH><TH>Invoice No</TH><TH>Date</TH>
+              <TH right>Taxable Value</TH><TH right>IGST</TH><TH right>CGST</TH><TH right>SGST</TH><TH right>Total</TH>
             </tr>
-          ))}
-          <tr className="bg-violet-50 font-semibold">
-            <TD bold colSpan={4}>Total</TD>
-            <TD right bold>{fmt(total)}</TD>
-            <TD colSpan={4}></TD>
-          </tr>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/20"}>
+                <TD>{r.cname}</TD>
+                <TD>
+                  {r.missing_gstin ? (
+                    <span className="text-amber-600 font-medium">Missing ⚠</span>
+                  ) : (
+                    <span className="font-mono text-[10px]">{r.ctin}</span>
+                  )}
+                </TD>
+                <TD>{r.inum}</TD><TD>{r.idt}</TD>
+                <TD right>{fmt(r.txval)}</TD>
+                <TD right>{fmt(r.iamt)}</TD><TD right>{fmt(r.camt)}</TD><TD right>{fmt(r.samt)}</TD>
+                <TD right bold>{fmt(r.val)}</TD>
+              </tr>
+            ))}
+            <tr className="bg-violet-50 font-semibold">
+              <TD bold colSpan={4}>Total</TD>
+              <TD right bold>{fmt(total)}</TD>
+              <TD colSpan={4}></TD>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -143,7 +163,9 @@ function B2CSTable({ data }) {
 function CDNRTable({ data }) {
   if (!data?.length)
     return <p className="text-xs text-muted-foreground">No credit notes for registered customers.</p>;
-  const rows = data.flatMap((c) => c.nt.map((n) => ({ ...n, ctin: c.ctin, cname: c.cname })));
+  const rows = data.flatMap((c) =>
+    c.nt.map((n) => ({ ...n, ctin: c.ctin, cname: c.cname, missing_gstin: c.missing_gstin }))
+  );
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-xs">
@@ -156,7 +178,14 @@ function CDNRTable({ data }) {
         <tbody>
           {rows.map((r, i) => (
             <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-muted/20"}>
-              <TD>{r.cname}</TD><TD><span className="font-mono text-[10px]">{r.ctin}</span></TD>
+              <TD>{r.cname}</TD>
+              <TD>
+                {r.missing_gstin ? (
+                  <span className="text-amber-600 font-medium">Missing ⚠</span>
+                ) : (
+                  <span className="font-mono text-[10px]">{r.ctin}</span>
+                )}
+              </TD>
               <TD>{r.ntNum}</TD><TD>{r.ntDt}</TD>
               <TD right>{fmt(r.txval)}</TD>
               <TD right>{fmt(r.iamt)}</TD><TD right>{fmt(r.camt)}</TD><TD right>{fmt(r.samt)}</TD>

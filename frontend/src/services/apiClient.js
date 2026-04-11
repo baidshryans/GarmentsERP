@@ -24,7 +24,9 @@ apiClient.interceptors.request.use(
     }
 
     // Always set X-RETAIL-ID if available (required by backend middleware)
-    if (retail_code) {
+    // Skip during setup wizard — retail may not exist yet (fresh install / rollback)
+    const isSetupPage = window.location.pathname.startsWith('/settings/setup');
+    if (retail_code && !isSetupPage) {
       config.headers['X-RETAIL-ID'] = retail_code;
     }
     return config;

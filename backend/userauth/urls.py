@@ -18,6 +18,8 @@ urlpatterns += [
     path('api/setup/seed-states/', setup_views.seed_states),
     path('api/setup/seed-accounts/', setup_views.seed_account_groups),
     path('api/setup/seed-tds-tcs/', setup_views.seed_tds_tcs),
+    path('api/setup/seed-hr-ledgers/', setup_views.seed_hr_ledgers),
+    path('api/setup/seed-system-ledgers/', setup_views.seed_system_ledgers_view),
     path('api/setup/reset-erp/', setup_views.reset_erp),
     path('api/setup/rollback/', setup_views.setup_rollback),
     # User management

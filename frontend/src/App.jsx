@@ -38,6 +38,7 @@ import SalesVoucherList from "./components/Sales/SalesVoucherList";
 import SalesApprovalList from "./components/Sales/SalesApprovalList";
 import SalesReturnList from "./components/Sales/SalesReturnList";
 import EWayBillList from "./components/Sales/EWayBillList";
+import ChequePendingPage from "./components/Sales/ChequePendingPage";
 import PurchaseReturnList from "./components/manufacturing/purchases/PurchaseReturnList";
 import PurchaseApprovalList from "./components/manufacturing/purchases/PurchaseApprovalList.jsx";
 import Header from "./breadCrumbDecor";
@@ -355,6 +356,7 @@ const appRoutes = [
   { path: "sales/salesapproval/:id",       heading: "Edit Sales Approval",  component: <SalesApprovalAdd /> },
   { path: "sales/reports/commission",      heading: "Salesperson Commission Report", component: <CommissionReport /> },
   { path: "sales/eway-bills",              heading: "E-Way Bills",          component: <EWayBillList /> },
+  { path: "sales/pending-cheques",         heading: "Pending Cheques",      component: <ChequePendingPage /> },
 
   // ── Inventory ─────────────────────────────────────────────────────────────
   { path: "inventory/barcodemanagement/list/",      heading: "Barcode List",           component: <BarcodeListView /> },

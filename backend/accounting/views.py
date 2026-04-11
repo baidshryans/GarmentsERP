@@ -395,6 +395,23 @@ class BalanceSheetAPIView(APIView):
         assets = get_group_balance("Assets")
         liabilities = get_group_balance("Liabilities")
 
+        # Inject closing stock value (from inventory) into Assets > Stock-in-Hand
+        try:
+            from inventory.views import ClosingStockCal
+            closing_stock_value = ClosingStockCal().calculate_closing_stock(
+                from_date="2000-01-01", to_date=end_date
+            )['total_value']
+            if closing_stock_value:
+                assets["total"] += closing_stock_value
+                assets["accounts"].append({
+                    "id": "closing_stock",
+                    "name": "Closing Stock",
+                    "balance": closing_stock_value,
+                    "group": "Stock-in-Hand"
+                })
+        except Exception:
+            pass
+
         pnl_data = calcuate_pnl("2000-01-01", end_date, retail=retail)
         net_profit = pnl_data.get("net_profit", Decimal(0))
         liabilities["total"] += net_profit
@@ -544,8 +561,13 @@ class AccountViewSet(ModelViewSet):
             serializer.save_with_parent_account(parent_id=parent_id)
         else:
             serializer.save()
+        # Mark every user-created group as editable/deletable
+        serializer.instance.can_be_deleted = True
+        serializer.instance.save(update_fields=['can_be_deleted'])
 
     def perform_update(self, serializer):
+        if not serializer.instance.can_be_deleted:
+            raise PermissionDenied("System account groups cannot be modified.")
         parent_id = self.request.data.get('parent')
         if parent_id:
             serializer.save_with_parent_account(parent_id=parent_id)
@@ -1969,6 +1991,20 @@ from .serializers import (
 from .fa_services import generate_suggestion_lines
 
 
+# Maps IT block category → FA account group code
+_IT_BLOCK_TO_AC_GROUP = {
+    'BLDG_RES':  'FA-LB',
+    'BLDG_COM':  'FA-LB',
+    'FURN':      'FA-FF',
+    'PLANT':     'FA-PM',
+    'VEHICLE':   'FA-VH',
+    'COMPUTER':  'FA-CE',
+    'BOOKS':     'FA-PM',
+    'INTANG':    'FA-PM',
+}
+_DEFAULT_FA_GROUP = 'FA-PM'
+
+
 class FixedAssetViewSet(RetailBaseViewset):
     queryset         = FixedAsset.objects.all()
     serializer_class = FixedAssetSerializer
@@ -1980,6 +2016,27 @@ class FixedAssetViewSet(RetailBaseViewset):
         if status_filter:
             qs = qs.filter(status=status_filter)
         return qs
+
+    def perform_create(self, serializer):
+        retail = self.request.retail
+        asset = serializer.save(retail=retail)
+
+        # Auto-create a matching ledger under the correct FA account group
+        group_code = _IT_BLOCK_TO_AC_GROUP.get(asset.it_block_category or '', _DEFAULT_FA_GROUP)
+        try:
+            ac_group = Account.objects.get(code=group_code)
+        except Account.DoesNotExist:
+            ac_group = None
+
+        ledger = Ledger.objects.create(
+            ac_name=asset.asset_name,
+            display_name=asset.asset_name,
+            ac_group=ac_group,
+            retail_code=retail,
+            is_system=True,  # prevents independent edit/delete from ledger master
+        )
+        asset.asset_ledger = ledger
+        asset.save(update_fields=['asset_ledger'])
 
 
 class DepreciationSuggestionViewSet(RetailBaseViewset):

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useForm, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +17,14 @@ import {
     Sheet,
     SheetContent,
 } from "@/components/ui/sheet";
-import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCircle2, XCircle, Loader2, Search, User, ShoppingBag, Hammer, Package, Factory, Flame, BadgeCheck, Banknote, Landmark, TrendingUp, TrendingDown, MoreHorizontal, Crown } from 'lucide-react';
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Checkbox } from "@/components/ui/checkbox";
 import { renderErrorTree } from "@/Utils";
 import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getTypes, addLedgerRole, removeLedgerRole, setPrimaryLedgerRole, fetchTDSSections, checkLedgerName } from '@/services/apiService';
 import PhoneInput, { makePhoneValidator } from "@/components/ui/PhoneInput";
+import Fuse from 'fuse.js';
+import { useSpellCheck } from '@/hooks/useSpellCheck';
 
 // ─── Account tree helpers ─────────────────────────────────────────────────────
 
@@ -40,17 +42,168 @@ function buildAccountTree(flatList) {
     return roots;
 }
 
-const GroupPickerNode = ({ node, level, onSelect }) => {
+// FA asset account group codes — ledger creation blocked; use Asset Master instead
+const FA_ASSET_CODES = new Set(['FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH']);
+
+// Hints shown on hover — examples of ledgers that belong under each account group
+const GROUP_HINTS = {
+    'CA-CSH':     'e.g. Cash, Petty Cash',
+    'CA-BNK':     'e.g. HDFC Bank, Kotak Bank, SBI Current A/c',
+    'CA-BNK-OD':  'e.g. Bank Overdraft accounts',
+    'CA-CHQ':     'e.g. Cheques in Hand (system ledger)',
+    'CA-STK':     'e.g. Stock-in-Hand, Stock-in-Transit',
+    'CA-SD':      'e.g. Customer / Debtor accounts (B2C & B2B)',
+    'CA-GST':     'e.g. Input CGST, Input SGST, Input IGST',
+    'CA-DEP':     'e.g. Security Deposits, EMD, Rental Deposit',
+    'CA-LA':      'e.g. Loans given, Staff Advances, Advance Income Tax',
+    'FA-LB':      'Managed via Fixed Assets > Asset Master',
+    'FA-PM':      'Managed via Fixed Assets > Asset Master',
+    'FA-FF':      'Managed via Fixed Assets > Asset Master',
+    'FA-CE':      'Managed via Fixed Assets > Asset Master',
+    'FA-VH':      'Managed via Fixed Assets > Asset Master',
+    'FA-AD':      'e.g. Accumulated Depreciation (contra-asset)',
+    'INV':        'e.g. Mutual Funds, Fixed Deposits, Gold Investments',
+    'CL-SC':      'e.g. Supplier / Vendor / Karigar accounts',
+    'CL-DT':      'e.g. Duties & Taxes payable',
+    'CL-DT-GST':  'e.g. Output CGST, Output SGST, Output IGST',
+    'CL-DT-TDS':  'e.g. TDS Payable, TDS on Salary',
+    'CL-DT-TCS':  'e.g. TCS Payable',
+    'CL-PRV':     'e.g. Provision for Expenses, Provision for Tax',
+    'CL-HR':      'e.g. HR & Payroll Liabilities',
+    'CL-HR-SAL':  'e.g. Salary Payable, Employee Payable',
+    'CL-HR-PF':   'e.g. PF Payable',
+    'CL-HR-ESI':  'e.g. ESI Payable',
+    'CL-HR-PT':   'e.g. Professional Tax Payable',
+    'LL-SEC':     'e.g. Term Loans, Vehicle Loans, Mortgage',
+    'LL-USEC':    'e.g. Partner Loans, Director Loans',
+    'CAP-OWN':    "e.g. Owner's Capital, Partner Capital",
+    'CAP-RES':    'e.g. Retained Earnings, General Reserve, P&L A/c',
+    'INC-DIR-SAL':'e.g. Gold Sales, Diamond Sales, Ornament Sales, Making Charge Received',
+    'INC-IND':    'e.g. Interest Received, Discount Received, Commission Received',
+    'EXP-DIR-PUR':'e.g. Gold Purchase, Diamond Purchase, Silver Purchase',
+    'EXP-DIR-MFG':'e.g. Manufacturing Wages, Polish/Finish Costs',
+    'EXP-DIR-MKG':'e.g. Making Charges Paid to Karigars',
+    'EXP-DIR-STN':'e.g. Stone Setting, Stone Cost',
+    'EXP-DIR-FRT':'e.g. Freight Inward, Carriage Inward, Courier Charges',
+    // Indirect Expense sub-groups
+    'EXP-IND-ADM':'e.g. Office Rent, Electricity, Stationery, Bank Charges, Professional Fees, Software Expenses',
+    'EXP-IND-SND':'e.g. Showroom Rent, Packaging, Courier, Commission to Agents, Exhibition Expenses',
+    'EXP-IND-MKT':'e.g. Digital Marketing, Influencer Marketing, Photoshoots, Branding, Hoardings',
+    'EXP-IND-SHW':'e.g. Showroom Maintenance, Interior Decor, Security, Housekeeping, AC & Lighting',
+    'EXP-IND-HR': 'e.g. Salary & Wages, Staff Welfare, Training, Recruitment, PF/ESI, Bonus',
+    'EXP-IND-RPM':'e.g. Equipment Maintenance, Computer/IT Maintenance, Furniture Repairs, AMC',
+    'EXP-IND-TRV':'e.g. Local Travel, Business Travel, Fuel, Vehicle Maintenance',
+    'EXP-IND-FIN':'e.g. Interest on Loans/OD, Processing Fees, Discounting Charges, Credit Card Charges',
+    'EXP-IND-CMP':'e.g. GST Filing Fees, Audit Fees, Licensing, Hallmark Registration, Penalties',
+    'EXP-IND-INS':'e.g. Stock Insurance, Fire Insurance, Burglary Insurance, Employee Insurance',
+    'EXP-IND-IT': 'e.g. Cloud Hosting, SaaS Subscriptions, Cybersecurity, POS Systems',
+    'EXP-IND-MSC':'e.g. Donations, Festival Expenses, General Expenses, Rounding Off',
+};
+
+// Suggest the best account group code for a given ledger name
+const GROUP_SUGGEST_KEYWORDS = [
+    { keywords: ['rent', 'office rent'],                               code: 'EXP-IND-ADM' },
+    { keywords: ['electricity', 'power', 'utility'],                   code: 'EXP-IND-ADM' },
+    { keywords: ['stationery', 'printing'],                            code: 'EXP-IND-ADM' },
+    { keywords: ['bank charge'],                                       code: 'EXP-IND-ADM' },
+    { keywords: ['professional fee', 'legal fee', 'consultant'],       code: 'EXP-IND-ADM' },
+    { keywords: ['software', 'erp'],                                   code: 'EXP-IND-ADM' },
+    { keywords: ['internet', 'telephone', 'communication'],            code: 'EXP-IND-ADM' },
+    { keywords: ['showroom rent', 'packaging', 'courier', 'delivery'], code: 'EXP-IND-SND' },
+    { keywords: ['commission', 'broker', 'agent'],                     code: 'EXP-IND-SND' },
+    { keywords: ['exhibition', 'trade show'],                          code: 'EXP-IND-SND' },
+    { keywords: ['e-commerce', 'platform fee'],                        code: 'EXP-IND-SND' },
+    { keywords: ['marketing', 'google ad', 'meta ad', 'digital ad'],   code: 'EXP-IND-MKT' },
+    { keywords: ['influencer', 'affiliate'],                           code: 'EXP-IND-MKT' },
+    { keywords: ['photoshoot', 'catalog', 'branding', 'design cost'],  code: 'EXP-IND-MKT' },
+    { keywords: ['hoarding', 'outdoor', 'billboard'],                  code: 'EXP-IND-MKT' },
+    { keywords: ['website', 'web develop'],                            code: 'EXP-IND-MKT' },
+    { keywords: ['advertisement', 'publicity', 'campaign'],            code: 'EXP-IND-MKT' },
+    { keywords: ['showroom maintenance', 'interior', 'visual merchandis'], code: 'EXP-IND-SHW' },
+    { keywords: ['security service', 'housekeeping', 'air conditioning'], code: 'EXP-IND-SHW' },
+    { keywords: ['salary', 'wage', 'staff welfare', 'uniform'],        code: 'EXP-IND-HR' },
+    { keywords: ['training', 'recruitment', 'bonus', 'incentive'],     code: 'EXP-IND-HR' },
+    { keywords: ['pf ', 'esi ', 'gratuity'],                           code: 'EXP-IND-HR' },
+    { keywords: ['repair', 'maintenance', 'amc'],                     code: 'EXP-IND-RPM' },
+    { keywords: ['equipment maintenance', 'computer maintenance'],     code: 'EXP-IND-RPM' },
+    { keywords: ['furniture repair'],                                  code: 'EXP-IND-RPM' },
+    { keywords: ['travel', 'conveyance', 'fuel', 'vehicle'],           code: 'EXP-IND-TRV' },
+    { keywords: ['flight', 'hotel', 'business travel'],                code: 'EXP-IND-TRV' },
+    { keywords: ['interest paid', 'interest on loan', 'interest on od'], code: 'EXP-IND-FIN' },
+    { keywords: ['processing fee', 'discounting', 'credit card charge'], code: 'EXP-IND-FIN' },
+    { keywords: ['gst filing', 'audit fee', 'licensing', 'hallmark reg'], code: 'EXP-IND-CMP' },
+    { keywords: ['government charge', 'penalty', 'regulatory'],        code: 'EXP-IND-CMP' },
+    { keywords: ['insurance', 'fire insurance', 'burglary', 'stock insurance'], code: 'EXP-IND-INS' },
+    { keywords: ['cloud', 'hosting', 'saas', 'subscription', 'cybersecurity', 'pos system'], code: 'EXP-IND-IT' },
+    { keywords: ['donation', 'festival expense', 'diwali', 'general expense', 'rounding off', 'miscellaneous'], code: 'EXP-IND-MSC' },
+    { keywords: ['depreciation'],                                      code: 'EXP-IND' },
+    { keywords: ['interest received', 'discount received'],            code: 'INC-IND' },
+    { keywords: ['freight', 'carriage'],                               code: 'EXP-DIR-FRT' },
+    { keywords: ['purchase'],                                          code: 'EXP-DIR-PUR' },
+    { keywords: ['sale', 'making charge received'],                    code: 'INC-DIR-SAL' },
+];
+
+function suggestGroupCode(ledgerName) {
+    if (!ledgerName) return null;
+    const lower = ledgerName.toLowerCase();
+    // Try longest keyword match first
+    let bestMatch = null;
+    let bestLen = 0;
+    for (const rule of GROUP_SUGGEST_KEYWORDS) {
+        for (const kw of rule.keywords) {
+            if (lower.includes(kw) && kw.length > bestLen) {
+                bestMatch = rule.code;
+                bestLen = kw.length;
+            }
+        }
+    }
+    return bestMatch;
+}
+
+// ─── Role metadata — icons, descriptions, grouping ──────────────────────────
+
+const ROLE_META = {
+    CO:  { Icon: User,           group: 'party',   desc: 'Retail buyer'                    },
+    DL:  { Icon: ShoppingBag,    group: 'party',   desc: 'Wholesale buyer'                 },
+    KR:  { Icon: Hammer,         group: 'party',   desc: 'Artisan / job-work'              },
+    VD:  { Icon: Package,        group: 'party',   desc: 'Goods & services supplier'       },
+    REF: { Icon: Factory,        group: 'party',   desc: 'Precious metal refinery'         },
+    MLT: { Icon: Flame,          group: 'party',   desc: 'Metal melting & processing'      },
+    HM:  { Icon: BadgeCheck,     group: 'party',   desc: 'Hallmark certification body'     },
+    CA:  { Icon: Banknote,       group: 'account', desc: 'Physical cash account'           },
+    BA:  { Icon: Landmark,       group: 'account', desc: 'Bank account'                    },
+    INC: { Icon: TrendingUp,     group: 'account', desc: 'Revenue / income ledger'         },
+    EXP: { Icon: TrendingDown,   group: 'account', desc: 'Expense ledger'                  },
+    OTH: { Icon: MoreHorizontal, group: 'account', desc: 'Miscellaneous ledger'            },
+};
+
+const GroupPickerNode = ({ node, level, onSelect, suggestedCode }) => {
     const hasChildren = node.children?.length > 0;
     const [open, setOpen] = useState(level === 0);
     const indent = level * 20;
+    const isBlocked = FA_ASSET_CODES.has(node.code);
+    const hint = GROUP_HINTS[node.code];
+    const isSuggested = suggestedCode && node.code === suggestedCode;
+
+    function handleClick() {
+        if (isBlocked) {
+            alert(`Ledgers under "${node.name}" are managed automatically.\nPlease create the asset in Fixed Assets → Asset Master instead.`);
+            return;
+        }
+        onSelect(node);
+    }
 
     return (
         <div>
             <div
-                className="group flex items-center gap-2 py-2 pr-3 rounded-lg hover:bg-violet-50 cursor-pointer transition-colors"
+                className={`group flex items-center gap-2 py-2 pr-3 rounded-lg transition-colors relative ${
+                    isBlocked ? 'opacity-50 cursor-not-allowed' :
+                    isSuggested ? 'bg-green-50 ring-1 ring-green-300 hover:bg-green-100 cursor-pointer' :
+                    'hover:bg-violet-50 cursor-pointer'
+                }`}
                 style={{ paddingLeft: `${indent + 8}px` }}
-                onClick={() => onSelect(node)}
+                onClick={handleClick}
+                title={isBlocked ? `Use Fixed Assets > Asset Master to add ledgers under ${node.name}` : hint || undefined}
             >
                 {hasChildren ? (
                     <button
@@ -76,9 +229,23 @@ const GroupPickerNode = ({ node, level, onSelect }) => {
                         {node.code}
                     </span>
                 )}
-                <span className={`text-sm truncate ${level === 0 ? 'font-semibold text-primary' : 'text-gray-700'} group-hover:text-primary`}>
-                    {node.name}
-                </span>
+                <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                        <span className={`text-sm truncate ${level === 0 ? 'font-semibold text-primary' : 'text-gray-700'} group-hover:text-primary`}>
+                            {node.name}
+                        </span>
+                        {isSuggested && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 shrink-0 uppercase tracking-wider">
+                                Suggested
+                            </span>
+                        )}
+                    </div>
+                    {hint && (
+                        <span className="text-[10px] text-gray-400 truncate leading-tight mt-0.5">
+                            {hint}
+                        </span>
+                    )}
+                </div>
                 {hasChildren && (
                     <span className="ml-auto text-[10px] text-gray-400 shrink-0">{node.children.length}</span>
                 )}
@@ -86,7 +253,7 @@ const GroupPickerNode = ({ node, level, onSelect }) => {
             {open && hasChildren && (
                 <div className={level === 0 ? 'ml-3 border-l border-violet-100 pl-1 mb-1' : 'ml-3 border-l border-gray-100 pl-1'}>
                     {node.children.map(child => (
-                        <GroupPickerNode key={child.id} node={child} level={level + 1} onSelect={onSelect} />
+                        <GroupPickerNode key={child.id} node={child} level={level + 1} onSelect={isBlocked ? () => {} : onSelect} suggestedCode={suggestedCode} />
                     ))}
                 </div>
             )}
@@ -137,7 +304,7 @@ const LedgerForm = () => {
             salutation: 'none',
             ac_name: '',
             display_name: '',
-            b2b: 'false',
+            b2b: 'na',
             ac_group: '',
             dob: '',
             anniversary: '',
@@ -177,12 +344,21 @@ const LedgerForm = () => {
     const [accountTree, setAccountTree] = useState([]);
     const [types, setTypes] = useState([]);
     const [pickerOpen, setPickerOpen] = useState(false);
+    const [groupSearch, setGroupSearch] = useState('');
+    const spellCheckEnabled = useSpellCheck();
     // ledgerRoles: array of { role, is_primary }
     const [ledgerRoles, setLedgerRoles] = useState([]);
     const [roleLoading, setRoleLoading] = useState(null);  // role code being toggled
+    const [groupAutoFilled, setGroupAutoFilled] = useState(false); // true when account group was set by role
     const [tdsSections, setTdsSections] = useState([]);
     const [nameCheck, setNameCheck] = useState({ checking: false, exists: null }); // null = not checked yet
     const nameCheckTimer = React.useRef(null);
+    // Tracks whether the user has manually edited Display Name.
+    // Starts true in edit-mode (don't overwrite existing value) and false for new ledgers.
+    const displayNameTouched = React.useRef(!!id);
+    // Prevents the role-based b2b auto-set from firing on the initial data load
+    // (we want to preserve the saved value, not override it on mount).
+    const skipB2bAutoset = React.useRef(false);
 
     // Derived helpers
     const activeRoleCodes = ledgerRoles.map(r => r.role ?? r);   // support both old string[] and new {role,is_primary}[]
@@ -192,7 +368,48 @@ const LedgerForm = () => {
     const NON_CUSTOMER_ROLES = ['DL','KR','VD','CA','BA','SC','SD','REF','EXP','INC','HM','OTH'];
     const hasNonCustomerRole = activeRoleCodes.some(r => NON_CUSTOMER_ROLES.includes(r));
 
+    // Fuzzy-filtered flat account list for the group picker search box
+    const filteredAccounts = useMemo(() => {
+        if (!groupSearch.trim() || !spellCheckEnabled) return null; // null = show tree view
+        const fuse = new Fuse(accounts, {
+            keys: ['name', 'code'],
+            threshold: 0.4,
+            minMatchCharLength: 2,
+        });
+        return fuse.search(groupSearch.trim()).map(r => r.item);
+    }, [groupSearch, accounts, spellCheckEnabled]);
+
     const acName = watch('ac_name');
+
+    // Auto-mirror ac_name → display_name for new ledgers until user edits display_name manually
+    useEffect(() => {
+        if (!displayNameTouched.current) {
+            setValue('display_name', acName, { shouldValidate: false, shouldDirty: false });
+        }
+    }, [acName, setValue]);
+
+    // Auto-set Business Type based on active roles:
+    //   DL (dealer) → always B2B ('true')
+    //   neither CO nor DL → Not Applicable ('na')
+    //   CO only → leave current value (user chooses Retail/Wholesale)
+    useEffect(() => {
+        if (skipB2bAutoset.current) {
+            skipB2bAutoset.current = false;
+            return;
+        }
+        const hasDL = activeRoleCodes.includes('DL');
+        const hasCO = activeRoleCodes.includes('CO');
+        if (hasDL) {
+            setValue('b2b', 'true', { shouldValidate: false });
+        } else if (!hasCO) {
+            setValue('b2b', 'na', { shouldValidate: false });
+        } else {
+            // CO only: if previously N/A (e.g. role just changed to CO), default to B2C
+            const current = getValues('b2b');
+            if (current === 'na') setValue('b2b', 'false', { shouldValidate: false });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeRoleCodes]);
 
     // Real-time ledger name uniqueness check (only for non-customer ledgers)
     useEffect(() => {
@@ -229,6 +446,7 @@ const LedgerForm = () => {
                 }
 
                 if (id) {
+                    displayNameTouched.current = true; // editing — never auto-override
                     const { data } = await getLedger(id);
                     // Determine if shipping address differs from billing
                     const shipDiffers = (
@@ -239,9 +457,15 @@ const LedgerForm = () => {
                         (data.ship_state && data.ship_state !== data.state)
                     );
                     setShippingSameAsBilling(!shipDiffers);
+                    // Derive b2b display value: true→'true', false→'false' only if
+                    // ledger has a CO/DL role, otherwise 'na'.
+                    const hasB2bRole = (data.roles || []).some(r =>
+                        ['CO', 'DL'].includes(r.role ?? r)
+                    );
+                    const b2bDisplay = data.b2b ? 'true' : (hasB2bRole ? 'false' : 'na');
                     reset({
                         ...data,
-                        b2b: data.b2b?.toString() ?? 'false',
+                        b2b: b2bDisplay,
                         dob: data.dob || '',
                         anniversary: data.anniversary || '',
                         ac_group: data.ac_group?.toString() || '',
@@ -255,7 +479,8 @@ const LedgerForm = () => {
                         ship_pincode: data.ship_pincode || data.pincode || '',
                         ship_state:   data.ship_state   || data.state   || 'none',
                     });
-                    // Load existing roles (API now returns [{role, is_primary}])
+                    // Load existing roles — skip the role-based b2b auto-set on this render
+                    skipB2bAutoset.current = true;
                     setLedgerRoles(data.roles || []);
                 }
             } catch (error) {
@@ -314,6 +539,29 @@ const LedgerForm = () => {
         }
     };
 
+    // Auto-fill Account Group based on primary role (only in create mode; always updates on role change)
+    const autoFillAccountGroup = (newRoles) => {
+        if (id) return; // edit mode: don't override saved data
+        const primary = (newRoles.find(r => r.is_primary)?.role) ?? newRoles[0]?.role;
+        if (!primary) return;
+        const ROLE_GROUP = {
+            'CO':  'Sundry Debtors',
+            'DL':  'Sundry Debtors',
+            'SD':  'Sundry Debtors',
+            'VD':  'Sundry Creditors',
+            'KR':  'Sundry Creditors',
+            'SC':  'Sundry Creditors',
+            'CA':  'Cash-in-Hand',
+            'BA':  'Bank Accounts',
+            'INC': 'Sales Account',
+            'EXP': 'Indirect Expenses',
+        };
+        const targetName = ROLE_GROUP[primary];
+        if (!targetName) return;
+        const match = accounts.find(a => a.name?.toLowerCase() === targetName.toLowerCase());
+        if (match) { setValue('ac_group', match.id.toString()); setGroupAutoFilled(true); }
+    };
+
     const handleRoleToggle = async (roleCode, checked) => {
         setRoleLoading(roleCode);
         if (id) {
@@ -330,19 +578,24 @@ const LedgerForm = () => {
         } else {
             // Create mode — manage locally; will be sent on first save
             setLedgerRoles(prev => {
+                let next;
                 if (checked) {
                     const alreadyExists = prev.some(r => (r.role ?? r) === roleCode);
                     if (alreadyExists) return prev;
                     const isFirst = prev.length === 0;
-                    return [...prev, { role: roleCode, is_primary: isFirst }];
+                    next = [...prev, { role: roleCode, is_primary: isFirst }];
+                } else {
+                    const filtered = prev.filter(r => (r.role ?? r) !== roleCode);
+                    // If we removed the primary, promote the first remaining
+                    const wasPrimary = prev.find(r => (r.role ?? r) === roleCode)?.is_primary;
+                    if (wasPrimary && filtered.length > 0) {
+                        filtered[0] = { ...filtered[0], is_primary: true };
+                    }
+                    next = filtered;
                 }
-                const filtered = prev.filter(r => (r.role ?? r) !== roleCode);
-                // If we removed the primary, promote the first remaining
-                const wasPrimary = prev.find(r => (r.role ?? r) === roleCode)?.is_primary;
-                if (wasPrimary && filtered.length > 0) {
-                    filtered[0] = { ...filtered[0], is_primary: true };
-                }
-                return filtered;
+                // Auto-fill account group based on new primary role
+                setTimeout(() => autoFillAccountGroup(next), 0);
+                return next;
             });
         }
         setRoleLoading(null);
@@ -358,9 +611,11 @@ const LedgerForm = () => {
                 toast({ title: "Failed to set primary role", description: String(res.error?.error || res.error), variant: "destructive" });
             }
         } else {
-            setLedgerRoles(prev =>
-                prev.map(r => ({ ...r, is_primary: (r.role ?? r) === roleCode }))
-            );
+            setLedgerRoles(prev => {
+                const next = prev.map(r => ({ ...r, is_primary: (r.role ?? r) === roleCode }));
+                setTimeout(() => autoFillAccountGroup(next), 0);
+                return next;
+            });
         }
         setRoleLoading(null);
     };
@@ -440,24 +695,170 @@ const LedgerForm = () => {
                         </Field>
 
                         <Field label="Display Name" required>
-                            <Input className={inputCls} {...register("display_name")} required placeholder="Name on bills" />
+                            <Input
+                                className={inputCls}
+                                {...register("display_name", {
+                                    onChange: () => { displayNameTouched.current = true; },
+                                })}
+                                required
+                                placeholder="Name on bills"
+                            />
                         </Field>
 
                         <Field label="Business Type">
-                            <Controller name="b2b" control={control} render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger className={triggerCls}><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="false">Retail (B2C)</SelectItem>
-                                        <SelectItem value="true">Wholesale (B2B)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )} />
+                            <Controller name="b2b" control={control} render={({ field }) => {
+                                const hasDL = activeRoleCodes.includes('DL');
+                                const hasCO = activeRoleCodes.includes('CO');
+                                // Disabled when role makes the choice irrelevant or fixed:
+                                //   DL  → always B2B, no override needed
+                                //   neither CO nor DL → N/A, no choice makes sense
+                                const isDisabled = hasDL || (!hasCO && !hasDL);
+                                return (
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                        disabled={isDisabled}
+                                    >
+                                        <SelectTrigger className={triggerCls}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="na">Not Applicable</SelectItem>
+                                            <SelectItem value="false">Retail (B2C)</SelectItem>
+                                            <SelectItem value="true">Wholesale (B2B)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                );
+                            }} />
                         </Field>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                        <Field label="Account Group">
+                    {/* ── Roles — select role BEFORE account group ── */}
+                    {types.length > 0 && (() => {
+                        // Render in a fixed order: 7 party roles first, then 5 account roles = 12 cards, 4 per row
+                        const orderedCodes = ['CO','DL','KR','VD','REF','MLT','HM','CA','BA','INC','EXP','OTH'];
+                        const allOrdered = [
+                            ...orderedCodes.map(code => types.find(t => t.code === code)).filter(Boolean),
+                            ...types.filter(t => !orderedCodes.includes(t.code)), // any extras appended
+                        ];
+
+                        const RoleCard = ({ t }) => {
+                            const isChecked = activeRoleCodes.includes(t.code);
+                            const isLoading = roleLoading === t.code;
+                            const meta = ROLE_META[t.code];
+                            const Icon = meta?.Icon;
+                            const isAccount = meta?.group === 'account';
+                            const locked = !!id && isChecked && primaryRole === t.code && activeRoleCodes.length === 1;
+
+                            // Party roles use violet when active; account roles use slate
+                            const activeCard   = isAccount ? 'bg-slate-50 border-slate-300 shadow-sm'        : 'bg-violet-50 border-violet-300 shadow-sm';
+                            const activeCircle = isAccount ? 'bg-slate-100'                                   : 'bg-violet-100';
+                            const activeIcon   = isAccount ? 'text-slate-500'                                 : 'text-violet-600';
+                            const activeName   = isAccount ? 'text-slate-600'                                 : 'text-violet-700';
+                            const activeDesc   = isAccount ? 'text-slate-400'                                 : 'text-violet-400';
+                            const activeTick   = isAccount ? 'text-slate-400'                                 : 'text-violet-500';
+
+                            return (
+                                <button
+                                    type="button"
+                                    disabled={isLoading || locked}
+                                    onClick={() => handleRoleToggle(t.code, !isChecked)}
+                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all select-none ${
+                                        isChecked
+                                            ? activeCard
+                                            : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                    } ${isLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                                >
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                                        isChecked ? activeCircle : 'bg-gray-100'
+                                    }`}>
+                                        {isLoading
+                                            ? <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                                            : Icon
+                                                ? <Icon className={`w-4 h-4 ${isChecked ? activeIcon : 'text-gray-400'}`} />
+                                                : <span className={`text-[10px] font-bold ${isChecked ? activeIcon : 'text-gray-400'}`}>{t.code}</span>
+                                        }
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className={`text-xs font-semibold leading-none mb-0.5 ${isChecked ? activeName : 'text-gray-600'}`}>
+                                            {t.name}
+                                        </p>
+                                        {meta?.desc && (
+                                            <p className={`text-[10px] leading-tight ${isChecked ? activeDesc : 'text-gray-400'}`}>
+                                                {meta.desc}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {isChecked && <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ml-auto ${activeTick}`} />}
+                                </button>
+                            );
+                        };
+
+                        return (
+                            <div className="border-t border-gray-100 pt-4 space-y-4">
+                                <div>
+                                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
+                                        Ledger Roles
+                                    </p>
+                                    <p className="text-xs text-gray-400">
+                                        Select one or more roles. A ledger with multiple roles appears in all relevant lists.
+                                    </p>
+                                </div>
+
+                                {/* 12 cards in a 4-column grid — 3 rows of 4 */}
+                                <div className="grid grid-cols-4 gap-2">
+                                    {allOrdered.map(t => <RoleCard key={t.code} t={t} />)}
+                                </div>
+
+                                {/* Primary role selector — only shown when 2+ roles are active */}
+                                {activeRoleCodes.length >= 2 && (
+                                    <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100">
+                                        <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                                            <Crown className="w-3 h-3" /> Primary
+                                        </span>
+                                        {activeRoleCodes.map(code => {
+                                            const t = types.find(t => t.code === code);
+                                            if (!t) return null;
+                                            const isPrimary = primaryRole === code;
+                                            return (
+                                                <button
+                                                    key={code}
+                                                    type="button"
+                                                    title={isPrimary ? 'Primary role' : 'Set as primary'}
+                                                    disabled={isPrimary || roleLoading === code}
+                                                    onClick={() => handleSetPrimary(code)}
+                                                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                                                        isPrimary
+                                                            ? 'bg-violet-600 text-white shadow-sm cursor-default'
+                                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200 cursor-pointer'
+                                                    }`}
+                                                >
+                                                    {t.name}
+                                                </button>
+                                            );
+                                        })}
+                                        <span className="text-[10px] text-gray-300 ml-1">
+                                            Determines default account group & transaction behaviour
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+
+                    {/* ── Account Group — own row, directly after roles (cause → effect) ── */}
+                    <div className="border-t border-gray-100 pt-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                Account Group <span className="text-red-400">*</span>
+                            </p>
+                            {groupAutoFilled && (
+                                <span className="text-[10px] text-violet-500 font-medium flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" /> Auto-set from role — you can override
+                                </span>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-5">
                             <Controller name="ac_group" control={control} render={({ field }) => {
                                 const selected = accounts.find(a => a.id.toString() === field.value);
                                 return (
@@ -466,7 +867,11 @@ const LedgerForm = () => {
                                             ref={acGroupBtnRef}
                                             type="button"
                                             onClick={() => setPickerOpen(true)}
-                                            className="w-full h-10 flex items-center gap-2 px-3 rounded-md border border-gray-200 bg-white text-sm text-left hover:border-violet-400 transition-colors focus:outline-none focus:border-violet-400"
+                                            className={`w-full h-11 flex items-center gap-2 px-3 rounded-md border text-sm text-left transition-colors focus:outline-none ${
+                                                selected
+                                                    ? 'border-violet-200 bg-violet-50 hover:border-violet-400'
+                                                    : 'border-gray-200 bg-white hover:border-violet-400'
+                                            }`}
                                         >
                                             {selected ? (
                                                 <>
@@ -475,7 +880,7 @@ const LedgerForm = () => {
                                                             {selected.code}
                                                         </span>
                                                     )}
-                                                    <span className="text-gray-700 truncate">{selected.name}</span>
+                                                    <span className="text-gray-700 font-medium truncate">{selected.name}</span>
                                                 </>
                                             ) : (
                                                 <span className="text-gray-400">Select group…</span>
@@ -483,7 +888,10 @@ const LedgerForm = () => {
                                             <ChevronRight className="w-3.5 h-3.5 text-gray-300 ml-auto shrink-0" />
                                         </button>
 
-                                        <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
+                                        <Sheet open={pickerOpen} onOpenChange={(open) => {
+                                            setPickerOpen(open);
+                                            if (!open) setGroupSearch('');
+                                        }}>
                                             <SheetContent
                                                 side="right"
                                                 className="w-[400px] sm:max-w-[400px] flex flex-col p-0"
@@ -496,29 +904,88 @@ const LedgerForm = () => {
                                                     <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                                                     <div>
                                                         <p className="text-sm font-bold text-primary tracking-widest uppercase">Select Account Group</p>
-                                                        <p className="text-xs text-primary mt-0.5">Click a group to assign it</p>
+                                                        <p className="text-xs text-primary mt-0.5">Hover to see examples. Click to assign.</p>
                                                     </div>
                                                 </div>
+                                                {spellCheckEnabled && (
+                                                    <div className="px-3 pt-3 pb-2 shrink-0 border-b border-violet-50">
+                                                        <div className="relative">
+                                                            <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                                            <input
+                                                                type="text"
+                                                                value={groupSearch}
+                                                                onChange={e => setGroupSearch(e.target.value)}
+                                                                placeholder="Search groups…"
+                                                                className="w-full h-9 pl-8 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:border-violet-400"
+                                                                autoFocus
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div className="flex-1 overflow-y-auto px-3 py-3">
-                                                    {accountTree.map(node => (
-                                                        <GroupPickerNode
-                                                            key={node.id}
-                                                            node={node}
-                                                            level={0}
-                                                            onSelect={(n) => {
-                                                                field.onChange(n.id.toString());
-                                                                setPickerOpen(false);
-                                                            }}
-                                                        />
-                                                    ))}
+                                                    {filteredAccounts !== null ? (
+                                                        filteredAccounts.length === 0 ? (
+                                                            <p className="text-xs text-gray-400 text-center py-8">No matching groups</p>
+                                                        ) : (
+                                                            filteredAccounts.map(acc => {
+                                                                const _suggested = suggestGroupCode(acName);
+                                                                const _isSugg = _suggested && acc.code === _suggested;
+                                                                const _hint = GROUP_HINTS[acc.code];
+                                                                return (
+                                                                    <button
+                                                                        key={acc.id}
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            field.onChange(acc.id.toString());
+                                                                            setGroupAutoFilled(false);
+                                                                            setPickerOpen(false);
+                                                                            setGroupSearch('');
+                                                                        }}
+                                                                        className={`w-full flex items-center gap-2 py-2 px-3 rounded-lg text-left transition-colors ${_isSugg ? 'bg-green-50 ring-1 ring-green-300 hover:bg-green-100' : 'hover:bg-violet-50'}`}
+                                                                        title={_hint || undefined}
+                                                                    >
+                                                                        {acc.code && (
+                                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 tracking-wider shrink-0">
+                                                                                {acc.code}
+                                                                            </span>
+                                                                        )}
+                                                                        <div className="flex flex-col min-w-0 flex-1">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <span className="text-sm text-gray-700 truncate">{acc.name}</span>
+                                                                                {_isSugg && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 shrink-0 uppercase tracking-wider">Suggested</span>}
+                                                                            </div>
+                                                                            {_hint && <span className="text-[10px] text-gray-400 truncate leading-tight mt-0.5">{_hint}</span>}
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })
+                                                        )
+                                                    ) : (
+                                                        accountTree.map(node => (
+                                                            <GroupPickerNode
+                                                                key={node.id}
+                                                                node={node}
+                                                                level={0}
+                                                                onSelect={(n) => {
+                                                                    field.onChange(n.id.toString());
+                                                                    setGroupAutoFilled(false);
+                                                                    setPickerOpen(false);
+                                                                }}
+                                                                suggestedCode={suggestGroupCode(acName)}
+                                                            />
+                                                        ))
+                                                    )}
                                                 </div>
                                             </SheetContent>
                                         </Sheet>
                                     </>
                                 );
                             }} />
-                        </Field>
+                        </div>
+                    </div>
 
+                    {/* ── CRM dates — separate, lower-priority row ── */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-5 pt-2">
                         <Field label="Birthday">
                             <Input className={inputCls} type="date" {...register("dob")} />
                         </Field>
@@ -527,54 +994,6 @@ const LedgerForm = () => {
                             <Input className={inputCls} type="date" {...register("anniversary")} />
                         </Field>
                     </div>
-
-                    {/* ── Roles — unified panel, always visible ── */}
-                    {types.length > 0 && (
-                        <div className="border-t border-gray-100 pt-4">
-                            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
-                                Ledger Roles
-                            </p>
-                            <p className="text-xs text-gray-400 mb-3">
-                                Select one or more roles. The ★ marks the primary role — click it to change.
-                                A ledger with multiple roles appears in all relevant lists (e.g. a vendor who is also a customer appears in both sales and purchases).
-                            </p>
-                            <div className="flex flex-wrap gap-x-6 gap-y-3">
-                                {types.map((t) => {
-                                    const isChecked = activeRoleCodes.includes(t.code);
-                                    const isPrimary = primaryRole === t.code;
-                                    const isLoading = roleLoading === t.code;
-                                    return (
-                                        <div key={t.code} className="flex items-center gap-2">
-                                            <Checkbox
-                                                id={`role-${t.code}`}
-                                                checked={isChecked}
-                                                disabled={isLoading || (!!id && isChecked && isPrimary && activeRoleCodes.length === 1)}
-                                                onCheckedChange={(checked) => handleRoleToggle(t.code, !!checked)}
-                                            />
-                                            <label
-                                                htmlFor={`role-${t.code}`}
-                                                className={`text-xs cursor-pointer select-none ${isChecked ? 'text-gray-800 font-medium' : 'text-gray-400'}`}
-                                            >
-                                                {t.name}
-                                            </label>
-                                            {/* Primary star — only shown when role is active */}
-                                            {isChecked && (
-                                                <button
-                                                    type="button"
-                                                    title={isPrimary ? 'Primary role' : 'Set as primary'}
-                                                    disabled={isLoading || isPrimary}
-                                                    onClick={() => handleSetPrimary(t.code)}
-                                                    className={`text-sm leading-none transition-colors ${isPrimary ? 'text-primary cursor-default' : 'text-gray-300 hover:text-violet-400'}`}
-                                                >
-                                                    ★
-                                                </button>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
 
                 </SectionCard>
 
@@ -589,6 +1008,7 @@ const LedgerForm = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <Field label="Address Line 1">
                                 <Input className={inputCls}
+                                    spellCheck={spellCheckEnabled}
                                     {...register("add1", {
                                         onChange: (e) => {
                                             if (shippingSameAsBilling) setValue("ship_add1", e.target.value);
@@ -598,6 +1018,7 @@ const LedgerForm = () => {
                             </Field>
                             <Field label="Address Line 2">
                                 <Input className={inputCls}
+                                    spellCheck={spellCheckEnabled}
                                     {...register("add2", {
                                         onChange: (e) => {
                                             if (shippingSameAsBilling) setValue("ship_add2", e.target.value);
@@ -607,6 +1028,7 @@ const LedgerForm = () => {
                             </Field>
                             <Field label="City">
                                 <Input className={inputCls}
+                                    spellCheck={spellCheckEnabled}
                                     {...register("city", {
                                         onChange: (e) => {
                                             if (shippingSameAsBilling) setValue("ship_city", e.target.value);
@@ -681,13 +1103,13 @@ const LedgerForm = () => {
                             <>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                                     <Field label="Address Line 1">
-                                        <Input className={inputCls} {...register("ship_add1")} placeholder="Street / Building" />
+                                        <Input className={inputCls} spellCheck={spellCheckEnabled} {...register("ship_add1")} placeholder="Street / Building" />
                                     </Field>
                                     <Field label="Address Line 2">
-                                        <Input className={inputCls} {...register("ship_add2")} placeholder="Area / Locality" />
+                                        <Input className={inputCls} spellCheck={spellCheckEnabled} {...register("ship_add2")} placeholder="Area / Locality" />
                                     </Field>
                                     <Field label="City">
-                                        <Input className={inputCls} {...register("ship_city")} placeholder="City" />
+                                        <Input className={inputCls} spellCheck={spellCheckEnabled} {...register("ship_city")} placeholder="City" />
                                     </Field>
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-5 mt-5">
@@ -802,7 +1224,7 @@ const LedgerForm = () => {
                             <Input className={`${inputCls} uppercase`} {...register("dl_no")} placeholder="DL number" />
                         </Field>
                         <Field label="Remarks">
-                            <Input className={inputCls} {...register("remarks")} placeholder="Any additional notes…" />
+                            <Input className={inputCls} spellCheck={spellCheckEnabled} {...register("remarks")} placeholder="Any additional notes…" />
                         </Field>
                     </div>
 

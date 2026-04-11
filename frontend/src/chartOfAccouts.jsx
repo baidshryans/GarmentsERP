@@ -99,13 +99,22 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
 
                 {/* Edit / Delete actions — visible on row hover */}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    <Link
-                        to={`/accounting/account-edit/${node.id}`}
-                        className="p-1 rounded hover:bg-violet-100 text-primary transition-colors"
-                        title="Edit name"
-                    >
-                        <Pencil className="w-3.5 h-3.5" />
-                    </Link>
+                    {node.can_be_deleted ? (
+                        <Link
+                            to={`/accounting/account-edit/${node.id}`}
+                            className="p-1 rounded hover:bg-violet-100 text-primary transition-colors"
+                            title="Edit group"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                        </Link>
+                    ) : (
+                        <span
+                            className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
+                            title="System group — cannot be modified"
+                        >
+                            <Pencil className="w-3.5 h-3.5" />
+                        </span>
+                    )}
                     {node.can_delete ? (
                         <button
                             onClick={() => onDelete(node.id, node.name)}
@@ -243,6 +252,10 @@ const AccountTree = () => {
                 <span className="flex items-center gap-1.5">
                     <Users className="w-3 h-3" />
                     Number = ledgers assigned to group
+                </span>
+                <span className="flex items-center gap-1.5">
+                    <Pencil className="w-3 h-3 text-muted-foreground/40" />
+                    Greyed edit = system group — cannot be modified
                 </span>
                 <span className="flex items-center gap-1.5">
                     <Trash2 className="w-3 h-3 text-muted-foreground/40" />

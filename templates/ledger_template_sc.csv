@@ -1,4 +1,10 @@
 ac_name,display_name,ac_group_name,add1,add2,city,state,pincode,phone1,mobile1,email,pan,gst,remarks
-# --- SAMPLE ROWS — delete this row and the rows below before uploading ---,,,,,,,,,,,,,
-ABC Gold Suppliers,ABC Gold,Sundry Creditors,101 Trade Centre,,Mumbai,Maharashtra,400001,022-87654321,9876543210,abc@gold.in,MFGST1234Z,27MFGST1234Z1Z5,Sample — delete before uploading
-XYZ Metals Pvt Ltd,,Sundry Creditors,202 Metal House,,Delhi,Delhi,110001,,9123456789,xyz@metals.in,LMNOP5678Q,09LMNOP5678Q1Z5,Sample 2 — delete before uploading
+R.B.Bhosale,R.B.Bhosale,Sundry Creditors,"50 Burtolla Street, Kolkata - 700007",,Kolkata,West Bengal,700007,,,,,,
+HVK Jewels Private Limited,HVK Jewels Private Limited,Sundry Creditors,"501, 5th Floor, Plot No. 313/A, Sy No. 435, B/h SMC Tenament, Gotalawadi, Katargam, Surat - 395004",,Surat,Gujarat,395004,,,,AAACJ8696A,24AAACJ8696A1ZL,
+Prince Hallmarking Center,Prince Hallmarking Center,Sundry Creditors,"1A, Ekdalia Place, 1st Floor, Gariahat, Kolkata- 700019",,Kolkata,West Bengal,700019,,,,AARFP0689F,19AARFP0689F1ZO,
+Jewel India Jewellers,Jewel India Jewellers,Sundry Creditors,"Camac Square, 24 Camac Street, 1st Floor,",,Kolkata,West Bengal,700016,,,,AACFJ4832H,19AACFJ4832H1ZC,
+Shashvat Jewels Pvt. Ltd.,Shashvat Jewels Pvt. Ltd.,Sundry Creditors,"Plot No. L-14, to 18 and M08 to M12, Gem and Jewellery Park, Gujrat Hira Bourse, Ichhapore, Surat - ",,Surat,Gujarat,394510,,,,AAJCS9790D,24AAJCS9790D1Z0,
+IDI Jewels India Mfg. Pvt Ltd,IDI Jewels India Mfg. Pvt Ltd,Sundry Creditors,"C-7, Plot No. 15, Wicel Midc, Opp. gate No. 1, Andheri (E), Mumbai - 400093",,Mumbai,Maharashtra,400093,,,,AAGCI6458K,27AAGCI6458K1Z1,
+R.K And Sons,R.K And Sons,Sundry Creditors,"Camac Square, 24 Camac Street, 1st Floor,",,KOLKATA,West Bengal,700016,,,,AACCZ5519L,19AAEHR8729M1ZB,
+Solaris Jewels,Solaris Jewels,Sundry Creditors,"405, Sunday Hub, Near Ankur School, Aamba Talavadi, Katargam",,SURAT,Gujarat,395004,,9979577729,,AFJFS6272G,24AFJFS6272G1ZR,
+Mahalaxmi Gold Testing Report,Mahalaxmi Gold Testing Report,Sundry Creditors,"86, C.R Road",,Ranigunj,West Bengal,,,8116234310,,,,

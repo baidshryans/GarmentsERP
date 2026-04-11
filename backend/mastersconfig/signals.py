@@ -26,7 +26,7 @@ _GST_REGISTERS = [
 _OPERATIONAL_LEDGERS = [
     # sale_discount_ldgr removed — unused FK (no serializer reads it)
     ('discount_ldgr',               'Sales Discount',          'INC-DIR-SAL', 'INC'),
-    ('round_off_ldgr',              'Round Off',               'EXP-IND-ROF', 'EXP'),
+    ('round_off_ldgr',              'Round Off',               'EXP-IND-MSC', 'EXP'),
     ('hallmark_charge_ldgr',        'Hallmark Charges',        'EXP-DIR',     'EXP'),
     ('making_receive_ldgr',         'Making Charge Received',  'INC-DIR-SAL', 'INC'),
     # gold_conversion_ldgr omitted from seeding — assign manually per company
@@ -38,22 +38,35 @@ _OPERATIONAL_LEDGERS = [
 # (label, account_code, ledger_role) — created once per company, not stored as FK on company
 _TRADING_LEDGERS = [
     # Purchases → EXP-DIR-PUR, role EXP
-    ('Gold Purchase',           'EXP-DIR-PUR', 'EXP'),
-    ('Diamond Purchase',        'EXP-DIR-PUR', 'EXP'),
-    ('Emerald Purchase',        'EXP-DIR-PUR', 'EXP'),
-    ('Ruby Purchase',           'EXP-DIR-PUR', 'EXP'),
-    ('Semi Precious Purchase',  'EXP-DIR-PUR', 'EXP'),
-    ('Old Gold Purchase',       'EXP-DIR-PUR', 'EXP'),
-    ('Standard Bar Purchase',   'EXP-DIR-PUR', 'EXP'),
-    ('Other Purchase',          'EXP-DIR-PUR', 'EXP'),
+    ('Gold Purchase',              'EXP-DIR-PUR', 'EXP'),
+    ('Standard Bar Purchase',      'EXP-DIR-PUR', 'EXP'),
+    ('Ornament Purchase',          'EXP-DIR-PUR', 'EXP'),
+    ('Diamond Purchase',           'EXP-DIR-PUR', 'EXP'),
+    ('Lab Grown Diamond Purchase', 'EXP-DIR-PUR', 'EXP'),
+    ('Emerald Purchase',           'EXP-DIR-PUR', 'EXP'),
+    ('Ruby Purchase',              'EXP-DIR-PUR', 'EXP'),
+    ('Pearls Purchase',            'EXP-DIR-PUR', 'EXP'),
+    ('Semi Precious Purchase',     'EXP-DIR-PUR', 'EXP'),
+    ('Multi Sapphire Purchase',    'EXP-DIR-PUR', 'EXP'),
+    ('Blue Sapphire Purchase',     'EXP-DIR-PUR', 'EXP'),
+    ('Imitation Purchase',         'EXP-DIR-PUR', 'EXP'),
+    ('Old Gold Purchase',          'EXP-DIR-PUR', 'EXP'),
+    ('Other Purchase',             'EXP-DIR-PUR', 'EXP'),
     # Sales → INC-DIR-SAL, role INC
-    ('Gold Sales',              'INC-DIR-SAL', 'INC'),
-    ('Diamond Sales',           'INC-DIR-SAL', 'INC'),
-    ('Emerald Sales',           'INC-DIR-SAL', 'INC'),
-    ('Ruby Sales',              'INC-DIR-SAL', 'INC'),
-    ('Semi Precious Sales',     'INC-DIR-SAL', 'INC'),
-    ('Standard Bar Sales',      'INC-DIR-SAL', 'INC'),
-    ('Other Sales',             'INC-DIR-SAL', 'INC'),
+    ('Gold Sales',                 'INC-DIR-SAL', 'INC'),
+    ('Standard Bar Sales',         'INC-DIR-SAL', 'INC'),
+    ('Ornament Sales',             'INC-DIR-SAL', 'INC'),
+    ('Diamond Sales',              'INC-DIR-SAL', 'INC'),
+    ('Lab Grown Diamond Sales',    'INC-DIR-SAL', 'INC'),
+    ('Emerald Sales',              'INC-DIR-SAL', 'INC'),
+    ('Ruby Sales',                 'INC-DIR-SAL', 'INC'),
+    ('Pearls Sales',               'INC-DIR-SAL', 'INC'),
+    ('Semi Precious Sales',        'INC-DIR-SAL', 'INC'),
+    ('Multi Sapphire Sales',       'INC-DIR-SAL', 'INC'),
+    ('Blue Sapphire Sales',        'INC-DIR-SAL', 'INC'),
+    ('Imitation Sales',            'INC-DIR-SAL', 'INC'),
+    ('Old Gold Sales',             'INC-DIR-SAL', 'INC'),
+    ('Other Sales',                'INC-DIR-SAL', 'INC'),
 ]
 
 # ── Misc statutory / asset / expense ledgers ─────────────────────────────────
@@ -62,13 +75,35 @@ _MISC_LEDGERS = [
     ('Professional Tax (Staff)', 'CL'),          # Current Liabilities
     ('Discount Received',        'INC-IND'),     # Indirect Income
     ('Freight Outward',          'EXP-DIR-FRT'), # Direct Expenses > Freight
-    ('Bank Charges',             'EXP-IND-BNK'), # Indirect Expenses > Bank Charges
+    # Administrative Expenses
+    ('Bank Charges',             'EXP-IND-ADM'),
+    ('Rent',                     'EXP-IND-ADM'),
+    ('Electricity & Power',      'EXP-IND-ADM'),
+    ('Telephone & Internet',     'EXP-IND-ADM'),
+    ('Printing & Stationery',    'EXP-IND-ADM'),
+    ('Legal & Professional Fees','EXP-IND-ADM'),
+    # Selling & Distribution Expenses
+    ('Sales Commission',         'EXP-IND-SND'),
+    # Marketing & Advertisement Expenses
+    ('Advertisement & Publicity','EXP-IND-MKT'),
+    # Employee & HR Expenses
+    ('Salary & Wages',           'EXP-IND-HR'),
+    # Repairs & Maintenance
+    ('Repairs & Maintenance',    'EXP-IND-RPM'),
+    # Travel & Conveyance
+    ('Travel & Conveyance',      'EXP-IND-TRV'),
+    # Financial Expenses
+    ('Interest Paid',            'EXP-IND-FIN'),
+    # Compliance & Regulatory Expenses
+    ('Audit Fees',               'EXP-IND-CMP'),
+    # Insurance Expenses
+    ('Insurance',                'EXP-IND-INS'),
+    # Miscellaneous Expenses
+    ('Miscellaneous Expenses',   'EXP-IND-MSC'),
+
     ('Interest Received',        'INC-IND'),     # Indirect Income
-    ('Interest Paid',            'EXP-IND'),     # Indirect Expenses
-    ('Sales Commission',         'EXP-IND'),     # Indirect Expenses
 
     # ── HR / Payroll ledgers ─────────────────────────────────────────────────
-    ('Salary & Wages',           'EXP-IND-SAL'), # Salary expense account
     ('Employee Payable',         'CL'),          # Net salary payable to employees
     ('Provident Fund Payable',   'CL'),          # PF liability (employee + employer)
     ('ESI Payable',              'CL'),          # ESI liability (employee + employer)
@@ -79,13 +114,14 @@ _MISC_LEDGERS = [
     ('Gold Scheme Liability',    'CL'),          # Money collected under gold schemes
 
     # ── Fixed Asset / Depreciation ───────────────────────────────────────────
-    ('Depreciation Expense',        'EXP-IND-DEP'), # P&L charge for depreciation
+    ('Depreciation Expense',        'EXP-IND'),     # P&L charge for depreciation
     ('Accumulated Depreciation',    'FA-AD'),        # Contra-asset: total depreciation to date
 
     # ── General / Other ──────────────────────────────────────────────────────
     ('Customer Advance',         'CL'),          # Advance received on customer orders
     ('Suspense Account',         'CL'),          # Temporary parking for unmatched entries
     ('Opening Balance Equity',   'CAP-RES'),     # Plug account for trial balance during setup
+    ('Closing Stock',            'CA-STK'),      # Inventory asset — value injected from inventory module
     ('Stock-in-Transit',         'CA-STK'),      # Inventory moving between retail locations
     ('Petty Cash',               'CA-CSH'),      # Small-value cash fund
 ]
@@ -145,7 +181,7 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
     from accounting.models import Account
 
     acct_cache = {}
-    for code in ('INC-DIR-SAL', 'EXP-IND-ROF', 'EXP-DIR', 'EXP-DIR-FRT', 'EXP-DIR-PUR'):
+    for code in ('INC-DIR-SAL', 'EXP-IND', 'EXP-IND-MSC', 'EXP-DIR', 'EXP-DIR-FRT', 'EXP-DIR-PUR'):
         acct_cache[code] = Account.objects.filter(code=code).first()
 
     update_fields = []
@@ -169,8 +205,11 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
     # ── Trading + misc + office equipment ledgers (no FK on CompanyMaster) ──
     extra_codes = {
         'EXP-DIR-PUR', 'INC-DIR-SAL', 'CA', 'CL', 'FA-CE',
-        'INC-IND', 'EXP-DIR-FRT', 'EXP-IND-BNK', 'EXP-IND',
-        'EXP-IND-SAL', 'CL-DT', 'CL-DT-TDS', 'EXP-IND-DEP',
+        'INC-IND', 'EXP-DIR-FRT', 'EXP-IND',
+        'EXP-IND-ADM', 'EXP-IND-SND', 'EXP-IND-MKT', 'EXP-IND-HR',
+        'EXP-IND-RPM', 'EXP-IND-TRV', 'EXP-IND-FIN', 'EXP-IND-CMP',
+        'EXP-IND-INS', 'EXP-IND-MSC',
+        'CL-DT', 'CL-DT-TDS',
         'FA-AD', 'CAP-RES', 'CA-STK', 'CA-CSH',
     }
     extra_cache = {c: Account.objects.filter(code=c).first() for c in extra_codes}

@@ -248,10 +248,20 @@ class BankDetails(serializers.ModelSerializer):
     ledger_name = serializers.CharField(source='ledger.ac_name', read_only=True, default='')
 
     class Meta:
-        fields = ['id', 'amount', 'bank_name', 'chq_no', 'chq_date', 'ledger', 'ledger_name']
+        fields = [
+            'id', 'amount', 'payment_mode', 'bank_name',
+            'chq_no', 'chq_date', 'ledger', 'ledger_name',
+            'cheque_status', 'deposit_date', 'deposit_voucher',
+        ]
         extra_kwargs = {
-            'id':     {'read_only': False, 'required': False},
-            'ledger': {'required': False, 'allow_null': True},
+            'id':              {'read_only': False, 'required': False},
+            'ledger':          {'required': False, 'allow_null': True},
+            'chq_no':          {'required': False, 'allow_null': True, 'allow_blank': True},
+            'chq_date':        {'required': False, 'allow_null': True},
+            'payment_mode':    {'default': 'NEFT'},
+            'cheque_status':   {'read_only': True},
+            'deposit_date':    {'read_only': True},
+            'deposit_voucher': {'read_only': True},
         }
         model = BankDetail
 
@@ -533,6 +543,12 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 ref = ser.save()
 
 
+            def _bank_debit_account(bank):
+                """Cheques go to 'Cheques in Hand' suspense; all other modes go direct to bank."""
+                if bank.get("payment_mode") == "CHEQUE":
+                    return "Cheques in Hand"
+                return bank["bank_name"]
+
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.rcpt_sale, self.context.get('request').retail),
                                     'retail':request.retail.id,
@@ -546,12 +562,12 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                 'credit':0
                             }] +
                             [{
-                                'account':bank["bank_name"],
+                                'account': _bank_debit_account(bank),
                                 'debit':f"{bank['amount']:.2f}",
                                 'credit':0,
                                 'party_bank_name':bank["bank_name"],
-                                "chq_no":bank["chq_no"],
-                                "chq_date":bank["chq_date"],
+                                "chq_no":bank.get("chq_no"),
+                                "chq_date":bank.get("chq_date"),
                             } for bank in bank_details] +[{
                                         'account':sales_vou_instance.ldgr.ac_name,
                                         'credit':f"{(sales_vou_instance.cash + sum((int(bank['amount']) for bank in bank_details))):.2f}",
@@ -682,12 +698,12 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'credit':0
                                     }] +
                                     [{
-                                        'account':bank["bank_name"],
+                                        'account': "Cheques in Hand" if bank.get("payment_mode") == "CHEQUE" else bank["bank_name"],
                                         'debit':f"{bank['amount']:.2f}",
                                         'credit':0,
                                         'party_bank_name':bank["bank_name"],
-                                        "chq_no":bank["chq_no"],
-                                        "chq_date":bank["chq_date"],
+                                        "chq_no":bank.get("chq_no"),
+                                        "chq_date":bank.get("chq_date"),
                                     } for bank in bank_details] +
                                     [{
                                         'account':sales_vou_instance.ldgr.ac_name,

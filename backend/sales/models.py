@@ -240,18 +240,42 @@ class SalesVouItem(models.Model):
         db_table = "sales_vou_main"
 
 class BankDetail(models.Model):
-    sales_vou = models.ForeignKey(SalesVou,on_delete=models.CASCADE,related_name='bank_details')
-    amount = models.IntegerField()
-    bank_name = models.CharField(max_length=255)
-    chq_no = models.CharField(max_length=50, unique=True)  # Assuming chq_no should be unique
-    chq_date = models.DateField()
+    PAYMENT_MODE_CHOICES = [
+        ('NEFT',   'NEFT / IMPS / RTGS'),
+        ('UPI',    'UPI'),
+        ('CHEQUE', 'Cheque'),
+        ('CARD',   'Card'),
+    ]
+    CHEQUE_STATUS_CHOICES = [
+        ('PENDING',   'Pending'),
+        ('DEPOSITED', 'Deposited'),
+        ('BOUNCED',   'Bounced'),
+    ]
+
+    sales_vou    = models.ForeignKey(SalesVou, on_delete=models.CASCADE, related_name='bank_details')
+    amount       = models.IntegerField()
+    payment_mode = models.CharField(max_length=10, choices=PAYMENT_MODE_CHOICES, default='NEFT')
+    bank_name    = models.CharField(max_length=255)
+    # For CHEQUE: cheque number; for UPI/NEFT: UTR / transaction reference (optional)
+    chq_no   = models.CharField(max_length=50, null=True, blank=True)
+    chq_date = models.DateField(null=True, blank=True)
+    # Bank account ledger: for non-cheque → the account credited directly;
+    # for cheque → the bank account the cheque will eventually be deposited into
     ledger = models.ForeignKey(Ledger, null=True, blank=True, on_delete=models.SET_NULL, related_name='bank_payment_details')
+
+    # Cheque clearing fields (only relevant when payment_mode = 'CHEQUE')
+    cheque_status   = models.CharField(max_length=10, choices=CHEQUE_STATUS_CHOICES, default='PENDING')
+    deposit_date    = models.DateField(null=True, blank=True)
+    deposit_voucher = models.ForeignKey(
+        'accounting.VoucherMain', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='cheque_deposits',
+    )
 
     class Meta:
         db_table = 'sale_voucher_bankdetail'
 
     def __str__(self):
-        return f"{self.bank_name} - {self.chq_no}"
+        return f"{self.payment_mode} - {self.bank_name} - {self.chq_no or ''}"
 
 
 class SalesVouItemDetails(models.Model):

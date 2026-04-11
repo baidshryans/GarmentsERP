@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { SquarePen, Trash2, Plus } from "lucide-react";
+import { SquarePen, Trash2, Plus, Paperclip } from "lucide-react";
 import { getLedgers } from "@/services/apiService";
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +20,7 @@ const Ledger = () => {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
   const search = params.get('search') || "";
   const sortby = params.get('sortby') || "";
 
@@ -36,7 +37,13 @@ const Ledger = () => {
       setLoading(false);
     };
     fetchLedgers();
-  }, [search, page, sortby]);
+  }, [search, page, sortby, refreshKey]);
+
+  const handleDelete = async (id, name) => {
+    if (!window.confirm(`Delete ledger "${name}"?\n\nThis cannot be undone.`)) return;
+    await deleteLedger(id, toast);
+    setRefreshKey((k) => k + 1);
+  };
 
   const columns = [
     {
@@ -47,16 +54,35 @@ const Ledger = () => {
           <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
             <SquarePen className="w-4 h-4" />
           </Link>
-          <button
-            onClick={() => deleteLedger(row.original.id, toast)}
-            className="p-1.5 rounded text-destructive hover:bg-red-50 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-          <LedgerDocuments
-            ledgerId={row.original.id}
-            ledgerName={row.original.ac_name}
-          />
+          {row.original.is_system ? (
+            <span
+              className="p-1.5 rounded text-muted-foreground/30 cursor-not-allowed"
+              title="System ledger — cannot be deleted"
+            >
+              <Trash2 className="w-4 h-4" />
+            </span>
+          ) : (
+            <button
+              onClick={() => handleDelete(row.original.id, row.original.ac_name)}
+              className="p-1.5 rounded text-destructive hover:bg-red-50 transition-colors"
+              title="Delete ledger"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          {['CO', 'KR', 'DL', 'VD'].some(r => row.original.roles?.some(lr => lr.role === r)) ? (
+            <LedgerDocuments
+              ledgerId={row.original.id}
+              ledgerName={row.original.ac_name}
+            />
+          ) : (
+            <span
+              className="p-1.5 rounded text-muted-foreground/30 cursor-not-allowed"
+              title="Documents not applicable for this ledger type"
+            >
+              <Paperclip className="w-4 h-4" />
+            </span>
+          )}
         </div>
       ),
     },

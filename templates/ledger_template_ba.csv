@@ -1,3 +1,2 @@
 ac_name,display_name,ac_group_name,add1,add2,city,state,pincode,phone1,mobile1,email,pan,gst,remarks,cheque_no
-# --- SAMPLE ROWS — delete this row and the rows below before uploading ---,,,,,,,,,,,,,,
 HDFC Current Account,HDFC CA,Bank Accounts,"HDFC Bank, Fort Branch",,Mumbai,Maharashtra,400001,1800-202-6161,,,,,Sample — delete before uploading,1234567890

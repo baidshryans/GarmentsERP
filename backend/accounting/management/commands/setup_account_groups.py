@@ -15,6 +15,7 @@ ACCOUNT_TREE = [
     ("CA-CSH", "Cash-in-Hand", "CA"),
     ("CA-BNK", "Bank Accounts", "CA"),
     ("CA-BNK-OD", "Bank OD Accounts", "CA-BNK"),
+    ("CA-CHQ", "Cheques in Hand", "CA"),
     ("CA-STK", "Stock-in-Hand", "CA"),
     ("CA-SD", "Sundry Debtors", "CA"),
     ("CA-GST", "GST Receivable (Input)", "CA"),
@@ -44,6 +45,11 @@ ACCOUNT_TREE = [
     ("CL-DT-TDS", "TDS Payable", "CL-DT"),
     ("CL-DT-TCS", "TCS Payable", "CL-DT"),
     ("CL-PRV", "Provisions", "CL"),
+    ("CL-HR", "HR & Payroll Liabilities", "CL"),
+    ("CL-HR-SAL", "Salary Payable", "CL-HR"),
+    ("CL-HR-PF",  "PF Payable", "CL-HR"),
+    ("CL-HR-ESI", "ESI Payable", "CL-HR"),
+    ("CL-HR-PT",  "Professional Tax Payable", "CL-HR"),
 
     # Loans (Liability)
     ("LL", "Loans (Liability)", "LIA"),
@@ -78,21 +84,18 @@ ACCOUNT_TREE = [
 
     # Indirect Expenses
     ("EXP-IND", "Indirect Expenses", "EXP"),
-    ("EXP-IND-SAL", "Salaries & Wages", "EXP-IND"),
-    ("EXP-IND-RNT", "Rent", "EXP-IND"),
-    ("EXP-IND-ELC", "Electricity & Power", "EXP-IND"),
-    ("EXP-IND-TEL", "Telephone & Internet", "EXP-IND"),
-    ("EXP-IND-PRN", "Printing & Stationery", "EXP-IND"),
-    ("EXP-IND-ADV", "Advertisement & Publicity", "EXP-IND"),
+    ("EXP-IND-ADM", "Administrative Expenses", "EXP-IND"),
+    ("EXP-IND-SND", "Selling & Distribution Expenses", "EXP-IND"),
+    ("EXP-IND-MKT", "Marketing & Advertisement Expenses", "EXP-IND"),
+    ("EXP-IND-SHW", "Showroom / Retail Expenses", "EXP-IND"),
+    ("EXP-IND-HR",  "Employee & HR Expenses", "EXP-IND"),
+    ("EXP-IND-RPM", "Repairs & Maintenance", "EXP-IND"),
     ("EXP-IND-TRV", "Travel & Conveyance", "EXP-IND"),
-    ("EXP-IND-INS", "Insurance", "EXP-IND"),
-    ("EXP-IND-REP", "Repairs & Maintenance", "EXP-IND"),
-    ("EXP-IND-AUD", "Audit Fees", "EXP-IND"),
-    ("EXP-IND-LEG", "Legal & Professional Fees", "EXP-IND"),
-    ("EXP-IND-BNK", "Bank Charges", "EXP-IND"),
-    ("EXP-IND-DEP", "Depreciation", "EXP-IND"),
+    ("EXP-IND-FIN", "Financial Expenses", "EXP-IND"),
+    ("EXP-IND-CMP", "Compliance & Regulatory Expenses", "EXP-IND"),
+    ("EXP-IND-INS", "Insurance Expenses", "EXP-IND"),
+    ("EXP-IND-IT",  "IT & Technology Expenses", "EXP-IND"),
     ("EXP-IND-MSC", "Miscellaneous Expenses", "EXP-IND"),
-    ("EXP-IND-ROF", "Rounding Off", "EXP-IND"),
 ]
 
 
@@ -131,8 +134,31 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f"Created: {code} - {name}"))
                 created_count += 1
 
+        # ── Remove account groups no longer in ACCOUNT_TREE ──────────────────
+        # Move any ledgers that were under a removed group up to its parent,
+        # then delete the obsolete group.
+        valid_codes = {code for code, _, _ in ACCOUNT_TREE}
+        removed_count = 0
+        for acc in list(Account.objects.exclude(code__in=valid_codes)):
+            from contacts.models import Ledger
+            # Re-point ledgers to the closest ancestor still in the tree
+            ancestor = acc.parent
+            while ancestor is not None and ancestor.code not in valid_codes:
+                ancestor = ancestor.parent
+            moved = Ledger.objects.filter(ac_group=acc).update(ac_group=ancestor)
+            # Re-point child account groups to the same ancestor
+            Account.objects.filter(parent=acc).update(parent=ancestor)
+            if moved:
+                self.stdout.write(self.style.WARNING(
+                    f"  Moved {moved} ledger(s) from '{acc.code}' to '{ancestor.code if ancestor else 'None'}'"
+                ))
+            acc.delete()
+            self.stdout.write(self.style.WARNING(f"Removed obsolete group: {acc.code} - {acc.name}"))
+            removed_count += 1
+
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS(
-            f"Done. Created {created_count}, already existed {existing_count}. "
+            f"Done. Created {created_count}, already existed {existing_count}, "
+            f"removed {removed_count}. "
             f"Total account groups: {Account.objects.count()}"
         ))

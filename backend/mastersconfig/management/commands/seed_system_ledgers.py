@@ -28,7 +28,10 @@ class Command(BaseCommand):
         all_codes = (
             {row[2] for row in _OPERATIONAL_LEDGERS}
             | {row[1] for row in _TRADING_LEDGERS + _MISC_LEDGERS + _OFFICE_EQUIPMENT_LEDGERS}
-            | {'CA-GST', 'CL-DT-GST', 'CA-CSH', 'CL-SC'}
+            | {'CA-GST', 'CL-DT-GST', 'CA-CSH', 'CL-SC', 'CA-CHQ', 'EXP-IND',
+               'EXP-IND-ADM', 'EXP-IND-SND', 'EXP-IND-MKT', 'EXP-IND-HR',
+               'EXP-IND-RPM', 'EXP-IND-TRV', 'EXP-IND-FIN', 'EXP-IND-CMP',
+               'EXP-IND-INS', 'EXP-IND-MSC'}
         )
         acct = {c: Account.objects.filter(code=c).first() for c in all_codes}
 
@@ -129,5 +132,11 @@ class Command(BaseCommand):
 
                 if update_fields:
                     GSTINMaster.objects.filter(pk=gstin.pk).update(**update_fields)
+
+        # ── 3. Global suspense ledgers (one each, shared across all retails) ────
+        with transaction.atomic():
+            _, created = _ensure("Cheques in Hand", "Cheques in Hand", "CA-CHQ", role="OTH")
+            if created:
+                self.stdout.write(f"  [NEW] Cheques in Hand")
 
         self.stdout.write(self.style.SUCCESS("Done seeding system ledgers."))

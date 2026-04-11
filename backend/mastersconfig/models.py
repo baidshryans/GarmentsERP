@@ -446,6 +446,10 @@ class SystemSettings(models.Model):
         default=False,
         help_text="Allow entering the desired bill total and auto-calculating Discount & GST."
     )
+    spell_check_enabled = models.BooleanField(
+        default=True,
+        help_text="Enable browser spell checking and fuzzy matching in search/picker fields."
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

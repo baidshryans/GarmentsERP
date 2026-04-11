@@ -193,17 +193,17 @@ export default function PacketMaster() {
     {
       header: "Group",
       accessorKey: "packet_group",
-      cell: ({ getValue }) => {
-        const v = getValue();
-        return grpMap[fkId(v)] || v?.packet_group_name || "-";
+      cell: ({ row }) => {
+        const v = row.original.packet_group;
+        return row.original.packet_group_name || grpMap[fkId(v)] || v?.packet_group_name || "-";
       },
     },
     {
       header: "Stone",
       accessorKey: "stone_item_id",
-      cell: ({ getValue }) => {
-        const v = getValue();
-        return stoneMap[fkId(v)] || v?.item_name || "-";
+      cell: ({ row }) => {
+        const v = row.original.stone_item_id;
+        return row.original.stone_item_name || stoneMap[fkId(v)] || v?.item_name || "-";
       },
     },
     { header: "Cut", accessorKey: "cut", cell: ({ getValue }) => getValue() || "-" },
@@ -211,17 +211,17 @@ export default function PacketMaster() {
     {
       header: "Shape",
       accessorKey: "shape",
-      cell: ({ getValue }) => {
-        const v = getValue();
-        return shapeMap[fkId(v)] || v?.shape_name || "-";
+      cell: ({ row }) => {
+        const v = row.original.shape;
+        return row.original.shape_name || shapeMap[fkId(v)] || v?.shape_name || "-";
       },
     },
     {
       header: "Color",
       accessorKey: "color",
-      cell: ({ getValue }) => {
-        const v = getValue();
-        return colorMap[fkId(v)] || v?.color_name || "-";
+      cell: ({ row }) => {
+        const v = row.original.color;
+        return row.original.color_name || colorMap[fkId(v)] || v?.color_name || "-";
       },
     },
     {

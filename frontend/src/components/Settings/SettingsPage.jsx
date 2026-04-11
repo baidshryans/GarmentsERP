@@ -13,6 +13,7 @@ import {
   Settings,
   Eye,
   EyeOff,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +75,11 @@ export default function SettingsPage() {
       {/* Bill Calculation */}
       <Section title="Bill Calculation" icon={<Calculator className="size-4" />}>
         <BillCalcSettingCard />
+      </Section>
+
+      {/* Search & Input */}
+      <Section title="Search & Input" icon={<Search className="size-4" />}>
+        <SpellCheckCard />
       </Section>
 
       {/* Advanced / Danger */}
@@ -259,6 +265,58 @@ function BillCalcSettingCard() {
     <SettingRow
       title="Auto-Calculate from Total"
       description="When enabled, you can enter the desired bill total in Sale & Sale Return and click Calculate to auto-derive Discount and GST."
+    >
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        disabled={saving}
+        onClick={handleToggle}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          enabled ? "bg-green-600" : "bg-muted-foreground/30"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            enabled ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+    </SettingRow>
+  );
+}
+
+// ─── Spell Check & Fuzzy Search Setting ─────────────────────────────────────
+
+function SpellCheckCard() {
+  const { toast } = useToast();
+  const [enabled, setEnabled] = useState(true);
+  const [saving, setSaving]   = useState(false);
+
+  useEffect(() => {
+    fetchSystemSettings().then((res) => {
+      if (res.success) setEnabled(!!res.data.spell_check_enabled);
+    });
+  }, []);
+
+  const handleToggle = async () => {
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    const res = await updateSystemSettings({ spell_check_enabled: next });
+    setSaving(false);
+    if (res.success) {
+      toast({ title: next ? "Spell Check & Fuzzy Search enabled" : "Spell Check & Fuzzy Search disabled" });
+    } else {
+      setEnabled(!next);
+      toast({ title: "Failed to save setting", variant: "destructive" });
+    }
+  };
+
+  return (
+    <SettingRow
+      title="Spell Check & Fuzzy Search"
+      description="Enable browser spell checking on address / notes fields, and fuzzy matching in account group & picker searches."
     >
       <button
         type="button"

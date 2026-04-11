@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from mastersconfig.models import SalesPersonMaster, SalesPersonCommission, SalesPersonCommissionReversal
+from contacts.models import LedgerRole
 
 
 @api_view(['GET'])
@@ -37,6 +38,12 @@ def commission_report(request):
     if to_date:
         qs = qs.filter(date1__lte=to_date)
 
+    # Pre-load dealer ledger IDs (one query).  Dealers are inherently B2B
+    # regardless of whether the b2b flag is set on their ledger record.
+    dealer_ldgr_ids = set(
+        LedgerRole.objects.filter(role='DL').values_list('ledger_id', flat=True)
+    )
+
     def compute(voucher, sp):
         if sp is None:
             return None
@@ -44,7 +51,11 @@ def commission_report(request):
         if rate == 0:
             return None
 
-        is_b2b = bool(getattr(voucher.ldgr, 'b2b', False))
+        # B2B if customer has a GSTIN on file OR is a dealer
+        is_b2b = (
+            bool((getattr(voucher.ldgr, 'gst', '') or '').strip())
+            or (voucher.ldgr_id in dealer_ldgr_ids if voucher.ldgr else False)
+        )
         if is_b2b and not sp.apply_on_b2b:
             return None
 

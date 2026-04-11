@@ -102,9 +102,9 @@ class RetrieveUpdateDestroyPacketGroup(RetrieveUpdateDestroyAPIView):
 #----------------packet_view-api-----------------------------------------------
 class ListCreatePacket(ListCreateAPIView):
     serializer_class = PacketSerializer
-    queryset         = Packet.objects.all()
+    queryset         = Packet.objects.select_related('packet_group', 'stone_item_id', 'color', 'shape').all()
     filter_backends = [DjangoFilterBackend,SearchFilter]
-    filterset_fields = ['stone_item']
+    filterset_fields = ['stone_item_id']
     pagination_class = None
 
     def get_queryset(self):
@@ -595,6 +595,12 @@ class ItemCSVUploadView(APIView):
                             if not sale_ldgr_obj and sale_ldgr_val.isdigit():
                                 sale_ldgr_obj = _Ldgr.objects.filter(pk=int(sale_ldgr_val)).first()
 
+                        # Warn if a ledger name was supplied but not found in DB
+                        if purchase_ldgr_val and not purchase_ldgr_obj:
+                            errors.append(f"Row {i}: purchase_ledger '{purchase_ldgr_val}' not found — ledger not assigned for '{short_code}'.")
+                        if sale_ldgr_val and not sale_ldgr_obj:
+                            errors.append(f"Row {i}: sale_ledger '{sale_ldgr_val}' not found — ledger not assigned for '{short_code}'.")
+
                         # For new items, purchase_ledger and sale_ledger are required
                         is_existing = Item.objects.filter(short_code=short_code).exists()
                         if not is_existing:
@@ -605,6 +611,17 @@ class ItemCSVUploadView(APIView):
                                 errors.append(f"Row {i}: sale_ledger is required for new item '{short_code}'.")
                                 continue
 
+                        # Resolve item group
+                        grp_obj = None
+                        grp_val = (row.get('grp') or '').strip()
+                        if grp_val.isdigit():
+                            grp_obj = ItemGroupMaster.objects.filter(pk=int(grp_val)).first()
+                        if not grp_obj and grp_val:
+                            # fallback: match by short_code or name
+                            grp_obj = ItemGroupMaster.objects.filter(short_code=grp_val).first()
+                            if not grp_obj:
+                                grp_obj = ItemGroupMaster.objects.filter(item_group_name=grp_val).first()
+
                         defaults = {
                             'item_name': item_name,
                             'item_type': item_type,
@@ -613,6 +630,10 @@ class ItemCSVUploadView(APIView):
                             'show_in_pcs_report': show_pcs,
                             'sub_grp': '',
                         }
+                        if grp_obj:
+                            defaults['grp'] = grp_obj
+                        elif grp_val:
+                            errors.append(f"Row {i}: item group '{grp_val}' not found — group not assigned for '{short_code}'.")
                         if purchase_ldgr_obj:
                             defaults['purchase_ledger'] = purchase_ldgr_obj
                         if sale_ldgr_obj:
@@ -729,6 +750,24 @@ class PacketCSVUploadView(APIView):
                         if packet_group_name:
                             packet_group_obj = PacketGroup.objects.filter(packet_group_name=packet_group_name).first()
 
+                        # Resolve color by name
+                        color_val = (row.get('color') or '').strip()
+                        color_obj = None
+                        if color_val:
+                            if color_val.isdigit():
+                                color_obj = Colors.objects.filter(pk=int(color_val)).first()
+                            if not color_obj:
+                                color_obj = Colors.objects.filter(color_name__iexact=color_val).first()
+
+                        # Resolve shape by name
+                        shape_val = (row.get('shape') or '').strip()
+                        shape_obj = None
+                        if shape_val:
+                            if shape_val.isdigit():
+                                shape_obj = Shapes.objects.filter(pk=int(shape_val)).first()
+                            if not shape_obj:
+                                shape_obj = Shapes.objects.filter(shape_name__iexact=shape_val).first()
+
                         defaults = {
                             'stone_item_id': stone_item,
                             'rate_for_retail': int(float(row.get('rate_for_retail') or 0)),
@@ -736,6 +775,12 @@ class PacketCSVUploadView(APIView):
                             'is_solitaire': is_solitaire,
                             'is_customer_stone': is_customer,
                             'packet_group': packet_group_obj,
+                            'cut': (row.get('cut') or '').strip() or None,
+                            'clarity': (row.get('clarity') or '').strip() or None,
+                            'seives': (row.get('seives') or row.get('sieve') or '').strip() or None,
+                            'color': color_obj,
+                            'shape': shape_obj,
+                            'op_stock_wtd_avg_rate': row.get('op_stock_wtd_avg_rate') or row.get('op_rate') or '0',
                         }
                         # Preserve MySQL id as Django pk
                         mysql_id_val = (row.get('id') or '').strip()
@@ -772,7 +817,8 @@ class PacketCSVUploadView(APIView):
 
 class ItemGroupCSVUploadView(APIView):
     """POST multipart/form-data with field 'file' (CSV). Upserts ItemGroupMaster records.
-    Expected columns: name (or item_group_name), short_code
+    Expected columns: id, name (or item_group_name), short_code
+    The 'id' column is preserved as the Django pk so that item master grp references match.
     """
     parser_classes = [MultiPartParser]
 
@@ -793,18 +839,38 @@ class ItemGroupCSVUploadView(APIView):
                         name = (row.get('item_group_name') or row.get('name') or '').strip()
                         if not short_code and not name:
                             continue
-                        obj, flag = ItemGroupMaster.objects.update_or_create(
-                            short_code=short_code,
-                            defaults={
-                                'item_group_name': name[:20],
-                            }
-                        )
+                        defaults = {'item_group_name': name[:20], 'short_code': short_code}
+                        mysql_id_val = (row.get('id') or '').strip()
+                        if mysql_id_val.isdigit():
+                            mysql_id = int(mysql_id_val)
+                            # Remove any conflicting record with same short_code but different pk
+                            ItemGroupMaster.objects.filter(short_code=short_code).exclude(pk=mysql_id).delete()
+                            obj, flag = ItemGroupMaster.objects.update_or_create(
+                                pk=mysql_id,
+                                defaults=defaults,
+                            )
+                        else:
+                            obj, flag = ItemGroupMaster.objects.update_or_create(
+                                short_code=short_code,
+                                defaults={'item_group_name': name[:20]},
+                            )
                         if flag:
                             created += 1
                         else:
                             updated += 1
                     except Exception as e:
                         errors.append(f"Row {i}: {str(e)}")
+
+            # Reset SQLite auto-increment so future auto-generated pks start after max existing
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM item_group_master)"
+                        " WHERE name = 'item_group_master'"
+                    )
+            except Exception:
+                pass
+
         except Exception as e:
             return Response({'error': str(e)}, status=400)
 
@@ -1041,12 +1107,20 @@ class FiscalYearListCreate(ListCreateAPIView):
 
     def get_queryset(self):
         retail = getattr(self.request, 'retail', None)
+        if retail is None:
+            retail = RetailMaster.objects.first()
         if retail:
             return FiscalYearMaster.objects.filter(retail=retail).order_by('-fy_start')
         return FiscalYearMaster.objects.none()
 
     def perform_create(self, serializer):
         retail = self.request.retail
+        # During setup wizard no X-RETAIL-ID is sent — fall back to the single retail
+        if retail is None:
+            retail = RetailMaster.objects.first()
+        if retail is None:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"retail": "No retail found. Complete the retail setup step first."})
         fy = serializer.save(retail=retail)
         # If this is the first FY for this retail, auto-activate it
         if not retail.active_fy:

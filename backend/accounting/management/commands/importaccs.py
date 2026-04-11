@@ -2,7 +2,7 @@ import csv
 import os
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from accounting.models import Account
 from contacts.models import Ledger, LedgerRole
 
@@ -17,11 +17,12 @@ class Command(BaseCommand):
         parser.add_argument('--skip-existing', action='store_true',
                            help='Skip records that would cause duplicate key errors')
 
+    @transaction.atomic
     def handle(self, *args, **kwargs):
         base_path = settings.BASE_DIR  # Root directory where manage.py is located
         continue_on_error = kwargs.get('continue_on_error', False)
         skip_existing = kwargs.get('skip_existing', False)
-        
+
         try:
             # Step 1: Import Main Groups
             self.stdout.write(self.style.MIGRATE_HEADING("📌 Importing Main Groups..."))

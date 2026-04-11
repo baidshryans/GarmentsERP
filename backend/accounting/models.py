@@ -79,7 +79,7 @@ class VoucherDetail(models.Model):
     )
     voucher_type = models.CharField(max_length=10)
     account = models.ForeignKey('contacts.Ledger', on_delete=models.CASCADE) # this is the account
-    status = models.CharField(max_length=20,null=True,blank=True)
+    status = models.CharField(max_length=20,null=True,blank=True, db_index=True)
     #write two function for debit entry and credit entry
     debit = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     credit = models.DecimalField(max_digits=15, decimal_places=2, default=0)

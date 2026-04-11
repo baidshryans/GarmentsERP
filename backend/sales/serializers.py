@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
@@ -8,6 +9,8 @@ from mastersconfig.models import Item, SalesPersonMaster, TCSSectionMaster
 from sales.models import CustomerOrder, CustomerOrderItems
 from purchase.models import PurchaseVoucher
 from django.db import   transaction
+
+logger = logging.getLogger(__name__)
 
 from rest_framework.exceptions import ValidationError as _LedgerConfigError
 def _raise_missing_ledger(label):
@@ -549,6 +552,11 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     return "Cheques in Hand"
                 return bank["bank_name"]
 
+            _rcpt_customer_credit = (
+                sales_vou_instance.cash
+                + sum(Decimal(str(bank['amount'])) for bank in bank_details)
+                + old_gold_adjusted
+            )
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.rcpt_sale, self.context.get('request').retail),
                                     'retail':request.retail.id,
@@ -563,16 +571,24 @@ class SalesVouSerializer(serializers.ModelSerializer):
                             }] +
                             [{
                                 'account': _bank_debit_account(bank),
-                                'debit':f"{bank['amount']:.2f}",
+                                'debit':f"{Decimal(str(bank['amount'])):.2f}",
                                 'credit':0,
                                 'party_bank_name':bank["bank_name"],
                                 "chq_no":bank.get("chq_no"),
                                 "chq_date":bank.get("chq_date"),
-                            } for bank in bank_details] +[{
+                            } for bank in bank_details] +
+                            # Old gold: DR old-gold vendor ledger, reducing their payable to us
+                            ([{
+                                'account': old_gold_purchase.ldgr.ac_name,
+                                'debit': f"{old_gold_adjusted:.2f}",
+                                'credit': 0,
+                            }] if old_gold_purchase and old_gold_adjusted > 0 else []) +
+                            [{
                                         'account':sales_vou_instance.ldgr.ac_name,
-                                        'credit':f"{(sales_vou_instance.cash + sum((int(bank['amount']) for bank in bank_details))):.2f}",
+                                        'credit':f"{_rcpt_customer_credit:.2f}",
                                         'debit':0
-                                    }]})
+                                    }]},
+                                    context=self.context)
             if ser.is_valid(raise_exception=True):
 
                 rcpt_ref = ser.save()
@@ -928,8 +944,12 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             try:
                 from mastersconfig.commission_views import reverse_commissions_for_return
                 reverse_commissions_for_return(sale_return_instance, item_instances)
-            except Exception:
-                pass  # Commission reversal is non-critical; never block the return save
+            except (ImportError, AttributeError, TypeError) as e:
+                # Non-critical: log but never block the return save
+                logger.warning(
+                    "Commission reversal skipped for return %s: %s",
+                    sale_return_instance.billno, e,
+                )
 
             return sale_return_instance
 

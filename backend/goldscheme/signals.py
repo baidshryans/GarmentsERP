@@ -6,7 +6,8 @@ Signals for the Gold Scheme module.
 """
 import logging
 
-from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import DatabaseError, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -106,7 +107,9 @@ def create_scheme_voucher(sender, instance, created, **kwargs):
             # Link the voucher to the payment
             payment.voucher = voucher
             payment.save(update_fields=['voucher'])
-    except Exception:
+    except (DatabaseError, ObjectDoesNotExist, ImportError, AttributeError, ValueError):
+        # Safety net: never let voucher creation block the payment save.
+        # All failure modes logged here; manual JV will be needed to reconcile.
         logger.exception(
             "Failed to create SCHM voucher for payment %s (enrollment %s). "
             "Payment saved but accounting entry is missing — manual JV required.",

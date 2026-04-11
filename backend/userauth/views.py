@@ -3,6 +3,7 @@ from django.http import HttpResponse
 import os, sqlite3, tempfile
 from datetime import datetime
 from django.conf import settings as django_settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from userauth.permissions import RBACPermission
 from .models import *
@@ -15,6 +16,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 # Create your views here.
 
 
@@ -29,6 +31,9 @@ class RetailBaseViewset(viewsets.ModelViewSet):
         serializer.save(retail=retail)
 
 class UserLoginView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
     def post(self, request):
         username = request.data.get("username")
         password = request.data.get("password")
@@ -74,13 +79,13 @@ def _user_to_dict(user):
             'id': ul.default_location.id,
             'retail_name': ul.default_location.retail_name,
         } if ul.default_location else None
-    except Exception:
+    except ObjectDoesNotExist:
         locations = []
         default_loc = None
     try:
         ur = user.userrole
         role = {'id': ur.role.id, 'name': ur.role.name}
-    except Exception:
+    except ObjectDoesNotExist:
         role = None
     return {
         'id':               user.id,
@@ -418,10 +423,24 @@ def backup_database(request):
     custom_path = (request.data.get('path') or '').strip()
 
     if custom_path:
-        # Save to the user-specified server-side folder
+        # Validate backup path: must be under the project's BASE_DIR/backups or an
+        # explicit BACKUP_ROOT defined in settings (prevents arbitrary path writes).
+        backup_root = getattr(django_settings, 'BACKUP_ROOT', None) or \
+            os.path.join(str(django_settings.BASE_DIR), 'backups')
+        abs_backup_root = os.path.abspath(backup_root)
+        abs_custom = os.path.abspath(custom_path)
+        if not abs_custom.startswith(abs_backup_root + os.sep) and abs_custom != abs_backup_root:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
+            return Response(
+                {'detail': f'Backup path must be within {abs_backup_root}. '
+                           f'Set BACKUP_ROOT in settings to allow a different location.'},
+                status=400,
+            )
+        # Save to the validated server-side folder
         try:
-            os.makedirs(custom_path, exist_ok=True)
-            dest = os.path.join(custom_path, backup_filename)
+            os.makedirs(abs_custom, exist_ok=True)
+            dest = os.path.join(abs_custom, backup_filename)
             os.replace(tmp.name, dest)
             return Response({'success': True, 'saved_to': dest, 'filename': backup_filename})
         except Exception as e:

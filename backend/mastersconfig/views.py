@@ -38,9 +38,9 @@ class RetrieveUpdateDeleteHsn(RetrieveUpdateDestroyAPIView):
 #------------------Item-API-------------------------------------------
 class ListCreateItem(ListCreateAPIView):
     queryset         = Item.objects.all()
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['hsn_no','item_type']
-    pagination_class = None
+    search_fields    = ['item_name', 'short_name']
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -105,7 +105,6 @@ class ListCreatePacket(ListCreateAPIView):
     queryset         = Packet.objects.select_related('packet_group', 'stone_item_id', 'color', 'shape').all()
     filter_backends = [DjangoFilterBackend,SearchFilter]
     filterset_fields = ['stone_item_id']
-    pagination_class = None
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -129,13 +128,12 @@ class RetrieveUpdateDestroyPacket(RetrieveUpdateDestroyAPIView):
 
 class ListCreateSalesPersonMaster(ListCreateAPIView):
     serializer_class = SalesPersonMasterSerializer
-    pagination_class = None
 
     def get_queryset(self):
         retail = getattr(self.request, "retail", None)
-        if retail:
-            return SalesPersonMaster.objects.filter(retail=retail)
-        return SalesPersonMaster.objects.all()
+        if retail is None:
+            return SalesPersonMaster.objects.none()
+        return SalesPersonMaster.objects.filter(retail=retail)
 
     def perform_create(self, serializer):
         from django.db import transaction
@@ -170,7 +168,13 @@ class ListCreateSalesPersonMaster(ListCreateAPIView):
 class RetrieveUpdateDestroySalesPersonMaster(RetrieveUpdateDestroyAPIView):
     serializer_class = SalesPersonMasterSerializer
     queryset         = SalesPersonMaster.objects.all()
-    
+
+    def get_queryset(self):
+        retail = getattr(self.request, 'retail', None)
+        if retail is None:
+            return SalesPersonMaster.objects.none()
+        return SalesPersonMaster.objects.filter(retail=retail)
+
 
 #--------------------------Item Group------------------------------
 

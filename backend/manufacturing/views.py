@@ -1,5 +1,6 @@
 import io
 import csv
+from decimal import InvalidOperation
 from rest_framework import viewsets
 from rest_framework.parsers import MultiPartParser
 from rest_framework.views import APIView
@@ -373,10 +374,10 @@ def fetch_receive_packets(request):
 def create_karigar_stone_receive(request):
     with transaction.atomic():
 
-        for i in range(len(request.data)):
-
-            request.data[i]["retail"] = request.retail.id
-        serializer = KarigarStoneReceiveSerializer(data=request.data,many=True)
+        data = [dict(item) for item in request.data]
+        for item in data:
+            item["retail"] = request.retail.id
+        serializer = KarigarStoneReceiveSerializer(data=data, many=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(data=serializer.data)
@@ -597,7 +598,6 @@ class KarigarJobsView(ListCreateAPIView):
 
 class KarigarMasterView(ListCreateAPIView):
     serializer_class = KarigarMasterSerializer
-    pagination_class = None
 
     def get_queryset(self):
         retail = getattr(self.request, 'retail', None)
@@ -694,7 +694,7 @@ class KarigarMakingCSVUploadView(APIView):
                         def to_dec(v, default='0'):
                             try:
                                 return Decimal(v.strip() or default)
-                            except Exception:
+                            except (InvalidOperation, ValueError):
                                 return Decimal(default)
 
                         defaults = {

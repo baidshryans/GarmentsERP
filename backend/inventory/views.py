@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction
 from inventory.filters import StockValuationReportFilter
-from inventory.serializer import BarCodeDetailSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, ItemStockReportSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
+from inventory.serializer import BarCodeDetailSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, ItemStockReportSerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
 from manufacturing.models import *
 from manufacturing.serializer import HallmarkReceiveItemForPostSerializer
 from userauth.views import RetailBaseViewset
@@ -180,8 +180,9 @@ def create_barcode_from_purchase(request):
 @api_view(['POST'])
 def barcode_merge_view(request):
     with transaction.atomic():
-        request.data['retail'] = request.retail
-        serializer = BarCodeMainSerializer(data=request.data)
+        data = request.data.copy()
+        data['retail'] = request.retail
+        serializer = BarCodeMainSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
@@ -1277,7 +1278,13 @@ def serve_barcode_image_file(request, name):
     from mastersconfig.storage import _barcode_image_root
 
     decoded = unquote(name)
-    full_path = os.path.normpath(os.path.join(_barcode_image_root(), decoded))
+    abs_root = os.path.abspath(_barcode_image_root())
+    full_path = os.path.normpath(os.path.join(abs_root, decoded))
+
+    # Path-traversal guard: resolved path must stay within the storage root
+    if not full_path.startswith(abs_root + os.sep) and full_path != abs_root:
+        return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
     if not os.path.isfile(full_path):
         return Response({"error": "File not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1479,3 +1486,185 @@ class SemiFinishedStockReportView(APIView):
             'pending_barcode': pending_data,
             'pending_barcode_summary': pending_summary,
         })
+
+
+# ── RFID Views ────────────────────────────────────────────────────────────────
+
+from rest_framework.views import APIView
+from rest_framework.pagination import PageNumberPagination
+
+
+class RfidTagAssignView(APIView):
+    """
+    POST  /inventory/api/rfid/assign/
+    Assign (or clear) an RFID tag EPC to a BarcodeMain record.
+
+    Body: { "barcode": "<13-digit>", "rfid_tag": "<EPC>" }
+    To clear: send rfid_tag as empty string.
+    """
+
+    def post(self, request):
+        ser = RfidTagAssignSerializer(data=request.data, context={'retail': request.retail, 'request': request})
+        ser.is_valid(raise_exception=True)
+        obj = ser.save()
+        return Response({
+            'barcode': obj.barcode,
+            'rfid_tag': obj.rfid_tag,
+            'item': obj.item.item_name if obj.item else None,
+        }, status=status.HTTP_200_OK)
+
+
+class RfidInventoryCountView(APIView):
+    """
+    POST  /inventory/api/rfid/count/
+    Submit a list of RFID tag IDs read by a scanner.
+    Returns:
+      - matched: tags found in stock with full barcode detail
+      - unexpected: tags not registered or already sold
+      - missing: barcodes that have an rfid_tag but were NOT scanned (possible loss/theft)
+
+    Body: { "tags": ["EPC1", "EPC2", ...] }
+    Optional: { "save_session": true, "note": "..." } to persist results.
+    """
+
+    def post(self, request):
+        tags = request.data.get('tags', [])
+        if not isinstance(tags, list):
+            return Response({'detail': 'tags must be a list.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        retail = request.retail
+        tags_set = set(str(t).strip() for t in tags if t)
+
+        # All barcodes in this retail that have an rfid_tag assigned
+        rfid_qs = BarcodeMain.objects.filter(
+            retail=retail,
+            rfid_tag__isnull=False,
+        ).exclude(rfid_tag='').select_related('item', 'purity')
+
+        rfid_map = {b.rfid_tag: b for b in rfid_qs}
+
+        matched = []
+        unexpected = []
+        for tag in tags_set:
+            bc = rfid_map.get(tag)
+            if bc:
+                matched.append({
+                    'rfid_tag': tag,
+                    'barcode': bc.barcode,
+                    'item': bc.item.item_name if bc.item else None,
+                    'item_short': bc.item.short_code if bc.item else None,
+                    'purity': str(bc.purity) if bc.purity else None,
+                    'stk_status': bc.stk_status,
+                    'gw': float(bc.gw) if bc.gw else 0,
+                })
+            else:
+                unexpected.append({'rfid_tag': tag})
+
+        # Missing = rfid-tagged barcodes in stock not seen in this scan
+        scanned_rfids = tags_set
+        missing = []
+        for rfid_tag, bc in rfid_map.items():
+            if rfid_tag not in scanned_rfids and bc.stk_status:
+                missing.append({
+                    'rfid_tag': rfid_tag,
+                    'barcode': bc.barcode,
+                    'item': bc.item.item_name if bc.item else None,
+                    'item_short': bc.item.short_code if bc.item else None,
+                    'purity': str(bc.purity) if bc.purity else None,
+                    'gw': float(bc.gw) if bc.gw else 0,
+                })
+
+        # Optionally persist as a count session
+        if request.data.get('save_session'):
+            from .utils import generate_stock_journal_billno
+            session_no = generate_stock_journal_billno(retail).replace('SJ', 'RFID')
+            session = RfidCountSession.objects.create(
+                session_no=session_no,
+                note=request.data.get('note', ''),
+                retail=retail,
+                created_by=request.user,
+            )
+            bulk_results = []
+            for row in matched:
+                bc = rfid_map[row['rfid_tag']]
+                bulk_results.append(RfidCountResult(
+                    session=session, rfid_tag=row['rfid_tag'],
+                    barcode=bc, match_status='matched',
+                ))
+            for row in unexpected:
+                bulk_results.append(RfidCountResult(
+                    session=session, rfid_tag=row['rfid_tag'],
+                    barcode=None, match_status='unexpected',
+                ))
+            RfidCountResult.objects.bulk_create(bulk_results)
+            session_id = session.id
+            session_no_out = session.session_no
+        else:
+            session_id = None
+            session_no_out = None
+
+        return Response({
+            'session_id': session_id,
+            'session_no': session_no_out,
+            'total_scanned': len(tags_set),
+            'matched_count': len(matched),
+            'unexpected_count': len(unexpected),
+            'missing_count': len(missing),
+            'matched': matched,
+            'unexpected': unexpected,
+            'missing': missing,
+        })
+
+
+class RfidCountSessionViewSet(ModelViewSet):
+    """CRUD for saved RFID count sessions."""
+    serializer_class = RfidCountSessionSerializer
+
+    def get_queryset(self):
+        if not self.request.retail:
+            return RfidCountSession.objects.none()
+        return RfidCountSession.objects.filter(retail=self.request.retail).order_by('-date')
+
+    @action(detail=True, methods=['get'])
+    def results(self, request, pk=None):
+        session = self.get_object()
+        qs = RfidCountResult.objects.filter(session=session).select_related('barcode__item')
+        ser = RfidCountResultSerializer(qs, many=True)
+        return Response(ser.data)
+
+
+class RfidTagListView(APIView):
+    """
+    GET /inventory/api/rfid/tags/
+    Returns all barcodes with their rfid_tag assignments for the current retail.
+    Supports ?search=<barcode or item> and ?assigned=true|false filter.
+    """
+
+    def get(self, request):
+        retail = request.retail
+        qs = BarcodeMain.objects.filter(retail=retail, stk_status=True).select_related('item', 'purity')
+        search = request.query_params.get('search', '').strip()
+        assigned = request.query_params.get('assigned', '')
+        if search:
+            qs = qs.filter(
+                Q(barcode__icontains=search) |
+                Q(item__item_name__icontains=search) |
+                Q(item__short_code__icontains=search)
+            )
+        if assigned == 'true':
+            qs = qs.filter(rfid_tag__isnull=False).exclude(rfid_tag='')
+        elif assigned == 'false':
+            qs = qs.filter(Q(rfid_tag__isnull=True) | Q(rfid_tag=''))
+
+        qs = qs[:200]
+        data = [{
+            'id': b.id,
+            'barcode': b.barcode,
+            'rfid_tag': b.rfid_tag or '',
+            'item': b.item.item_name if b.item else None,
+            'item_short': b.item.short_code if b.item else None,
+            'purity': str(b.purity) if b.purity else None,
+            'gw': float(b.gw) if b.gw else 0,
+            'stk_status': b.stk_status,
+        } for b in qs]
+        return Response({'results': data, 'count': len(data)})

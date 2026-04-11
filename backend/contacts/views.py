@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.decorators import api_view
 from rest_framework import status
 from accounting.serializers import LedgerSerializer
@@ -28,7 +29,7 @@ class LocationBasedQuerysetMixin:
         try:
             user_location = self.request.user.userlocation.location
             return queryset.filter(loc=user_location)
-        except Exception:
+        except ObjectDoesNotExist:
             # Staff/superuser without a UserLocation record — return full queryset
             if getattr(self.request.user, 'is_staff', False):
                 return queryset
@@ -83,7 +84,7 @@ def check_ledger_name(request):
 
 class ListCreateLedger(ListCreateAPIView):
     serializer_class = LedgerSerializer
-    queryset         = Ledger.objects.all()
+    queryset         = Ledger.objects.select_related('ac_group').prefetch_related('roles').all()
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_class = LedgerFilter          # supports ?type= and ?role=
 
@@ -94,6 +95,17 @@ class ListCreateLedger(ListCreateAPIView):
 
     # FA asset account groups that are managed exclusively via the Fixed Asset Master
     FA_ASSET_GROUP_CODES = {'FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH'}
+
+    def get_queryset(self):
+        retail = getattr(self.request, 'retail', None)
+        if retail is None:
+            return Ledger.objects.none()
+        return (
+            Ledger.objects
+            .filter(retail_code=retail)
+            .select_related('ac_group')
+            .prefetch_related('roles')
+        )
 
     def create(self, request, *args, **kwargs):
         # Block ledger creation under FA asset account groups — use Asset Master instead
@@ -129,6 +141,12 @@ class ListCreateLedger(ListCreateAPIView):
 class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
     serializer_class = LedgerSerializer
     queryset         = Ledger.objects.all()
+
+    def get_queryset(self):
+        retail = getattr(self.request, 'retail', None)
+        if retail is None:
+            return Ledger.objects.none()
+        return Ledger.objects.filter(retail_code=retail)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

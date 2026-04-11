@@ -47,6 +47,13 @@ class LedgerBriefSerializer(serializers.ModelSerializer):
         fields = ['id', 'ac_name', 'primary_role', 'roles']
 
     def get_primary_role(self, obj):
+        # Use prefetched roles if available to avoid N+1 queries
+        if hasattr(obj, '_prefetched_objects_cache') and 'roles' in obj._prefetched_objects_cache:
+            roles = obj._prefetched_objects_cache['roles']
+            for r in roles:
+                if r.is_primary:
+                    return r.role
+            return roles[0].role if roles else None
         r = obj.roles.filter(is_primary=True).first()
         if r:
             return r.role

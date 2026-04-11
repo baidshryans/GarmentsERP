@@ -1,6 +1,15 @@
 import axios from 'axios';
 const getBaseUrl = () => {
-  return sessionStorage.getItem('baseUrl') || 'http://127.0.0.1:8000/';
+  const url = sessionStorage.getItem('baseUrl');
+  if (!url) {
+    // baseUrl is set during initial setup at /config. If it's gone (cleared
+    // session, new tab), redirect the user back to config to re-enter it.
+    if (!window.location.pathname.startsWith('/config') && window.location.pathname !== '/login') {
+      window.location.href = '/config';
+    }
+    return 'http://127.0.0.1:8000/'; // harmless fallback during redirect
+  }
+  return url;
 };
 
 // Create an Axios instance

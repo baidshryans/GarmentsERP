@@ -1,7 +1,13 @@
+import logging
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import DatabaseError
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import RetailMaster, BranchMaster, GSTINMaster, CompanyMaster
 from contacts.models import Ledger, LedgerRole
+
+logger = logging.getLogger(__name__)
 
 
 # ── GST register ledger definitions ──────────────────────────────────────────
@@ -151,16 +157,25 @@ def create_gstin_gst_registers(sender, instance, created, **kwargs):
     for code in ('CA-GST', 'CL-DT-GST'):
         acct_cache[code] = Account.objects.filter(code=code).first()
 
-    update_fields = []
+    # Bulk-create GST register ledgers
+    ledger_specs = []
     for field_name, label, acct_code in _GST_REGISTERS:
         ac_name = f"{instance.gstin}_{label.replace(' ', '_')}"
-        ledger = Ledger.objects.create(
+        ledger_specs.append((field_name, Ledger(
             ac_name=ac_name,
             display_name=f"{instance.gstin} {label}",
             ac_group=acct_cache.get(acct_code),
             is_system=True,
-        )
-        LedgerRole.objects.create(ledger=ledger, role='OTH', is_primary=True)
+        )))
+
+    new_ledgers = Ledger.objects.bulk_create([spec[1] for spec in ledger_specs])
+    LedgerRole.objects.bulk_create([
+        LedgerRole(ledger=ldgr, role='OTH', is_primary=True)
+        for ldgr in new_ledgers
+    ])
+
+    update_fields = []
+    for (field_name, _), ledger in zip(ledger_specs, new_ledgers):
         setattr(instance, field_name, ledger)
         update_fields.append(f"{field_name}_id")
 
@@ -214,23 +229,33 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
     }
     extra_cache = {c: Account.objects.filter(code=c).first() for c in extra_codes}
 
-    def _make(label, code, role='OTH'):
-        if Ledger.objects.filter(ac_name=label, is_system=True).exists():
-            return
-        ldgr = Ledger.objects.create(
-            ac_name=label,
-            display_name=label,
-            ac_group=extra_cache.get(code),
-            is_system=True,
-        )
-        LedgerRole.objects.create(ledger=ldgr, role=role, is_primary=True)
+    # Collect all ledgers to create, skipping any that already exist
+    all_entries = (
+        [(l, c, r) for l, c, r in _TRADING_LEDGERS] +
+        [(l, c, 'OTH') for l, c in _MISC_LEDGERS] +
+        [(l, c, 'OTH') for l, c in _OFFICE_EQUIPMENT_LEDGERS]
+    )
+    existing_names = set(
+        Ledger.objects.filter(
+            ac_name__in=[e[0] for e in all_entries], is_system=True
+        ).values_list('ac_name', flat=True)
+    )
+    to_create = [(l, c, r) for l, c, r in all_entries if l not in existing_names]
 
-    for label, code, role in _TRADING_LEDGERS:
-        _make(label, code, role)
-    for label, code in _MISC_LEDGERS:
-        _make(label, code)
-    for label, code in _OFFICE_EQUIPMENT_LEDGERS:
-        _make(label, code)
+    if to_create:
+        new_ledgers = Ledger.objects.bulk_create([
+            Ledger(
+                ac_name=label,
+                display_name=label,
+                ac_group=extra_cache.get(code),
+                is_system=True,
+            )
+            for label, code, _role in to_create
+        ])
+        LedgerRole.objects.bulk_create([
+            LedgerRole(ledger=ldgr, role=role, is_primary=True)
+            for ldgr, (_, _, role) in zip(new_ledgers, to_create)
+        ])
 
 
 @receiver(post_save, sender=RetailMaster)
@@ -245,7 +270,8 @@ def create_retail_ledgers(sender, instance, created, **kwargs):
     try:
         from accounting.models import Account
         ac_group = Account.objects.filter(code='CA-CSH').first()
-    except Exception:
+    except (ImportError, DatabaseError):
+        # Accounting module unavailable or DB error — ledger created without a group
         pass
 
     ledger = Ledger.objects.create(
@@ -291,8 +317,9 @@ def create_retail_ledgers(sender, instance, created, **kwargs):
             if not sec.ledger:
                 sec.ledger = ldgr
                 sec.save(update_fields=['ledger'])
-    except Exception:
-        pass  # Never block retail creation
+    except (ImportError, DatabaseError, ObjectDoesNotExist):
+        # Never block retail creation; TDS/TCS ledgers can be seeded manually later
+        pass
 
     # Auto-assign every new retail to all superusers so they can always switch
     # between retails regardless of when the retail was created.
@@ -306,5 +333,6 @@ def create_retail_ledgers(sender, instance, created, **kwargs):
             if ul.default_location is None:
                 ul.default_location = instance
                 ul.save(update_fields=['default_location'])
-    except Exception:
-        pass  # Never let this break retail creation
+    except (ImportError, DatabaseError, ObjectDoesNotExist):
+        # Never let this break retail creation; superuser access can be assigned manually
+        pass

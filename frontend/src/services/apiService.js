@@ -5173,3 +5173,53 @@ export async function depositCheque(id, data) {
   }
 }
 
+// ── RFID API functions ────────────────────────────────────────────────────────
+
+export async function fetchRfidTagList({ search = "", assigned = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (assigned) params.append("assigned", assigned);
+    const r = await apiClient.get(`inventory/api/rfid/tags/?${params.toString()}`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function assignRfidTag(barcode, rfidTag) {
+  try {
+    const r = await apiClient.post("inventory/api/rfid/assign/", { barcode, rfid_tag: rfidTag });
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function submitRfidCount({ tags, save_session = false, note = "" } = {}) {
+  try {
+    const r = await apiClient.post("inventory/api/rfid/count/", { tags, save_session, note });
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchRfidSessions() {
+  try {
+    const r = await apiClient.get("inventory/rfid-sessions/");
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchRfidSessionResults(sessionId) {
+  try {
+    const r = await apiClient.get(`inventory/rfid-sessions/${sessionId}/results/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+

@@ -566,21 +566,28 @@ def gstr3b_report(request):
     sales_qs   = SalesVou.objects.filter(retail=retail, date1__range=[from_date, to_date])
     returns_qs = SaleReturn.objects.filter(retail=retail, date1__range=[from_date, to_date])
 
-    out_taxable = out_igst = out_cgst = out_sgst = 0.0
+    from django.db.models import F, Value, DecimalField
+    from django.db.models.functions import Coalesce
 
-    for v in sales_qs:
-        tv = float(v.mrp or 0) - float(v.discount or 0)
-        out_taxable += tv
-        out_igst    += tv * float(v.igst_per or 0) / 100
-        out_cgst    += tv * float(v.cgst_per or 0) / 100
-        out_sgst    += tv * float(v.sgst_per or 0) / 100
+    def _gst_aggregates(qs):
+        """Aggregate taxable value and GST components at DB level."""
+        return qs.annotate(
+            _taxable=Coalesce(F('mrp'), Value(0), output_field=DecimalField())
+                    - Coalesce(F('discount'), Value(0), output_field=DecimalField()),
+        ).aggregate(
+            total_taxable=Sum('_taxable'),
+            total_igst=Sum(F('_taxable') * Coalesce(F('igst_per'), Value(0), output_field=DecimalField()) / 100),
+            total_cgst=Sum(F('_taxable') * Coalesce(F('cgst_per'), Value(0), output_field=DecimalField()) / 100),
+            total_sgst=Sum(F('_taxable') * Coalesce(F('sgst_per'), Value(0), output_field=DecimalField()) / 100),
+        )
 
-    for r in returns_qs:
-        tv = float(r.mrp or 0) - float(r.discount or 0)
-        out_taxable -= tv
-        out_igst    -= tv * float(r.igst_per or 0) / 100
-        out_cgst    -= tv * float(r.cgst_per or 0) / 100
-        out_sgst    -= tv * float(r.sgst_per or 0) / 100
+    sales_agg = _gst_aggregates(sales_qs)
+    ret_agg = _gst_aggregates(returns_qs)
+
+    out_taxable = float(sales_agg['total_taxable'] or 0) - float(ret_agg['total_taxable'] or 0)
+    out_igst = float(sales_agg['total_igst'] or 0) - float(ret_agg['total_igst'] or 0)
+    out_cgst = float(sales_agg['total_cgst'] or 0) - float(ret_agg['total_cgst'] or 0)
+    out_sgst = float(sales_agg['total_sgst'] or 0) - float(ret_agg['total_sgst'] or 0)
 
     # ── 4. Input Tax Credit (ITC) from purchases with GST supplier ────────────
     from purchase.models import PurchaseVoucher
@@ -588,13 +595,18 @@ def gstr3b_report(request):
         retail=retail, date1__range=[from_date, to_date]
     ).select_related('ldgr')
 
-    itc_igst = itc_cgst = itc_sgst = 0.0
-
-    for p in pur_qs:
-        if p.ldgr and (p.ldgr.gst or '').strip():
-            itc_igst += float(p.igst or 0)
-            itc_cgst += float(p.cgst or 0)
-            itc_sgst += float(p.sgst or 0)
+    itc_agg = pur_qs.exclude(
+        ldgr__gst__isnull=True
+    ).exclude(
+        ldgr__gst__exact=''
+    ).aggregate(
+        itc_igst=Sum('igst'),
+        itc_cgst=Sum('cgst'),
+        itc_sgst=Sum('sgst'),
+    )
+    itc_igst = float(itc_agg['itc_igst'] or 0)
+    itc_cgst = float(itc_agg['itc_cgst'] or 0)
+    itc_sgst = float(itc_agg['itc_sgst'] or 0)
 
     tax_out   = out_igst + out_cgst + out_sgst
     itc_total = itc_igst + itc_cgst + itc_sgst

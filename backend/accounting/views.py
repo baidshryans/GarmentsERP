@@ -28,6 +28,8 @@ from django.utils import timezone
 from .models import Ledger
 from .serializers import JournalEntrySerializer
 from .utils import generate_voucher_no  # Assuming you have this utility function
+from decimal import InvalidOperation
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum
 from rest_framework.request import Request
 
@@ -55,10 +57,23 @@ from .models import  VoucherDetail #LedgerOpenBalance,
 from django.db.models import FloatField
 
 
-def get_all_descendants(account:Account):
-    descendants = list(account.children.all())
-    for child in descendants:
-        descendants.extend(get_all_descendants(child))
+def get_all_descendants(account: Account):
+    """Return all descendant Account objects in a single DB query.
+
+    Fetches the full account table once and walks the tree in-memory,
+    avoiding the O(n^depth) recursive queries of the previous approach.
+    """
+    all_accounts = list(Account.objects.all())
+    children_map = {}
+    for acc in all_accounts:
+        children_map.setdefault(acc.parent_id, []).append(acc)
+
+    descendants = []
+    stack = list(children_map.get(account.pk, []))
+    while stack:
+        node = stack.pop()
+        descendants.append(node)
+        stack.extend(children_map.get(node.pk, []))
     return descendants
 
 
@@ -213,13 +228,23 @@ class BankbookReportView(APIView):
             'chq_no', 'debit_val', 'credit_val', 'narration'
         ).order_by('txn_date')
 
-        total_debit = sum(txn['debit_val'] for txn in transactions)
-        total_credit = sum(txn['credit_val'] for txn in transactions)
+        txn_list = list(transactions)
+
+        totals = VoucherDetail.objects.filter(
+            voucher_main__date__range=(from_date, to_date),
+            voucher_main__retail=request.retail,
+            account=bank_ldgr
+        ).aggregate(
+            total_debit=Sum('debit'),
+            total_credit=Sum('credit'),
+        )
+        total_debit = totals['total_debit'] or Decimal(0)
+        total_credit = totals['total_credit'] or Decimal(0)
         closing_balance = opening_balance + total_debit - total_credit
 
         return Response({
             "opening_balance": opening_balance,
-            "transactions": list(transactions),
+            "transactions": txn_list,
             "closing_balance": closing_balance
         }, status=status.HTTP_200_OK)
     
@@ -409,7 +434,8 @@ class BalanceSheetAPIView(APIView):
                     "balance": closing_stock_value,
                     "group": "Stock-in-Hand"
                 })
-        except Exception:
+        except (ImportError, AttributeError, KeyError):
+            # Inventory module unavailable or returned unexpected structure — skip closing stock
             pass
 
         pnl_data = calcuate_pnl("2000-01-01", end_date, retail=retail)
@@ -552,7 +578,7 @@ from rest_framework.exceptions import PermissionDenied
 
 class AccountViewSet(ModelViewSet):
     serializer_class = AccountSerializer
-    queryset = Account.objects.select_related('parent').all()
+    queryset = Account.objects.select_related('parent').prefetch_related('ledger_set__roles').all()
     pagination_class = None
 
     def perform_create(self, serializer):
@@ -605,7 +631,7 @@ class LedgerOpenBalanceViewSet(RetailBaseViewset):
 # Keep backward-compatible list/create view for any existing callers
 class AccountAPIView(ListCreateAPIView):
     serializer_class = AccountSerializer
-    queryset = Account.objects.select_related('parent').all()
+    queryset = Account.objects.select_related('parent').prefetch_related('ledger_set__roles').all()
     pagination_class = None
 
     def perform_create(self, serializer):
@@ -1508,7 +1534,7 @@ class FinancialRatiosView(APIView):
                     return None
                 r = float(num) / float(den)
                 return round(r * 100 if pct else r, dp)
-            except Exception:
+            except (ZeroDivisionError, InvalidOperation, TypeError, ValueError):
                 return None
 
         def days(r):
@@ -1709,7 +1735,7 @@ def _is_auditor(request):
     from userauth.models import UserRole
     try:
         return request.user.userrole.role.name.lower() == 'auditor'
-    except Exception:
+    except ObjectDoesNotExist:
         return False
 
 
@@ -2144,7 +2170,7 @@ class UpdateSuggestionLineView(APIView):
         if new_amount is not None:
             try:
                 line.approved_amount = Decimal(str(new_amount))
-            except Exception:
+            except (InvalidOperation, ValueError):
                 return Response({'detail': 'Invalid amount.'}, status=400)
             line.overridden = (line.approved_amount != line.calculated_amount)
 

@@ -4,6 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from contacts.models import Ledger, LedgerRole
@@ -75,7 +76,7 @@ def _find_all_customer_ledgers(mobile):
 class PortalRequestOTPView(APIView):
     """POST /goldscheme/api/portal/request-otp/"""
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         ser = PortalRequestOTPSerializer(data=request.data)
@@ -124,7 +125,7 @@ class PortalRequestOTPView(APIView):
 class PortalVerifyOTPView(APIView):
     """POST /goldscheme/api/portal/verify-otp/"""
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         ser = PortalVerifyOTPSerializer(data=request.data)
@@ -198,7 +199,7 @@ class PortalVerifyOTPView(APIView):
 class PortalSetPasswordView(APIView):
     """POST /goldscheme/api/portal/set-password/ — First-time setup or password reset."""
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         ser = PortalSetPasswordSerializer(data=request.data)

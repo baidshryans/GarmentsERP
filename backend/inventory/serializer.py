@@ -4,7 +4,7 @@ from rest_framework import serializers
 from mastersconfig.models import Packet
 from goldrates.models import GoldRates, PurityMaster
 from sales.models import CustomerOrder
-from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, RawMaterialInventory, RawMaterialTransaction, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
+from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
 from django.db import transaction
 from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
 
@@ -742,6 +742,52 @@ class RawMaterialTransactionSerializer(serializers.ModelSerializer):
                   'packet', 'packet_no', 'purity', 'purity_name',
                   'trans_type', 'pcs', 'ct', 'gw', 'rate', 'amt',
                   'billno', 'retail']
+
+
+class RfidTagAssignSerializer(serializers.Serializer):
+    """Assigns (or clears) an RFID tag EPC on a BarcodeMain record."""
+    barcode = serializers.CharField(max_length=13)
+    rfid_tag = serializers.CharField(max_length=100, allow_blank=True)
+
+    def validate(self, data):
+        try:
+            self._barcode_obj = BarcodeMain.objects.get(
+                barcode=data['barcode'],
+                retail=self.context['retail'],
+            )
+        except BarcodeMain.DoesNotExist:
+            raise serializers.ValidationError({'barcode': 'Barcode not found in this retail.'})
+
+        rfid = data.get('rfid_tag', '').strip()
+        if rfid:
+            qs = BarcodeMain.objects.filter(rfid_tag=rfid)
+            if self._barcode_obj.pk:
+                qs = qs.exclude(pk=self._barcode_obj.pk)
+            if qs.exists():
+                raise serializers.ValidationError({'rfid_tag': 'This RFID tag is already assigned to another item.'})
+        return data
+
+    def save(self):
+        rfid = self.validated_data.get('rfid_tag', '').strip() or None
+        self._barcode_obj.rfid_tag = rfid
+        self._barcode_obj.save(update_fields=['rfid_tag'])
+        return self._barcode_obj
+
+
+class RfidCountSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RfidCountSession
+        fields = ['id', 'session_no', 'date', 'status', 'note', 'retail', 'created_by']
+        read_only_fields = ['date', 'created_by']
+
+
+class RfidCountResultSerializer(serializers.ModelSerializer):
+    barcode_value = serializers.CharField(source='barcode.barcode', read_only=True)
+    item_name = serializers.CharField(source='barcode.item.item_name', read_only=True)
+
+    class Meta:
+        model = RfidCountResult
+        fields = ['id', 'rfid_tag', 'barcode', 'barcode_value', 'item_name', 'match_status']
 
 
 class BarcodeImageSerializer(serializers.ModelSerializer):

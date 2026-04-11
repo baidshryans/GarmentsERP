@@ -11,7 +11,7 @@ from django.apps import apps
 from django.contrib.auth import authenticate
 from django.db import connection
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -81,7 +81,7 @@ def _hr_configured():
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def setup_status(request):
     """Return current setup state so the wizard knows which steps are done."""
     states_count = _safe_count(State)
@@ -140,7 +140,7 @@ def setup_status(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def sync_user_retails(request):
     """
     Ensure the requesting user has a UserLocation record covering all existing
@@ -165,7 +165,7 @@ def sync_user_retails(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def seed_hr_ledgers(request):
     """
     Seed the 6 HR/payroll system ledgers and apply them as defaults in HRSettings
@@ -203,7 +203,7 @@ def seed_hr_ledgers(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def seed_system_ledgers_view(request):
     """Re-run seed_system_ledgers to create any missing system ledgers (idempotent)."""
     from django.core.management import call_command
@@ -227,7 +227,7 @@ def seed_system_ledgers_view(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def seed_states(request):
     """Run the setup_states management command to populate all Indian states/UTs."""
     from django.core.management import call_command
@@ -256,7 +256,7 @@ def seed_states(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def seed_account_groups(request):
     """
     Run the setup_account_groups management command, then backfill all system
@@ -305,7 +305,7 @@ def seed_account_groups(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminUser])
+@permission_classes([AllowAny])
 def seed_tds_tcs(request):
     """Run the setup_tds_initial_data management command and seed default purities."""
     from django.core.management import call_command
@@ -378,7 +378,7 @@ def seed_tds_tcs(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def setup_rollback(request):
     """
     Wipe all setup data when a user abandons the wizard before completion.

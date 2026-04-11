@@ -32,6 +32,9 @@ class SchemeMasterListSerializer(serializers.ModelSerializer):
         ]
 
     def get_active_enrollments(self, obj):
+        # Use annotated value from queryset if available (avoids N+1)
+        if hasattr(obj, '_active_enrollment_count'):
+            return obj._active_enrollment_count
         return obj.enrollments.filter(status__in=('ACTIVE', 'MATURED')).count()
 
 

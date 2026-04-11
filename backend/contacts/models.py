@@ -45,7 +45,7 @@ class Ledger(models.Model):
     ac_name = models.CharField(max_length=100)
     display_name = models.CharField(max_length=100)
 
-    b2b = models.BooleanField(default=False)
+    b2b = models.BooleanField(default=False, db_index=True)
 
     # type field removed — use LedgerRole.role with is_primary=True instead
 
@@ -71,7 +71,7 @@ class Ledger(models.Model):
     phone1 = models.CharField(max_length=20, null=True, blank=True)
     phone2 = models.CharField(max_length=20, null=True, blank=True)
     phone3 = models.CharField(max_length=20, null=True, blank=True)
-    mobile1 = models.CharField(max_length=20, blank=True)
+    mobile1 = models.CharField(max_length=20, blank=True, db_index=True)
     mobile2 = models.CharField(max_length=20, null=True, blank=True)
     mobile3 = models.CharField(max_length=20, null=True, blank=True)
     fax = models.CharField(max_length=20, null=True, blank=True)

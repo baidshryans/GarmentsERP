@@ -1,9 +1,12 @@
 from datetime import date, datetime
 
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action, api_view
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from contacts.models import Ledger
@@ -27,7 +30,11 @@ from .services import reports
 # ══════════════════════════════════════════════════════════════════════════════
 
 class SchemeMasterViewSet(RetailBaseViewset):
-    queryset = SchemeMaster.objects.all()
+    queryset = SchemeMaster.objects.prefetch_related('benefit_tiers').annotate(
+        _active_enrollment_count=Count(
+            'enrollments', filter=Q(enrollments__status__in=('ACTIVE', 'MATURED'))
+        ),
+    )
     serializer_class = SchemeMasterListSerializer
     filterset_fields = ['scheme_type', 'is_active']
     search_fields = ['name', 'scheme_code']
@@ -243,7 +250,13 @@ class SchemeCollectionView(APIView):
 # ══════════════════════════════════════════════════════════════════════════════
 #  Customer Portal  (public endpoints — no retail session needed)
 #  Authentication: enrollment_no + mobile number
+#  Rate-limited to prevent brute-force enumeration of mobile numbers.
 # ══════════════════════════════════════════════════════════════════════════════
+
+class CustomerPortalThrottle(AnonRateThrottle):
+    """10 requests per minute per IP for public customer portal endpoints."""
+    rate = '10/min'
+
 
 class CustomerPortalMySchemes(APIView):
     """
@@ -251,7 +264,8 @@ class CustomerPortalMySchemes(APIView):
     Returns all enrollments for the customer identified by their mobile number.
     """
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def get(self, request):
         mobile = request.GET.get('mobile', '').strip()
@@ -309,7 +323,8 @@ class CustomerPortalSchemeDetail(APIView):
     Returns enrollment details + payment history, verified by customer mobile.
     """
     authentication_classes = []
-    permission_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def get(self, request, enrollment_no):
         mobile = request.GET.get('mobile', '').strip()

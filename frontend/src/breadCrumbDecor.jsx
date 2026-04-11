@@ -56,6 +56,9 @@ const SEGMENT_LABEL_OVERRIDES = {
   joborder: "Job Order",
   rawsalesvoucher: "Raw Sales Voucher",
   stockvalue: "Stock Value",
+  rfid: "RFID",
+  tagassign: "Tag Assignment",
+  "tag-assign": "Tag Assignment",
 };
 
 // Dictionary used to split glued lowercase slugs like "customerpurchase"
@@ -79,6 +82,7 @@ const DICT = [
   "type", "unit", "update", "upload", "user", "value", "vendor", "voucher",
   "wise", "work", "year", "years", "zone",
   "cal", "demo", "finished", "gen", "split", "rec",
+  "rfid", "count", "assign", "tag",
 ];
 const DICT_SET = new Set(DICT.sort((a, b) => b.length - a.length));
 

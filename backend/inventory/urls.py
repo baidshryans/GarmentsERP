@@ -18,6 +18,7 @@ router.register(r'stock-journal', views.StockJournalViewSet, basename='stock-jou
 router.register(r'stock-transfer', views.StockTransferViewset, basename='stock-transfer')
 router.register(r'raw-material', views.RawMaterialInventoryViewSet, basename='raw-material')
 router.register(r'raw-material-txn', views.RawMaterialTransactionListView, basename='raw-material-txn')
+router.register(r'rfid-sessions', views.RfidCountSessionViewSet, basename='rfid-sessions')
 
 
 urlpatterns = [
@@ -47,6 +48,9 @@ urlpatterns = [
     path('api/raw-material-balance/', views.RawMaterialBalanceReportView.as_view(), name='raw_material_balance'),
     path('api/raw-material-ledger/', views.RawMaterialMovementLedgerView.as_view(), name='raw_material_ledger'),
     path('api/semi-finished-stock/', views.SemiFinishedStockReportView.as_view(), name='semi_finished_stock'),
+    path('api/rfid/assign/', views.RfidTagAssignView.as_view(), name='rfid_tag_assign'),
+    path('api/rfid/count/', views.RfidInventoryCountView.as_view(), name='rfid_inventory_count'),
+    path('api/rfid/tags/', views.RfidTagListView.as_view(), name='rfid_tag_list'),
     *router.urls
     
 ]

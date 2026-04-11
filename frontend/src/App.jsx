@@ -170,6 +170,8 @@ import RepairJobCardForm from "./components/manufacturing/repair/RepairJobCardFo
 import AppsPage from "./components/Apps/AppsPage.jsx";
 import CustomerPurchaseHistory from "./components/CRM/CustomerPurchaseHistory.jsx";
 import GSTR2BReconcile from "./components/purchase/GSTR2BReconcile.jsx";
+import RfidTagAssign from "./components/Inventory/RFID/RfidTagAssign.jsx";
+import RfidInventoryCount from "./components/Inventory/RFID/RfidInventoryCount.jsx";
 
 
 
@@ -387,6 +389,8 @@ const appRoutes = [
   { path: "inventory/reports/raw-material",         heading: "Raw Material Balance",   component: <RawMaterialBalanceReport /> },
   { path: "inventory/reports/raw-material-ledger",  heading: "Raw Material Ledger",    component: <RawMaterialLedger /> },
   { path: "inventory/reports/semi-finished",        heading: "Semi-Finished Stock",    component: <SemiFinishedStockReport /> },
+  { path: "inventory/rfid/tag-assign",              heading: "RFID Tag Assignment",    component: <RfidTagAssign /> },
+  { path: "inventory/rfid/count",                   heading: "RFID Inventory Count",   component: <RfidInventoryCount /> },
 
   // ── Gold Schemes ──────────────────────────────────────────────────────────
   { path: "scheme/dashboard",                    heading: "Gold Scheme Dashboard",  component: <SchemeDashboard /> },

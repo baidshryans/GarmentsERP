@@ -50,6 +50,8 @@ class BarcodeMain(models.Model):
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
 
+    rfid_tag = models.CharField(max_length=100, blank=True, null=True, db_index=True, unique=True)
+
     def save(self, *args, **kwargs):
         self.generate_qr_code()
         super().save(*args, **kwargs)
@@ -186,6 +188,33 @@ class BarcodeSplitMerge(models.Model):
     retail = models.ForeignKey(RetailMaster, on_delete=models.SET_NULL, null=True)
     #when the transaction type is Split, the new barcode will be "<oldbarcode>"&"A"
     #when the transaction type is Merge, the new barcode will be a new random barcode
+
+
+class RfidCountSession(models.Model):
+    """Records a single RFID inventory count session for a retail branch."""
+    STATUS_CHOICES = [('open', 'Open'), ('closed', 'Closed')]
+    session_no = models.CharField(max_length=50)
+    date = models.DateField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    note = models.CharField(max_length=255, blank=True)
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        db_table = 'rfid_count_session'
+        unique_together = [('session_no', 'retail')]
+
+
+class RfidCountResult(models.Model):
+    """Each RFID tag read during a count session, with match status."""
+    STATUS_CHOICES = [('matched', 'Matched'), ('unexpected', 'Unexpected')]
+    session = models.ForeignKey(RfidCountSession, on_delete=models.CASCADE, related_name='results')
+    rfid_tag = models.CharField(max_length=100)
+    barcode = models.ForeignKey(BarcodeMain, on_delete=models.SET_NULL, null=True, blank=True)
+    match_status = models.CharField(max_length=15, choices=STATUS_CHOICES)
+
+    class Meta:
+        db_table = 'rfid_count_result'
 
 
 class UnBarcodedMain(models.Model):

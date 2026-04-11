@@ -1,6 +1,7 @@
 import csv
 from django.core.management.base import BaseCommand
-from mastersconfig.models import Item, ItemGroupMaster, Hsn  # Replace 'your_app' with the actual app name
+from django.db import transaction
+from mastersconfig.models import Item, ItemGroupMaster, Hsn
 from contacts.models import Ledger
 
 class Command(BaseCommand):
@@ -9,16 +10,15 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('csv_file', type=str, help='Path to the CSV file')
 
+    @transaction.atomic
     def handle(self, *args, **kwargs):
         csv_file = kwargs['csv_file']
         with open(csv_file, newline='', encoding='utf-8') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 grp = ItemGroupMaster.objects.filter(id=row['grp']).first()
-                # purchase_ledger = Ledger.objects.filter(id= row['purchase_ledger'] ).first() if row['purchase_ledger'] else None
-                purchase_ledger = Ledger.objects.filter(id= 1031 ).first() if row['purchase_ledger'] else None
-                # sale_ledger = Ledger.objects.filter(id=row['sale_ledger']).first() if row['sale_ledger'] else None
-                sale_ledger = Ledger.objects.filter(id=1012).first() if row['sale_ledger'] else None
+                purchase_ledger = Ledger.objects.filter(ac_name='Purchase Account', is_system=True).first() if row['purchase_ledger'] else None
+                sale_ledger = Ledger.objects.filter(ac_name='Sales Account', is_system=True).first() if row['sale_ledger'] else None
                 print(row['hsn_no'])
                 hsn_no = Hsn.objects.get(id=int(row['hsn_no'])) if row['hsn_no']!="0" else None
 

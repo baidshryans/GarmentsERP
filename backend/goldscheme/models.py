@@ -155,6 +155,12 @@ class SchemeEnrollment(models.Model):
             models.Index(fields=['customer'], name='idx_se_customer'),
             models.Index(fields=['maturity_date'], name='idx_se_maturity'),
         ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(maturity_date__gte=models.F('start_date')),
+                name='chk_maturity_after_start',
+            ),
+        ]
 
     def __str__(self):
         return f"{self.enrollment_no} — {self.customer.ac_name}"

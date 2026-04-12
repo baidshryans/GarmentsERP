@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent } from "lucide-react";
+import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -145,6 +145,7 @@ const SalesVoucherAdd = () => {
     if (e.key === "Tab") {
       e.preventDefault();
       const bnk = { ...getValues("bank") };
+      if (!bnk.amount || Number(bnk.amount) <= 0) { setFocus("bank.amount"); return; }
       setBankDetails(prev => [...prev, { ...bnk }]);
       reset({ form: { ...getValues('form') }, bank: { ...bankDefaultValue }, salesvouitem_set: [...getValues('salesvouitem_set')], details: { ...getValues('details') } });
       setFocus("bank.amount");
@@ -326,6 +327,9 @@ const SalesVoucherAdd = () => {
           setCustomers(d.ledgers || []);
           setSalespersonData(d.salespersons || []);
           setHsns(d.hsns || []);
+          setMainItemData(d.items || []);
+          setPurityData(d.purity || []);
+          setPackets(d.packets || []);
           setValue("form.billno", d.billno);
           if (d.retail_state_code) setRetailStateCode(d.retail_state_code);
           if (d.is_exhibition) setIsExhibitionRetail(true);
@@ -360,17 +364,11 @@ const SalesVoucherAdd = () => {
         }
       });
 
-      // Additional master data needed for manual item entry
-      const [mainItem, purity, packetsRes, sysSettings, bankLedgersRes] = await Promise.all([
-        fetchMainItem(),
-        fetchPurity(),
-        fetchPackets(),
+      // Fetch system settings and bank ledgers (not included in initial data)
+      const [sysSettings, bankLedgersRes] = await Promise.all([
         fetchSystemSettings(),
         getLedgers({ type: "BA", page: 1 }),
       ]);
-      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
-      if (purity.success) setPurityData(purity.data.results ?? purity.data);
-      if (packetsRes.success) setPackets(packetsRes.data.results ?? packetsRes.data);
       if (sysSettings.success) setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
       if (bankLedgersRes.success) {
         const list = Array.isArray(bankLedgersRes.data) ? bankLedgersRes.data : (bankLedgersRes.data?.results ?? []);
@@ -621,6 +619,14 @@ const SalesVoucherAdd = () => {
   };
 
   // ── Bank detail handlers ───────────────────────────────────────────────────
+  const handleAddBank = () => {
+    const bnk = { ...getValues("bank") };
+    if (!bnk.amount || Number(bnk.amount) <= 0) return;
+    setBankDetails(prev => [...prev, { ...bnk }]);
+    reset({ form: { ...getValues('form') }, bank: { ...bankDefaultValue }, salesvouitem_set: [...getValues('salesvouitem_set')], details: { ...getValues('details') } });
+    setFocus("bank.amount");
+  };
+
   const handleDeleteBank = (index) => setBankDetails(prev => prev.filter((_, i) => i !== index));
   const handleEditBank = (index) => {
     const bank_details = bankdetails[index];
@@ -1607,7 +1613,9 @@ const SalesVoucherAdd = () => {
 
               {/* Bank detail input row */}
               <TableRow>
-                <TableCell className="w-20 px-3 py-2 border"></TableCell>
+                <TableCell className="w-20 px-3 py-2 border">
+                  <PlusCircle size={20} className="cursor-pointer text-violet-600 mx-auto" onClick={handleAddBank} />
+                </TableCell>
                 <TableCell className="px-3 py-2 border">
                   <select
                     className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
@@ -1641,11 +1649,6 @@ const SalesVoucherAdd = () => {
                 {bankPaymentMode === "CHEQUE" && (
                   <TableCell className="px-3 py-2 border">
                     <Input type="date" onKeyDown={handleKeyDown} {...register("bank.chq_date")} />
-                  </TableCell>
-                )}
-                {bankPaymentMode !== "CHEQUE" && (
-                  <TableCell className="px-3 py-2 border">
-                    <Input type="date" onKeyDown={handleKeyDown} {...register("bank.chq_date")} className="invisible" />
                   </TableCell>
                 )}
               </TableRow>

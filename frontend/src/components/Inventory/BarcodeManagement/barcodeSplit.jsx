@@ -202,7 +202,7 @@ const BarcodeSplit = () => {
             if (states.success) setstatesData(states.data);
             if (salesperson.success) setSalespersonData(salesperson.data.results);
             if (orderNo.success) setValue("order_no", orderNo.data.bill_no);
-            if (mainItem.success) setMainItemData(mainItem.data);
+            if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
             if (purity.success) setPurityData(purity.data);
             if (poNo.success) setValue("po_no", poNo.data.po_no);
             if (hsnres.success) setHSNs(hsnres.data.results);

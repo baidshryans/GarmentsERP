@@ -9,9 +9,11 @@ import {
   DollarSign,
   FileBarChartIcon,
   FileText,
+  Gem,
   Hammer,
   Heart,
   History,
+  LayoutDashboard,
   Package,
   PackageCheckIcon,
   PackageXIcon,
@@ -277,6 +279,13 @@ export const navData = {
     { title: "HR Settings",        url: "/hr/settings",           icon: Settings     },
   ],
 
+  // ── Gold Schemes ───────────────────────────────────────────────────────────
+  navGoldScheme: [
+    { title: "Dashboard",    url: "/scheme/dashboard",    icon: LayoutDashboard },
+    { title: "Scheme Master", url: "/scheme/master",      icon: Gem             },
+    { title: "Enrollments",  url: "/scheme/enrollments",  icon: ClipboardList   },
+  ],
+
   // ── AI ─────────────────────────────────────────────────────────────────────
   navMainAI: [
     {
@@ -319,6 +328,7 @@ export const navSections = [
   { label: "Inventory",            parts: [{ key: "navMain3",          items: navData.navMain3 }] },
   { label: "Financial Accounting", parts: [{ key: "navMain4",          items: navData.navMain4 }] },
   { label: "HR",                   parts: [{ key: "navHR",             items: navData.navHR }] },
+  { label: "Gold Schemes",         parts: [{ key: "navGoldScheme",     items: navData.navGoldScheme }] },
   { label: "AI",                   parts: [{ key: "navMainAI",         items: navData.navMainAI }] },
   { label: "System",               parts: [{ key: "navSettings",       items: navData.navSettings }] },
 ]

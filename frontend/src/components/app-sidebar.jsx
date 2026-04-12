@@ -8,6 +8,7 @@ import { FiscalYearSwitcher } from "@/components/shared/FiscalYearSwitcher"
 import { ExhibitionSwitcher } from "@/components/shared/ExhibitionSwitcher"
 import { RetailSwitcher } from "@/components/shared/RetailSwitcher"
 import { navData, navSections } from "@/config/navData"
+import { NavSearch } from "@/components/NavSearch"
 import { useLayout } from "@/contexts/LayoutContext"
 import { useLicense } from "@/contexts/LicenseContext"
 import { getRetails } from "@/services/apiService"
@@ -74,6 +75,9 @@ export function AppSidebar({ ...props }) {
         </SidebarMenu>
       </SidebarHeader>
 
+      <div className="px-2 pt-2 pb-1">
+        <NavSearch className="w-full justify-start" />
+      </div>
       <RetailSwitcher />
       <FiscalYearSwitcher />
       <ExhibitionSwitcher />

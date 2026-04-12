@@ -20,7 +20,16 @@ const DOC_TYPES = [
   { value: "OTHER", label: "Other" },
 ];
 
-export default function LedgerDocuments({ ledgerId, ledgerName }) {
+/**
+ * LedgerDocuments
+ *
+ * Two modes:
+ *  - Edit mode  (ledgerId provided): uploads immediately to the API.
+ *  - Pending mode (no ledgerId):     queues files locally; parent must call
+ *    uploadLedgerDocument(newId, file, docType) for each entry returned via
+ *    onPendingChange([{ file, docType }, ...]).
+ */
+export default function LedgerDocuments({ ledgerId, ledgerName, pendingDocs = [], onPendingChange }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [docs, setDocs] = useState([]);
@@ -28,6 +37,9 @@ export default function LedgerDocuments({ ledgerId, ledgerName }) {
   const [docType, setDocType] = useState("OTHER");
   const fileRef = useRef(null);
 
+  const isPending = !ledgerId;
+
+  // ── Edit mode: load existing docs ────────────────────────────────────────
   const load = async () => {
     if (!ledgerId) return;
     const res = await getLedgerDocuments(ledgerId);
@@ -39,9 +51,20 @@ export default function LedgerDocuments({ ledgerId, ledgerName }) {
 
   useEffect(() => { if (open && ledgerId) load(); }, [open, ledgerId]);
 
+  // ── Edit mode: upload immediately ────────────────────────────────────────
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (isPending) {
+      // Pending mode — just queue
+      const updated = [...pendingDocs, { file, docType }];
+      onPendingChange?.(updated);
+      toast({ title: `"${file.name}" queued — will upload after saving.` });
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
     const res = await uploadLedgerDocument(ledgerId, file, docType);
     if (res.success) { toast({ title: "Document uploaded." }); await load(); }
@@ -54,29 +77,45 @@ export default function LedgerDocuments({ ledgerId, ledgerName }) {
     if (fileRef.current) fileRef.current.value = "";
   };
 
+  // ── Edit mode: delete ────────────────────────────────────────────────────
   const handleDelete = async (id) => {
     const res = await deleteLedgerDocument(id);
     if (res.success) { toast({ title: "Document removed." }); setDocs(prev => prev.filter(d => d.id !== id)); }
     else toast({ title: "Failed to remove document." });
   };
 
+  // ── Pending mode: remove queued file ────────────────────────────────────
+  const removePending = (index) => {
+    const updated = pendingDocs.filter((_, i) => i !== index);
+    onPendingChange?.(updated);
+  };
+
   const baseUrl = window.location.origin.replace(":5173", ":8000");
   const typeLabel = (val) => DOC_TYPES.find(d => d.value === val)?.label || val;
+
+  const totalCount = isPending ? pendingDocs.length : docs.length;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button title="Identity Documents" className="text-muted-foreground hover:text-foreground relative">
           <Paperclip className="size-4" />
-          {docs.length > 0 && (
+          {totalCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full size-4 flex items-center justify-center">
-              {docs.length}
+              {totalCount}
             </span>
           )}
         </button>
       </SheetTrigger>
       <SheetContent side="right" className="flex flex-col">
-        <SheetHeader><SheetTitle>Documents — {ledgerName}</SheetTitle></SheetHeader>
+        <SheetHeader><SheetTitle>Documents — {ledgerName || "New Ledger"}</SheetTitle></SheetHeader>
+
+        {isPending && (
+          <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mt-2">
+            Files will be uploaded automatically after the ledger is saved.
+          </p>
+        )}
+
         <div className="flex flex-col gap-4 flex-1 mt-4 overflow-y-auto">
           {/* Upload area */}
           <div className="flex flex-col gap-2 p-3 border-2 border-dashed border-border rounded-lg">
@@ -93,17 +132,36 @@ export default function LedgerDocuments({ ledgerId, ledgerName }) {
               </Select>
               <label className="flex items-center gap-1.5 cursor-pointer hover:bg-muted/30 rounded-md px-2 py-1 transition-colors flex-1">
                 <Upload className="size-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{uploading ? "Uploading..." : "Choose file"}</span>
+                <span className="text-xs text-muted-foreground">
+                  {uploading ? "Uploading..." : "Choose file"}
+                </span>
                 <input ref={fileRef} type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
               </label>
             </div>
           </div>
 
-          {/* Document list */}
-          {docs.length === 0 && (
+          {/* Pending queue */}
+          {isPending && pendingDocs.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-8">No documents queued yet.</p>
+          )}
+          {isPending && pendingDocs.map((entry, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
+              <FileText className="size-5 text-muted-foreground shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium truncate block">{entry.file.name}</span>
+                <span className="text-[10px] text-muted-foreground">{typeLabel(entry.docType)} — pending</span>
+              </div>
+              <Button size="icon" variant="ghost" className="size-7 text-destructive hover:text-destructive" onClick={() => removePending(i)}>
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+
+          {/* Saved docs (edit mode) */}
+          {!isPending && docs.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">No documents yet.</p>
           )}
-          {docs.map(doc => (
+          {!isPending && docs.map(doc => (
             <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
               <FileText className="size-5 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
@@ -121,7 +179,9 @@ export default function LedgerDocuments({ ledgerId, ledgerName }) {
             </div>
           ))}
         </div>
-        <p className="text-[10px] text-muted-foreground mt-auto pt-3 border-t border-border">{docs.length} document{docs.length !== 1 ? "s" : ""} attached</p>
+        <p className="text-[10px] text-muted-foreground mt-auto pt-3 border-t border-border">
+          {totalCount} document{totalCount !== 1 ? "s" : ""} {isPending ? "queued" : "attached"}
+        </p>
       </SheetContent>
     </Sheet>
   );

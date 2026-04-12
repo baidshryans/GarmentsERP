@@ -107,6 +107,15 @@ APPS = [
         "Employee records, salary structures, payroll processing, and HR settings.",
         ["navHR"],
     ),
+    (
+        "goldscheme",
+        "Gold Schemes",
+        "goldscheme",
+        "Gem",
+        False, 399, 120,
+        "Gold saving scheme management — scheme master, customer enrollments, payments, and statements.",
+        ["navGoldScheme"],
+    ),
 ]
 
 

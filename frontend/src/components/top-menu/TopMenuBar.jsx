@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom"
 import { Gem, ChevronDown, PanelLeft, Home, AppWindow } from "lucide-react"
+import { NavSearch } from "@/components/NavSearch"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,6 +137,9 @@ export function TopMenuBar() {
           />
         ))}
       </div>
+
+      {/* ── Search ── */}
+      <NavSearch className="shrink-0" />
 
       {/* ── Right side: context switchers + user + toggle ── */}
       <div className="flex items-center gap-1 shrink-0 pl-2 border-l border-sidebar-border ml-1">

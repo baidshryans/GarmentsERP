@@ -21,7 +21,7 @@ import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCi
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Checkbox } from "@/components/ui/checkbox";
 import { renderErrorTree } from "@/Utils";
-import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getTypes, addLedgerRole, removeLedgerRole, setPrimaryLedgerRole, fetchTDSSections, checkLedgerName, fetchB2BPricelists, fetchRetailDiscountPricelists } from '@/services/apiService';
+import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getTypes, addLedgerRole, removeLedgerRole, setPrimaryLedgerRole, fetchTDSSections, checkLedgerName, fetchB2BPricelists, fetchRetailDiscountPricelists, uploadLedgerDocument } from '@/services/apiService';
 import PhoneInput, { makePhoneValidator } from "@/components/ui/PhoneInput";
 import Fuse from 'fuse.js';
 import { useSpellCheck } from '@/hooks/useSpellCheck';
@@ -359,6 +359,7 @@ const LedgerForm = () => {
     const [groupAutoFilled, setGroupAutoFilled] = useState(false); // true when account group was set by role
     const [tdsSections, setTdsSections] = useState([]);
     const [nameCheck, setNameCheck] = useState({ checking: false, exists: null }); // null = not checked yet
+    const [pendingDocs, setPendingDocs] = useState([]);
     const nameCheckTimer = React.useRef(null);
     // Tracks whether the user has manually edited Display Name.
     // Starts true in edit-mode (don't overwrite existing value) and false for new ledgers.
@@ -552,6 +553,11 @@ const LedgerForm = () => {
                     // Set primary role
                     const primary = ledgerRoles.find(r => r.is_primary)?.role ?? ledgerRoles[0]?.role ?? ledgerRoles[0];
                     if (primary) await setPrimaryLedgerRole(newId, primary);
+                    // Upload any queued documents
+                    for (const { file, docType } of pendingDocs) {
+                        await uploadLedgerDocument(newId, file, docType);
+                    }
+                    setPendingDocs([]);
                 }
                 toast({ title: "Success", description: `Ledger ${id ? 'updated' : 'created'} successfully.` });
                 setTimeout(() => navigate("/crm/ledger"), 1200);
@@ -1301,17 +1307,17 @@ const LedgerForm = () => {
                         </Field>
                     </div>
 
-                    {id && (
-                        <div className="border-t border-gray-100 pt-4 mt-2">
-                            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">
-                                KYC Documents
-                            </p>
-                            <LedgerDocuments
-                                ledgerId={id}
-                                ledgerName={watch("ac_name") || ""}
-                            />
-                        </div>
-                    )}
+                    <div className="border-t border-gray-100 pt-4 mt-2">
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                            KYC Documents
+                        </p>
+                        <LedgerDocuments
+                            ledgerId={id}
+                            ledgerName={watch("ac_name") || ""}
+                            pendingDocs={pendingDocs}
+                            onPendingChange={setPendingDocs}
+                        />
+                    </div>
 
                 </SectionCard>
 

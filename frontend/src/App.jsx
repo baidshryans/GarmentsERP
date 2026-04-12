@@ -147,6 +147,8 @@ import ColorMasterPage from "./components/Masters/ColorMasterPage.jsx";
 import TDSRegister from "./components/reports/TDSRegister.jsx";
 import TCSRegister from "./components/reports/TCSRegister.jsx";
 import CommissionReport from "./components/reports/CommissionReport.jsx";
+import B2BPricelistPage from "./components/Masters/B2BPricelistPage.jsx";
+import RetailDiscountPricelistPage from "./components/Masters/RetailDiscountPricelistPage.jsx";
 import KarigarJobWorkReport from "./components/reports/KarigarJobWorkReport.jsx";
 import RefineryReport from "./components/reports/RefineryReport.jsx";
 import CRMDashboard from "./components/CRM/CRMDashboard.jsx";
@@ -228,6 +230,8 @@ const appRoutes = [
   { path: "setup/color",         heading: "Color Master",          component: <ColorMasterPage /> },
   { path: "setup/tds-section",   heading: "TDS Section Master",    component: <TDSSectionMasterPage /> },
   { path: "setup/tcs-section",   heading: "TCS Section Master",    component: <TCSSectionMasterPage /> },
+  { path: "setup/b2b-pricelist",              heading: "B2B Pricelist",                component: <B2BPricelistPage /> },
+  { path: "setup/retail-discount-pricelist", heading: "Retail Discount Pricelist",     component: <RetailDiscountPricelistPage /> },
 
   // ── Financial Accounting ──────────────────────────────────────────────────
   { path: "accounting/vouchers/select",           heading: "New Voucher Entry",        component: <VoucherTypeSelector /> },

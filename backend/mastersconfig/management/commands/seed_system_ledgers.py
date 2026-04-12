@@ -31,7 +31,7 @@ class Command(BaseCommand):
             | {'CA-GST', 'CL-DT-GST', 'CA-CSH', 'CL-SC', 'CA-CHQ', 'EXP-IND',
                'EXP-IND-ADM', 'EXP-IND-SND', 'EXP-IND-MKT', 'EXP-IND-HR',
                'EXP-IND-RPM', 'EXP-IND-TRV', 'EXP-IND-FIN', 'EXP-IND-CMP',
-               'EXP-IND-INS', 'EXP-IND-MSC'}
+               'EXP-IND-INS', 'EXP-IND-MSC', 'CAP-OWN'}
         )
         acct = {c: Account.objects.filter(code=c).first() for c in all_codes}
 
@@ -138,5 +138,40 @@ class Command(BaseCommand):
             _, created = _ensure("Cheques in Hand", "Cheques in Hand", "CA-CHQ", role="OTH")
             if created:
                 self.stdout.write(f"  [NEW] Cheques in Hand")
+
+        # ── 4. FixedAssetSettings — wire depreciation ledger defaults per retail ─
+        with transaction.atomic():
+            from accounting.models import FixedAssetSettings
+
+            dep_expense = Ledger.objects.filter(
+                ac_name='Depreciation Expense', is_system=True, retail_code__isnull=True
+            ).first()
+            accum_dep = Ledger.objects.filter(
+                ac_name='Accumulated Depreciation', is_system=True, retail_code__isnull=True
+            ).first()
+
+            if not dep_expense:
+                self.stdout.write(self.style.WARNING(
+                    "  [SKIP] 'Depreciation Expense' ledger not found — run wizard company step first."
+                ))
+            elif not accum_dep:
+                self.stdout.write(self.style.WARNING(
+                    "  [SKIP] 'Accumulated Depreciation' ledger not found — run wizard company step first."
+                ))
+            else:
+                for retail in RetailMaster.objects.all():
+                    fa_settings, created = FixedAssetSettings.objects.get_or_create(retail=retail)
+                    update_fields = []
+                    if fa_settings.default_depreciation_expense_ldgr_id is None:
+                        fa_settings.default_depreciation_expense_ldgr = dep_expense
+                        update_fields.append('default_depreciation_expense_ldgr')
+                    if fa_settings.default_accum_depreciation_ldgr_id is None:
+                        fa_settings.default_accum_depreciation_ldgr = accum_dep
+                        update_fields.append('default_accum_depreciation_ldgr')
+                    if update_fields:
+                        fa_settings.save(update_fields=update_fields)
+                        self.stdout.write(self.style.SUCCESS(
+                            f"  [FA Settings] Wired depreciation ledgers for: {retail.retail_code}"
+                        ))
 
         self.stdout.write(self.style.SUCCESS("Done seeding system ledgers."))

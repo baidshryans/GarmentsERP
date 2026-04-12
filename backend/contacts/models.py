@@ -46,6 +46,14 @@ class Ledger(models.Model):
     display_name = models.CharField(max_length=100)
 
     b2b = models.BooleanField(default=False, db_index=True)
+    b2b_pricelist = models.ForeignKey(
+        'mastersconfig.B2BPricelist', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='ledgers',
+    )
+    retail_discount_pricelist = models.ForeignKey(
+        'mastersconfig.RetailDiscountPricelist', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='ledgers',
+    )
 
     # type field removed — use LedgerRole.role with is_primary=True instead
 

@@ -1,6 +1,6 @@
 # Jewel India ERP - User Manual
 
-**Version:** 1.0
+**Version:** 1.1
 **Last Updated:** April 2026
 **Audience:** First-time clients, store managers, accountants, and administrators
 
@@ -320,7 +320,25 @@ Common jewellery HSN codes:
 - **7103** - Precious stones
 - **7117** - Imitation jewellery
 
-### 5.3 Items
+### 5.3 Item Groups
+
+Before creating items, set up item groups to organise your catalogue. Item groups act as categories that items are filed under.
+
+1. Navigate to **Setup > Item Groups**
+2. Click **Add Item Group**
+3. Enter:
+   - **Group Name**: e.g., "Gold Jewellery", "Diamond Jewellery", "Silver Articles", "Coins & Bars"
+4. Save the group
+
+Common jewellery item groups:
+- Gold Jewellery
+- Diamond Jewellery
+- Silver Articles
+- Precious Stones (Loose)
+- Coins & Bars
+- Imitation Jewellery
+
+### 5.4 Items
 
 | Field | Description | Example |
 |-------|-------------|---------|
@@ -332,7 +350,7 @@ Common jewellery HSN codes:
 | Purchase Ledger | Default ledger for purchases | "Purchase - Gold" |
 | Sale Ledger | Default ledger for sales | "Sales - Gold" |
 
-### 5.4 Purity Master
+### 5.5 Purity Master
 
 Define gold/silver purity levels:
 
@@ -343,7 +361,22 @@ Define gold/silver purity levels:
 | 18K | 18 | 75.0% |
 | 14K | 14 | 58.5% |
 
-### 5.5 Packets (Stone/Diamond)
+### 5.5 Daily Gold Rate Update
+
+The gold rate must be updated every business day before creating any sales or purchase bills. The system uses the current rate to auto-calculate gold values on invoices.
+
+1. Navigate to **Setup > Gold Rates**
+2. Click **Update Rate**
+3. For each purity (24K, 22K, 18K, etc.), enter:
+   - **Buying Rate**: Price at which the store buys gold (per gram) — used for old gold purchases and karigar valuation
+   - **Selling Rate**: Price at which the store sells gold (per gram) — used for sales invoices
+4. Click **Save**
+
+> **Important:** Rates apply from the moment they are saved. Any bill created before updating will use the previous day's rate. Always update rates at the start of the business day.
+
+The system stores a full rate history. To view historical rates, navigate to **Setup > Gold Rates > Rate History** and filter by date range.
+
+### 5.6 Packets (Stone/Diamond)
 
 Packets define stone specifications for pricing:
 
@@ -359,7 +392,7 @@ Packets define stone specifications for pricing:
 | Wholesale Rate | Per-carat rate for wholesale | 72000 |
 | Solitaire | Is this a solitaire? | Yes/No |
 
-### 5.6 TDS & TCS Sections
+### 5.7 TDS & TCS Sections
 
 Configure Tax Deducted/Collected at Source sections:
 
@@ -372,7 +405,7 @@ Configure Tax Deducted/Collected at Source sections:
 **Common TCS Sections:**
 - **206C(1H)** - Sale of goods above threshold (0.1%)
 
-### 5.7 Sales Person Master
+### 5.8 Sales Person Master
 
 | Field | Description | Example |
 |-------|-------------|---------|
@@ -420,7 +453,21 @@ In Jewel India ERP, every entity (customer, vendor, bank, expense account) is a 
    - **Contact details**: Mobile, email, address
 4. **Documents**: Upload PAN card, Aadhar, GST certificate, etc.
 
-### 6.3 Customer History
+### 6.3 Bulk Ledger Import (CSV)
+
+For large migrations or bulk creation of ledger accounts, use the CSV import feature instead of creating entries one by one.
+
+1. Navigate to **CRM > Ledger > Import**
+2. Click **Download Template** to get the CSV format
+3. Fill in the template with your ledger data:
+   - Account Name, Account Group, Role(s), GSTIN, State, Mobile, Email, Opening Balance (Dr/Cr)
+4. Upload the completed CSV file
+5. The system validates each row and shows errors if any fields are missing or invalid
+6. Confirm the import — successfully validated rows are created as ledger accounts
+
+> **Tip:** Use bulk import during migration from another ERP. See Section 22 for the full migration workflow.
+
+### 6.4 Customer History
 
 Navigate to **CRM > Customer History** to view:
 - All past purchases by a customer
@@ -498,7 +545,22 @@ Customer orders represent advance bookings, often with a fixed gold rate option.
    - Accounting entry (credit note)
    - Salesperson commission (reversal created)
 
-### 7.6 E-Way Bills
+### 7.6 Cheque Deposit Tracking
+
+When customers pay by cheque, you can track the cheque through its lifecycle (received → deposited → cleared/bounced).
+
+1. After recording a **Receipt Voucher** with a bank account, navigate to **Sales > Cheque Deposits**
+2. The list shows all cheques received but not yet deposited
+3. Click **Mark as Deposited** when the cheque is submitted to the bank:
+   - Enter the deposit date and bank name
+4. Once the bank confirms clearance, click **Mark as Cleared**
+5. If a cheque bounces, click **Mark as Bounced**:
+   - The system creates a reversal journal entry automatically
+   - The customer's outstanding balance is restored
+
+This ensures your bank book reflects only cleared funds, not just received cheques.
+
+### 7.7 E-Way Bills
 
 For inter-state sales above the threshold, e-way bills are required.
 
@@ -625,7 +687,7 @@ Issue diamonds/precious stones to karigars for setting.
 - **Hallmark Issue**: Send items for BIS hallmarking
 - **Refinery Issue**: Send scrap/old gold to refinery
 - **Melting Issue**: Send items for melting
-- **Assay Issue**: Send for purity testing
+- **Assay Issue**: Send for purity testing (to determine fine gold content)
 
 ### 9.3 Receive Operations
 
@@ -649,6 +711,14 @@ Receive unused stones back from karigar.
 
 #### Hallmark Receive
 Record hallmarked items received back, including HUID numbers.
+
+#### Assay Receive
+Record results after purity testing:
+
+1. Navigate to **Manufacturing > Receive > Assay Receive**
+2. Select the original Assay Issue slip
+3. Enter the certified purity percentage and weight from the assay report
+4. Save — the system updates the item's fine gold value accordingly
 
 ### 9.4 Repair Jobs
 
@@ -735,7 +805,33 @@ Track jewellery designs for manufacturing:
    - Stone composition
 3. Attach documents: sketches, CAD files, photos
 
-### 10.6 Raw Material Inventory
+### 10.6 RFID Inventory Counting
+
+The ERP supports RFID-based inventory counting. Each jewellery piece can be assigned an RFID tag, allowing fast bulk inventory audits without manual barcode scanning.
+
+#### Assigning RFID Tags
+
+1. Navigate to **Inventory > RFID**
+2. Select a barcode from stock
+3. Click **Assign Tag** and enter or scan the RFID tag number
+4. Save — the tag is now linked to that barcode
+
+#### Running an RFID Inventory Session
+
+1. Navigate to **Inventory > RFID > New Session**
+2. Give the session a name (e.g., "Monthly Count — May 2026")
+3. Use an RFID reader to scan all tags in the display or vault
+4. Tags are read into the session automatically
+5. Click **Reconcile** — the system compares:
+   - Tags **found**: items physically present
+   - Tags **missing**: items in stock records but not scanned
+   - Tags **extra**: scanned tags not in stock records (possible misplaced items)
+6. Review the discrepancy report and investigate any mismatches
+7. **Close Session** once reconciliation is complete
+
+> RFID sessions do not automatically adjust stock. Use **Inventory > Stock Journal** to make corrections after investigating discrepancies.
+
+### 10.7 Raw Material Inventory
 
 Track raw materials (unfinished gold, loose stones):
 
@@ -1113,7 +1209,27 @@ Configure deductions per employee:
 5. Review and **Approve** slips
 6. On approval, system creates a **SLRY** accounting voucher
 
-### 15.5 HR Settings
+### 15.5 Leave Management
+
+Track employee leave balances within the ERP.
+
+#### Viewing Leave Balances
+
+1. Navigate to **HR > Leave Balances**
+2. Select the employee and leave type (Casual Leave, Earned Leave, Sick Leave, etc.)
+3. The screen shows: opening balance, leaves taken, current balance
+
+#### Recording Leave
+
+Leave taken is factored into salary calculation:
+
+- When generating a salary slip, enter the number of **days worked** for the month
+- The system calculates proportional earnings based on days worked vs. total working days
+- Leave without pay (LWP) automatically reduces the proportional salary
+
+> Formal leave application workflows (leave requests and approvals) are managed outside the ERP. The ERP records the outcome — days worked — for payroll purposes.
+
+### 15.6 HR Settings
 
 Configure accounting ledgers for salary posting:
 - Salary Expense Ledger
@@ -1137,12 +1253,18 @@ Configure accounting ledgers for salary posting:
 | Bank Book | Finance Reports | All bank transactions |
 | Day Book | Finance Reports | All vouchers for a date |
 | Gold Ledger Balances | Finance Reports | Gold weight balances per ledger |
+| GSTR-2B Reconciliation | Finance Reports > GST | Match vendor filings vs. your purchase records |
+| Gold Rate History | Setup > Gold Rates | Historical buying and selling rates by date |
 
 ### 16.2 Sales Reports
 
 | Report | Path | Description |
 |--------|------|-------------|
 | Salesperson Commission | Sales > Reports | Commission earned per salesperson |
+| GST Invoice Register | Sales > Reports | All sales invoices with GST breakup |
+| Cheque Deposit Status | Sales > Reports | Cheques received, deposited, cleared, bounced |
+| Delivery Tracking | Sales > Reports | Delivery status per invoice |
+| Advance Received | Sales > Reports | Advance payments collected vs. adjusted |
 
 ### 16.3 Inventory Reports
 
@@ -1158,15 +1280,35 @@ Configure accounting ledgers for salary posting:
 | ItemWise Barcode | Inventory > Reports | Barcodes grouped by item |
 | Barcode Split/Merge | Inventory > Reports | History of splits and merges |
 
-### 16.4 Manufacturing Reports
+### 16.5 Gold Scheme Reports
+
+| Report | Path | Description |
+|--------|------|-------------|
+| Maturity Calendar | Gold Scheme > Reports | Enrollments maturing in a date range |
+| Collection Report | Gold Scheme > Reports | Installment payments received per period |
+| Enrollment Summary | Gold Scheme > Reports | Active, matured, and redeemed enrollments |
+| Customer Scheme Statement | Gold Scheme > Reports | Scheme history for a specific customer |
+
+### 16.6 HR Reports
+
+| Report | Path | Description |
+|--------|------|-------------|
+| Employee List | HR > Reports | All active employees with designation and joining date |
+| Payslip Register | HR > Reports | Month-wise salary paid to all employees |
+| PF / ESI Summary | HR > Reports | Statutory deduction totals for filing |
+| Professional Tax Register | HR > Reports | PT deducted per employee per period |
+
+### 16.7 Manufacturing Reports
 
 | Report | Path | Description |
 |--------|------|-------------|
 | Karigar Job Work | Manufacturing > Reports | Outstanding with each karigar |
 | Karigar Stone Transactions | Manufacturing > Reports | Stone issue/return per karigar |
-| Hallmark Issue/Receive | Manufacturing > Reports | Hallmarking status |
+| Hallmark Issue/Receive | Manufacturing > Reports | Hallmarking status per item |
 | Finished Item Receive | Manufacturing > Reports | Items received from manufacturing |
-| Refinery Report | Manufacturing > Reports | Refinery transactions |
+| Refinery Report | Manufacturing > Reports | Refinery transactions and returns |
+| Assay Report | Manufacturing > Reports | Purity test results per batch |
+| Repair Job Status | Manufacturing > Reports | Open and closed repair jobs |
 
 ---
 
@@ -1228,7 +1370,55 @@ Configure system-wide settings:
 - Barcode image storage path
 - Bill total auto-calculation mode
 
-### 17.7 Audit Log
+### 17.7 Licensing & Module Subscriptions
+
+Jewel India ERP uses a module-based licensing model. Each company is subscribed to a set of modules (apps) and can activate them per their plan.
+
+**Viewing your active modules:**
+
+1. Navigate to **Settings > Licensing**
+2. The screen shows all available modules with their status:
+   - **Active**: Licensed and available for use
+   - **Inactive**: Not included in your current plan
+
+**What happens when a module is not licensed:**
+
+- The module does not appear in the navigation menu
+- Attempting to access the module's API returns a 403 error
+- Existing data is preserved — licensing only controls access, not deletion
+
+**Resource limits:**
+
+Each subscription plan may enforce limits such as:
+- Maximum number of users
+- Maximum number of retail branches
+
+Contact your vendor to upgrade or add modules to your subscription.
+
+### 17.8 Database Backup
+
+It is strongly recommended to take regular backups, especially for SQLite-based development setups.
+
+**From the ERP UI:**
+
+1. Navigate to **Settings > Backup**
+2. Click **Download Backup**
+3. The system generates a `.sqlite3` (dev) or `.sql` dump (PostgreSQL) and downloads it to your computer
+4. Store backups in a secure, off-site location (e.g., Google Drive, external hard disk)
+
+**Automated backup (production):**
+
+For PostgreSQL in production, set up a scheduled `pg_dump` job:
+
+```bash
+pg_dump -U your_db_user your_db_name > backup_$(date +%Y%m%d).sql
+```
+
+Add this to a cron job (Linux) or Task Scheduler (Windows) to run nightly.
+
+> **Warning:** A backup is only useful if you can restore it. Test restoration periodically.
+
+### 17.9 Audit Log
 
 Navigate to **Settings > Audit Log** to view:
 - All data changes (create, update, delete)
@@ -1476,6 +1666,7 @@ Create ledger accounts for every party you transact with. Navigate to **CRM > Le
 - If a party is both a customer and a supplier, assign both roles (CO + VD) on the same ledger
 - GST number, PAN, and state are required for B2B parties for correct tax treatment
 - For banks, enter the account number and IFSC in the contact section
+- For large ledger lists (100+ parties), use the **bulk CSV import** at **CRM > Ledger > Import** instead of manual entry — see Section 6.3 for details
 
 #### Step 4 — Enter Opening Stock
 
@@ -1577,7 +1768,7 @@ Avoid entering the following historical data unless specifically required:
 
 ## 23. AI Assistant & MCP Server Setup
 
-Jewel India ERP includes a built-in AI assistant powered by Claude (Anthropic). The AI can answer business questions in plain English, such as:
+Jewel India ERP includes a built-in AI assistant powered by **OpenAI** (GPT-4o). The AI can answer business questions in plain English, such as:
 
 - "What were total sales last month?"
 - "Show me outstanding dues from customers over ₹50,000"
@@ -1593,7 +1784,57 @@ There are two ways to use the AI:
 
 No setup required. Navigate to the **AI Assistant** section in the sidebar. Type your question in plain English and press Enter. The assistant has read access to all your ERP data but cannot modify records.
 
-### 23.2 MCP Server Setup (Claude Desktop)
+> **Note:** The in-app AI is powered by **OpenAI** (GPT-4o-mini for queries, GPT-4o for invoice parsing). The MCP Server in Section 23.2 is what connects your ERP data to **Claude Desktop** (Anthropic). These are two separate integrations.
+
+### 23.2 AI Invoice Parser
+
+The invoice parser reads a scanned vendor bill (image or PDF) and extracts structured data automatically — saving manual data entry time when entering purchase vouchers.
+
+**Supported file types:** JPG, PNG, WEBP, PDF (max 10 MB)
+
+**How to use:**
+
+1. Navigate to **AI Assistant > Invoice Parser**
+2. Click **Upload Invoice** and select the vendor's bill file
+3. The AI extracts:
+   - Vendor name, bill number, bill date
+   - Line items (description, quantity, rate, amount)
+   - GST breakup (CGST, SGST, IGST)
+   - Total amount, TDS if applicable
+4. Review the extracted data for accuracy
+5. Click **Create Purchase Voucher** to pre-fill the purchase entry form with the extracted data
+6. Complete any missing fields and save the voucher
+
+> The parser uses GPT-4o Vision. Always verify extracted values against the original document before saving — OCR can occasionally misread handwritten or low-resolution bills.
+
+### 23.3 AI Account Suggestion
+
+When creating journal, payment, or receipt vouchers, the system can suggest the correct debit and credit accounts based on a plain-English description.
+
+**How to use:**
+
+1. In any voucher entry form, click **Suggest Accounts**
+2. Type a brief description of the transaction, e.g.:
+   - "Paid BESCOM electricity bill ₹4,500"
+   - "Received payment from Ravi Jewellers against invoice"
+   - "Purchased gold from refinery"
+3. The AI responds with:
+   - Suggested **Debit Account**
+   - Suggested **Credit Account**
+   - Confidence score and reasoning
+4. Accept the suggestion or override manually
+
+### 23.4 AI Query History
+
+All natural language queries made by your team are logged. To review:
+
+1. Navigate to **AI Assistant > Query History**
+2. Filter by user or date range
+3. See each question asked, the response given, and tokens used
+
+Admin users can see queries from all staff. Regular users see only their own history.
+
+### 23.5 MCP Server Setup (Claude Desktop)
 
 The MCP (Model Context Protocol) server exposes your ERP data as tools that Claude Desktop can call. This gives you a full conversational AI experience with your business data.
 
@@ -1702,7 +1943,7 @@ To avoid "Python not found" errors, use the full path to the virtual environment
 | Field | Value |
 |-------|-------|
 | **Document Title** | Jewel India ERP - User Manual |
-| **Version** | 1.1 |
+| **Version** | 1.1 — April 2026 update |
 | **Date** | April 2026 |
 | **Prepared For** | First-time ERP clients |
 | **Confidentiality** | Client-use only |

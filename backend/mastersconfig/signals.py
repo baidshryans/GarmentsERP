@@ -123,13 +123,21 @@ _MISC_LEDGERS = [
     ('Depreciation Expense',        'EXP-IND'),     # P&L charge for depreciation
     ('Accumulated Depreciation',    'FA-AD'),        # Contra-asset: total depreciation to date
 
+    # ── Capital / Owner ──────────────────────────────────────────────────────
+    ("Proprietor's Drawings",    'CAP-OWN'),     # Owner cash withdrawals from business
+
+    # ── Tax ──────────────────────────────────────────────────────────────────
+    ('Income Tax Payable',       'CL-DT'),       # Current-year income tax liability (Advance Income Tax is the asset side)
+
+    # ── Adjustments ──────────────────────────────────────────────────────────
+    ('Bad Debts Written Off',    'EXP-IND-ADM'), # Year-end write-off of uncollectable customer balances
+
     # ── General / Other ──────────────────────────────────────────────────────
     ('Customer Advance',         'CL'),          # Advance received on customer orders
     ('Suspense Account',         'CL'),          # Temporary parking for unmatched entries
     ('Opening Balance Equity',   'CAP-RES'),     # Plug account for trial balance during setup
     ('Closing Stock',            'CA-STK'),      # Inventory asset — value injected from inventory module
     ('Stock-in-Transit',         'CA-STK'),      # Inventory moving between retail locations
-    ('Petty Cash',               'CA-CSH'),      # Small-value cash fund
 ]
 
 # ── Office Equipment fixed-asset ledgers ──────────────────────────────────────
@@ -279,6 +287,7 @@ def create_retail_ledgers(sender, instance, created, **kwargs):
         display_name=f"{instance.retail_code} Cash",
         ac_group=ac_group,
         is_system=True,
+        retail_code=instance,
     )
     LedgerRole.objects.create(ledger=ledger, role='CA', is_primary=True)
 
@@ -319,6 +328,26 @@ def create_retail_ledgers(sender, instance, created, **kwargs):
                 sec.save(update_fields=['ledger'])
     except (ImportError, DatabaseError, ObjectDoesNotExist):
         # Never block retail creation; TDS/TCS ledgers can be seeded manually later
+        pass
+
+    # Auto-create FixedAssetSettings and wire the two depreciation ledger defaults
+    try:
+        from accounting.models import FixedAssetSettings
+        dep_expense = Ledger.objects.filter(
+            ac_name='Depreciation Expense', is_system=True, retail_code__isnull=True
+        ).first()
+        accum_dep = Ledger.objects.filter(
+            ac_name='Accumulated Depreciation', is_system=True, retail_code__isnull=True
+        ).first()
+        FixedAssetSettings.objects.get_or_create(
+            retail=instance,
+            defaults={
+                'default_depreciation_expense_ldgr': dep_expense,
+                'default_accum_depreciation_ldgr':   accum_dep,
+            },
+        )
+    except (ImportError, DatabaseError, ObjectDoesNotExist):
+        # Never block retail creation; FA settings can be configured manually later
         pass
 
     # Auto-assign every new retail to all superusers so they can always switch

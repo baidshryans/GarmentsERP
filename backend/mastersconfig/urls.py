@@ -99,6 +99,12 @@ urlpatterns = [
     path('api/crm-settings/',     views.crm_settings_view, name='crm_settings'),
     path('api/crm-send-log/',     views.crm_send_log,      name='crm_send_log'),
     path('api/crm-test-send/',    views.crm_test_send,     name='crm_test_send'),
+
+    path('api/b2b-pricelist/',         views.ListCreateB2BPricelist.as_view(),              name='b2b_pricelist_list_create'),
+    path('api/b2b-pricelist/<int:pk>/', views.RetrieveUpdateDestroyB2BPricelist.as_view(), name='b2b_pricelist_detail'),
+
+    path('api/retail-discount-pricelist/',         views.ListCreateRetailDiscountPricelist.as_view(),              name='retail_discount_pricelist_list_create'),
+    path('api/retail-discount-pricelist/<int:pk>/', views.RetrieveUpdateDestroyRetailDiscountPricelist.as_view(), name='retail_discount_pricelist_detail'),
 ]
 
 urlpatterns+= staticfiles_urlpatterns()

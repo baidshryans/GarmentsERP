@@ -306,6 +306,29 @@ class JournalEntrySerializer(serializers.Serializer):
                     )
         # ─────────────────────────────────────────────────────────────────────
 
+        # ── Cash/Bank side restriction for Receipt and Payment vouchers ───────
+        # Receipt : cash/bank must only be DEBITED  (money coming in)
+        # Payment : cash/bank must only be CREDITED (money going out)
+        if vtype_upper in ('RCPT', 'PMNT'):
+            for d in voucher_details:
+                acct = d.get('account')
+                if acct is None:
+                    continue
+                is_cash_bank = _has_role(acct, 'CA') or _has_role(acct, 'BA')
+                if not is_cash_bank:
+                    continue
+                if vtype_upper == 'RCPT' and Decimal(str(d.get('credit', 0) or 0)) > 0:
+                    raise ValidationError(
+                        f"'{acct.ac_name}' is a Cash/Bank account and cannot be credited "
+                        f"in a Receipt voucher. Cash/Bank accounts are always debited on receipt."
+                    )
+                if vtype_upper == 'PMNT' and Decimal(str(d.get('debit', 0) or 0)) > 0:
+                    raise ValidationError(
+                        f"'{acct.ac_name}' is a Cash/Bank account and cannot be debited "
+                        f"in a Payment voucher. Cash/Bank accounts are always credited on payment."
+                    )
+        # ─────────────────────────────────────────────────────────────────────
+
         # ── Double-entry validation (must happen BEFORE creating the voucher) ──
         debit_total = Decimal('0')
         credit_total = Decimal('0')
@@ -502,6 +525,27 @@ class JournalEntrySerializer(serializers.Serializer):
             old_details = instance.transactions.all()
 
             voucher_type = validated_data.get('voucher_type', instance.voucher_type).strip().upper()
+
+            # ── Cash/Bank side restriction (same rule as create) ──────────────
+            if voucher_type in ('RCPT', 'PMNT'):
+                for d in detail_data:
+                    acct = d.get('account')
+                    if acct is None:
+                        continue
+                    is_cash_bank = _has_role(acct, 'CA') or _has_role(acct, 'BA')
+                    if not is_cash_bank:
+                        continue
+                    if voucher_type == 'RCPT' and Decimal(str(d.get('credit', 0) or 0)) > 0:
+                        raise ValidationError(
+                            f"'{acct.ac_name}' is a Cash/Bank account and cannot be credited "
+                            f"in a Receipt voucher."
+                        )
+                    if voucher_type == 'PMNT' and Decimal(str(d.get('debit', 0) or 0)) > 0:
+                        raise ValidationError(
+                            f"'{acct.ac_name}' is a Cash/Bank account and cannot be debited "
+                            f"in a Payment voucher."
+                        )
+            # ─────────────────────────────────────────────────────────────────
 
             for old_detail in old_details:
                 ref_bill_no = old_detail.ref_bill_no

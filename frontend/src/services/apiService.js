@@ -594,9 +594,9 @@ export async function fetchPRNoNext() {
 
 
 // Fetch Main Item
-export async function fetchMainItem({type=""}={}) {
+export async function fetchMainItem({type="", page_size=10000}={}) {
   try {
-    const response = await apiClient.get(`/mastersconfig/api/item/?item_type=${type}`);
+    const response = await apiClient.get(`/mastersconfig/api/item/?item_type=${type}&page_size=${page_size}`);
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch main item :", error.response?.data || error.message);
@@ -1528,7 +1528,7 @@ export async function fetchStoneReceiveBillNo() {
 
 export async function fetchPackets() {
   try {
-    const response = await apiClient.get(`mastersconfig/api/packet/`);
+    const response = await apiClient.get(`mastersconfig/api/packet/?page_size=10000`);
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch order items :", error.response?.data || error.message);
@@ -5217,6 +5217,111 @@ export async function fetchRfidSessions() {
 export async function fetchRfidSessionResults(sessionId) {
   try {
     const r = await apiClient.get(`inventory/rfid-sessions/${sessionId}/results/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── B2B Pricelist ──────────────────────────────────────────────────────────
+
+export async function fetchB2BPricelists() {
+  try {
+    const r = await apiClient.get('/mastersconfig/api/b2b-pricelist/');
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getB2BPricelist(id) {
+  try {
+    const r = await apiClient.get(`/mastersconfig/api/b2b-pricelist/${id}/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createB2BPricelist(data) {
+  try {
+    const r = await apiClient.post('/mastersconfig/api/b2b-pricelist/', data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateB2BPricelist(id, data) {
+  try {
+    const r = await apiClient.put(`/mastersconfig/api/b2b-pricelist/${id}/`, data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteB2BPricelist(id) {
+  try {
+    await apiClient.delete(`/mastersconfig/api/b2b-pricelist/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchB2BPricelistForLedger(ledgerId) {
+  try {
+    const r = await apiClient.get(`/sales/api/b2b-pricelist/${ledgerId}/`);
+    if (r.status === 204) return { success: true, data: null };
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Retail Discount Pricelist ─────────────────────────────────────────────────
+
+export async function fetchRetailDiscountPricelists() {
+  try {
+    const r = await apiClient.get('/mastersconfig/api/retail-discount-pricelist/?page_size=10000');
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createRetailDiscountPricelist(data) {
+  try {
+    const r = await apiClient.post('/mastersconfig/api/retail-discount-pricelist/', data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateRetailDiscountPricelist(id, data) {
+  try {
+    const r = await apiClient.put(`/mastersconfig/api/retail-discount-pricelist/${id}/`, data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteRetailDiscountPricelist(id) {
+  try {
+    await apiClient.delete(`/mastersconfig/api/retail-discount-pricelist/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchRetailDiscountPricelistForLedger(ledgerId) {
+  try {
+    const r = await apiClient.get(`/sales/api/retail-discount-pricelist/${ledgerId}/`);
+    if (r.status === 204) return { success: true, data: null };
     return { success: true, data: r.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

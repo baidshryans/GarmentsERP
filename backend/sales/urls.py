@@ -41,5 +41,7 @@ urlpatterns = [
     path('api/customer-orders/<int:pk>/update-delivery/', views.customer_order_update_delivery),
     path('api/pending-cheques/', views.pending_cheques, name='pending-cheques'),
     path('api/deposit-cheque/<int:pk>/', views.deposit_cheque, name='deposit-cheque'),
+    path('api/b2b-pricelist/<int:ledger_id>/', views.b2b_pricelist_for_ledger, name='b2b_pricelist_for_ledger'),
+    path('api/retail-discount-pricelist/<int:ledger_id>/', views.retail_discount_pricelist_for_ledger, name='retail_discount_pricelist_for_ledger'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

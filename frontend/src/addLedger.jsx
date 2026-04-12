@@ -21,7 +21,7 @@ import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCi
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Checkbox } from "@/components/ui/checkbox";
 import { renderErrorTree } from "@/Utils";
-import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getTypes, addLedgerRole, removeLedgerRole, setPrimaryLedgerRole, fetchTDSSections, checkLedgerName } from '@/services/apiService';
+import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getTypes, addLedgerRole, removeLedgerRole, setPrimaryLedgerRole, fetchTDSSections, checkLedgerName, fetchB2BPricelists, fetchRetailDiscountPricelists } from '@/services/apiService';
 import PhoneInput, { makePhoneValidator } from "@/components/ui/PhoneInput";
 import Fuse from 'fuse.js';
 import { useSpellCheck } from '@/hooks/useSpellCheck';
@@ -159,6 +159,9 @@ function suggestGroupCode(ledgerName) {
     }
     return bestMatch;
 }
+
+// Roles that cannot be combined with any other role
+const EXCLUSIVE_ROLES = new Set(['CA', 'BA', 'INC', 'EXP']);
 
 // ─── Role metadata — icons, descriptions, grouping ──────────────────────────
 
@@ -335,10 +338,14 @@ const LedgerForm = () => {
             tds_applicable: false,
             tds_section: '',
             tds_deductor_type: '',
+            b2b_pricelist: '',
+            retail_discount_pricelist: '',
         },
     });
 
     const [states, setStates] = useState([]);
+    const [pricelists, setPricelists] = useState([]);
+    const [retailDiscountPricelists, setRetailDiscountPricelists] = useState([]);
     const [shippingSameAsBilling, setShippingSameAsBilling] = useState(true);
     const [accounts, setAccounts] = useState([]);
     const [accountTree, setAccountTree] = useState([]);
@@ -361,7 +368,9 @@ const LedgerForm = () => {
     const skipB2bAutoset = React.useRef(false);
 
     // Derived helpers
-    const activeRoleCodes = ledgerRoles.map(r => r.role ?? r);   // support both old string[] and new {role,is_primary}[]
+    // useMemo keeps the array reference stable when ledgerRoles hasn't changed,
+    // preventing the b2b auto-set useEffect from firing on every render.
+    const activeRoleCodes = useMemo(() => ledgerRoles.map(r => r.role ?? r), [ledgerRoles]);
     const primaryRole = (ledgerRoles.find(r => r.is_primary)?.role)
         ?? (ledgerRoles[0]?.role ?? ledgerRoles[0]);              // fallback to first
 
@@ -439,10 +448,22 @@ const LedgerForm = () => {
                 setAccounts(accountsRes.data);
                 setAccountTree(buildAccountTree(accountsRes.data));
 
-                const tdsRes = await fetchTDSSections();
+                const [tdsRes, plRes, rdplRes] = await Promise.all([
+                    fetchTDSSections(),
+                    fetchB2BPricelists(),
+                    fetchRetailDiscountPricelists(),
+                ]);
                 if (tdsRes.success) {
                     const d = tdsRes.data;
                     setTdsSections(Array.isArray(d) ? d : d?.results ?? []);
+                }
+                if (plRes.success) {
+                    const d = plRes.data;
+                    setPricelists((Array.isArray(d) ? d : d?.results ?? []).filter(p => p.is_active));
+                }
+                if (rdplRes.success) {
+                    const d = rdplRes.data;
+                    setRetailDiscountPricelists((Array.isArray(d) ? d : d?.results ?? []).filter(p => p.is_active));
                 }
 
                 if (id) {
@@ -466,6 +487,8 @@ const LedgerForm = () => {
                     reset({
                         ...data,
                         b2b: b2bDisplay,
+                        b2b_pricelist: data.b2b_pricelist ? String(data.b2b_pricelist) : '',
+                        retail_discount_pricelist: data.retail_discount_pricelist ? String(data.retail_discount_pricelist) : '',
                         dob: data.dob || '',
                         anniversary: data.anniversary || '',
                         ac_group: data.ac_group?.toString() || '',
@@ -512,6 +535,8 @@ const LedgerForm = () => {
             const payload = {
             ...data,
             b2b: data.b2b === 'true',
+            b2b_pricelist: data.b2b_pricelist ? Number(data.b2b_pricelist) : null,
+            retail_discount_pricelist: data.retail_discount_pricelist ? Number(data.retail_discount_pricelist) : null,
             dob: data.dob || null,
             anniversary: data.anniversary || null,
         };
@@ -731,6 +756,39 @@ const LedgerForm = () => {
                                 );
                             }} />
                         </Field>
+
+                        {watch('b2b') === 'true' && (
+                            <Field label="B2B Pricelist">
+                                <Controller name="b2b_pricelist" control={control} render={({ field }) => (
+                                    <Select onValueChange={v => field.onChange(v === '__none__' ? '' : v)} value={field.value || '__none__'}>
+                                        <SelectTrigger className={triggerCls}>
+                                            <SelectValue placeholder="None" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none__">None</SelectItem>
+                                            {pricelists.map(p => (
+                                                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )} />
+                            </Field>
+                        )}
+                        <Field label="Retail Discount Pricelist">
+                            <Controller name="retail_discount_pricelist" control={control} render={({ field }) => (
+                                <Select onValueChange={v => field.onChange(v === '__none__' ? '' : v)} value={field.value || '__none__'}>
+                                    <SelectTrigger className={triggerCls}>
+                                        <SelectValue placeholder="None" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">None</SelectItem>
+                                        {retailDiscountPricelists.map(p => (
+                                            <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )} />
+                        </Field>
                     </div>
 
                     {/* ── Roles — select role BEFORE account group ── */}
@@ -742,6 +800,9 @@ const LedgerForm = () => {
                             ...types.filter(t => !orderedCodes.includes(t.code)), // any extras appended
                         ];
 
+                        // True when an exclusive role (CA/BA/INC/EXP) is currently selected
+                        const hasExclusiveActive = activeRoleCodes.some(r => EXCLUSIVE_ROLES.has(r));
+
                         const RoleCard = ({ t }) => {
                             const isChecked = activeRoleCodes.includes(t.code);
                             const isLoading = roleLoading === t.code;
@@ -749,6 +810,8 @@ const LedgerForm = () => {
                             const Icon = meta?.Icon;
                             const isAccount = meta?.group === 'account';
                             const locked = !!id && isChecked && primaryRole === t.code && activeRoleCodes.length === 1;
+                            // Blocked when an exclusive role is active and this card is a different, unselected role
+                            const blockedByExclusive = hasExclusiveActive && !isChecked;
 
                             // Party roles use violet when active; account roles use slate
                             const activeCard   = isAccount ? 'bg-slate-50 border-slate-300 shadow-sm'        : 'bg-violet-50 border-violet-300 shadow-sm';
@@ -761,13 +824,16 @@ const LedgerForm = () => {
                             return (
                                 <button
                                     type="button"
-                                    disabled={isLoading || locked}
+                                    disabled={isLoading || locked || blockedByExclusive}
                                     onClick={() => handleRoleToggle(t.code, !isChecked)}
+                                    title={blockedByExclusive ? 'Remove the active Cash / Bank / Income / Expense role first' : undefined}
                                     className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all select-none ${
                                         isChecked
                                             ? activeCard
-                                            : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                    } ${isLoading ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                                            : blockedByExclusive
+                                                ? 'bg-gray-50 border-gray-100 opacity-40 cursor-not-allowed'
+                                                : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                    } ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
                                 >
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                                         isChecked ? activeCircle : 'bg-gray-100'
@@ -809,6 +875,13 @@ const LedgerForm = () => {
                                 <div className="grid grid-cols-4 gap-2">
                                     {allOrdered.map(t => <RoleCard key={t.code} t={t} />)}
                                 </div>
+
+                                {/* Exclusive-role notice */}
+                                {hasExclusiveActive && (
+                                    <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded px-2.5 py-1.5">
+                                        Cash, Bank, Income and Expense ledgers cannot be combined with other roles.
+                                    </p>
+                                )}
 
                                 {/* Primary role selector — only shown when 2+ roles are active */}
                                 {activeRoleCodes.length >= 2 && (

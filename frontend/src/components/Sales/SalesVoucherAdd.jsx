@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem } from "lucide-react";
+import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -36,6 +36,8 @@ import {
   fetchCustomerCashReceived,
   fetchCustomerOrdersByLedger,
   fetchCustomerPurchasesByLedger,
+  fetchB2BPricelistForLedger,
+  fetchRetailDiscountPricelistForLedger,
 } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 
@@ -184,6 +186,8 @@ const SalesVoucherAdd = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);       // the linked CustomerOrder object
   const [customerPurchases, setCustomerPurchases] = useState([]); // old gold purchases with available balance
   const [selectedPurchase, setSelectedPurchase] = useState(null); // the linked PurchaseVoucher object
+  const [b2bPricelist, setB2bPricelist] = useState(null);         // null = retail mode; object = B2B pricelist data
+  const [retailDiscountPricelist, setRetailDiscountPricelist] = useState(null); // retail discount pricelist for Apply Discount
   // Resolved item for the current manual input row
   const [detailItem, setDetailItem] = useState(null);
   // Display name shown in the item text box (item_name, not short_code)
@@ -232,7 +236,9 @@ const SalesVoucherAdd = () => {
     const pkt = packets.find(p => p.pckt_no === detailPacket);
     if (pkt?.stone_item_id) {
       const item = pkt.stone_item_id;
-      const rate = pkt.rate_for_retail ?? 0;
+      // B2B: use pricelist override or wholesale rate; retail: use rate_for_retail
+      const b2bRate = b2bPricelist ? getB2bStoneRate(pkt.pckt_no) : null;
+      const rate = b2bRate != null ? b2bRate : (pkt.rate_for_retail ?? 0);
       setValue("details.item", item.short_code);
       setValue("details.rate", rate);
       setDetailItem(item);
@@ -243,7 +249,7 @@ const SalesVoucherAdd = () => {
       const gw  = getValues("details.gw");
       setValue("details.value", computeValue(rate, item.uom, pcs, ct, gw));
     }
-  }, [detailPacket, packets, setValue]);
+  }, [detailPacket, packets, setValue, b2bPricelist]);
 
   // Recalculate value whenever rate or qty fields change
   useEffect(() => {
@@ -299,11 +305,13 @@ const SalesVoucherAdd = () => {
   // (must live after isRawItem declaration to avoid TDZ error)
   useEffect(() => {
     if (!isRawItem || !detailPurity) return;
-    const rate = goldRates[detailPurity];
+    // B2B: apply tunch-adjusted rate; retail: use standard gold rate
+    const b2bRate = b2bPricelist ? getB2bGoldRate(detailPurity) : null;
+    const rate = b2bRate != null ? b2bRate : goldRates[detailPurity];
     if (rate !== undefined) {
       setValue("details.rate", rate);
     }
-  }, [detailPurity, isRawItem, goldRates]);
+  }, [detailPurity, isRawItem, goldRates, b2bPricelist]);
 
   // ── Initial data load ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -507,6 +515,93 @@ const SalesVoucherAdd = () => {
     setCalculate(prev => prev + 1);
   }, [hsn_current, place_of_supply, retailStateCode]);
 
+  // ── B2B pricelist helpers ───────────────────────────────────────────────────
+
+  /** Find the best matching making rule from pricelist (most specific wins). */
+  const findB2bMakingRule = (purity, itemCode) => {
+    if (!b2bPricelist?.making_entries?.length) return null;
+    const entries = b2bPricelist.making_entries;
+    // Priority: purity+item > purity-only > item-only > default (both null)
+    return (
+      entries.find(e => e.purity === purity && e.item === itemCode) ||
+      entries.find(e => e.purity === purity && !e.item) ||
+      entries.find(e => !e.purity && e.item === itemCode) ||
+      entries.find(e => !e.purity && !e.item) ||
+      null
+    );
+  };
+
+  /** Get B2B stone rate for a packet: stone_override > wholesale_packet_rates > fallback. */
+  const getB2bStoneRate = (pcktNo) => {
+    if (!b2bPricelist) return null;
+    const override = b2bPricelist.stone_overrides?.find(s => s.packet === pcktNo);
+    if (override) return override.rate;
+    const wholesale = b2bPricelist.wholesale_packet_rates?.[pcktNo];
+    if (wholesale != null) return wholesale;
+    return null;
+  };
+
+  /** Get B2B gold rate for a purity using tunch markup.
+   *  baseRate = retail rate for that purity (from goldRates state).
+   *  gwPer   = purity's gold weight % (e.g. 91.67 for 22K). */
+  const getB2bGoldRate = (purityName) => {
+    if (!b2bPricelist) return null;
+    const tunchEntry = b2bPricelist.tunch_entries?.find(t => t.purity === purityName);
+    if (!tunchEntry) return null;
+    const baseRate = goldRates[purityName];
+    if (!baseRate) return null;
+    const purityObj = purityData.find(p => p.purity === purityName);
+    if (!purityObj) return null;
+    const gwPer = parseFloat(purityObj.gw_per);
+    const tunchPct = parseFloat(tunchEntry.tunch_percent);
+    // pureRate = baseRate / (gwPer / 100), then apply (gwPer + tunch) / 100
+    const pureRate = baseRate / (gwPer / 100);
+    return Math.round(pureRate * ((gwPer + tunchPct) / 100));
+  };
+
+  /** Apply B2B pricelist overrides to a barcode item before appending. */
+  const applyB2bOverrides = (item) => {
+    if (!b2bPricelist) return item;
+    const overridden = { ...item };
+
+    // Override making charges
+    const purity = item.metal_purity || item.purity;
+    const itemCode = item.item;
+    const makingRule = findB2bMakingRule(purity, itemCode);
+    if (makingRule) {
+      overridden.making_type = makingRule.making_type;
+      overridden.making = parseFloat(makingRule.making_value);
+    }
+
+    // Override stone rates in main_item_set
+    if (item.main_item_set?.length) {
+      overridden.main_item_set = item.main_item_set.map(sub => {
+        const updated = { ...sub };
+        // Stone items (non-raw): override rate from pricelist
+        if (sub.pckt_no) {
+          const b2bRate = getB2bStoneRate(sub.pckt_no);
+          if (b2bRate != null) {
+            updated.rate = b2bRate;
+            // Recalculate amount
+            if (sub.uom === 'Ct') updated.amount = +(b2bRate * (parseFloat(sub.ct) || 0)).toFixed(2);
+            else updated.amount = +(b2bRate * (parseFloat(sub.gw) || 0)).toFixed(2);
+          }
+        }
+        // Gold/raw sub-items: override rate using tunch
+        if (sub.item_type === 'R' && sub.metal_purity) {
+          const b2bRate = getB2bGoldRate(sub.metal_purity);
+          if (b2bRate != null) {
+            updated.rate = b2bRate;
+            updated.amount = +(b2bRate * (parseFloat(sub.gw) || 0)).toFixed(2);
+          }
+        }
+        return updated;
+      });
+    }
+
+    return overridden;
+  };
+
   // ── Barcode scan handler ───────────────────────────────────────────────────
   const handleBlur = async () => {
     const { barcode, hsn } = getValues();
@@ -514,7 +609,8 @@ const SalesVoucherAdd = () => {
     try {
       const data = await fetchBarcodeDetail(barcode, hsn);
       if (data.success) {
-        append(data.data);
+        const item = b2bPricelist ? applyB2bOverrides(data.data) : data.data;
+        append(item);
       } else {
         toast({ title: "Barcode not found", description: JSON.stringify(data.error) || "Server error" });
       }
@@ -692,6 +788,30 @@ const SalesVoucherAdd = () => {
     setCalculate(prev => prev + 1);
   };
 
+  // ── Apply Retail Discount ─────────────────────────────────────────────────
+  const applyRetailDiscount = () => {
+    if (!retailDiscountPricelist) return;
+    const ruleByPurity = Object.fromEntries(
+      (retailDiscountPricelist.rules || []).map(r => [r.purity, r])
+    );
+    let totalDiscount = 0;
+    for (const item of (getValues('salesvouitem_set') || [])) {
+      const purityStr = item.metal_purity || null;
+      const rule = purityStr ? ruleByPurity[purityStr] : null;
+      if (!rule) continue;
+      // Making charge discount
+      totalDiscount += parseFloat(item.making_value || 0) * parseFloat(rule.making_discount_pct || 0) / 100;
+      // Stone/diamond discount — sub-items with pckt_no are stone items
+      for (const sub of (item.main_item_set || [])) {
+        if (sub.pckt_no) {
+          totalDiscount += parseFloat(sub.amount || 0) * parseFloat(rule.diamond_discount_pct || 0) / 100;
+        }
+      }
+    }
+    setValue('form.discount', parseFloat(totalDiscount.toFixed(2)));
+    setCalculate(prev => prev + 1);
+  };
+
   // ── Bill Summary rows ──────────────────────────────────────────────────────
   const billSummaryRows = [
     { label: 'Freight Charge', field: 'form.freight_charge', editable: true },
@@ -776,18 +896,38 @@ const SalesVoucherAdd = () => {
                       setSelectedPurchase(null);
                       setValue("form.old_gold_purchase", "");
                       setValue("form.old_gold_adjusted", 0);
+                      // Fetch B2B pricelist if assigned
+                      const plRes = await fetchB2BPricelistForLedger(selected.id);
+                      setB2bPricelist(plRes.success && plRes.data ? plRes.data : null);
+                      // Fetch Retail Discount pricelist if assigned
+                      const rdplRes = await fetchRetailDiscountPricelistForLedger(selected.id);
+                      setRetailDiscountPricelist(rdplRes.success && rdplRes.data ? rdplRes.data : null);
                     } else {
                       setCustomerCashInfo(null);
                       setCustomerOrders([]);
                       setSelectedOrder(null);
                       setCustomerPurchases([]);
                       setSelectedPurchase(null);
+                      setB2bPricelist(null);
+                      setRetailDiscountPricelist(null);
                     }
                   },
                 })}
               />
               <Input type="hidden" {...register("form.ldgr")} />
-              <p className="text-xs mt-1 text-gray-500">Ledger cash: {cashledger}</p>
+              <p className="text-xs mt-1 text-gray-500">
+                Ledger cash: {cashledger}
+                {b2bPricelist && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    B2B: {b2bPricelist.name}
+                  </span>
+                )}
+                {retailDiscountPricelist && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200">
+                    Discount: {retailDiscountPricelist.name}
+                  </span>
+                )}
+              </p>
               {customerCashInfo && (() => {
                 const { cash_received, limit, remaining } = customerCashInfo;
                 const pct = limit > 0 ? Math.min(100, (cash_received / limit) * 100) : 0;
@@ -1570,6 +1710,20 @@ const SalesVoucherAdd = () => {
         </div>
 
         {/* ══ 6. BILL SUMMARY ══════════════════════════════════════════════════ */}
+        {retailDiscountPricelist && (
+          <div className="flex justify-end mb-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
+              onClick={applyRetailDiscount}
+            >
+              <BadgePercent className="w-3.5 h-3.5" />
+              Apply Discount ({retailDiscountPricelist.name})
+            </Button>
+          </div>
+        )}
         <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} autoCalcTotal={autoCalcEnabled} onAutoCalc={handleAutoCalcFromTotal} />
 
         {/* Submit */}

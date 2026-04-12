@@ -292,6 +292,30 @@ const AddJournal = () => {
         return;
       }
 
+      // Cash/Bank side restriction
+      const ledger = customers.find(c => c.ac_name === row.account);
+      const isCashBank = ledger?.roles?.some(r => r.role === 'CA' || r.role === 'BA');
+      if (isCashBank) {
+        if (journal_type === 'RCPT' && rowCredit > 0) {
+          toast({
+            title: "Invalid entry",
+            description: `${row.account} is a Cash/Bank account — it can only be debited in a Receipt voucher.`,
+            variant: "destructive",
+          });
+          e.preventDefault();
+          return;
+        }
+        if (journal_type === 'PMNT' && rowDebit > 0) {
+          toast({
+            title: "Invalid entry",
+            description: `${row.account} is a Cash/Bank account — it can only be credited in a Payment voucher.`,
+            variant: "destructive",
+          });
+          e.preventDefault();
+          return;
+        }
+      }
+
       // Default: single-row add
       setRows(prev => [...prev, { ...row }])
       reset({...getValues(),

@@ -504,6 +504,105 @@ class Packet(models.Model):
         return self.pckt_no
 
 
+# ── B2B Pricelist ────────────────────────────────────────────────────────────
+# Defines pricing rules for B2B (dealer/wholesale) customers.  A pricelist is
+# assigned to a Ledger via Ledger.b2b_pricelist FK.
+
+class B2BPricelist(models.Model):
+    name        = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    is_active   = models.BooleanField(default=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'b2b_pricelist'
+
+    def __str__(self):
+        return self.name
+
+
+class B2BPricelistTunch(models.Model):
+    """Tunch markup per purity.  e.g. 22K → 8% means charge (91.6+8)% of pure gold rate."""
+    pricelist     = models.ForeignKey(B2BPricelist, on_delete=models.CASCADE, related_name='tunch_entries')
+    purity        = models.ForeignKey('goldrates.PurityMaster', on_delete=models.CASCADE)
+    tunch_percent = models.DecimalField(max_digits=5, decimal_places=2)
+
+    class Meta:
+        db_table = 'b2b_pricelist_tunch'
+        unique_together = ('pricelist', 'purity')
+
+    def __str__(self):
+        return f"{self.pricelist.name} / {self.purity} → +{self.tunch_percent}%"
+
+
+MAKING_TYPE_CHOICES = [
+    ('val',    'Flat Value'),
+    ('per_nw', '% of Gold Value'),
+]
+
+class B2BPricelistMaking(models.Model):
+    """Making charge rule.  Null purity/item = default for all."""
+    pricelist    = models.ForeignKey(B2BPricelist, on_delete=models.CASCADE, related_name='making_entries')
+    purity       = models.ForeignKey('goldrates.PurityMaster', on_delete=models.CASCADE, null=True, blank=True)
+    item         = models.ForeignKey(Item, on_delete=models.CASCADE, null=True, blank=True)
+    making_type  = models.CharField(max_length=10, choices=MAKING_TYPE_CHOICES)
+    making_value = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        db_table = 'b2b_pricelist_making'
+
+    def __str__(self):
+        return f"{self.pricelist.name} making: {self.making_type}={self.making_value}"
+
+
+class B2BPricelistStoneOverride(models.Model):
+    """Optional per-packet stone rate override.  Falls back to Packet.rate_for_wholesale."""
+    pricelist = models.ForeignKey(B2BPricelist, on_delete=models.CASCADE, related_name='stone_overrides')
+    packet    = models.ForeignKey(Packet, on_delete=models.CASCADE)
+    rate      = models.IntegerField()
+
+    class Meta:
+        db_table = 'b2b_pricelist_stone_override'
+        unique_together = ('pricelist', 'packet')
+
+    def __str__(self):
+        return f"{self.pricelist.name} / {self.packet} → ₹{self.rate}"
+
+
+class RetailDiscountPricelist(models.Model):
+    """Discount pricelist for retail customers — defines making & diamond discount % per purity."""
+    name        = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    is_active   = models.BooleanField(default=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'retail_discount_pricelist'
+
+    def __str__(self):
+        return self.name
+
+
+class RetailDiscountPricelistRule(models.Model):
+    """Per-purity discount percentages for making charges and diamond/stone charges."""
+    pricelist            = models.ForeignKey(RetailDiscountPricelist, on_delete=models.CASCADE, related_name='rules')
+    purity               = models.ForeignKey('goldrates.PurityMaster', on_delete=models.CASCADE)
+    making_discount_pct  = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    diamond_discount_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    class Meta:
+        db_table        = 'retail_discount_pricelist_rule'
+        unique_together = ('pricelist', 'purity')
+
+    def __str__(self):
+        return (
+            f"{self.pricelist.name} / {self.purity} → "
+            f"making={self.making_discount_pct}% diamond={self.diamond_discount_pct}%"
+        )
+
+
 class TDSSectionMaster(models.Model):
     """TDS (Tax Deducted at Source) sections — applies on purchases/payments."""
     section_code     = models.CharField(max_length=10, unique=True)

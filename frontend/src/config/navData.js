@@ -38,6 +38,8 @@ export const navData = {
   navMain0: [
     { title: "Sales Person",      url: "/setup/salesperson",       icon: Users        },
     { title: "Karigar Making",    url: "/setup/karigar-making",    icon: Hammer       },
+    { title: "B2B Pricelist",     url: "/setup/b2b-pricelist",     icon: Tag          },
+    { title: "Retail Discount Pricelist", url: "/setup/retail-discount-pricelist", icon: Tag },
     { title: "Chart of Accounts", url: "/accounting/account-tree", icon: BookOpen     },
     { title: "TDS Sections",      url: "/setup/tds-section",       icon: Percent      },
     { title: "TCS Sections",      url: "/setup/tcs-section",       icon: Percent      },

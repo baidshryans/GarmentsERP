@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 from rest_framework.decorators import api_view
 from rest_framework import status
 from accounting.serializers import LedgerSerializer
@@ -96,16 +97,29 @@ class ListCreateLedger(ListCreateAPIView):
     # FA asset account groups that are managed exclusively via the Fixed Asset Master
     FA_ASSET_GROUP_CODES = {'FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH'}
 
+    # These account groups are branch-specific (each retail has its own cash/bank).
+    # Every other group is treated as global (retail_code=None) so ledgers like
+    # customers, suppliers, karigars, income, expense accounts are shared across
+    # all retail branches.
+    PER_RETAIL_GROUP_CODES = {'CA-CSH', 'CA-BNK', 'CA-BNK-OD'}
+
     def get_queryset(self):
         retail = getattr(self.request, 'retail', None)
         if retail is None:
             return Ledger.objects.none()
         return (
             Ledger.objects
-            .filter(retail_code=retail)
+            .filter(Q(retail_code=retail) | Q(retail_code__isnull=True))
             .select_related('ac_group')
             .prefetch_related('roles')
         )
+
+    def perform_create(self, serializer):
+        ac_group = serializer.validated_data.get('ac_group')
+        if ac_group and ac_group.code in self.PER_RETAIL_GROUP_CODES:
+            serializer.save(retail_code=self.request.retail)
+        else:
+            serializer.save(retail_code=None)  # global — visible to all branches
 
     def create(self, request, *args, **kwargs):
         # Block ledger creation under FA asset account groups — use Asset Master instead
@@ -146,7 +160,7 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
         retail = getattr(self.request, 'retail', None)
         if retail is None:
             return Ledger.objects.none()
-        return Ledger.objects.filter(retail_code=retail)
+        return Ledger.objects.filter(Q(retail_code=retail) | Q(retail_code__isnull=True))
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

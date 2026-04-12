@@ -1740,3 +1740,34 @@ def deposit_cheque(request, pk):
 
     from sales.serializers import BankDetails
     return Response(BankDetails(bd).data)
+
+
+# ── B2B Pricelist lookup for a ledger ────────────────────────────────────────
+
+@api_view(['GET'])
+def b2b_pricelist_for_ledger(request, ledger_id):
+    """Return the full B2B pricelist data for a ledger, plus wholesale packet rates."""
+    ledger = get_object_or_404(Ledger, pk=ledger_id)
+    if not ledger.b2b_pricelist_id:
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+
+    from mastersconfig.serializers import B2BPricelistSerializer
+    from mastersconfig.models import Packet
+
+    pricelist_data = B2BPricelistSerializer(ledger.b2b_pricelist).data
+    # Include wholesale packet rates so frontend can fall back to rate_for_wholesale
+    pricelist_data['wholesale_packet_rates'] = {
+        p.pckt_no: p.rate_for_wholesale
+        for p in Packet.objects.filter(rate_for_wholesale__isnull=False)
+    }
+    return Response(pricelist_data)
+
+
+@api_view(['GET'])
+def retail_discount_pricelist_for_ledger(request, ledger_id):
+    """Return the Retail Discount Pricelist for a ledger (if assigned)."""
+    ledger = get_object_or_404(Ledger, pk=ledger_id)
+    if not ledger.retail_discount_pricelist_id:
+        return Response(None, status=status.HTTP_204_NO_CONTENT)
+    from mastersconfig.serializers import RetailDiscountPricelistSerializer
+    return Response(RetailDiscountPricelistSerializer(ledger.retail_discount_pricelist).data)

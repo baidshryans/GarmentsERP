@@ -1,6 +1,13 @@
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
-from .models import Hsn, Item, ItemGroupMaster, Packet, PacketGroup, RetailMaster, SalesPersonMaster, Shapes, Colors, FiscalYearMaster, State, TDSSectionMaster, TCSSectionMaster, ExhibitionProfile, BranchMaster, CompanyMaster, SystemSettings, CRMSettings, CRMSendLog, GSTINMaster
+from .models import (
+    Hsn, Item, ItemGroupMaster, Packet, PacketGroup, RetailMaster,
+    SalesPersonMaster, Shapes, Colors, FiscalYearMaster, State,
+    TDSSectionMaster, TCSSectionMaster, ExhibitionProfile, BranchMaster,
+    CompanyMaster, SystemSettings, CRMSettings, CRMSendLog, GSTINMaster,
+    B2BPricelist, B2BPricelistTunch, B2BPricelistMaking, B2BPricelistStoneOverride,
+    RetailDiscountPricelist, RetailDiscountPricelistRule,
+)
 
 
 class StateSerializer(ModelSerializer):
@@ -307,3 +314,192 @@ class CRMSendLogSerializer(ModelSerializer):
     class Meta:
         model  = CRMSendLog
         fields = ['id', 'customer_name', 'mobile', 'occasion', 'sent_at', 'status', 'error_message']
+
+
+# ── B2B Pricelist serializers ────────────────────────────────────────────────
+
+class B2BPricelistTunchSerializer(ModelSerializer):
+    purity = serializers.SlugRelatedField(
+        queryset=__import__('goldrates.models', fromlist=['PurityMaster']).PurityMaster.objects.all(),
+        slug_field='purity',
+    )
+    pricelist = serializers.PrimaryKeyRelatedField(
+        queryset=B2BPricelist.objects.all(), required=False,
+    )
+
+    class Meta:
+        model  = B2BPricelistTunch
+        fields = ['id', 'pricelist', 'purity', 'tunch_percent']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class B2BPricelistMakingSerializer(ModelSerializer):
+    purity = serializers.SlugRelatedField(
+        queryset=__import__('goldrates.models', fromlist=['PurityMaster']).PurityMaster.objects.all(),
+        slug_field='purity', allow_null=True, required=False,
+    )
+    item = serializers.SlugRelatedField(
+        queryset=Item.objects.all(),
+        slug_field='short_code', allow_null=True, required=False,
+    )
+    pricelist = serializers.PrimaryKeyRelatedField(
+        queryset=B2BPricelist.objects.all(), required=False,
+    )
+
+    class Meta:
+        model  = B2BPricelistMaking
+        fields = ['id', 'pricelist', 'purity', 'item', 'making_type', 'making_value']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class B2BPricelistStoneOverrideSerializer(ModelSerializer):
+    packet = serializers.SlugRelatedField(
+        queryset=Packet.objects.all(), slug_field='pckt_no',
+    )
+    pricelist = serializers.PrimaryKeyRelatedField(
+        queryset=B2BPricelist.objects.all(), required=False,
+    )
+
+    class Meta:
+        model  = B2BPricelistStoneOverride
+        fields = ['id', 'pricelist', 'packet', 'rate']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class B2BPricelistSerializer(ModelSerializer):
+    tunch_entries   = B2BPricelistTunchSerializer(many=True, required=False)
+    making_entries  = B2BPricelistMakingSerializer(many=True, required=False)
+    stone_overrides = B2BPricelistStoneOverrideSerializer(many=True, required=False)
+
+    class Meta:
+        model  = B2BPricelist
+        fields = [
+            'id', 'name', 'description', 'is_active',
+            'tunch_entries', 'making_entries', 'stone_overrides',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate(self, attrs):
+        has_tunch  = bool(attrs.get('tunch_entries'))
+        has_making = bool(attrs.get('making_entries'))
+        if has_tunch and has_making:
+            raise serializers.ValidationError(
+                "A pricelist cannot have both Tunch rules and Making Charge rules. Use one or the other."
+            )
+        return attrs
+
+    def create(self, validated_data):
+        from manufacturing.utils import create_or_update_nested
+        from django.db import transaction
+
+        tunch   = validated_data.pop('tunch_entries', [])
+        making  = validated_data.pop('making_entries', [])
+        stones  = validated_data.pop('stone_overrides', [])
+
+        with transaction.atomic():
+            pricelist = B2BPricelist.objects.create(**validated_data)
+            if tunch:
+                create_or_update_nested(
+                    B2BPricelistTunchSerializer, pricelist,
+                    'tunch_entries', 'pricelist',
+                    B2BPricelistTunchSerializer(tunch, many=True).data,
+                )
+            if making:
+                create_or_update_nested(
+                    B2BPricelistMakingSerializer, pricelist,
+                    'making_entries', 'pricelist',
+                    B2BPricelistMakingSerializer(making, many=True).data,
+                )
+            if stones:
+                create_or_update_nested(
+                    B2BPricelistStoneOverrideSerializer, pricelist,
+                    'stone_overrides', 'pricelist',
+                    B2BPricelistStoneOverrideSerializer(stones, many=True).data,
+                )
+        return pricelist
+
+    def update(self, instance, validated_data):
+        from manufacturing.utils import create_or_update_nested
+        from django.db import transaction
+
+        tunch   = validated_data.pop('tunch_entries', [])
+        making  = validated_data.pop('making_entries', [])
+        stones  = validated_data.pop('stone_overrides', [])
+
+        with transaction.atomic():
+            for attr, val in validated_data.items():
+                setattr(instance, attr, val)
+            instance.save()
+
+            create_or_update_nested(
+                B2BPricelistTunchSerializer, instance,
+                'tunch_entries', 'pricelist',
+                B2BPricelistTunchSerializer(tunch, many=True).data,
+            )
+            create_or_update_nested(
+                B2BPricelistMakingSerializer, instance,
+                'making_entries', 'pricelist',
+                B2BPricelistMakingSerializer(making, many=True).data,
+            )
+            create_or_update_nested(
+                B2BPricelistStoneOverrideSerializer, instance,
+                'stone_overrides', 'pricelist',
+                B2BPricelistStoneOverrideSerializer(stones, many=True).data,
+            )
+        return instance
+
+
+# ── Retail Discount Pricelist serializers ─────────────────────────────────────
+
+class RetailDiscountPricelistRuleSerializer(ModelSerializer):
+    purity = serializers.SlugRelatedField(
+        queryset=__import__('goldrates.models', fromlist=['PurityMaster']).PurityMaster.objects.all(),
+        slug_field='purity',
+    )
+    pricelist = serializers.PrimaryKeyRelatedField(
+        queryset=RetailDiscountPricelist.objects.all(), required=False,
+    )
+
+    class Meta:
+        model  = RetailDiscountPricelistRule
+        fields = ['id', 'pricelist', 'purity', 'making_discount_pct', 'diamond_discount_pct']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class RetailDiscountPricelistSerializer(ModelSerializer):
+    rules = RetailDiscountPricelistRuleSerializer(many=True, required=False)
+
+    class Meta:
+        model  = RetailDiscountPricelist
+        fields = ['id', 'name', 'description', 'is_active', 'rules', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def create(self, validated_data):
+        from manufacturing.utils import create_or_update_nested
+        from django.db import transaction
+        rules = validated_data.pop('rules', [])
+        with transaction.atomic():
+            pricelist = RetailDiscountPricelist.objects.create(**validated_data)
+            if rules:
+                create_or_update_nested(
+                    RetailDiscountPricelistRuleSerializer, pricelist,
+                    'rules', 'pricelist',
+                    RetailDiscountPricelistRuleSerializer(rules, many=True).data,
+                )
+        return pricelist
+
+    def update(self, instance, validated_data):
+        from manufacturing.utils import create_or_update_nested
+        from django.db import transaction
+        rules = validated_data.pop('rules', [])
+        with transaction.atomic():
+            for attr, val in validated_data.items():
+                setattr(instance, attr, val)
+            instance.save()
+            create_or_update_nested(
+                RetailDiscountPricelistRuleSerializer, instance,
+                'rules', 'pricelist',
+                RetailDiscountPricelistRuleSerializer(rules, many=True).data,
+            )
+        return instance

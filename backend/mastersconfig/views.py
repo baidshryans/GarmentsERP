@@ -1448,3 +1448,37 @@ def crm_test_send(request):
         return Response({'status': 'ok', 'message': settings.last_run_status})
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+
+# ── B2B Pricelist CRUD ──────────────────────────────────────────────────────
+
+class ListCreateB2BPricelist(ListCreateAPIView):
+    serializer_class = B2BPricelistSerializer
+    queryset = B2BPricelist.objects.prefetch_related(
+        'tunch_entries', 'making_entries', 'stone_overrides',
+    ).all()
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields   = ['name']
+    ordering        = ['name']
+
+
+class RetrieveUpdateDestroyB2BPricelist(RetrieveUpdateDestroyAPIView):
+    serializer_class = B2BPricelistSerializer
+    queryset = B2BPricelist.objects.prefetch_related(
+        'tunch_entries', 'making_entries', 'stone_overrides',
+    ).all()
+
+
+# ── Retail Discount Pricelist ─────────────────────────────────────────────────
+
+class ListCreateRetailDiscountPricelist(ListCreateAPIView):
+    serializer_class = RetailDiscountPricelistSerializer
+    queryset         = RetailDiscountPricelist.objects.prefetch_related('rules').all()
+    filter_backends  = [SearchFilter, OrderingFilter]
+    search_fields    = ['name']
+    ordering         = ['name']
+
+
+class RetrieveUpdateDestroyRetailDiscountPricelist(RetrieveUpdateDestroyAPIView):
+    serializer_class = RetailDiscountPricelistSerializer
+    queryset         = RetailDiscountPricelist.objects.prefetch_related('rules').all()

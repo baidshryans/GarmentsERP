@@ -286,14 +286,14 @@ const PurchaseVoucher = () => {
         fetchPos(),
         fetchHSNs(),
       ]);
-      if (packets.success) setPackets(packets.data);
+      if (packets.success) setPackets(packets.data.results ?? packets.data);
       if (customerOrders.success) setCustomerOrders(customerOrders.data.results);
       if (customers.success) setCustomers(customers.data.results);
-      if (states.success) setstatesData(states.data);
+      if (states.success) setstatesData(states.data.results ?? states.data);
 
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (mainItemM.success) setMainItemsM(mainItemM.data);
-      if (purity.success) setPurityData(purity.data);
+      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
+      if (mainItemM.success) setMainItemsM(mainItemM.data.results ?? mainItemM.data);
+      if (purity.success) setPurityData(purity.data.results ?? purity.data);
       if (poNo.success) setValue("po_no", poNo.data.po_no);
       if (hsnres.success) {
         setHSNs(hsnres.data.results);

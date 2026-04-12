@@ -53,7 +53,7 @@ const MergeBarcode = () => {
             if (barcodeList.success) setBarcodes(barcodeList.data.results);
             if (barcode.success) setValue("table.barcode", barcode.data.barcode);
             if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
-            if (purity.success) setPurityData(purity.data);
+            if (purity.success) setPurityData(purity.data.results ?? purity.data);
         }
         fetchData();
     }, []);

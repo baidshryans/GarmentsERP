@@ -367,9 +367,9 @@ const SalesVoucherAdd = () => {
         fetchSystemSettings(),
         getLedgers({ type: "BA", page: 1 }),
       ]);
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (purity.success) setPurityData(purity.data);
-      if (packetsRes.success) setPackets(packetsRes.data);
+      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
+      if (purity.success) setPurityData(purity.data.results ?? purity.data);
+      if (packetsRes.success) setPackets(packetsRes.data.results ?? packetsRes.data);
       if (sysSettings.success) setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
       if (bankLedgersRes.success) {
         const list = Array.isArray(bankLedgersRes.data) ? bankLedgersRes.data : (bankLedgersRes.data?.results ?? []);

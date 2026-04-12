@@ -91,8 +91,8 @@ const PurchaseOrder = () => {
       if (customers.success) setCustomers(customers.data.results);
       if (states.success) setstatesData(states.data);
       if (orderNo.success) setValue("form.po_no", orderNo.data.billno);
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (purity.success) setPurityData(purity.data);
+      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
+      if (purity.success) setPurityData(purity.data.results ?? purity.data);
     }
     fetchData().then(d => {
       if (id) {

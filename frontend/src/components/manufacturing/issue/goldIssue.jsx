@@ -76,8 +76,8 @@ const GoldIssue = () => {
       if (customers.success) setCustomers(customers.data.results);
       if (salesperson.success) setSalespersonData(salesperson.data.results);
       if (orderNo.success) setValue("form.billno", orderNo.data.bill_no);
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (purity.success) setPurityData(purity.data);
+      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
+      if (purity.success) setPurityData(purity.data.results ?? purity.data);
     }
     fetchData().then(d => {
       if (id) {

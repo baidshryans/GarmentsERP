@@ -66,8 +66,8 @@ const IssueToAssay = () => {
                 fetchAvailableMeltingReceives(id || null),
             ]);
             if (mltRes.success) setMeltingHouses(mltRes.data.results);
-            if (itemRes.success) setMainItemData(itemRes.data);
-            if (purityRes.success) setPurityData(purityRes.data);
+            if (itemRes.success) setMainItemData(itemRes.data.results ?? itemRes.data);
+            if (purityRes.success) setPurityData(purityRes.data.results ?? purityRes.data);
             if (packetRes.success) setPackets(packetRes.data.results ?? packetRes.data);
             if (billNoRes.success) setValue("form.billno", billNoRes.data.bill_no);
             if (recvRes.success) setAvailableReceives(recvRes.data.results ?? []);

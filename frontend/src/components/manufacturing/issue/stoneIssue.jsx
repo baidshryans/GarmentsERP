@@ -92,13 +92,13 @@ const StoneIssue = () => {
         fetchMainItem(),
         fetchPurity(),
       ]);
-      if (packets.success) setPackets(packets.data);
+      if (packets.success) setPackets(packets.data.results ?? packets.data);
       if (karigars.success) setKarigars(karigars.data.results);
       if (customers.success) setCustomers(customers.data.results);
-      if (states.success) setstatesData(states.data);
+      if (states.success) setstatesData(states.data.results ?? states.data);
       if (orderNo.success) setValue("form.billno", orderNo.data.bill_no);
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (purity.success) setPurityData(purity.data);
+      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
+      if (purity.success) setPurityData(purity.data.results ?? purity.data);
     }
     fetchData().then(d => {
           if (id) {

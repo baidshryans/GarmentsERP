@@ -159,10 +159,10 @@ function modifyData(data) {
       if (states.success) setstatesData(states.data);
       if (karigars.success) setKarigars(karigars.data.results);
       if (customers.success) setCustomers(customers.data.results);
-      if (salesperson.success) setSalespersonData(salesperson.data);
+      if (salesperson.success) setSalespersonData(salesperson.data.results ?? salesperson.data);
       if (orderNo.success) setValue("form.receive_slip_no", orderNo.data.receive_slip_no);
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (purity.success) setPurityData(purity.data);
+      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
+      if (purity.success) setPurityData(purity.data.results ?? purity.data);
     }
     fetchData().then((d) => {
 

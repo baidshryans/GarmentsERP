@@ -176,12 +176,12 @@ const RawSalesReturn = () => {
 
       // MainItem
       if (mainItemRes.success) {
-        setMainItemData(mainItemRes.data);
+        setMainItemData(mainItemRes.data.results ?? mainItemRes.data);
       }
 
       // Purity
       if (purityRes.success) {
-        setPurityData(purityRes.data);
+        setPurityData(purityRes.data.results ?? purityRes.data);
       }
 
       // Purity

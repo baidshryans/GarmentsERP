@@ -74,8 +74,8 @@ const KarigarIssue = () => {
       ]);
       if (customers.success) setCustomers(customers.data.results);
       if (orderNo.success) setValue("form.issue_slip_no", orderNo.data.next_slip_no);
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (purity.success) setPurityData(purity.data);
+      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
+      if (purity.success) setPurityData(purity.data.results ?? purity.data);
       if (customerOrders.success) setCustomerOrders(customerOrders.data.results);
       if (karigars.success) setKarigars(karigars.data.results);
       if (unb.success) setUnbarcodedList(transformData(unb.data.results,'label'));

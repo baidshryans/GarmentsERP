@@ -69,8 +69,8 @@ const IssueToRefinary = () => {
                 fetchNextRefinaryIssueNo(),
             ]);
             if (refRes.success) setRefineries(refRes.data.results);
-            if (itemRes.success) setMainItemData(itemRes.data);
-            if (purityRes.success) setPurityData(purityRes.data);
+            if (itemRes.success) setMainItemData(itemRes.data.results ?? itemRes.data);
+            if (purityRes.success) setPurityData(purityRes.data.results ?? purityRes.data);
             if (packetRes.success) setPackets(packetRes.data.results ?? packetRes.data);
             if (orderNoRes.success) setValue("form.billno", orderNoRes.data.bill_no);
         }

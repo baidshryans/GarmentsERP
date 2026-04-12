@@ -117,7 +117,7 @@ const SalesApprovalAdd = () => {
       ]);
 
       if (states.success) {
-        setStatesData(states.data);
+        setStatesData(states.data.results ?? states.data);
         /* Set default place_of_supply from retail's state code */
         const retailStateCode = localStorage.getItem("state_code");
         if (retailStateCode && !id) {
@@ -125,7 +125,7 @@ const SalesApprovalAdd = () => {
         }
       }
       if (ledgersRes.success)    setCustomers(ledgersRes.data.results);
-      if (salesPersonRes.success) setSalesperson(salesPersonRes.data);
+      if (salesPersonRes.success) setSalesperson(salesPersonRes.data.results ?? salesPersonRes.data);
       if (hsnRes.success)        setHsns(hsnRes.data.results);
       if (billNoRes.success)     setValue("form.billno", billNoRes.data.billno);
 

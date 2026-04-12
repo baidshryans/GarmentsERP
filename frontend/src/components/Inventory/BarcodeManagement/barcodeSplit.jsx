@@ -195,7 +195,7 @@ const BarcodeSplit = () => {
                 fetchPos(),
                 fetchHSNs(),
             ]);
-            if (packets.success) setPackets(packets.data);
+            if (packets.success) setPackets(packets.data.results ?? packets.data);
             if (barcodes.success) setBarcodes(barcodes.data.results);
 
             if (customers.success) setCustomers(customers.data.results);
@@ -203,7 +203,7 @@ const BarcodeSplit = () => {
             if (salesperson.success) setSalespersonData(salesperson.data.results);
             if (orderNo.success) setValue("order_no", orderNo.data.bill_no);
             if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
-            if (purity.success) setPurityData(purity.data);
+            if (purity.success) setPurityData(purity.data.results ?? purity.data);
             if (poNo.success) setValue("po_no", poNo.data.po_no);
             if (hsnres.success) setHSNs(hsnres.data.results);
         }

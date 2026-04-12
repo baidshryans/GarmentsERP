@@ -8,6 +8,7 @@ import { useF4Submit } from "@/hooks/useF4Submit"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
@@ -260,24 +261,16 @@ const GoldIssue = () => {
         <div className="grid grid-cols-3 gap-4 mb-4">
           <FieldContainer>
             <Label htmlFor="party_name_display" className="text-nowrap">Karigar Name</Label>
-            <Input list="party_list" {...register("form.karigar_ldgr_name", {
-              onChange: (e) => {
-                const selectedCustomer = customers.find(
-                  (customer) => customer.ac_name === e.target.value
-                );
-                selectedCustomer ? setValue("form.karigar_ldgr", selectedCustomer.id) : e.target.value;
-
-              }
-            })}
+            <SearchableComboBox
+              options={customers}
+              value={watch("form.karigar_ldgr_name") ?? ""}
+              onSelect={(opt) => {
+                setValue("form.karigar_ldgr_name", opt.ac_name)
+                setValue("form.karigar_ldgr", opt.id)
+              }}
+              placeholder="Search karigar…"
             />
-            <Input type="hidden" {...register("form.karigar_ldgr")} />
-            <datalist id="party_list" >
-              {customers.map((customer, index) => (
-                <option key={index} value={customer.ac_name}>{customer.id}</option>
-
-              ))}
-
-            </datalist>
+            <input type="hidden" {...register("form.karigar_ldgr")} />
 
 
 

@@ -559,3 +559,115 @@ class EWayBill(models.Model):
     def __str__(self):
         source = self.sales_vou.billno if self.sales_vou else (self.sales_approval.billno if self.sales_approval else '—')
         return f"EWB-{self.id} ({source})"
+
+
+# ── Quotation ────────────────────────────────────────────────────────────────
+
+class Quotation(models.Model):
+    STATUS_CHOICES = [
+        ('draft',     'Draft'),
+        ('finalized', 'Finalized'),
+        ('expired',   'Expired'),
+        ('converted', 'Converted to Sale'),
+    ]
+
+    date1          = models.DateField()
+    quotation_no   = models.CharField(max_length=30)
+    ldgr           = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True, blank=True)
+    party_name     = models.CharField(max_length=200, blank=True, default='')
+
+    # Gold rate snapshot
+    gold_rate_date = models.DateField(null=True, blank=True)
+    rate_18kt      = models.IntegerField(default=0)
+    rate_22kt      = models.IntegerField(default=0)
+    rate_24kt      = models.IntegerField(default=0)
+
+    # Totals
+    total_items    = models.IntegerField(default=0)
+    grand_total    = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    tax_percent    = models.DecimalField(max_digits=5, decimal_places=2, default=3)
+    tax_amount     = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    net_total      = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    # Status & validity
+    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    valid_until    = models.DateField(null=True, blank=True)
+
+    # Metadata
+    remarks        = models.CharField(max_length=200, blank=True, default='')
+    seller_info    = models.CharField(max_length=200, blank=True, default='')
+    sales_person   = models.ForeignKey(SalesPersonMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    converted_to   = models.ForeignKey(SalesVou, on_delete=models.SET_NULL, null=True, blank=True)
+
+    # Multi-tenant
+    retail         = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.CASCADE, null=True, blank=True, related_name='quotations')
+    fiscal_year    = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    created_by     = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = "quotation"
+        ordering = ['-id']
+
+    def __str__(self):
+        return f"{self.quotation_no} — {self.party_name or (self.ldgr.ac_name if self.ldgr else 'Walk-in')}"
+
+    @property
+    def ldgr_name(self):
+        if self.ldgr:
+            return self.ldgr.ac_name
+        return self.party_name or ''
+
+
+class QuotationItem(models.Model):
+    quotation      = models.ForeignKey(Quotation, on_delete=models.CASCADE, related_name='items')
+    sl_no          = models.IntegerField()
+    barcode        = models.ForeignKey("inventory.BarcodeMain", on_delete=models.SET_NULL, null=True, blank=True)
+    barcode_text   = models.CharField(max_length=20, blank=True, default='')
+    item           = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True)
+    item_name      = models.CharField(max_length=100, blank=True, default='')
+    design_code    = models.CharField(max_length=50, blank=True, default='')
+    purity_text    = models.CharField(max_length=10, blank=True, default='')
+    pcs            = models.IntegerField(default=1)
+    gw             = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    nw             = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    gold_rate      = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    gold_amount    = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    making_rate    = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    making_amount  = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    total_diamond_pcs = models.IntegerField(default=0)
+    total_diamond_wt  = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    total_diamond_amt = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    total_stone_pcs   = models.IntegerField(default=0)
+    total_stone_wt    = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    total_stone_amt   = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    total_amount   = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    image_url      = models.CharField(max_length=500, blank=True, default='')
+
+    class Meta:
+        db_table = "quotation_item"
+        ordering = ['sl_no']
+
+    def __str__(self):
+        return f"#{self.sl_no} {self.design_code} ({self.barcode_text})"
+
+
+class QuotationItemDetail(models.Model):
+    quotation_item = models.ForeignKey(QuotationItem, on_delete=models.CASCADE, related_name='details')
+    packet         = models.ForeignKey("mastersconfig.Packet", on_delete=models.SET_NULL, null=True, blank=True)
+    packet_name    = models.CharField(max_length=30, blank=True, default='')
+    item_name      = models.CharField(max_length=50, blank=True, default='')
+    is_diamond     = models.BooleanField(default=False)
+    pcs            = models.IntegerField(default=0)
+    wt             = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    rate           = models.IntegerField(default=0)
+    amount         = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        db_table = "quotation_item_detail"
+
+    def __str__(self):
+        return f"{self.packet_name} — {self.pcs}pcs / {self.wt}ct"

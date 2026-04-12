@@ -5328,3 +5328,95 @@ export async function fetchRetailDiscountPricelistForLedger(ledgerId) {
   }
 }
 
+// ── Quotation ───────────────────────────────────────────────────────────────
+
+export async function fetchQuotationInitialData() {
+  try {
+    const r = await apiClient.get("/sales/api/quotation-initial-data/");
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchNextQuotationNo() {
+  try {
+    const r = await apiClient.get("/sales/api/next_qt_no");
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createQuotation(data) {
+  try {
+    const r = await apiClient.post("/sales/api/quotation/", data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchQuotations(params = "") {
+  try {
+    const r = await apiClient.get(`/sales/api/quotation/?${params}`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchQuotationById(id) {
+  try {
+    const r = await apiClient.get(`/sales/api/quotation/${id}/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateQuotation(id, data) {
+  try {
+    const r = await apiClient.put(`/sales/api/quotation/${id}/`, data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteQuotation(id) {
+  try {
+    await apiClient.delete(`/sales/api/quotation/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchQuotationPrintData(id) {
+  try {
+    const r = await apiClient.get(`/sales/api/quotation/${id}/print-data/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function duplicateQuotation(id) {
+  try {
+    const r = await apiClient.post(`/sales/api/quotation/${id}/duplicate/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function finalizeQuotation(id) {
+  try {
+    const r = await apiClient.post(`/sales/api/quotation/${id}/finalize/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+

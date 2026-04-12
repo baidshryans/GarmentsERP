@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { arrayToObject, renderErrorTree } from "../../Utils";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import {
   Select,
   SelectTrigger,
@@ -508,28 +509,15 @@ const RawSalesReturn = () => {
               {...register("billno")}
             />
           </FieldContainer>
-          {/* ldgr -> same approach as "sales_person" with a <Controller> + <Select> */}
           <FieldContainer>
             <Label htmlFor="ldgr" className="text-nowrap">Ledger</Label>
-            <Controller
-              name="form.ldgr"
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a Ledger" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ledgers.map((ledger) => (
-                      <SelectItem key={ledger.id} value={`${ledger.id}`}>
-                        {ledger.ac_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+            <SearchableComboBox
+              options={ledgers}
+              value={ledgers.find((l) => String(l.id) === String(watch("form.ldgr")))?.ac_name ?? ""}
+              onSelect={(opt) => setValue("form.ldgr", opt.id)}
+              placeholder="Search customer…"
             />
+            <input type="hidden" {...register("form.ldgr", { required: true })} />
           </FieldContainer>
 
           

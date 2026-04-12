@@ -8,6 +8,7 @@ router.register(r'customer-orders-vs', views.CustomerOrderViewset, basename='cus
 router.register(r'sale-return', views.SalesReturnViewset)
 router.register(r'sale-voucher', views.SalesVoucherViewset)
 router.register(r'sale-approval', views.SalesApprovalViewset)
+router.register(r'quotation', views.QuotationViewset)
 app_name = "sales"
 urlpatterns = [
     path('api/', include(router.urls)),
@@ -43,5 +44,11 @@ urlpatterns = [
     path('api/deposit-cheque/<int:pk>/', views.deposit_cheque, name='deposit-cheque'),
     path('api/b2b-pricelist/<int:ledger_id>/', views.b2b_pricelist_for_ledger, name='b2b_pricelist_for_ledger'),
     path('api/retail-discount-pricelist/<int:ledger_id>/', views.retail_discount_pricelist_for_ledger, name='retail_discount_pricelist_for_ledger'),
+    # Quotation
+    path('api/next_qt_no', views.get_next_qt_no),
+    path('api/quotation-initial-data/', views.quotation_initial_data),
+    path('api/quotation/<int:pk>/print-data/', views.quotation_print_data),
+    path('api/quotation/<int:pk>/duplicate/', views.quotation_duplicate),
+    path('api/quotation/<int:pk>/finalize/', views.quotation_finalize),
 ]
 urlpatterns+= staticfiles_urlpatterns()

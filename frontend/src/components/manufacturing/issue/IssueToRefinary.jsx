@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Table, TableRow, TableCell, TableBody, TableHeader, TableHead } from "@/components/ui/table";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchMainItem, fetchPurity, getLedgers, fetchPackets, fetchMeltingReceive, fetchAssayReceive } from "@/services/apiService";
 import { createRefinaryIssue, fetchNextRefinaryIssueNo, fetchRefinaryIssueForEdit, updateRefinaryIssueForEdit } from "../../../services/apiService";
 import { useParams, useNavigate } from "react-router-dom";
@@ -217,23 +218,17 @@ const IssueToRefinary = () => {
                     </Field>
 
                     <Field label="Refinery House">
-                        <Input
-                            list="refinery_list"
-                            {...register("form.ldgr_name")}
-                            onChange={(e) => {
-                                const match = refineries.find((r) => r.ac_name === e.target.value);
-                                if (match) setValue("form.ldgr", match.id);
+                        <SearchableComboBox
+                            options={refineries}
+                            value={watch("form.ldgr_name") ?? ""}
+                            onSelect={(opt) => {
+                                setValue("form.ldgr_name", opt.ac_name)
+                                setValue("form.ldgr", opt.id)
                             }}
-                            placeholder="Select refinery..."
+                            placeholder="Search refinery…"
                             autoFocus
-                            required
                         />
-                        <Input type="hidden" {...register("form.ldgr")} />
-                        <datalist id="refinery_list">
-                            {refineries.map((r) => (
-                                <option key={r.id} value={r.ac_name} />
-                            ))}
-                        </datalist>
+                        <input type="hidden" {...register("form.ldgr")} />
                     </Field>
                 </div>
 

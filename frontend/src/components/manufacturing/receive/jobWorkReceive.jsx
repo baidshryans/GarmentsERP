@@ -8,6 +8,7 @@ import { useF4Submit } from "@/hooks/useF4Submit"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchMainItem, fetchOrderItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, getLedgers, createCustomerOrder, fetchPackets, getStates, fetchStoneIssuesFilterJobs, fetchMainItemDetails, createKarigarReceive, fetchKarigarReceive, fetchKarigarReceivewithID, updateKarigarReceive } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
@@ -365,28 +366,16 @@ function modifyData(data) {
             <Label htmlFor="party_name_display" className="text-nowrap">
               Karigar Name
             </Label>
-            {/* Datalist for picking a ledger */}
-            <Input
-              list="party_list"
-              {...register("form.karigar_ldgr_name")}
-              onChange={(e) => {
-                const selected = customers.find(
-                  (cust) => cust.ac_name === e.target.value
-                );
-                if (selected) {
-                  setValue("form.karigar_ldgr", selected.id);
-                }
+            <SearchableComboBox
+              options={customers}
+              value={watch("form.karigar_ldgr_name") ?? ""}
+              onSelect={(opt) => {
+                setValue("form.karigar_ldgr_name", opt.ac_name)
+                setValue("form.karigar_ldgr", opt.id)
               }}
-            // required
+              placeholder="Search karigar…"
             />
-            <Input type="hidden" {...register("form.karigar_ldgr")} />
-            <datalist id="party_list">
-              {customers.map((customer, idx) => (
-                <option key={idx} value={customer.ac_name}>
-                  {customer.id}
-                </option>
-              ))}
-            </datalist>
+            <input type="hidden" {...register("form.karigar_ldgr")} />
           </FieldContainer>
           <FieldContainer>
             <Label htmlFor="serial_no_list" className="text-nowrap">Ref Job No</Label>

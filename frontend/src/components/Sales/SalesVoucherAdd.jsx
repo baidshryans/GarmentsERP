@@ -45,6 +45,7 @@ import { FieldContainer } from "@/Utils.jsx";
 import { fetchSalesVoucherwithID, updateSalesVoucher, getGoldRate } from "../../services/apiService";
 import { useNavigate } from "react-router-dom";
 import { renderErrorTree } from "../../Utils";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 
 // ─── Section header helper ──────────────────────────────────────────────────
@@ -866,55 +867,39 @@ const SalesVoucherAdd = () => {
           <FieldContainer>
             <Label className="text-nowrap">Party Name</Label>
             <div className="relative">
-              <Input
-                list="party_list"
-                {...register("form.ldgr_name", {
-                  required: true,
-                  onChange: async (e) => {
-                    const selected = customers.find(c => c.ac_name === e.target.value);
-                    if (selected) {
-                      setValue("form.ldgr", selected.id);
-                      // Auto-set place of supply from customer's shipping state (fallback to billing state)
-                      const customerState = selected.ship_state || selected.state;
-                      if (customerState && customerState !== 'none') {
-                        setValue("form.place_of_supply", customerState);
-                      }
-                      const ldgrcash = await CashTotalLedger(selected.id);
-                      setCashLedger(ldgrcash.data.total_cash);
-                      // Fetch cash-received-this-FY for the 269ST limit indicator
-                      const cashRes = await fetchCustomerCashReceived(selected.id);
-                      setCustomerCashInfo(cashRes.success ? cashRes.data : null);
-                      // Fetch open customer orders with available advance for this customer
-                      const ordersRes = await fetchCustomerOrdersByLedger(selected.id);
-                      setCustomerOrders(ordersRes.success ? ordersRes.data : []);
-                      setSelectedOrder(null);
-                      setValue("form.customer_order", "");
-                      setValue("form.advance_deducted", 0);
-                      // Fetch customer purchases (old gold) with available balance
-                      const purchasesRes = await fetchCustomerPurchasesByLedger(selected.id);
-                      setCustomerPurchases(purchasesRes.success ? purchasesRes.data : []);
-                      setSelectedPurchase(null);
-                      setValue("form.old_gold_purchase", "");
-                      setValue("form.old_gold_adjusted", 0);
-                      // Fetch B2B pricelist if assigned
-                      const plRes = await fetchB2BPricelistForLedger(selected.id);
-                      setB2bPricelist(plRes.success && plRes.data ? plRes.data : null);
-                      // Fetch Retail Discount pricelist if assigned
-                      const rdplRes = await fetchRetailDiscountPricelistForLedger(selected.id);
-                      setRetailDiscountPricelist(rdplRes.success && rdplRes.data ? rdplRes.data : null);
-                    } else {
-                      setCustomerCashInfo(null);
-                      setCustomerOrders([]);
-                      setSelectedOrder(null);
-                      setCustomerPurchases([]);
-                      setSelectedPurchase(null);
-                      setB2bPricelist(null);
-                      setRetailDiscountPricelist(null);
-                    }
-                  },
-                })}
+              <SearchableComboBox
+                options={customers}
+                value={watch("form.ldgr_name") ?? ""}
+                onInputChange={(val) => setValue("form.ldgr_name", val)}
+                onSelect={async (opt) => {
+                  setValue("form.ldgr_name", opt.ac_name);
+                  setValue("form.ldgr", opt.id);
+                  const customerState = opt.ship_state || opt.state;
+                  if (customerState && customerState !== 'none') {
+                    setValue("form.place_of_supply", customerState);
+                  }
+                  const ldgrcash = await CashTotalLedger(opt.id);
+                  setCashLedger(ldgrcash.data.total_cash);
+                  const cashRes = await fetchCustomerCashReceived(opt.id);
+                  setCustomerCashInfo(cashRes.success ? cashRes.data : null);
+                  const ordersRes = await fetchCustomerOrdersByLedger(opt.id);
+                  setCustomerOrders(ordersRes.success ? ordersRes.data : []);
+                  setSelectedOrder(null);
+                  setValue("form.customer_order", "");
+                  setValue("form.advance_deducted", 0);
+                  const purchasesRes = await fetchCustomerPurchasesByLedger(opt.id);
+                  setCustomerPurchases(purchasesRes.success ? purchasesRes.data : []);
+                  setSelectedPurchase(null);
+                  setValue("form.old_gold_purchase", "");
+                  setValue("form.old_gold_adjusted", 0);
+                  const plRes = await fetchB2BPricelistForLedger(opt.id);
+                  setB2bPricelist(plRes.success && plRes.data ? plRes.data : null);
+                  const rdplRes = await fetchRetailDiscountPricelistForLedger(opt.id);
+                  setRetailDiscountPricelist(rdplRes.success && rdplRes.data ? rdplRes.data : null);
+                }}
+                placeholder="Search customer…"
               />
-              <Input type="hidden" {...register("form.ldgr")} />
+              <input type="hidden" {...register("form.ldgr")} />
               <p className="text-xs mt-1 text-gray-500">
                 Ledger cash: {cashledger}
                 {b2bPricelist && (
@@ -961,9 +946,6 @@ const SalesVoucherAdd = () => {
                 );
               })()}
             </div>
-            <datalist id="party_list">
-              {customers.map((c, i) => <option key={i} value={c.ac_name}>{c.id}</option>)}
-            </datalist>
           </FieldContainer>
         </div>
 

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { renderErrorTree } from "../../Utils";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import {
   Select,
   SelectTrigger,
@@ -249,27 +250,21 @@ const SalesApprovalAdd = () => {
             <Input type="date" {...register("form.date1", { required: true })} />
           </FieldContainer>
 
-          {/* Party Name — hidden input + datalist live OUTSIDE FieldContainer */}
+          {/* Party Name */}
           <div className="flex items-center gap-2">
             <Label className="text-nowrap shrink-0">Party Name</Label>
-            <Input
-              list="party_list"
-              className="flex-1"
-              {...register("form.ldgr_name")}
-              onChange={(e) => {
-                const sel = customers.find((c) => c.ac_name === e.target.value);
-                if (sel) setValue("form.ldgr", sel.id);
+            <SearchableComboBox
+              options={customers}
+              value={watch("form.ldgr_name") ?? ""}
+              onSelect={(opt) => {
+                setValue("form.ldgr_name", opt.ac_name)
+                setValue("form.ldgr", opt.id)
               }}
-              required
+              placeholder="Search customer…"
+              className="flex-1"
             />
           </div>
-          {/* These must be outside any layout wrapper that measures children */}
           <input type="hidden" {...register("form.ldgr")} />
-          <datalist id="party_list">
-            {customers.map((c, i) => (
-              <option key={i} value={c.ac_name} />
-            ))}
-          </datalist>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-4">

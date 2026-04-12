@@ -20,6 +20,7 @@ import InvoiceUpload from "@/components/AI/InvoiceUpload";
 import PurchaseAttachments from "./PurchaseAttachments";
 import { uploadPurchaseAttachment } from "@/services/apiService";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { useNavigate } from "react-router";
 import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 
@@ -939,43 +940,26 @@ const PurchaseVoucher = () => {
           {/* Party Details */}
           <FieldContainer>
             <Label className="text-nowrap">Party Name</Label>
-            <Controller
-              name="form.ldgr"
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ""}
-                  onValueChange={async (val) => {
-                    const id = parseInt(val);
-                    const selected = customers.find(c => c.id === id);
-                    field.onChange(id);
-                    if (selected) {
-                      setValue("form.ldgr_name", selected.ac_name);
-                      const tdsRes = await fetchLedgerTDSInfo(id);
-                      if (tdsRes.success && tdsRes.data.tds_applicable) {
-                        setValue("form.tds_section", tdsRes.data.section_id);
-                        setValue("form.tds_rate", tdsRes.data.rate);
-                      } else {
-                        setValue("form.tds_section", null);
-                        setValue("form.tds_rate", 0);
-                        setValue("form.tds_amt", 0);
-                        setValue("form.net_vendor_payable", 0);
-                      }
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={isCustomer ? "Select customer / dealer…" : "Select vendor / karigar…"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.ac_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+            <SearchableComboBox
+              options={customers}
+              value={watch("form.ldgr_name") ?? ""}
+              onSelect={async (opt) => {
+                setValue("form.ldgr_name", opt.ac_name)
+                setValue("form.ldgr", opt.id)
+                const tdsRes = await fetchLedgerTDSInfo(opt.id);
+                if (tdsRes.success && tdsRes.data.tds_applicable) {
+                  setValue("form.tds_section", tdsRes.data.section_id);
+                  setValue("form.tds_rate", tdsRes.data.rate);
+                } else {
+                  setValue("form.tds_section", null);
+                  setValue("form.tds_rate", 0);
+                  setValue("form.tds_amt", 0);
+                  setValue("form.net_vendor_payable", 0);
+                }
+              }}
+              placeholder={isCustomer ? "Search customer / dealer…" : "Search vendor / karigar…"}
             />
+            <input type="hidden" {...register("form.ldgr", { required: true })} />
           </FieldContainer>
           {isCustomer && (
             <div className="col-span-2 flex flex-col gap-1">

@@ -1282,3 +1282,95 @@ class EWayBillSerializer(serializers.ModelSerializer):
         if obj.sales_approval_id:
             return obj.sales_approval.ldgr.ac_name
         return None
+
+
+# ── Quotation Serializers ────────────────────────────────────────────────────
+
+from sales.models import Quotation, QuotationItem, QuotationItemDetail
+
+
+class QuotationItemDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuotationItemDetail
+        fields = [
+            'id', 'packet', 'packet_name', 'item_name', 'is_diamond',
+            'pcs', 'wt', 'rate', 'amount',
+        ]
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class QuotationItemSerializer(serializers.ModelSerializer):
+    details = QuotationItemDetailSerializer(many=True, required=False, default=[])
+
+    class Meta:
+        model = QuotationItem
+        fields = [
+            'id', 'sl_no', 'barcode', 'barcode_text', 'item', 'item_name',
+            'design_code', 'purity_text', 'pcs', 'gw', 'nw',
+            'gold_rate', 'gold_amount', 'making_rate', 'making_amount',
+            'total_diamond_pcs', 'total_diamond_wt', 'total_diamond_amt',
+            'total_stone_pcs', 'total_stone_wt', 'total_stone_amt',
+            'total_amount', 'image_url', 'details',
+        ]
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class QuotationSerializer(serializers.ModelSerializer):
+    items = QuotationItemSerializer(many=True, required=False, default=[])
+    ldgr_name = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = Quotation
+        fields = [
+            'id', 'date1', 'quotation_no', 'ldgr', 'ldgr_name', 'party_name',
+            'gold_rate_date', 'rate_18kt', 'rate_22kt', 'rate_24kt',
+            'total_items', 'grand_total', 'tax_percent', 'tax_amount', 'net_total',
+            'status', 'valid_until', 'remarks', 'seller_info',
+            'sales_person', 'converted_to',
+            'retail', 'fiscal_year', 'created_at', 'items',
+        ]
+        extra_kwargs = {
+            'id':           {'read_only': False, 'required': False},
+            'retail':       {'required': False},
+            'fiscal_year':  {'required': False},
+            'quotation_no': {'required': False},
+        }
+
+    def create(self, validated_data):
+        items_data = validated_data.pop('items', [])
+        with transaction.atomic():
+            quotation = Quotation.objects.create(**validated_data)
+            for item_data in items_data:
+                details_data = item_data.pop('details', [])
+                qi = QuotationItem.objects.create(quotation=quotation, **item_data)
+                for detail_data in details_data:
+                    QuotationItemDetail.objects.create(quotation_item=qi, **detail_data)
+        return quotation
+
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop('items', None)
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            if items_data is not None:
+                # Delete old items and re-create
+                instance.items.all().delete()
+                for item_data in items_data:
+                    details_data = item_data.pop('details', [])
+                    qi = QuotationItem.objects.create(quotation=instance, **item_data)
+                    for detail_data in details_data:
+                        QuotationItemDetail.objects.create(quotation_item=qi, **detail_data)
+        return instance
+
+
+class QuotationListSerializer(serializers.ModelSerializer):
+    ldgr_name = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = Quotation
+        fields = [
+            'id', 'date1', 'quotation_no', 'ldgr', 'ldgr_name', 'party_name',
+            'total_items', 'grand_total', 'net_total',
+            'status', 'valid_until', 'created_at',
+        ]

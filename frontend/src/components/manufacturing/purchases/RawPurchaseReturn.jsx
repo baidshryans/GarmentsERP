@@ -9,6 +9,7 @@ import { useF4Submit } from "@/hooks/useF4Submit"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchMainItem, fetchOrderItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, getLedgers, createCustomerOrder, getStates, fetchStoneIssuesFilterJobs, fetchBarcodes, fetchPackets, createPurchaseReturn, fetchDetailsForPurchaseReturn } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
@@ -504,28 +505,15 @@ const PurchaseReturnadd = () => {
             />
           </FieldContainer>
 
-          {/* ldgr -> same approach as "sales_person" with a <Controller> + <Select> */}
           <FieldContainer>
             <Label htmlFor="ldgr" className="text-nowrap">Ledger</Label>
-            <Controller
-              name="form.ldgr"
-              control={control}
-              rules={{ required: true }}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger data-led="ledger">
-                    <SelectValue placeholder="Select a Ledger" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ledgers.map((ledger) => (
-                      <SelectItem key={ledger.id} value={`${ledger.id}`}>
-                        {ledger.ac_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+            <SearchableComboBox
+              options={ledgers}
+              value={ledgers.find((l) => String(l.id) === String(watch("form.ldgr")))?.ac_name ?? ""}
+              onSelect={(opt) => setValue("form.ldgr", opt.id)}
+              placeholder="Search vendor / karigar…"
             />
+            <input type="hidden" {...register("form.ldgr", { required: true })} />
           </FieldContainer>
         </div>
 

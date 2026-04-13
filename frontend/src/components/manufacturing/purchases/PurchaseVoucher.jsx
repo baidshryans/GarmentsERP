@@ -575,8 +575,15 @@ const PurchaseVoucher = () => {
       pcs: toIntOrNull(item.pcs),
       pending_pcs: toIntOrNull(item.pending_pcs),
       making_value: toIntOrNull(item.making_value),
+      purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
+        ...d,
+        sub_pcs: toIntOrNull(d.sub_pcs),
+      })),
     }));
-    form.purchasevoucherdetails_set = [...rsRaw];
+    form.purchasevoucherdetails_set = rsRaw.map(d => ({
+      ...d,
+      sub_pcs: toIntOrNull(d.sub_pcs),
+    }));
     form.hsn = getValues("hsn") || null;
     try {
       const response = id

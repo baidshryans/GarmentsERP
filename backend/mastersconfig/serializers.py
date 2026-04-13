@@ -7,6 +7,7 @@ from .models import (
     CompanyMaster, SystemSettings, CRMSettings, CRMSendLog, GSTINMaster,
     B2BPricelist, B2BPricelistTunch, B2BPricelistMaking, B2BPricelistStoneOverride,
     RetailDiscountPricelist, RetailDiscountPricelistRule,
+    SalesOffer, SalesOfferRule,
 )
 
 
@@ -143,8 +144,10 @@ class CompanyMasterSerializer(ModelSerializer):
     hallmark_charge_ldgr_name       = serializers.CharField(source='hallmark_charge_ldgr.ac_name',       read_only=True, default='')
     making_receive_ldgr_name        = serializers.CharField(source='making_receive_ldgr.ac_name',        read_only=True, default='')
     gold_conversion_ldgr_name       = serializers.CharField(source='gold_conversion_ldgr.ac_name',       read_only=True, default='')
-    carriage_inward_ldgr_name       = serializers.CharField(source='carriage_inward_ldgr.ac_name',       read_only=True, default='')
-    making_charge_purchase_ldgr_name = serializers.CharField(source='making_charge_purchase_ldgr.ac_name', read_only=True, default='')
+    carriage_inward_ldgr_name        = serializers.CharField(source='carriage_inward_ldgr.ac_name',        read_only=True, default='')
+    making_charge_paid_14k_ldgr_name = serializers.CharField(source='making_charge_paid_14k_ldgr.ac_name', read_only=True, default='')
+    making_charge_paid_18k_ldgr_name = serializers.CharField(source='making_charge_paid_18k_ldgr.ac_name', read_only=True, default='')
+    making_charge_paid_22k_ldgr_name = serializers.CharField(source='making_charge_paid_22k_ldgr.ac_name', read_only=True, default='')
 
     def get_branch_count(self, obj):
         return obj.branches.count()
@@ -161,19 +164,23 @@ class CompanyMasterSerializer(ModelSerializer):
             'max_cash_receipt_limit', 'max_cash_payment_limit',
             'discount_ldgr', 'round_off_ldgr', 'hallmark_charge_ldgr',
             'making_receive_ldgr', 'gold_conversion_ldgr',
-            'carriage_inward_ldgr', 'making_charge_purchase_ldgr',
+            'carriage_inward_ldgr',
+            'making_charge_paid_14k_ldgr', 'making_charge_paid_18k_ldgr', 'making_charge_paid_22k_ldgr',
             'discount_ldgr_name', 'round_off_ldgr_name', 'hallmark_charge_ldgr_name',
             'making_receive_ldgr_name', 'gold_conversion_ldgr_name',
-            'carriage_inward_ldgr_name', 'making_charge_purchase_ldgr_name',
+            'carriage_inward_ldgr_name',
+            'making_charge_paid_14k_ldgr_name', 'making_charge_paid_18k_ldgr_name', 'making_charge_paid_22k_ldgr_name',
         ]
         read_only_fields = [
             'created_at', 'branch_count', 'retail_count', 'state_name',
             'discount_ldgr', 'round_off_ldgr', 'hallmark_charge_ldgr',
             'making_receive_ldgr', 'gold_conversion_ldgr',
-            'carriage_inward_ldgr', 'making_charge_purchase_ldgr',
+            'carriage_inward_ldgr',
+            'making_charge_paid_14k_ldgr', 'making_charge_paid_18k_ldgr', 'making_charge_paid_22k_ldgr',
             'discount_ldgr_name', 'round_off_ldgr_name', 'hallmark_charge_ldgr_name',
             'making_receive_ldgr_name', 'gold_conversion_ldgr_name',
-            'carriage_inward_ldgr_name', 'making_charge_purchase_ldgr_name',
+            'carriage_inward_ldgr_name',
+            'making_charge_paid_14k_ldgr_name', 'making_charge_paid_18k_ldgr_name', 'making_charge_paid_22k_ldgr_name',
         ]
 
 
@@ -501,5 +508,60 @@ class RetailDiscountPricelistSerializer(ModelSerializer):
                 RetailDiscountPricelistRuleSerializer, instance,
                 'rules', 'pricelist',
                 RetailDiscountPricelistRuleSerializer(rules, many=True).data,
+            )
+        return instance
+
+
+# ── Sales Offer ───────────────────────────────────────────────────────────────
+
+class SalesOfferRuleSerializer(ModelSerializer):
+    offer = serializers.PrimaryKeyRelatedField(
+        queryset=SalesOffer.objects.all(), required=False,
+    )
+
+    class Meta:
+        model  = SalesOfferRule
+        fields = ['id', 'offer', 'purity', 'making_type', 'making_value']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class SalesOfferSerializer(ModelSerializer):
+    rules = SalesOfferRuleSerializer(many=True, required=False)
+
+    class Meta:
+        model  = SalesOffer
+        fields = [
+            'id', 'name', 'start_date', 'end_date',
+            'diamond_discount_pct', 'is_active', 'rules',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def create(self, validated_data):
+        from manufacturing.utils import create_or_update_nested
+        from django.db import transaction
+        rules = validated_data.pop('rules', [])
+        with transaction.atomic():
+            offer = SalesOffer.objects.create(**validated_data)
+            if rules:
+                create_or_update_nested(
+                    SalesOfferRuleSerializer, offer,
+                    'rules', 'offer',
+                    SalesOfferRuleSerializer(rules, many=True).data,
+                )
+        return offer
+
+    def update(self, instance, validated_data):
+        from manufacturing.utils import create_or_update_nested
+        from django.db import transaction
+        rules = validated_data.pop('rules', [])
+        with transaction.atomic():
+            for attr, val in validated_data.items():
+                setattr(instance, attr, val)
+            instance.save()
+            create_or_update_nested(
+                SalesOfferRuleSerializer, instance,
+                'rules', 'offer',
+                SalesOfferRuleSerializer(rules, many=True).data,
             )
         return instance

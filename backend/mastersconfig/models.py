@@ -75,9 +75,17 @@ class CompanyMaster(models.Model):
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='company_carriage_inward'
     )
-    making_charge_purchase_ldgr = models.ForeignKey(
+    making_charge_paid_14k_ldgr = models.ForeignKey(
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='company_making_charge_purchase'
+        related_name='company_making_charge_paid_14k'
+    )
+    making_charge_paid_18k_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_making_charge_paid_18k'
+    )
+    making_charge_paid_22k_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_making_charge_paid_22k'
     )
     sale_discount_ldgr = models.ForeignKey(
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
@@ -601,6 +609,57 @@ class RetailDiscountPricelistRule(models.Model):
             f"{self.pricelist.name} / {self.purity} → "
             f"making={self.making_discount_pct}% diamond={self.diamond_discount_pct}%"
         )
+
+
+# ── Sales Offer ───────────────────────────────────────────────────────────────
+
+OFFER_MAKING_TYPE_CHOICES = [
+    ('flat',     'Flat ₹/g'),
+    ('discount', '% Discount on Making'),
+]
+
+
+class SalesOffer(models.Model):
+    """Company-wide promotional offer: per-purity making charge rules + diamond discount."""
+    name                 = models.CharField(max_length=200)
+    start_date           = models.DateField(null=True, blank=True)
+    end_date             = models.DateField(null=True, blank=True)
+    diamond_discount_pct = models.DecimalField(max_digits=6, decimal_places=2, default=0,
+                                               help_text="% discount on all diamond/stone amounts")
+    is_active            = models.BooleanField(default=False)
+    created_at           = models.DateTimeField(auto_now_add=True)
+    updated_at           = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'sales_offer'
+
+    def save(self, *args, **kwargs):
+        # Enforce only one active offer at a time
+        if self.is_active:
+            SalesOffer.objects.exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class SalesOfferRule(models.Model):
+    """Per-purity making charge rule within a SalesOffer."""
+    offer        = models.ForeignKey(SalesOffer, on_delete=models.CASCADE, related_name='rules')
+    purity       = models.CharField(max_length=20, help_text="Purity code e.g. 91.6, 75.0")
+    making_type  = models.CharField(max_length=10, choices=OFFER_MAKING_TYPE_CHOICES)
+    making_value = models.DecimalField(max_digits=10, decimal_places=2,
+                                       help_text="₹/g if flat; % if discount")
+
+    class Meta:
+        db_table        = 'sales_offer_rule'
+        unique_together = ('offer', 'purity')
+
+    def __str__(self):
+        try:
+            return f"{self.offer.name} / {self.purity} → {self.making_type}={self.making_value}"
+        except Exception:
+            return f"SalesOfferRule {self.pk}"
 
 
 class TDSSectionMaster(models.Model):

@@ -38,6 +38,25 @@ def _raise_missing_ledger(label):
         {'ledger_config': f"Required ledger '{label}' is not configured on master. Please configure it in Company/GSTIN/Retail master before saving vouchers."}
     )
 
+def _making_ldgr_name_for_purity(co, purity_obj):
+    """Return ac_name of the Making Charge Paid ledger matching the item's purity.
+
+    Matches karat ('22', '18', '14') within PurityMaster.purity name.
+    Falls back to 22K ledger for unrecognised purities.
+    """
+    purity_name = purity_obj.purity if purity_obj else ''
+    if '22' in purity_name:
+        ldgr = co.making_charge_paid_22k_ldgr
+    elif '18' in purity_name:
+        ldgr = co.making_charge_paid_18k_ldgr
+    elif '14' in purity_name:
+        ldgr = co.making_charge_paid_14k_ldgr
+    else:
+        ldgr = co.making_charge_paid_22k_ldgr  # fallback to 22K
+    if not ldgr:
+        _raise_missing_ledger(f"Making Charge Paid ledger for purity '{purity_name}' (configure on Company master)")
+    return ldgr.ac_name
+
 
 
 class PurchaseReturnDetailsSerializer(serializers.ModelSerializer):
@@ -167,7 +186,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
         _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
         _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
-        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
+        # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
                 "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
                 "narration":f"Purchase Return Narration",
@@ -200,10 +219,9 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                         'credit':f"{purchase_return_instance.round_off:.2f}"if purchase_return_instance.round_off else '0.0'
                     },
                 ] + 
-                [{'account':_making_purc_ldgr, 
-                    
-                    'credit':f"{item.making_value:.2f}" if item.making_value else '0.0'
-                } for item in item_instances] +
+                [{'account': _making_ldgr_name_for_purity(_co, item.purity),
+                    'credit': f"{item.making_value:.2f}"
+                } for item in item_instances if item.making_value] +
                 [{'account': (
                         item.sub_item.purchase_ledger.ac_name
                         if item.sub_item and item.sub_item.purchase_ledger
@@ -253,7 +271,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
         _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
         _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
-        _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
+        # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
                 "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
                 "narration":f"Purchase Return Narration",
@@ -286,10 +304,9 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                         'credit':f"{purchase_return_instance.round_off:.2f}"if purchase_return_instance.round_off else '0.0'
                     },
                 ] + 
-                [{'account':_making_purc_ldgr,  
-                    
-                    'credit':f"{item.making_value:.2f}" if item.making_value else '0.0'
-                } for item in item_instances] +
+                [{'account': _making_ldgr_name_for_purity(_co, item.purity),
+                    'credit': f"{item.making_value:.2f}"
+                } for item in item_instances if item.making_value] +
                 [{'account': (
                         item.sub_item.purchase_ledger.ac_name
                         if item.sub_item and item.sub_item.purchase_ledger
@@ -503,7 +520,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
             _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
-            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
+            # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
                             "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                             "narration":f"Purchase Voucher Narration",
@@ -529,9 +546,9 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                 {'account':_discount_ldgr,
                                   'credit': f"{((purchase_voucher_instance.round_off or 0) + (purchase_voucher_instance.discount_amt or 0)):.2f}" },
                             ] +
-                            [{'account':_making_purc_ldgr,
-                                'debit':f"{item.making_value:.2f}"if item.making_value else'0.0'
-                            } for item in item_instances] +
+                            [{'account': _making_ldgr_name_for_purity(_co, item.purity),
+                                'debit': f"{item.making_value:.2f}"
+                            } for item in item_instances if item.making_value] +
                             [{'account': (
                                     item.sub_item.purchase_ledger.ac_name
                                     if item.sub_item and item.sub_item.purchase_ledger
@@ -603,7 +620,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
             _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
-            _making_purc_ldgr = _co.making_charge_purchase_ldgr.ac_name if _co and _co.making_charge_purchase_ldgr else _raise_missing_ledger("Making Charge Purchase")
+            # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
                             "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                             "narration":f"Purchase Voucher Narration",
@@ -630,9 +647,9 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                     'credit': f"{((purchase_voucher_instance.round_off or 0) + (purchase_voucher_instance.discount_amt or 0)):.2f}"
                                 },
                             ] +
-                            [{'account':_making_purc_ldgr,
-                                'debit':f"{item.making_value:.2f}"if item.making_value else'0.0'
-                            } for item in item_instances] +
+                            [{'account': _making_ldgr_name_for_purity(_co, item.purity),
+                                'debit': f"{item.making_value:.2f}"
+                            } for item in item_instances if item.making_value] +
                             [{'account': (
                                     item.sub_item.purchase_ledger.ac_name
                                     if item.sub_item and item.sub_item.purchase_ledger

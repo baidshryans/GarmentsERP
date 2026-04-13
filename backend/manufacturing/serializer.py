@@ -697,36 +697,61 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                     KarigarReceiveItemDetails.objects.create( receive_slip_no = karigar_receive_instance,
             main_sl_no = kr_item,**detail)
                         
-            total_making_charge = sum(item['making'] for item in items_data)
-            ser = JournalEntrySerializer(data={'date':karigar_receive_instance.date1,
-                                    "voucher_no":generate_voucher_no(VoucherType.journal, self.context.get('request').retail),
-                                    "narration":f"Being making charges for Artisan on date {karigar_receive_instance.date1}",
-                                    "voucher_type":global_vars.VoucherType.journal,
-                                    # "status":karigar_receive_instance.receive_slip_no,
-                                    "retail":self.context.get('request').retail.id,
-                                    "voucher_details": [
-                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive (configure on Company master)"))(self.context.get('request').retail),
-                                            'debit':total_making_charge,
-                                            'credit':0
-                                                },
-                                        {'account':karigar_receive_instance.karigar_ldgr.ac_name, 
-                                            'credit':total_making_charge,
-                                            'debit':0
-                                            }
-                                        
-                                    ]
-                                        },context=self.context)
+            # ── Making charges voucher: Dr Making Charge Paid [purity] / Cr Karigar ──
+            # Group making charges by purity so each purity posts to its own ledger.
+            from collections import defaultdict
+            from decimal import Decimal as _Dec
+            making_by_purity = defaultdict(_Dec)
+            for item in items_data:
+                making = item.get('making') or 0
+                if making:
+                    making_by_purity[item.get('purity')] += _Dec(str(making))
+
+            def _making_ldgr_for_purity(retail, purity_obj):
+                """Return ac_name of the Making Charge Paid ledger for the given purity."""
+                co = retail.branch.company if (retail.branch_id and retail.branch) else None
+                if not co:
+                    _raise_missing_ledger("Making Charge Paid (Company not configured on Retail master)")
+                purity_name = purity_obj.purity if purity_obj else ''
+                if '22' in purity_name:
+                    ldgr = co.making_charge_paid_22k_ldgr
+                elif '18' in purity_name:
+                    ldgr = co.making_charge_paid_18k_ldgr
+                elif '14' in purity_name:
+                    ldgr = co.making_charge_paid_14k_ldgr
+                else:
+                    ldgr = co.making_charge_paid_22k_ldgr  # fallback to 22K
+                if not ldgr:
+                    _raise_missing_ledger(f"Making Charge Paid ledger for purity '{purity_name}' (configure on Company master)")
+                return ldgr.ac_name
+
+            retail = self.context.get('request').retail
+            total_making_charge = sum(making_by_purity.values())
+            voucher_details = [
+                {'account': _making_ldgr_for_purity(retail, purity_obj),
+                 'debit': float(amount), 'credit': 0}
+                for purity_obj, amount in making_by_purity.items()
+                if amount
+            ]
+            voucher_details.append({
+                'account': karigar_receive_instance.karigar_ldgr.ac_name,
+                'credit': float(total_making_charge),
+                'debit': 0,
+            })
+
+            ser = JournalEntrySerializer(data={
+                'date': karigar_receive_instance.date1,
+                'voucher_no': generate_voucher_no(VoucherType.journal, retail),
+                'narration': f"Being making charges for Artisan on date {karigar_receive_instance.date1}",
+                'voucher_type': global_vars.VoucherType.journal,
+                'retail': retail.id,
+                'voucher_details': voucher_details,
+            }, context=self.context)
             if ser.is_valid(raise_exception=True):
-                
                 ref = ser.save()
             karigar_receive_instance.making_vid = ref
             karigar_receive_instance.save()
-                    
-                    
-                    # add Voucher main date = date1 KarigarRecive,vou_no = +last_journal_voucher
-                    # @add all the making in kr-rec_item and create a vocuher detail with debit ,acc = mkng_Charge 
-                    # @add all the making in kr-rec_item , KarigarLedger is in Header of karigar rec and create a vocuher detail with credit ,acc = KarigrLedger 
-            
+
             return karigar_receive_instance
 
     def update(self, instance, validated_data):
@@ -745,28 +770,56 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
             )
             instance.making_vid.delete()
             karigar_receive_instance = instance
-                        
-            total_making_charge = sum(item['making'] for item in children_data)
-            ser = JournalEntrySerializer(data={'date':karigar_receive_instance.date1,
-                                    "voucher_no":generate_voucher_no(VoucherType.journal, self.context.get('request').retail),
-                                    "narration":f"Being making charges for Artisan on date {karigar_receive_instance.date1}",
-                                    "voucher_type":global_vars.VoucherType.journal,
-                                    # "status":karigar_receive_instance.receive_slip_no,
-                                    "retail":self.context.get('request').retail.id,
-                                    "voucher_details": [
-                                        {   'account': (lambda _r: _r.branch.company.making_receive_ldgr.ac_name if _r.branch_id and _r.branch and _r.branch.company and _r.branch.company.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive (configure on Company master)"))(self.context.get('request').retail),
-                                            'debit':total_making_charge,
-                                            'credit':0
-                                                },
-                                        {'account':karigar_receive_instance.karigar_ldgr.ac_name, 
-                                            'credit':total_making_charge,
-                                            'debit':0
-                                            }
-                                        
-                                    ]
-                                            },context=self.context)
+
+            # ── Making charges voucher: Dr Making Charge Paid [purity] / Cr Karigar ──
+            from collections import defaultdict
+            from decimal import Decimal as _Dec
+            making_by_purity = defaultdict(_Dec)
+            for item in children_data:
+                making = item.get('making') or 0
+                if making:
+                    making_by_purity[item.get('purity')] += _Dec(str(making))
+
+            def _making_ldgr_for_purity(retail, purity_obj):
+                co = retail.branch.company if (retail.branch_id and retail.branch) else None
+                if not co:
+                    _raise_missing_ledger("Making Charge Paid (Company not configured on Retail master)")
+                purity_name = purity_obj.purity if purity_obj else ''
+                if '22' in purity_name:
+                    ldgr = co.making_charge_paid_22k_ldgr
+                elif '18' in purity_name:
+                    ldgr = co.making_charge_paid_18k_ldgr
+                elif '14' in purity_name:
+                    ldgr = co.making_charge_paid_14k_ldgr
+                else:
+                    ldgr = co.making_charge_paid_22k_ldgr
+                if not ldgr:
+                    _raise_missing_ledger(f"Making Charge Paid ledger for purity '{purity_name}' (configure on Company master)")
+                return ldgr.ac_name
+
+            retail = self.context.get('request').retail
+            total_making_charge = sum(making_by_purity.values())
+            voucher_details = [
+                {'account': _making_ldgr_for_purity(retail, purity_obj),
+                 'debit': float(amount), 'credit': 0}
+                for purity_obj, amount in making_by_purity.items()
+                if amount
+            ]
+            voucher_details.append({
+                'account': karigar_receive_instance.karigar_ldgr.ac_name,
+                'credit': float(total_making_charge),
+                'debit': 0,
+            })
+
+            ser = JournalEntrySerializer(data={
+                'date': karigar_receive_instance.date1,
+                'voucher_no': generate_voucher_no(VoucherType.journal, retail),
+                'narration': f"Being making charges for Artisan on date {karigar_receive_instance.date1}",
+                'voucher_type': global_vars.VoucherType.journal,
+                'retail': retail.id,
+                'voucher_details': voucher_details,
+            }, context=self.context)
             if ser.is_valid(raise_exception=True):
-                
                 ref = ser.save()
             karigar_receive_instance.making_vid = ref
             karigar_receive_instance.save()

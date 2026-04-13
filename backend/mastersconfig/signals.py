@@ -37,7 +37,9 @@ _OPERATIONAL_LEDGERS = [
     ('making_receive_ldgr',         'Making Charge Received',  'INC-DIR-SAL', 'INC'),
     # gold_conversion_ldgr omitted from seeding — assign manually per company
     ('carriage_inward_ldgr',        'Carriage Inward',         'EXP-DIR-FRT', 'EXP'),
-    ('making_charge_purchase_ldgr', 'Making Charge Purchase',  'EXP-DIR-PUR', 'EXP'),
+    ('making_charge_paid_14k_ldgr', 'Making Charge Paid 14K',  'EXP-DIR-MKG', 'EXP'),
+    ('making_charge_paid_18k_ldgr', 'Making Charge Paid 18K',  'EXP-DIR-MKG', 'EXP'),
+    ('making_charge_paid_22k_ldgr', 'Making Charge Paid 22K',  'EXP-DIR-MKG', 'EXP'),
 ]
 
 # ── Trading ledgers (Purchase / Sales accounts, per commodity) ────────────────
@@ -204,7 +206,7 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
     from accounting.models import Account
 
     acct_cache = {}
-    for code in ('INC-DIR-SAL', 'EXP-IND', 'EXP-IND-MSC', 'EXP-DIR', 'EXP-DIR-FRT', 'EXP-DIR-PUR'):
+    for code in ('INC-DIR-SAL', 'EXP-IND', 'EXP-IND-MSC', 'EXP-DIR', 'EXP-DIR-FRT', 'EXP-DIR-MKG'):
         acct_cache[code] = Account.objects.filter(code=code).first()
 
     update_fields = []

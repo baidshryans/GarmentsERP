@@ -20,8 +20,10 @@ import {
 } from "@/components/ui/resizable"
 import { useSearchParams } from 'react-router-dom';
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 
 function PurchaseVoucherList({ voucherType = "" }) {
+  useF2Navigate(voucherType ? `/purchase/customerpurchase/list/add/?vou_type=${voucherType}` : "/purchase/add/");
   const queryClient = useQueryClient();
   const deleteVoucherMutation = useMutation({
   mutationFn: ({ id }) => deletePurchaseVoucher(id),   // your API call

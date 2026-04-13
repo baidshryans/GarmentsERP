@@ -12,10 +12,12 @@ import { deletePurchaseReturn } from '../../../services/apiService';
 import { openAndPrint } from "@/services/print/utils";
 import CreditDebitNotePrint from "@/services/print/CreditDebitNote";
 import { useSearchParams } from 'react-router-dom';
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 
 
 
 function PurchaseReturnList() {
+  useF2Navigate("/purchase/purchasereturn/list/add/");
   const { toast } = useToast();
   const[params, setParams] = useSearchParams();
   const [ledgers, setLedgers] = useState([]);

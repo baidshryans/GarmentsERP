@@ -9,6 +9,7 @@ import { DataTable } from "@/table"
 import { useToast } from "@/hooks/use-toast";
 import { deleteJournalentry,fetchAccountingVoucher} from "./services/apiService";
 import { useSearchParams,useParams } from 'react-router-dom';
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { openAndPrint } from "@/services/print/utils";
 import AccountingVoucher from "@/services/print/AccouuntingVoucher";
 import VoucherAttachments from "@/components/FinancialAccounting/vouchers/VoucherAttachments";
@@ -16,6 +17,7 @@ import VoucherAttachments from "@/components/FinancialAccounting/vouchers/Vouche
 const AccountingVoucherList = () => {
   const { toast } = useToast();
   const {journal_type}=useParams();
+  useF2Navigate(`/accounting/AddJournal/${journal_type}/add`);
   const [params , setParams]=useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);

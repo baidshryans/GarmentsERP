@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
+import { useF2Navigate } from "@/hooks/useF2Navigate"
 import { useEnterAsTab } from "@/hooks/useEnterAsTab"
 import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
 
@@ -582,6 +583,7 @@ const PurchaseVoucher = () => {
   };
 
   useF4Submit(handleSubmit(onSubmit));
+  useF2Navigate("/purchase/add/");
 
   const handleBlur = async (e) => {
     const { customer_order_id } = getValues();

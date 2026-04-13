@@ -12,8 +12,10 @@ import { deleteSalesReturn, fetchCNDNPrintData, createCreditDebitNote } from '..
 import { openAndPrint } from "@/services/print/utils";
 import CreditDebitNotePrint from "@/services/print/CreditDebitNote";
 import { useSearchParams } from 'react-router-dom';
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 
 function SalesReturnList() {
+  useF2Navigate("/sales/salesreturn/add/");
   const {toast} = useToast();
       const [params, setParams] = useSearchParams();
       const [ledgers, setLedgers] = useState([]);

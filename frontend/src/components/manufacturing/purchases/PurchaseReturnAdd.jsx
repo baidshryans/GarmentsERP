@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
 import { SquarePen, Trash2 } from "lucide-react";
 import {
@@ -306,6 +307,7 @@ const PurchaseReturnAdd = () => {
   };
 
   useF4Submit(handleSubmit(handleSubmitForm));
+  useF2Navigate("/purchase/purchasereturn/list/add/");
   const formRef = useRef(null);
   useEnterAsTab(formRef);
 

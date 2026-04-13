@@ -13,12 +13,14 @@ import SalesInvoice from '@/services/print/SalesInvoice';
 import { useToast } from "@/hooks/use-toast";
 import { deleteSalesVoucher } from '../../services/apiService';
 import { useSearchParams } from 'react-router-dom';
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 import apiClient from '@/services/apiClient';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from "@/components/ui/sheet";
 
 function SalesVoucherList() {
+  useF2Navigate("/sales/add/");
   const { toast } = useToast();
   const [params, setParams] = useSearchParams();
   const [vouchers, setVouchers] = useState([]);

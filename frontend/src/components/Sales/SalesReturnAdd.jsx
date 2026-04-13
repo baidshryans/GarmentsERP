@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
 import { Trash2 } from "lucide-react";
 import {
@@ -411,6 +412,7 @@ const SalesReturnAdd = () => {
   };
 
   useF4Submit(handleSubmit(handleSalesReturnSubmit));
+  useF2Navigate("/sales/salesreturn/add/");
 
   const handleAutoCalcFromTotal = () => {
     const enteredTotal = parseFloat(getValues('form.total_bill_value') || 0);

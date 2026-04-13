@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
+import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
 import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle } from "lucide-react";
 import {
@@ -776,6 +777,7 @@ const SalesVoucherAdd = () => {
   };
 
   useF4Submit(handleSubmit(handleSalesVoucherSubmit));
+  useF2Navigate("/sales/add/");
 
   // ── Auto-calculate discount from entered total ─────────────────────────────
   const handleAutoCalcFromTotal = () => {

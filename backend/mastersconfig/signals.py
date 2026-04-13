@@ -84,7 +84,6 @@ _MISC_LEDGERS = [
     ('Discount Received',        'INC-IND'),     # Indirect Income
     ('Freight Outward',          'EXP-DIR-FRT'), # Direct Expenses > Freight
     # Administrative Expenses
-    ('Bank Charges',             'EXP-IND-ADM'),
     ('Rent',                     'EXP-IND-ADM'),
     ('Electricity & Power',      'EXP-IND-ADM'),
     ('Telephone & Internet',     'EXP-IND-ADM'),
@@ -100,7 +99,8 @@ _MISC_LEDGERS = [
     ('Repairs & Maintenance',    'EXP-IND-RPM'),
     # Travel & Conveyance
     ('Travel & Conveyance',      'EXP-IND-TRV'),
-    # Financial Expenses
+    # Bank Charges and Commission
+    ('Bank Charges',             'EXP-IND-FIN'),
     ('Interest Paid',            'EXP-IND-FIN'),
     # Compliance & Regulatory Expenses
     ('Audit Fees',               'EXP-IND-CMP'),

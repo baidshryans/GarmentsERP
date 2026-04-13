@@ -91,7 +91,7 @@ ACCOUNT_TREE = [
     ("EXP-IND-HR",  "Employee & HR Expenses", "EXP-IND"),
     ("EXP-IND-RPM", "Repairs & Maintenance", "EXP-IND"),
     ("EXP-IND-TRV", "Travel & Conveyance", "EXP-IND"),
-    ("EXP-IND-FIN", "Financial Expenses", "EXP-IND"),
+    ("EXP-IND-FIN", "Bank Charges and Commission", "EXP-IND"),
     ("EXP-IND-CMP", "Compliance & Regulatory Expenses", "EXP-IND"),
     ("EXP-IND-INS", "Insurance Expenses", "EXP-IND"),
     ("EXP-IND-IT",  "IT & Technology Expenses", "EXP-IND"),

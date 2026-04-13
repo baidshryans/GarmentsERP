@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('accounting', '0003_initial'),
+        ('accounting', '0002_initial'),
         ('contacts', '0002_initial'),
         ('mastersconfig', '0001_initial'),
         ('sales', '0001_initial'),

@@ -227,6 +227,12 @@ export default function SetupWizard() {
       if (res.success && Array.isArray(res.data.states) && res.data.states.length > 0) {
         setStates(res.data.states);
       }
+      // If setup_status still fails (e.g. stale token after DB reset), clear it so
+      // the user is redirected to login on next navigation
+      if (!res.success) {
+        localStorage.removeItem("Token");
+        localStorage.removeItem("user");
+      }
       if (res.success) {
         setSetupStatus(res.data);
         const done = new Set();

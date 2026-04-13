@@ -10,7 +10,7 @@ Endpoints:
 from django.apps import apps
 from django.contrib.auth import authenticate
 from django.db import connection
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -81,6 +81,7 @@ def _hr_configured():
 
 
 @api_view(['GET'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def setup_status(request):
     """Return current setup state so the wizard knows which steps are done."""
@@ -165,6 +166,7 @@ def sync_user_retails(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def seed_hr_ledgers(request):
     """
@@ -203,6 +205,7 @@ def seed_hr_ledgers(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def seed_system_ledgers_view(request):
     """Re-run seed_system_ledgers to create any missing system ledgers (idempotent)."""
@@ -227,6 +230,7 @@ def seed_system_ledgers_view(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def seed_states(request):
     """Run the setup_states management command to populate all Indian states/UTs."""
@@ -256,6 +260,7 @@ def seed_states(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def seed_account_groups(request):
     """
@@ -305,6 +310,7 @@ def seed_account_groups(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def seed_tds_tcs(request):
     """Run the setup_tds_initial_data management command and seed default purities."""
@@ -378,6 +384,7 @@ def seed_tds_tcs(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def setup_rollback(request):
     """

@@ -192,6 +192,7 @@ class RetrieveUpdateDestroyItemGroupMaster(RetrieveUpdateDestroyAPIView):
 class StateListView(ListAPIView):
     serializer_class = StateSerializer
     queryset = State.objects.all().order_by('name')
+    authentication_classes = []
     permission_classes = [AllowAny]
     pagination_class = None
 

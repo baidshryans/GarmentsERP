@@ -404,7 +404,9 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
             'pcs': {'required': False, 'allow_null': True},
+            'pending_pcs': {'required': False, 'allow_null': True},
             'making_type': {'required': False, 'allow_blank': True},
+            'making_value': {'required': False, 'allow_null': True},
         }
 
     def validate(self, data):

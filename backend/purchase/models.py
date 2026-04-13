@@ -105,7 +105,7 @@ class PurchaseVoucherItems(models.Model): #main item
     gw = models.DecimalField(null=True, max_digits=10, decimal_places=3)
     size = models.CharField(null=True, max_length=10,blank=True)
     purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True)
-    pending_pcs = models.IntegerField(default=0)
+    pending_pcs = models.IntegerField(null=True, blank=True, default=0)
     pending_gw = models.DecimalField(default=0, max_digits=10, decimal_places=3)
     making_type = models.CharField(max_length=20, blank=True, default='')
     making = models.DecimalField(null=True, max_digits=10, decimal_places =2)

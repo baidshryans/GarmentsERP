@@ -221,12 +221,12 @@ const CustomerOrderForm = () => {
         {/* Date, Order No, Fixed Gold Rate */}
         <div className="grid grid-cols-7 gap-4 mb-4">
           <div>
-            <Label htmlFor="date">Date</Label>
-            <Input type="date" {...register("form.date1")} required />
+            <Label htmlFor="cof-date">Date</Label>
+            <Input id="cof-date" type="date" {...register("form.date1")} required />
           </div>
           <div>
-            <Label htmlFor="order_no">Order No</Label>
-            <Input type="text" {...register("form.order_no")} readOnly disabled />
+            <Label htmlFor="cof-order_no">Order No</Label>
+            <Input id="cof-order_no" type="text" {...register("form.order_no")} readOnly disabled />
           </div>
           <div className="flex items-center">
             <Checkbox id="fix_rate" checked={fix_gold_rate}
@@ -237,27 +237,26 @@ const CustomerOrderForm = () => {
             </Label>
           </div>
           <div>
-            <Label htmlFor="fix_date">Gold Rate Date</Label>
-            <Input type="date" {...register("form.gold_rate_date")}  />
+            <Label htmlFor="cof-fix_date">Gold Rate Date</Label>
+            <Input id="cof-fix_date" type="date" {...register("form.gold_rate_date")} />
           </div>
 
           <div>
-            <Label htmlFor="rate_18kt">18K Rate</Label>
-            <Input type="number" {...register("form.rate_18kt", {
+            <Label htmlFor="cof-rate_18kt">18K Rate</Label>
+            <Input id="cof-rate_18kt" type="number" {...register("form.rate_18kt", {
               valueAsNumber: true,
             })} />
           </div>
           <div>
-            <Label htmlFor="rate_22kt">22K Rate</Label>
-            <Input type="number" {...register("form.rate_22kt", {
+            <Label htmlFor="cof-rate_22kt">22K Rate</Label>
+            <Input id="cof-rate_22kt" type="number" {...register("form.rate_22kt", {
               valueAsNumber: true,
             })} />
           </div>
           <div>
-            <Label htmlFor="rate_24kt">24K Rate</Label>
-            <Input type="number" {...register("form.rate_24kt", {
-
-              valueAsNumber: true, // Converts input to a number
+            <Label htmlFor="cof-rate_24kt">24K Rate</Label>
+            <Input id="cof-rate_24kt" type="number" {...register("form.rate_24kt", {
+              valueAsNumber: true,
             })} />
           </div>
         </div>
@@ -266,8 +265,8 @@ const CustomerOrderForm = () => {
         {/* Party Details */}
         <div className="grid grid-cols-6 gap-4 mb-4">
           <div>
-            <Label htmlFor="party_name_display">Party Name</Label>
-            <Input list="party_list" {...register("form.ldgr_code_name",{onChange : (e) => {
+            <Label htmlFor="cof-party_name">Party Name</Label>
+            <Input id="cof-party_name" list="party_list" {...register("form.ldgr_code_name",{onChange : (e) => {
                 const selectedCustomer = customers.find(
                   (customer) => customer.ac_name === e.target.value
                 );
@@ -289,7 +288,7 @@ const CustomerOrderForm = () => {
 
               </div>
               <div>
-              <Label htmlFor="salesperson1">Salesperson 1</Label>
+              <Label>Salesperson 1</Label>
               <Controller
                 name="form.salesman_1"
                 control={control}
@@ -310,7 +309,7 @@ const CustomerOrderForm = () => {
 
               </div>
               <div>
-              <Label htmlFor="salesperson2">Salesperson 2</Label>
+              <Label>Salesperson 2</Label>
               <Controller
                 name="form.salesman_2"
                 control={control}
@@ -332,7 +331,7 @@ const CustomerOrderForm = () => {
 
               </div>
               <div>
-              <Label htmlFor="advance_amt">Advance (from receipts)</Label>
+              <Label>Advance (from receipts)</Label>
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -370,15 +369,15 @@ const CustomerOrderForm = () => {
               )}
               </div>
               <div>
-              <Label htmlFor="est_amount">Estimated Amount</Label>
-              <Input type="number" {...register("form.est_amount")} />
+              <Label htmlFor="cof-est_amount">Estimated Amount</Label>
+              <Input id="cof-est_amount" type="number" {...register("form.est_amount")} />
               </div>
               <div>
-              <Label htmlFor="delivery_date">Estimated Delivery date</Label>
-              <Input type="date" {...register("form.delivery_date")} required />
+              <Label htmlFor="cof-delivery_date">Estimated Delivery date</Label>
+              <Input id="cof-delivery_date" type="date" {...register("form.delivery_date")} required />
               </div>
               <div>
-              <Label htmlFor="nature">Nature</Label>
+              <Label>Nature</Label>
               <Controller
                 name="form.nature"
                 control={control}
@@ -404,11 +403,11 @@ const CustomerOrderForm = () => {
               {/* <Input type="text" {...register("nature")} /> */}
           </div>
           <div>
-            <Label htmlFor="status">Billing Status</Label>
-            <Input type="text" {...register("form.status")} />
+            <Label htmlFor="cof-status">Billing Status</Label>
+            <Input id="cof-status" type="text" {...register("form.status")} />
           </div>
           <div>
-            <Label htmlFor="delivery_status">Delivery Status</Label>
+            <Label>Delivery Status</Label>
             <Controller
               name="form.delivery_status"
               control={control}
@@ -428,8 +427,8 @@ const CustomerOrderForm = () => {
             />
           </div>
           <div>
-            <Label htmlFor="actual_delivery_date">Actual Delivery Date</Label>
-            <Input type="date" {...register("form.actual_delivery_date")} />
+            <Label htmlFor="cof-actual_delivery_date">Actual Delivery Date</Label>
+            <Input id="cof-actual_delivery_date" type="date" {...register("form.actual_delivery_date")} />
           </div>
         </div>
 

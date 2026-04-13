@@ -905,7 +905,7 @@ const PurchaseVoucher = () => {
           </FieldContainer>
 
           <FieldContainer>
-            <Label htmlFor="salesperson1" className="text-nowrap">Voucher Type</Label>
+            <Label className="text-nowrap">Voucher Type</Label>
             <Controller
               name="form.voucher_type"
               control={control}
@@ -989,7 +989,7 @@ const PurchaseVoucher = () => {
 
           {!isCustomer && (
           <FieldContainer>
-            <Label htmlFor="hsn" className="text-nowrap">HSN code <span className="text-primary font-normal text-xs">(select to add items)</span></Label>
+            <Label className="text-nowrap">HSN code <span className="text-primary font-normal text-xs">(select to add items)</span></Label>
 
             <Controller
               name="hsn"

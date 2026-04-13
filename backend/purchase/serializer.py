@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework.serializers import ModelSerializer
 from rest_framework.exceptions import ValidationError
 
@@ -525,8 +526,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
             in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
             _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount")
+            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
             _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+            _round_off = Decimal(str(purchase_voucher_instance.round_off or 0))
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
                             "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
@@ -545,8 +548,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                     'debit':f"{purchase_voucher_instance.freight_amt:.2f}" if purchase_voucher_instance.freight_amt else '0.0'
                                 },
                                 {'account':_discount_ldgr,
-                                  'credit': f"{((purchase_voucher_instance.round_off or 0) + (purchase_voucher_instance.discount_amt or 0)):.2f}" },
+                                  'credit': f"{(purchase_voucher_instance.discount_amt or 0):.2f}" },
                             ] +
+                            ([{'account': _round_off_ldgr, 'debit': f"{_round_off:.2f}"}] if _round_off > 0 else []) +
+                            ([{'account': _round_off_ldgr, 'credit': f"{abs(_round_off):.2f}"}] if _round_off < 0 else []) +
                             [{'account': _making_ldgr_name_for_purity(_co, item.purity),
                                 'debit': f"{item.making_value:.2f}"
                             } for item in item_instances if item.making_value] +
@@ -619,8 +624,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
             in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
             _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount")
+            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
             _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+            _round_off = Decimal(str(purchase_voucher_instance.round_off or 0))
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
                             "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
@@ -639,9 +646,11 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                     'debit':f"{purchase_voucher_instance.freight_amt:.2f}" if purchase_voucher_instance.freight_amt else '0.0'
                                 },
                                 {'account':_discount_ldgr,
-                                    'credit': f"{((purchase_voucher_instance.round_off or 0) + (purchase_voucher_instance.discount_amt or 0)):.2f}"
+                                    'credit': f"{(purchase_voucher_instance.discount_amt or 0):.2f}"
                                 },
                             ] +
+                            ([{'account': _round_off_ldgr, 'debit': f"{_round_off:.2f}"}] if _round_off > 0 else []) +
+                            ([{'account': _round_off_ldgr, 'credit': f"{abs(_round_off):.2f}"}] if _round_off < 0 else []) +
                             [{'account': _making_ldgr_name_for_purity(_co, item.purity),
                                 'debit': f"{item.making_value:.2f}"
                             } for item in item_instances if item.making_value] +

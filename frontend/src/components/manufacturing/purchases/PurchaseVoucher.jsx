@@ -656,17 +656,15 @@ const PurchaseVoucher = () => {
   };
 
   const handleDeleteSubItem = (rowIndex, subIndex, key) => {
-    const tablevalues = { ...rs[rowIndex] };
-
     setRows((prev) =>
-      prev.map((row, i) =>
-        i === rowIndex
-          ? {
-            ...row,
-            [key]: row[key].filter((_, j) => j !== subIndex),
-          }
-          : row
-      )
+      prev.map((row, i) => {
+        if (i !== rowIndex) return row;
+        const updatedDetails = row[key].filter((_, j) => j !== subIndex);
+        const updatedItemValue = parseFloat(
+          updatedDetails.reduce((sum, d) => parseFloat(sum) + parseFloat(d.value || 0), 0).toFixed(2)
+        );
+        return { ...row, [key]: updatedDetails, item_value: updatedItemValue };
+      })
     );
   };
 

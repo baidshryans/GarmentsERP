@@ -98,16 +98,24 @@ class PacketWithTotalSerializer(ModelSerializer):
 
 class PacketSerializer(ModelSerializer):
     # Resolve FK names for read convenience without expensive depth=2 nesting
-    packet_group_name = serializers.SerializerMethodField(read_only=True)
-    stone_item_name   = serializers.SerializerMethodField(read_only=True)
-    color_name        = serializers.SerializerMethodField(read_only=True)
-    shape_name        = serializers.SerializerMethodField(read_only=True)
+    packet_group_name    = serializers.SerializerMethodField(read_only=True)
+    stone_item_name      = serializers.SerializerMethodField(read_only=True)
+    stone_item_short_code = serializers.SerializerMethodField(read_only=True)
+    stone_item_uom       = serializers.SerializerMethodField(read_only=True)
+    color_name           = serializers.SerializerMethodField(read_only=True)
+    shape_name           = serializers.SerializerMethodField(read_only=True)
 
     def get_packet_group_name(self, obj):
         return obj.packet_group.packet_group_name if obj.packet_group else None
 
     def get_stone_item_name(self, obj):
         return obj.stone_item_id.item_name if obj.stone_item_id else None
+
+    def get_stone_item_short_code(self, obj):
+        return obj.stone_item_id.short_code if obj.stone_item_id else None
+
+    def get_stone_item_uom(self, obj):
+        return obj.stone_item_id.uom if obj.stone_item_id else None
 
     def get_color_name(self, obj):
         return obj.color.color_name if obj.color else None

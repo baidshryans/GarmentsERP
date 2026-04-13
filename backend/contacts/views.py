@@ -739,10 +739,15 @@ class LedgerCSVUploadView(APIView):
                                 f"not found in Chart of Accounts; imported with no group."
                             )
 
-                        # Resolve primary role
+                        # Resolve primary role: use 'primary_role' column if provided, else use ledger_type from query param
                         raw_primary = (row.get('primary_role') or row.get('type') or '').strip()
-                        row_type = _TYPE_MAP.get(raw_primary.lower(), raw_primary.upper())
-                        if row_type not in valid_codes:
+                        if raw_primary:
+                            # User provided a value in CSV — try to map it
+                            row_type = _TYPE_MAP.get(raw_primary.lower(), raw_primary.upper())
+                            if row_type not in valid_codes:
+                                row_type = ledger_type
+                        else:
+                            # No value in CSV — always use the ledger_type from query parameter
                             row_type = ledger_type
 
                         # Resolve secondary roles
@@ -834,11 +839,20 @@ class LedgerCSVUploadView(APIView):
                 for ac_name, _, row_type, secondary_codes in to_create:
                     ldgr = created_map.get(ac_name.lower())
                     if ldgr:
+                        # Always assign the primary role based on ledger type
                         new_roles.append(LedgerRole(ledger=ldgr, role=row_type, is_primary=True))
                         for sec in secondary_codes:
                             new_roles.append(LedgerRole(ledger=ldgr, role=sec, is_primary=False))
                 if new_roles:
                     LedgerRole.objects.bulk_create(new_roles, ignore_conflicts=True)
+                    # Verify roles were created for all new ledgers
+                    for ac_name, _, row_type, _ in to_create:
+                        ldgr = created_map.get(ac_name.lower())
+                        if ldgr and not ldgr.roles.filter(role=row_type).exists():
+                            errors.append(
+                                f"Warning: '{ac_name}' was created but primary role '{row_type}' "
+                                f"was not assigned. This may indicate a database constraint issue."
+                            )
                 created_count = len(to_create)
 
             # ── Bulk-update existing ledgers ──────────────────────────────────
@@ -846,6 +860,7 @@ class LedgerCSVUploadView(APIView):
                 update_objs = [ldgr for ldgr, _, _ in to_update]
                 Ledger.objects.bulk_update(update_objs, _BULK_UPDATE_FIELDS)
                 # Add any missing roles (only inserts — never removes existing roles)
+                # For existing ledgers without any roles, set the imported type as primary
                 missing_roles = []
                 for ldgr, row_type, secondary_codes in to_update:
                     assigned = roles_map.get(ldgr.id, set())
@@ -858,6 +873,13 @@ class LedgerCSVUploadView(APIView):
                             missing_roles.append(LedgerRole(ledger=ldgr, role=sec, is_primary=False))
                 if missing_roles:
                     LedgerRole.objects.bulk_create(missing_roles, ignore_conflicts=True)
+                    # Verify roles were created for updated ledgers
+                    for ldgr, row_type, _ in to_update:
+                        if row_type not in roles_map.get(ldgr.id, set()) and not ldgr.roles.filter(role=row_type).exists():
+                            errors.append(
+                                f"Warning: '{ldgr.ac_name}' was updated but role '{row_type}' "
+                                f"could not be assigned. It may already have this role or a constraint prevented it."
+                            )
                 updated_count = len(to_update)
 
         return Response({'created': created_count, 'updated': updated_count, 'errors': errors})

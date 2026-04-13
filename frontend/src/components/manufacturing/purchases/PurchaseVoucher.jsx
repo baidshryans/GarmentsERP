@@ -202,7 +202,8 @@ const PurchaseVoucher = () => {
   const selectedPacketData = packets.find(p => p.pckt_no === selectedPacket);
   const detailItemData = mainItemData.find(m => m.short_code === selectedItem);
   const isRawItem = detailItemData?.item_type === "R";
-  const showMetalFields = !selectedItem || isRawItem;
+  // Show metal/gold fields only when a raw (gold) item is selected — hide when blank or stone item
+  const showMetalFields = isRawItem;
   const detailMetalPurity = watch('details.metal_purity');
 
 
@@ -211,13 +212,16 @@ const PurchaseVoucher = () => {
     const packet = packets.find(p => p.pckt_no === selectedPacket);
     const selectedItemData = mainItemData.find(i => i.short_code === selectedItem);
     if (!packet && !selectedItemData) return;
-    uom = packet?.stone_item_id?.uom?.toLowerCase();
-    if (!selectedItemData) return;
-    uom = selectedItemData.uom?.toLowerCase();
-    setUom(uom);
-
-
-  }, [selectedPacket, selectedItem])
+    // Use the flat stone_item_uom field returned by PacketSerializer
+    if (packet?.stone_item_uom) {
+      uom = packet.stone_item_uom.toLowerCase();
+    }
+    // Item-level UOM takes precedence if item is found in mainItemData
+    if (selectedItemData?.uom) {
+      uom = selectedItemData.uom.toLowerCase();
+    }
+    if (uom) setUom(uom);
+  }, [selectedPacket, selectedItem, packets])
 
   useEffect(() => {
     if ((selectedItem?.toLowerCase() ?? "") !== "gold") return;
@@ -469,15 +473,19 @@ const PurchaseVoucher = () => {
       setDetailItemDisplay("");
       setValue('details.sub_item', "");
       setValue('details.rate', 0);
+      setCalculate(prev => prev + 1);
       return;
     }
     const packet = packets.find(p => p.pckt_no === watchedPacketDetail);
-    if (packet?.stone_item_id?.short_code) {
-      setValue('details.sub_item', packet.stone_item_id.short_code);
-      setDetailItemDisplay(packet.stone_item_id.item_name || packet.stone_item_id.short_code);
+    // Use the flat fields exposed by PacketSerializer (stone_item_short_code, stone_item_name, stone_item_uom)
+    if (packet?.stone_item_short_code) {
+      setValue('details.sub_item', packet.stone_item_short_code);
+      setDetailItemDisplay(packet.stone_item_name || packet.stone_item_short_code);
       setValue('details.rate', packet.rate_for_retail ?? 0);
+      // Trigger formula recalculation so value auto-computes based on new rate
+      setCalculate(prev => prev + 1);
     }
-  }, [watchedPacketDetail]);
+  }, [watchedPacketDetail, packets]);
 
   // Auto-calculate value based on UOM
   useEffect(() => {
@@ -621,7 +629,7 @@ const PurchaseVoucher = () => {
   const handleEditSubItem = (rowIndex, subIndex, key) => {
     const subItem = rs[rowIndex][key][subIndex];
     // Populate the input row with the sub-item's values
-    setValue('details.sl_no', subItem.sl_no);
+    setValue('details.sl_no', rs[rowIndex].sl_no);
     setValue('details.packet', subItem.packet || "");
     setValue('details.sub_item', subItem.sub_item || "");
     setValue('details.sub_pcs', subItem.sub_pcs || 0);
@@ -635,6 +643,8 @@ const PurchaseVoucher = () => {
     setValue('details.value', subItem.value || 0);
     const subItemData = mainItemData.find(m => m.short_code === subItem.sub_item);
     setDetailItemDisplay(subItemData ? subItemData.item_name : (subItem.sub_item || ""));
+    // Trigger formula recalculation so value/fine_wt auto-compute correctly in edit mode
+    setCalculate(prev => prev + 1);
 
     // Remove from saved list so user can re-add after editing
     setRows((prev) =>
@@ -697,38 +707,25 @@ const PurchaseVoucher = () => {
         setRows((prevData) =>
           prevData.map((row, i) => (i === idx ? { ...tablevalues } : row))
         );
+        const lastSlNo = rs.length > 0 ? rs[rs.length - 1].sl_no : 1;
         reset({
           form: getValues('form'),
           hsn: getValues('hsn'),
-          table: {
-            billno: "",
-            barcode: "",
-            item: "",
-            pcs: 0,
-            gw: 0.0,
-            pending_gw: 0.0,
-            pending_pcs: 0,
-            making: 0.0,
-            making_type: "",
-            making_value: 0,
-            purity: 0,
-            ret_status: false,
-            amount: 0,
-            purchasevoucherdetails_set: [],
-
-          },
+          table: getValues('table'),
           details: {
+            sl_no: lastSlNo,
             billno: "",
-            main_item: "",
-            item: "",
+            packet: "",
+            sub_item: "",
             sub_pcs: 0,
             sub_ct: 0.0,
             sub_gw: 0.0,
             metal_purity: "",
+            loss: 0,
             tunch: 0.0,
+            fine_wt: 0.0,
             rate: 0.0,
-            amount: 0.0,
-            packet: "",
+            value: 0.0,
           },
         });
         setDetailItemDisplay("");
@@ -780,7 +777,6 @@ const PurchaseVoucher = () => {
     reset({
       form: { ...getValues('form') },
       hsn: getValues('hsn'),
-
       table: {
         billno: "",
         barcode: "",
@@ -796,20 +792,21 @@ const PurchaseVoucher = () => {
         ret_status: false,
         amount: 0,
         purchasevoucherdetails_set: [],
-
       },
       details: {
+        sl_no: "",
         billno: "",
-        main_item: "",
-        item: "",
+        packet: "",
+        sub_item: "",
         sub_pcs: 0,
         sub_ct: 0.0,
         sub_gw: 0.0,
         metal_purity: "",
+        loss: 0,
         tunch: 0.0,
+        fine_wt: 0.0,
         rate: 0.0,
-        amount: 0.0,
-        packet: "",
+        value: 0.0,
       },
     });
   };

@@ -7,6 +7,7 @@ const LEDGER_TYPES = [
   { type: "CO",  label: "Customers",                hint: "ac_name, ac_group_name, salutation, dob (DD/MM/YYYY), anniversary, mobile1, pan, gst, aadhar, address…" },
   { type: "DL",  label: "Dealers",                  hint: "ac_name, ac_group_name, dob, anniversary, mobile1, pan, gst, address…" },
   { type: "KR",  label: "Karigar",                  hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
+  { type: "VD",  label: "Vendors",                  hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
   { type: "SC",  label: "Suppliers / Sundry Creditors", hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
   { type: "SD",  label: "Sundry Debtors",           hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
   { type: "BA",  label: "Bank Accounts",            hint: "ac_name, ac_group_name, cheque_no (account number), address…" },

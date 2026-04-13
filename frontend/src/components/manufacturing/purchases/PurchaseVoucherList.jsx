@@ -32,6 +32,7 @@ function PurchaseVoucherList({ voucherType = "" }) {
     queryClient.invalidateQueries({
       queryKey: ["purchaseVouchers"],
     });
+    setShowPanel(false);
     toast({ title: "Purchase voucher deleted successfully" });
   },
   onError: (err) => {
@@ -244,78 +245,88 @@ const totalPages = data?.data?.total_pages ?? 1;
         <>
           <ResizableHandle />
           <ResizablePanel defaultSize={30}>
-            <div className="flex items-center justify-between p-2 bg-gray-50">
-              <h2 className="font-semibold"></h2>
-              <button onClick={() => setShowPanel(false)}>
-                <X className="w-5 h-5 text-gray-600 hover:text-red-500" />
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+              <h2 className="font-bold text-lg text-gray-800">Purchase Details</h2>
+              <button
+                onClick={() => setShowPanel(false)}
+                className="p-1 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600 hover:text-red-600" />
               </button>
             </div>
-            <div className="overflow-auto h-full">
+            <div className="overflow-auto h-full bg-white">
               <Table className="w-full table-fixed border-collapse">
                 <TableBody>
-                  <TableRow className="bg-violet-100">
-                    <TableCell className="w-20 px-4 py-2 border">Sl No</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Date</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Packet</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Item</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Pcs</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Ct</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Gw</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Size</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Purity</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Loss</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Tunch</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Fine wt</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Rate</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Making</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Value</TableCell>
-                    <TableCell className="w-20 px-4 py-2 border">Remarks</TableCell>
-                    <TableCell className="w-32 px-4 py-2 border">Create Barcode</TableCell>
+                  <TableRow className="bg-gradient-to-r from-indigo-600 to-blue-600 sticky top-0 z-10">
+                    <TableCell className="w-12 px-3 py-3 border text-white font-semibold text-center">Sl</TableCell>
+                    <TableCell className="w-20 px-3 py-3 border text-white font-semibold">Date</TableCell>
+                    <TableCell className="w-20 px-3 py-3 border text-white font-semibold">Packet</TableCell>
+                    <TableCell className="w-24 px-3 py-3 border text-white font-semibold">Item</TableCell>
+                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Pcs</TableCell>
+                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Ct</TableCell>
+                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Gw</TableCell>
+                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold">Size</TableCell>
+                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Purity</TableCell>
+                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Loss</TableCell>
+                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Tunch</TableCell>
+                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Fine wt</TableCell>
+                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Rate</TableCell>
+                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Making</TableCell>
+                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Value</TableCell>
+                    <TableCell className="w-20 px-3 py-3 border text-white font-semibold">Remarks</TableCell>
+                    <TableCell className="w-32 px-3 py-3 border text-white font-semibold text-center">Action</TableCell>
                   </TableRow>
 
                   <React.Fragment>
                     {details.purchasevoucheritems_set.map((item, idx) => (
                       <React.Fragment key={idx}>
-                        <TableRow className="bg-gray-100">
-                          <TableCell className="w-20 px-4 py-2 border">{idx + 1}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.date}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.item}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.pcs}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.gw}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.size}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.purity}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                          <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                          <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.making_amt}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.item_value}</TableCell>
-                          <TableCell className="w-20 px-4 py-2 border">{item.remarks}</TableCell>
-                          <TableCell className="w-32 px-2 py-2 border">
-                            <Button onClick={() => navigate(`/inventory/barcodemanagement/list/add/?bill_no=${encodeURIComponent(details.billno)}&sl_no=${item.sl_no}`)} disabled={!(item.pending_pcs && item.pending_gw)} >Create Barcode</Button>
+                        <TableRow className="bg-blue-50 hover:bg-blue-100 transition-colors border-b-2 border-blue-200">
+                          <TableCell className="w-12 px-3 py-3 border font-semibold text-blue-700 text-center">{idx + 1}</TableCell>
+                          <TableCell className="w-20 px-3 py-3 border text-sm">{item.date}</TableCell>
+                          <TableCell className="w-20 px-3 py-3 border text-sm text-gray-600">—</TableCell>
+                          <TableCell className="w-24 px-3 py-3 border font-semibold text-gray-800">{item.item}</TableCell>
+                          <TableCell className="w-14 px-3 py-3 border text-center text-sm">{item.pcs}</TableCell>
+                          <TableCell className="w-14 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
+                          <TableCell className="w-14 px-3 py-3 border text-center font-medium">{item.gw}</TableCell>
+                          <TableCell className="w-16 px-3 py-3 border text-sm">{item.size || "—"}</TableCell>
+                          <TableCell className="w-16 px-3 py-3 border text-center text-sm">{item.purity}</TableCell>
+                          <TableCell className="w-14 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
+                          <TableCell className="w-14 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
+                          <TableCell className="w-16 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
+                          <TableCell className="w-16 px-3 py-3 border text-center text-sm">{item.making_amt || "—"}</TableCell>
+                          <TableCell className="w-16 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
+                          <TableCell className="w-16 px-3 py-3 border text-center font-medium text-green-700">{item.item_value}</TableCell>
+                          <TableCell className="w-20 px-3 py-3 border text-xs text-gray-600">{item.remarks || "—"}</TableCell>
+                          <TableCell className="w-32 px-2 py-3 border text-center">
+                            <Button
+                              onClick={() => navigate(`/inventory/barcodemanagement/list/add/?bill_no=${encodeURIComponent(details.billno)}&sl_no=${item.sl_no}`)}
+                              disabled={!(item.pending_gw > 0)}
+                              className="whitespace-nowrap text-xs"
+                              size="sm"
+                            >
+                              Create Barcode
+                            </Button>
                           </TableCell>
                         </TableRow>
                         {item.purchasevoucherdetails_set?.map((detail, sub_id) => (
-                          <TableRow key={sub_id} className="bg-gray-100">
-                            <TableCell className="w-20 px-4 py-2 border">{detail.sl_no}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.packet}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.sub_item}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.sub_pcs}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.sub_gw}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.metal_purity}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.loss}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.tunch}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.fine_wt}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.rate}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                            <TableCell className="w-20 px-4 py-2 border">{detail.value}</TableCell>
-                            <TableCell className="w-20 px-4 py-2 border"></TableCell>
-                            <TableCell className="w-20 px-4 py-2 border"></TableCell>
+                          <TableRow key={sub_id} className="bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <TableCell className="w-12 px-3 py-2 border text-xs text-gray-600 text-center">  {detail.sl_no}</TableCell>
+                            <TableCell className="w-20 px-3 py-2 border text-xs text-gray-600">—</TableCell>
+                            <TableCell className="w-20 px-3 py-2 border text-xs">{detail.packet}</TableCell>
+                            <TableCell className="w-24 px-3 py-2 border text-xs text-gray-700">{detail.sub_item}</TableCell>
+                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{detail.sub_pcs}</TableCell>
+                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
+                            <TableCell className="w-14 px-3 py-2 border text-center text-xs font-medium">{detail.sub_gw}</TableCell>
+                            <TableCell className="w-16 px-3 py-2 border text-xs text-gray-600">—</TableCell>
+                            <TableCell className="w-16 px-3 py-2 border text-center text-xs">{detail.metal_purity}</TableCell>
+                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{detail.loss || "—"}</TableCell>
+                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{detail.tunch || "—"}</TableCell>
+                            <TableCell className="w-16 px-3 py-2 border text-center text-xs">{detail.fine_wt || "—"}</TableCell>
+                            <TableCell className="w-16 px-3 py-2 border text-center text-xs">{detail.rate || "—"}</TableCell>
+                            <TableCell className="w-16 px-3 py-2 border text-center text-xs text-gray-600">—</TableCell>
+                            <TableCell className="w-16 px-3 py-2 border text-center text-xs font-medium text-green-600">{detail.value}</TableCell>
+                            <TableCell className="w-20 px-3 py-2 border text-xs text-gray-600">—</TableCell>
+                            <TableCell className="w-32 px-3 py-2 border text-xs text-gray-600">—</TableCell>
                           </TableRow>
                         ))}
                       </React.Fragment>

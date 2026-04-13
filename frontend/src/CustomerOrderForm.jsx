@@ -108,11 +108,11 @@ const CustomerOrderForm = () => {
         fetchMainItem(),
         fetchPurity(),
       ]);
-      if (customers.success) setCustomers(customers.data.results);
-      if (salesperson.success) setSalespersonData(salesperson.data);
+      if (customers.success) setCustomers(Array.isArray(customers.data.results) ? customers.data.results : (Array.isArray(customers.data) ? customers.data : []));
+      if (salesperson.success) setSalespersonData(Array.isArray(salesperson.data) ? salesperson.data : (Array.isArray(salesperson.data?.results) ? salesperson.data.results : []));
       if (orderNo.success) setValue("form.order_no", orderNo.data.order_no);
-      if (mainItem.success) setMainItemData(mainItem.data);
-      if (purity.success) setPurityData(purity.data);
+      if (mainItem.success) setMainItemData(Array.isArray(mainItem.data) ? mainItem.data : (Array.isArray(mainItem.data?.results) ? mainItem.data.results : []));
+      if (purity.success) setPurityData(Array.isArray(purity.data) ? purity.data : (Array.isArray(purity.data?.results) ? purity.data.results : []));
     }
     fetchData().then(d =>{
                 if(id){
@@ -277,7 +277,7 @@ const CustomerOrderForm = () => {
              required className="self-end" />
               <Input type="hidden" {...register("form.ldgr")} />
               <datalist id="party_list" >
-                {customers.map((customer, index) => (
+                {(Array.isArray(customers) ? customers : []).map((customer, index) => (
                 <option key={index} value={customer.ac_name}>{customer.mobile1}</option>
 
                 ))}
@@ -299,7 +299,7 @@ const CustomerOrderForm = () => {
                   <SelectValue placeholder="Select Sales" />
                   </SelectTrigger>
                   <SelectContent>
-                  {salespersonData.map((sp, index) => (
+                  {(Array.isArray(salespersonData) ? salespersonData : []).map((sp, index) => (
                     <SelectItem key={index} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>
                   ))}
 
@@ -457,9 +457,9 @@ const CustomerOrderForm = () => {
               <TableCell className="w-32 px-4 py-2 border">
                 <Input list="item_list" {...register("table.item_id")} />
                 <datalist id="item_list">
-                  {mainItemData.map((item, index) => (
+                  {mainItemData && Array.isArray(mainItemData) ? mainItemData.map((item, index) => (
                     <option key={index} value={item.short_code}  > {item.item_name}</option>
-                  ))}
+                  )) : null}
 
                 </datalist>
               </TableCell>
@@ -473,7 +473,7 @@ const CustomerOrderForm = () => {
                         <SelectValue placeholder="Select Purity" />
                       </SelectTrigger>
                       <SelectContent>
-                        {purityData.map((item, index) => (
+                        {(Array.isArray(purityData) ? purityData : []).map((item, index) => (
                           <SelectItem key={index} value={`${item.purity}`}> {item.purity}</SelectItem>
                         ))}
 

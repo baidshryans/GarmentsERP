@@ -28,7 +28,7 @@ class PurchaseVoucher(models.Model):
     ref_no = models.CharField(max_length=10, null=True,blank=True) #
     ref_date = models.DateField(null=True) #
     ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True, related_name='ldgr_code') #
-    item_total = models.IntegerField(null=True) #
+    item_total = models.DecimalField(null=True, max_digits=12, decimal_places=2) #
     discount_amt = models.DecimalField(default=Decimal(0.00), max_digits=10, decimal_places =2) #
     round_off = models.DecimalField(default=Decimal(0.00), max_digits=10, decimal_places =2) #
     add_chrg_cap1 = models.CharField(max_length=10, null=True,blank=True) #

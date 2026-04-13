@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 
 from inventory.models import RawMaterialInventory, RawMaterialTransaction
@@ -51,7 +51,7 @@ def increase_raw_material_on_purchase(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=PurchaseVoucherItems)
+@receiver(pre_delete, sender=PurchaseVoucherItems)
 def reverse_raw_material_on_purchase_delete(sender, instance, **kwargs):
     if instance.is_finished:
         return
@@ -95,7 +95,7 @@ def increase_raw_material_on_purchase_detail(sender, instance, created, **kwargs
     )
 
 
-@receiver(post_delete, sender=PurchaseVoucherDetails)
+@receiver(pre_delete, sender=PurchaseVoucherDetails)
 def reverse_raw_material_on_purchase_detail_delete(sender, instance, **kwargs):
     if instance.main_item and instance.main_item.is_finished:
         return

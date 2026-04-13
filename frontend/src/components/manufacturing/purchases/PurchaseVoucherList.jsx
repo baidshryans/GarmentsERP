@@ -25,18 +25,19 @@ import { useF2Navigate } from "@/hooks/useF2Navigate";
 function PurchaseVoucherList({ voucherType = "" }) {
   useF2Navigate(voucherType ? `/purchase/customerpurchase/list/add/?vou_type=${voucherType}` : "/purchase/add/");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const deleteVoucherMutation = useMutation({
-  mutationFn: ({ id }) => deletePurchaseVoucher(id),   // your API call
+  mutationFn: ({ id }) => deletePurchaseVoucher(id),
   onSuccess: () => {
     queryClient.invalidateQueries({
       queryKey: ["purchaseVouchers"],
     });
+    toast({ title: "Purchase voucher deleted successfully" });
   },
   onError: (err) => {
-    toast.error(err.message || "Delete failed");
+    toast({ title: "Delete failed", description: err.message || "Something went wrong", variant: "destructive" });
   },
 });
-  const { toast } = useToast();
   const [params,setParams] = useSearchParams()
   const navigate = useNavigate()
   const [page, setPage] = useState(1);

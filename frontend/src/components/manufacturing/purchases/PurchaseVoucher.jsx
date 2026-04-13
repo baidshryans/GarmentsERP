@@ -12,7 +12,7 @@ import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
-import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, getStates, fetchPVNoNext, fetchPoNoNext, fetchPackets, fetchPos, fetchStoneIssuesFilterJobs, fetchStoneIssued, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchLedgerTDSInfo } from "@/services/apiService";
+import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, getLedger, createCustomerOrder, getStates, fetchPVNoNext, fetchPoNoNext, fetchPackets, fetchPos, fetchStoneIssuesFilterJobs, fetchStoneIssued, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchLedgerTDSInfo } from "@/services/apiService";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchCustomerOrders, fetchOrderItem, fetchPurchaseVoucherForEdit, fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, updatePurchaseVoucherForEdit } from "../../../services/apiService";
@@ -309,7 +309,6 @@ const PurchaseVoucher = () => {
           const jewelleryHsn = hsnres.data.results.find(
             h => h.hsn_no === "711319" || h.description?.toUpperCase().includes("JEWELLERY PLAIN")
           );
-          // Defer so Select items render before value is set
           if (jewelleryHsn) setTimeout(() => setValue("hsn", jewelleryHsn.hsn_no), 0);
         }
       }
@@ -320,14 +319,19 @@ const PurchaseVoucher = () => {
     fetchData().then(d => {
       if (id) {
         fetchPurchaseVoucherForEdit(id)
-          .then((response) => {
+          .then(async (response) => {
             const data = response.data;
-            // Set form fields, skipping nested arrays that are handled separately
+            // Set form fields, skipping nested arrays and hsn (handled separately)
             Object.keys(data).forEach((key) => {
-              if (key !== 'purchasevoucheritems_set' && key !== 'purchasevoucherdetails_set') {
+              if (key !== 'purchasevoucheritems_set' && key !== 'purchasevoucherdetails_set' && key !== 'hsn') {
                 setValue(`form.${key}`, data[key]);
               }
             });
+
+            // Restore HSN at root level (drives tax rate lookup)
+            if (data.hsn) {
+              setValue("hsn", data.hsn);
+            }
 
             if (data.purchasevoucheritems_set) {
               setRows(data.purchasevoucheritems_set);
@@ -342,9 +346,17 @@ const PurchaseVoucher = () => {
               });
               setRsRaw(data.purchasevoucherdetails_set.filter(d => !nestedIds.has(d.id)));
             }
+
+            // Restore vendor state code from ledger GSTIN so tax type (IGST vs CGST+SGST) is correct
+            if (data.ldgr) {
+              const ledgerRes = await getLedger(data.ldgr);
+              if (ledgerRes.success && ledgerRes.data.gst) {
+                setVendorStateCode(ledgerRes.data.gst.substring(0, 2));
+              }
+            }
           })
           .catch((error) => {
-            console.error('Error fetching manufacturing issue:', error);
+            console.error('Error fetching purchase voucher for edit:', error);
           });
       }
 
@@ -565,6 +577,7 @@ const PurchaseVoucher = () => {
       making_value: toIntOrNull(item.making_value),
     }));
     form.purchasevoucherdetails_set = [...rsRaw];
+    form.hsn = getValues("hsn") || null;
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })

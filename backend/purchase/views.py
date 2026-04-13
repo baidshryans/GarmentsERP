@@ -95,7 +95,7 @@ class PurchaseReturnViewset(RetailBaseViewset):
         serializer.save(retail=retail)
 
 class PurchaseVoucherViewset(RetailBaseViewset):
-    queryset = PurchaseVoucher.objects.select_related('ldgr', 'retail').prefetch_related(
+    queryset = PurchaseVoucher.objects.select_related('ldgr', 'retail', 'hsn').prefetch_related(
         'purchasevoucheritems_set__purchasevoucherdetails_set'
     ).all()
     serializer_class = PurchaseVoucherPostSerializer 

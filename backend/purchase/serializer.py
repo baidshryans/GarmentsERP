@@ -9,7 +9,7 @@ import global_vars
 from goldrates.models import PurityMaster
 from inventory.models import BarcodeMain
 from manufacturing.utils import create_or_update_nested
-from mastersconfig.models import Item, Packet, State
+from mastersconfig.models import Item, Packet, State, Hsn
 from purchase.models import PurchaseOrderItems, PurchaseVoucher,PurchaseOrder
 from sales.models import CustomerOrder, CustomerOrderItems
 from django.db import transaction
@@ -445,6 +445,8 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
     purchasevoucheritems_set = PurchaseVoucherItemsSerializer(many=True)
     # Direct raw/material details not linked to a main item
     purchasevoucherdetails_set = PurchaseVoucherDetailsSerializer(many=True, required=False)
+    # Accept/return HSN by hsn_no instead of pk
+    hsn = serializers.SlugRelatedField(slug_field='hsn_no', queryset=Hsn.objects.all(), required=False, allow_null=True)
 
     class Meta:
         model = PurchaseVoucher
@@ -479,6 +481,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             'bill_value',
             'due_amt',
             'is_return',
+            'hsn',
             'purchasevoucheritems_set',
             'purchasevoucherdetails_set',
         ]

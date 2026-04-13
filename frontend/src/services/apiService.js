@@ -3400,7 +3400,8 @@ export const deleteStockJournal = async (id, toast) => {
 // Purchase
 export const deletePurchaseVoucher = async (id) => {
   const result = await deleteResource("purchase/api/purchase-voucher", id);
-  // handleDelete(result, toast, "Purchase voucher deleted successfully.");
+  if (!result.success) throw new Error(result.error?.detail || "Failed to delete purchase voucher");
+  return result;
 };
 
 export const deletePurchaseReturn = async (id, toast) => {

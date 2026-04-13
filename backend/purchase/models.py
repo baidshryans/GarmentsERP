@@ -51,6 +51,7 @@ class PurchaseVoucher(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_return = models.BooleanField(default=False)
+    hsn = models.ForeignKey("mastersconfig.Hsn", on_delete=models.SET_NULL, null=True, blank=True)
     is_rcm = models.BooleanField(
         default=False,
         help_text="Reverse charge applies — old gold purchased from unregistered individual"

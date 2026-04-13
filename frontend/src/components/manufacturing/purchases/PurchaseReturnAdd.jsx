@@ -343,7 +343,7 @@ const PurchaseReturnAdd = () => {
         {/* ══ SECTION 1: Header ══════════════════════════════════════════════ */}
         <SectionHeader number="1" title="Return Details" />
 
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <FieldContainer>
             <Label>Date</Label>
             <Input type="date" {...register("form.date1", { required: true })} />
@@ -393,7 +393,7 @@ const PurchaseReturnAdd = () => {
           </FieldContainer>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <FieldContainer>
             <Label>Mode of Transport</Label>
             <Input type="text" {...register("form.mode_of_transport")} />

@@ -219,7 +219,7 @@ export default function QuotationList() {
       <h1 className="text-xl font-bold">Quotations</h1>
 
       {/* Filters + Actions row */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Input
           placeholder="Search quotation no, party…"
           value={search}

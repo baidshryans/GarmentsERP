@@ -210,7 +210,7 @@ const PurchaseOrder = () => {
         <hr className="my-3" />
 
         {/* Date, Order No, Fixed Gold Rate */}
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <FieldContainer>
             <Label htmlFor="date">Date</Label>
             <Input type="date" {...register("form.date1")} required />
@@ -275,7 +275,7 @@ const PurchaseOrder = () => {
 
 
         {/* Party Details */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <FieldContainer>
             <Label htmlFor="party_name_display" className="text-nowrap">Karigar Name</Label>
             <SearchableComboBox
@@ -340,6 +340,7 @@ const PurchaseOrder = () => {
        
         {/* Item Details */}
         <h6 className="text-lg font-semibold my-3 text-start">Item Detail</h6>
+        <div className="overflow-x-auto">
         <Table className="w-full table-fixed border-collapse">
                          <TableBody>
                            <TableRow className=" w-full bg-gray-100">
@@ -437,6 +438,7 @@ const PurchaseOrder = () => {
                
                          </TableBody>
         </Table>
+        </div>
 
 
         {/* Submit */}

@@ -481,7 +481,7 @@ const RawSalesReturn = () => {
         <hr className="my-3" />
 
         {/* Top-level fields (matching your "OPTIONS" schema) */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           {/* date1 */}
           <FieldContainer>
             <Label htmlFor="date1" className="text-nowrap">Date</Label>
@@ -624,6 +624,7 @@ const RawSalesReturn = () => {
         <br></br>
         
         <h6 className="text-md font-semibold mb-2">Item Details</h6>
+        <div className="overflow-x-auto">
         <Table className="w-full table-fixed border-collapse">
           <TableBody>
             <TableRow className="w-full bg-gray-100">
@@ -721,8 +722,10 @@ const RawSalesReturn = () => {
             </TableRow>
           </TableBody>
         </Table>
+        </div>
         <br></br>
 
+        <div className="overflow-x-auto">
         <Table>
 
           <TableBody>
@@ -800,8 +803,9 @@ const RawSalesReturn = () => {
 
           </TableBody>
         </Table>
+        </div>
         <br/><br/>
-        
+
             <br/><br/>
         <h6 className="text-lg font-semibold text-right pr-10 mb-10">3.Bill Summary</h6>
         <div className="flex justify-end">

@@ -485,7 +485,7 @@ const PurchaseReturnadd = () => {
         <hr className="my-3" />
         <br></br>
         {/* Top-level fields (matching your "OPTIONS" schema) */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           {/* date1 */}
           <FieldContainer>
             <Label htmlFor="date1" className="text-nowrap">Date</Label>
@@ -520,7 +520,7 @@ const PurchaseReturnadd = () => {
         
           
         {/* </div> */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 
 
           <FieldContainer>
@@ -682,10 +682,11 @@ const PurchaseReturnadd = () => {
 
         {/* Next, the "details" sub-object fields */}
         <h6 className="text-md font-semibold mb-2">Nested Details</h6>
+        <div className="overflow-x-auto">
         <Table className="w-full table-fixed border-collapse">
           <TableBody>
             <TableRow className="w-full bg-gray-100">
-           
+
               <TableCell className="w-28 px-4 py-2 border">Sl No</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Bill No</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Item</TableCell>
@@ -802,8 +803,10 @@ const PurchaseReturnadd = () => {
             </TableRow>
           </TableBody>
         </Table>
+        </div>
         <br></br>
 
+        <div className="overflow-x-auto">
         <Table className="w-full table-fixed border-collapse">
 
           <TableBody>
@@ -887,14 +890,12 @@ const PurchaseReturnadd = () => {
 
           </TableBody>
         </Table>
-
-        
-                    
+        </div>
 
 
        <br></br>
 
-        <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
          <FieldContainer>
             <Label htmlFor="narration" className="text-nowrap">Narration</Label>
             <Input

@@ -891,7 +891,7 @@ const SalesVoucherAdd = () => {
         {/* ══ 1. BILL DETAILS ══════════════════════════════════════════════════ */}
         <SectionHeader number="1" title="Bill Details" />
 
-        <div className="grid grid-cols-3 gap-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           {/* Bill No — auto-generated, read-only */}
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
@@ -1001,7 +1001,7 @@ const SalesVoucherAdd = () => {
           </FieldContainer>
         </div>
 
-        <div className="grid grid-cols-3 gap-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">Date</Label>
             <Input type="date" {...register("form.date1", { required: true })} />
@@ -1036,7 +1036,7 @@ const SalesVoucherAdd = () => {
           </FieldContainer>
         </div>
 
-        <div className="grid grid-cols-3 gap-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">Place of Supply</Label>
             <Controller name="form.place_of_supply" control={control}
@@ -1059,7 +1059,7 @@ const SalesVoucherAdd = () => {
 
         {/* Exhibition Profile row — only visible when this retail is marked as an exhibition retail */}
         {isExhibitionRetail && (
-          <div className="grid grid-cols-3 gap-6 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
             <FieldContainer>
               <Label className="text-nowrap">Exhibition Profile</Label>
               <Controller name="form.exhibition_profile" control={control}
@@ -1269,7 +1269,7 @@ const SalesVoucherAdd = () => {
         )}
 
         {/* HSN + Barcode scan row */}
-        <div className="grid grid-cols-3 gap-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">HSN Code</Label>
             <Controller name="hsn" control={control}
@@ -1637,7 +1637,7 @@ const SalesVoucherAdd = () => {
         {/* ══ 4. PAYMENT DETAILS ═══════════════════════════════════════════════ */}
         <SectionHeader number="4" title="Payment Details" />
 
-        <div className="grid grid-cols-3 gap-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">Cash</Label>
             <Input type="number" {...register("form.cash")} />
@@ -1733,7 +1733,7 @@ const SalesVoucherAdd = () => {
         {/* ══ 5. REMARKS ═══════════════════════════════════════════════════════ */}
         <SectionHeader number="5" title="Remarks" />
 
-        <div className="grid grid-cols-3 gap-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">Remarks</Label>
             <Input type="text" {...register("form.remarks", { required: true })} />

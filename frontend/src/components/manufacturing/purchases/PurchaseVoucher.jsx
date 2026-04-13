@@ -888,9 +888,8 @@ const PurchaseVoucher = () => {
             }}
           />
         </div>
-        <br></br>
         {/* Date, Order No, Fixed Gold Rate */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 mb-4 mt-4">
           <FieldContainer>
             <Label htmlFor="date">Date</Label>
             <Input type="date" {...register("form.date1")} required />
@@ -1065,10 +1064,6 @@ const PurchaseVoucher = () => {
 
 
         </div>
-        <div className="grid grid-cols-4 gap-4 mb-4">
-
-
-        </div>
         {hsn_current || id ? <>
 
           {/* Item Details */}
@@ -1078,6 +1073,7 @@ const PurchaseVoucher = () => {
             <div className="flex-1 h-px bg-violet-100" />
           </div>
           <br></br>
+          <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
               <TableRow className="w-full bg-violet-50">
@@ -1189,10 +1185,12 @@ const PurchaseVoucher = () => {
 
             </TableBody>
           </Table>
+          </div>
 
 
           <br></br>
 
+          <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
               <TableRow className="w-full bg-violet-50">
@@ -1336,8 +1334,10 @@ const PurchaseVoucher = () => {
               </TableRow>
             </TableBody>
           </Table>
+          </div>
           <br></br>
 
+          <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse">
 
             <TableBody>
@@ -1437,11 +1437,13 @@ const PurchaseVoucher = () => {
               ))}
 
             </TableBody>
-          </Table> </> : <></>}
+          </Table>
+          </div> </> : <></>}
 
         {/* Legacy direct items — shown in edit mode only if the voucher had them */}
 
         {rsRaw.length > 0 && (
+          <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse mt-2">
             <TableBody>
               <TableRow className="bg-violet-50">
@@ -1478,10 +1480,11 @@ const PurchaseVoucher = () => {
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
 
         <div className="container mt-4">
-          <div className="grid grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <FieldContainer>
               <Label htmlFor="narration" className="text-nowrap">Narration</Label>
               <Input type="text" {...register("form.narration")} />
@@ -1548,7 +1551,7 @@ const PurchaseVoucher = () => {
           )}
 
           {/* Bill Summary — ml-auto pushes it right when no attachment panel is visible */}
-          <div className="w-80 shrink-0 ml-auto">
+          <div className="w-[480px] shrink-0 ml-auto">
             <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} standalone={false} />
           </div>
         </div>

@@ -22,8 +22,8 @@ import { Button } from '@/components/ui/button';
  */
 const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTotal = false, onAutoCalc }) => {
   return (
-    <div className={standalone ? "flex justify-end mt-8 mb-6" : ""}>
-      <div className="w-[480px] rounded-lg overflow-hidden border border-border shadow-sm">
+    <div className={standalone ? "flex justify-end mt-8 mb-6 w-full" : ""}>
+      <div className={`${standalone ? 'w-full sm:w-[480px]' : 'w-full'} rounded-lg overflow-hidden border border-border shadow-sm`}>
 
         {/* Header */}
         <div className="flex items-center gap-2 px-6 py-3 bg-muted/60 border-b border-border">

@@ -13,32 +13,24 @@ export const FieldContainer = ({ children }) => {
   );
 
   return (
-    <div className="flex items-center justify-between w-full">
+    <div className="flex flex-col gap-1 w-full">
       {childArray.map((child, idx) => {
         if (!React.isValidElement(child))
-          return <div key={idx} className="flex-1">{child}</div>;
+          return <React.Fragment key={idx}>{child}</React.Fragment>;
 
         const dn = child.type?.displayName ?? '';
 
         // Inject htmlFor into the Label — only when a matching Input exists
         if (hasDirectInput && (dn === 'Label' || dn === 'LabelPrimitive.Root')) {
-          return (
-            <div key={idx} className="flex-1">
-              {React.cloneElement(child, { htmlFor: uid })}
-            </div>
-          );
+          return React.cloneElement(child, { key: idx, htmlFor: uid });
         }
 
         // Inject id into the direct Input
         if (dn === 'Input') {
-          return (
-            <div key={idx} className="flex-1">
-              {React.cloneElement(child, { id: uid })}
-            </div>
-          );
+          return React.cloneElement(child, { key: idx, id: uid });
         }
 
-        return <div key={idx} className="flex-1">{child}</div>;
+        return <React.Fragment key={idx}>{child}</React.Fragment>;
       })}
     </div>
   );

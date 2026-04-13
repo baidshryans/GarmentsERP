@@ -228,7 +228,7 @@ const SalesApprovalAdd = () => {
         {/* ── 1. Bill Details ─────────────────────────────── */}
         <SectionHeader number="1" title="Bill Details" />
 
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           {/* Bill No */}
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
@@ -267,7 +267,7 @@ const SalesApprovalAdd = () => {
           <input type="hidden" {...register("form.ldgr")} />
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           {/* Sales Person 1 */}
           <FieldContainer>
             <Label className="text-nowrap">Sales Person</Label>
@@ -339,7 +339,7 @@ const SalesApprovalAdd = () => {
           </FieldContainer>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {/* HSN */}
           <FieldContainer>
             <Label className="text-nowrap">HSN Code</Label>
@@ -488,7 +488,7 @@ const SalesApprovalAdd = () => {
         </div>
 
         {/* Narration */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <FieldContainer>
             <Label className="text-nowrap">Narration</Label>
             <Input type="text" {...register("form.narration")} />

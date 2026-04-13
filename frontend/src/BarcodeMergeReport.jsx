@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Search, Download, Merge } from "lucide-react";
+import { Loader2, Search, Download, Merge, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +14,8 @@ function fmtDate(d) {
   return new Date(d).toLocaleDateString("en-IN");
 }
 
-const TH = ({ children, className = "" }) => (
-  <th className={`px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap ${className}`}>
+const TH = ({ children, className = "", ...props }) => (
+  <th className={`px-3 py-2 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap ${className}`} {...props}>
     {children}
   </th>
 );
@@ -63,13 +63,38 @@ export default function BarcodeMergeReport() {
       fmt(r.new_barcode?.nw),
     ]);
     const csv = [headers, ...csvRows].map((r) => r.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `barcode_merge_${fromDate}_${toDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    const tableEl = document.querySelector("#merge-report-table");
+    if (!tableEl) return;
+    const win = window.open("", "_blank", "width=900,height=600");
+    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Merge Report ${fromDate} – ${toDate}</title>
+<style>
+  body { font-family: sans-serif; font-size: 11px; padding: 16px; }
+  h2 { font-size: 14px; margin-bottom: 4px; }
+  p { margin: 0 0 12px; color: #666; font-size: 11px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; font-size: 11px; }
+  th { background: #f3f4f6; font-weight: 600; }
+  .text-right { text-align: right; }
+  tfoot td { font-weight: 600; background: #f3f4f6; }
+  @media print { @page { margin: 10mm; size: landscape; } }
+</style></head><body>
+<h2>Barcode Merge Report</h2>
+<p>${fromDate} — ${toDate} &nbsp;·&nbsp; ${rows.length} record${rows.length !== 1 ? "s" : ""}</p>
+${tableEl.outerHTML}
+</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 300);
   };
 
   return (
@@ -90,9 +115,14 @@ export default function BarcodeMergeReport() {
             {loading ? "Loading..." : "Search"}
           </Button>
           {rows.length > 0 && (
-            <Button variant="outline" size="sm" onClick={exportCSV} className="h-9">
-              <Download className="size-4 mr-1.5" /> Export CSV
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={exportCSV} className="h-9">
+                <Download className="size-4 mr-1.5" /> Export CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePrint} className="h-9">
+                <Printer className="size-4 mr-1.5" /> Print
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -119,17 +149,14 @@ export default function BarcodeMergeReport() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted/50 border-b border-border">
-              <tr>
-                <TH>#</TH>
-                <TH>Date</TH>
-                <TH colSpan={5} className="border-r border-border">Source Barcode (Old)</TH>
-                <TH colSpan={5}>Merged Into (New)</TH>
+          <table id="merge-report-table" className="w-full table-auto">
+            <thead className="bg-muted/50">
+              <tr className="border-b border-border">
+                <TH rowSpan={2} className="border-r border-border align-middle w-24">Date</TH>
+                <TH colSpan={5} className="text-center border-r border-border border-b border-border pb-1">Source Barcode (Old)</TH>
+                <TH colSpan={5} className="text-center border-b border-border pb-1">Merged Into (New)</TH>
               </tr>
               <tr className="border-b border-border">
-                <TH></TH>
-                <TH></TH>
                 <TH>Barcode</TH>
                 <TH>Item</TH>
                 <TH className="text-right">Pcs</TH>
@@ -145,29 +172,28 @@ export default function BarcodeMergeReport() {
             <tbody>
               {!searched && !loading && (
                 <tr>
-                  <TD colSpan={12} className="text-center py-12 text-muted-foreground text-sm border-b-0">
+                  <TD colSpan={11} className="text-center py-12 text-muted-foreground text-sm border-b-0">
                     Select a date range and click Search to view merge records.
                   </TD>
                 </tr>
               )}
               {loading && (
                 <tr>
-                  <TD colSpan={12} className="text-center py-12 border-b-0">
+                  <TD colSpan={11} className="text-center py-12 border-b-0">
                     <Loader2 className="size-5 animate-spin text-primary mx-auto" />
                   </TD>
                 </tr>
               )}
               {searched && !loading && rows.length === 0 && (
                 <tr>
-                  <TD colSpan={12} className="text-center py-12 text-muted-foreground text-sm border-b-0">
+                  <TD colSpan={11} className="text-center py-12 text-muted-foreground text-sm border-b-0">
                     No merge transactions found for the selected date range.
                   </TD>
                 </tr>
               )}
-              {!loading && rows.map((row, i) => (
+              {!loading && rows.map((row) => (
                 <tr key={row.id} className="hover:bg-muted/30 transition-colors">
-                  <TD className="text-muted-foreground">{i + 1}</TD>
-                  <TD className="whitespace-nowrap">{fmtDate(row.date1)}</TD>
+                  <TD className="whitespace-nowrap border-r border-border">{fmtDate(row.date1)}</TD>
                   {/* Old (source) barcode */}
                   <TD>
                     <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
@@ -194,7 +220,8 @@ export default function BarcodeMergeReport() {
             {rows.length > 0 && (
               <tfoot className="bg-muted/50 border-t-2 border-border font-semibold text-sm">
                 <tr>
-                  <td colSpan={4} className="px-3 py-2 text-right text-xs text-muted-foreground">Totals</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground border-r border-border">Totals</td>
+                  <td colSpan={2} />
                   <td className="px-3 py-2 text-right">
                     {rows.reduce((s, r) => s + (r.old_barcode?.pcs || 0), 0)}
                   </td>

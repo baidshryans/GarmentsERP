@@ -38,6 +38,7 @@ import {
   fetchCustomerPurchasesByLedger,
   fetchB2BPricelistForLedger,
   fetchRetailDiscountPricelistForLedger,
+  fetchActiveOffer,
 } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 
@@ -190,6 +191,7 @@ const SalesVoucherAdd = () => {
   const [selectedPurchase, setSelectedPurchase] = useState(null); // the linked PurchaseVoucher object
   const [b2bPricelist, setB2bPricelist] = useState(null);         // null = retail mode; object = B2B pricelist data
   const [retailDiscountPricelist, setRetailDiscountPricelist] = useState(null); // retail discount pricelist for Apply Discount
+  const [activeOffer, setActiveOffer] = useState(null);           // company-wide active offer (retail only)
   // Resolved item for the current manual input row
   const [detailItem, setDetailItem] = useState(null);
   // Display name shown in the item text box (item_name, not short_code)
@@ -319,7 +321,10 @@ const SalesVoucherAdd = () => {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetchSaleVoucherInitialData();
+        const [res, exhRes] = await Promise.all([
+          fetchSaleVoucherInitialData(),
+          fetchExhibitions(),
+        ]);
         if (res.success) {
           const d = res.data;
           console.log("Initial data loaded:", d);
@@ -333,16 +338,6 @@ const SalesVoucherAdd = () => {
           setValue("form.billno", d.billno);
           if (d.retail_state_code) setRetailStateCode(d.retail_state_code);
           if (d.is_exhibition) setIsExhibitionRetail(true);
-
-          // Load exhibition profiles for this retail (only relevant for exhibition retails)
-          const exhRes = await fetchExhibitions();
-          if (exhRes.success) {
-            const list = Array.isArray(exhRes.data) ? exhRes.data : (exhRes.data?.results ?? []);
-            setExhibitions(list);
-            // Pre-select the profile marked as default (is_active = true), if any
-            const defaultExh = list.find(e => e.is_active);
-            if (defaultExh) setValue("form.exhibition_profile", String(defaultExh.id));
-          }
         } else {
           console.error("Failed to fetch initial data:", res.error);
           toast({
@@ -350,6 +345,13 @@ const SalesVoucherAdd = () => {
             description: res.error?.error || "Failed to load form data. Please ensure you are logged in and have selected a retail location.",
             variant: "destructive",
           });
+        }
+        if (exhRes.success) {
+          const list = Array.isArray(exhRes.data) ? exhRes.data : (exhRes.data?.results ?? []);
+          setExhibitions(list);
+          // Pre-select the profile marked as default (is_active = true), if any
+          const defaultExh = list.find(e => e.is_active);
+          if (defaultExh) setValue("form.exhibition_profile", String(defaultExh.id));
         }
       } catch (err) {
         console.error("Exception while fetching initial data:", err);
@@ -364,16 +366,18 @@ const SalesVoucherAdd = () => {
         }
       });
 
-      // Fetch system settings and bank ledgers (not included in initial data)
-      const [sysSettings, bankLedgersRes] = await Promise.all([
+      // Fetch system settings, bank ledgers, and active offer in parallel
+      const [sysSettings, bankLedgersRes, offerRes] = await Promise.all([
         fetchSystemSettings(),
         getLedgers({ type: "BA", page: 1 }),
+        fetchActiveOffer(),
       ]);
       if (sysSettings.success) setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
       if (bankLedgersRes.success) {
         const list = Array.isArray(bankLedgersRes.data) ? bankLedgersRes.data : (bankLedgersRes.data?.results ?? []);
         setBankLedgers(list);
       }
+      if (offerRes.success && offerRes.data?.id) setActiveOffer(offerRes.data);
     }
 
     fetchData().then(() => {
@@ -795,28 +799,63 @@ const SalesVoucherAdd = () => {
     setCalculate(prev => prev + 1);
   };
 
-  // ── Apply Retail Discount ─────────────────────────────────────────────────
-  const applyRetailDiscount = () => {
-    if (!retailDiscountPricelist) return;
-    const ruleByPurity = Object.fromEntries(
-      (retailDiscountPricelist.rules || []).map(r => [r.purity, r])
-    );
-    let totalDiscount = 0;
-    for (const item of (getValues('salesvouitem_set') || [])) {
-      const purityStr = item.metal_purity || null;
-      const rule = purityStr ? ruleByPurity[purityStr] : null;
-      if (!rule) continue;
-      // Making charge discount
-      totalDiscount += parseFloat(item.making_value || 0) * parseFloat(rule.making_discount_pct || 0) / 100;
-      // Stone/diamond discount — sub-items with pckt_no are stone items
-      for (const sub of (item.main_item_set || [])) {
-        if (sub.pckt_no) {
-          totalDiscount += parseFloat(sub.amount || 0) * parseFloat(rule.diamond_discount_pct || 0) / 100;
+  // ── Apply Best Discount (retail pricelist vs active offer) ───────────────
+  const applyBestDiscount = () => {
+    // Offers never apply to B2B customers — they have their own pricelist
+    if (b2bPricelist) return;
+    if (!retailDiscountPricelist && !activeOffer) return;
+
+    const items = getValues('salesvouitem_set') || [];
+
+    // ── Retail pricelist discount ──────────────────────────────────────────
+    let retailDiscount = 0;
+    if (retailDiscountPricelist) {
+      const ruleByPurity = Object.fromEntries(
+        (retailDiscountPricelist.rules || []).map(r => [r.purity, r])
+      );
+      for (const item of items) {
+        const rule = ruleByPurity[item.metal_purity];
+        if (!rule) continue;
+        retailDiscount += parseFloat(item.making_value || 0) * parseFloat(rule.making_discount_pct || 0) / 100;
+        for (const sub of (item.main_item_set || [])) {
+          if (sub.pckt_no)
+            retailDiscount += parseFloat(sub.amount || 0) * parseFloat(rule.diamond_discount_pct || 0) / 100;
         }
       }
     }
-    setValue('form.discount', parseFloat(totalDiscount.toFixed(2)));
-    setCalculate(prev => prev + 1);
+
+    // ── Active offer discount ──────────────────────────────────────────────
+    let offerDiscount = 0;
+    if (activeOffer) {
+      const offerRuleByPurity = Object.fromEntries(
+        (activeOffer.rules || []).map(r => [r.purity, r])
+      );
+      for (const item of items) {
+        const rule = offerRuleByPurity[item.metal_purity];
+        if (rule) {
+          const makingVal = parseFloat(item.making_value || 0);
+          if (rule.making_type === 'flat') {
+            // discount = standard making - offer making (flat ₹/g × nw)
+            const offerMaking = parseFloat(rule.making_value) * parseFloat(item.nw || 0);
+            offerDiscount += Math.max(0, makingVal - offerMaking);
+          } else if (rule.making_type === 'discount') {
+            offerDiscount += makingVal * parseFloat(rule.making_value) / 100;
+          }
+        }
+        // Diamond discount (offer-level, applies across all purities)
+        for (const sub of (item.main_item_set || [])) {
+          if (sub.pckt_no)
+            offerDiscount += parseFloat(sub.amount || 0) * parseFloat(activeOffer.diamond_discount_pct || 0) / 100;
+        }
+      }
+    }
+
+    // Apply whichever gives the customer a lower price (= higher discount)
+    const bestDiscount = Math.max(retailDiscount, offerDiscount);
+    if (bestDiscount > 0) {
+      setValue('form.discount', parseFloat(bestDiscount.toFixed(2)));
+      setCalculate(prev => prev + 1);
+    }
   };
 
   // ── Bill Summary rows ──────────────────────────────────────────────────────
@@ -884,23 +923,25 @@ const SalesVoucherAdd = () => {
                   if (customerState && customerState !== 'none') {
                     setValue("form.place_of_supply", customerState);
                   }
-                  const ldgrcash = await CashTotalLedger(opt.id);
+                  const [ldgrcash, cashRes, ordersRes, purchasesRes, plRes, rdplRes] = await Promise.all([
+                    CashTotalLedger(opt.id),
+                    fetchCustomerCashReceived(opt.id),
+                    fetchCustomerOrdersByLedger(opt.id),
+                    fetchCustomerPurchasesByLedger(opt.id),
+                    fetchB2BPricelistForLedger(opt.id),
+                    fetchRetailDiscountPricelistForLedger(opt.id),
+                  ]);
                   setCashLedger(ldgrcash.data.total_cash);
-                  const cashRes = await fetchCustomerCashReceived(opt.id);
                   setCustomerCashInfo(cashRes.success ? cashRes.data : null);
-                  const ordersRes = await fetchCustomerOrdersByLedger(opt.id);
                   setCustomerOrders(ordersRes.success ? ordersRes.data : []);
                   setSelectedOrder(null);
                   setValue("form.customer_order", "");
                   setValue("form.advance_deducted", 0);
-                  const purchasesRes = await fetchCustomerPurchasesByLedger(opt.id);
                   setCustomerPurchases(purchasesRes.success ? purchasesRes.data : []);
                   setSelectedPurchase(null);
                   setValue("form.old_gold_purchase", "");
                   setValue("form.old_gold_adjusted", 0);
-                  const plRes = await fetchB2BPricelistForLedger(opt.id);
                   setB2bPricelist(plRes.success && plRes.data ? plRes.data : null);
-                  const rdplRes = await fetchRetailDiscountPricelistForLedger(opt.id);
                   setRetailDiscountPricelist(rdplRes.success && rdplRes.data ? rdplRes.data : null);
                 }}
                 placeholder="Search customer…"
@@ -916,6 +957,11 @@ const SalesVoucherAdd = () => {
                 {retailDiscountPricelist && (
                   <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200">
                     Discount: {retailDiscountPricelist.name}
+                  </span>
+                )}
+                {activeOffer && !b2bPricelist && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200">
+                    Offer: {activeOffer.name}
                   </span>
                 )}
               </p>
@@ -1695,17 +1741,23 @@ const SalesVoucherAdd = () => {
         </div>
 
         {/* ══ 6. BILL SUMMARY ══════════════════════════════════════════════════ */}
-        {retailDiscountPricelist && (
+        {(retailDiscountPricelist || activeOffer) && !b2bPricelist && (
           <div className="flex justify-end mb-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
-              onClick={applyRetailDiscount}
+              onClick={applyBestDiscount}
             >
               <BadgePercent className="w-3.5 h-3.5" />
-              Apply Discount ({retailDiscountPricelist.name})
+              Apply Best Discount
+              {retailDiscountPricelist && activeOffer
+                ? ` (${retailDiscountPricelist.name} vs ${activeOffer.name})`
+                : retailDiscountPricelist
+                  ? ` (${retailDiscountPricelist.name})`
+                  : ` (${activeOffer.name})`
+              }
             </Button>
           </div>
         )}

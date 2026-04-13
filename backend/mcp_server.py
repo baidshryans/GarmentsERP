@@ -818,7 +818,8 @@ def get_dashboard_summary(retail_code: str = "") -> str:
         return json.dumps({"error": f"Retail '{retail_code}' not found."})
 
     today = datetime.date.today()
-    fy_start = datetime.date(today.year if today.month >= 4 else today.year - 1, 4, 1)
+    active_fy = getattr(retail, 'active_fy', None)
+    fy_start = active_fy.fy_start if active_fy else datetime.date(today.year if today.month >= 4 else today.year - 1, 4, 1)
 
     # Today's sales
     today_sales = SalesVou.objects.filter(

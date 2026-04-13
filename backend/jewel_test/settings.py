@@ -72,6 +72,7 @@ EXTERNAL_APPS = [
     'licensing',
     'goldscheme',
     'hr',
+    'carryforward',
 ]
 
 INSTALLED_APPS = INSTALLED_APPS + EXTERNAL_APPS

@@ -66,7 +66,7 @@ const DICT = [
   "accounting", "accounts", "advanced", "advance", "approval", "attachment", "audit", "balance", "bank",
   "barcode", "book", "branch", "bulk", "card", "carriage", "cash", "category",
   "chart", "closing", "color", "commission", "company", "contacts", "conversion", "customer",
-  "dashboard", "data", "debit", "details", "discount", "estimate", "exhibition",
+  "dashboard", "data", "debit", "details", "discount", "enrollment", "enrollments", "estimate", "exhibition",
   "expenses", "fiscal", "generation", "gold", "group", "hallmark", "history",
   "import", "input", "inventory", "invoice", "issue", "item", "items", "job",
   "journal", "karigar", "ledger", "licensing", "loss", "list", "log", "machine", "main",
@@ -75,12 +75,13 @@ const DICT = [
   "new", "note", "number", "occasion", "office", "old", "opening", "order",
   "other", "output", "pack", "packet", "page", "payment", "people", "person",
   "point", "preview", "price", "print", "process", "profit", "purchase",
-  "purity", "rate", "rates", "raw", "receive", "refinery", "refinary", "register", "repair",
-  "report", "reports", "retail", "return", "returns", "role", "roles", "sale", "sales", "section", "sections",
+  "purity", "quotation", "quotations", "rate", "rates", "raw", "receive", "refinery", "refinary", "register", "repair",
+  "report", "reports", "retail", "return", "returns", "role", "roles", "salary", "sale", "sales",
+  "scheme", "schemes", "section", "sections",
   "semi", "setup", "sheet", "shape", "stage", "standard", "statement", "stock",
   "stone", "store", "summary", "tax", "test", "tracking", "transfer", "trial",
   "type", "unit", "update", "upload", "user", "value", "vendor", "voucher",
-  "wise", "work", "year", "years", "zone",
+  "vouchers", "wise", "work", "year", "years", "zone",
   "cal", "demo", "finished", "gen", "split", "rec",
   "rfid", "count", "assign", "tag",
 ];
@@ -91,6 +92,7 @@ function splitGlued(s) {
   const lower = s.toLowerCase();
   const out = [];
   let i = 0;
+  let anyDictMatch = false;
   while (i < lower.length) {
     let matched = null;
     for (const w of DICT_SET) {
@@ -101,6 +103,7 @@ function splitGlued(s) {
     }
     if (matched) {
       out.push(matched);
+      anyDictMatch = true;
       i += matched.length;
     } else {
       // fallback: take one char
@@ -108,6 +111,9 @@ function splitGlued(s) {
       i += 1;
     }
   }
+  // If no dictionary word was matched at all, the word is unknown — return as-is
+  // so it title-cases cleanly instead of producing garbled pairs like "Qu Ot At Io N"
+  if (!anyDictMatch) return [lower];
   // merge lone chars
   const merged = [];
   out.forEach((w) => {

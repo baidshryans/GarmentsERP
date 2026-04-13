@@ -107,12 +107,23 @@ class ListCreateLedger(ListCreateAPIView):
         retail = getattr(self.request, 'retail', None)
         if retail is None:
             return Ledger.objects.none()
-        return (
+        qs = (
             Ledger.objects
             .filter(Q(retail_code=retail) | Q(retail_code__isnull=True))
             .select_related('ac_group')
             .prefetch_related('roles')
         )
+        # When user cannot view customer data and a search is active,
+        # exclude customer (CO) ledgers from results so they can't be
+        # discovered by name/phone search.
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            from userauth.utils import can_user_view_customer_data
+            if not can_user_view_customer_data(self.request.user):
+                from contacts.models import LedgerRole
+                co_ids = LedgerRole.objects.filter(role='CO').values_list('ledger_id', flat=True)
+                qs = qs.exclude(id__in=co_ids)
+        return qs
 
     def perform_create(self, serializer):
         ac_group = serializer.validated_data.get('ac_group')
@@ -328,7 +339,7 @@ class AccountTreeViewSet(viewsets.ViewSet):
     """
     def list(self, request):
         root_accounts = Account.objects.filter(parent=None)  # Get only top-level accounts
-        serializer = AccountSerializer(root_accounts, many=True)
+        serializer = AccountSerializer(root_accounts, many=True, context={'request': request})
         return Response(serializer.data)
 
 

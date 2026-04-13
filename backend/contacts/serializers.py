@@ -60,6 +60,17 @@ class LedgerBriefSerializer(serializers.ModelSerializer):
         first = obj.roles.first()
         return first.role if first else None
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if request:
+            from userauth.utils import can_user_view_customer_data
+            if not can_user_view_customer_data(request.user):
+                from contacts.masking import is_customer_ledger, MASK_VALUE
+                if is_customer_ledger(instance):
+                    ret['ac_name'] = MASK_VALUE
+        return ret
+
 
 class AccountSerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
@@ -70,7 +81,7 @@ class AccountSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'code', 'parent', 'children', 'ledgers']
 
     def get_children(self, obj):
-        return AccountSerializer(obj.children.all(), many=True).data
+        return AccountSerializer(obj.children.all(), many=True, context=self.context).data
 
 
 class LedgerDocumentSerializer(serializers.ModelSerializer):

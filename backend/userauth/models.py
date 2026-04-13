@@ -23,6 +23,7 @@ def create_auth_token(sender, instance=None, created=False, **kwargs):
 
 class Role(models.Model):
     name = models.CharField(max_length=100, unique=True)
+    can_view_customer_data = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name

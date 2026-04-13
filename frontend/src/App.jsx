@@ -1,180 +1,194 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+
+// ── Always-loaded (layout skeleton + auth routing logic) ─────────────────────
 import { Page } from "./dashboard";
-import BaseUrlConfig from "./components/BaseUrlConfig";
-import Ledger from "./ledger";
-import LedgerForm from "./addLedger.jsx";
-import AccountTree from "./chartOfAccouts";
-import AccountCreationForm from "./AccountCreate";
-import AddJournal from "./components/FinancialAccounting/vouchers/addJournal";
-import CashGoldConversion from "./CashGoldConversion";
-import KarigarIssue from "./components/manufacturing/issue/karigarissue";
-import PurchaseVoucher from "./components/manufacturing/purchases/PurchaseVoucher";
-import PurchaseOrder from "./components/manufacturing/purchases/purchaseOrder";
-import PurchaseOrderList from "./components/manufacturing/purchases/purchaseOrderList";
-import KarigarJobs from "./components/manufacturing/issue/jobWorkList.jsx";
-import KarigarReceiveList from "./components/manufacturing/receive/jobWorkReceiveList";
-import JobWorkReceive from "./components/manufacturing/receive/jobWorkReceive";
-import StoneReturn, { } from "./components/manufacturing/receive/StoneReturn";
-import KarigarStoneIssue from "./components/manufacturing/issue/stoneIssue";
-import StoneIssue from "./components/manufacturing/issue/stoneIssue";
-import GoldIssue from "./components/manufacturing/issue/goldIssue";
-import HallmarkIssue from "./components/manufacturing/issue/hallmarkIssue";
-import HallmarkReceive from "./components/manufacturing/receive/HallmarkReceive";
-import BarcodeManagementList from "./components/Inventory/BarcodeManagement/barcodemanagementlist";
-import BarcodePrint from "./components/Inventory/BarcodeManagement/BarcodePrint";
-import MergeBarcode from "./components/Inventory/BarcodeManagement/barcodeMerge";
-import BarcodeMergeView from "./components/Inventory/BarcodeManagement/barcodemergeList";
-import DesignList from "./components/Inventory/DesignList";
-import BarcodeListView from "./components/Inventory/BarcodeManagement/barcodeList";
-import BarcodeSplit from "./components/Inventory/BarcodeManagement/barcodeSplit";
-import BarcodeSplitView from "./components/Inventory/BarcodeManagement/barcodeSplitList";
-import SalesVoucherAdd from "./components/Sales/SalesVoucherAdd";
-import SalesReturnAdd from "./components/Sales/SalesReturnAdd";
-import SalesApprovalAdd from "./components/Sales/SalesApprovalAdd";
-import CustomerOrderList from "./components/Sales/CustomerOrderList";
-import CustomerOrderKanban from "./components/Sales/CustomerOrderKanban";
-import CustomerOrderForm from "./CustomerOrderForm";
-import SalesVoucherList from "./components/Sales/SalesVoucherList";
-import SalesApprovalList from "./components/Sales/SalesApprovalList";
-import SalesReturnList from "./components/Sales/SalesReturnList";
-import EWayBillList from "./components/Sales/EWayBillList";
-import ChequePendingPage from "./components/Sales/ChequePendingPage";
-import PurchaseReturnList from "./components/manufacturing/purchases/PurchaseReturnList";
-import PurchaseApprovalList from "./components/manufacturing/purchases/PurchaseApprovalList.jsx";
 import Header from "./breadCrumbDecor";
-import NotFoundPage from "./pageNotFound";
-import { LoginPage } from "./login"
-import HallmarkIssueAdd from "./components/manufacturing/issue/hallmarkIssueAdd";
-import SchemeMasterPage from "./components/GoldScheme/SchemeMasterPage";
-import SchemeEnrollmentList from "./components/GoldScheme/SchemeEnrollmentList";
-import SchemeEnrollmentForm from "./components/GoldScheme/SchemeEnrollmentForm";
-import SchemePaymentForm from "./components/GoldScheme/SchemePaymentForm";
-import SchemeStatement from "./components/GoldScheme/SchemeStatement";
-import SchemeDashboard from "./components/GoldScheme/SchemeDashboard";
-import PortalApp from "./portal/PortalApp";
-import EmployeeMasterPage from "./components/HR/EmployeeMasterPage";
-import SalaryStructurePage from "./components/HR/SalaryStructurePage";
-import SalaryProcessingPage from "./components/HR/SalaryProcessingPage";
-import HRSettingsPage from "./components/HR/HRSettingsPage";
-import HRPortalApp from "./hr-portal/HRPortalApp";
-import FixedAssetMasterPage from "./components/FixedAssets/FixedAssetMasterPage";
-import DepreciationWorksheetPage from "./components/FixedAssets/DepreciationWorksheetPage";
-import FixedAssetSettingsPage from "./components/FixedAssets/FixedAssetSettingsPage";
-import HallmarkReceiveAdd from "./components/manufacturing/receive/hallmarkReceiveAdd";
-import PurchaseReturnadd from "./components/manufacturing/purchases/PurchaseReturnAdd";
-import PurchaseVoucherList from "./components/manufacturing/purchases/PurchaseVoucherList";
+import BaseUrlConfig from "./components/BaseUrlConfig";
+import { LoginPage } from "./login";
 
-import IdGenerationReport from "./components/Inventory/BarcodeManagement/IdGenerationReport";
-import KarigarStoneTransactions from "./components/manufacturing/reports/KarigarStoneTransactions.jsx";
-import FinishedItemRecReport from "./finishItemreceiveReport.jsx";
-import GstInputRegister from "./GstInputRegister.jsx";
-import GstOutputRegister from "./GstOutputRegister.jsx";
-import BarcodeSplitRepot from "./BarcodeSplitReport.jsx";
-import BarcodeMergeReport from "./BarcodeMergeReport.jsx";
-import ItemWiseBarcodeReport from "./ItemWiseBarcodeReport.jsx";
-import IssueToRefinary from "./components/manufacturing/issue/IssueToRefinary.jsx";
-import ReceiveFromRefinary from "./components/manufacturing/receive/ReceiveFromRefinary.jsx";
-import RetToRetstockTransfer from "./StockTrans.jsx";
-import StockJournal from "./StockJournal.jsx";
-import StockJournalList from "./StockJournalList.jsx";
-import JoborderReport from "./jobOrderReport.jsx";
-import StoneReturnAdd from "./components/manufacturing/receive/stoneReturnList.jsx";
-import Account from "./components/FinancialAccounting/vouchers/account.jsx";
-import KarigarGoldIssuesList from "./components/manufacturing/issue/KarigarGoldIssuesList.jsx";
-import KarigarStoneIssueList from "./components/manufacturing/issue/karigarStoneIssuesList.jsx";
-import RefinaryIssueList from "./components/manufacturing/issue/RefinaryIssueList.jsx";
-import RefinaryReceiveList from "./components/manufacturing/receive/refinaryReceiveList.jsx";
-import MeltingIssueList from "./components/manufacturing/issue/MeltingIssueList.jsx";
-import MeltingReceiveList from "./components/manufacturing/receive/meltingReceiveList.jsx";
-import AssayIssueList from "./components/manufacturing/issue/AssayIssueList.jsx";
-import AssayReceiveList from "./components/manufacturing/receive/assayReceiveList.jsx";
-import IssueToMelting from "./components/manufacturing/issue/IssueToMelting.jsx";
-import ReceiveFromMelting from "./components/manufacturing/receive/ReceiveFromMelting.jsx";
-import IssueToAssay from "./components/manufacturing/issue/IssueToAssay.jsx";
-import ReceiveFromAssay from "./components/manufacturing/receive/ReceiveFromAssay.jsx";
-import StockTransferList from "./StockTransferList.jsx";
-import AccountingVoucherList from "./accountingVoucherList.jsx";
-import VoucherTypeSelector from "./components/FinancialAccounting/vouchers/VoucherTypeSelector";
-import LedgerStatement from "./components/FinancialAccounting/reports/LedgerStatement";
-import DayBook from "./components/FinancialAccounting/reports/DayBook";
-import OutstandingReport from "./components/FinancialAccounting/reports/OutstandingReport";
-import AgedReceivables from "./components/FinancialAccounting/reports/AgedReceivables";
-import AdvanceRegister from "./components/FinancialAccounting/reports/AdvanceRegister";
-import CreditDebitNoteList from "./components/FinancialAccounting/CreditDebitNoteList";
-import CreditDebitNoteAdd from "./components/FinancialAccounting/CreditDebitNoteAdd";
-import BankReconciliation from "./components/FinancialAccounting/BankReconciliation";
-import BarcodeHistoryList from "./components/Inventory/BarcodeManagement/BarcodeHistoryList.jsx";
-import GoldRateForm from "./components/GoldRates/goldrate.jsx";
-import SalesEstimate from "./components/Sales/SalesEstimate.jsx";
-import ForbiddenPage from "./Forbidden.jsx";
-import ProfitLoss from "./ProfitLoss/ProfitLoss.jsx";
-import ProfitDemo from "./ProfitLoss/ProfitDemo.jsx";
-import ProfitLossCal from "./ProfitLoss/ProfitLossCal.jsx";
-import BalanceSheet from "./components/FinancialAccounting/reports/BalanceSheet.jsx";
-import FinancialRatios from "./components/FinancialAccounting/reports/FinancialRatios.jsx";
-import AuditQueue from "./components/FinancialAccounting/reports/AuditQueue.jsx";
-import TrialBalance from "./trialBalance.jsx";
-import ClosingStockTable from "./components/Inventory/closingStockReport.jsx";
-import HallmarkIssueReport from "./hallmarkissuereport.jsx";
-import HallmarkReceiveReport from "./hallmarkreceivereport.jsx";
-import Metalreport from "./Metalreport.jsx"
-import StockValueReport from "./stockValueReport.jsx";
-import CashBookRetail from "./cashBookRetail.jsx";
-import CombinedBankBook from "./combinedBankBook.jsx";
-import BarcodeStockReport from "./components/Inventory/BarcodeManagement/barcodeStockReport.jsx";
-import StoneWorkOrderReport from "./components/manufacturing/stoneissuereceivereport.jsx";
-import PacketWiseStoneReport from "./components/manufacturing/PacketWiseStoneReport.jsx";
-import ImportDataPage from "./components/MasterImport/ImportDataPage.jsx";
-import OpeningBalance from "./OpeningBalance.jsx";
-import SalesPersonList from "./components/Sales/SalesPersonList.jsx";
-import ItemGroupMaster from "./components/Masters/ItemGroupMaster.jsx";
-import PacketGroupMaster from "./components/Masters/PacketGroupMaster.jsx";
-import HsnMaster from "./components/Masters/HsnMaster.jsx";
-import ItemMaster from "./components/Masters/ItemMaster.jsx";
-import PacketMaster from "./components/Masters/PacketMaster.jsx";
-import FiscalYearManager from "./components/Masters/FiscalYearManager.jsx";
-import RetailMasterPage from "./components/Masters/RetailMasterPage.jsx";
-import BranchMasterPage from "./components/Masters/BranchMasterPage.jsx";
-import CompanyMasterPage from "./components/Masters/CompanyMasterPage.jsx";
-import BranchAnalytics from "./components/Masters/BranchAnalytics.jsx";
-import KarigarMakingPage from "./components/Masters/KarigarMakingPage.jsx";
-import ExhibitionMaster from "./components/Masters/ExhibitionMaster.jsx";
-import TDSSectionMasterPage from "./components/Masters/TDSSectionMaster.jsx";
-import TCSSectionMasterPage from "./components/Masters/TCSSectionMaster.jsx";
-import PurityMasterPage from "./components/Masters/PurityMasterPage.jsx";
-import ShapeMasterPage from "./components/Masters/ShapeMasterPage.jsx";
-import ColorMasterPage from "./components/Masters/ColorMasterPage.jsx";
-import TDSRegister from "./components/reports/TDSRegister.jsx";
-import TCSRegister from "./components/reports/TCSRegister.jsx";
-import CommissionReport from "./components/reports/CommissionReport.jsx";
-import B2BPricelistPage from "./components/Masters/B2BPricelistPage.jsx";
-import RetailDiscountPricelistPage from "./components/Masters/RetailDiscountPricelistPage.jsx";
-import KarigarJobWorkReport from "./components/reports/KarigarJobWorkReport.jsx";
-import RefineryReport from "./components/reports/RefineryReport.jsx";
-import CRMDashboard from "./components/CRM/CRMDashboard.jsx";
-import GSTR1Report from "./components/reports/GSTR1Report.jsx";
-import GSTR3BReport from "./components/reports/GSTR3BReport.jsx";
-import GoldLedgerBalances from "./components/Reports/GoldLedgerBalances.jsx";
-import UserManagement from "./components/Settings/UserManagement.jsx";
-import RoleManagement from "./components/Settings/RoleManagement.jsx";
-import AuditLog from "./components/Settings/AuditLog.jsx";
-import CRMAutomation from "./components/Settings/CRMAutomation.jsx";
-import Dashboard from "./components/Dashboard/Dashboard.jsx";
-import BarcodeBulkOps from "./components/Inventory/BarcodeManagement/BarcodeBulkOps.jsx";
-import RawMaterialBalanceReport from "./components/Inventory/RawMaterialBalanceReport.jsx";
-import RawMaterialLedger from "./components/Inventory/RawMaterialLedger.jsx";
-import SemiFinishedStockReport from "./components/Inventory/SemiFinishedStockReport.jsx";
-import SetupWizard from "./components/Settings/SetupWizard.jsx";
-import SettingsPage from "./components/Settings/SettingsPage.jsx";
-import SectionIndexPage from "./components/SectionIndexPage.jsx";
-import RepairJobCardList from "./components/manufacturing/repair/RepairJobCardList.jsx";
-import RepairJobCardForm from "./components/manufacturing/repair/RepairJobCardForm.jsx";
-import AppsPage from "./components/Apps/AppsPage.jsx";
-import CustomerPurchaseHistory from "./components/CRM/CustomerPurchaseHistory.jsx";
-import GSTR2BReconcile from "./components/purchase/GSTR2BReconcile.jsx";
-import RfidTagAssign from "./components/Inventory/RFID/RfidTagAssign.jsx";
-import RfidInventoryCount from "./components/Inventory/RFID/RfidInventoryCount.jsx";
+// ── Lazy-loaded route components ──────────────────────────────────────────────
+const Ledger                     = lazy(() => import("./ledger"));
+const LedgerForm                 = lazy(() => import("./addLedger.jsx"));
+const AccountTree                = lazy(() => import("./chartOfAccouts"));
+const AccountCreationForm        = lazy(() => import("./AccountCreate"));
+const AddJournal                 = lazy(() => import("./components/FinancialAccounting/vouchers/addJournal"));
+const CashGoldConversion         = lazy(() => import("./CashGoldConversion"));
+const KarigarIssue               = lazy(() => import("./components/manufacturing/issue/karigarissue"));
+const PurchaseVoucher            = lazy(() => import("./components/manufacturing/purchases/PurchaseVoucher"));
+const PurchaseOrder              = lazy(() => import("./components/manufacturing/purchases/purchaseOrder"));
+const PurchaseOrderList          = lazy(() => import("./components/manufacturing/purchases/purchaseOrderList"));
+const KarigarJobs                = lazy(() => import("./components/manufacturing/issue/jobWorkList.jsx"));
+const KarigarReceiveList         = lazy(() => import("./components/manufacturing/receive/jobWorkReceiveList"));
+const JobWorkReceive             = lazy(() => import("./components/manufacturing/receive/jobWorkReceive"));
+const StoneReturn                = lazy(() => import("./components/manufacturing/receive/StoneReturn"));
+const KarigarStoneIssue          = lazy(() => import("./components/manufacturing/issue/stoneIssue"));
+const GoldIssue                  = lazy(() => import("./components/manufacturing/issue/goldIssue"));
+const HallmarkIssue              = lazy(() => import("./components/manufacturing/issue/hallmarkIssue"));
+const HallmarkReceive            = lazy(() => import("./components/manufacturing/receive/HallmarkReceive"));
+const BarcodeManagementList      = lazy(() => import("./components/Inventory/BarcodeManagement/barcodemanagementlist"));
+const BarcodePrint               = lazy(() => import("./components/Inventory/BarcodeManagement/BarcodePrint"));
+const MergeBarcode               = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeMerge"));
+const DesignList                 = lazy(() => import("./components/Inventory/DesignList"));
+const BarcodeListView            = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeList"));
+const BarcodeSplit               = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeSplit"));
+const SalesVoucherAdd            = lazy(() => import("./components/Sales/SalesVoucherAdd"));
+const SalesReturnAdd             = lazy(() => import("./components/Sales/SalesReturnAdd"));
+const SalesApprovalAdd           = lazy(() => import("./components/Sales/SalesApprovalAdd"));
+const CustomerOrderList          = lazy(() => import("./components/Sales/CustomerOrderList"));
+const CustomerOrderKanban        = lazy(() => import("./components/Sales/CustomerOrderKanban"));
+const CustomerOrderForm          = lazy(() => import("./CustomerOrderForm"));
+const SalesVoucherList           = lazy(() => import("./components/Sales/SalesVoucherList"));
+const SalesApprovalList          = lazy(() => import("./components/Sales/SalesApprovalList"));
+const SalesReturnList            = lazy(() => import("./components/Sales/SalesReturnList"));
+const EWayBillList               = lazy(() => import("./components/Sales/EWayBillList"));
+const ChequePendingPage          = lazy(() => import("./components/Sales/ChequePendingPage"));
+const PurchaseReturnList         = lazy(() => import("./components/manufacturing/purchases/PurchaseReturnList"));
+const PurchaseApprovalList       = lazy(() => import("./components/manufacturing/purchases/PurchaseApprovalList.jsx"));
+const NotFoundPage               = lazy(() => import("./pageNotFound"));
+const HallmarkIssueAdd           = lazy(() => import("./components/manufacturing/issue/hallmarkIssueAdd"));
+const SchemeMasterPage           = lazy(() => import("./components/GoldScheme/SchemeMasterPage"));
+const SchemeEnrollmentList       = lazy(() => import("./components/GoldScheme/SchemeEnrollmentList"));
+const SchemeEnrollmentForm       = lazy(() => import("./components/GoldScheme/SchemeEnrollmentForm"));
+const SchemePaymentForm          = lazy(() => import("./components/GoldScheme/SchemePaymentForm"));
+const SchemeStatement            = lazy(() => import("./components/GoldScheme/SchemeStatement"));
+const SchemeDashboard            = lazy(() => import("./components/GoldScheme/SchemeDashboard"));
+const PortalApp                  = lazy(() => import("./portal/PortalApp"));
+const EmployeeMasterPage         = lazy(() => import("./components/HR/EmployeeMasterPage"));
+const SalaryStructurePage        = lazy(() => import("./components/HR/SalaryStructurePage"));
+const SalaryProcessingPage       = lazy(() => import("./components/HR/SalaryProcessingPage"));
+const HRSettingsPage             = lazy(() => import("./components/HR/HRSettingsPage"));
+const HRPortalApp                = lazy(() => import("./hr-portal/HRPortalApp"));
+const FixedAssetMasterPage       = lazy(() => import("./components/FixedAssets/FixedAssetMasterPage"));
+const DepreciationWorksheetPage  = lazy(() => import("./components/FixedAssets/DepreciationWorksheetPage"));
+const FixedAssetSettingsPage     = lazy(() => import("./components/FixedAssets/FixedAssetSettingsPage"));
+const HallmarkReceiveAdd         = lazy(() => import("./components/manufacturing/receive/hallmarkReceiveAdd"));
+const PurchaseReturnadd          = lazy(() => import("./components/manufacturing/purchases/PurchaseReturnAdd"));
+const PurchaseVoucherList        = lazy(() => import("./components/manufacturing/purchases/PurchaseVoucherList"));
+const IdGenerationReport         = lazy(() => import("./components/Inventory/BarcodeManagement/IdGenerationReport"));
+const KarigarStoneTransactions   = lazy(() => import("./components/manufacturing/reports/KarigarStoneTransactions.jsx"));
+const FinishedItemRecReport      = lazy(() => import("./finishItemreceiveReport.jsx"));
+const GstInputRegister           = lazy(() => import("./GstInputRegister.jsx"));
+const GstOutputRegister          = lazy(() => import("./GstOutputRegister.jsx"));
+const BarcodeSplitRepot          = lazy(() => import("./BarcodeSplitReport.jsx"));
+const BarcodeMergeReport         = lazy(() => import("./BarcodeMergeReport.jsx"));
+const ItemWiseBarcodeReport      = lazy(() => import("./ItemWiseBarcodeReport.jsx"));
+const IssueToRefinary            = lazy(() => import("./components/manufacturing/issue/IssueToRefinary.jsx"));
+const ReceiveFromRefinary        = lazy(() => import("./components/manufacturing/receive/ReceiveFromRefinary.jsx"));
+const RetToRetstockTransfer      = lazy(() => import("./StockTrans.jsx"));
+const StockJournal               = lazy(() => import("./StockJournal.jsx"));
+const StockJournalList           = lazy(() => import("./StockJournalList.jsx"));
+const JoborderReport             = lazy(() => import("./jobOrderReport.jsx"));
+const StoneReturnAdd             = lazy(() => import("./components/manufacturing/receive/stoneReturnList.jsx"));
+const Account                    = lazy(() => import("./components/FinancialAccounting/vouchers/account.jsx"));
+const KarigarGoldIssuesList      = lazy(() => import("./components/manufacturing/issue/KarigarGoldIssuesList.jsx"));
+const KarigarStoneIssueList      = lazy(() => import("./components/manufacturing/issue/karigarStoneIssuesList.jsx"));
+const RefinaryIssueList          = lazy(() => import("./components/manufacturing/issue/RefinaryIssueList.jsx"));
+const RefinaryReceiveList        = lazy(() => import("./components/manufacturing/receive/refinaryReceiveList.jsx"));
+const MeltingIssueList           = lazy(() => import("./components/manufacturing/issue/MeltingIssueList.jsx"));
+const MeltingReceiveList         = lazy(() => import("./components/manufacturing/receive/meltingReceiveList.jsx"));
+const AssayIssueList             = lazy(() => import("./components/manufacturing/issue/AssayIssueList.jsx"));
+const AssayReceiveList           = lazy(() => import("./components/manufacturing/receive/assayReceiveList.jsx"));
+const IssueToMelting             = lazy(() => import("./components/manufacturing/issue/IssueToMelting.jsx"));
+const ReceiveFromMelting         = lazy(() => import("./components/manufacturing/receive/ReceiveFromMelting.jsx"));
+const IssueToAssay               = lazy(() => import("./components/manufacturing/issue/IssueToAssay.jsx"));
+const ReceiveFromAssay           = lazy(() => import("./components/manufacturing/receive/ReceiveFromAssay.jsx"));
+const StockTransferList          = lazy(() => import("./StockTransferList.jsx"));
+const AccountingVoucherList      = lazy(() => import("./accountingVoucherList.jsx"));
+const VoucherTypeSelector        = lazy(() => import("./components/FinancialAccounting/vouchers/VoucherTypeSelector"));
+const LedgerStatement            = lazy(() => import("./components/FinancialAccounting/reports/LedgerStatement"));
+const DayBook                    = lazy(() => import("./components/FinancialAccounting/reports/DayBook"));
+const OutstandingReport          = lazy(() => import("./components/FinancialAccounting/reports/OutstandingReport"));
+const AgedReceivables            = lazy(() => import("./components/FinancialAccounting/reports/AgedReceivables"));
+const AdvanceRegister            = lazy(() => import("./components/FinancialAccounting/reports/AdvanceRegister"));
+const CreditDebitNoteList        = lazy(() => import("./components/FinancialAccounting/CreditDebitNoteList"));
+const CreditDebitNoteAdd         = lazy(() => import("./components/FinancialAccounting/CreditDebitNoteAdd"));
+const BankReconciliation         = lazy(() => import("./components/FinancialAccounting/BankReconciliation"));
+const BarcodeHistoryList         = lazy(() => import("./components/Inventory/BarcodeManagement/BarcodeHistoryList.jsx"));
+const GoldRateForm               = lazy(() => import("./components/GoldRates/goldrate.jsx"));
+const SalesEstimate              = lazy(() => import("./components/Sales/SalesEstimate.jsx"));
+const QuotationAdd               = lazy(() => import("./components/Sales/QuotationAdd"));
+const QuotationList              = lazy(() => import("./components/Sales/QuotationList"));
+const ForbiddenPage              = lazy(() => import("./Forbidden.jsx"));
+const ProfitLoss                 = lazy(() => import("./ProfitLoss/ProfitLoss.jsx"));
+const ProfitDemo                 = lazy(() => import("./ProfitLoss/ProfitDemo.jsx"));
+const ProfitLossCal              = lazy(() => import("./ProfitLoss/ProfitLossCal.jsx"));
+const BalanceSheet               = lazy(() => import("./components/FinancialAccounting/reports/BalanceSheet.jsx"));
+const FinancialRatios            = lazy(() => import("./components/FinancialAccounting/reports/FinancialRatios.jsx"));
+const AuditQueue                 = lazy(() => import("./components/FinancialAccounting/reports/AuditQueue.jsx"));
+const TrialBalance               = lazy(() => import("./trialBalance.jsx"));
+const ClosingStockTable          = lazy(() => import("./components/Inventory/closingStockReport.jsx"));
+const HallmarkIssueReport        = lazy(() => import("./hallmarkissuereport.jsx"));
+const HallmarkReceiveReport      = lazy(() => import("./hallmarkreceivereport.jsx"));
+const Metalreport                = lazy(() => import("./Metalreport.jsx"));
+const StockValueReport           = lazy(() => import("./stockValueReport.jsx"));
+const CashBookRetail             = lazy(() => import("./cashBookRetail.jsx"));
+const CombinedBankBook           = lazy(() => import("./combinedBankBook.jsx"));
+const BarcodeStockReport         = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeStockReport.jsx"));
+const StoneWorkOrderReport       = lazy(() => import("./components/manufacturing/stoneissuereceivereport.jsx"));
+const PacketWiseStoneReport      = lazy(() => import("./components/manufacturing/PacketWiseStoneReport.jsx"));
+const ImportDataPage             = lazy(() => import("./components/MasterImport/ImportDataPage.jsx"));
+const OpeningBalance             = lazy(() => import("./OpeningBalance.jsx"));
+const SalesPersonList            = lazy(() => import("./components/Sales/SalesPersonList.jsx"));
+const ItemGroupMaster            = lazy(() => import("./components/Masters/ItemGroupMaster.jsx"));
+const PacketGroupMaster          = lazy(() => import("./components/Masters/PacketGroupMaster.jsx"));
+const HsnMaster                  = lazy(() => import("./components/Masters/HsnMaster.jsx"));
+const ItemMaster                 = lazy(() => import("./components/Masters/ItemMaster.jsx"));
+const PacketMaster               = lazy(() => import("./components/Masters/PacketMaster.jsx"));
+const FiscalYearManager          = lazy(() => import("./components/Masters/FiscalYearManager.jsx"));
+const RetailMasterPage           = lazy(() => import("./components/Masters/RetailMasterPage.jsx"));
+const BranchMasterPage           = lazy(() => import("./components/Masters/BranchMasterPage.jsx"));
+const CompanyMasterPage          = lazy(() => import("./components/Masters/CompanyMasterPage.jsx"));
+const BranchAnalytics            = lazy(() => import("./components/Masters/BranchAnalytics.jsx"));
+const KarigarMakingPage          = lazy(() => import("./components/Masters/KarigarMakingPage.jsx"));
+const ExhibitionMaster           = lazy(() => import("./components/Masters/ExhibitionMaster.jsx"));
+const TDSSectionMasterPage       = lazy(() => import("./components/Masters/TDSSectionMaster.jsx"));
+const TCSSectionMasterPage       = lazy(() => import("./components/Masters/TCSSectionMaster.jsx"));
+const PurityMasterPage           = lazy(() => import("./components/Masters/PurityMasterPage.jsx"));
+const ShapeMasterPage            = lazy(() => import("./components/Masters/ShapeMasterPage.jsx"));
+const ColorMasterPage            = lazy(() => import("./components/Masters/ColorMasterPage.jsx"));
+const TDSRegister                = lazy(() => import("./components/reports/TDSRegister.jsx"));
+const TCSRegister                = lazy(() => import("./components/reports/TCSRegister.jsx"));
+const CommissionReport           = lazy(() => import("./components/reports/CommissionReport.jsx"));
+const B2BPricelistPage           = lazy(() => import("./components/Masters/B2BPricelistPage.jsx"));
+const RetailDiscountPricelistPage = lazy(() => import("./components/Masters/RetailDiscountPricelistPage.jsx"));
+const SalesOfferPage             = lazy(() => import("./components/Masters/SalesOfferPage.jsx"));
+const KarigarJobWorkReport       = lazy(() => import("./components/reports/KarigarJobWorkReport.jsx"));
+const RefineryReport             = lazy(() => import("./components/reports/RefineryReport.jsx"));
+const CRMDashboard               = lazy(() => import("./components/CRM/CRMDashboard.jsx"));
+const GSTR1Report                = lazy(() => import("./components/reports/GSTR1Report.jsx"));
+const GSTR3BReport               = lazy(() => import("./components/reports/GSTR3BReport.jsx"));
+const GoldLedgerBalances         = lazy(() => import("./components/Reports/GoldLedgerBalances.jsx"));
+const UserManagement             = lazy(() => import("./components/Settings/UserManagement.jsx"));
+const RoleManagement             = lazy(() => import("./components/Settings/RoleManagement.jsx"));
+const AuditLog                   = lazy(() => import("./components/Settings/AuditLog.jsx"));
+const CRMAutomation              = lazy(() => import("./components/Settings/CRMAutomation.jsx"));
+const Dashboard                  = lazy(() => import("./components/Dashboard/Dashboard.jsx"));
+const BarcodeBulkOps             = lazy(() => import("./components/Inventory/BarcodeManagement/BarcodeBulkOps.jsx"));
+const RawMaterialBalanceReport   = lazy(() => import("./components/Inventory/RawMaterialBalanceReport.jsx"));
+const RawMaterialLedger          = lazy(() => import("./components/Inventory/RawMaterialLedger.jsx"));
+const SemiFinishedStockReport    = lazy(() => import("./components/Inventory/SemiFinishedStockReport.jsx"));
+const SetupWizard                = lazy(() => import("./components/Settings/SetupWizard.jsx"));
+const SettingsPage               = lazy(() => import("./components/Settings/SettingsPage.jsx"));
+const SectionIndexPage           = lazy(() => import("./components/SectionIndexPage.jsx"));
+const RepairJobCardList          = lazy(() => import("./components/manufacturing/repair/RepairJobCardList.jsx"));
+const RepairJobCardForm          = lazy(() => import("./components/manufacturing/repair/RepairJobCardForm.jsx"));
+const AppsPage                   = lazy(() => import("./components/Apps/AppsPage.jsx"));
+const CustomerPurchaseHistory    = lazy(() => import("./components/CRM/CustomerPurchaseHistory.jsx"));
+const GSTR2BReconcile            = lazy(() => import("./components/purchase/GSTR2BReconcile.jsx"));
+const RfidTagAssign              = lazy(() => import("./components/Inventory/RFID/RfidTagAssign.jsx"));
+const RfidInventoryCount         = lazy(() => import("./components/Inventory/RFID/RfidInventoryCount.jsx"));
+const CarryForwardPage           = lazy(() => import("./components/Settings/CarryForwardPage.jsx"));
 
+
+// ── Lightweight route-transition spinner ──────────────────────────────────────
+function PageSpinner() {
+  return (
+    <div className="flex h-screen w-full items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
 
 
 const isAuthenticate = () => !!localStorage.getItem("Token");
@@ -232,6 +246,7 @@ const appRoutes = [
   { path: "setup/tcs-section",   heading: "TCS Section Master",    component: <TCSSectionMasterPage /> },
   { path: "setup/b2b-pricelist",              heading: "B2B Pricelist",                component: <B2BPricelistPage /> },
   { path: "setup/retail-discount-pricelist", heading: "Retail Discount Pricelist",     component: <RetailDiscountPricelistPage /> },
+  { path: "setup/sales-offer",              heading: "Sales Offers",                   component: <SalesOfferPage /> },
 
   // ── Financial Accounting ──────────────────────────────────────────────────
   { path: "accounting/vouchers/select",           heading: "New Voucher Entry",        component: <VoucherTypeSelector /> },
@@ -345,6 +360,9 @@ const appRoutes = [
 
   // ── Sales ─────────────────────────────────────────────────────────────────
   { path: "sales/estimate",                heading: "Sales Estimate",       component: <SalesEstimate /> },
+  { path: "sales/quotation/list/",         heading: "Quotation List",       component: <QuotationList /> },
+  { path: "sales/quotation/add/",          heading: "New Quotation",        component: <QuotationAdd /> },
+  { path: "sales/quotation/:id",           heading: "Edit Quotation",       component: <QuotationAdd /> },
   { path: "sales/customerorder/list/",     heading: "Customer Order List",  component: <CustomerOrderList /> },
   { path: "sales/customerorder/kanban/",   heading: "Customer Order Kanban", component: <CustomerOrderKanban /> },
   { path: "sales/customerorder/list/add/", heading: "Add Customer Order",   component: <CustomerOrderForm /> },
@@ -430,6 +448,7 @@ const appRoutes = [
   { path: "settings/roles",         heading: "Roles & Permissions", component: <RoleManagement /> },
   { path: "settings/audit-log",     heading: "Audit Log",           component: <AuditLog /> },
   { path: "settings/crm-automation", heading: "CRM Automation",     component: <CRMAutomation /> },
+  { path: "settings/carry-forward", heading: "Database Carry-Forward", component: <CarryForwardPage /> },
 
   // ── Section index pages (breadcrumb intermediates) ────────────────────────
   { path: "setup",                      heading: "Setup",                   component: <SectionIndexPage /> },
@@ -446,47 +465,60 @@ const appRoutes = [
   { path: "inventory/barcodemanagement", heading: "Barcode Management",     component: <SectionIndexPage /> },
   { path: "inventory/reports",         heading: "Inventory — Reports",      component: <SectionIndexPage /> },
   { path: "scheme",                   heading: "Gold Schemes",             component: <SectionIndexPage /> },
-];
 
+  // ── Breadcrumb redirect shims (intermediate paths with no own UI) ─────────
+  { path: "sales/quotation",           heading: null, component: <Navigate to="/sales/quotation/list/" replace /> },
+  { path: "sales/customerorder",       heading: null, component: <Navigate to="/sales/customerorder/list/" replace /> },
+  { path: "sales/salesreturn",         heading: null, component: <Navigate to="/sales/salesreturn/list/" replace /> },
+  { path: "accounting/vouchers",       heading: null, component: <Navigate to="/accounting/vouchers/select" replace /> },
+  { path: "accounting/AddJournal",     heading: null, component: <Navigate to="/accounting" replace /> },
+  { path: "manufacturing/repair",      heading: null, component: <Navigate to="/manufacturing/repair/list/" replace /> },
+  { path: "purchase/purchasevoucher",  heading: null, component: <Navigate to="/purchase/list/" replace /> },
+  { path: "inventory/rfid",            heading: null, component: <Navigate to="/inventory/rfid/tag-assign" replace /> },
+];
 
 
 function App() {
   return (
-    <Routes>
-      {/* Base URL Configuration */}
-      <Route path="/config" element={<BaseUrlConfig />} />
-      
-      {/* Protected root */}
-      <Route path="/" element={<ProtectedRoute element={<Page />} />}>
-        {/* Dashboard — index route */}
-        <Route index element={<ProtectedRoute element={<Dashboard />} />} />
-        {appRoutes.map(({ path, heading, component }) => (
-          <Route
-            key={path}
-            path={path}
-            element={
-              <ProtectedRoute
-                element={heading ? <Header heading={heading}>{component}</Header> : component}
-              />
-            }
-          />
-        ))}
-      </Route>
+    <Suspense fallback={<PageSpinner />}>
+      <Routes>
+        {/* Base URL Configuration */}
+        <Route path="/config" element={<BaseUrlConfig />} />
 
-      {/* Bill selection popup (opens in new window from receipt/payment vouchers) */}
-      <Route path="accountadd/:type/:id" element={<Account />} />
+        {/* Protected root */}
+        <Route path="/" element={<ProtectedRoute element={<Page />} />}>
+          {/* Dashboard — index route */}
+          <Route index element={<ProtectedRoute element={<Dashboard />} />} />
+          {appRoutes.map(({ path, heading, component }) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                <ProtectedRoute
+                  element={heading ? <Header heading={heading}>{component}</Header> : component}
+                />
+              }
+            />
+          ))}
+          {/* Catch-all: unknown paths inside the layout redirect to home instead of blank */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
 
-      {/* Public route */}
-      <Route path="login" element={<LoginPage />} />
-      {/* Forbidden page — rendered on 403 redirect from apiClient */}
-      <Route path="forbidden" element={<ForbiddenPage />} />
+        {/* Bill selection popup (opens in new window from receipt/payment vouchers) */}
+        <Route path="accountadd/:type/:id" element={<Account />} />
 
-      {/* Customer Portal (standalone, separate from ERP auth) */}
-      <Route path="portal/*" element={<PortalApp />} />
+        {/* Public route */}
+        <Route path="login" element={<LoginPage />} />
+        {/* Forbidden page — rendered on 403 redirect from apiClient */}
+        <Route path="forbidden" element={<ForbiddenPage />} />
 
-      {/* HR Employee Portal (uses ERP Token auth — employees are Django Users) */}
-      <Route path="hr-portal/*" element={<HRPortalApp />} />
-    </Routes>
+        {/* Customer Portal (standalone, separate from ERP auth) */}
+        <Route path="portal/*" element={<PortalApp />} />
+
+        {/* HR Employee Portal (uses ERP Token auth — employees are Django Users) */}
+        <Route path="hr-portal/*" element={<HRPortalApp />} />
+      </Routes>
+    </Suspense>
   );
 }
 

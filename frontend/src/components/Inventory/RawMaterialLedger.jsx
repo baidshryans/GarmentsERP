@@ -55,7 +55,7 @@ export default function RawMaterialLedger() {
   const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
-    fetchMainItem().then((r) => { if (r.success) setItems(r.data); });
+    fetchMainItem().then((r) => { if (r.success) setItems(Array.isArray(r.data) ? r.data : (r.data?.results ?? [])); });
   }, []);
 
   const handleSearch = async () => {

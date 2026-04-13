@@ -105,6 +105,10 @@ urlpatterns = [
 
     path('api/retail-discount-pricelist/',         views.ListCreateRetailDiscountPricelist.as_view(),              name='retail_discount_pricelist_list_create'),
     path('api/retail-discount-pricelist/<int:pk>/', views.RetrieveUpdateDestroyRetailDiscountPricelist.as_view(), name='retail_discount_pricelist_detail'),
+
+    path('api/sales-offer/',          views.ListCreateSalesOffer.as_view(),             name='sales_offer_list_create'),
+    path('api/sales-offer/active/',   views.active_sales_offer,                          name='sales_offer_active'),
+    path('api/sales-offer/<int:pk>/', views.RetrieveUpdateDestroySalesOffer.as_view(),  name='sales_offer_detail'),
 ]
 
 urlpatterns+= staticfiles_urlpatterns()

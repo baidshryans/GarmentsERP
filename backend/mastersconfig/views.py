@@ -1482,3 +1482,27 @@ class ListCreateRetailDiscountPricelist(ListCreateAPIView):
 class RetrieveUpdateDestroyRetailDiscountPricelist(RetrieveUpdateDestroyAPIView):
     serializer_class = RetailDiscountPricelistSerializer
     queryset         = RetailDiscountPricelist.objects.prefetch_related('rules').all()
+
+
+# ── Sales Offer ───────────────────────────────────────────────────────────────
+
+class ListCreateSalesOffer(ListCreateAPIView):
+    serializer_class = SalesOfferSerializer
+    queryset         = SalesOffer.objects.prefetch_related('rules').all()
+    filter_backends  = [SearchFilter, OrderingFilter]
+    search_fields    = ['name']
+    ordering         = ['-created_at']
+
+
+class RetrieveUpdateDestroySalesOffer(RetrieveUpdateDestroyAPIView):
+    serializer_class = SalesOfferSerializer
+    queryset         = SalesOffer.objects.prefetch_related('rules').all()
+
+
+@api_view(['GET'])
+def active_sales_offer(request):
+    """Return the currently active SalesOffer (with rules), or {} if none."""
+    offer = SalesOffer.objects.prefetch_related('rules').filter(is_active=True).first()
+    if not offer:
+        return Response({})
+    return Response(SalesOfferSerializer(offer).data)

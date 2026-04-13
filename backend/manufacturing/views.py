@@ -923,9 +923,10 @@ class AvailableMeltingReceivesView(APIView):
 class HallmarkIssueReportView(APIView):
     def get(self, request):
         today = datetime.today().date()
-        current_year = today.year
-        first_april = datetime(current_year, 4, 1).date()
-        start_date = request.query_params.get("start_date") or str(first_april)
+        retail = getattr(request, 'retail', None)
+        active_fy = getattr(retail, 'active_fy', None) if retail else None
+        default_start = active_fy.fy_start if active_fy else datetime(today.year if today.month >= 4 else today.year - 1, 4, 1).date()
+        start_date = request.query_params.get("start_date") or str(default_start)
         end_date = request.query_params.get("end_date") or str(today)
         item_status = request.query_params.get("item_status")  # Optional: rec_status filter
         purity_id = request.query_params.get("purity_id")  # Optional: Filter by purity
@@ -1903,11 +1904,11 @@ def refinery_report(request):
     retail        = getattr(request, 'retail', None)
 
     today       = datetime.today().date()
-    year        = today.year if today.month >= 4 else today.year - 1
-    first_april = datetime(year, 4, 1).date()
+    active_fy   = getattr(retail, 'active_fy', None) if retail else None
+    default_start = active_fy.fy_start if active_fy else datetime(today.year if today.month >= 4 else today.year - 1, 4, 1).date()
 
     try:
-        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date() if from_date_str else first_april
+        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date() if from_date_str else default_start
         to_date   = datetime.strptime(to_date_str,   '%Y-%m-%d').date() if to_date_str   else today
     except ValueError:
         return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)

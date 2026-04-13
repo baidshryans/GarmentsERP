@@ -1110,58 +1110,226 @@ Configure default ledgers per retail:
 
 ## 14. Gold Scheme Management
 
-### 14.1 Scheme Types
+The Gold Scheme module lets you run structured jewellery savings schemes for your customers — similar to the chit fund / gold purchase plan model used widely in the Indian jewellery trade. Customers pay monthly instalments and earn making-charge discounts when they eventually purchase jewellery.
 
-| Type | Description |
-|------|-------------|
-| **INSTALLMENT** | Monthly fixed-amount payments for a tenure |
-| **ACCUMULATION** | Monthly payments converted to gold at payment-day rate |
-| **LUMPSUM** | One-time payment with locked gold rate |
+---
 
-### 14.2 Scheme Setup
+### 14.1 Overview: How It Works
 
-1. Navigate to **Gold Scheme** (via admin or API)
-2. Create a scheme master:
-   - Name, code, type
-   - Tenure (months), min/max amount
-   - Gold price mode (Current / Accumulated / Locked)
-3. Define benefit tiers:
-   - 6-8 months → 40% making charge discount
-   - 9-10 months → 60% making charge discount
-   - 11 months → 75% making charge discount
+1. **You create a Scheme Master** — defines the rules: tenure, installment range, gold price mode, and benefit tiers.
+2. **A customer enrolls** — chooses the scheme, sets their monthly installment amount, and starts paying.
+3. **You record a payment each month** — the system creates an accounting entry (SCHM voucher) automatically.
+4. **On purchase**, the customer redeems their scheme benefit — a making charge discount is applied directly to their sales bill.
 
-### 14.3 Customer Enrollment
+---
 
-1. Create an enrollment for a customer:
-   - Select scheme and customer
-   - Set installment amount
-   - Start date and maturity date
-2. Enrollment status: ACTIVE → MATURED → REDEEMED
+### 14.2 Navigating to the Gold Scheme Module
 
-### 14.4 Recording Payments
+In the top navigation bar, click **Gold Schemes**. You will see three options:
 
-1. Record each monthly payment:
-   - Amount, payment mode (Cash/Bank/UPI)
-   - Payment ledger (Cash or Bank account)
-2. System auto-creates a **SCHM** accounting voucher:
-   - Dr Cash/Bank
-   - Cr Scheme Liability
+| Menu Item | Path | Purpose |
+|-----------|------|---------|
+| **Dashboard** | Gold Schemes → Dashboard | Overview of all active enrollments, monthly collections, matured schemes |
+| **Scheme Master** | Gold Schemes → Scheme Master | Create and manage scheme definitions |
+| **Enrollments** | Gold Schemes → Enrollments | View and manage customer enrollments, record payments |
 
-### 14.5 Redemption
+---
 
-When the scheme matures and the customer purchases jewellery:
+### 14.3 Creating a New Scheme (Scheme Master)
 
-1. The accumulated amount/gold is adjusted against the sales bill
-2. Making charge discount is applied as per benefit tier
-3. Enrollment status changes to REDEEMED
+Navigate to **Gold Schemes → Scheme Master** and click **New Scheme**.
 
-### 14.6 Customer Portal
+#### 14.3.1 Basic Fields
 
-Customers can access their scheme information online:
-- View enrollment details
-- Check payment history
-- See accumulated gold weight
-- View applicable benefits
+| Field | What to Enter | Example |
+|-------|--------------|---------|
+| **Scheme Code** | Short unique identifier. Used in receipts and enrollment numbers. | `GS-22K-11` |
+| **Scheme Name** | Descriptive name visible to customers and staff. | `22K Gold Savings — 11 Month` |
+| **Scheme Type** | One of three types — see Section 14.4 below. | `Monthly Installment` |
+| **Gold Price Mode** | How the gold value is calculated at redemption — see Section 14.5. | `Current price at redemption` |
+| **Tenure (months)** | Number of installments the customer must pay. Standard industry practice is **11 months** — the 12th month's equivalent is given as a benefit by the jeweller. | `11` |
+| **Min Amount (₹)** | Minimum installment a customer can pay per month. | `₹1,000` |
+| **Max Amount (₹)** | Maximum installment. Leave blank for no upper limit. | `₹50,000` or blank |
+| **Accumulation Purity** | Only relevant for the **Gold Accumulation** scheme type. Specifies the gold purity (e.g. 22K) at whose rate each payment is converted to grams. See Section 14.5.2. | `22K` |
+| **Diamond ornament benefits** | Tick this if the scheme should also offer discounts on diamond jewellery purchases, not just gold. Enables diamond-specific benefit tiers. | Checked / Unchecked |
+| **Description** | Free-text description shown to customers. | `Pay ₹5,000/month for 11 months and get 75% off making charges on 22K gold.` |
+
+#### 14.3.2 Benefit Tiers
+
+Benefit tiers define **what discount the customer earns based on how many months they have paid**. Click **Add Tier** to add rows.
+
+Each tier has:
+
+| Column | Meaning |
+|--------|---------|
+| **Type** | `Gold` — discount on gold ornament making charges. `Diamond` — discount on diamond ornament making charges + product value. |
+| **From (months)** | Minimum months completed to qualify for this tier. |
+| **To (months)** | Maximum months this tier applies to. |
+| **LC Discount %** | Percentage discount on Labour Charges / Making Charges. |
+| **Value Discount %** | Percentage discount on the product value itself (used only for diamond tiers). |
+
+**Example: Standard 11-month gold scheme with three tiers**
+
+| Type | From | To | LC Discount % | Value Discount % |
+|------|------|----|---------------|-----------------|
+| Gold | 6 | 8 | 40% | 0% |
+| Gold | 9 | 10 | 60% | 0% |
+| Gold | 11 | 11 | 75% | 0% |
+
+How to read this:
+- A customer who has paid for **6, 7, or 8 months** gets **40% off making charges** when they purchase.
+- At **9 or 10 months**, they get **60% off**.
+- At exactly **11 months** (fully paid), they get **75% off making charges** — effectively receiving one free month.
+
+**Example: Scheme with diamond benefit enabled**
+
+| Type | From | To | LC Discount % | Value Discount % |
+|------|------|----|---------------|-----------------|
+| Gold | 6 | 8 | 40% | 0% |
+| Gold | 9 | 11 | 75% | 0% |
+| Diamond | 9 | 11 | 50% | 5% |
+
+A fully paid customer buying a diamond piece gets 50% off diamond making charges AND 5% off the stone/product value.
+
+> **Note:** A scheme can have either Gold tiers only, or both Gold and Diamond tiers if `Diamond ornament benefits` is checked. Tiers do not overlap — use non-overlapping month ranges.
+
+---
+
+### 14.4 Scheme Types in Detail
+
+#### INSTALLMENT — Monthly Fixed-Amount Savings
+
+The most common type. The customer pays a fixed amount every month (e.g. ₹5,000) for 11 months, totalling ₹55,000. At redemption, they can purchase jewellery worth up to their total paid amount plus apply the making-charge discount.
+
+- **Best for:** Customers who want a disciplined savings plan with a predictable benefit.
+- **Gold price at redemption:** Determined by the Gold Price Mode (see 14.5).
+
+#### ACCUMULATION — Gold Gram Savings
+
+Each payment is converted to **gold grams at the prevailing rate on that payment date**, and added to the customer's running gold balance. By the end of the scheme, the customer holds a fixed number of grams, not a fixed rupee amount. The value at redemption is therefore the current gold price × accumulated grams.
+
+- **Best for:** Customers who want to accumulate physical gold weight and are comfortable with price movement.
+- **Accumulation Purity:** You must set this field (e.g. 22K). When a ₹5,000 payment is recorded and 22K gold is at ₹6,200/g, the system adds `5000 ÷ 6200 = 0.806g` to the customer's gold balance.
+- The accumulated grams are shown in the enrollment statement and on the dashboard.
+
+#### LUMPSUM — One-Time Payment
+
+The customer pays the entire amount in one go. The gold rate is **locked at enrollment time** — regardless of how gold prices move later. This is used for customers who want to pre-book jewellery at today's rate.
+
+- **Best for:** Advance bookings, exhibition sales, bulk corporate gifting.
+- **Locked rate:** Stored against the enrollment; visible in the statement.
+
+---
+
+### 14.5 Gold Price Modes
+
+This setting controls how the rupee value of the scheme is translated into gold when the customer redeems.
+
+| Mode | How It Works | When to Use |
+|------|-------------|-------------|
+| **Current price at redemption** | The gold rate on the date of purchase is used. Customer bears market risk — they may get less gold if prices have risen. | Standard installment schemes |
+| **Gold accumulated at each payment rate** | Each payment buys gold at that day's rate (same as ACCUMULATION type). Total gold fixed in grams. | Gold accumulation schemes |
+| **Gold price locked at enrollment** | Rate fixed when the customer enrolls. Customer is protected from price rises. | Lumpsum / advance booking schemes |
+
+#### 14.5.1 Why Gold Price Mode Matters at Redemption
+
+Suppose a customer paid ₹55,000 over 11 months:
+
+- **CURRENT mode:** Gold is ₹7,000/g on purchase day → customer gets ₹55,000 ÷ 7,000 = **7.857g worth of ornaments**.
+- **LOCKED mode (enrolled at ₹6,000/g):** Customer gets ₹55,000 ÷ 6,000 = **9.167g worth** — protected against the price rise.
+
+#### 14.5.2 What is Accumulation Purity and Where Is It Used?
+
+**Accumulation Purity** is the gold purity standard against whose daily market rate each payment is converted to grams. It is only relevant when the scheme type is **ACCUMULATION**.
+
+**Where it is used:**
+1. When a payment is recorded for an ACCUMULATION scheme, the system looks up the **today's gold rate for the selected purity** from the Gold Rate master.
+2. It divides the payment amount by that rate to get the grams added: `grams = amount ÷ rate_per_gram`.
+3. The grams are added to the `gold_accumulated_wt` field on the enrollment.
+4. The payment record stores the `gold_rate_at_payment` and `gold_weight_added` for full traceability.
+5. These accumulated grams are shown in the **Enrollment Statement** and on the **Dashboard**.
+6. At redemption, the customer's entitlement is expressed in grams (not rupees), so they know exactly how much gold they have saved regardless of current prices.
+
+**Example:**
+- Scheme: ACCUMULATION, Purity = 22K, Installment = ₹5,000/month
+- Month 1: 22K rate = ₹6,000/g → adds 0.833g
+- Month 2: 22K rate = ₹6,200/g → adds 0.806g
+- Month 3: 22K rate = ₹6,500/g → adds 0.769g
+- After 3 months: **2.408g accumulated**, regardless of current price.
+
+> **Setup requirement:** For ACCUMULATION schemes, gold rates for the selected purity must be entered in the Gold Rate master on each payment date. If the rate is missing, the system cannot calculate grams.
+
+---
+
+### 14.6 Enrolling a Customer
+
+Navigate to **Gold Schemes → Enrollments** and click **New Enrollment**.
+
+| Field | Notes |
+|-------|-------|
+| **Scheme** | Select from active schemes. The tenure and min/max amounts are shown below the selection. |
+| **Customer** | Type at least 2 characters to search from your ledger. Select from the dropdown. |
+| **Monthly Installment (₹)** | The fixed amount the customer will pay each month. Must be within the scheme's min/max range. For LUMPSUM schemes, this is the one-time amount. |
+| **Start Date** | Defaults to today. The maturity date is auto-calculated as start date + tenure months. |
+| **Remarks** | Optional internal notes. |
+
+After saving, the enrollment is created with status **ACTIVE** and an enrollment number (e.g. `SCHM-2024-00042`).
+
+---
+
+### 14.7 Recording a Payment (Receipt Entry)
+
+Go to **Gold Schemes → Enrollments**. Find the customer's enrollment in the list. Only **ACTIVE** enrollments show the payment button.
+
+Click the **green credit card icon** (Record Payment) on the row.
+
+| Field | Notes |
+|-------|-------|
+| **Amount (₹)** | Pre-filled with the scheme's installment amount. Can be changed if the customer pays a different amount. |
+| **Date** | Defaults to today. |
+| **Payment Mode** | Cash, Bank Transfer, UPI, Cheque, or Card. |
+| **Payment Account** | Select the cash or bank ledger that received the money (e.g. "Main Cash", "HDFC Current A/c"). |
+| **Remarks** | Optional. |
+
+On save:
+- A **SCHM accounting voucher** is auto-created: Dr Cash/Bank → Cr Scheme Liability.
+- The payment count and total paid on the enrollment are updated.
+- For ACCUMULATION schemes, gold grams are calculated and added to `gold_accumulated_wt`.
+- You are redirected to the **Enrollment Statement** which shows all payment history.
+
+---
+
+### 14.8 Enrollment Statement
+
+Click the **eye icon** on any enrollment row to open the statement. It shows:
+
+- Enrollment summary: scheme, customer, start/maturity dates, installment amount, total paid, payments made.
+- **Gold Accumulated** (grams) — shown for ACCUMULATION schemes.
+- **Locked Gold Rate** — shown for LOCKED price mode schemes.
+- **Current Benefit** — the active making-charge discount tier based on months completed (e.g. "75% off Making Charges — Tier 11m").
+- Full payment history table with date, amount, mode, account, and gold grams per payment.
+
+---
+
+### 14.9 Enrollment Statuses
+
+| Status | Meaning |
+|--------|---------|
+| **ACTIVE** | Payments ongoing. Record Payment button is available. |
+| **MATURED** | All installments completed (maturity date reached). Awaiting redemption. |
+| **REDEEMED** | Customer has purchased jewellery and the scheme benefit has been applied. |
+| **FORFEITED** | Customer failed to complete — benefits lapsed (set manually or by policy). |
+| **CANCELLED** | Cancelled before maturity. Payments remain in accounting but no benefit applies. |
+
+---
+
+### 14.10 Customer Portal
+
+Customers can check their own scheme status without calling the shop:
+
+- Access via the portal link provided by the jeweller.
+- View enrollment details, payment history, accumulated gold weight, and applicable benefits.
+- Cannot make payments through the portal — only view access.
 
 ---
 

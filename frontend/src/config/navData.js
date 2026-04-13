@@ -42,6 +42,7 @@ export const navData = {
     { title: "Karigar Making",    url: "/setup/karigar-making",    icon: Hammer       },
     { title: "B2B Pricelist",     url: "/setup/b2b-pricelist",     icon: Tag          },
     { title: "Retail Discount Pricelist", url: "/setup/retail-discount-pricelist", icon: Tag },
+    { title: "Sales Offers",             url: "/setup/sales-offer",               icon: Tag },
     { title: "Chart of Accounts", url: "/accounting/account-tree", icon: BookOpen     },
     { title: "TDS Sections",      url: "/setup/tds-section",       icon: Percent      },
     { title: "TCS Sections",      url: "/setup/tcs-section",       icon: Percent      },
@@ -151,6 +152,7 @@ export const navData = {
   // ── Sales ──────────────────────────────────────────────────────────────────
   navMain2: [
     { title: "Estimate",       url: "/sales/estimate",            icon: Calculator       },
+    { title: "Quotation",     url: "/sales/quotation/list/",     icon: FileText         },
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList    },
     { title: "Sales Voucher",  url: "/sales/list/",               icon: ReceiptTextIcon  },
     { title: "Sales Return",   url: "/sales/salesreturn/list/",   icon: PackageXIcon     },
@@ -193,7 +195,6 @@ export const navData = {
         { title: "Id Generation",           url: "/inventory/reports/idgen"                },
         { title: "Metal Report",            url: "/inventory/reports/metalreport"          },
         { title: "Packetwise Stone",        url: "/inventory/reports/packetwisestone"      },
-        { title: "Stone Issue & Receive",   url: "/inventory/reports/stoneissuereceive"    },
         { title: "Closing Stock Valuation", url: "/inventory/reports/closing-stock"        },
         { title: "Barcode Split",           url: "/inventory/reports/barcodesplit"         },
         { title: "Barcode Merge",           url: "/inventory/reports/barcodemerge"         },
@@ -311,6 +312,7 @@ export const navData = {
         { title: "Audit Log",         url: "/settings/audit-log"       },
         { title: "Advanced Settings", url: "/settings"                 },
         { title: "CRM Automation",    url: "/settings/crm-automation"  },
+        { title: "Carry Forward DB",  url: "/settings/carry-forward"   },
       ],
     },
   ],

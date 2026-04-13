@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Loader2, Search, Download, RefreshCw, GitBranch } from "lucide-react";
+import { Loader2, Search, Download, GitBranch, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +47,31 @@ export default function BarcodeSplitReport() {
     setLoading(false);
   };
 
+  const handlePrint = () => {
+    const tableEl = document.querySelector("#split-report-table");
+    if (!tableEl) return;
+    const win = window.open("", "_blank", "width=900,height=600");
+    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Split Report ${fromDate} – ${toDate}</title>
+<style>
+  body { font-family: sans-serif; font-size: 11px; padding: 16px; }
+  h2 { font-size: 14px; margin-bottom: 4px; }
+  p { margin: 0 0 12px; color: #666; font-size: 11px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; font-size: 11px; }
+  th { background: #f3f4f6; font-weight: 600; }
+  .text-right { text-align: right; }
+  tfoot td { font-weight: 600; background: #f3f4f6; }
+  @media print { @page { margin: 10mm; size: landscape; } }
+</style></head><body>
+<h2>Barcode Split Report</h2>
+<p>${fromDate} — ${toDate} &nbsp;·&nbsp; ${rows.length} record${rows.length !== 1 ? "s" : ""}</p>
+${tableEl.outerHTML}
+</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 300);
+  };
+
   const exportCSV = () => {
     const headers = ["Date","Old Barcode","Old Item","Old Pcs","Old GW","Old NW","New Barcode","New Item","New Pcs","New GW","New NW"];
     const csvRows = rows.map((r) => [
@@ -90,9 +115,14 @@ export default function BarcodeSplitReport() {
             {loading ? "Loading..." : "Search"}
           </Button>
           {rows.length > 0 && (
-            <Button variant="outline" size="sm" onClick={exportCSV} className="h-9">
-              <Download className="size-4 mr-1.5" /> Export CSV
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={exportCSV} className="h-9">
+                <Download className="size-4 mr-1.5" /> Export CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePrint} className="h-9">
+                <Printer className="size-4 mr-1.5" /> Print
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -121,7 +151,7 @@ export default function BarcodeSplitReport() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table id="split-report-table" className="w-full border-collapse">
             <thead>
               {/* ── Group header row ── */}
               <tr className="border-b border-border">

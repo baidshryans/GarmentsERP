@@ -40,10 +40,13 @@ class UserLoginView(APIView):
         user = authenticate(username=username, password=password)
         if user is not None:
             token, created = Token.objects.get_or_create(user=user)
-            # Resolve role name for the frontend
+            # Resolve role name and flags for the frontend
             role_name = None
+            can_view_customer_data = True
             try:
-                role_name = UserRole.objects.select_related('role').get(user=user).role.name
+                user_role_obj = UserRole.objects.select_related('role').get(user=user)
+                role_name = user_role_obj.role.name
+                can_view_customer_data = user_role_obj.role.can_view_customer_data
             except UserRole.DoesNotExist:
                 pass
             user_data = {
@@ -54,6 +57,7 @@ class UserLoginView(APIView):
                 "last_name": user.last_name,
                 "is_superuser": user.is_superuser,
                 "role": role_name,
+                "can_view_customer_data": can_view_customer_data,
             }
             return Response({"token": token.key, "user": user_data}, status=status.HTTP_200_OK)
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
@@ -235,7 +239,7 @@ def list_create_roles(request):
         data = []
         for r in roles:
             user_count = UserRole.objects.filter(role=r).count()
-            data.append({'id': r.id, 'name': r.name, 'user_count': user_count})
+            data.append({'id': r.id, 'name': r.name, 'user_count': user_count, 'can_view_customer_data': r.can_view_customer_data})
         return Response(data)
     name = request.data.get('name', '').strip()
     if not name:
@@ -243,7 +247,7 @@ def list_create_roles(request):
     if Role.objects.filter(name__iexact=name).exists():
         return Response({'detail': f"Role '{name}' already exists."}, status=400)
     role = Role.objects.create(name=name)
-    return Response({'id': role.id, 'name': role.name, 'user_count': 0}, status=201)
+    return Response({'id': role.id, 'name': role.name, 'user_count': 0, 'can_view_customer_data': role.can_view_customer_data}, status=201)
 
 
 @api_view(['PATCH', 'DELETE'])
@@ -263,8 +267,10 @@ def role_detail(request, pk):
     name = request.data.get('name', '').strip()
     if name:
         role.name = name
-        role.save()
-    return Response({'id': role.id, 'name': role.name})
+    if 'can_view_customer_data' in request.data:
+        role.can_view_customer_data = bool(request.data['can_view_customer_data'])
+    role.save()
+    return Response({'id': role.id, 'name': role.name, 'can_view_customer_data': role.can_view_customer_data})
 
 
 @api_view(['GET', 'POST'])

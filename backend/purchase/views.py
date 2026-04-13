@@ -201,7 +201,7 @@ def purchase_return_initial_data(request):
 
     return Response({
         "billno": bill_no,
-        "ledgers": LedgerSerializer(ledgers_qs, many=True).data,
+        "ledgers": LedgerSerializer(ledgers_qs, many=True, context={'request': request}).data,
         "items": ItemSerializer(items_qs, many=True).data,
         "purity": PurityMasterSerializer(purity_qs, many=True).data,
         "packets": PacketSerializer(packets_qs, many=True).data,

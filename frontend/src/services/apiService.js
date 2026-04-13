@@ -5328,6 +5328,53 @@ export async function fetchRetailDiscountPricelistForLedger(ledgerId) {
   }
 }
 
+// ── Sales Offers ──────────────────────────────────────────────────────────────
+
+export async function fetchActiveOffer() {
+  try {
+    const r = await apiClient.get('/mastersconfig/api/sales-offer/active/');
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSalesOffers() {
+  try {
+    const r = await apiClient.get('/mastersconfig/api/sales-offer/?page_size=10000');
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createSalesOffer(data) {
+  try {
+    const r = await apiClient.post('/mastersconfig/api/sales-offer/', data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateSalesOffer(id, data) {
+  try {
+    const r = await apiClient.put(`/mastersconfig/api/sales-offer/${id}/`, data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteSalesOffer(id) {
+  try {
+    await apiClient.delete(`/mastersconfig/api/sales-offer/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // ── Quotation ───────────────────────────────────────────────────────────────
 
 export async function fetchQuotationInitialData() {
@@ -5384,6 +5431,15 @@ export async function updateQuotation(id, data) {
   }
 }
 
+export async function patchQuotation(id, data) {
+  try {
+    const r = await apiClient.patch(`/sales/api/quotation/${id}/`, data);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function deleteQuotation(id) {
   try {
     await apiClient.delete(`/sales/api/quotation/${id}/`);
@@ -5414,6 +5470,35 @@ export async function duplicateQuotation(id) {
 export async function finalizeQuotation(id) {
   try {
     const r = await apiClient.post(`/sales/api/quotation/${id}/finalize/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Carry Forward ─────────────────────────────────────────────────────────
+
+export async function carryForwardPreview({ cutoff_date, retail_id }) {
+  try {
+    const r = await apiClient.post("/carryforward/api/carry-forward/preview/", { cutoff_date, retail_id });
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function carryForwardExecute({ cutoff_date, retail_id }) {
+  try {
+    const r = await apiClient.post("/carryforward/api/carry-forward/execute/", { cutoff_date, retail_id });
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getCarryForwardLog() {
+  try {
+    const r = await apiClient.get("/carryforward/api/carry-forward/log/");
     return { success: true, data: r.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

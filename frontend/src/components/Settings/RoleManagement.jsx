@@ -296,6 +296,28 @@ export default function RoleManagement() {
               </div>
             </div>
 
+            {/* Customer data visibility toggle */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-muted/10">
+              <Checkbox
+                id="customer-data-toggle"
+                checked={selectedRole.can_view_customer_data ?? true}
+                onCheckedChange={async (val) => {
+                  const res = await updateRole(selectedRole.id, { can_view_customer_data: val });
+                  if (res.success) {
+                    setSelectedRole((prev) => ({ ...prev, can_view_customer_data: val }));
+                    setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, can_view_customer_data: val } : r));
+                    toast({ title: val ? "Customer data visible for this role." : "Customer data hidden for this role." });
+                  } else {
+                    toast({ title: "Failed to update.", variant: "destructive" });
+                  }
+                }}
+                className="size-4"
+              />
+              <Label htmlFor="customer-data-toggle" className="text-sm cursor-pointer">
+                Can view customer data <span className="text-muted-foreground">(names, phones, addresses, PAN, GST)</span>
+              </Label>
+            </div>
+
             {/* Matrix */}
             {permLoading ? (
               <div className="p-4 flex flex-col gap-2">

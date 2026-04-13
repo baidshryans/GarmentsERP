@@ -540,7 +540,13 @@ const PurchaseVoucher = () => {
         return;
       }
     }
-    form.purchasevoucheritems_set = [...rs];
+    const toIntOrNull = v => (v === "" || v === undefined || v === null || Number.isNaN(Number(v))) ? null : Number(v);
+    form.purchasevoucheritems_set = rs.map(item => ({
+      ...item,
+      pcs: toIntOrNull(item.pcs),
+      pending_pcs: toIntOrNull(item.pending_pcs),
+      making_value: toIntOrNull(item.making_value),
+    }));
     form.purchasevoucherdetails_set = [...rsRaw];
     try {
       const response = id
@@ -1117,7 +1123,7 @@ const PurchaseVoucher = () => {
 
 
                 <TableCell className="px-4 py-2 border">
-                  <Input type="number" {...register("table.pcs")} />
+                  <Input type="number" {...register("table.pcs", { setValueAs: v => v === "" || v === undefined ? null : Number(v) })} />
                 </TableCell>
                 <TableCell className="px-4 py-2 border">
                   <Input type="number" {...register("table.gw")} />
@@ -1166,7 +1172,7 @@ const PurchaseVoucher = () => {
                   />
                 </TableCell>
                 <TableCell className="px-4 py-2 border">
-                  <Input type="number" {...register("table.making_value")} />
+                  <Input type="number" {...register("table.making_value", { setValueAs: v => v === "" || v === undefined ? null : Number(v) })} />
                 </TableCell>
                 <TableCell className="px-4 py-2 border">
                   <Input type="number" {...register("table.item_value")} />

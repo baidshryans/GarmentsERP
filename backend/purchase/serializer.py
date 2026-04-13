@@ -530,17 +530,11 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                             "narration":f"Purchase Voucher Narration",
                             "voucher_type":global_vars.VoucherType.purc_sc,
                             "retail":retail.id,
-                            "voucher_details": [
-                                {
-                                    'account': in_cgst,
-                                    'debit':f"{purchase_voucher_instance.cgst:.2f}"
-                                },
-                                {'account': in_sgst,
-                                    'debit':f"{purchase_voucher_instance.sgst:.2f}"
-                                },
-                                {'account': in_igst,
-                                    'debit':f"{purchase_voucher_instance.igst:.2f}"
-                                },
+                            "voucher_details": (
+                                ([{'account': in_cgst, 'debit': f"{purchase_voucher_instance.cgst:.2f}"}] if (purchase_voucher_instance.cgst or 0) != 0 else []) +
+                                ([{'account': in_sgst, 'debit': f"{purchase_voucher_instance.sgst:.2f}"}] if (purchase_voucher_instance.sgst or 0) != 0 else []) +
+                                ([{'account': in_igst, 'debit': f"{purchase_voucher_instance.igst:.2f}"}] if (purchase_voucher_instance.igst or 0) != 0 else [])
+                            ) + [
                                 {'account':_hallmark_ldgr,
                                     'debit':f"{purchase_voucher_instance.hallmark_charge:.2f}" if purchase_voucher_instance.hallmark_charge else'0.0'
                                 },
@@ -630,17 +624,11 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                             "narration":f"Purchase Voucher Narration",
                             "voucher_type":global_vars.VoucherType.purc_sc,
                             "retail":retail.id,
-                            "voucher_details": [
-                                {
-                                    'account': in_cgst,
-                                    'debit':f"{purchase_voucher_instance.cgst:.2f}"
-                                },
-                                {'account': in_sgst,
-                                    'debit':f"{purchase_voucher_instance.sgst:.2f}"
-                                },
-                                {'account': in_igst,
-                                    'debit':f"{purchase_voucher_instance.igst:.2f}"
-                                },
+                            "voucher_details": (
+                                ([{'account': in_cgst, 'debit': f"{purchase_voucher_instance.cgst:.2f}"}] if (purchase_voucher_instance.cgst or 0) != 0 else []) +
+                                ([{'account': in_sgst, 'debit': f"{purchase_voucher_instance.sgst:.2f}"}] if (purchase_voucher_instance.sgst or 0) != 0 else []) +
+                                ([{'account': in_igst, 'debit': f"{purchase_voucher_instance.igst:.2f}"}] if (purchase_voucher_instance.igst or 0) != 0 else [])
+                            ) + [
                                 {'account':_hallmark_ldgr,
                                     'debit':f"{purchase_voucher_instance.hallmark_charge:.2f}" if purchase_voucher_instance.hallmark_charge else'0.0'
                                 },

@@ -191,6 +191,7 @@ const PurchaseVoucher = () => {
   const [calculate, setCalculate] = useState(0);
   const [tableFormulas, setTableFormulas] = useState({});
   const [uom, setUom] = useState('');
+  const [vendorStateCode, setVendorStateCode] = useState('');
 
 
   const selectedPacket = watch('details.packet');
@@ -513,11 +514,15 @@ const PurchaseVoucher = () => {
     let hsn_ = hsns.find(e => e.hsn_no === hsn_current);
 
     if (hsn_) {
-      setValue('form.sgst_per', parseFloat(hsn_.sgst))
-      setValue('form.cgst_per', parseFloat(hsn_.cgst))
-      setValue('form.igst_per', 0.0)
+      const retailState = localStorage.getItem('state_code') || "";
+      // IGST applies if vendor is from a different state; CGST+SGST for same state or no GSTIN
+      const isIntraState = vendorStateCode ? vendorStateCode === retailState : true;
+      setValue('form.sgst_per', isIntraState ? parseFloat(hsn_.sgst) : 0.0);
+      setValue('form.cgst_per', isIntraState ? parseFloat(hsn_.cgst) : 0.0);
+      setValue('form.igst_per', isIntraState ? 0.0 : parseFloat(hsn_.igst));
+      setCalculate(prev => prev + 1);
     }
-  }, [hsn_current]);
+  }, [hsn_current, vendorStateCode]);
 
   const onSubmit = async (data) => {
     const form = getValues("form");
@@ -708,7 +713,7 @@ const PurchaseVoucher = () => {
         }
 
         tablevalues.purchasevoucherdetails_set = [...existing, vals];
-        tablevalues.item_value = tablevalues.purchasevoucherdetails_set.reduce((sum, detail) => parseInt(sum) + parseInt(detail.value || 0), 0);
+        tablevalues.item_value = parseFloat(tablevalues.purchasevoucherdetails_set.reduce((sum, detail) => parseFloat(sum) + parseFloat(detail.value || 0), 0).toFixed(2));
 
         setRows((prevData) =>
           prevData.map((row, i) => (i === idx ? { ...tablevalues } : row))
@@ -948,6 +953,9 @@ const PurchaseVoucher = () => {
               onSelect={async (opt) => {
                 setValue("form.ldgr_name", opt.ac_name)
                 setValue("form.ldgr", opt.id)
+                // Extract state code from vendor's GSTIN (first 2 digits = state code)
+                const gstStateCode = opt.gst ? opt.gst.substring(0, 2) : "";
+                setVendorStateCode(gstStateCode);
                 const tdsRes = await fetchLedgerTDSInfo(opt.id);
                 if (tdsRes.success && tdsRes.data.tds_applicable) {
                   setValue("form.tds_section", tdsRes.data.section_id);

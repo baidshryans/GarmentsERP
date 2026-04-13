@@ -100,71 +100,168 @@ def _get_retail_for_report(request):
 
 
 def calcuate_pnl(start_date, end_date, retail=None):
-    opening_stock = calculate_opening_stock()
+    """
+    Standard Trading & P&L calculation.
 
+    COGS = Opening Stock + Purchases − Purchase Returns − Closing Stock
+    Gross Profit = Sales Revenue − COGS
+    Net Profit = Gross Profit − Direct Expenses (excl. Purchases) − Indirect Expenses
+
+    Opening Stock  : Opening balance of ledgers under CA-STK (Stock-in-Hand).
+    Purchases      : Period debits to ledgers under EXP-DIR-PUR (Purchase Account).
+    Purchase Returns: Period credits to ledgers under EXP-DIR-PUR.
+    Closing Stock  : Period net debit balance of CA-STK ledgers — recorded by the
+                     user via a journal entry (Dr Closing Stock / Cr P&L).
+    Expenses       : All Expense account descendants EXCLUDING EXP-DIR-PUR, so that
+                     purchases are not counted twice.
+    """
     base_filter = {'voucher_main__date__range': [start_date, end_date]}
     if retail:
         base_filter['voucher_main__retail'] = retail
 
-    purchases = VoucherDetail.objects.filter(
-        voucher_main__voucher_type=global_vars.VoucherType.purc_sc,
-        **base_filter
-    ).aggregate(total_purchases=Sum(F('debit')))['total_purchases'] or Decimal(0)
+    # ── Opening Stock ─────────────────────────────────────────────────────────
+    # Calculated from physical inventory: barcoded stock (op_stk=True),
+    # unbarcoded stock (op_stk=True), and raw material inventory,
+    # each valued at the item's weighted average rate.
+    opening_stock = calculate_opening_stock(retail=retail)
 
+    # Closing stock: net debit balance of CA-STK ledgers during the period.
+    try:
+        stk_group = Account.objects.get(code='CA-STK')
+        stk_all = [stk_group] + get_all_descendants(stk_group)
+        stk_ldgrs = Ledger.objects.filter(ac_group__in=stk_all)
+    except Account.DoesNotExist:
+        stk_ldgrs = Ledger.objects.none()
 
-    purchase_returns = VoucherDetail.objects.filter(
-        voucher_main__voucher_type=global_vars.VoucherType.purc_ret,
-        **base_filter
-    ).aggregate(total_purchase_returns=Sum(F('credit')))['total_purchase_returns'] or Decimal(0)
+    # ── Purchases & Purchase Returns ──────────────────────────────────────────
+    # Read directly from the Purchase Account ledger group (EXP-DIR-PUR) to avoid
+    # including GST / other line items from purchase vouchers.
+    pur_exclude_ids: frozenset = frozenset()
+    try:
+        pur_group = Account.objects.get(code='EXP-DIR-PUR')
+        pur_descendants = get_all_descendants(pur_group)
+        pur_ldgrs = Ledger.objects.filter(ac_group__in=[pur_group] + pur_descendants)
+        pur_agg = VoucherDetail.objects.filter(
+            account__in=pur_ldgrs, **base_filter
+        ).aggregate(
+            purchases=Sum('debit', output_field=DecimalField()),
+            purchase_returns=Sum('credit', output_field=DecimalField()),
+        )
+        purchases = pur_agg['purchases'] or Decimal(0)
+        purchase_returns = pur_agg['purchase_returns'] or Decimal(0)
+        pur_exclude_ids = frozenset([pur_group.id] + [a.id for a in pur_descendants])
+    except Account.DoesNotExist:
+        purchases = Decimal(0)
+        purchase_returns = Decimal(0)
 
-    closing_stock_value = ClosingStockCal().calculate_closing_stock(from_date=start_date,to_date=end_date)['total_value']
-
-
-    cogs = opening_stock + purchases - purchase_returns - closing_stock_value
-
-    sales_revenue = VoucherDetail.objects.filter(
-        voucher_main__voucher_type=global_vars.VoucherType.sale,
-        **base_filter
-    ).aggregate(total_sales=Sum(F('debit')))['total_sales'] or Decimal(0)
-
-    children = get_all_descendants(Account.objects.get(name="Expenses"))
-    ldgrs = Ledger.objects.filter(ac_group__in=children)
-
-    expense_txn = VoucherDetail.objects.filter(
-        account__in=ldgrs,
-        **base_filter
-    ).aggregate(total_expense=Sum(F('debit') - F('credit')))['total_expense'] or Decimal(0)
-
-    # Include opening balances for expense ledgers
-    expense_ob_filter = {'ldgr__in': ldgrs}
-    if retail:
-        expense_ob_filter['retail'] = retail
-    expense_ob = LedgerOpenBalance.objects.filter(
-        **expense_ob_filter
+    # ── Closing Stock ─────────────────────────────────────────────────────────
+    # Net debit balance of CA-STK ledgers during the period.
+    # User records closing stock via: Dr Closing Stock (CA-STK) / Cr P&L.
+    closing_stock = VoucherDetail.objects.filter(
+        account__in=stk_ldgrs, **base_filter
     ).aggregate(
         total=Sum(F('debit') - F('credit'), output_field=DecimalField())
     )['total'] or Decimal(0)
 
-    total_expenses = expense_txn + expense_ob
+    # ── COGS & Gross Profit ───────────────────────────────────────────────────
+    cogs = opening_stock + purchases - purchase_returns - closing_stock
 
-    gross_profit = sales_revenue - cogs
-    net_profit = gross_profit - total_expenses
+    # Sales Revenue — read from Sales Account ledger group (INC-DIR-SAL).
+    # Credits = sales, Debits = sales returns.  Net = credits − debits.
+    try:
+        sal_group = Account.objects.get(code='INC-DIR-SAL')
+        sal_descendants = get_all_descendants(sal_group)
+        sal_ldgrs = Ledger.objects.filter(ac_group__in=[sal_group] + sal_descendants)
+        sal_agg = VoucherDetail.objects.filter(
+            account__in=sal_ldgrs, **base_filter
+        ).aggregate(
+            total_credit=Sum('credit', output_field=DecimalField()),
+            total_debit=Sum('debit', output_field=DecimalField()),
+        )
+        sales_credit = sal_agg['total_credit'] or Decimal(0)
+        sales_debit = sal_agg['total_debit'] or Decimal(0)
+        sales_revenue = sales_credit - sales_debit
+        sales_return = sales_debit
+    except Account.DoesNotExist:
+        sales_revenue = Decimal(0)
+        sales_return = Decimal(0)
 
-    data = {
+    # ── Direct Expenses (excluding Purchase Account) ────────────────────────
+    try:
+        dir_exp_root = Account.objects.get(name='Direct Expenses')
+        dir_exp_children = get_all_descendants(dir_exp_root)
+        dir_exp_children_filtered = [c for c in [dir_exp_root] + dir_exp_children if c.id not in pur_exclude_ids]
+        dir_ldgrs = Ledger.objects.filter(ac_group__in=dir_exp_children_filtered)
+
+        dir_txn = VoucherDetail.objects.filter(
+            account__in=dir_ldgrs, **base_filter
+        ).aggregate(total=Sum(F('debit') - F('credit')))['total'] or Decimal(0)
+
+        dir_ob_filter = {'ldgr__in': dir_ldgrs}
+        if retail:
+            dir_ob_filter['retail'] = retail
+        dir_ob = LedgerOpenBalance.objects.filter(**dir_ob_filter).aggregate(
+            total=Sum(F('debit') - F('credit'), output_field=DecimalField())
+        )['total'] or Decimal(0)
+
+        direct_expenses_total = dir_txn + dir_ob
+    except Account.DoesNotExist:
+        direct_expenses_total = Decimal(0)
+
+    # Gross Profit = Sales Revenue - COGS - Direct Expenses
+    gross_profit = sales_revenue - cogs - direct_expenses_total
+
+    # ── Indirect Expenses ─────────────────────────────────────────────────────
+    try:
+        ind_exp_root = Account.objects.get(name='Indirect Expenses')
+        ind_exp_children = get_all_descendants(ind_exp_root)
+        ind_ldgrs = Ledger.objects.filter(ac_group__in=[ind_exp_root] + ind_exp_children)
+
+        ind_txn = VoucherDetail.objects.filter(
+            account__in=ind_ldgrs, **base_filter
+        ).aggregate(total=Sum(F('debit') - F('credit')))['total'] or Decimal(0)
+
+        ind_ob_filter = {'ldgr__in': ind_ldgrs}
+        if retail:
+            ind_ob_filter['retail'] = retail
+        ind_ob = LedgerOpenBalance.objects.filter(**ind_ob_filter).aggregate(
+            total=Sum(F('debit') - F('credit'), output_field=DecimalField())
+        )['total'] or Decimal(0)
+
+        indirect_expenses_total = ind_txn + ind_ob
+    except Account.DoesNotExist:
+        indirect_expenses_total = Decimal(0)
+
+    total_expenses = direct_expenses_total + indirect_expenses_total
+    net_profit = gross_profit - indirect_expenses_total
+
+    return {
         "opening_stock": opening_stock,
         "purchases": purchases,
         "purchase_returns": purchase_returns,
-        "closing_stock": closing_stock_value,
+        "closing_stock": closing_stock,
         "cogs": cogs,
+        "gross_sales": sales_revenue + sales_return,
+        "sales_return": sales_return,
         "sales_revenue": sales_revenue,
+        "direct_expenses_total": direct_expenses_total,
         "gross_profit": gross_profit,
+        "indirect_expenses_total": indirect_expenses_total,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
-        "income": get_accounts_tree('Income', retail=retail),
-        "expenses": get_accounts_tree('Expenses', retail=retail)
+        "income": get_accounts_tree('Income', retail=retail, start_date=start_date, end_date=end_date),
+        # Direct Expenses tree excluding Purchase Account (already in COGS)
+        "direct_expenses": get_accounts_tree(
+            'Direct Expenses', retail=retail,
+            start_date=start_date, end_date=end_date,
+            exclude_codes=['EXP-DIR-PUR'],
+        ),
+        # Indirect Expenses tree
+        "indirect_expenses": get_accounts_tree(
+            'Indirect Expenses', retail=retail,
+            start_date=start_date, end_date=end_date,
+        ),
     }
-
-    return data
 
 class BankbookReportView(APIView):
     def get(self, request, *args, **kwargs):
@@ -470,31 +567,52 @@ class ProfitLossAPIView(APIView):
         return Response(data, status=status.HTTP_200_OK)
  
    
-def get_accounts_tree(root=None, retail=None):
-    """Fetch Chart of Accounts as a nested tree — optimized with batch queries."""
+def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, exclude_codes=None):
+    """Fetch Chart of Accounts as a nested tree — optimized with batch queries.
+
+    Args:
+        root: Name of the root account group (e.g. 'Expenses', 'Income').
+        retail: RetailMaster instance to filter by; None = all retails.
+        start_date / end_date: Date range for VoucherDetail transactions.
+            Opening balances are always included regardless of date range.
+        exclude_codes: List of Account.code strings whose sub-trees are omitted
+            from both the rendered tree and the balance totals (e.g. ['EXP-DIR-PUR']).
+    """
     all_accounts = list(Account.objects.all())
     root_account = next((a for a in all_accounts if a.name == root), None)
     if not root_account:
         return []
 
+    # Compute IDs to exclude (the account and all its descendants)
+    exclude_ids: set = set()
+    if exclude_codes:
+        code_map = {a.code: a for a in all_accounts}
+        for code in exclude_codes:
+            if code in code_map:
+                excl_root = code_map[code]
+                exclude_ids.add(excl_root.id)
+                exclude_ids.update(a.id for a in get_all_descendants(excl_root))
+
     # Build parent-child map in memory
-    children_map = {}
+    children_map: dict = {}
     for acc in all_accounts:
         pid = acc.parent_id
         if pid not in children_map:
             children_map[pid] = []
         children_map[pid].append(acc)
 
-    # Batch query: net balances (debit - credit) grouped by ac_group
+    # Batch query: net balances (debit - credit) grouped by ac_group, date-filtered
     txn_filter = {}
     if retail:
         txn_filter['voucher_main__retail'] = retail
+    if start_date and end_date:
+        txn_filter['voucher_main__date__range'] = [start_date, end_date]
     balance_raw = VoucherDetail.objects.filter(**txn_filter).values('account__ac_group').annotate(
         total_balance=Sum(F('debit') - F('credit'))
     )
     balance_dict = {row['account__ac_group']: row['total_balance'] or Decimal(0) for row in balance_raw}
 
-    # Add opening balances grouped by ac_group
+    # Add opening balances grouped by ac_group (always included — period-independent)
     ob_filter = {}
     if retail:
         ob_filter['retail'] = retail
@@ -509,6 +627,8 @@ def get_accounts_tree(root=None, retail=None):
     def _build_tree(parent_id):
         tree = []
         for account in children_map.get(parent_id, []):
+            if account.id in exclude_ids:
+                continue
             tree.append({
                 "id": account.id,
                 "name": account.name,
@@ -815,7 +935,7 @@ class JournalEntryViewSet(RetailBaseViewset):
 @api_view(['GET'])
 def initial_data_view(request):
     # Retrieve ledgers, voucher number, and default date
-    ledgers = LedgerSerializer(Ledger.objects.only('id', 'ac_name', 'type', 'ac_group'), many=True).data
+    ledgers = LedgerSerializer(Ledger.objects.only('id', 'ac_name', 'type', 'ac_group'), many=True, context={'request': request}).data
     from accounting.utils import peek_next_bill_number
     voucher_no = peek_next_bill_number(request.retail, 'JRNL')
     default_date = timezone.localdate()
@@ -1435,6 +1555,114 @@ class PnlDrilldownView(APIView):
         return Response({"error": "Invalid metric. Use: sales, purchases, purchase_returns, expenses"}, status=400)
 
 
+class PnlGroupLedgersView(APIView):
+    """Return ledger-level balances for a given account group within a date range."""
+
+    def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        group_id = request.query_params.get("group_id")
+        start_date = request.query_params.get("start_date", "2000-01-01")
+        end_date = request.query_params.get("end_date", str(date.today()))
+
+        if not group_id:
+            return Response({"error": "group_id is required"}, status=400)
+
+        try:
+            group = Account.objects.get(pk=group_id)
+        except Account.DoesNotExist:
+            return Response({"error": "Account group not found"}, status=404)
+
+        # Get all descendant groups (including this one) to find all ledgers
+        descendants = [group] + get_all_descendants(group)
+        desc_ids = [a.id for a in descendants]
+
+        ledgers = Ledger.objects.filter(ac_group_id__in=desc_ids)
+        if retail:
+            ledgers = ledgers.filter(retail=retail)
+
+        # Transaction balances within date range
+        txn_filter = {
+            'account__in': ledgers,
+            'voucher_main__date__range': [start_date, end_date],
+        }
+        if retail:
+            txn_filter['voucher_main__retail'] = retail
+
+        txn_balances = VoucherDetail.objects.filter(**txn_filter).values('account').annotate(
+            balance=Sum(F('debit') - F('credit'))
+        )
+        txn_dict = {r['account']: r['balance'] or Decimal(0) for r in txn_balances}
+
+        # Opening balances
+        ob_filter = {'ldgr__in': ledgers}
+        if retail:
+            ob_filter['retail'] = retail
+        ob_balances = LedgerOpenBalance.objects.filter(**ob_filter).values('ldgr').annotate(
+            balance=Sum(F('debit') - F('credit'), output_field=DecimalField())
+        )
+        ob_dict = {r['ldgr']: r['balance'] or Decimal(0) for r in ob_balances}
+
+        result = []
+        for ldgr in ledgers:
+            bal = txn_dict.get(ldgr.id, Decimal(0)) + ob_dict.get(ldgr.id, Decimal(0))
+            if bal != 0:
+                result.append({
+                    "id": ldgr.id,
+                    "ac_name": ldgr.ac_name,
+                    "balance": str(bal),
+                })
+
+        result.sort(key=lambda x: abs(Decimal(x['balance'])), reverse=True)
+        return Response({"group": group.name, "ledgers": result})
+
+
+class PnlLedgerTransactionsView(APIView):
+    """Return transactions for a specific ledger within a date range."""
+
+    def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+        ledger_id = request.query_params.get("ledger_id")
+        start_date = request.query_params.get("start_date", "2000-01-01")
+        end_date = request.query_params.get("end_date", str(date.today()))
+
+        if not ledger_id:
+            return Response({"error": "ledger_id is required"}, status=400)
+
+        try:
+            ledger = Ledger.objects.get(pk=ledger_id)
+        except Ledger.DoesNotExist:
+            return Response({"error": "Ledger not found"}, status=404)
+
+        txn_filter = {
+            'account': ledger,
+            'voucher_main__date__range': [start_date, end_date],
+        }
+        if retail:
+            txn_filter['voucher_main__retail'] = retail
+
+        rows = VoucherDetail.objects.filter(**txn_filter).select_related(
+            'voucher_main'
+        ).order_by('voucher_main__date').values(
+            'voucher_main__voucher_no',
+            'voucher_main__date',
+            'voucher_main__voucher_type',
+            'voucher_main__narration',
+            'debit',
+            'credit',
+        )
+
+        return Response({
+            "ledger": ledger.ac_name,
+            "transactions": list(rows),
+        })
+
+
 class FinancialRatiosView(APIView):
     """Compute standard financial ratios from P&L + Balance Sheet data."""
 
@@ -1444,8 +1672,9 @@ class FinancialRatiosView(APIView):
             return Response({"error": "You do not have permission to view combined reports."},
                             status=status.HTTP_403_FORBIDDEN)
 
-        fy = date.today().year if date.today().month >= 4 else date.today().year - 1
-        start_date_str = request.query_params.get("start_date", f"{fy}-04-01")
+        active_fy = getattr(retail, 'active_fy', None) if retail and retail != 'FORBIDDEN' else None
+        default_start = str(active_fy.fy_start) if active_fy else f"{date.today().year if date.today().month >= 4 else date.today().year - 1}-04-01"
+        start_date_str = request.query_params.get("start_date", default_start)
         end_date_str = request.query_params.get("end_date", str(date.today()))
 
         # ── P&L data ─────────────────────────────────────────────────────

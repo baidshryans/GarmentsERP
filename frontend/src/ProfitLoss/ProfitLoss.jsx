@@ -295,17 +295,22 @@ export default function ProfitLoss() {
       <thead><tr><th>Particulars</th><th style="text-align:right;width:150px">Amount (\u20B9)</th></tr></thead>
       <tbody>
         ${sectionHead("Revenue")}
-        ${row("Sales Revenue", data.sales_revenue, { indent: 24 })}
+        ${row("Gross Sales", data.gross_sales, { indent: 24 })}
+        ${Number(data.sales_return) > 0 ? row("(\u2212) Sales Returns", data.sales_return, { indent: 24, negative: true }) : ''}
+        ${row("Net Sales Revenue", data.sales_revenue, { bold: true, border: true })}
         ${sectionHead("Cost of Goods Sold")}
         ${row("Opening Stock", data.opening_stock, { indent: 24 })}
-        ${row("(+) Purchases", data.purchases, { indent: 24 })}
+        ${row("(+) Gross Purchases", data.purchases, { indent: 24 })}
         ${row("(\u2212) Purchase Returns", data.purchase_returns, { indent: 24, negative: true })}
         ${row("(\u2212) Closing Stock", data.closing_stock, { indent: 24, negative: true })}
         ${row("Total COGS", data.cogs, { bold: true, border: true })}
+        ${sectionHead("Direct Expenses")}
+        ${flattenExpenses(data.direct_expenses)}
+        ${row("Total Direct Expenses", data.direct_expenses_total, { bold: true, border: true })}
         ${row("Gross Profit", data.gross_profit, { bold: true, border: true })}
-        ${sectionHead("Operating Expenses")}
-        ${flattenExpenses(data.expenses)}
-        ${row("Total Expenses", data.total_expenses, { bold: true, border: true })}
+        ${sectionHead("Indirect Expenses")}
+        ${flattenExpenses(data.indirect_expenses)}
+        ${row("Total Indirect Expenses", data.indirect_expenses_total, { bold: true, border: true })}
       </tbody>
       <tfoot><tr class="totals-row">
         <td style="font-size:12px">${np >= 0 ? "Net Profit" : "Net Loss"}</td>
@@ -384,7 +389,11 @@ export default function ProfitLoss() {
                   Revenue
                 </td>
               </tr>
-              <PnlRow label="Sales Revenue" value={data.sales_revenue} indent metric="sales" onDrill={openDrill} />
+              <PnlRow label="Gross Sales" value={data.gross_sales} indent metric="sales" onDrill={openDrill} />
+              {Number(data.sales_return) > 0 && (
+                <PnlRow label="(-) Sales Returns" value={data.sales_return} indent negative />
+              )}
+              <PnlRow label="Net Sales Revenue" value={data.sales_revenue} bold border />
             </tbody>
 
             {/* ── COGS ─────────────────────────────────────── */}
@@ -395,31 +404,44 @@ export default function ProfitLoss() {
                 </td>
               </tr>
               <PnlRow label="Opening Stock" value={data.opening_stock} indent />
-              <PnlRow label="(+) Purchases" value={data.purchases} indent metric="purchases" onDrill={openDrill} />
+              <PnlRow label="(+) Gross Purchases" value={data.purchases} indent metric="purchases" onDrill={openDrill} />
               <PnlRow label="(−) Purchase Returns" value={data.purchase_returns} indent negative metric="purchase_returns" onDrill={openDrill} />
               <PnlRow label="(−) Closing Stock" value={data.closing_stock} indent negative />
               <PnlRow label="Total COGS" value={data.cogs} bold border />
             </tbody>
 
-            {/* ── Gross Profit ──────────────────────────────── */}
+            {/* ── Direct Expenses ──────────────────────────── */}
+            <tbody>
+              <tr className="bg-muted/30 border-t border-border">
+                <td colSpan={2} className="px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+                  Direct Expenses
+                </td>
+              </tr>
+            </tbody>
+            <ExpenseTree items={data.direct_expenses} onDrill={openDrill} />
+            <tbody>
+              <PnlRow label="Total Direct Expenses" value={data.direct_expenses_total} bold border />
+            </tbody>
+
+            {/* ── Gross Profit = Net Sales - COGS - Direct Expenses ── */}
             <tbody>
               <PnlRow label="Gross Profit" value={data.gross_profit} bold border />
             </tbody>
 
-            {/* ── Expenses ─────────────────────────────────── */}
+            {/* ── Indirect Expenses ────────────────────────── */}
             <tbody>
               <tr className="bg-muted/30 border-t border-border">
                 <td colSpan={2} className="px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                  Operating Expenses
+                  Indirect Expenses
                 </td>
               </tr>
             </tbody>
-            <ExpenseTree items={data.expenses} onDrill={openDrill} />
+            <ExpenseTree items={data.indirect_expenses} onDrill={openDrill} />
             <tbody>
-              <PnlRow label="Total Expenses" value={data.total_expenses} bold border />
+              <PnlRow label="Total Indirect Expenses" value={data.indirect_expenses_total} bold border />
             </tbody>
 
-            {/* ── Net Profit / Loss ─────────────────────────── */}
+            {/* ── Net Profit / Loss = Gross Profit - Indirect Expenses ── */}
             <tfoot>
               <tr className="border-t-2 border-border bg-muted/50">
                 <td className="px-4 py-3 font-semibold text-base">

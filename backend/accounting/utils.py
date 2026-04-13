@@ -25,6 +25,20 @@ def get_company_cash_limits(retail):
     return Decimal('199999'), Decimal('10000')
 
 
+def _get_company_retails(retail):
+    """
+    Return all RetailMaster instances belonging to the same company as `retail`.
+    Section 269ST (cash receipt limit) and 40A(3) (cash payment limit) apply at
+    the company/PAN level — not per retail branch.
+    Falls back to [retail] if the company chain cannot be resolved.
+    """
+    from mastersconfig.models import RetailMaster
+    company = getattr(getattr(retail, 'branch', None), 'company', None)
+    if company:
+        return list(RetailMaster.objects.filter(branch__company=company))
+    return [retail]
+
+
 def increment_series_no(bill_no):
     match = re.search(r'(\d+)$', bill_no)
 
@@ -168,13 +182,24 @@ def generate_next_cg_no(retail, fiscal_year=None):
     return get_next_bill_number(retail, "CG", fiscal_year)
 
 
-def calculate_opening_stock():
+def calculate_opening_stock(retail=None):
+    """
+    Calculate opening stock value from physical inventory.
+
+    Sources:
+      - BarcodeMain (op_stk=True), filtered by op_retail if retail given
+      - UnBarcodedMain (op_stk=True), filtered by retail if retail given
+      - RawMaterialInventory, filtered by retail if retail given
+
+    Each item is valued at its weighted average rate (op_wtd_avg_rate / op_stock_wtd_avg_rate).
+    """
     total_opening_stock_value = Decimal(0)
 
-    # Barcoded Stock Value (Filtered by op_stk=True)
-    barcoded_stock = BarcodeDetails.objects.filter(
-        barcode__op_stk=True
-    ).annotate(
+    # Barcoded Stock Value (op_stk=True)
+    bar_filter = {'barcode__op_stk': True}
+    if retail:
+        bar_filter['barcode__op_retail'] = retail
+    barcoded_stock = BarcodeDetails.objects.filter(**bar_filter).annotate(
         item_rate=F('item__op_wtd_avg_rate'),
         packet_rate=F('packet__op_stock_wtd_avg_rate')
     ).aggregate(
@@ -182,10 +207,11 @@ def calculate_opening_stock():
         total_stone_value=Sum(F('ct') * F('packet_rate'), output_field=models.DecimalField())
     )
 
-    # Unbarcoded Stock Value (Filtered by op_stk=True)
-    unbarcoded_stock = UnBarcodedDetails.objects.filter(
-        main_item__op_stk=True
-    ).annotate(
+    # Unbarcoded Stock Value (op_stk=True)
+    unbar_filter = {'main_item__op_stk': True}
+    if retail:
+        unbar_filter['main_item__retail'] = retail
+    unbarcoded_stock = UnBarcodedDetails.objects.filter(**unbar_filter).annotate(
         item_rate=F('item__op_wtd_avg_rate'),
         packet_rate=F('packet__op_stock_wtd_avg_rate')
     ).aggregate(
@@ -193,8 +219,11 @@ def calculate_opening_stock():
         total_stone_value=Sum(F('ct') * F('packet_rate'), output_field=models.DecimalField())
     )
 
-    # Raw Material Inventory Stock Value (No op_stk filter needed)
-    raw_material_stock = RawMaterialInventory.objects.annotate(
+    # Raw Material Inventory Stock Value
+    rm_filter = {}
+    if retail:
+        rm_filter['retail'] = retail
+    raw_material_stock = RawMaterialInventory.objects.filter(**rm_filter).annotate(
         item_rate=F('item__op_wtd_avg_rate'),
         packet_rate=F('packet__op_stock_wtd_avg_rate')
     ).aggregate(
@@ -202,7 +231,6 @@ def calculate_opening_stock():
         total_stone_value=Sum(F('ct') * F('packet_rate'), output_field=models.DecimalField())
     )
 
-    # Summing up all stock values
     total_opening_stock_value += barcoded_stock['total_gold_value'] or Decimal(0)
     total_opening_stock_value += barcoded_stock['total_stone_value'] or Decimal(0)
     total_opening_stock_value += unbarcoded_stock['total_gold_value'] or Decimal(0)
@@ -215,11 +243,15 @@ def calculate_opening_stock():
 
 def get_customer_cash_received(retail, fiscal_year, customer_ledger):
     """
-    Returns total cash received from a single customer in a fiscal year (gross — no deductions for returns).
+    Returns total cash received from a single customer in a fiscal year across
+    ALL retail locations belonging to the same company (gross — no deductions for returns).
+
+    Section 269ST applies at the company/PAN level, not per retail branch. Cash
+    received by any branch of the same company counts toward the same limit.
 
     Counts:
-      1. SalesVou.cash  — cash collected at the point of sale
-      2. Standalone RCPT vouchers — cash debited in receipt vouchers where this customer is credited
+      1. SalesVou.cash  — cash collected at the point of sale (all company retails)
+      2. Standalone RCPT vouchers — cash debited where this customer is credited (all company retails)
 
     RCPT-SALE vouchers are auto-generated from Sales Vouchers and their cash amount is
     already captured in (1), so they are deliberately excluded here.
@@ -230,62 +262,79 @@ def get_customer_cash_received(retail, fiscal_year, customer_ledger):
     from django.db.models import Sum as DSum
     from sales.models import SalesVou
 
-    fy_filter = {'fiscal_year': fiscal_year} if fiscal_year else {}
+    # All retails in the same company — 269ST is a company-level obligation.
+    company_retails = _get_company_retails(retail)
 
-    # 1 ── Cash from Sale Vouchers
+    # Use date range instead of the fiscal_year FK since each retail has its own
+    # separate FiscalYearMaster record for the same calendar period.
+    fy_date_filter_sv = {}
+    fy_date_filter_vm = {}
+    if fiscal_year:
+        fy_date_filter_sv = {
+            'date1__gte': fiscal_year.fy_start,
+            'date1__lte': fiscal_year.fy_end,
+        }
+        fy_date_filter_vm = {
+            'date__gte': fiscal_year.fy_start,
+            'date__lte': fiscal_year.fy_end,
+        }
+
+    # 1 ── Cash from Sale Vouchers across all company retails
     sales_cash = (
         SalesVou.objects.filter(
-            retail=retail,
+            retail__in=company_retails,
             ldgr=customer_ledger,
-            **fy_filter,
+            **fy_date_filter_sv,
         ).aggregate(t=DSum('cash'))['t']
         or Decimal('0')
     )
 
-    # 2 ── Cash from standalone RCPT vouchers (not RCPT-SALE)
+    # 2 ── Cash from standalone RCPT vouchers across all company retails (not RCPT-SALE)
+    # Use account role 'CA' to identify cash ledgers since each retail has its own cash_ldgr.
+    rcpt_ids = list(
+        VoucherMain.objects.filter(
+            retail__in=company_retails,
+            voucher_type='RCPT',
+            transactions__account=customer_ledger,
+            transactions__credit__gt=0,
+            **fy_date_filter_vm,
+        ).values_list('id', flat=True).distinct()
+    )
     rcpt_cash = Decimal('0')
-    cash_ldgr = retail.cash_ldgr
-    if cash_ldgr:
-        # Find RCPT vouchers where the customer ledger is on the credit side
-        rcpt_ids = list(
-            VoucherMain.objects.filter(
-                retail=retail,
-                voucher_type='RCPT',
-                transactions__account=customer_ledger,
-                transactions__credit__gt=0,
-                **fy_filter,
-            ).values_list('id', flat=True).distinct()
+    if rcpt_ids:
+        rcpt_cash = (
+            VoucherDetail.objects.filter(
+                voucher_main_id__in=rcpt_ids,
+                account__roles__role='CA',
+                debit__gt=0,
+            ).aggregate(t=DSum('debit'))['t']
+            or Decimal('0')
         )
-        if rcpt_ids:
-            rcpt_cash = (
-                VoucherDetail.objects.filter(
-                    voucher_main_id__in=rcpt_ids,
-                    account=cash_ldgr,
-                    debit__gt=0,
-                ).aggregate(t=DSum('debit'))['t']
-                or Decimal('0')
-            )
 
     return Decimal(str(sales_cash)) + Decimal(str(rcpt_cash))
 
 
 def get_vendor_cash_paid_on_date(retail, date, vendor_ledger):
     """
-    Returns total cash paid to a single vendor on a specific date (gross — returns don't reduce this).
+    Returns total cash paid to a single vendor on a specific date across ALL retail
+    locations belonging to the same company (gross — returns don't reduce this).
+
+    Section 40A(3) applies at the company/PAN level — the ₹10,000 daily ceiling
+    covers payments made by any branch of the same company to the same party on the
+    same day.
 
     Counts PMNT vouchers on `date` where:
       - vendor_ledger is on the DEBIT side  (liability to vendor reduces)
       - cash ledger   is on the CREDIT side (cash leaves the business)
-
-    Per Income Tax Section 40A(3): the ₹10,000 daily cash payment ceiling applies
-    across all payments to the same party on the same day.
     """
     from django.db.models import Sum as DSum
 
-    # Find PMNT vouchers on this date that debit this vendor
+    company_retails = _get_company_retails(retail)
+
+    # Find PMNT vouchers on this date across all company retails that debit this vendor
     pmnt_ids = list(
         VoucherMain.objects.filter(
-            retail=retail,
+            retail__in=company_retails,
             voucher_type='PMNT',
             date=date,
             transactions__account=vendor_ledger,
@@ -296,26 +345,14 @@ def get_vendor_cash_paid_on_date(retail, date, vendor_ledger):
     if not pmnt_ids:
         return Decimal('0')
 
-    # Sum the cash credit lines inside those vouchers
-    cash_ldgr = retail.cash_ldgr
-    if cash_ldgr:
-        cash_paid = (
-            VoucherDetail.objects.filter(
-                voucher_main_id__in=pmnt_ids,
-                account=cash_ldgr,
-                credit__gt=0,
-            ).aggregate(t=DSum('credit'))['t']
-            or Decimal('0')
-        )
-    else:
-        # Fallback: identify cash by ledger role
-        cash_paid = (
-            VoucherDetail.objects.filter(
-                voucher_main_id__in=pmnt_ids,
-                account__roles__role='CA',
-                credit__gt=0,
-            ).aggregate(t=DSum('credit'))['t']
-            or Decimal('0')
-        )
+    # Use account role 'CA' to identify cash across retails (each has its own cash_ldgr)
+    cash_paid = (
+        VoucherDetail.objects.filter(
+            voucher_main_id__in=pmnt_ids,
+            account__roles__role='CA',
+            credit__gt=0,
+        ).aggregate(t=DSum('credit'))['t']
+        or Decimal('0')
+    )
 
     return Decimal(str(cash_paid))

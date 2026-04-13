@@ -403,6 +403,8 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
+            'pcs': {'required': False, 'allow_null': True},
+            'making_type': {'required': False, 'allow_blank': True},
         }
 
     def validate(self, data):

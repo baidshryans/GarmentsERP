@@ -214,7 +214,7 @@ def customer_order_update_delivery(request, pk):
 
 from datetime import datetime
 from rest_framework.viewsets import ModelViewSet
-from accounting.serializers import LedgerSerializer
+from accounting.serializers import LedgerSerializer, SaleVoucherLedgerSerializer
 from sales.utils import generate_next_sale_voucher_no, generate_next_sale_return_no, generate_next_sale_app_no
 from sales.serializers import SaleReturnSerializer, SaleVoucherToReturnSerializer, SalesApprovalSerializer, SalesVouSerializer
 from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When
@@ -974,12 +974,25 @@ def customer_cash_received_view(request):
     from accounting.utils import get_company_cash_limits
     fy = request.retail.active_fy
     receipt_limit, _ = get_company_cash_limits(request.retail)
+
+    if receipt_limit is None:
+        # Enforcement disabled — return sentinel so frontend can hide the indicator
+        return Response({
+            'customer_id': int(customer_id),
+            'customer_name': customer_ldgr.ac_name,
+            'enforcement_enabled': False,
+            'cash_received': None,
+            'limit': None,
+            'remaining': None,
+        })
+
     limit = float(receipt_limit)
     already = float(get_customer_cash_received(request.retail, fy, customer_ldgr))
 
     return Response({
         'customer_id': int(customer_id),
         'customer_name': customer_ldgr.ac_name,
+        'enforcement_enabled': True,
         'cash_received': already,
         'limit': limit,
         'remaining': max(0.0, limit - already),
@@ -1005,10 +1018,14 @@ def sale_voucher_initial_data(request):
     states = [{"code": code, "name": name} for code, name in STATES_OF_INDIA]
     bill_no = peek_next_bill_number(request.retail, "SV")
 
-    ledgers_qs = Ledger.objects.filter(roles__role='CO').only('id', 'ac_name', 'ac_group').distinct()
+    ledgers_qs = (Ledger.objects
+                  .filter(roles__role='CO')
+                  .only('id', 'ac_name', 'ac_group')
+                  .prefetch_related('roles')
+                  .distinct())
     items_qs = Item.objects.select_related('hsn_no').all()
     purity_qs = PurityMaster.objects.all()
-    packets_qs = Packet.objects.select_related('stone_item_id').all()
+    packets_qs = Packet.objects.select_related('packet_group', 'stone_item_id', 'color', 'shape').all()
     salespersons_qs = SalesPersonMaster.objects.filter(retail=request.retail)
     hsns_qs = Hsn.objects.prefetch_related('item_set').all()
 
@@ -1025,7 +1042,7 @@ def sale_voucher_initial_data(request):
         "retail_state_code": retail_state_code,
         "is_exhibition": request.retail.is_exhibition,
         "states": states,
-        "ledgers": LedgerSerializer(ledgers_qs, many=True).data,
+        "ledgers": SaleVoucherLedgerSerializer(ledgers_qs, many=True, context={'request': request}).data,
         "items": ItemSerializer(items_qs, many=True).data,
         "purity": PurityMasterSerializer(purity_qs, many=True).data,
         "packets": PacketSerializer(packets_qs, many=True).data,
@@ -1050,14 +1067,18 @@ def sale_return_initial_data(request):
     from accounting.utils import peek_next_bill_number
 
     bill_no = peek_next_bill_number(request.retail, "SR")
-    ledgers_qs = Ledger.objects.filter(roles__role='CO').only('id', 'ac_name', 'ac_group').distinct()
+    ledgers_qs = (Ledger.objects
+                  .filter(roles__role='CO')
+                  .only('id', 'ac_name', 'ac_group')
+                  .prefetch_related('roles')
+                  .distinct())
     items_qs = Item.objects.select_related('hsn_no').all()
     purity_qs = PurityMaster.objects.all()
-    packets_qs = Packet.objects.select_related('stone_item_id').all()
+    packets_qs = Packet.objects.select_related('packet_group', 'stone_item_id', 'color', 'shape').all()
 
     return Response({
         "billno": bill_no,
-        "ledgers": LedgerSerializer(ledgers_qs, many=True).data,
+        "ledgers": SaleVoucherLedgerSerializer(ledgers_qs, many=True, context={'request': request}).data,
         "items": ItemSerializer(items_qs, many=True).data,
         "purity": PurityMasterSerializer(purity_qs, many=True).data,
         "packets": PacketSerializer(packets_qs, many=True).data,
@@ -1832,7 +1853,7 @@ def quotation_initial_data(request):
 
     return Response({
         "billno": bill_no,
-        "ledgers": LedgerSerializer(ledgers_qs, many=True).data,
+        "ledgers": LedgerSerializer(ledgers_qs, many=True, context={'request': request}).data,
         "salespersons": SalesPersonMasterSerializer(salespersons_qs, many=True).data,
     })
 

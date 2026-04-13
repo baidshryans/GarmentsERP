@@ -357,22 +357,22 @@ class SalesVouSerializer(serializers.ModelSerializer):
             # ── Section 269ST cash receipt limit check ────────────────────────
             new_cash = Decimal(str(validated_data.get('cash', 0) or 0))
             if new_cash > 0:
-                from accounting.utils import get_customer_cash_received
-                customer_ldgr = validated_data.get('ldgr')
-                fy = validated_data.get('fiscal_year') or request.retail.active_fy
-                from accounting.utils import get_company_cash_limits
+                from accounting.utils import get_customer_cash_received, get_company_cash_limits
                 limit, _ = get_company_cash_limits(request.retail)
-                already = get_customer_cash_received(request.retail, fy, customer_ldgr)
-                if already + new_cash > limit:
-                    remaining = max(Decimal('0'), limit - already)
-                    raise ValidationError({
-                        'cash': (
-                            f"Cash receipt limit exceeded for '{customer_ldgr.ac_name}'. "
-                            f"Already received ₹{already:,.0f} this FY  |  "
-                            f"Limit: ₹{limit:,.0f}  |  "
-                            f"Max receivable now: ₹{remaining:,.0f}."
-                        )
-                    })
+                if limit is not None:   # None means enforcement is disabled
+                    customer_ldgr = validated_data.get('ldgr')
+                    fy = validated_data.get('fiscal_year') or request.retail.active_fy
+                    already = get_customer_cash_received(request.retail, fy, customer_ldgr)
+                    if already + new_cash > limit:
+                        remaining = max(Decimal('0'), limit - already)
+                        raise ValidationError({
+                            'cash': (
+                                f"Cash receipt limit exceeded for '{customer_ldgr.ac_name}'. "
+                                f"Already received ₹{already:,.0f} this FY  |  "
+                                f"Limit: ₹{limit:,.0f}  |  "
+                                f"Max receivable now: ₹{remaining:,.0f}."
+                            )
+                        })
             # ─────────────────────────────────────────────────────────────────
 
             # ── Compute server-side due_amt (patched after instance creation) ──

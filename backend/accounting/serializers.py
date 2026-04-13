@@ -69,6 +69,45 @@ class LedgerSerializer(serializers.ModelSerializer):
         first = obj.roles.first()
         return first.role if first else None
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if request:
+            from userauth.utils import can_user_view_customer_data
+            if not can_user_view_customer_data(request.user):
+                from contacts.masking import mask_ledger_representation
+                ret = mask_ledger_representation(ret, instance)
+        return ret
+
+class SaleVoucherLedgerSerializer(serializers.ModelSerializer):
+    """Minimal ledger serializer for sale/return voucher forms.
+    Uses Python-side iteration over prefetched roles to avoid N+1 queries."""
+    primary_role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ledger
+        fields = ['id', 'ac_name', 'ac_group', 'primary_role']
+
+    def get_primary_role(self, obj):
+        # obj.roles.all() hits the prefetch cache — no extra query per ledger
+        roles = list(obj.roles.all())
+        primary = next((r for r in roles if r.is_primary), None)
+        if primary:
+            return primary.role
+        return roles[0].role if roles else None
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        request = self.context.get('request')
+        if request:
+            from userauth.utils import can_user_view_customer_data
+            if not can_user_view_customer_data(request.user):
+                from contacts.masking import is_customer_ledger, MASK_VALUE
+                if is_customer_ledger(instance):
+                    ret['ac_name'] = MASK_VALUE
+        return ret
+
+
 class VoucherDetailSerializer(serializers.ModelSerializer):
     account = serializers.SlugRelatedField(queryset=Ledger.objects.all(),slug_field="ac_name")
     credit = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
@@ -236,74 +275,76 @@ class JournalEntrySerializer(serializers.Serializer):
             and retail_obj.cash_ldgr
         ):
             from accounting.utils import get_customer_cash_received, get_company_cash_limits
-            cash_ldgr = retail_obj.cash_ldgr
             limit, _ = get_company_cash_limits(retail_obj)
-            fy = retail_obj.active_fy
+            if limit is not None:   # None means enforcement is disabled by company setting
+                cash_ldgr = retail_obj.cash_ldgr
+                fy = retail_obj.active_fy
 
-            new_cash = sum(
-                Decimal(str(d.get('debit', 0) or 0))
-                for d in voucher_details
-                if d.get('account') == cash_ldgr
-                or _has_role(d.get('account'), 'CA')
-            )
-            customer_ldgr = next(
-                (
-                    d['account'] for d in voucher_details
-                    if (d.get('credit', 0) or 0) > 0
-                    and not _has_role(d.get('account'), 'CA')
-                    and not _has_role(d.get('account'), 'BA')
-                ),
-                None,
-            )
-            if new_cash > 0 and customer_ldgr and fy:
-                already = get_customer_cash_received(retail_obj, fy, customer_ldgr)
-                if already + new_cash > limit:
-                    remaining = max(Decimal('0'), limit - already)
-                    raise ValidationError(
-                        f"Cash receipt limit exceeded for '{customer_ldgr.ac_name}'. "
-                        f"Already received ₹{already:,.0f} this FY  |  "
-                        f"Limit: ₹{limit:,.0f}  |  "
-                        f"Max receivable now: ₹{remaining:,.0f}."
-                    )
+                new_cash = sum(
+                    Decimal(str(d.get('debit', 0) or 0))
+                    for d in voucher_details
+                    if d.get('account') == cash_ldgr
+                    or _has_role(d.get('account'), 'CA')
+                )
+                customer_ldgr = next(
+                    (
+                        d['account'] for d in voucher_details
+                        if (d.get('credit', 0) or 0) > 0
+                        and not _has_role(d.get('account'), 'CA')
+                        and not _has_role(d.get('account'), 'BA')
+                    ),
+                    None,
+                )
+                if new_cash > 0 and customer_ldgr and fy:
+                    already = get_customer_cash_received(retail_obj, fy, customer_ldgr)
+                    if already + new_cash > limit:
+                        remaining = max(Decimal('0'), limit - already)
+                        raise ValidationError(
+                            f"Cash receipt limit exceeded for '{customer_ldgr.ac_name}'. "
+                            f"Already received ₹{already:,.0f} this FY  |  "
+                            f"Limit: ₹{limit:,.0f}  |  "
+                            f"Max receivable now: ₹{remaining:,.0f}."
+                        )
         # ── Section 40A(3) daily cash payment limit check (PMNT only) ────────
         if (
             validated_data.get('voucher_type', '').strip().upper() == 'PMNT'
             and retail_obj
         ):
             from accounting.utils import get_vendor_cash_paid_on_date, get_company_cash_limits
-            cash_ldgr_pm = retail_obj.cash_ldgr
             _, limit_pm = get_company_cash_limits(retail_obj)
-            payment_date = validated_data.get('date')
+            if limit_pm is not None:   # None means enforcement is disabled by company setting
+                cash_ldgr_pm = retail_obj.cash_ldgr
+                payment_date = validated_data.get('date')
 
-            # Cash = the CREDIT side of a payment (money leaving via cash ledger)
-            new_cash_pm = sum(
-                Decimal(str(d.get('credit', 0) or 0))
-                for d in voucher_details
-                if (
-                    (cash_ldgr_pm and d.get('account') == cash_ldgr_pm)
-                    or _has_role(d.get('account'), 'CA')
-                )
-            )
-            # Vendor = the DEBIT side (non-cash, non-bank ledger)
-            vendor_ldgr = next(
-                (
-                    d['account'] for d in voucher_details
-                    if (d.get('debit', 0) or 0) > 0
-                    and not _has_role(d.get('account'), 'CA')
-                    and not _has_role(d.get('account'), 'BA')
-                ),
-                None,
-            )
-            if new_cash_pm > 0 and vendor_ldgr and payment_date:
-                already_pm = get_vendor_cash_paid_on_date(retail_obj, payment_date, vendor_ldgr)
-                if already_pm + new_cash_pm > limit_pm:
-                    remaining_pm = max(Decimal('0'), limit_pm - already_pm)
-                    raise ValidationError(
-                        f"Cash payment limit exceeded for '{vendor_ldgr.ac_name}' on {payment_date}. "
-                        f"Already paid ₹{already_pm:,.0f} today  |  "
-                        f"Limit: ₹{limit_pm:,.0f}/day  |  "
-                        f"Max payable in cash now: ₹{remaining_pm:,.0f}."
+                # Cash = the CREDIT side of a payment (money leaving via cash ledger)
+                new_cash_pm = sum(
+                    Decimal(str(d.get('credit', 0) or 0))
+                    for d in voucher_details
+                    if (
+                        (cash_ldgr_pm and d.get('account') == cash_ldgr_pm)
+                        or _has_role(d.get('account'), 'CA')
                     )
+                )
+                # Vendor = the DEBIT side (non-cash, non-bank ledger)
+                vendor_ldgr = next(
+                    (
+                        d['account'] for d in voucher_details
+                        if (d.get('debit', 0) or 0) > 0
+                        and not _has_role(d.get('account'), 'CA')
+                        and not _has_role(d.get('account'), 'BA')
+                    ),
+                    None,
+                )
+                if new_cash_pm > 0 and vendor_ldgr and payment_date:
+                    already_pm = get_vendor_cash_paid_on_date(retail_obj, payment_date, vendor_ldgr)
+                    if already_pm + new_cash_pm > limit_pm:
+                        remaining_pm = max(Decimal('0'), limit_pm - already_pm)
+                        raise ValidationError(
+                            f"Cash payment limit exceeded for '{vendor_ldgr.ac_name}' on {payment_date}. "
+                            f"Already paid ₹{already_pm:,.0f} today  |  "
+                            f"Limit: ₹{limit_pm:,.0f}/day  |  "
+                            f"Max payable in cash now: ₹{remaining_pm:,.0f}."
+                        )
         # ─────────────────────────────────────────────────────────────────────
 
         # ── Cash/Bank side restriction for Receipt and Payment vouchers ───────

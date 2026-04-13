@@ -62,6 +62,14 @@ class CompanyMaster(models.Model):
     )
 
     # ── Compliance Limits ─────────────────────────────────────────────────────
+    enforce_cash_limits = models.BooleanField(
+        default=True,
+        help_text=(
+            "Enable real-time enforcement of Sec 269ST (cash receipt limit) "
+            "and Sec 40A(3) (cash payment limit). Disable only if you manage "
+            "compliance outside the system."
+        )
+    )
     max_cash_receipt_limit = models.DecimalField(
         max_digits=12, decimal_places=2, default=199999,
         help_text="Maximum cash receivable from a single customer per financial year (Sec 269ST)"

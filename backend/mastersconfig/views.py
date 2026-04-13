@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
 from rest_framework.decorators import api_view
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from mastersconfig.serializers import *
 from .models import *
@@ -189,9 +190,10 @@ class RetrieveUpdateDestroyItemGroupMaster(RetrieveUpdateDestroyAPIView):
     queryset         = ItemGroupMaster.objects.all()
 
 class StateListView(ListAPIView):
-    from mastersconfig.serializers import StateSerializer
     serializer_class = StateSerializer
     queryset = State.objects.all().order_by('name')
+    permission_classes = [AllowAny]
+    pagination_class = None
 
 
 class RetailMasterView(ListCreateAPIView):

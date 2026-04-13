@@ -283,14 +283,19 @@ export default function SetupWizard() {
 
   useEffect(() => {
     const stepKey = STEPS[current]?.key;
-    // Fallback: if states weren't loaded from setup_status, fetch them directly
+    // Fallback: if states weren't loaded from setup_status, fetch them directly.
+    // StateListView is AllowAny + no pagination, so r.data is a plain array.
     if (states.length === 0 && ["company", "branch", "gstin", "retail"].includes(stepKey)) {
       fetchStates().then(async (r) => {
         const list = r.success ? (Array.isArray(r.data) ? r.data : (r.data?.results || [])) : [];
         if (list.length === 0) {
+          // States not in DB yet — seed them, then fetch again
           await seedStates();
           const r2 = await fetchStates();
-          if (r2.success) setStates(Array.isArray(r2.data) ? r2.data : (r2.data?.results || []));
+          if (r2.success) {
+            const seeded = Array.isArray(r2.data) ? r2.data : (r2.data?.results || []);
+            setStates(seeded);
+          }
         } else {
           setStates(list);
         }
@@ -369,7 +374,7 @@ export default function SetupWizard() {
         setFyForm(suggestNextFY(list));
       });
     }
-  }, [current]);
+  }, [current, states.length]);
 
   // ─── Step: Create Company ───────────────────────────────────────────────
   const handleCreateCompany = async () => {

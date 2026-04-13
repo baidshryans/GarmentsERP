@@ -630,6 +630,24 @@ def _resolve_account_group(name):
     return Account.objects.filter(name__iexact=name.strip()).first()
 
 
+# Build lookup maps from STATES_OF_INDIA for CSV state normalization
+_STATE_CODE_SET  = {code.upper() for code, _ in STATES_OF_INDIA}
+_STATE_NAME_TO_CODE = {name.lower(): code for code, name in STATES_OF_INDIA}
+
+def _normalize_state(raw):
+    """Convert a state name or code from CSV into the canonical state code.
+
+    Accepts: full name ('Gujarat'), upper/lower code ('GJ', 'gj'), or empty.
+    Returns the code (e.g. 'GJ') if matched, else the raw value unchanged.
+    """
+    if not raw or not raw.strip():
+        return ''
+    val = raw.strip()
+    if val.upper() in _STATE_CODE_SET:
+        return val.upper()
+    return _STATE_NAME_TO_CODE.get(val.lower(), val)
+
+
 class LedgerTemplateDownloadView(APIView):
     """
     GET /contacts/api/ledger/template/?type=CO
@@ -768,7 +786,7 @@ class LedgerCSVUploadView(APIView):
                             'add1':         (row.get('add1') or '').strip()[:200],
                             'add2':         (row.get('add2') or '').strip()[:200],
                             'city':         (row.get('city') or '').strip()[:100],
-                            'state':        (row.get('state') or '').strip()[:100],
+                            'state':        _normalize_state(row.get('state') or '')[:100],
                             'pincode':      (row.get('pincode') or '').strip()[:10],
                             'phone1':       (row.get('phone1') or '').strip()[:30],
                             'mobile1':      (row.get('mobile1') or '').strip()[:20],
@@ -781,7 +799,7 @@ class LedgerCSVUploadView(APIView):
                             'cheque_no':    (row.get('cheque_no') or '').strip()[:30],
                             'ship_add1':    (row.get('ship_add1') or '').strip()[:200],
                             'ship_city':    (row.get('ship_city') or '').strip()[:100],
-                            'ship_state':   (row.get('ship_state') or '').strip()[:100],
+                            'ship_state':   _normalize_state(row.get('ship_state') or '')[:100],
                             'ship_pincode': (row.get('ship_pincode') or '').strip()[:10],
                         }
 

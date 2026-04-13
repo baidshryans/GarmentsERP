@@ -394,7 +394,7 @@ const SalesVoucherAdd = () => {
             Object.keys(formData.form).forEach(key => {
               if (key === 'salesvouitem_set') {
                 formData.form[key].forEach(item => append(item));
-              } else {
+              } else if (key !== 'salesvouitemdetails_set' && key !== 'bank_details') {
                 setValue(`form.${key}`, formData.form[key]);
               }
             });

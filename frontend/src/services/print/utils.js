@@ -3,14 +3,13 @@ import '../../index.css'
 
 
 export const openAndPrint = (printComponent) => {
-    
+
     const newWindow = window.open("", "_blank", "width=800,height=600");
 
     if (newWindow) {
         const styleSheets = [...document.styleSheets];
-        console.log(styleSheets)
         let cssContent = "";
-    
+
         styleSheets.forEach((sheet) => {
           try {
             if (sheet.cssRules) {
@@ -22,25 +21,25 @@ export const openAndPrint = (printComponent) => {
             console.warn("Could not access CSS rules:", e);
           }
         });
-    
+
+        newWindow.document.head.innerHTML = '<meta charset="utf-8">';
         const styleTag = newWindow.document.createElement("style");
         styleTag.textContent = cssContent;
         newWindow.document.head.appendChild(styleTag);
-    
+
         const rootElement = newWindow.document.createElement("div");
         rootElement.id = "new-root";
+        newWindow.document.body.innerHTML = '';
         newWindow.document.body.appendChild(rootElement);
-    
-          const newRoot = createRoot(rootElement).render(printComponent);
-        
-          setTimeout(()=>{newWindow.print()},500)
-      
+
+        try {
+          createRoot(rootElement).render(printComponent);
+          setTimeout(() => { newWindow.print(); }, 500);
+        } catch (e) {
+          console.error("Print render error:", e);
+          newWindow.document.body.innerHTML = '<p>Error rendering print preview. Check console for details.</p>';
         }
-     
-
-      
-
-     else {
-      alert("Failed to open a new window. Please check your browser settings.");
+    } else {
+      alert("Failed to open a new window. Please check your browser settings or disable popup blocker.");
     }
   };

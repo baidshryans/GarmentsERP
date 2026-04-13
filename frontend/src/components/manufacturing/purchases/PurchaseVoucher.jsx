@@ -321,15 +321,26 @@ const PurchaseVoucher = () => {
       if (id) {
         fetchPurchaseVoucherForEdit(id)
           .then((response) => {
-            Object.keys(response.data).forEach((key) => {
-              setValue(`form.${key}`, response.data[key]);
+            const data = response.data;
+            // Set form fields, skipping nested arrays that are handled separately
+            Object.keys(data).forEach((key) => {
+              if (key !== 'purchasevoucheritems_set' && key !== 'purchasevoucherdetails_set') {
+                setValue(`form.${key}`, data[key]);
+              }
             });
 
-            if (response.data.purchasevoucheritems_set) {
-              setRows(response.data.purchasevoucheritems_set);
+            if (data.purchasevoucheritems_set) {
+              setRows(data.purchasevoucheritems_set);
             }
-            if (response.data.purchasevoucherdetails_set?.length) {
-              setRsRaw(response.data.purchasevoucherdetails_set);
+            // Only load raw/direct details that are NOT already nested inside items
+            if (data.purchasevoucherdetails_set?.length) {
+              const nestedIds = new Set();
+              (data.purchasevoucheritems_set || []).forEach(item => {
+                (item.purchasevoucherdetails_set || []).forEach(d => {
+                  if (d.id) nestedIds.add(d.id);
+                });
+              });
+              setRsRaw(data.purchasevoucherdetails_set.filter(d => !nestedIds.has(d.id)));
             }
           })
           .catch((error) => {

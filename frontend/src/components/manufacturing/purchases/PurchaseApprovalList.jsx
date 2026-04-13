@@ -49,11 +49,8 @@ function PurchaseApprovalList() {
           accessorKey: "id",
           cell: ({ row }) => (
             <div className="flex space-x-4">
-              <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-                <SquarePen className="mr-1" /> 
-              </Link>
               <a href={`delete/${row.original.id}`} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center">
-                <Trash2 className="mr-1" /> 
+                <Trash2 className="mr-1" />
               </a>
             </div>
           ),

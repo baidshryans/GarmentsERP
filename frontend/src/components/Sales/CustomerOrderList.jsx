@@ -308,7 +308,7 @@ function CustomerOrderList() {
       header: "Action",
       cell: ({ row }) => (
         <div className="flex gap-2 items-center">
-          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+          <Link to={`/sales/customerorder/list/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
             <SquarePen className="w-4 h-4" />
           </Link>
           <button

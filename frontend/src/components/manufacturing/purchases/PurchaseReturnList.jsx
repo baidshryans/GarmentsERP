@@ -66,7 +66,7 @@ function PurchaseReturnList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+          <Link to={`/purchase/purchasereturn/list/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
             <SquarePen className="mr-1" />
           </Link>
           <button

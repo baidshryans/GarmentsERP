@@ -54,8 +54,8 @@ function PurchaseOrderList() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" /> 
+          <Link to={`/purchase/purchaseorder/list/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+            <SquarePen className="mr-1" />
           </Link>
           <button
             onClick={() => deletePurchaseOrder(row.original.id, toast)}

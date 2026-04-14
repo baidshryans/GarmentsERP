@@ -62,33 +62,32 @@ function BarcodeListView() {
       header: "Action",
       accessorKey: "id",
       cell: ({ row }) => (
-        <div className="flex space-x-4">
+        <div className="flex space-x-2">
           {row.original.stk_status !== false ? (
-            <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-              <SquarePen className="mr-1" />
+            <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center" title="Edit">
+              <SquarePen size={15} />
             </Link>
           ) : (
             <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock — cannot edit">
-              <SquarePen className="mr-1" />
+              <SquarePen size={15} />
             </span>
           )}
-          
           <button
-            onClick={() =>deleteBarcodeManagement(row.original.id, toast)}
+            onClick={() => deleteBarcodeManagement(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
+            title="Delete"
           >
-          {/* <a href={`delete/${row.original.id}`} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"> */}
-            <Trash2 className="mr-1" /> 
-            </button>
-            <Link to={`/inventory/barcodemanagement/barcodehistory/?search=${row.original.barcode}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <History className="mr-1" />
+            <Trash2 size={15} />
+          </button>
+          <Link to={`/inventory/barcodemanagement/barcodehistory/?search=${row.original.barcode}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center" title="History">
+            <History size={15} />
           </Link>
           <button
             onClick={() => navigate(`/inventory/barcode-print?ids=${row.original.id}`)}
             className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center"
             title="Print label"
           >
-            <Printer size={16} />
+            <Printer size={15} />
           </button>
         </div>
       ),
@@ -98,24 +97,65 @@ function BarcodeListView() {
       accessorKey: "created_date",
       cell: ({ getValue }) => new Date(getValue()).toLocaleDateString('en-GB').replaceAll('/', '-'),
     },
-     {
-      header: "Voucher No",
-      accessorKey: "voucher_no",
-    },
     {
       header: "Barcode",
       accessorKey: "barcode",
     },
     {
-      header: "Discount",
-      accessorKey: "discount",
+      header: "Item Description",
+      accessorKey: "item_name",
     },
     {
-      header: "Total bill",
-      accessorKey: "total_bill_value",
-
+      header: "Design No",
+      accessorKey: "design_code",
     },
-
+    {
+      header: "Pcs",
+      accessorKey: "pcs",
+    },
+    {
+      header: "GW",
+      accessorKey: "gw",
+      cell: ({ getValue }) => getValue() ? Number(getValue()).toFixed(3) : "-",
+    },
+    {
+      header: "NW",
+      accessorKey: "nw",
+      cell: ({ getValue }) => getValue() ? Number(getValue()).toFixed(3) : "-",
+    },
+    {
+      header: "Dia Ct",
+      accessorKey: "barcodedetails_set",
+      cell: ({ getValue }) => {
+        const details = getValue() || [];
+        const total = details.reduce((sum, d) => sum + (parseFloat(d.ct) || 0), 0);
+        return total > 0 ? total.toFixed(3) : "-";
+      },
+    },
+    {
+      header: "Making",
+      accessorKey: "making_val",
+      cell: ({ getValue }) => getValue() ?? "-",
+    },
+    {
+      header: "Total Amount",
+      accessorKey: "total_amount",
+      cell: ({ getValue }) => getValue() != null ? Number(getValue()).toLocaleString("en-IN") : "-",
+    },
+    {
+      header: "Stock Status",
+      accessorKey: "stk_status",
+      cell: ({ getValue }) => {
+        const inStock = getValue();
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+            inStock ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          }`}>
+            {inStock ? "In Stock" : "Sold"}
+          </span>
+        );
+      },
+    },
   ]
 
   return (

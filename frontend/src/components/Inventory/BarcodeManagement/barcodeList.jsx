@@ -124,7 +124,7 @@ function BarcodeListView() {
       id: "nw",
       cell: ({ getValue }) => {
         const details = getValue() || [];
-        const goldLine = details.find(d => d.purity !== null && d.purity !== undefined && d.purity !== "");
+        const goldLine = details.find(d => (d.uom || "").toLowerCase() === "gm");
         const gw = goldLine?.gw;
         return gw ? Number(gw).toFixed(3) : "-";
       },

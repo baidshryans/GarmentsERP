@@ -120,12 +120,19 @@ function BarcodeListView() {
     },
     {
       header: "NW",
-      accessorKey: "nw",
-      cell: ({ getValue }) => getValue() ? Number(getValue()).toFixed(3) : "-",
+      accessorKey: "barcodedetails_set",
+      id: "nw",
+      cell: ({ getValue }) => {
+        const details = getValue() || [];
+        const goldLine = details.find(d => d.purity !== null && d.purity !== undefined && d.purity !== "");
+        const gw = goldLine?.gw;
+        return gw ? Number(gw).toFixed(3) : "-";
+      },
     },
     {
       header: "Dia Ct",
       accessorKey: "barcodedetails_set",
+      id: "dia_ct",
       cell: ({ getValue }) => {
         const details = getValue() || [];
         const total = details.reduce((sum, d) => sum + (parseFloat(d.ct) || 0), 0);

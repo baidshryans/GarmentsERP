@@ -68,7 +68,7 @@ function BarcodeListView() {
               <SquarePen size={15} />
             </Link>
           ) : (
-            <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock — cannot edit">
+            <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock — editing disabled">
               <SquarePen size={15} />
             </span>
           )}
@@ -158,7 +158,7 @@ function BarcodeListView() {
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
             inStock ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
           }`}>
-            {inStock ? "In Stock" : "Sold"}
+            {inStock ? "In Stock" : "Not in Stock"}
           </span>
         );
       },

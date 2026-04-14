@@ -19,6 +19,12 @@ import { FieldContainer } from "@/Utils";
 import { Plus, Trash2 } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
 
+// Format a value to exactly 3 decimal places (returns "" for blank/null)
+const fmt3 = (v) => {
+  const n = parseFloat(v);
+  return isNaN(n) ? "" : n.toFixed(3);
+};
+
 const BarcodeManagementList = () => {
   const location = useLocation();
   const { id } = useParams();
@@ -51,6 +57,11 @@ const BarcodeManagementList = () => {
   const [karigars, setKarigars] = useState([]);
   const [packetData, setPacketData] = useState([]);
   const [detailItemDisplay, setDetailItemDisplay] = useState("");
+  const [detailUom, setDetailUom] = useState("");          // UOM of inline entry item
+  const [pvPrefilled, setPvPrefilled] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const pvPurityRef   = useRef(null); // holds purity from PV until purityData is ready
+  const pvGoldItemRef = useRef(null); // holds the gold sub-item info captured from PV
 
   const { fields, append, remove } = useFieldArray({ control, name: "form.barcodedetails_set" });
 
@@ -63,25 +74,30 @@ const BarcodeManagementList = () => {
     const gw = parseFloat(getValues("form.gw")) || 0;
     const details = getValues("form.barcodedetails_set") || [];
     const subGw = details.reduce((sum, d) => sum + (parseFloat(d.gw) || 0), 0);
-    setValue("form.nw", parseFloat((gw - subGw).toFixed(3)));
+    setValue("form.nw", fmt3(gw - subGw));
   }, [getValues, setValue]);
 
   useEffect(() => { recalcNetWeight(); }, [formGw, fields.length]);
 
-  // ── Auto-calculate Total Amount ────────────────────
+  // ── Auto-calculate Value + Total Amount ────────────
+  // value = sum(sub-item amounts) + making_val (only when making_type === "val")
+  // total_amount = value + other_chg
   const recalcTotal = useCallback(() => {
-    const value = parseFloat(getValues("form.value")) || 0;
-    const making = parseFloat(getValues("form.making_val")) || 0;
-    const otherChg = parseFloat(getValues("form.other_chg")) || 0;
     const details = getValues("form.barcodedetails_set") || [];
     const subTotal = details.reduce((sum, d) => sum + (parseFloat(d.amt) || 0), 0);
-    setValue("form.total_amount", Math.round(value + making + otherChg + subTotal));
+    const making = parseFloat(getValues("form.making_val")) || 0;
+    const makingType = getValues("form.making_type") || "";
+    const value = subTotal + (makingType === "val" ? making : 0);
+    setValue("form.value", value);
+    const otherChg = parseFloat(getValues("form.other_chg")) || 0;
+    setValue("form.total_amount", Math.round(value + otherChg));
   }, [getValues, setValue]);
 
   // ── Packet → Item auto-load ────────────────────────
   useEffect(() => {
     if (!detailPacket) {
       setDetailItemDisplay("");
+      setDetailUom("");
       setValue("detail.item", "");
       setValue("detail.rate", "");
       return;
@@ -92,19 +108,69 @@ const BarcodeManagementList = () => {
       setValue("detail.item", item.short_code || "");
       setValue("detail.rate", pkt.rate_for_retail ?? pkt.rate ?? "");
       setDetailItemDisplay(item.item_name || "");
+      setDetailUom(item.uom || "");
     }
   }, [detailPacket, packetData, setValue]);
 
+  // ── CT → GW auto-calc helpers (1 ct = 0.2 gm) ────
+  // Inline entry row
+  const handleEntryCtChange = () => {
+    if (detailUom.toLowerCase() === "ct") {
+      const ct = parseFloat(getValues("detail.ct")) || 0;
+      setValue("detail.gw", fmt3(ct * 0.2));
+    }
+    recalcEntryAmt();
+  };
+
+  // Saved rows
+  const handleDetailCtChange = (index) => {
+    const uom = (getValues(`form.barcodedetails_set.${index}.uom`) || "").toLowerCase();
+    if (uom === "ct") {
+      const ct = parseFloat(getValues(`form.barcodedetails_set.${index}.ct`)) || 0;
+      setValue(`form.barcodedetails_set.${index}.gw`, fmt3(ct * 0.2));
+    }
+    recalcDetailAmt(index);
+  };
+
   // ── Prefill from Receive / Purchase ────────────────
   useEffect(() => {
+    // Helper: format all weight fields in a barcodedetails row to 3 dp strings
+    const fmtDetailWeights = (d) => ({ ...d, ct: fmt3(d.ct), gw: fmt3(d.gw) });
+
     if (sl_no && rec_slip_no && rec_slip_no !== "null") {
       fetchReceiveItemsForBarcode(sl_no, rec_slip_no)
-        .then((r) => r.success && reset({ form: { ...r.data }, detail: getValues("detail") }))
+        .then((r) => {
+          if (r.success) {
+            const formData = {
+              ...r.data,
+              gw: fmt3(r.data.gw),
+              nw: fmt3(r.data.nw),
+              barcodedetails_set: (r.data.barcodedetails_set || []).map(fmtDetailWeights),
+            };
+            reset({ form: formData, detail: getValues("detail") });
+          }
+        })
         .catch(() => toast({ title: "Error", description: "Failed to load barcode details" }));
     } else if (sl_no && bill_no) {
       fetchPurhcaseItemsForBarcode(sl_no, bill_no)
         .then((r) => {
-          if (r.success) reset({ form: r.data, detail: getValues("detail") });
+          if (r.success) {
+            pvPurityRef.current = r.data.purity || null;
+            // Capture the gold/metal entry (no packet) before filtering it out.
+            // It will be re-injected on submit with the actual NW as its weight.
+            pvGoldItemRef.current =
+              (r.data.barcodedetails_set || []).find((d) => !d.packet) || null;
+            const formData = {
+              ...r.data,
+              gw: fmt3(r.data.gw),
+              nw: fmt3(r.data.nw),
+              barcodedetails_set: (r.data.barcodedetails_set || [])
+                .filter(d => d.packet)
+                .map(fmtDetailWeights),
+            };
+            reset({ form: formData, detail: getValues("detail") });
+            setPvPrefilled(true);
+          }
         })
         .catch(() => toast({ title: "Error", description: "Failed to load barcode details" }));
     }
@@ -130,7 +196,18 @@ const BarcodeManagementList = () => {
         try {
           const response = await fetchBarcodeForEdit(id);
           if (response.success || response.data) {
-            Object.keys(response.data).forEach((key) => setValue(`form.${key}`, response.data[key]));
+            const d = response.data;
+            if (d.stk_status === false) setIsReadOnly(true);
+            // Format weight fields to 3 dp strings before setting
+            const formData = {
+              ...d,
+              gw: fmt3(d.gw),
+              nw: fmt3(d.nw),
+              barcodedetails_set: (d.barcodedetails_set || []).map((row) => ({
+                ...row, ct: fmt3(row.ct), gw: fmt3(row.gw),
+              })),
+            };
+            Object.keys(formData).forEach((key) => setValue(`form.${key}`, formData[key]));
           }
         } catch (error) {
           console.error("Error fetching barcode for edit:", error);
@@ -143,9 +220,38 @@ const BarcodeManagementList = () => {
   // ── Submit ─────────────────────────────────────────
   const onSubmit = () => {
     const form_data = { ...getValues("form") };
-    form_data.barcodedetails_set = (form_data.barcodedetails_set || []).map((d) => ({
-      ...d, barcode_text: form_data.barcode,
+
+    // Stone / accessory sub-items — purity is always null for non-gold items
+    const stoneDetails = (form_data.barcodedetails_set || []).map((d) => ({
+      ...d,
+      barcode_text: form_data.barcode,
+      purity: null,
     }));
+
+    // Gold sub-item — re-inject with NW as weight and main-item purity
+    // (rate is fetched live at sale time)
+    const nw = parseFloat(form_data.nw) || 0;
+    const goldEntry = pvGoldItemRef.current && nw > 0
+      ? {
+          packet:       null,
+          item:         pvGoldItemRef.current.item,
+          item_name:    pvGoldItemRef.current.item_name,
+          uom:          pvGoldItemRef.current.uom,
+          pcs:          0,
+          ct:           0,
+          gw:           nw,
+          purity:       form_data.purity || null,   // main-item purity (e.g. "22K")
+          rate:         0,
+          amt:          0,
+          barcode_text: form_data.barcode,
+        }
+      : null;
+
+    form_data.barcodedetails_set = [
+      ...stoneDetails,
+      ...(goldEntry ? [goldEntry] : []),
+    ];
+
     // Remove transient fields
     delete form_data.item_name;
 
@@ -226,6 +332,33 @@ const BarcodeManagementList = () => {
     setValue("detail.amt", Math.round(rate * qty));
   };
 
+  // ── Re-apply purity once purityData is available (fixes Radix Select race) ──
+  useEffect(() => {
+    if (purityData.length === 0 || !pvPurityRef.current) return;
+    setValue("form.purity", pvPurityRef.current);
+  }, [purityData]);
+
+  // ── Apply packet-master rates + calculate sub-item amounts ─────────────────
+  // Items WITH a packet → rate comes from packet_master.rate_for_retail
+  // Items WITHOUT a packet (e.g. Gold) → rate stays from PV; skip (realtime at sale)
+  useEffect(() => {
+    if (!pvPrefilled || packetData.length === 0) return;
+    const details = getValues("form.barcodedetails_set") || [];
+    details.forEach((detail, index) => {
+      if (!detail.packet) return; // Gold / no-packet items: skip, handled at sale time
+      const pkt = packetData.find((p) => p.pckt_no === detail.packet);
+      const rate = pkt ? (pkt.rate_for_retail ?? 0) : (parseFloat(detail.rate) || 0);
+      setValue(`form.barcodedetails_set.${index}.rate`, rate);
+      const uom = (detail.uom || "").toLowerCase();
+      let qty = 0;
+      if (uom === "ct") qty = parseFloat(detail.ct) || 0;
+      else if (uom === "gm") qty = parseFloat(detail.gw) || 0;
+      else qty = parseFloat(detail.pcs) || 0;
+      setValue(`form.barcodedetails_set.${index}.amt`, Math.round(rate * qty));
+    });
+    recalcTotal();
+  }, [packetData, pvPrefilled]);
+
   const handleDeleteDetail = (index) => {
     remove(index);
     setTimeout(() => { recalcNetWeight(); recalcTotal(); }, 0);
@@ -240,7 +373,13 @@ const BarcodeManagementList = () => {
   // ────────────────────────────────────────────────────
   return (
     <div className="mt-4">
-      <form className="space-y-5" id="orderForm" onSubmit={handleSubmit(onSubmit)}>
+      {isReadOnly && (
+        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-medium">
+          This barcode is no longer in stock and cannot be edited.
+        </div>
+      )}
+      <form className="space-y-5" id="orderForm" onSubmit={isReadOnly ? (e) => e.preventDefault() : handleSubmit(onSubmit)}>
+      <div className={isReadOnly ? "pointer-events-none select-none opacity-60" : ""}>
 
         {/* ════════════════════════════════════════════════
             SECTION 1: Header Info
@@ -379,26 +518,30 @@ const BarcodeManagementList = () => {
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input
-                      type="number" step="0.001" className="h-8 text-sm text-right"
-                      {...register("form.gw", { onChange: () => { recalcNetWeight(); recalcTotal(); } })}
+                      type="text" inputMode="decimal" placeholder="0.000" className="h-8 text-sm text-right"
+                      {...register("form.gw", {
+                        onChange: () => { recalcNetWeight(); recalcTotal(); },
+                        onBlur: (e) => { setValue("form.gw", fmt3(e.target.value)); recalcNetWeight(); },
+                      })}
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input
-                      type="number" step="0.001" className="h-8 text-sm text-right bg-muted/30"
+                      type="text" inputMode="decimal" placeholder="0.000" className="h-8 text-sm text-right bg-muted/30"
                       readOnly tabIndex={-1}
                       {...register("form.nw")}
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input
-                      type="number" className="h-8 text-sm text-right"
-                      {...register("form.value", { onChange: recalcTotal })}
+                      type="number" step="1" placeholder="0" className="h-8 text-sm text-right bg-muted/30"
+                      readOnly tabIndex={-1}
+                      {...register("form.value")}
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input
-                      type="number" className="h-8 text-sm text-right"
+                      type="number" step="1" placeholder="0" className="h-8 text-sm text-right"
                       {...register("form.making_val", { onChange: recalcTotal })}
                     />
                   </TableCell>
@@ -407,7 +550,7 @@ const BarcodeManagementList = () => {
                       name="form.making_type"
                       control={control}
                       render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <Select onValueChange={(v) => { field.onChange(v); recalcTotal(); }} value={field.value || ""}>
                           <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Type" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="per_nw">% of NW</SelectItem>
@@ -419,13 +562,13 @@ const BarcodeManagementList = () => {
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input
-                      type="number" className="h-8 text-sm text-right"
+                      type="number" step="1" placeholder="0" className="h-8 text-sm text-right"
                       {...register("form.other_chg", { onChange: recalcTotal })}
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input
-                      type="number" className="h-8 text-sm text-right font-semibold bg-muted/30"
+                      type="number" step="1" placeholder="0" className="h-8 text-sm text-right font-semibold bg-muted/30"
                       readOnly tabIndex={-1}
                       {...register("form.total_amount")}
                     />
@@ -483,12 +626,20 @@ const BarcodeManagementList = () => {
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input
-                      type="text" list="detail_item_list" className="h-8 text-sm"
+                      type="text" list="detail_item_list"
                       placeholder="Item code"
+                      disabled={!!detailPacket}
+                      className={`h-8 text-sm${detailPacket ? " bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
                       {...register("detail.item", {
                         onChange: (e) => {
                           const found = mainItemData.find((i) => i.short_code === e.target.value);
-                          if (found) setDetailItemDisplay(found.item_name);
+                          if (found) {
+                            setDetailItemDisplay(found.item_name);
+                            setDetailUom(found.uom || "");
+                          } else {
+                            setDetailItemDisplay("");
+                            setDetailUom("");
+                          }
                         },
                       })}
                     />
@@ -507,22 +658,31 @@ const BarcodeManagementList = () => {
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
-                    <Input type="number" step="0.001" className="h-8 text-sm text-right"
-                      {...register("detail.ct", { onChange: recalcEntryAmt })}
+                    <Input type="text" inputMode="decimal" placeholder="0.000" className="h-8 text-sm text-right"
+                      disabled={detailUom.toLowerCase() === "gm"}
+                      {...register("detail.ct", {
+                        onChange: handleEntryCtChange,
+                        onBlur: (e) => setValue("detail.ct", fmt3(e.target.value)),
+                      })}
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
-                    <Input type="number" step="0.001" className="h-8 text-sm text-right"
-                      {...register("detail.gw", { onChange: recalcEntryAmt })}
+                    <Input type="text" inputMode="decimal" placeholder="0.000" className="h-8 text-sm text-right"
+                      readOnly={detailUom.toLowerCase() === "ct"}
+                      disabled={detailUom.toLowerCase() === "ct"}
+                      {...register("detail.gw", {
+                        onChange: recalcEntryAmt,
+                        onBlur: (e) => { if (detailUom.toLowerCase() !== "ct") setValue("detail.gw", fmt3(e.target.value)); },
+                      })}
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
-                    <Input type="number" className="h-8 text-sm text-right"
+                    <Input type="number" step="1" placeholder="0" className="h-8 text-sm text-right"
                       {...register("detail.rate", { onChange: recalcEntryAmt })}
                     />
                   </TableCell>
                   <TableCell className="p-1.5">
-                    <Input type="number" className="h-8 text-sm text-right"
+                    <Input type="number" step="1" placeholder="0" className="h-8 text-sm text-right"
                       onKeyDown={handleSubItemKeyDown}
                       {...register("detail.amt")}
                     />
@@ -553,7 +713,10 @@ const BarcodeManagementList = () => {
                       </datalist>
                     </TableCell>
                     <TableCell className="p-1.5">
-                      <Input type="text" list={`saved_item_${index}`} className="h-8 text-sm"
+                      <Input
+                        list={`saved_item_${index}`}
+                        disabled={!!field.packet}
+                        className={`h-8 text-sm${field.packet ? " bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
                         {...register(`form.barcodedetails_set.${index}.item`, {
                           onChange: (e) => {
                             const found = mainItemData.find((i) => i.short_code === e.target.value);
@@ -579,22 +742,31 @@ const BarcodeManagementList = () => {
                       />
                     </TableCell>
                     <TableCell className="p-1.5">
-                      <Input type="number" step="0.001" className="h-8 text-sm text-right"
-                        {...register(`form.barcodedetails_set.${index}.ct`, { onChange: () => recalcDetailAmt(index) })}
+                      <Input type="text" inputMode="decimal" placeholder="0.000" className="h-8 text-sm text-right"
+                        disabled={(field.uom || "").toLowerCase() === "gm"}
+                        {...register(`form.barcodedetails_set.${index}.ct`, {
+                          onChange: () => handleDetailCtChange(index),
+                          onBlur: (e) => setValue(`form.barcodedetails_set.${index}.ct`, fmt3(e.target.value)),
+                        })}
                       />
                     </TableCell>
                     <TableCell className="p-1.5">
-                      <Input type="number" step="0.001" className="h-8 text-sm text-right"
-                        {...register(`form.barcodedetails_set.${index}.gw`, { onChange: () => recalcDetailAmt(index) })}
+                      <Input type="text" inputMode="decimal" placeholder="0.000" className="h-8 text-sm text-right"
+                        readOnly={(field.uom || "").toLowerCase() === "ct"}
+                        disabled={(field.uom || "").toLowerCase() === "ct"}
+                        {...register(`form.barcodedetails_set.${index}.gw`, {
+                          onChange: () => recalcDetailAmt(index),
+                          onBlur: (e) => { if ((field.uom || "").toLowerCase() !== "ct") setValue(`form.barcodedetails_set.${index}.gw`, fmt3(e.target.value)); },
+                        })}
                       />
                     </TableCell>
                     <TableCell className="p-1.5">
-                      <Input type="number" className="h-8 text-sm text-right"
+                      <Input type="number" step="1" placeholder="0" className="h-8 text-sm text-right"
                         {...register(`form.barcodedetails_set.${index}.rate`, { onChange: () => recalcDetailAmt(index) })}
                       />
                     </TableCell>
                     <TableCell className="p-1.5">
-                      <Input type="number" className="h-8 text-sm text-right"
+                      <Input type="number" step="1" placeholder="0" className="h-8 text-sm text-right"
                         {...register(`form.barcodedetails_set.${index}.amt`)}
                       />
                     </TableCell>
@@ -626,8 +798,9 @@ const BarcodeManagementList = () => {
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">Press <kbd className="mx-1 px-1.5 py-0.5 rounded bg-muted text-xs font-mono">F4</kbd> to Save</span>
           <div className="flex-1" />
-          <Button type="submit" className="px-6">Save</Button>
+          {!isReadOnly && <Button type="submit" className="px-6">Save</Button>}
           <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
+        </div>
         </div>
       </form>
     </div>

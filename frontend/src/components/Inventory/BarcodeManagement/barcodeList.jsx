@@ -63,9 +63,15 @@ function BarcodeListView() {
       accessorKey: "id",
       cell: ({ row }) => (
         <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" /> 
-          </Link>
+          {row.original.stk_status !== false ? (
+            <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+              <SquarePen className="mr-1" />
+            </Link>
+          ) : (
+            <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock — cannot edit">
+              <SquarePen className="mr-1" />
+            </span>
+          )}
           
           <button
             onClick={() =>deleteBarcodeManagement(row.original.id, toast)}

@@ -529,7 +529,7 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-4 py-2 border text-xs">{item.barcode}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.item}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.pcs}</TableCell>
-                        <TableCell className="px-4 py-2 border text-xs">{item.gw}</TableCell>
+                        <TableCell className="px-4 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.making}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs font-medium">{item.amount}</TableCell>
                       </TableRow>
@@ -763,7 +763,7 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-3 py-2 border">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-gray-400 font-semibold">{idx + 1}</span>
-                            <Trash2 size={15} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteItem(idx)} />
+                            <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
                           </div>
                         </TableCell>
                         <TableCell className="px-3 py-2 border text-xs">
@@ -774,7 +774,7 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-3 py-2 border text-xs">{item.barcode || "—"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs font-medium">{item.item_name || item.item}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{item.gw}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.making}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.making_type}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs font-medium">{item.amount}</TableCell>
@@ -783,7 +783,7 @@ const SalesReturnAdd = () => {
                       {item.salereturndetails_set?.map((detail, detailIdx) => (
                         <TableRow className="bg-white" key={detailIdx}>
                           <TableCell className="px-3 py-1.5 border">
-                            <Trash2 size={14} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
+                            <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
                           </TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs text-gray-400">
                             ↳ #{detailIdx + 1}

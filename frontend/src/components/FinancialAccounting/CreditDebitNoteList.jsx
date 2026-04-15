@@ -104,7 +104,7 @@ export default function CreditDebitNoteList() {
         </Button>
         <Link to="/accounting/credit-debit-notes/add" className="ml-auto">
           <Button size="sm" className="h-9 gap-2">
-            <Plus className="size-3.5" /> New Note
+            <Plus className="w-4 h-4" /> New Note
           </Button>
         </Link>
       </div>

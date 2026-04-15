@@ -80,6 +80,7 @@ const SalesVoucherAdd = () => {
     setValue,
     getValues,
     setFocus,
+    formState: { errors },
   } = useForm({
     defaultValues: {
       form: {
@@ -193,6 +194,8 @@ const SalesVoucherAdd = () => {
   const [b2bPricelist, setB2bPricelist] = useState(null);         // null = retail mode; object = B2B pricelist data
   const [retailDiscountPricelist, setRetailDiscountPricelist] = useState(null); // retail discount pricelist for Apply Discount
   const [activeOffer, setActiveOffer] = useState(null);           // company-wide active offer (retail only)
+  const [showManualItems, setShowManualItems] = useState(false);  // section 3 toggle
+  const [isVoucherLocked, setIsVoucherLocked] = useState(false); // true when any barcode is no longer in stock
   // Resolved item for the current manual input row
   const [detailItem, setDetailItem] = useState(null);
   // Display name shown in the item text box (item_name, not short_code)
@@ -367,11 +370,14 @@ const SalesVoucherAdd = () => {
         }
       });
 
-      // Fetch system settings, bank ledgers, and active offer in parallel
-      const [sysSettings, bankLedgersRes, offerRes] = await Promise.all([
+      // Fetch system settings, bank ledgers, active offer, AND the voucher being edited
+      // all in parallel — the voucher fetch no longer waits for the other calls to finish.
+      const [sysSettings, bankLedgersRes, offerRes, voucherResponse] = await Promise.all([
         fetchSystemSettings(),
         getLedgers({ type: "BA", page: 1 }),
         fetchActiveOffer(),
+        // In create mode (no id) resolves immediately to null.
+        id ? fetchSalesVoucherwithID(id) : Promise.resolve(null),
       ]);
       if (sysSettings.success) setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
       if (bankLedgersRes.success) {
@@ -379,44 +385,53 @@ const SalesVoucherAdd = () => {
         setBankLedgers(list);
       }
       if (offerRes.success && offerRes.data?.id) setActiveOffer(offerRes.data);
+
+      return voucherResponse;
     }
 
-    fetchData().then(() => {
+    fetchData().then((voucherResponse) => {
       if (id) {
-        fetchSalesVoucherwithID(id).then(data => {
-          if (data.success) {
-            const formData = {
-              form: {
-                ...data.data,
-                salesvouitem_set: JSON.parse(JSON.stringify(data.data.salesvouitem_set ?? [])),
-              }
-            };
-            Object.keys(formData.form).forEach(key => {
-              if (key === 'salesvouitem_set') {
-                formData.form[key].forEach(item => append(item));
-              } else if (key !== 'salesvouitemdetails_set' && key !== 'bank_details') {
-                setValue(`form.${key}`, formData.form[key]);
+        if (!voucherResponse?.success) {
+          console.error('Error fetching sales voucher for edit:', voucherResponse?.error);
+        } else {
+          const data = voucherResponse.data;
+          // Lock editing if any barcode in this voucher is no longer in stock
+          // (stk_status=false means it has been sold/transferred).
+          const hasSoldBarcode = (data.salesvouitem_set ?? []).some(
+            item => item.barcode_stk_status === false
+          );
+          if (hasSoldBarcode) setIsVoucherLocked(true);
+          const formData = {
+            form: {
+              ...data,
+              salesvouitem_set: JSON.parse(JSON.stringify(data.salesvouitem_set ?? [])),
+            }
+          };
+          Object.keys(formData.form).forEach(key => {
+            if (key === 'salesvouitem_set') {
+              formData.form[key].forEach(item => append(item));
+            } else if (key !== 'salesvouitemdetails_set' && key !== 'bank_details') {
+              setValue(`form.${key}`, formData.form[key]);
+            }
+          });
+          if (data.bank_details) {
+            setBankDetails(data.bank_details);
+          }
+          // Restore manual items
+          if (data.salesvouitemdetails_set?.length) {
+            setRows(data.salesvouitemdetails_set);
+          }
+          // Restore old gold purchase link (still sequential — needs ldgr from voucher data)
+          if (data.old_gold_purchase && data.ldgr) {
+            fetchCustomerPurchasesByLedger(data.ldgr).then(res => {
+              if (res.success) {
+                setCustomerPurchases(res.data);
+                const pv = res.data.find(p => p.id === data.old_gold_purchase);
+                setSelectedPurchase(pv ?? null);
               }
             });
-            if (data.data.bank_details) {
-              setBankDetails(data.data.bank_details);
-            }
-            // Restore manual items
-            if (data.data.salesvouitemdetails_set?.length) {
-              setRows(data.data.salesvouitemdetails_set);
-            }
-            // Restore old gold purchase link
-            if (data.data.old_gold_purchase && data.data.ldgr) {
-              fetchCustomerPurchasesByLedger(data.data.ldgr).then(res => {
-                if (res.success) {
-                  setCustomerPurchases(res.data);
-                  const pv = res.data.find(p => p.id === data.data.old_gold_purchase);
-                  setSelectedPurchase(pv ?? null);
-                }
-              });
-            }
           }
-        });
+        }
       }
     });
   }, [setValue]);
@@ -428,7 +443,7 @@ const SalesVoucherAdd = () => {
   const party_name = watch('form.ldgr_name');
 
   const formulas = {
-    making_value: "making_type === 'val' ? making : ((making / 100)*making)",
+    // making_value is computed imperatively in the recalc effect (needs goldRates state)
     amount: "SUM(main_item_set.amount) + making_value",
   };
   const sub_formulas = {
@@ -490,20 +505,54 @@ const SalesVoucherAdd = () => {
     const form = { ...getValues('form'), salesvouitem_set: getValues('salesvouitem_set'), rs };
 
     getValues('salesvouitem_set').forEach((row, index) => {
-      Object.keys(formulas).forEach(col => {
-        getValues(`salesvouitem_set.${index}.main_item_set`)?.forEach((data, sub_index) => {
-          Object.keys(sub_formulas).forEach(column => {
-            setValue(`salesvouitem_set.${index}.main_item_set.${sub_index}.${column}`, evaluateFormula(sub_formulas[column], data));
-          });
+      // Recalculate sub-item amounts
+      getValues(`salesvouitem_set.${index}.main_item_set`)?.forEach((data, sub_index) => {
+        Object.keys(sub_formulas).forEach(column => {
+          setValue(`salesvouitem_set.${index}.main_item_set.${sub_index}.${column}`, evaluateFormula(sub_formulas[column], data));
         });
-        setValue(`salesvouitem_set.${index}.${col}`, Math.floor(evaluateFormula(formulas[col], row)));
       });
+
+      // Calculate making_value based on making_type
+      // - 'val'    → flat amount entered by user
+      // - 'per_nw' → NW of gold × (making% / 100) × gold rate for that purity
+      const making     = parseFloat(row.making) || 0;
+      const makingType = row.making_type || '';
+      const purity     = row.purity || '';
+
+      // Read sub-items from getValues (picks up user-edited rates)
+      const subItems = getValues(`salesvouitem_set.${index}.main_item_set`) || row.main_item_set || [];
+      const goldSub  = Array.isArray(subItems)
+        ? subItems.find(s => (s.item || '').toUpperCase() === 'GOLD')
+        : null;
+
+      // Gold rate: prefer the (possibly edited) gold sub-item rate; fall back to system rate
+      const goldRate = parseFloat(goldSub?.rate) || parseFloat(goldRates[purity]) || 0;
+
+      // NW of gold: prefer the barcode's nw; if null/0, derive from gold sub-item gw
+      let nw = parseFloat(row.nw) || 0;
+      if (!nw && goldSub) nw = parseFloat(goldSub.gw) || 0;
+
+      let makingVal;
+      if (makingType === 'val') {
+        makingVal = making;
+      } else if (makingType === 'per_nw') {
+        // making = percentage (e.g. 30 means 30%)
+        makingVal = nw * (making / 100) * goldRate;
+      } else {
+        makingVal = making;
+      }
+      makingVal = Math.floor(makingVal);
+      setValue(`salesvouitem_set.${index}.making_value`, makingVal);
+
+      // Calculate item amount using updated making_value
+      const updatedRow = { ...row, making_value: makingVal };
+      setValue(`salesvouitem_set.${index}.amount`, Math.floor(evaluateFormula(formulas.amount, updatedRow)));
     });
 
     Object.keys(main_formulas).forEach(col => {
       setValue(`form.${col}`, evaluateFormula(main_formulas[col], form));
     });
-  }, [calculate, setValue, watchFields, rs]);
+  }, [calculate, setValue, watchFields, rs, goldRates]);
 
   // HSN → set GST rates based on place of supply vs retail state
   useEffect(() => {
@@ -607,9 +656,25 @@ const SalesVoucherAdd = () => {
   };
 
   // ── Barcode scan handler ───────────────────────────────────────────────────
+  const barcodeFetchingRef = useRef(false);
   const handleBlur = async () => {
+    if (barcodeFetchingRef.current) return;          // guard against double-fire
     const { barcode, hsn } = getValues();
     if (!barcode?.trim()) return;   // blank barcode is fine — manual items don't need one
+
+    // Prevent duplicate barcodes in the same bill
+    const existing = getValues("salesvouitem_set") || [];
+    if (existing.some(r => r.barcode === barcode.trim())) {
+      toast({
+        title: "Duplicate barcode",
+        description: `Barcode ${barcode.trim()} is already in this bill.`,
+        variant: "destructive",
+      });
+      setValue("barcode", "");
+      return;
+    }
+
+    barcodeFetchingRef.current = true;
     try {
       const data = await fetchBarcodeDetail(barcode, hsn);
       if (data.success) {
@@ -620,6 +685,10 @@ const SalesVoucherAdd = () => {
       }
     } catch (error) {
       console.error("Error fetching data:", error);
+    } finally {
+      // Clear the input AFTER the fetch completes so the second blur sees an empty field
+      setValue("barcode", "");
+      barcodeFetchingRef.current = false;
     }
   };
 
@@ -887,8 +956,27 @@ const SalesVoucherAdd = () => {
         ref={formRef}
         className="p-6 shadow-sm rounded-xl bg-white border border-gray-100"
         id="orderForm"
-        onSubmit={handleSubmit(handleSalesVoucherSubmit, (e) => console.log("submission error", e))}
+        onSubmit={handleSubmit(handleSalesVoucherSubmit, (e) => {
+          console.log("submission error", e);
+          const msgs = [];
+          if (e?.form?.sales_person) msgs.push("Sales Person is required");
+          if (msgs.length) toast({ title: "Please fix the following", description: msgs.join(", "), variant: "destructive" });
+        })}
       >
+
+        {/* ── Locked voucher banner ────────────────────────────────────────── */}
+        {isVoucherLocked && (
+          <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-lg bg-amber-50 border border-amber-300 text-amber-800 text-sm">
+            <span className="text-lg leading-none">🔒</span>
+            <div>
+              <p className="font-semibold">This voucher cannot be edited.</p>
+              <p className="text-xs mt-0.5 text-amber-700">
+                One or more barcodes in this bill are no longer in stock (already sold or transferred).
+                To make corrections, please create a <strong>Sales Return</strong> first.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ══ 1. BILL DETAILS ══════════════════════════════════════════════════ */}
         <SectionHeader number="1" title="Bill Details" />
@@ -1011,21 +1099,24 @@ const SalesVoucherAdd = () => {
 
           <FieldContainer>
             <Label className="text-nowrap">Sales Person</Label>
-            <Controller name="form.sales_person" control={control} rules={{ required: true }}
+            <Controller name="form.sales_person" control={control} rules={{ required: "Sales person is required" }}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    {salespersonData.map((sp, i) => <SelectItem key={i} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger className={errors?.form?.sales_person ? "border-red-500" : ""}><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {salespersonData.map((sp, i) => <SelectItem key={i} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {errors?.form?.sales_person && <p className="text-xs text-red-500 mt-1">{errors.form.sales_person.message}</p>}
+                </>
               )}
             />
           </FieldContainer>
 
           <FieldContainer>
             <Label className="text-nowrap">Salesperson 2</Label>
-            <Controller name="form.sales_person2" control={control} rules={{ required: true }}
+            <Controller name="form.sales_person2" control={control}
               render={({ field }) => (
                 <Select onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
@@ -1274,16 +1365,28 @@ const SalesVoucherAdd = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">HSN Code</Label>
-            <Controller name="hsn" control={control}
-              render={({ field }) => (
-                <Select disabled={getValues("salesvouitem_set").length > 0} onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger><SelectValue placeholder="Select HSN" /></SelectTrigger>
-                  <SelectContent>
-                    {hsns.map((h, i) => <SelectItem key={i} value={h.hsn_no}>{h.description || h.hsn_no}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+            {/* When items exist, Radix Select is disabled and never opens — SelectValue
+                cannot resolve the label. Render a plain disabled Input instead. */}
+            {watchFields?.length > 0 ? (
+              <Input
+                disabled
+                value={(() => {
+                  const match = hsns.find(h => h.hsn_no === hsn_current);
+                  return match ? `${match.hsn_no} — ${match.description || ''}`.trim() : (hsn_current || '');
+                })()}
+              />
+            ) : (
+              <Controller name="hsn" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger><SelectValue placeholder="Select HSN" /></SelectTrigger>
+                    <SelectContent>
+                      {hsns.map((h, i) => <SelectItem key={i} value={h.hsn_no}>{h.description || h.hsn_no}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            )}
           </FieldContainer>
 
           <FieldContainer>
@@ -1310,6 +1413,17 @@ const SalesVoucherAdd = () => {
                 <TH>Fine Wt</TH><TH>Rate</TH><TH>Amount</TH><TH>Del</TH>
               </TableRow>
 
+              {watchFields.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={15}
+                    className="py-8 text-center text-sm text-muted-foreground"
+                  >
+                    No barcode items added yet. Scan a barcode above to add items.
+                  </TableCell>
+                </TableRow>
+              )}
+
               {watchFields.map((field, index) => (
                 <React.Fragment key={field.id || index}>
                   {/* Main item row */}
@@ -1326,7 +1440,7 @@ const SalesVoucherAdd = () => {
                     <TableCell className="w-28 px-3 py-2 border">
                       <Controller name={`salesvouitem_set.${index}.making_type`} control={control}
                         render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={(v) => { field.onChange(v); setCalculate(prev => prev + 1); }} value={field.value}>
                             <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="per_nw">% of wt</SelectItem>
@@ -1337,7 +1451,7 @@ const SalesVoucherAdd = () => {
                       />
                     </TableCell>
                     <TableCell className="w-24 px-3 py-2 border">
-                      <Input type="number" className="h-7 text-xs" {...register(`salesvouitem_set.${index}.making_value`, { valueAsNumber: true })} />
+                      <Input type="number" className="h-7 text-xs bg-muted/30" readOnly tabIndex={-1} {...register(`salesvouitem_set.${index}.making_value`, { valueAsNumber: true })} />
                     </TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{field?.purity}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{field?.tunch ? Number(field.tunch).toFixed(2) : "0.00"}</TableCell>
@@ -1348,7 +1462,7 @@ const SalesVoucherAdd = () => {
                       <input type="hidden" {...register(`salesvouitem_set.${index}.amount`)} />
                     </TableCell>
                     <TableCell className="px-3 py-2 border">
-                      <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => remove(index)} />
+                      <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => remove(index)} />
                     </TableCell>
                   </TableRow>
 
@@ -1382,8 +1496,21 @@ const SalesVoucherAdd = () => {
           </Table>
         </div>
 
-        {/* ══ 3. MANUAL / RAW ITEMS ════════════════════════════════════════════ */}
-        <SectionHeader number="3" title="Manual Items (No Barcode)" />
+        {/* ══ 3. MANUAL ITEMS — hidden until checkbox is ticked ═══════════ */}
+        <div className="flex items-center gap-3 mb-3">
+          <SectionHeader number="3" title="Manual Items (No Barcode)" />
+          <label className="flex items-center gap-2 cursor-pointer select-none ml-2">
+            <input
+              type="checkbox"
+              checked={showManualItems}
+              onChange={e => setShowManualItems(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 accent-primary"
+            />
+            <span className="text-sm text-muted-foreground">Add manual items</span>
+          </label>
+        </div>
+
+        {showManualItems && (<>
 
         {/* ── 3a. Main Item Entry ─────────────────────────────────────────── */}
         <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
@@ -1598,7 +1725,7 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.value}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs text-sky-700">{mainItem.remarks}</TableCell>
                       <TableCell className="px-3 py-2 border text-center">
-                        <Trash2 size={14} color="#d45959" className="cursor-pointer mx-auto" onClick={() => handleDeleteMainItem(mainIdx)} />
+                        <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer mx-auto" onClick={() => handleDeleteMainItem(mainIdx)} />
                       </TableCell>
                     </TableRow>
 
@@ -1624,7 +1751,7 @@ const SalesVoucherAdd = () => {
                           <TableCell className="px-3 py-2 border text-xs">{detail.value}</TableCell>
                           <TableCell className="px-3 py-2 border" />
                           <TableCell className="px-3 py-2 border text-center">
-                            <Trash2 size={14} color="#d45959" className="cursor-pointer mx-auto" onClick={() => handleDeleteSubItem(mainIdx, subIdx)} />
+                            <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer mx-auto" onClick={() => handleDeleteSubItem(mainIdx, subIdx)} />
                           </TableCell>
                         </TableRow>
                       );
@@ -1636,13 +1763,15 @@ const SalesVoucherAdd = () => {
           </div>
         )}
 
+        </>)}  {/* end showManualItems */}
+
         {/* ══ 4. PAYMENT DETAILS ═══════════════════════════════════════════════ */}
         <SectionHeader number="4" title="Payment Details" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">Cash</Label>
-            <Input type="number" {...register("form.cash")} />
+            <Input type="number" {...register("form.cash", { valueAsNumber: true, setValueAs: v => (v === "" || v === null || isNaN(v) ? 0 : Number(v)) })} />
           </FieldContainer>
         </div>
 
@@ -1706,8 +1835,8 @@ const SalesVoucherAdd = () => {
                 <TableRow key={index}>
                   <TableCell className="px-3 py-2 border">
                     <div className="flex gap-3">
-                      <SquarePen size={16} className="cursor-pointer" onClick={() => handleEditBank(index)} />
-                      <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteBank(index)} />
+                      <SquarePen className="w-4 h-4 cursor-pointer" onClick={() => handleEditBank(index)} />
+                      <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteBank(index)} />
                     </div>
                   </TableCell>
                   <TableCell className="px-3 py-2 border text-xs">
@@ -1738,7 +1867,7 @@ const SalesVoucherAdd = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">Remarks</Label>
-            <Input type="text" {...register("form.remarks", { required: true })} />
+            <Input type="text" {...register("form.remarks")} />
           </FieldContainer>
         </div>
 
@@ -1767,8 +1896,13 @@ const SalesVoucherAdd = () => {
 
         {/* Submit */}
         <div className="flex justify-center gap-3 mt-6 pt-4 border-t border-gray-100">
-          <Button asChild className="bg-primary hover:bg-primary text-white px-8">
-            <button type="submit">Save</button>
+          <Button
+            asChild
+            className="bg-primary hover:bg-primary text-white px-8"
+            disabled={isVoucherLocked}
+            title={isVoucherLocked ? "Voucher is locked — barcodes are no longer in stock" : undefined}
+          >
+            <button type="submit" disabled={isVoucherLocked}>Save</button>
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>

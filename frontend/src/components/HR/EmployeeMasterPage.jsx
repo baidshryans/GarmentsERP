@@ -238,7 +238,7 @@ export default function EmployeeMasterPage() {
                 </TableCell>
                 <TableCell>
                   <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil className="w-4 h-4" />
                   </Button>
                 </TableCell>
               </TableRow>

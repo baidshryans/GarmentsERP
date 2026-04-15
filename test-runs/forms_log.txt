@@ -1,0 +1,36 @@
+Discovering forms on 34 /add routes...
+[  1/34] accounting/account-create  req=0 sel=1
+[  2/34] accounting/credit-debit-notes/add  req=0 sel=1
+[  3/34] crm/ledger/add  req=2 sel=15
+[  4/34] inventory/barcodemanagement/list/add/  req=0 sel=7
+[  5/34] inventory/stockjournal/add  req=1 sel=5
+[  6/34] inventory/stocktransfer/add  req=1 sel=3
+[  7/34] manufacturing/issue/assay/add  req=1 sel=5
+[  8/34] manufacturing/issue/goldissue/add  req=1 sel=7
+[  9/34] manufacturing/issue/hallmarkissue/add  req=2 sel=1
+[ 10/34] manufacturing/issue/jobwork/add  req=1 sel=6
+[ 11/34] manufacturing/issue/melting/add  req=1 sel=3
+[ 12/34] manufacturing/issue/refinary/add  req=1 sel=7
+[ 13/34] manufacturing/issue/stoneissue/add  req=1 sel=5
+[ 14/34] manufacturing/receive/assay/add  req=2 sel=1
+[ 15/34] manufacturing/receive/hallmarkreceive/add  req=2 sel=1
+[ 16/34] manufacturing/receive/jobworkreceive/add  req=1 sel=3
+[ 17/34] manufacturing/receive/melting/add  req=2 sel=1
+[ 18/34] manufacturing/receive/refinary/add  req=2 sel=1
+[ 19/34] manufacturing/receive/stonereturn/add  req=1 sel=5
+[ 20/34] manufacturing/repair/new  req=0 sel=3
+[ 21/34] purchase/add-purchase-voucher/add  req=2 sel=11
+[ 22/34] purchase/add-rawpurchase-voucher/add  req=2 sel=11
+[ 23/34] purchase/add/  req=2 sel=11
+[ 24/34] purchase/customerpurchase/list/add/  req=2 sel=11
+[ 25/34] purchase/purchaseorder/list/add  req=1 sel=7
+[ 26/34] purchase/purchasereturn/list/add/  req=1 sel=7
+[ 27/34] purchase/purchasevoucher/list/add/  req=2 sel=5
+[ 28/34] sales/add/  req=0 sel=11
+[ 29/34] sales/customerorder/list/add/  req=0 sel=7
+[ 30/34] sales/quotation/add/  req=0 sel=4
+[ 31/34] sales/rawsalesvoucher/add/  req=0 sel=0
+[ 32/34] sales/salesapproval/add/  req=0 sel=9
+[ 33/34] sales/salesreturn/add/  req=1 sel=3
+[ 34/34] scheme/enrollments/add  req=1 sel=3
+Wrote D:\Jewel India ERP\test-runs\forms_manifest.json and D:\Jewel India ERP\test-runs\FORMS.md

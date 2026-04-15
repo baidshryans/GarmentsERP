@@ -9,7 +9,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import apiClient from "@/services/apiClient";
-import { ChevronDown, ChevronRight, CheckCircle2, Clock, ShieldCheck, ShieldOff } from "lucide-react";
+import {
+  ChevronDown, ChevronRight, CheckCircle2, Clock,
+  ShieldCheck, ShieldOff, Paperclip, X, FileText,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const today = new Date().toISOString().split("T")[0];
@@ -23,12 +26,76 @@ const VOUCHER_TYPE_LABELS = {
 const fmt = (v) =>
   Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const isImage = (url) => /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(url);
+
+// ── Lightbox ──────────────────────────────────────────────────────────────────
+
+function Lightbox({ url, onClose }) {
+  if (!url) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <button
+        className="absolute top-4 right-4 text-white/70 hover:text-white"
+        onClick={onClose}
+      >
+        <X className="size-7" />
+      </button>
+      <img
+        src={url}
+        alt="Attachment"
+        className="max-h-[90vh] max-w-[90vw] rounded-lg shadow-2xl object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
+  );
+}
+
+// ── Attachment strip ──────────────────────────────────────────────────────────
+
+function AttachmentStrip({ attachments, onPreview }) {
+  if (!attachments?.length) return null;
+  return (
+    <div className="px-4 py-2 border-t border-border bg-muted/10 flex flex-wrap gap-2">
+      {attachments.map((url, i) => (
+        isImage(url) ? (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPreview(url)}
+            className="rounded overflow-hidden border border-border hover:border-primary transition-colors"
+            title="View attachment"
+          >
+            <img src={url} alt={`attachment-${i + 1}`} className="h-16 w-24 object-cover" />
+          </button>
+        ) : (
+          <a
+            key={i}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border bg-background text-xs hover:bg-muted/40 transition-colors"
+          >
+            <FileText className="size-3.5 text-muted-foreground" />
+            Attachment {i + 1}
+          </a>
+        )
+      ))}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function AuditQueue() {
   const { toast } = useToast();
 
   const [fromDate, setFromDate] = useState(today);
   const [toDate,   setToDate]   = useState(today);
   const [show,     setShow]     = useState("unaudited");
+  const [vtFilter, setVtFilter] = useState("all");   // voucher type filter
   const [report,   setReport]   = useState(null);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
@@ -41,6 +108,9 @@ export default function AuditQueue() {
   // Row expansion
   const [expanded, setExpanded] = useState({});
 
+  // Lightbox
+  const [lightbox, setLightbox] = useState(null);
+
   // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchReport = async () => {
     setError(""); setLoading(true); setSelected(new Set()); setExpanded({});
@@ -49,11 +119,21 @@ export default function AuditQueue() {
         `/accounting/api/audit-queue/?from_date=${fromDate}&to_date=${toDate}&show=${show}`
       );
       setReport(res.data);
+      setVtFilter("all");
     } catch (e) {
       setError(e.response?.data?.error || "Failed to load audit queue.");
     }
     setLoading(false);
   };
+
+  // ── Filtered vouchers (client-side type filter) ───────────────────────────
+  const allVouchers     = report?.vouchers ?? [];
+  const visibleVouchers = vtFilter === "all"
+    ? allVouchers
+    : allVouchers.filter((v) => v.voucher_type === vtFilter);
+
+  // Available voucher types from the loaded report
+  const availableTypes = [...new Set(allVouchers.map((v) => v.voucher_type))].sort();
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   const toggleOne = (id) =>
@@ -63,19 +143,17 @@ export default function AuditQueue() {
       return next;
     });
 
-  const allIds  = (report?.vouchers ?? []).map((v) => v.id);
+  const allIds      = visibleVouchers.map((v) => v.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
-  const toggleAll = () =>
-    setSelected(allSelected ? new Set() : new Set(allIds));
+  const toggleAll   = () => setSelected(allSelected ? new Set() : new Set(allIds));
 
-  // ── Mark as audited ───────────────────────────────────────────────────────
+  // ── Mark / Unmark ─────────────────────────────────────────────────────────
   const handleMark = async () => {
     if (!selected.size) return;
     setSaving(true);
     try {
       const res = await apiClient.post("/accounting/api/audit-mark/", {
-        voucher_ids: [...selected],
-        notes,
+        voucher_ids: [...selected], notes,
       });
       toast({ title: `Marked ${res.data.marked} voucher(s) as audited.` });
       setNotes("");
@@ -86,7 +164,6 @@ export default function AuditQueue() {
     setSaving(false);
   };
 
-  // ── Unmark ────────────────────────────────────────────────────────────────
   const handleUnmark = async () => {
     if (!selected.size) return;
     setSaving(true);
@@ -105,11 +182,13 @@ export default function AuditQueue() {
   const toggle = (vno) =>
     setExpanded((prev) => ({ ...prev, [vno]: !prev[vno] }));
 
-  const anyAudited   = [...selected].some((id) => report?.vouchers.find((v) => v.id === id)?.is_audited);
-  const anyUnaudited = [...selected].some((id) => !report?.vouchers.find((v) => v.id === id)?.is_audited);
+  const anyAudited   = [...selected].some((id) => allVouchers.find((v) => v.id === id)?.is_audited);
+  const anyUnaudited = [...selected].some((id) => !allVouchers.find((v) => v.id === id)?.is_audited);
 
   return (
     <div className="flex flex-col gap-5 p-4">
+
+      <Lightbox url={lightbox} onClose={() => setLightbox(null)} />
 
       {/* ── Filter bar ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border">
@@ -124,9 +203,7 @@ export default function AuditQueue() {
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Show</Label>
           <Select value={show} onValueChange={setShow}>
-            <SelectTrigger className="h-9 w-36 text-sm">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="h-9 w-36 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="unaudited">Unaudited</SelectItem>
               <SelectItem value="audited">Audited</SelectItem>
@@ -134,12 +211,31 @@ export default function AuditQueue() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Voucher type filter — appears after report is loaded */}
+        {availableTypes.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">Voucher Type</Label>
+            <Select value={vtFilter} onValueChange={setVtFilter}>
+              <SelectTrigger className="h-9 w-40 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {availableTypes.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {VOUCHER_TYPE_LABELS[t] ?? t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <Button size="sm" onClick={fetchReport} className="h-9">Load</Button>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {/* ── Bulk action bar (visible when items are selected) ─────────────── */}
+      {/* ── Bulk action bar ───────────────────────────────────────────────── */}
       {report && selected.size > 0 && (
         <div className="flex flex-wrap items-end gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
           <div className="flex flex-col gap-1 flex-1 min-w-48">
@@ -182,7 +278,11 @@ export default function AuditQueue() {
         <div className="flex flex-col gap-2">
           {/* Summary row */}
           <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
-            <span>{report.count} voucher(s) — {report.from_date} to {report.to_date}</span>
+            <span>
+              {visibleVouchers.length}
+              {vtFilter !== "all" && ` of ${allVouchers.length}`}
+              {" "}voucher(s) — {report.from_date} to {report.to_date}
+            </span>
             <div className="flex items-center gap-3">
               {allIds.length > 0 && (
                 <label className="flex items-center gap-1.5 cursor-pointer text-xs">
@@ -193,14 +293,14 @@ export default function AuditQueue() {
             </div>
           </div>
 
-          {report.vouchers.length === 0 && (
+          {visibleVouchers.length === 0 && (
             <div className="text-center py-16 text-muted-foreground border rounded-lg">
               No vouchers found for this filter.
             </div>
           )}
 
           {/* Voucher rows */}
-          {report.vouchers.map((v) => (
+          {visibleVouchers.map((v) => (
             <div
               key={v.id}
               className={`rounded-lg border overflow-hidden transition-colors ${
@@ -220,7 +320,7 @@ export default function AuditQueue() {
                   onClick={() => toggle(v.id)}
                 >
                   {expanded[v.id]
-                    ? <ChevronDown className="size-4 text-muted-foreground shrink-0" />
+                    ? <ChevronDown  className="size-4 text-muted-foreground shrink-0" />
                     : <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                   }
                   <span className="font-mono text-xs text-muted-foreground w-28 shrink-0">{v.voucher_no}</span>
@@ -231,6 +331,19 @@ export default function AuditQueue() {
                   <span className="ml-auto text-sm font-semibold shrink-0">{fmt(v.amount)}</span>
                   <span className="text-xs text-muted-foreground shrink-0 w-24 text-right">{v.date}</span>
                 </button>
+
+                {/* Attachment count badge */}
+                {v.attachments?.length > 0 && (
+                  <button
+                    type="button"
+                    title={`${v.attachments.length} attachment(s) — click to expand`}
+                    onClick={() => toggle(v.id)}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <Paperclip className="size-3.5" />
+                    <span>{v.attachments.length}</span>
+                  </button>
+                )}
 
                 {/* Audit badge */}
                 {v.is_audited ? (
@@ -246,7 +359,7 @@ export default function AuditQueue() {
                 )}
               </div>
 
-              {/* Expanded detail lines */}
+              {/* Expanded detail */}
               {expanded[v.id] && (
                 <div>
                   <table className="w-full text-sm border-t border-border">
@@ -263,7 +376,7 @@ export default function AuditQueue() {
                         <tr key={i} className={`border-t border-border/50 ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
                           <td className="px-4 py-1.5">{line.account}</td>
                           <td className="px-4 py-1.5 text-right tabular-nums">
-                            {Number(line.debit) > 0 ? fmt(line.debit) : ""}
+                            {Number(line.debit)  > 0 ? fmt(line.debit)  : ""}
                           </td>
                           <td className="px-4 py-1.5 text-right tabular-nums">
                             {Number(line.credit) > 0 ? fmt(line.credit) : ""}
@@ -275,11 +388,16 @@ export default function AuditQueue() {
                       ))}
                     </tbody>
                   </table>
+
+                  {/* Audit note */}
                   {v.is_audited && v.audit_notes && (
                     <div className="px-4 py-2 text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-t border-green-200 dark:border-green-800">
                       <span className="font-semibold">Audit note:</span> {v.audit_notes}
                     </div>
                   )}
+
+                  {/* Attachments */}
+                  <AttachmentStrip attachments={v.attachments} onPreview={setLightbox} />
                 </div>
               )}
             </div>

@@ -586,7 +586,7 @@ const BarcodeManagementList = () => {
           <div className="bg-primary/5 px-4 py-2 border-b flex items-center justify-between">
             <span className="text-sm font-semibold text-primary">Sub-Items (Stones / Accessories)</span>
             <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={handleAddSubItem}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> Add
+              <Plus className="w-4 h-4 mr-1" /> Add
             </Button>
           </div>
 
@@ -773,7 +773,7 @@ const BarcodeManagementList = () => {
                     <TableCell className="p-1.5">
                       <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => handleDeleteDetail(index)}>
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </TableCell>
                   </TableRow>

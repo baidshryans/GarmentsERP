@@ -504,15 +504,15 @@ function modifyData(data) {
                   {field.pcs}
                 </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" {...register(`table.${index}.gw`)} />
+                  <Input type="number" step="0.001" {...register(`table.${index}.gw`)} />
                 </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" step="0.01" {...register(`table.${index}.nw`)} defaultValue={0.00} />
+                  <Input type="number" step="0.001" {...register(`table.${index}.nw`)} defaultValue={0.000} />
 
                   {/* {field.nw} */}
                 </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" {...register(`table.${index}.less_gw`, { onChange: e => handlelesswtChange(index) })} />
+                  <Input type="number" step="0.001" {...register(`table.${index}.less_gw`, { onChange: e => handlelesswtChange(index) })} />
                 </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
                   <Input type="number" step="0.01" {...register(`table.${index}.loss`, { onChange: e => handlelossChange(index) })} />
@@ -708,7 +708,7 @@ function modifyData(data) {
               <TableCell>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="0.001"
 
                   {...register(
                     `details.issue_ct`
@@ -720,7 +720,7 @@ function modifyData(data) {
                 <Input
                   type="number"
 
-                  step="0.01"
+                  step="0.001"
                   {...register(
                     `details.issue_gw`,
                     { valueAsNumber: true, }
@@ -740,7 +740,7 @@ function modifyData(data) {
               <TableCell>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="0.001"
 
                   {...register(
                     `details.return_ct`
@@ -751,7 +751,7 @@ function modifyData(data) {
               <TableCell>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="0.001"
 
                   {...register(
                     `details.return_gw`, { valueAsNumber: true, }
@@ -806,8 +806,8 @@ function modifyData(data) {
               </TableCell>
               <TableCell>
                 <Input
-                step='any'
-
+                  type="number"
+                  step="0.001"
                   {...register(
                     `details.balance_gw`, { valueAsNumber: true, }
                   )}
@@ -981,7 +981,7 @@ function modifyData(data) {
                   <TableCell>
                     <Input
                       type="number"
-                      step='any'
+                      step="0.001"
                       {...register(
                         `table.${parentIndex}.details.${childIndex}.balance_gw`, { valueAsNumber: true, }
                       )}

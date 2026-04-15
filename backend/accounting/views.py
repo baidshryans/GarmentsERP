@@ -899,6 +899,27 @@ class JournalEntryViewSet(RetailBaseViewset):
         ]
         return qs.exclude(voucher_type__in=excluded)
 
+    def _check_voucher_mutable(self, instance, action):
+        from rest_framework.exceptions import ValidationError
+        if instance.status == 'posted':
+            raise ValidationError(
+                f"Voucher '{instance.voucher_no}' cannot be {action} while it is posted. Cancel it first."
+            )
+
+    def perform_destroy(self, instance):
+        self._check_voucher_mutable(instance, 'deleted')
+        from .utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        voucher_no = instance.voucher_no
+        prefix = instance.voucher_type  # e.g. 'JRNL', 'PMNT', 'RCPT', 'CONTRA'
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, prefix, voucher_no, fiscal_year)
+
+    def perform_update(self, serializer):
+        self._check_voucher_mutable(serializer.instance, 'edited')
+        super().perform_update(serializer)
+
     from rest_framework.decorators import action as _drf_action
     @_drf_action(detail=True, methods=['post'], url_path='cancel')
     def cancel(self, request, pk=None):
@@ -2036,6 +2057,10 @@ class AuditQueueView(APIView):
                 'audited_by':    am.audited_by.get_full_name() or am.audited_by.username if am else None,
                 'audited_at':    am.audited_at.strftime('%Y-%m-%d %H:%M') if am else None,
                 'audit_notes':   am.notes if am else '',
+                'attachments':   [
+                    request.build_absolute_uri(att.file.url)
+                    for att in v.attachments.all() if att.file
+                ],
             })
 
         return Response({
@@ -2120,7 +2145,14 @@ class CreditDebitNoteViewSet(RetailBaseViewset):
         if note.ac_voucher and note.ac_voucher.status != 'cancelled':
             from .signals import cancel_voucher
             cancel_voucher(note.ac_voucher, user=request.user)
-        return super().destroy(request, *args, **kwargs)
+        from .utils import release_last_bill_number
+        retail = note.retail
+        fiscal_year = note.fiscal_year
+        note_no = note.note_no
+        prefix = note.note_type  # 'CN' or 'DN'
+        response = super().destroy(request, *args, **kwargs)
+        release_last_bill_number(retail, prefix, note_no, fiscal_year)
+        return response
 
     def perform_create(self, serializer):
         retail = self.request.retail

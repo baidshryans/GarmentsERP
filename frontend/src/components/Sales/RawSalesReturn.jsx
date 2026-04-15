@@ -765,7 +765,7 @@ const RawSalesReturn = () => {
                   <TableCell className="w-28 px-4 py-2 border">{item.item}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.pcs}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                  <TableCell className="w-28 px-4 py-2 border">{item.gw}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.making}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.making_type}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.purity}</TableCell>

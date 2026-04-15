@@ -40,6 +40,9 @@ _OPERATIONAL_LEDGERS = [
     ('making_charge_paid_14k_ldgr', 'Making Charge Paid 14K',  'EXP-DIR-MKG', 'EXP'),
     ('making_charge_paid_18k_ldgr', 'Making Charge Paid 18K',  'EXP-DIR-MKG', 'EXP'),
     ('making_charge_paid_22k_ldgr', 'Making Charge Paid 22K',  'EXP-DIR-MKG', 'EXP'),
+    ('making_receive_14k_ldgr',     'Making Charge Received 14K', 'INC-DIR-SAL', 'INC'),
+    ('making_receive_18k_ldgr',     'Making Charge Received 18K', 'INC-DIR-SAL', 'INC'),
+    ('making_receive_22k_ldgr',     'Making Charge Received 22K', 'INC-DIR-SAL', 'INC'),
 ]
 
 # ── Trading ledgers (Purchase / Sales accounts, per commodity) ────────────────

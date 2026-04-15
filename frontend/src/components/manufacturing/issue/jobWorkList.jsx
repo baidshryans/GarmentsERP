@@ -67,7 +67,7 @@ const KarigarJobs = () => {
             <Trash2 className="mr-1" />
           </button>
          <button onClick={() => openAndPrint(<JobOrder data={row.original} />)}>
-                    <Printer />
+                    <Printer className="w-4 h-4" />
                   </button>
         </div>
       ),

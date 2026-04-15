@@ -44,6 +44,33 @@ def _get_company_retails(retail):
     return [retail]
 
 
+def release_last_bill_number(retail, prefix, bill_no, fiscal_year=None):
+    """
+    Decrement the BillNumberSequence counter when the last-issued bill is deleted,
+    so the number is reused for the next entry rather than being skipped.
+
+    Only acts if the deleted bill_no's trailing number exactly matches last_number
+    (i.e. it really was the most recent one). Has no effect for mid-sequence deletes.
+    """
+    if not bill_no:
+        return
+    match = re.search(r'(\d+)$', bill_no)
+    if not match:
+        return
+    deleted_number = int(match.group(1))
+
+    with transaction.atomic():
+        try:
+            seq = BillNumberSequence.objects.select_for_update().get(
+                retail=retail, prefix=prefix, fiscal_year=fiscal_year
+            )
+        except BillNumberSequence.DoesNotExist:
+            return
+        if seq.last_number == deleted_number:
+            seq.last_number -= 1
+            seq.save(update_fields=['last_number'])
+
+
 def increment_series_no(bill_no):
     match = re.search(r'(\d+)$', bill_no)
 

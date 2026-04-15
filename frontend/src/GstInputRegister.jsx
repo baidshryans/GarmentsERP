@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Search } from 'lucide-react';
-import { fetchGSTInputReport, fetchGstins } from "./services/apiService";
+import { Search, Download } from 'lucide-react';
+import { fetchGSTInputReport, fetchGstins, getFiscalYears } from "./services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 const GstInputRegister = () => {
-  const [startDate, setStartDate] = useState('2025-02-01');
-  const [endDate, setEndDate] = useState('2025-08-28');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState(today());
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,6 +20,12 @@ const GstInputRegister = () => {
   useEffect(() => {
     fetchGstins().then(r => {
       if (r.success) setGstins(r.data?.results || r.data || []);
+    });
+    getFiscalYears().then(r => {
+      if (r.success) {
+        const active = (r.data?.results || r.data || []).find(fy => fy.is_active);
+        if (active?.fy_start) setStartDate(active.fy_start);
+      }
     });
   }, []);
 
@@ -37,8 +45,8 @@ const GstInputRegister = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (startDate) fetchData();
+  }, [startDate]);
 
   const fmt = (amount) =>
     amount !== null && amount !== undefined ? Number(amount).toFixed(2) : '0.00';
@@ -49,6 +57,57 @@ const GstInputRegister = () => {
       month: '2-digit',
       year: 'numeric',
     });
+
+  const exportToCSV = () => {
+    const headers = [
+      'Date', 'Bill No.', 'Ref. No.', 'Party Name', 'GST IN', 'PAN No',
+      'Bill Value', 'Goods Value', '+/- Before Tax', 'Taxable Amt',
+      'SGST', 'CGST', 'IGST', 'UTGST', 'Add/Less'
+    ];
+
+    const rows = data.map(row => [
+      formatDate(row.date),
+      row.bill_no,
+      row.ref_no || '',
+      row.party_name,
+      row.gstin || '',
+      row.pan || '',
+      fmt(row.bill_value),
+      fmt(row.goods_value),
+      fmt(row.before_tax),
+      fmt(row.taxable_amount),
+      fmt(row.sgst),
+      fmt(row.cgst),
+      fmt(row.igst),
+      fmt(row.utgst),
+      row.add_less || '',
+    ]);
+
+    const totalsRow = [
+      'Totals', '', '', '', '', '',
+      fmt(totals.bill_value),
+      fmt(totals.goods_value),
+      fmt(totals.before_tax),
+      fmt(totals.taxable_amount),
+      fmt(totals.sgst),
+      fmt(totals.cgst),
+      fmt(totals.igst),
+      fmt(totals.utgst),
+      '',
+    ];
+
+    const csvContent = [headers, ...rows, totalsRow]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `GST_Input_Register_${startDate}_to_${endDate}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const totals = data.reduce(
     (acc, row) => ({
@@ -105,6 +164,10 @@ const GstInputRegister = () => {
           <Search className="w-3.5 h-3.5 mr-1" />
           Show
         </Button>
+        <Button size="sm" variant="outline" onClick={exportToCSV} disabled={loading || data.length === 0} className="h-9">
+          <Download className="w-3.5 h-3.5 mr-1" />
+          Export CSV
+        </Button>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -127,7 +190,7 @@ const GstInputRegister = () => {
 
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="px-3 py-2.5 text-left font-semibold border-r border-border">Date</th>

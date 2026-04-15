@@ -315,12 +315,12 @@ const MergeBarcode = () => {
                                 </TableCell>
                                 <TableCell className="w-28 px-4 py-2 border">
 
-                                    {row.gw}
+                                    {row.gw != null ? parseFloat(row.gw).toFixed(3) : "—"}
 
                                 </TableCell>
                                 <TableCell className="w-28 px-4 py-2 border">
 
-                                    {row.nw}
+                                    {row.nw != null ? parseFloat(row.nw).toFixed(3) : "—"}
 
                                 </TableCell>
                                 <TableCell className="w-28 px-4 py-2 border">

@@ -51,19 +51,24 @@ function SalesPersonList() {
 
   const loadData = async () => {
     setLoading(true);
-    const [spRes, retRes, ldgrRes] = await Promise.all([
+    const [spRes, retRes] = await Promise.all([
       fetchSalesperson(),
       getRetails(),
-      getLedgerList(),
     ]);
-    if (spRes.success)  setSalespersons(spRes.data);
+    if (spRes.success)  setSalespersons(Array.isArray(spRes.data) ? spRes.data : (spRes.data?.results ?? []));
     else                setError(spRes.error);
     if (retRes.success) {
       const locs = retRes.data.results?.flatMap(ul => ul.location) || [];
       setRetails(locs.filter((l, i, a) => a.findIndex(x => x.id === l.id) === i));
     }
-    if (ldgrRes.success) setLedgers(Array.isArray(ldgrRes.data) ? ldgrRes.data : ldgrRes.data?.results || []);
     setLoading(false);
+  };
+
+  // Load ledgers lazily — only when the sheet is opened for the first time
+  const loadLedgers = async () => {
+    if (ledgers.length > 0) return; // already loaded
+    const ldgrRes = await getLedgerList();
+    if (ldgrRes.success) setLedgers(Array.isArray(ldgrRes.data) ? ldgrRes.data : ldgrRes.data?.results || []);
   };
 
   useEffect(() => { loadData(); }, []);
@@ -79,6 +84,7 @@ function SalesPersonList() {
       ...BLANK_FORM,
       retail: currentRetail ? String(currentRetail.id) : "",
     });
+    loadLedgers();
     setSheet(true);
   };
 
@@ -93,6 +99,7 @@ function SalesPersonList() {
       deduct_discount:  row.deduct_discount ?? true,
       apply_on_b2b:     row.apply_on_b2b   ?? false,
     });
+    loadLedgers();
     setSheet(true);
   };
 

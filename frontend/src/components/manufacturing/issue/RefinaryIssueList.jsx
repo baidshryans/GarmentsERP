@@ -64,7 +64,7 @@ function RefinaryIssueList() {
             <Trash2 className="mr-1" />
           </button>
           <button onClick={() => openAndPrint(<h1>Karigar Issue</h1>)}>
-            <Printer />
+            <Printer className="w-4 h-4" />
           </button>
         </div>
       ),

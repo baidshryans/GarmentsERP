@@ -105,14 +105,14 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                             className="p-1 rounded hover:bg-violet-100 text-primary transition-colors"
                             title="Edit group"
                         >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-4 h-4" />
                         </Link>
                     ) : (
                         <span
                             className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
                             title="System group — cannot be modified"
                         >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-4 h-4" />
                         </span>
                     )}
                     {node.can_delete ? (
@@ -121,7 +121,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                             className="p-1 rounded hover:bg-red-50 text-red-400 transition-colors"
                             title="Delete group"
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                         </button>
                     ) : (
                         <span
@@ -134,7 +134,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                                     : 'System group — cannot delete'
                             }
                         >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                         </span>
                     )}
                 </div>
@@ -240,7 +240,7 @@ const AccountTree = () => {
                     </Button>
                     <Link to="/accounting/account-create">
                         <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-white">
-                            <Plus className="w-3.5 h-3.5" />
+                            <Plus className="w-4 h-4" />
                             Add Group
                         </Button>
                     </Link>

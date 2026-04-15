@@ -262,7 +262,7 @@ const ReceiveFromAssay = () => {
                                             <TableCell className="px-3 py-1.5 font-mono text-xs">{item.issue_no}</TableCell>
                                             <TableCell className="px-3 py-1.5">{item.item}</TableCell>
                                             <TableCell className="px-3 py-1.5">{item.metal_purity}</TableCell>
-                                            <TableCell className="px-3 py-1.5 text-right">{item.gw}</TableCell>
+                                            <TableCell className="px-3 py-1.5 text-right">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
 
                                             <TableCell className="px-2 py-1">
                                                 <Controller
@@ -331,7 +331,7 @@ const ReceiveFromAssay = () => {
                                                     className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
                                                     title="Remove row"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </TableCell>
                                         </TableRow>
@@ -351,7 +351,7 @@ const ReceiveFromAssay = () => {
                             onClick={handleAddCornetRow}
                             className="text-amber-600 border-amber-300 hover:bg-amber-50"
                         >
-                            <Plus size={14} className="mr-1" /> Add Cornet Row
+                            <Plus className="w-4 h-4 mr-1" /> Add Cornet Row
                         </Button>
                     </div>
                 )}

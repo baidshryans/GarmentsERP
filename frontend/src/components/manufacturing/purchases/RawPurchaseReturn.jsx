@@ -837,9 +837,9 @@ const PurchaseReturnadd = () => {
 
                   <TableCell className="px-4 py-2 border flex flex-row justify-center items-center gap-3">
 
-                      <SquarePen size={20} className="mr-1 cursor-pointer" onClick={() => handleEdit(idx)} />
+                      <SquarePen className="w-4 h-4 mr-1 cursor-pointer" onClick={() => handleEdit(idx)} />
 
-                      <Trash2 size={20} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(idx)} />
+                      <Trash2 color="#d45959" className="w-4 h-4 mr-1 cursor-pointer" onClick={() => handleDelete(idx)} />
                     </TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.barcode}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.barcode_txt}</TableCell>
@@ -847,7 +847,7 @@ const PurchaseReturnadd = () => {
                   <TableCell className="w-28 px-4 py-2 border">{item.item}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.pcs}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                  <TableCell className="w-28 px-4 py-2 border">{item.gw}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.making_type}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.purity}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.making_amt}</TableCell>
@@ -862,7 +862,7 @@ const PurchaseReturnadd = () => {
                 {item.purchasereturndetails_set && Array.isArray(item.purchasereturndetails_set) && item.purchasereturndetails_set.map((detail, detailIdx) => (
                   <TableRow className="bg-gray-100" key={detailIdx}>
                     <TableCell className="px-4 py-2 border flex flex-row justify-center items-center">
-                     <Trash2 size={20} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDeleteSubItem(idx,  detailIdx,'purchasereturndetails_set')} /> 
+                     <Trash2 color="#d45959" className="w-4 h-4 mr-1 cursor-pointer" onClick={() => handleDeleteSubItem(idx,  detailIdx,'purchasereturndetails_set')} />
 
                      </TableCell>
                                            

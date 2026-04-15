@@ -1,10 +1,13 @@
 from decimal import Decimal
 
-from django.db.models.signals import post_save, post_delete, pre_delete
+from django.db.models.signals import post_save, post_delete, pre_delete, pre_save
 from django.dispatch import receiver
 
 from inventory.models import RawMaterialInventory, RawMaterialTransaction
-from purchase.models import PurchaseVoucherItems, PurchaseVoucherDetails, PurchaseReturnItems, PurchaseReturnDetails
+from purchase.models import (
+    PurchaseVoucherItems, PurchaseVoucherDetails,
+    PurchaseReturnItems, PurchaseReturnDetails, PurchaseReturn,
+)
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -30,6 +33,14 @@ def _log_raw_txn(*, item, packet, purity, retail, trans_type, pcs=0, ct=Decimal(
 
 
 # ── Purchase → increase raw material ─────────────────────────────────────────
+
+@receiver(post_save, sender=PurchaseVoucherItems)
+def clear_op_stk_on_purchase(sender, instance, created, **kwargs):
+    """When a purchase voucher links to a barcode, that barcode is a purchase — not opening stock."""
+    if created and instance.barcode_id and instance.barcode.op_stk:
+        instance.barcode.op_stk = False
+        instance.barcode.save(update_fields=['op_stk'])
+
 
 @receiver(post_save, sender=PurchaseVoucherItems)
 def increase_raw_material_on_purchase(sender, instance, created, **kwargs):
@@ -69,30 +80,130 @@ def reverse_raw_material_on_purchase_delete(sender, instance, **kwargs):
     )
 
 
-@receiver(post_save, sender=PurchaseVoucherDetails)
-def increase_raw_material_on_purchase_detail(sender, instance, created, **kwargs):
-    if not created:
+@receiver(pre_save, sender=PurchaseVoucherDetails)
+def capture_old_detail_values_before_update(sender, instance, **kwargs):
+    """
+    Before an UPDATE, snapshot the current DB row so post_save can compute
+    the inventory delta (new − old). Skipped for brand-new records (no pk yet).
+    """
+    if not instance.pk:
+        instance._old_detail = None
         return
     if instance.main_item and instance.main_item.is_finished:
+        instance._old_detail = None
         return
-    _update_raw_material(
-        item=instance.sub_item, packet=instance.packet,
-        purity=instance.metal_purity, retail=instance.retail,
-        pcs=instance.sub_pcs or 0,
-        ct=instance.sub_ct or Decimal('0'),
-        gw=instance.sub_gw or Decimal('0'),
-    )
-    _log_raw_txn(
-        item=instance.sub_item, packet=instance.packet,
-        purity=instance.metal_purity, retail=instance.retail,
-        trans_type='PURCHASE',
-        pcs=instance.sub_pcs or 0,
-        ct=instance.sub_ct or Decimal('0'),
-        gw=instance.sub_gw or Decimal('0'),
-        rate=instance.rate or Decimal('0'),
-        amt=instance.value or Decimal('0'),
-        billno=instance.billno.billno if instance.billno else '',
-    )
+    try:
+        old = sender.objects.get(pk=instance.pk)
+        instance._old_detail = {
+            'sub_item':  old.sub_item,
+            'packet':    old.packet,
+            'purity':    old.metal_purity,
+            'retail':    old.retail,
+            'pcs':       old.sub_pcs or 0,
+            'ct':        old.sub_ct  or Decimal('0'),
+            'gw':        old.sub_gw  or Decimal('0'),
+        }
+    except sender.DoesNotExist:
+        instance._old_detail = None
+
+
+@receiver(post_save, sender=PurchaseVoucherDetails)
+def adjust_raw_material_on_detail_save(sender, instance, created, **kwargs):
+    """
+    CREATE  → add full quantities to inventory.
+    UPDATE  → adjust inventory by the delta (new − old quantities).
+              If the sub_item / packet / purity changed, reverse the old entry
+              completely and add the new entry completely.
+    """
+    if instance.main_item and instance.main_item.is_finished:
+        return
+
+    billno_str = instance.billno.billno if instance.billno else ''
+
+    if created:
+        # ── New sub-item: add full quantity ──────────────────────────────────
+        _update_raw_material(
+            item=instance.sub_item, packet=instance.packet,
+            purity=instance.metal_purity, retail=instance.retail,
+            pcs=instance.sub_pcs or 0,
+            ct=instance.sub_ct or Decimal('0'),
+            gw=instance.sub_gw or Decimal('0'),
+        )
+        _log_raw_txn(
+            item=instance.sub_item, packet=instance.packet,
+            purity=instance.metal_purity, retail=instance.retail,
+            trans_type='PURCHASE',
+            pcs=instance.sub_pcs or 0,
+            ct=instance.sub_ct or Decimal('0'),
+            gw=instance.sub_gw or Decimal('0'),
+            rate=instance.rate or Decimal('0'),
+            amt=instance.value or Decimal('0'),
+            billno=billno_str,
+        )
+    else:
+        # ── Existing sub-item updated: delta adjustment ───────────────────────
+        old = getattr(instance, '_old_detail', None)
+        if old is None:
+            return  # pre_save didn't capture (finished item, etc.)
+
+        new_pcs = instance.sub_pcs or 0
+        new_ct  = instance.sub_ct  or Decimal('0')
+        new_gw  = instance.sub_gw  or Decimal('0')
+
+        # Detect whether the item/packet/purity itself changed
+        same_item = (
+            (instance.sub_item_id  == (old['sub_item'].id  if old['sub_item']  else None)) and
+            (instance.packet_id    == (old['packet'].id    if old['packet']    else None)) and
+            (instance.metal_purity_id == (old['purity'].id if old['purity']   else None))
+        )
+
+        if not same_item:
+            # Reverse the old entry completely, then add the new entry
+            _update_raw_material(
+                item=old['sub_item'], packet=old['packet'],
+                purity=old['purity'], retail=old['retail'],
+                pcs=-old['pcs'], ct=-old['ct'], gw=-old['gw'],
+            )
+            _log_raw_txn(
+                item=old['sub_item'], packet=old['packet'],
+                purity=old['purity'], retail=old['retail'],
+                trans_type='PURCHASE_UPD',
+                pcs=-old['pcs'], ct=-old['ct'], gw=-old['gw'],
+                billno=billno_str,
+            )
+            _update_raw_material(
+                item=instance.sub_item, packet=instance.packet,
+                purity=instance.metal_purity, retail=instance.retail,
+                pcs=new_pcs, ct=new_ct, gw=new_gw,
+            )
+            _log_raw_txn(
+                item=instance.sub_item, packet=instance.packet,
+                purity=instance.metal_purity, retail=instance.retail,
+                trans_type='PURCHASE_UPD',
+                pcs=new_pcs, ct=new_ct, gw=new_gw,
+                rate=instance.rate or Decimal('0'),
+                amt=instance.value or Decimal('0'),
+                billno=billno_str,
+            )
+        else:
+            # Same item/packet/purity — only adjust the quantity delta
+            delta_pcs = new_pcs - old['pcs']
+            delta_ct  = new_ct  - old['ct']
+            delta_gw  = new_gw  - old['gw']
+            if delta_pcs or delta_ct or delta_gw:
+                _update_raw_material(
+                    item=instance.sub_item, packet=instance.packet,
+                    purity=instance.metal_purity, retail=instance.retail,
+                    pcs=delta_pcs, ct=delta_ct, gw=delta_gw,
+                )
+                _log_raw_txn(
+                    item=instance.sub_item, packet=instance.packet,
+                    purity=instance.metal_purity, retail=instance.retail,
+                    trans_type='PURCHASE_UPD',
+                    pcs=delta_pcs, ct=delta_ct, gw=delta_gw,
+                    billno=billno_str,
+                )
+            # If only rate/value changed, quantities are unchanged → no inventory adjustment needed
 
 
 @receiver(pre_delete, sender=PurchaseVoucherDetails)
@@ -159,3 +270,37 @@ def decrease_raw_material_on_purchase_return_detail(sender, instance, created, *
         amt=-(instance.value or Decimal('0')),
         billno=instance.billno.billno if instance.billno else '',
     )
+
+
+# ── PurchaseReturn delete → restore raw material inventory ────────────────────
+
+@receiver(pre_delete, sender=PurchaseReturn)
+def on_purchase_return_delete(sender, instance, **kwargs):
+    """
+    When a PurchaseReturn is deleted (only permitted when ac_voucher is not posted):
+    1. Restore the raw material inventory that was decremented when the return was created.
+    2. Delete the linked accounting voucher if it exists.
+    """
+    billno_str = instance.billno
+
+    for ret_item in instance.purchasereturnitems_set.select_related('item', 'purity').all():
+        if not ret_item.item:
+            continue
+        _update_raw_material(
+            item=ret_item.item, packet=None,
+            purity=ret_item.purity, retail=instance.retail,
+            pcs=ret_item.pcs or 0,
+            gw=ret_item.gw or Decimal('0'),
+        )
+        _log_raw_txn(
+            item=ret_item.item, packet=None,
+            purity=ret_item.purity, retail=instance.retail,
+            trans_type='PURCHASE_RETURN_DEL',
+            pcs=ret_item.pcs or 0,
+            gw=ret_item.gw or Decimal('0'),
+            billno=billno_str,
+        )
+
+    if instance.ac_voucher_id:
+        from accounting.models import VoucherMain
+        VoucherMain.objects.filter(id=instance.ac_voucher_id).delete()

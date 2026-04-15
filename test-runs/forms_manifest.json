@@ -1,0 +1,955 @@
+[
+  {
+    "path": "accounting/account-create",
+    "required": [],
+    "optional": [
+      "name (input)",
+      "code (input)"
+    ],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street"
+    ],
+    "submit_buttons": [
+      "Save Group",
+      "Save Group"
+    ]
+  },
+  {
+    "path": "accounting/credit-debit-notes/add",
+    "required": [],
+    "optional": [],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street"
+    ],
+    "submit_buttons": [
+      "Save Credit Note"
+    ]
+  },
+  {
+    "path": "crm/ledger/add",
+    "required": [
+      "ac_name (input)",
+      "display_name (input)"
+    ],
+    "optional": [
+      "dob (date)",
+      "anniversary (date)",
+      "add1 (input)",
+      "add2 (input)",
+      "city (input)",
+      "pincode (input)",
+      " (checkbox)",
+      "phone1 (tel)",
+      "phone2 (tel)",
+      "phone3 (tel)",
+      "Mobile number (tel)",
+      "Mobile number (tel)",
+      "Mobile number (tel)",
+      "email (email)",
+      "fax (input)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "\u2014 None \u2014",
+      "Not Applicable",
+      "None",
+      "\u2014 Select \u2014",
+      "\ud83c\uddee\ud83c\uddf3 +91",
+      "\ud83c\uddee\ud83c\uddf3 +91",
+      "\ud83c\uddee\ud83c\uddf3 +91"
+    ],
+    "submit_buttons": [
+      "Save Ledger",
+      "Save Ledger"
+    ]
+  },
+  {
+    "path": "inventory/barcodemanagement/list/add/",
+    "required": [],
+    "optional": [
+      "BARCODE (text)",
+      "DESIGN NO (text)",
+      "DATE (date)",
+      "VOUCHER NO (text)",
+      "ORDER NO (text)",
+      "HUID (text)",
+      "SIZE (text)",
+      "METAL COLOR (text)",
+      " (checkbox)",
+      "form.item (text)",
+      "form.pcs (number)",
+      "form.gw (text)",
+      "form.nw (text)",
+      "form.value (number)",
+      "form.making_val (number)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select",
+      "Select",
+      "Type"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "inventory/stockjournal/add",
+    "required": [
+      "Date (date)"
+    ],
+    "optional": [
+      "form.billno (text)",
+      "table.packet (input)",
+      "table.item (input)",
+      "table.pcs (number)",
+      "table.ct (number)",
+      "table.gw (number)",
+      "table.loss (number)",
+      "Remarks (text)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Purity",
+      "Type"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "inventory/stocktransfer/add",
+    "required": [
+      "form.date1 (date)"
+    ],
+    "optional": [
+      "form.billno (text)",
+      "table.barcode (text)"
+    ],
+    "html_selects": [
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select destination retail"
+    ],
+    "submit_buttons": [
+      "Save Transfer"
+    ]
+  },
+  {
+    "path": "manufacturing/issue/assay/add",
+    "required": [
+      "form.date1 (date)"
+    ],
+    "optional": [
+      "Search melting house\u2026 (input)",
+      "table.packet (input)",
+      "table.item (input)",
+      "table.pcs (number)",
+      "table.ct (number)",
+      "table.gw (number)",
+      "table.remarks (text)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "No available melting receives",
+      "Purity"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/issue/goldissue/add",
+    "required": [
+      "Date (date)"
+    ],
+    "optional": [
+      "Bill No (text)",
+      "Search karigar\u2026 (input)",
+      "Job Work Slip No (input)",
+      "Sl.No (input)",
+      "Sl.No (number)",
+      "table.item (input)",
+      "table.item_gw (number)",
+      "table.alloy_wt (text)",
+      "table.conv_wt (text)",
+      "table.remarks (text)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select Slip Type",
+      "Select Purity",
+      "Select Purity"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/issue/hallmarkissue/add",
+    "required": [
+      "Date (date)",
+      "Hallmarking center (input)"
+    ],
+    "optional": [
+      "Issue Slip No (text)",
+      "Receive Slip No (input)",
+      "Sl.No (text)"
+    ],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/issue/jobwork/add",
+    "required": [
+      "Date (date)"
+    ],
+    "optional": [
+      "Barcode (text)",
+      "Slip No (text)",
+      "Search karigar\u2026 (input)",
+      "Order No (input)",
+      "Sl No (input)",
+      "table.design_code (text)",
+      "table.item (input)",
+      "react-select-2-input (text)",
+      "table.pcs (number)",
+      "table.approx_wt (number)",
+      "table.size (text)",
+      "table.due_date (date)",
+      "table.remarks (text)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Stock",
+      "Select Purity",
+      ""
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/issue/melting/add",
+    "required": [
+      "form.date1 (date)"
+    ],
+    "optional": [
+      "Search melting house\u2026 (input)",
+      "table.packet (input)",
+      "table.item (input)",
+      "table.pcs (number)",
+      "table.ct (number)",
+      "table.gw (number)",
+      "table.remarks (text)"
+    ],
+    "html_selects": [
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Purity"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/issue/refinary/add",
+    "required": [
+      "form.date1 (date)"
+    ],
+    "optional": [
+      "Search refinery\u2026 (input)",
+      "table.packet (input)",
+      "table.item (input)",
+      "table.pcs (number)",
+      "table.ct (number)",
+      "table.gw (number)",
+      "table.remarks (text)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "\u2014 None \u2014",
+      "Pick a source type first",
+      "Purity"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/issue/stoneissue/add",
+    "required": [
+      "Date (date)"
+    ],
+    "optional": [
+      "Bill No (text)",
+      "Search karigar\u2026 (input)",
+      "Job Work Slip No (input)",
+      "Sl.No (input)",
+      "Sl.No (number)",
+      "table.packet (input)",
+      "table.item (text)",
+      "table.pcs (number)",
+      "table.ct (number)",
+      "table.gw (number)",
+      "table.rate (number)",
+      "table.taxable_value (number)",
+      "table.cgst (number)",
+      "table.sgst (number)",
+      "table.igst (number)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select Slip Type",
+      "West Bengal"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/receive/assay/add",
+    "required": [
+      "form.date1 (date)",
+      "form.ldgr_name (input)"
+    ],
+    "optional": [
+      "form.issue_slip_no (input)"
+    ],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/receive/hallmarkreceive/add",
+    "required": [
+      "Date (date)",
+      "Hallmarking center (input)"
+    ],
+    "optional": [
+      "Issue Slip No (text)",
+      "Receive Slip No (text)"
+    ],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/receive/jobworkreceive/add",
+    "required": [
+      "Date (date)"
+    ],
+    "optional": [
+      "Receive Slip No (text)",
+      "Search karigar\u2026 (input)",
+      "Ref Job No (input)",
+      "Sl No (input)",
+      "details.sl_no (text)",
+      "details.packet (text)",
+      "details.item (text)",
+      "details.issue_pcs (number)",
+      "details.issue_ct (number)",
+      "details.issue_gw (number)",
+      "details.return_pcs (number)",
+      "details.return_ct (number)",
+      "details.return_gw (number)",
+      "details.broken_pcs (number)",
+      "details.broken_ct (number)"
+    ],
+    "html_selects": [
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "West Bengal"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/receive/melting/add",
+    "required": [
+      "form.date1 (date)",
+      "form.ldgr_name (input)"
+    ],
+    "optional": [
+      "form.issue_slip_no (input)"
+    ],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/receive/refinary/add",
+    "required": [
+      "form.date1 (date)",
+      "form.ldgr_name (input)"
+    ],
+    "optional": [
+      "form.issue_slip_no (input)"
+    ],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/receive/stonereturn/add",
+    "required": [
+      "Date (date)"
+    ],
+    "optional": [
+      "Bill No (text)",
+      "Search karigar\u2026 (input)",
+      "Job Work Slip No (input)",
+      "Sl.No (input)",
+      "Sl.No (number)",
+      "table.packet (input)",
+      "table.item (input)",
+      "table.return_pcs (number)",
+      "table.return_ct (number)",
+      "table.return_gw (number)",
+      "table.broken_pcs (number)",
+      "table.broken_ct (number)",
+      "table.broken_gw (number)",
+      "table.loss_pcs (number)",
+      "table.loss_ct (number)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select Slip Type",
+      "West Bengal"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "manufacturing/repair/new",
+    "required": [],
+    "optional": [],
+    "html_selects": [],
+    "radix_selects": [
+      "Camac Street",
+      "\u2014 None \u2014",
+      "\u2014 None \u2014"
+    ],
+    "submit_buttons": [
+      "Create Job Card"
+    ]
+  },
+  {
+    "path": "purchase/add-purchase-voucher/add",
+    "required": [
+      "Date (date)",
+      "Ref.Date (date)"
+    ],
+    "optional": [
+      " (file)",
+      "Search vendor / karigar\u2026 (input)",
+      "Bill Ref No. (text)",
+      "Order No (input)",
+      "Sl No (input)",
+      "Item (input)",
+      "table.pcs (number)",
+      "table.gw (number)",
+      "table.size (text)",
+      "table.making (number)",
+      "table.making_value (number)",
+      "table.item_value (number)",
+      "table.remarks (text)",
+      "details.sl_no (text)",
+      "details.packet (input)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Vendor",
+      "Jewellery Plain or Studded",
+      "",
+      "Making type",
+      ""
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "purchase/add-rawpurchase-voucher/add",
+    "required": [
+      "Date (date)",
+      "Ref.Date (date)"
+    ],
+    "optional": [
+      " (file)",
+      "Search vendor / karigar\u2026 (input)",
+      "Bill Ref No. (text)",
+      "Order No (input)",
+      "Sl No (input)",
+      "Item (input)",
+      "table.pcs (number)",
+      "table.gw (number)",
+      "table.size (text)",
+      "table.making (number)",
+      "table.making_value (number)",
+      "table.item_value (number)",
+      "table.remarks (text)",
+      "details.sl_no (text)",
+      "details.packet (input)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Vendor",
+      "Jewellery Plain or Studded",
+      "",
+      "Making type",
+      ""
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "purchase/add/",
+    "required": [
+      "Date (date)",
+      "Ref.Date (date)"
+    ],
+    "optional": [
+      " (file)",
+      "Search vendor / karigar\u2026 (input)",
+      "Bill Ref No. (text)",
+      "Order No (input)",
+      "Sl No (input)",
+      "Item (input)",
+      "table.pcs (number)",
+      "table.gw (number)",
+      "table.size (text)",
+      "table.making (number)",
+      "table.making_value (number)",
+      "table.item_value (number)",
+      "table.remarks (text)",
+      "details.sl_no (text)",
+      "details.packet (input)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Vendor",
+      "Jewellery Plain or Studded",
+      "",
+      "Making type",
+      ""
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "purchase/customerpurchase/list/add/",
+    "required": [
+      "Date (date)",
+      "Ref.Date (date)"
+    ],
+    "optional": [
+      " (file)",
+      "Search vendor / karigar\u2026 (input)",
+      "Bill Ref No. (text)",
+      "Order No (input)",
+      "Sl No (input)",
+      "Item (input)",
+      "table.pcs (number)",
+      "table.gw (number)",
+      "table.size (text)",
+      "table.making (number)",
+      "table.making_value (number)",
+      "table.item_value (number)",
+      "table.remarks (text)",
+      "details.sl_no (text)",
+      "details.packet (input)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Vendor",
+      "Jewellery Plain or Studded",
+      "",
+      "Making type",
+      ""
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "purchase/purchaseorder/list/add",
+    "required": [
+      "Date (date)"
+    ],
+    "optional": [
+      "Po No (text)",
+      "Search vendor / karigar\u2026 (input)",
+      "Order No (input)",
+      "Sl.No (input)",
+      "Sl.No (number)",
+      "table.po_sl_no (number)",
+      "table.design_code (number)",
+      "table.item (input)",
+      "table.pcs (number)",
+      "table.approx_wt (number)",
+      "table.size (number)",
+      "table.due_date (date)",
+      "table.remarks (text)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select Slip Type",
+      "West Bengal",
+      "Select Purity"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "purchase/purchasereturn/list/add/",
+    "required": [
+      "Vendor / Ledger (input)"
+    ],
+    "optional": [
+      "Date (date)",
+      "Ref PV Bill No (text)",
+      "Mode of Transport (text)",
+      "Narration (text)",
+      "table.sl_no (number)",
+      "table.item (input)",
+      "table.pcs (number)",
+      "table.gw (number)",
+      "table.making_value (number)",
+      "table.making (number)",
+      "table.remarks (text)",
+      "details.sl_no (number)",
+      "details.sub_item (input)",
+      "details.sub_pcs (number)",
+      "details.sub_ct (number)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Purity",
+      "Type",
+      "Purity"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "purchase/purchasevoucher/list/add/",
+    "required": [
+      "Date (date)",
+      "Ref.Date (date)"
+    ],
+    "optional": [
+      " (file)",
+      "Search vendor / karigar\u2026 (input)",
+      "Bill Ref No. (text)",
+      "Order No (input)",
+      "Sl No (input)",
+      "Narration (text)",
+      " (file)",
+      "form.hallmark_charge (number)",
+      "form.freight_amt (number)",
+      "form.add_chrg_cap1 (text)",
+      "form.add_chrg_amt1 (number)",
+      "form.add_chrg_cap2 (text)",
+      "form.add_chrg_amt2 (number)",
+      "form.discount_amt (number)",
+      "form.tcs_amt (number)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Vendor",
+      "Select HSN"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "sales/add/",
+    "required": [],
+    "optional": [
+      "GST Bill No (text)",
+      "Search customer\u2026 (input)",
+      "Date (date)",
+      "Mode of Transport (text)",
+      "Barcode (text)",
+      " (checkbox)",
+      "Cash (number)",
+      "bank.amount (text)",
+      "bank.chq_no (text)",
+      "bank.bank_name (text)",
+      "Remarks (text)",
+      "form.freight_charge (number)",
+      "form.other_charge (number)",
+      "form.round_off (number)",
+      "form.discount (number)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)",
+      "bank.payment_mode (select)",
+      "bank.ledger (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select",
+      "Select",
+      "West Bengal",
+      "Jewellery Plain or Studded"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "sales/customerorder/list/add/",
+    "required": [],
+    "optional": [],
+    "html_selects": [],
+    "radix_selects": [
+      "",
+      "",
+      "",
+      "New Booking",
+      "Pending",
+      "Select Purity",
+      "Making type"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "sales/quotation/add/",
+    "required": [],
+    "optional": [
+      "Scan or type barcode\u2026 (input)"
+    ],
+    "html_selects": [],
+    "radix_selects": [
+      "",
+      "Select\u2026",
+      "Customer",
+      "Select customer\u2026"
+    ],
+    "submit_buttons": [
+      "Save Draft",
+      "Save & Print",
+      "Add"
+    ]
+  },
+  {
+    "path": "sales/rawsalesvoucher/add/",
+    "required": [],
+    "optional": [],
+    "html_selects": [],
+    "radix_selects": [],
+    "submit_buttons": []
+  },
+  {
+    "path": "sales/salesapproval/add/",
+    "required": [],
+    "optional": [
+      "Date (date)",
+      "Search customer\u2026 (input)",
+      "Barcode (text)",
+      "Mode of Transport (text)",
+      "Narration (text)",
+      "form.taxable_value (number)",
+      "form.discount (number)"
+    ],
+    "html_selects": [
+      " (select)",
+      " (select)",
+      " (select)",
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select Sales Person",
+      "Select Sales Person 2",
+      "Select State",
+      ""
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "sales/salesreturn/add/",
+    "required": [
+      "form.ldgr_name (input)"
+    ],
+    "optional": [
+      "form.date1 (date)",
+      "form.ref_bill_no (text)",
+      "form.remarks (text)",
+      "Item name (input)",
+      "mainItem.pcs (number)",
+      "mainItem.gw (number)",
+      "mainItem.making (number)",
+      "mainItem.discount (number)",
+      "mainItem.value (number)",
+      "mainItem.remarks (input)",
+      "details.sl_no (number)",
+      "details.packet (input)",
+      "Raw item (input)",
+      "details.pcs (number)",
+      "details.ct (number)"
+    ],
+    "html_selects": [
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Type"
+    ],
+    "submit_buttons": [
+      "Save"
+    ]
+  },
+  {
+    "path": "scheme/enrollments/add",
+    "required": [
+      "installment_amount (number)"
+    ],
+    "optional": [
+      "Search customer name... (input)",
+      "start_date (date)",
+      " (textarea)"
+    ],
+    "html_selects": [
+      " (select)"
+    ],
+    "radix_selects": [
+      "Camac Street",
+      "Select scheme"
+    ],
+    "submit_buttons": [
+      "Enroll Customer"
+    ]
+  }
+]

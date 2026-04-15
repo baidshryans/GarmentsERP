@@ -64,7 +64,7 @@ const KarigarStoneIssueList = () => {
             <Trash2 className="mr-1" />
           </button>
           <button onClick={() => openAndPrint(<StoneIssue data={row.original} />)}>
-            <Printer />
+            <Printer className="w-4 h-4" />
           </button>
         </div>
       ),

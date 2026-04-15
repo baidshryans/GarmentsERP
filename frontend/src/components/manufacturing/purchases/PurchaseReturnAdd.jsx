@@ -223,6 +223,19 @@ const PurchaseReturnAdd = () => {
     }
   };
 
+  // ── Packet → sub_item auto-fill & lock ────────────────────────────────────
+  const detailPacket = watch("details.packet");
+  useEffect(() => {
+    if (!detailPacket) {
+      setValue("details.sub_item", "");
+      return;
+    }
+    const pkt = packets.find((p) => p.pckt_no === detailPacket);
+    if (pkt?.stone_item_short_code) {
+      setValue("details.sub_item", pkt.stone_item_short_code);
+    }
+  }, [detailPacket, packets]);
+
   // ── Detail entry (Tab on Packet) ──────────────────────────────────────────
   const handleAddDetail = () => {
     const detail = { ...getValues("details") };
@@ -533,7 +546,12 @@ const PurchaseReturnAdd = () => {
                   <Input type="number" placeholder="#" {...register("details.sl_no")} />
                 </TableCell>
                 <TableCell className="w-28 px-3 py-2 border">
-                  <Input list="sub_item_list" {...register("details.sub_item")} />
+                  <Input
+                    list="sub_item_list"
+                    disabled={!!detailPacket}
+                    className={detailPacket ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
+                    {...register("details.sub_item")}
+                  />
                   <datalist id="sub_item_list">
                     {mainItemData.map((m, i) => (
                       <option key={i} value={m.short_code} />
@@ -651,7 +669,7 @@ const PurchaseReturnAdd = () => {
                     <TableCell className="px-3 py-2 border text-xs">{item.sl_no}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{item.gw}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.purity}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making_type}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making_value}</TableCell>

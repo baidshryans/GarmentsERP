@@ -46,6 +46,10 @@ INLINE_MODEL_MAP = {
 
 class RBACPermission(BasePermission):
     def has_permission(self, request, view):
+        # Unauthenticated (anonymous) users never have any permission
+        if not request.user or not request.user.is_authenticated:
+            return False
+
         if request.user.is_superuser:
             return True
 

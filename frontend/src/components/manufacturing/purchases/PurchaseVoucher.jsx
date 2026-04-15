@@ -129,6 +129,8 @@ const PurchaseVoucher = () => {
 
       },
       details: {
+        "id": null,
+        "sl_no": 0,
         "main_item": null,
         "billno": "",
         "date1": null,
@@ -177,6 +179,7 @@ const PurchaseVoucher = () => {
   };
   const [rs, setRows] = useState([]);
   const editingRowRef = useRef(null); // preserves sub-items while main item is being edited
+  const editingSubItemRef = useRef(false); // guards against concurrent sub-item edits & packet effect overwriting rate
   const formRef = useRef(null);
   useEnterAsTab(formRef);
   const [rsRaw, setRsRaw] = useState([]);
@@ -279,7 +282,23 @@ const PurchaseVoucher = () => {
 
   useEffect(() => {
     async function fetchData() {
-      const [orderNo, packets, barcodes, customerOrders, customers, states, salesperson, mainItem, mainItemM, purity, poNo, hsnres] = await Promise.all([
+      // All reference data + voucher data (when editing) are fetched in a single
+      // Promise.all so every request fires simultaneously instead of sequentially.
+      const [
+        /* 0 */ ,           // fetchPVNoNext — side-effect only (sets billno), result unused
+        /* 1 */ packets,
+        /* 2 */ barcodes,
+        /* 3 */ customerOrders,
+        /* 4 */ customers,
+        /* 5 */ states,
+        /* 6 */ salesperson,
+        /* 7 */ mainItem,
+        /* 8 */ mainItemM,
+        /* 9 */ purity,
+        /* 10 */ poNo,
+        /* 11 */ hsnres,
+        /* 12 */ voucherResponse,   // null when creating; Response when editing
+      ] = await Promise.all([
         fetchPVNoNext().then(orderNo => { if (orderNo.success) setValue("form.billno", orderNo.data.billno); }),
         fetchPackets(),
         fetchBarcodes(),
@@ -292,7 +311,11 @@ const PurchaseVoucher = () => {
         fetchPurity(),
         fetchPos(),
         fetchHSNs(),
+        // Fetch the voucher for editing in parallel with all the reference calls above.
+        // In create mode (no id) this resolves immediately to null.
+        id ? fetchPurchaseVoucherForEdit(id) : Promise.resolve(null),
       ]);
+
       if (packets.success) setPackets(packets.data.results ?? packets.data);
       if (customerOrders.success) setCustomerOrders(customerOrders.data.results);
       if (customers.success) setCustomers(customers.data.results);
@@ -312,52 +335,60 @@ const PurchaseVoucher = () => {
           if (jewelleryHsn) setTimeout(() => setValue("hsn", jewelleryHsn.hsn_no), 0);
         }
       }
+
+      // Return the voucher response so the caller can process it after all
+      // state setters above have run (avoids potential React batching issues).
+      return voucherResponse;
     }
 
-
-
-    fetchData().then(d => {
+    fetchData().then((voucherResponse) => {
       if (id) {
-        fetchPurchaseVoucherForEdit(id)
-          .then(async (response) => {
-            const data = response.data;
-            // Set form fields, skipping nested arrays and hsn (handled separately)
-            Object.keys(data).forEach((key) => {
-              if (key !== 'purchasevoucheritems_set' && key !== 'purchasevoucherdetails_set' && key !== 'hsn') {
-                setValue(`form.${key}`, data[key]);
-              }
-            });
+        if (!voucherResponse?.success) {
+          console.error('Error fetching purchase voucher for edit:', voucherResponse?.error);
+        } else {
+          const data = voucherResponse.data;
 
-            // Restore HSN at root level (drives tax rate lookup)
-            if (data.hsn) {
-              setValue("hsn", data.hsn);
+          // Set form fields, skipping nested arrays and hsn (handled separately)
+          Object.keys(data).forEach((key) => {
+            if (key !== 'purchasevoucheritems_set' && key !== 'purchasevoucherdetails_set' && key !== 'hsn') {
+              setValue(`form.${key}`, data[key]);
             }
-
-            if (data.purchasevoucheritems_set) {
-              setRows(data.purchasevoucheritems_set);
-            }
-            // Only load raw/direct details that are NOT already nested inside items
-            if (data.purchasevoucherdetails_set?.length) {
-              const nestedIds = new Set();
-              (data.purchasevoucheritems_set || []).forEach(item => {
-                (item.purchasevoucherdetails_set || []).forEach(d => {
-                  if (d.id) nestedIds.add(d.id);
-                });
-              });
-              setRsRaw(data.purchasevoucherdetails_set.filter(d => !nestedIds.has(d.id)));
-            }
-
-            // Restore vendor state code from ledger GSTIN so tax type (IGST vs CGST+SGST) is correct
-            if (data.ldgr) {
-              const ledgerRes = await getLedger(data.ldgr);
-              if (ledgerRes.success && ledgerRes.data.gst) {
-                setVendorStateCode(ledgerRes.data.gst.substring(0, 2));
-              }
-            }
-          })
-          .catch((error) => {
-            console.error('Error fetching purchase voucher for edit:', error);
           });
+
+          // Restore HSN at root level (drives tax rate lookup)
+          if (data.hsn) {
+            setValue("hsn", data.hsn);
+          }
+
+          if (data.purchasevoucheritems_set) {
+            // Annotate each sub-item with the parent's sl_no so the details
+            // input form can correctly reference which row it belongs to.
+            setRows(data.purchasevoucheritems_set.map(item => ({
+              ...item,
+              purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
+                ...d,
+                sl_no: d.sl_no ?? item.sl_no,
+              })),
+            })));
+          }
+
+          // Only load raw/direct details that are NOT already nested inside items
+          if (data.purchasevoucherdetails_set?.length) {
+            const nestedIds = new Set();
+            (data.purchasevoucheritems_set || []).forEach(item => {
+              (item.purchasevoucherdetails_set || []).forEach(d => {
+                if (d.id) nestedIds.add(d.id);
+              });
+            });
+            setRsRaw(data.purchasevoucherdetails_set.filter(d => !nestedIds.has(d.id)));
+          }
+
+          // vendor_state_code is now embedded in the voucher response (first 2 digits of
+          // the vendor GSTIN) — no separate getLedger call needed.
+          if (data.vendor_state_code) {
+            setVendorStateCode(data.vendor_state_code);
+          }
+        }
       }
 
       if (vou_type) {
@@ -477,7 +508,9 @@ const PurchaseVoucher = () => {
 
 
     Object.keys(main_formulas).forEach((col) => {
-      setValue(`form.${col}`, evaluateFormula(main_formulas[col], form));
+      const val = evaluateFormula(main_formulas[col], form);
+      setValue(`form.${col}`, val);
+      form[col] = parseFloat(val) || 0;   // update local snapshot so later formulas (e.g. bill_value) use fresh cgst/sgst/igst
     })
 
     Object.keys(tableFormulas).forEach((col) => {
@@ -494,6 +527,11 @@ const PurchaseVoucher = () => {
   }, [rs, rsRaw, watchedFields, calculate]);
 
   useEffect(() => {
+    // Skip when editing a sub-item — rate/value are already set by handleEditSubItem
+    if (editingSubItemRef.current) {
+      editingSubItemRef.current = false; // consume the guard
+      return;
+    }
     if (!watchedPacketDetail) {
       setDetailItemDisplay("");
       setValue('details.sub_item', "");
@@ -585,6 +623,25 @@ const PurchaseVoucher = () => {
       sub_pcs: toIntOrNull(d.sub_pcs),
     }));
     form.hsn = getValues("hsn") || null;
+
+    // Recompute bill_value fresh from current row data right before sending,
+    // so we never rely on the formula-effect having already converged.
+    const _itemValueSum = rs.reduce((s, item) => s + parseFloat(item.item_value || 0), 0)
+                        + rsRaw.reduce((s, d) => s + parseFloat(d.value || 0), 0);
+    const _taxable = _itemValueSum
+      + parseFloat(form.freight_amt || 0)
+      + parseFloat(form.hallmark_charge || 0)
+      + parseFloat(form.add_chrg_amt1 || 0)
+      + parseFloat(form.add_chrg_amt2 || 0);
+    form.bill_value = parseFloat(
+      (_taxable
+        + parseFloat(form.cgst || 0)
+        + parseFloat(form.sgst || 0)
+        + parseFloat(form.igst || 0)
+        + parseFloat(form.tcs_amt || 0)
+        + parseFloat(form.round_off || 0)
+      ).toFixed(2)
+    );
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })
@@ -669,8 +726,21 @@ const PurchaseVoucher = () => {
   };
 
   const handleEditSubItem = (rowIndex, subIndex, key) => {
+    // Prevent editing multiple sub-items at once — the first would be lost
+    const currentDetails = getValues('details');
+    if (currentDetails.sub_item) {
+      toast({ title: "Finish editing the current sub-item first", description: "Press Tab to save the current sub-item before editing another.", variant: "destructive" });
+      return;
+    }
+
     const subItem = rs[rowIndex][key][subIndex];
-    // Populate the input row with the sub-item's values
+    // Set guard BEFORE setValue calls so the packet effect doesn't overwrite rate
+    editingSubItemRef.current = true;
+
+    // Populate the input row with the sub-item's values.
+    // Preserve the database id so the backend UPDATES the existing record in-place
+    // (cleaner than delete+recreate; delta-based inventory signals handle the adjustment).
+    setValue('details.id', subItem.id ?? null);
     setValue('details.sl_no', rs[rowIndex].sl_no);
     setValue('details.packet', subItem.packet || "");
     setValue('details.sub_item', subItem.sub_item || "");
@@ -689,12 +759,16 @@ const PurchaseVoucher = () => {
     setCalculate(prev => prev + 1);
 
     // Remove from saved list so user can re-add after editing
+    // Also recalculate item_value so bill_value stays consistent
     setRows((prev) =>
-      prev.map((row, i) =>
-        i === rowIndex
-          ? { ...row, [key]: row[key].filter((_, j) => j !== subIndex) }
-          : row
-      )
+      prev.map((row, i) => {
+        if (i !== rowIndex) return row;
+        const updatedDetails = row[key].filter((_, j) => j !== subIndex);
+        const updatedItemValue = parseFloat(
+          updatedDetails.reduce((sum, d) => parseFloat(sum) + parseFloat(d.value || 0), 0).toFixed(2)
+        );
+        return { ...row, [key]: updatedDetails, item_value: updatedItemValue };
+      })
     );
   };
 
@@ -755,6 +829,7 @@ const PurchaseVoucher = () => {
           hsn: getValues('hsn'),
           table: getValues('table'),
           details: {
+            id: null,
             sl_no: lastSlNo,
             billno: "",
             packet: "",
@@ -1033,24 +1108,35 @@ const PurchaseVoucher = () => {
           <FieldContainer>
             <Label className="text-nowrap">HSN code <span className="text-primary font-normal text-xs">(select to add items)</span></Label>
 
-            <Controller
-              name="hsn"
-              control={control}
-              render={({ field }) => (
-                <Select disabled={rs.length > 0} onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger data-testid="hsn-select">
-                    <SelectValue placeholder="Select HSN" value={null} />
-                  </SelectTrigger>
+            {/* When rows exist (or editing), Radix Select never opens so SelectValue
+                can't resolve the label — render a plain disabled input instead. */}
+            {rs.length > 0 ? (
+              <Input
+                disabled
+                value={(() => {
+                  const match = hsns.find(h => h.hsn_no === hsn_current);
+                  return match ? `${match.hsn_no} — ${match.description || ''}`.trim() : (hsn_current || '');
+                })()}
+              />
+            ) : (
+              <Controller
+                name="hsn"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger data-testid="hsn-select">
+                      <SelectValue placeholder="Select HSN" />
+                    </SelectTrigger>
 
-                  <SelectContent>
-                    {hsns.map((hsn, index) => (
-                      <SelectItem key={index} value={hsn.hsn_no}>{hsn.description || hsn.hsn_no}</SelectItem>
-                    ))}
-
-                  </SelectContent>
-                </Select>
-              )}
-            />
+                    <SelectContent>
+                      {hsns.map((hsn, index) => (
+                        <SelectItem key={index} value={hsn.hsn_no}>{hsn.description || hsn.hsn_no}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            )}
 
           </FieldContainer>
           )}
@@ -1165,7 +1251,7 @@ const PurchaseVoucher = () => {
                   <Input type="number" {...register("table.pcs", { setValueAs: v => v === "" || v === undefined ? null : Number(v) })} />
                 </TableCell>
                 <TableCell className="px-4 py-2 border">
-                  <Input type="number" {...register("table.gw")} />
+                  <Input type="number" step="0.001" {...register("table.gw")} />
                 </TableCell>
                 <TableCell className="px-4 py-2 border">
                   <Input type="text" {...register("table.size")} />
@@ -1416,8 +1502,8 @@ const PurchaseVoucher = () => {
                     <TableCell className="px-4 py-2 border align-middle">
                       <div className="flex flex-row justify-center items-center gap-3">
 
-                        <SquarePen size={20} className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleEdit(rs.indexOf(item))} />
-                        <Trash2 size={20} color="#d45959" className={`mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleDelete(rs.indexOf(item))} />
+                        <SquarePen className={`w-4 h-4 mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleEdit(rs.indexOf(item))} />
+                        <Trash2 color="#d45959" className={`w-4 h-4 mr-1 ${item._editing ? "opacity-30 pointer-events-none" : "cursor-pointer"}`} onClick={() => handleDelete(rs.indexOf(item))} />
                       </div>
                     </TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.sl_no}</TableCell>
@@ -1428,7 +1514,7 @@ const PurchaseVoucher = () => {
 
                     <TableCell className="w-28 px-4 py-2 border">{item.pcs}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                    <TableCell className="w-28 px-4 py-2 border">{item.gw}</TableCell>
+                    <TableCell className="w-28 px-4 py-2 border">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.size}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.purity}</TableCell>
 
@@ -1446,11 +1532,11 @@ const PurchaseVoucher = () => {
                     <TableRow key={sub_id} className="bg-white">
                       <TableCell className="px-4 py-2 border align-middle">
                         <div className="flex flex-row justify-center items-center gap-1">
-                          <SquarePen size={16} color="#6d6d6d" className="cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
-                          <Trash2 size={16} color="#d45959" className="cursor-pointer" onClick={() => handleDeleteSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                          <SquarePen color="#6d6d6d" className="w-4 h-4 cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                          <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
                         </div>
                       </TableCell>
-                      <TableCell className="w-28 px-4 py-2 border">{detail.sl_no}</TableCell>
+                      <TableCell className="w-28 px-4 py-2 border">{item.sl_no}</TableCell>
                       {/* <TableCell className="w-28 px-4 py-2 border">{detail.bill_no}</TableCell> */}
                       <TableCell className="w-28 px-4 py-2 border">{detail.packet}</TableCell>
 
@@ -1505,7 +1591,7 @@ const PurchaseVoucher = () => {
               {rsRaw.map((detail, idx) => (
                 <TableRow key={idx}>
                   <TableCell className="px-4 py-2 border text-center">
-                    <Trash2 size={16} color="#d45959" className="cursor-pointer mx-auto" onClick={() => handleDeleteRawRow(idx)} />
+                    <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer mx-auto" onClick={() => handleDeleteRawRow(idx)} />
                   </TableCell>
                   <TableCell className="w-24 px-4 py-2 border">{detail.packet}</TableCell>
                   <TableCell className="w-24 px-4 py-2 border">{detail.sub_item}</TableCell>

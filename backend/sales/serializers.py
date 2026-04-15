@@ -168,6 +168,11 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True)
     billno = serializers.PrimaryKeyRelatedField(queryset=SalesVou.objects.all(),required=False,allow_null=True)
+    # Read-only helpers so the frontend recalc formula (uom === 'Ct' ? ct*rate : gw*rate)
+    # works correctly in edit mode as well as add mode.
+    uom = serializers.CharField(source='item.uom', read_only=True)
+    item_type = serializers.CharField(source='item.item_type', read_only=True)
+
     class Meta:
         model = SalesVouItemDetails
         fields = [
@@ -183,6 +188,8 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
             'amount',
             'packet',
             'fine_wt',  # Computed property
+            'uom',       # Read-only — item.uom, needed for frontend amount recalc
+            'item_type', # Read-only — item.item_type, needed for frontend B2B overrides
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -192,14 +199,28 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
 class SalesVouItemSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode")
+    # purity is IntegerField on model (stores PK of PurityMaster) but frontend
+    # sends the slug string (e.g. "14K"). Accept any value and resolve in validate.
+    purity = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     main_item_set = SalesVouItemDetailsSerializer(many=True)
+
+    # Read-only: lets the frontend know if this barcode is still in stock.
+    # False means it has been sold/transferred — the voucher should be locked for editing.
+    barcode_stk_status = serializers.SerializerMethodField(read_only=True)
+
+    def get_barcode_stk_status(self, obj):
+        try:
+            return obj.barcode.stk_status if obj.barcode_id else None
+        except Exception:
+            return None
 
     class Meta:
         model = SalesVouItem
         fields = [
             'id',
             'barcode',
+            'barcode_stk_status',
             'item',
             'pcs',
             'gw',
@@ -212,7 +233,43 @@ class SalesVouItemSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
+            'pcs': {'required': False, 'allow_null': True},
         }
+
+    def validate_purity(self, value):
+        """Convert purity slug string (e.g. '14K') to PurityMaster PK (integer)."""
+        if not value:
+            return 0
+        # Already numeric (PK) — return as-is
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            pass
+        # Slug string — look up the PK
+        try:
+            return PurityMaster.objects.get(purity=value).pk
+        except PurityMaster.DoesNotExist:
+            return 0
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        # Convert purity PK (integer) back to slug string for display / edit reload.
+        # IMPORTANT: use rep['purity'] rather than instance.purity here because
+        # during the update path, create_or_update_nested re-serializes the
+        # validated_data dicts.  Accessing a plain dict via attribute notation
+        # (instance.purity) raises AttributeError and aborts the update transaction,
+        # reverting all rate changes.  Reading from rep is always safe regardless
+        # of whether instance is a model object or a plain dict.
+        try:
+            purity_pk = int(rep.get('purity') or 0)
+        except (ValueError, TypeError):
+            purity_pk = 0
+        if purity_pk > 0:
+            try:
+                rep['purity'] = PurityMaster.objects.get(pk=purity_pk).purity
+            except PurityMaster.DoesNotExist:
+                rep['purity'] = str(purity_pk)
+        return rep
 
     def validate_barcode(self, barcode):
         request = self.context.get('request')
@@ -227,14 +284,11 @@ class SalesVouItemSerializer(serializers.ModelSerializer):
                     "(it may already be sold, in transit, or transferred)."
                 )
         return barcode
-    def create(self, instance, validated_data):
+    def create(self, validated_data):
         with transaction.atomic():
-
             detail_data = validated_data.pop('main_item_set', [])
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
-            create_or_update_nested(SalesVouItemDetailsSerializer, instance, 'main_item_set', 'main_item',SalesVouItemDetailsSerializer(detail_data,many=True).data)
+            instance = SalesVouItem.objects.create(**validated_data)
+            create_or_update_nested(SalesVouItemDetailsSerializer, instance, 'main_item_set', 'main_item', SalesVouItemDetailsSerializer(detail_data, many=True).data)
             return instance
 
     def update(self, instance, validated_data):
@@ -272,7 +326,7 @@ class BankDetails(serializers.ModelSerializer):
 class SalesVouSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
     sales_person = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all())
-    sales_person2 = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all())
+    sales_person2 = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all(), allow_null=True, required=False)
     salesvouitem_set = SalesVouItemSerializer(many=True)
     salesvouitemdetails_set = SalesVouItemDetailsSerializer(many=True)
     bank_details =  BankDetails(many=True)
@@ -341,7 +395,15 @@ class SalesVouSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
+            'remarks': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'cash': {'required': False, 'allow_null': True},
         }
+
+    def validate_cash(self, value):
+        """Treat null/empty cash as 0."""
+        if value is None:
+            return 0
+        return value
 
     def create(self, validated_data):
         from sales.utils import generate_next_sale_voucher_no
@@ -482,6 +544,18 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     detail_instance = SalesVouItemDetails.objects.create(main_item=sales_vou_item_instance, **detail_data)
                     item_detail_instances.append(detail_instance)
 
+            # ── Recompute mrp from actual saved items ─────────────────────────
+            # Journal balance: DEBIT total_bill_value = CREDIT Σmaking + Σitem.amount
+            # so mrp must equal Σ making_value + Σ item_detail.amount.
+            # Recomputing from DB guarantees consistency even if the frontend
+            # sent a slightly different value due to rounding or stale state.
+            _actual_mrp = (
+                sum(Decimal(str(item.making_value or 0)) for item in item_instances)
+                + sum(Decimal(str(d.amount or 0)) for d in item_detail_instances)
+            )
+            sales_vou_instance.mrp = _actual_mrp
+            sales_vou_instance.save(update_fields=['mrp'])
+
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
             out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
@@ -490,8 +564,31 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
-            _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
+
+            def _making_recv_ldgr_for_item(item):
+                """Return purity-specific making charge received ledger for a barcode item."""
+                try:
+                    purity_str = (item.barcode.purity.purity or '').upper() if item.barcode_id and item.barcode and item.barcode.purity else ''
+                except Exception:
+                    purity_str = ''
+                if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
+                    return _co.making_receive_14k_ldgr.ac_name
+                if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
+                    return _co.making_receive_18k_ldgr.ac_name
+                if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
+                    return _co.making_receive_22k_ldgr.ac_name
+                return _making_recv_ldgr  # fallback to generic
+
+            # Only build TCS journal line when TCS actually applies
+            _tcs_amt = float(sales_vou_instance.tcs_amt or 0)
+            _tcs_lines = []
+            if _tcs_amt > 0:
+                _tcs_ldgr_name = (
+                    sales_vou_instance.tcs_section.ledger.ac_name
+                    if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger
+                    else _raise_missing_ledger("TCS Payable (configure TCS Section master)")
+                )
+                _tcs_lines = [{'account': _tcs_ldgr_name, 'debit': 0, 'credit': f"{_tcs_amt:.2f}"}]
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
@@ -513,12 +610,9 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                             'debit':0,
                                             'credit':f"{sales_vou_instance.igst_amt:.2f}"
                                         },
-                                        {'account': sales_vou_instance.tcs_section.ledger.ac_name if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger else _raise_missing_ledger("TCS Payable (configure TCS Section master)"),
-                                            'debit':0,
-                                            'credit':f"{sales_vou_instance.tcs_amt:.2f}"
-                                        },
                                     ] +
-                                    [{'account':_making_recv_ldgr,
+                                    _tcs_lines +
+                                    [{'account': _making_recv_ldgr_for_item(item),
                                         'debit':0,
                                         'credit':f"{item.making_value:.2f}"
                                     } for item in item_instances] +
@@ -557,42 +651,42 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 + sum(Decimal(str(bank['amount'])) for bank in bank_details)
                 + old_gold_adjusted
             )
-            ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
-                                    "voucher_no":generate_voucher_no(global_vars.VoucherType.rcpt_sale, self.context.get('request').retail),
-                                    'retail':request.retail.id,
-                                    "narration":f"Sale Voucher Receipt Narration",
-                                    "voucher_type":global_vars.VoucherType.rcpt_sale,
+            rcpt_ref = None
+            if _rcpt_customer_credit > 0:
+                _cash_lines = ([{
+                    'account': _cash_ldgr,
+                    'debit': f"{sales_vou_instance.cash:.2f}",
+                    'credit': 0,
+                }] if sales_vou_instance.cash > 0 else [])
+                ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
+                                        "voucher_no":generate_voucher_no(global_vars.VoucherType.rcpt_sale, self.context.get('request').retail),
+                                        'retail':request.retail.id,
+                                        "narration":f"Sale Voucher Receipt Narration",
+                                        "voucher_type":global_vars.VoucherType.rcpt_sale,
 
-                                    "voucher_details": [
-                                        {
-                                'account':_cash_ldgr,
-                                'debit':f"{sales_vou_instance.cash:.2f}",
-                                'credit':0
-                            }] +
-                            [{
-                                'account': _bank_debit_account(bank),
-                                'debit':f"{Decimal(str(bank['amount'])):.2f}",
-                                'credit':0,
-                                'party_bank_name':bank["bank_name"],
-                                "chq_no":bank.get("chq_no"),
-                                "chq_date":bank.get("chq_date"),
-                            } for bank in bank_details] +
-                            # Old gold: DR old-gold vendor ledger, reducing their payable to us
-                            ([{
-                                'account': old_gold_purchase.ldgr.ac_name,
-                                'debit': f"{old_gold_adjusted:.2f}",
-                                'credit': 0,
-                            }] if old_gold_purchase and old_gold_adjusted > 0 else []) +
-                            [{
-                                        'account':sales_vou_instance.ldgr.ac_name,
-                                        'credit':f"{_rcpt_customer_credit:.2f}",
-                                        'debit':0
-                                    }]},
-                                    context=self.context)
-            if ser.is_valid(raise_exception=True):
-
-                rcpt_ref = ser.save()
-
+                                        "voucher_details": _cash_lines +
+                                [{
+                                    'account': _bank_debit_account(bank),
+                                    'debit':f"{Decimal(str(bank['amount'])):.2f}",
+                                    'credit':0,
+                                    'party_bank_name':bank["bank_name"],
+                                    "chq_no":bank.get("chq_no"),
+                                    "chq_date":bank.get("chq_date"),
+                                } for bank in bank_details] +
+                                # Old gold: DR old-gold vendor ledger, reducing their payable to us
+                                ([{
+                                    'account': old_gold_purchase.ldgr.ac_name,
+                                    'debit': f"{old_gold_adjusted:.2f}",
+                                    'credit': 0,
+                                }] if old_gold_purchase and old_gold_adjusted > 0 else []) +
+                                [{
+                                            'account':sales_vou_instance.ldgr.ac_name,
+                                            'credit':f"{_rcpt_customer_credit:.2f}",
+                                            'debit':0
+                                        }]},
+                                        context=self.context)
+                if ser.is_valid(raise_exception=True):
+                    rcpt_ref = ser.save()
 
             sales_vou_instance.ac_voucher = ref
             sales_vou_instance.ac_rec_voucher = rcpt_ref
@@ -635,27 +729,77 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         with transaction.atomic():
+            # ── Prevent editing if any barcode is no longer in stock ─────────
+            sold_barcodes = [
+                item.barcode.barcode
+                for item in instance.salesvouitem_set.select_related('barcode').all()
+                if item.barcode_id and item.barcode and not item.barcode.stk_status
+            ]
+            if sold_barcodes:
+                raise serializers.ValidationError(
+                    f"This voucher cannot be edited because the following barcode(s) are no longer "
+                    f"in stock (already sold or transferred): {', '.join(sold_barcodes)}. "
+                    f"Please create a Sales Return to reverse this transaction."
+                )
+
             detail_data = validated_data.pop('salesvouitem_set', [])
-            validated_data.pop('salesvouitemdetails_set', [])
+            item_details_data = validated_data.pop('salesvouitemdetails_set', [])
             bank_details = validated_data.pop('bank_details')
+
+            # ── Snapshot current DB values BEFORE setattr overwrites them ──────
+            # Needed to preserve subsequent payment receipts when recalculating due_amt.
+            _old_total_bill  = Decimal(str(instance.total_bill_value))
+            _old_cash        = Decimal(str(instance.cash or 0))
+            _old_bank_total  = sum(Decimal(str(b.amount)) for b in instance.bank_details.all())
+            _old_advance     = Decimal(str(instance.advance_deducted or 0))
+            _old_old_gold    = Decimal(str(instance.old_gold_adjusted or 0))
+            _old_due_amt     = Decimal(str(instance.due_amt or 0))
+            # "Due at sale" = what due_amt would have been right after the original sale
+            # (before any subsequent payment receipts were recorded against this bill)
+            _old_due_at_sale = _old_total_bill - _old_cash - _old_bank_total - _old_advance - _old_old_gold
+            # Amount received via payment receipts AFTER the original sale
+            _subsequent_payments = max(Decimal('0'), _old_due_at_sale - _old_due_amt)
+
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
 
-            create_or_update_nested(SalesVouItemSerializer, instance, 'salesvouitem_set', 'billno',SalesVouItemSerializer(detail_data,many=True).data)
+            create_or_update_nested(SalesVouItemSerializer, instance, 'salesvouitem_set', 'billno', SalesVouItemSerializer(detail_data, many=True).data)
+
+            # Rebuild direct manual details (those not linked to a barcode item).
+            # These were previously dropped on update — now they are properly saved.
+            instance.salesvouitemdetails_set.filter(main_item=None).delete()
+            for raw in item_details_data:
+                raw.pop('id', None)
+                raw.pop('billno', None)
+                SalesVouItemDetails.objects.create(billno=instance, main_item=None, **raw)
+
             sales_vou_instance = instance
             sales_vou_instance.ac_voucher.delete()
-            item_instances = []
-            item_detail_instances = []
-            create_or_update_nested(BankDetails,sales_vou_instance,'bank_details','sales_vou',BankDetails(bank_details,many=True).data)
+            create_or_update_nested(BankDetails, sales_vou_instance, 'bank_details', 'sales_vou', BankDetails(bank_details, many=True).data)
 
-            for detail_instance in sales_vou_instance.salesvouitemdetails_set.all():
-                item_detail_instances.append(detail_instance)
+            # ── Fresh DB queries — the prefetch_related cache on `instance` is STALE
+            #    after create_or_update_nested; using it would put old values in the journal.
+            from sales.models import SalesVouItem as _SVItem, SalesVouItemDetails as _SVDetail
+            item_instances = list(_SVItem.objects.filter(billno=instance).select_related('item', 'barcode__purity'))
+            item_detail_instances = list(
+                _SVDetail.objects.filter(billno=instance).select_related('item')
+            )
 
-            for sales_vou_item_instance in instance.salesvouitem_set.all():
-                item_instances.append(sales_vou_item_instance)
-                for detail_instance in sales_vou_item_instance.main_item_set.all():
-                    item_detail_instances.append(detail_instance)
+            # ── Recompute mrp from actual saved items ─────────────────────────
+            # Journal balance requires:
+            #   DEBIT  total_bill_value (= (mrp - discount) × (1 + tax_rate))
+            #   CREDIT Σ making_value  +  Σ item_detail.amount
+            # So mrp must equal Σ making_value + Σ item_detail.amount.
+            # If the frontend sent a stale mrp (e.g. after editing an item's rate),
+            # the journal would be unbalanced.  Recompute it from the DB — same fix
+            # as the purchase voucher's bill_value recomputation.
+            _actual_mrp = (
+                sum(Decimal(str(item.making_value or 0)) for item in item_instances)
+                + sum(Decimal(str(d.amount or 0)) for d in item_detail_instances)
+            )
+            instance.mrp = _actual_mrp
+            instance.save(update_fields=['mrp'])
 
             request = self.context.get("request")
             _gm = request.retail.gstin_master
@@ -666,8 +810,31 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
-            _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
+
+            def _making_recv_ldgr_for_item(item):
+                """Return purity-specific making charge received ledger for a barcode item."""
+                try:
+                    purity_str = (item.barcode.purity.purity or '').upper() if item.barcode_id and item.barcode and item.barcode.purity else ''
+                except Exception:
+                    purity_str = ''
+                if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
+                    return _co.making_receive_14k_ldgr.ac_name
+                if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
+                    return _co.making_receive_18k_ldgr.ac_name
+                if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
+                    return _co.making_receive_22k_ldgr.ac_name
+                return _making_recv_ldgr  # fallback to generic
+
+            # Only build TCS journal line when TCS actually applies
+            _tcs_amt = float(sales_vou_instance.tcs_amt or 0)
+            _tcs_lines = []
+            if _tcs_amt > 0:
+                _tcs_ldgr_name = (
+                    sales_vou_instance.tcs_section.ledger.ac_name
+                    if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger
+                    else _raise_missing_ledger("TCS Payable (configure TCS Section master)")
+                )
+                _tcs_lines = [{'account': _tcs_ldgr_name, 'debit': 0, 'credit': f"{_tcs_amt:.2f}"}]
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
@@ -689,12 +856,9 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                             'debit':0,
                                             'credit':f"{sales_vou_instance.igst_amt:.2f}"
                                         },
-                                        {'account': sales_vou_instance.tcs_section.ledger.ac_name if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger else _raise_missing_ledger("TCS Payable (configure TCS Section master)"),
-                                            'debit':0,
-                                            'credit':f"{sales_vou_instance.tcs_amt:.2f}"
-                                        },
                                     ] +
-                                    [{'account':_making_recv_ldgr,
+                                    _tcs_lines +
+                                    [{'account': _making_recv_ldgr_for_item(item),
                                         'debit':0,
                                         'credit':f"{item.making_value:.2f}"
                                     } for item in item_instances] +
@@ -730,11 +894,21 @@ class SalesVouSerializer(serializers.ModelSerializer):
             if ser.is_valid(raise_exception=True):
 
                 ref = ser.save()
+            # ── Recalculate due_amt preserving subsequent payment receipts ──────
+            _new_cash      = Decimal(str(sales_vou_instance.cash or 0))
+            _new_bank_total= sum(Decimal(str(b['amount'] or 0)) for b in bank_details)
+            _new_advance   = Decimal(str(sales_vou_instance.advance_deducted or 0))
+            _new_old_gold  = Decimal(str(sales_vou_instance.old_gold_adjusted or 0))
+            _new_total_bill= Decimal(str(sales_vou_instance.total_bill_value))
+            sales_vou_instance.due_amt = max(
+                Decimal('0'),
+                _new_total_bill - _new_cash - _new_bank_total - _new_advance - _new_old_gold - _subsequent_payments,
+            )
+
             sales_vou_instance.ac_voucher = ref
             sales_vou_instance.gstin_ref  = request.retail.gstin_master
             sales_vou_instance.branch_ref = request.retail.branch
             sales_vou_instance.save()
-
 
             return sales_vou_instance
 
@@ -850,6 +1024,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
 
             item_instances = []
             item_detail_instances = []
+            items_with_details = []  # list of (main_item, [detail_instances]) for journal building
             for item in items_data:
                 details_data = item.pop('salereturndetails_set')
                 id = item.pop('id')
@@ -860,64 +1035,55 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                     sale_return_item_instance.barcode.stk_status = True
                     sale_return_item_instance.barcode.save()
 
+                detail_instances = []
                 for detail in details_data:
                     det = SaleReturnDetails.objects.create(main_item=sale_return_item_instance, **detail)
+                    detail_instances.append(det)
                     item_detail_instances.append(det)
+                items_with_details.append((sale_return_item_instance, detail_instances))
 
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
             out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
             out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
             out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
-            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
             _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
+
+            # Build item journal lines:
+            # Making is rolled into the FIRST sub-item's sale_ledger debit so that the
+            # return passes through the same sale ledgers as the original sale entry,
+            # rather than splitting into a separate "Making Charge Received" account.
+            _sr_item_lines = []
+            for _main, _sub_details in items_with_details:
+                _making = Decimal(str(_main.making_value or 0))
+                for _idx, _d in enumerate(_sub_details):
+                    _amt = Decimal(str(_d.amount or 0)) + (_making if _idx == 0 else Decimal('0'))
+                    _sr_item_lines.append({
+                        'account': _d.item.sale_ledger.ac_name,
+                        'debit': f"{_amt:.2f}",
+                    })
+
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
                         "narration":f"Sale Return Narration",
                         "voucher_type":global_vars.VoucherType.sale_ret,
                         "retail":request.retail.id,
                         "voucher_details": [
-                            {
-                                'account': out_cgst,
-
-                                'debit':f"{sale_return_instance.cgst_amt:.2f}"
-                            },
-                            {'account': out_sgst,
-
-                                'debit':f"{sale_return_instance.sgst_amt:.2f}"
-                            },
-                            {'account': out_igst,
-
-                                'debit':f"{sale_return_instance.igst_amt:.2f}"
-                            },
-                            {'account':_tcs_ldgr,
-
-                                'debit':f"{sale_return_instance.tcs_amt:.2f}"
-                            },
+                            {'account': out_cgst, 'debit':f"{sale_return_instance.cgst_amt:.2f}"},
+                            {'account': out_sgst, 'debit':f"{sale_return_instance.sgst_amt:.2f}"},
+                            {'account': out_igst, 'debit':f"{sale_return_instance.igst_amt:.2f}"},
+                            {'account':_tcs_ldgr,  'debit':f"{sale_return_instance.tcs_amt:.2f}"},
                         ] +
-                        [{'account':_making_recv_ldgr,
-
-                            'debit':f"{item.making_value:.2f}"
-                        } for item in item_instances] +
-                        [{
-                            'account':item.item.sale_ledger.ac_name,
-
-                            'debit':f"{item.amount:.2f}"
-                        } for item in item_detail_instances] +
-
+                        _sr_item_lines +
                         [{
                             'account':_discount_ldgr,
                             'credit':f"{sale_return_instance.discount:.2f}",
-
-                        },
-                       ] +
+                        }] +
                         [{
                             'account':sale_return_instance.ldgr.ac_name,
-                            'credit':f"{(sale_return_instance.total_bill_value ):.2f}",
-
+                            'credit':f"{(sale_return_instance.total_bill_value):.2f}",
                         }]},
                         context=self.context)
             if ser.is_valid(raise_exception=True):
@@ -962,13 +1128,17 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             create_or_update_nested(SaleReturnItemSerializer, instance, 'salereturnitem_set', 'billno',SaleReturnItemSerializer(detail_data,many=True).data)
             sale_return_instance = instance
             instance.ac_voucher.delete()
-            item_instances = []
-            item_detail_instances = []
-            for sale_return_item_instance in instance.salereturnitem_set.all():
-                item_instances.append(sale_return_item_instance)
-
-                for detail in sale_return_item_instance.salereturndetails_set.all():
-                    item_detail_instances.append(detail)
+            # Fresh DB queries — avoid stale prefetch cache left by create_or_update_nested
+            from sales.models import SaleReturnItem as _SRItem, SaleReturnDetails as _SRDetails
+            item_instances = list(_SRItem.objects.filter(billno=instance).select_related('item__sale_ledger', 'purity'))
+            item_detail_instances = list(_SRDetails.objects.filter(main_item__billno=instance).select_related('item__sale_ledger', 'main_item'))
+            # Recompute mrp from actual saved items so the journal entry balances
+            _actual_mrp = (
+                sum(Decimal(str(it.making_value or 0)) for it in item_instances)
+                + sum(Decimal(str(d.amount or 0)) for d in item_detail_instances)
+            )
+            sale_return_instance.mrp = _actual_mrp
+            sale_return_instance.save(update_fields=['mrp'])
 
             request = self.context.get('request')
             _gm = request.retail.gstin_master
@@ -976,11 +1146,23 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
             out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
             out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
             _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
+
+            # Build item journal lines: making rolled into first sub-item's sale_ledger
+            from collections import defaultdict as _defaultdict
+            _sr_details_by_main = _defaultdict(list)
+            for _d in item_detail_instances:
+                _sr_details_by_main[_d.main_item_id].append(_d)
+            _sr_item_lines = []
+            for _main in item_instances:
+                _making = Decimal(str(_main.making_value or 0))
+                for _idx, _d in enumerate(_sr_details_by_main.get(_main.id, [])):
+                    _amt = Decimal(str(_d.amount or 0)) + (_making if _idx == 0 else Decimal('0'))
+                    _sr_item_lines.append({'account': _d.item.sale_ledger.ac_name, 'debit': f"{_amt:.2f}"})
+
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
                         "narration":f"Sale Return Narration",
@@ -1005,15 +1187,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                                 'debit':f"{sale_return_instance.tcs_amt:.2f}"
                             },
                         ] +
-                        [{'account':_making_recv_ldgr,
-
-                            'debit':f"{item.making_value:.2f}"
-                        } for item in item_instances] +
-                        [{'account':item.item.sale_ledger.ac_name,
-
-                            'debit':f"{item.amount:.2f}"
-                        } for item in item_detail_instances] +
-
+                        _sr_item_lines +
                         [{
                             'account':_discount_ldgr,
                             'credit':f"{sale_return_instance.discount:.2f}",

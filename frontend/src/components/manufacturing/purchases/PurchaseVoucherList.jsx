@@ -19,7 +19,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { useSearchParams } from 'react-router-dom';
-import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow, TableCell } from "@/components/ui/table";
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 
 function PurchaseVoucherList({ voucherType = "" }) {
@@ -120,10 +120,10 @@ const totalPages = data?.data?.total_pages ?? 1;
             onClick={() => deleteVoucherMutation.mutate({id:row.original.id})}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
-            <Trash2 className="mr-1" />
+            <Trash2 className="w-4 h-4" />
           </button>
           <button onClick={() => openAndPrint(<PurchaseVoucher data={{ ...row.original, ...companyInfo }} />)}>
-            <Printer />
+            <Printer className="w-4 h-4" />
           </button>
           {row.original.voucher_type === "Vendor" && (
             <PurchaseAttachments
@@ -148,13 +148,37 @@ const totalPages = data?.data?.total_pages ?? 1;
       accessorKey: "ldgr_name",
     },
     {
-      header: "Place of supply",
-      accessorKey: "pos_name",
+      header: "Amount",
+      accessorKey: "bill_value",
+      cell: ({ getValue }) => {
+        const v = parseFloat(getValue() || 0);
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+      },
     },
-    // {
-    //   header: "Bill amount ",
-    //   accessorKey: "bill_value",
-    // },
+    {
+      header: "Tax",
+      accessorKey: "id",
+      id: "tax",
+      cell: ({ row }) => {
+        const tax = parseFloat(row.original.cgst || 0) + parseFloat(row.original.sgst || 0) + parseFloat(row.original.igst || 0);
+        return tax > 0 ? tax.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+      },
+    },
+    {
+      header: "GW",
+      accessorKey: "total_gw",
+      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "—",
+    },
+    {
+      header: "NW",
+      accessorKey: "total_nw",
+      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "—",
+    },
+    {
+      header: "Stone Wt",
+      accessorKey: "total_stone_wt",
+      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "—",
+    },
   ];
 
   return (
@@ -243,97 +267,94 @@ const totalPages = data?.data?.total_pages ?? 1;
 
       {showPanel && (
         <>
-          <ResizableHandle />
+          <ResizableHandle withHandle />
           <ResizablePanel defaultSize={30}>
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-              <h2 className="font-bold text-lg text-gray-800">Purchase Details</h2>
+            {/* Panel header — matches ERP border-b style, no gradient */}
+            <div className="flex items-center justify-between px-4 py-2.5 border-b bg-background">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Purchase Details</p>
+                <p className="text-sm font-medium text-foreground">{details.billno}</p>
+              </div>
               <button
                 onClick={() => setShowPanel(false)}
-                className="p-1 hover:bg-gray-200 rounded-md transition-colors"
+                className="p-1 rounded-md hover:bg-muted transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600 hover:text-red-600" />
+                <X className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
-            <div className="overflow-auto h-full bg-white">
-              <Table className="w-full table-fixed border-collapse">
-                <TableBody>
-                  <TableRow className="bg-gradient-to-r from-indigo-600 to-blue-600 sticky top-0 z-10">
-                    <TableCell className="w-12 px-3 py-3 border text-white font-semibold text-center">Sl</TableCell>
-                    <TableCell className="w-20 px-3 py-3 border text-white font-semibold">Date</TableCell>
-                    <TableCell className="w-20 px-3 py-3 border text-white font-semibold">Packet</TableCell>
-                    <TableCell className="w-24 px-3 py-3 border text-white font-semibold">Item</TableCell>
-                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Pcs</TableCell>
-                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Ct</TableCell>
-                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Gw</TableCell>
-                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold">Size</TableCell>
-                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Purity</TableCell>
-                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Loss</TableCell>
-                    <TableCell className="w-14 px-3 py-3 border text-white font-semibold text-center">Tunch</TableCell>
-                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Fine wt</TableCell>
-                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Rate</TableCell>
-                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Making</TableCell>
-                    <TableCell className="w-16 px-3 py-3 border text-white font-semibold text-center">Value</TableCell>
-                    <TableCell className="w-20 px-3 py-3 border text-white font-semibold">Remarks</TableCell>
-                    <TableCell className="w-32 px-3 py-3 border text-white font-semibold text-center">Action</TableCell>
-                  </TableRow>
 
-                  <React.Fragment>
+            {/* Detail table */}
+            <div className="overflow-auto h-[calc(100%-45px)]">
+              <div className="rounded-none border-0 overflow-hidden">
+                <Table className="w-full table-fixed text-sm">
+                  <TableHeader>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      {["Sl","Date","Packet","Item","Pcs","Ct","Gw","Purity","Fine Wt","Rate","Making","Value","Action"].map((col) => (
+                        <TableHead
+                          key={col}
+                          className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap border-b"
+                        >
+                          {col}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {details.purchasevoucheritems_set.map((item, idx) => (
                       <React.Fragment key={idx}>
-                        <TableRow className="bg-blue-50 hover:bg-blue-100 transition-colors border-b-2 border-blue-200">
-                          <TableCell className="w-12 px-3 py-3 border font-semibold text-blue-700 text-center">{idx + 1}</TableCell>
-                          <TableCell className="w-20 px-3 py-3 border text-sm">{item.date}</TableCell>
-                          <TableCell className="w-20 px-3 py-3 border text-sm text-gray-600">—</TableCell>
-                          <TableCell className="w-24 px-3 py-3 border font-semibold text-gray-800">{item.item}</TableCell>
-                          <TableCell className="w-14 px-3 py-3 border text-center text-sm">{item.pcs}</TableCell>
-                          <TableCell className="w-14 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
-                          <TableCell className="w-14 px-3 py-3 border text-center font-medium">{item.gw}</TableCell>
-                          <TableCell className="w-16 px-3 py-3 border text-sm">{item.size || "—"}</TableCell>
-                          <TableCell className="w-16 px-3 py-3 border text-center text-sm">{item.purity}</TableCell>
-                          <TableCell className="w-14 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
-                          <TableCell className="w-14 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
-                          <TableCell className="w-16 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
-                          <TableCell className="w-16 px-3 py-3 border text-center text-sm">{item.making_amt || "—"}</TableCell>
-                          <TableCell className="w-16 px-3 py-3 border text-center text-sm text-gray-600">—</TableCell>
-                          <TableCell className="w-16 px-3 py-3 border text-center font-medium text-green-700">{item.item_value}</TableCell>
-                          <TableCell className="w-20 px-3 py-3 border text-xs text-gray-600">{item.remarks || "—"}</TableCell>
-                          <TableCell className="w-32 px-2 py-3 border text-center">
+                        {/* Main item row */}
+                        <TableRow className={`hover:bg-accent/40 transition-colors ${idx % 2 === 1 ? "bg-muted/20" : ""}`}>
+                          <TableCell className="px-3 py-2 text-xs font-medium text-center">{idx + 1}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{item.date}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">—</TableCell>
+                          <TableCell className="px-3 py-2 text-xs font-semibold text-foreground">{item.item}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center">{item.pcs}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center font-medium">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center">{item.purity || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center">{item.making_amt || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center font-medium text-foreground">
+                            {item.item_value != null ? Number(item.item_value).toLocaleString("en-IN") : "—"}
+                          </TableCell>
+                          <TableCell className="px-2 py-2 text-center">
                             <Button
                               onClick={() => navigate(`/inventory/barcodemanagement/list/add/?bill_no=${encodeURIComponent(details.billno)}&sl_no=${item.sl_no}`)}
                               disabled={!(item.pending_gw > 0)}
-                              className="whitespace-nowrap text-xs"
                               size="sm"
+                              className="whitespace-nowrap text-xs h-7 px-2"
                             >
                               Create Barcode
                             </Button>
                           </TableCell>
                         </TableRow>
+
+                        {/* Sub-detail rows — indented, subtler */}
                         {item.purchasevoucherdetails_set?.map((detail, sub_id) => (
-                          <TableRow key={sub_id} className="bg-gray-50 hover:bg-gray-100 transition-colors">
-                            <TableCell className="w-12 px-3 py-2 border text-xs text-gray-600 text-center">  {detail.sl_no}</TableCell>
-                            <TableCell className="w-20 px-3 py-2 border text-xs text-gray-600">—</TableCell>
-                            <TableCell className="w-20 px-3 py-2 border text-xs">{detail.packet}</TableCell>
-                            <TableCell className="w-24 px-3 py-2 border text-xs text-gray-700">{detail.sub_item}</TableCell>
-                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{detail.sub_pcs}</TableCell>
-                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
-                            <TableCell className="w-14 px-3 py-2 border text-center text-xs font-medium">{detail.sub_gw}</TableCell>
-                            <TableCell className="w-16 px-3 py-2 border text-xs text-gray-600">—</TableCell>
-                            <TableCell className="w-16 px-3 py-2 border text-center text-xs">{detail.metal_purity}</TableCell>
-                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{detail.loss || "—"}</TableCell>
-                            <TableCell className="w-14 px-3 py-2 border text-center text-xs">{detail.tunch || "—"}</TableCell>
-                            <TableCell className="w-16 px-3 py-2 border text-center text-xs">{detail.fine_wt || "—"}</TableCell>
-                            <TableCell className="w-16 px-3 py-2 border text-center text-xs">{detail.rate || "—"}</TableCell>
-                            <TableCell className="w-16 px-3 py-2 border text-center text-xs text-gray-600">—</TableCell>
-                            <TableCell className="w-16 px-3 py-2 border text-center text-xs font-medium text-green-600">{detail.value}</TableCell>
-                            <TableCell className="w-20 px-3 py-2 border text-xs text-gray-600">—</TableCell>
-                            <TableCell className="w-32 px-3 py-2 border text-xs text-gray-600">—</TableCell>
+                          <TableRow key={sub_id} className="bg-muted/10 hover:bg-muted/30 transition-colors border-l-2 border-l-border">
+                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground text-center">{detail.sl_no}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground">—</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs">{detail.packet || "—"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground pl-5">{detail.sub_item}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.sub_pcs}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center font-medium">{detail.sub_gw || "—"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.metal_purity || "—"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.fine_wt || "—"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.rate || "—"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center text-muted-foreground">—</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center font-medium">
+                              {detail.value != null ? Number(detail.value).toLocaleString("en-IN") : "—"}
+                            </TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground">—</TableCell>
                           </TableRow>
                         ))}
                       </React.Fragment>
                     ))}
-                  </React.Fragment>
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           </ResizablePanel>
         </>

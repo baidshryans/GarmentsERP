@@ -65,9 +65,9 @@ function StockJournalPrintView({ data }) {
               <td style={{ ...tdStyle, textAlign: "center" }}>{r.item || "—"}</td>
               <td style={{ ...tdStyle, textAlign: "center" }}>{r.metal_purity || "—"}</td>
               <td style={{ ...tdStyle, textAlign: "right" }}>{r.pcs ?? "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>{r.ct  ?? "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>{r.gw  ?? "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>{r.loss || 0}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>{r.ct  != null ? parseFloat(r.ct).toFixed(3) : "—"}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>{r.gw  != null ? parseFloat(r.gw).toFixed(3) : "—"}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>{r.loss != null ? parseFloat(r.loss).toFixed(3) : 0}</td>
             </tr>
           ))}
         </tbody>
@@ -135,20 +135,20 @@ const StockJournalList = () => {
       cell: ({ row }) => (
         <div className="flex items-center space-x-3">
           <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
-            <SquarePen size={16} />
+            <SquarePen className="w-4 h-4" />
           </Link>
           <button
             onClick={() => deleteStockJournal(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
-            <Trash2 size={16} />
+            <Trash2 className="w-4 h-4" />
           </button>
           <button
             onClick={() => handlePrint(row.original.id)}
             className="text-blue-500 hover:text-blue-700"
             title="Print"
           >
-            <Printer size={16} />
+            <Printer className="w-4 h-4" />
           </button>
         </div>
       ),

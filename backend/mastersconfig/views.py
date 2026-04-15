@@ -129,6 +129,7 @@ class RetrieveUpdateDestroyPacket(RetrieveUpdateDestroyAPIView):
 
 class ListCreateSalesPersonMaster(ListCreateAPIView):
     serializer_class = SalesPersonMasterSerializer
+    pagination_class = None
 
     def get_queryset(self):
         retail = getattr(self.request, "retail", None)

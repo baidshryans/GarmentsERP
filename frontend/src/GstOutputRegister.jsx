@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Search, TrendingUp, TrendingDown } from 'lucide-react';
-import { fetchGSTOutputReport, fetchGstins } from "./services/apiService";
+import { fetchGSTOutputReport, fetchGstins, getFiscalYears } from "./services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 const GstOutputRegister = () => {
-  const [startDate, setStartDate] = useState('2024-02-01');
-  const [endDate, setEndDate] = useState('2025-12-30');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState(today());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,6 +20,12 @@ const GstOutputRegister = () => {
   useEffect(() => {
     fetchGstins().then(r => {
       if (r.success) setGstins(r.data?.results || r.data || []);
+    });
+    getFiscalYears().then(r => {
+      if (r.success) {
+        const active = (r.data?.results || r.data || []).find(fy => fy.is_active);
+        if (active?.fy_start) setStartDate(active.fy_start);
+      }
     });
   }, []);
 
@@ -35,8 +43,8 @@ const GstOutputRegister = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (startDate) fetchData();
+  }, [startDate]);
 
   const getMergedAndSortedData = () => {
     if (!data) return [];

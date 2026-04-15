@@ -95,6 +95,18 @@ class CompanyMaster(models.Model):
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='company_making_charge_paid_22k'
     )
+    making_receive_14k_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_making_receive_14k'
+    )
+    making_receive_18k_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_making_receive_18k'
+    )
+    making_receive_22k_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_making_receive_22k'
+    )
     sale_discount_ldgr = models.ForeignKey(
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='company_sale_discount'

@@ -140,6 +140,7 @@ const StoneIssue = () => {
 
   }, [rs]);
 
+  const tablePacket = watch("table.packet");
   const slip_type = watch("form.slip_type")
   useEffect(() => {
     async function fetchData() {
@@ -287,7 +288,7 @@ const StoneIssue = () => {
       setValue("table.sgst", sgst_val)
       setValue("table.cgst", cgst_val)
       setValue("table.tot_val", tot)
-      setValue("table.gw",parseFloat(ct)/5)
+      setValue("table.gw", parseFloat((parseFloat(ct) / 5).toFixed(3)))
       console.log(sgst_val)
       console.log(cgst_val)
       console.log(tot)
@@ -463,8 +464,12 @@ const StoneIssue = () => {
                 </datalist>
               </TableCell>
               <TableCell className="w-20 px-4 py-2 border">
-                <Input type="text" {...register("table.item")} />
-
+                <Input
+                  type="text"
+                  disabled={!!tablePacket}
+                  className={tablePacket ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
+                  {...register("table.item")}
+                />
               </TableCell>
               <TableCell className="w-16 px-4 py-2 border">
                 <Input type="number" {...register("table.pcs", {
@@ -472,13 +477,13 @@ const StoneIssue = () => {
                 })} />
               </TableCell>
               <TableCell className="w-16 px-4 py-2 border">
-                <Input type="number" {...register("table.ct", {
+                <Input type="number" step="0.001" {...register("table.ct", {
                   onChange: handleCTchange
-                  , disabled: (uom === "gm")||(uom === "pcs") , readOnly :(uom === "gm")||(uom === "pcs") 
+                  , disabled: (uom === "gm")||(uom === "pcs") , readOnly :(uom === "gm")||(uom === "pcs")
                 })} />
               </TableCell>
               <TableCell className="w-24 px-4 py-2 border">
-                <Input type="number" {...register("table.gw", {
+                <Input type="number" step="0.001" {...register("table.gw", {
                   onChange: handleGWchange
                   ,disabled: (uom === "ct"),readOnly: (uom === "ct")
                 })} />
@@ -515,16 +520,16 @@ const StoneIssue = () => {
               <TableRow key={index} className="w-full bg-white">
                 <TableCell className="w-32 px-4 py-2 border">
                   <div className="flex gap-4">
-                    <SquarePen size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
+                    <SquarePen className="w-4 h-4 mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
 
-                    <Trash2 size={24} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
+                    <Trash2 color="#d45959" className="w-4 h-4 mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
                 </div>
                 </TableCell>
                  <TableCell className="w-16 px-4 py-2 border">{row.packet}</TableCell>
                 <TableCell className="w-16 px-4 py-2 border">{row.item}</TableCell>
                 <TableCell className="w-16 px-4 py-2 border">{row.pcs}</TableCell>
-                <TableCell className="w-24 px-4 py-2 border">{row.ct}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.gw}</TableCell>
+                <TableCell className="w-24 px-4 py-2 border">{row.ct != null ? parseFloat(row.ct).toFixed(3) : "—"}</TableCell>
+                <TableCell className="w-32 px-4 py-2 border">{row.gw != null ? parseFloat(row.gw).toFixed(3) : "—"}</TableCell>
                 <TableCell className="w-32 px-4 py-2 border">{row.rate}</TableCell>
                 <TableCell className="w-32 px-4 py-2 border">{row.taxable_value}</TableCell>
                 <TableCell className="w-20 px-4 py-2 border">{row.cgst}</TableCell>

@@ -1,0 +1,1829 @@
+[
+  {
+    "i": 1,
+    "path": "accounting",
+    "status": "ok",
+    "duration_ms": 2818,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 2,
+    "path": "accounting/AddJournal",
+    "status": "ok",
+    "duration_ms": 2295,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 3,
+    "path": "accounting/account-create",
+    "status": "ok",
+    "duration_ms": 2841,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 4,
+    "path": "accounting/account-tree",
+    "status": "ok",
+    "duration_ms": 2455,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 5,
+    "path": "accounting/advance-register",
+    "status": "ok",
+    "duration_ms": 2749,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 6,
+    "path": "accounting/aged-receivables",
+    "status": "ok",
+    "duration_ms": 2453,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 7,
+    "path": "accounting/audit-queue",
+    "status": "ok",
+    "duration_ms": 2483,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 8,
+    "path": "accounting/balancesheet",
+    "status": "ok",
+    "duration_ms": 2501,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 9,
+    "path": "accounting/bank-reconciliation",
+    "status": "ok",
+    "duration_ms": 6849,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 10,
+    "path": "accounting/bankbook",
+    "status": "ok",
+    "duration_ms": 2728,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 11,
+    "path": "accounting/cashbook",
+    "status": "ok",
+    "duration_ms": 2291,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 12,
+    "path": "accounting/cashgoldconversion",
+    "status": "ok",
+    "duration_ms": 2759,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 13,
+    "path": "accounting/credit-debit-notes",
+    "status": "ok",
+    "duration_ms": 2687,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 14,
+    "path": "accounting/credit-debit-notes/add",
+    "status": "ok",
+    "duration_ms": 6253,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 15,
+    "path": "accounting/day-book",
+    "status": "ok",
+    "duration_ms": 2304,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 16,
+    "path": "accounting/gstinputregister",
+    "status": "ok",
+    "duration_ms": 2372,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 17,
+    "path": "accounting/gstoutputregister",
+    "status": "ok",
+    "duration_ms": 2524,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 18,
+    "path": "accounting/ledger-statement",
+    "status": "ok",
+    "duration_ms": 2321,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 19,
+    "path": "accounting/opening-balance",
+    "status": "ok",
+    "duration_ms": 5999,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 20,
+    "path": "accounting/outstanding",
+    "status": "ok",
+    "duration_ms": 2627,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 21,
+    "path": "accounting/profitdemo",
+    "status": "ok",
+    "duration_ms": 2542,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "401 http://127.0.0.1:8000/accounting/api/pnl"
+    ]
+  },
+  {
+    "i": 22,
+    "path": "accounting/profitloss",
+    "status": "ok",
+    "duration_ms": 2592,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 23,
+    "path": "accounting/profitlosscal",
+    "status": "ok",
+    "duration_ms": 2698,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 24,
+    "path": "accounting/reports",
+    "status": "ok",
+    "duration_ms": 2714,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 25,
+    "path": "accounting/reports/financial-ratios",
+    "status": "ok",
+    "duration_ms": 2621,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 26,
+    "path": "accounting/reports/gold-ledger-balances",
+    "status": "ok",
+    "duration_ms": 2742,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 27,
+    "path": "accounting/reports/gstr1",
+    "status": "ok",
+    "duration_ms": 2400,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 28,
+    "path": "accounting/reports/gstr3b",
+    "status": "ok",
+    "duration_ms": 2372,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 29,
+    "path": "accounting/reports/tcs-register",
+    "status": "ok",
+    "duration_ms": 2795,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 30,
+    "path": "accounting/reports/tds-register",
+    "status": "ok",
+    "duration_ms": 2751,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 31,
+    "path": "accounting/trialbalance",
+    "status": "ok",
+    "duration_ms": 2532,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 32,
+    "path": "accounting/vouchers",
+    "status": "ok",
+    "duration_ms": 1934,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 33,
+    "path": "accounting/vouchers/select",
+    "status": "ok",
+    "duration_ms": 2509,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 34,
+    "path": "apps",
+    "status": "ok",
+    "duration_ms": 2293,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 35,
+    "path": "crm",
+    "status": "ok",
+    "duration_ms": 2694,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 36,
+    "path": "crm/customer-history",
+    "status": "ok",
+    "duration_ms": 2497,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 37,
+    "path": "crm/ledger",
+    "status": "ok",
+    "duration_ms": 2789,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 38,
+    "path": "crm/ledger/add",
+    "status": "ok",
+    "duration_ms": 1589,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 39,
+    "path": "crm/occasions",
+    "status": "ok",
+    "duration_ms": 8428,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 40,
+    "path": "fixed-assets",
+    "status": "ok",
+    "duration_ms": 2576,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 41,
+    "path": "fixed-assets/depreciation",
+    "status": "ok",
+    "duration_ms": 2587,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 42,
+    "path": "fixed-assets/master",
+    "status": "ok",
+    "duration_ms": 2988,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 43,
+    "path": "fixed-assets/settings",
+    "status": "ok",
+    "duration_ms": 2552,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 44,
+    "path": "goldrate/form",
+    "status": "ok",
+    "duration_ms": 2482,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 45,
+    "path": "hr",
+    "status": "ok",
+    "duration_ms": 2576,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 46,
+    "path": "hr/employees",
+    "status": "ok",
+    "duration_ms": 2362,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 47,
+    "path": "hr/salary-processing",
+    "status": "ok",
+    "duration_ms": 2377,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 48,
+    "path": "hr/salary-structure",
+    "status": "ok",
+    "duration_ms": 2705,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 49,
+    "path": "hr/settings",
+    "status": "ok",
+    "duration_ms": 2619,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 50,
+    "path": "inventory",
+    "status": "ok",
+    "duration_ms": 2550,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 51,
+    "path": "inventory/barcode-bulk",
+    "status": "ok",
+    "duration_ms": 3356,
+    "console_errors": [
+      "The above error occurred in the <BarcodeBulkOps> component:\n\n    at BarcodeBulkOps (http://127.0.0.1:4321/src/components/Inventory/BarcodeManagement/BarcodeBulkOps.jsx:144:39)\n    at div\n    at Header (http://127.0.0.1:4321/src/breadCrumbDecor.jsx:289:19)\n    at ProtectedRoute (http://127.0.0.1:4321/src/App.jsx:380:27)\n    at RenderedRoute (http://127.0.0.1:4321/node_modules/.vite/deps/chunk-53IME55R.js?v=042d15a4:6416:26)\n    at Outlet (http://127.0.0.1:4321/node_modules/.vite/deps/chunk-53IME5"
+    ],
+    "page_errors": [
+      "items.map is not a function",
+      "items.map is not a function",
+      "items.map is not a function"
+    ],
+    "http_errors": []
+  },
+  {
+    "i": 52,
+    "path": "inventory/barcode-print",
+    "status": "ok",
+    "duration_ms": 2377,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 53,
+    "path": "inventory/barcodemanagement",
+    "status": "ok",
+    "duration_ms": 2911,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 54,
+    "path": "inventory/barcodemanagement/barcodehistory/",
+    "status": "ok",
+    "duration_ms": 2502,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 55,
+    "path": "inventory/barcodemanagement/list/",
+    "status": "ok",
+    "duration_ms": 2302,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 56,
+    "path": "inventory/barcodemanagement/list/add/",
+    "status": "ok",
+    "duration_ms": 3712,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 57,
+    "path": "inventory/barcodemanagement/merge/",
+    "status": "ok",
+    "duration_ms": 3190,
+    "console_errors": [
+      "Warning: validateDOMNesting(...): %s cannot appear as a child of <%s>.%s%s%s <h6> tbody   \n    at h6\n    at tbody\n    at _c5 (http://127.0.0.1:4321/src/components/ui/table.jsx:53:12)\n    at table\n    at div\n    at _c (http://127.0.0.1:4321/src/components/ui/table.jsx:20:11)\n    at form\n    at div\n    at MergeBarcode (http://127.0.0.1:4321/src/components/Inventory/BarcodeManagement/barcodeMerge.jsx:36:21)\n    at div\n    at Header (http://127.0.0.1:4321/src/breadCrumbDecor.jsx:289:19)\n    at Prote"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 58,
+    "path": "inventory/barcodemanagement/split/",
+    "status": "ok",
+    "duration_ms": 4498,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 59,
+    "path": "inventory/design/list/",
+    "status": "ok",
+    "duration_ms": 2370,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 60,
+    "path": "inventory/reports",
+    "status": "ok",
+    "duration_ms": 2437,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 61,
+    "path": "inventory/reports/barcodemerge",
+    "status": "ok",
+    "duration_ms": 2540,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 62,
+    "path": "inventory/reports/barcodesplit",
+    "status": "ok",
+    "duration_ms": 2650,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 63,
+    "path": "inventory/reports/barcodestockreport",
+    "status": "ok",
+    "duration_ms": 2602,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 64,
+    "path": "inventory/reports/closing-stock",
+    "status": "ok",
+    "duration_ms": 2360,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 65,
+    "path": "inventory/reports/idgen",
+    "status": "ok",
+    "duration_ms": 3369,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "404 http://127.0.0.1:8000/auth/api/users/?page_size=500"
+    ]
+  },
+  {
+    "i": 66,
+    "path": "inventory/reports/itemwisebarcode",
+    "status": "ok",
+    "duration_ms": 2500,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 67,
+    "path": "inventory/reports/metalreport",
+    "status": "ok",
+    "duration_ms": 2687,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 68,
+    "path": "inventory/reports/packetwisestone",
+    "status": "ok",
+    "duration_ms": 3089,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 69,
+    "path": "inventory/reports/raw-material",
+    "status": "ok",
+    "duration_ms": 3112,
+    "console_errors": [
+      "The above error occurred in the <RawMaterialBalanceReport> component:\n\n    at RawMaterialBalanceReport (http://127.0.0.1:4321/src/components/Inventory/RawMaterialBalanceReport.jsx:66:35)\n    at div\n    at Header (http://127.0.0.1:4321/src/breadCrumbDecor.jsx:289:19)\n    at ProtectedRoute (http://127.0.0.1:4321/src/App.jsx:380:27)\n    at RenderedRoute (http://127.0.0.1:4321/node_modules/.vite/deps/chunk-53IME55R.js?v=042d15a4:6416:26)\n    at Outlet (http://127.0.0.1:4321/node_modules/.vite/deps/c"
+    ],
+    "page_errors": [
+      "items.map is not a function",
+      "items.map is not a function",
+      "items.map is not a function"
+    ],
+    "http_errors": []
+  },
+  {
+    "i": 70,
+    "path": "inventory/reports/raw-material-ledger",
+    "status": "ok",
+    "duration_ms": 2836,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 71,
+    "path": "inventory/reports/semi-finished",
+    "status": "ok",
+    "duration_ms": 2738,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 72,
+    "path": "inventory/reports/stockvalue",
+    "status": "ok",
+    "duration_ms": 2576,
+    "console_errors": [
+      "Warning: Each child in a list should have a unique \"key\" prop.%s%s See https://reactjs.org/link/warning-keys for more information.%s \n\nCheck the render method of `StockValueReport`.  \n    at StockValueReport (http://127.0.0.1:4321/src/stockValueReport.jsx:31:37)\n    at div\n    at Header (http://127.0.0.1:4321/src/breadCrumbDecor.jsx:289:19)\n    at ProtectedRoute (http://127.0.0.1:4321/src/App.jsx:380:27)\n    at RenderedRoute (http://127.0.0.1:4321/node_modules/.vite/deps/chunk-53IME55R.js?v=042d",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order number : <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>TypeError\n          at /inventory/api/stock-valuation-report/</title>\n  <style>\n    html * { padding:0; margin:0; }\n    body * { padding:10px 20px; }\n    body * * { padding:0; }\n    body { font-family: sans-serif; background-color:#fff; color:#000; }\n    body > :where(header, main, footer) { border-bo"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/inventory/api/stock-valuation-report/"
+    ]
+  },
+  {
+    "i": 73,
+    "path": "inventory/reports/stoneissuereceive",
+    "status": "ok",
+    "duration_ms": 2646,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 74,
+    "path": "inventory/rfid",
+    "status": "ok",
+    "duration_ms": 2385,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 75,
+    "path": "inventory/rfid/count",
+    "status": "ok",
+    "duration_ms": 2608,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 76,
+    "path": "inventory/rfid/tag-assign",
+    "status": "ok",
+    "duration_ms": 2658,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 77,
+    "path": "inventory/stockjournal/",
+    "status": "ok",
+    "duration_ms": 2541,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 78,
+    "path": "inventory/stockjournal/add",
+    "status": "ok",
+    "duration_ms": 2768,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/inventory/api/next_stock_journal_no"
+    ]
+  },
+  {
+    "i": 79,
+    "path": "inventory/stocktransfer",
+    "status": "ok",
+    "duration_ms": 2387,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 80,
+    "path": "inventory/stocktransfer/add",
+    "status": "ok",
+    "duration_ms": 2268,
+    "console_errors": [],
+    "page_errors": [
+      "fetchPackets is not defined"
+    ],
+    "http_errors": []
+  },
+  {
+    "i": 81,
+    "path": "manufacturing",
+    "status": "ok",
+    "duration_ms": 2593,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 82,
+    "path": "manufacturing/issue",
+    "status": "ok",
+    "duration_ms": 2176,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 83,
+    "path": "manufacturing/issue/assay/",
+    "status": "ok",
+    "duration_ms": 2697,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 84,
+    "path": "manufacturing/issue/assay/add",
+    "status": "ok",
+    "duration_ms": 3255,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch next assay issue no: {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next_assay_iss_no"
+    ]
+  },
+  {
+    "i": 85,
+    "path": "manufacturing/issue/goldissue",
+    "status": "ok",
+    "duration_ms": 3539,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 86,
+    "path": "manufacturing/issue/goldissue/add",
+    "status": "ok",
+    "duration_ms": 2453,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch states : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/karigar-gold-issue/bill-no"
+    ]
+  },
+  {
+    "i": 87,
+    "path": "manufacturing/issue/hallmarkissue/",
+    "status": "ok",
+    "duration_ms": 2388,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 88,
+    "path": "manufacturing/issue/hallmarkissue/add",
+    "status": "ok",
+    "duration_ms": 2682,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next_hmis_no"
+    ]
+  },
+  {
+    "i": 89,
+    "path": "manufacturing/issue/jobwork",
+    "status": "ok",
+    "duration_ms": 2537,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 90,
+    "path": "manufacturing/issue/jobwork/add",
+    "status": "ok",
+    "duration_ms": 3590,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order number : <!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>OperationalError\n          at /manufacturing/api/next-slip-no/</title>\n  <style>\n    html * { padding:0; margin:0; }\n    body * { padding:10px 20px; }\n    body * * { padding:0; }\n    body { font-family: sans-serif; background-color:#fff; color:#000; }\n    body > :where(header, main, footer) { border-b"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next-slip-no/"
+    ]
+  },
+  {
+    "i": 91,
+    "path": "manufacturing/issue/melting/",
+    "status": "ok",
+    "duration_ms": 2341,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 92,
+    "path": "manufacturing/issue/melting/add",
+    "status": "ok",
+    "duration_ms": 3578,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch next melting issue no: {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next_melt_iss_no"
+    ]
+  },
+  {
+    "i": 93,
+    "path": "manufacturing/issue/refinary/",
+    "status": "ok",
+    "duration_ms": 5293,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 94,
+    "path": "manufacturing/issue/refinary/add",
+    "status": "ok",
+    "duration_ms": 7346,
+    "console_errors": [
+      "Warning: validateDOMNesting(...): %s cannot appear as a child of <%s>.%s%s%s Whitespace text nodes colgroup  Make sure you don't have any extra whitespace between tags on each line of your source code.  \n    at colgroup\n    at table\n    at div\n    at _c (http://127.0.0.1:4321/src/components/ui/table.jsx:20:11)\n    at div\n    at form\n    at div\n    at IssueToRefinary (http://127.0.0.1:4321/src/components/manufacturing/issue/IssueToRefinary.jsx:57:21)\n    at div\n    at Header (http://127.0.0.1:432",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next_ref_iss_no"
+    ]
+  },
+  {
+    "i": 95,
+    "path": "manufacturing/issue/stoneissue/",
+    "status": "ok",
+    "duration_ms": 2715,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 96,
+    "path": "manufacturing/issue/stoneissue/add",
+    "status": "ok",
+    "duration_ms": 3481,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next-stone-bill-no/"
+    ]
+  },
+  {
+    "i": 97,
+    "path": "manufacturing/receive",
+    "status": "ok",
+    "duration_ms": 2533,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 98,
+    "path": "manufacturing/receive/assay/",
+    "status": "ok",
+    "duration_ms": 2573,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 99,
+    "path": "manufacturing/receive/assay/add",
+    "status": "ok",
+    "duration_ms": 2622,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch next assay receive no: {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next_assay_rec_no"
+    ]
+  },
+  {
+    "i": 100,
+    "path": "manufacturing/receive/hallmarkreceive/",
+    "status": "ok",
+    "duration_ms": 2573,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 101,
+    "path": "manufacturing/receive/hallmarkreceive/add",
+    "status": "ok",
+    "duration_ms": 2841,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next_hmrec_no"
+    ]
+  },
+  {
+    "i": 102,
+    "path": "manufacturing/receive/jobworkreceive/",
+    "status": "ok",
+    "duration_ms": 2560,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 103,
+    "path": "manufacturing/receive/jobworkreceive/add",
+    "status": "ok",
+    "duration_ms": 3627,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/karigar-receive-slip-no/"
+    ]
+  },
+  {
+    "i": 104,
+    "path": "manufacturing/receive/melting/",
+    "status": "ok",
+    "duration_ms": 2658,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 105,
+    "path": "manufacturing/receive/melting/add",
+    "status": "ok",
+    "duration_ms": 2674,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 106,
+    "path": "manufacturing/receive/refinary/",
+    "status": "ok",
+    "duration_ms": 2678,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 107,
+    "path": "manufacturing/receive/refinary/add",
+    "status": "ok",
+    "duration_ms": 2670,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/next_ref_rec_no"
+    ]
+  },
+  {
+    "i": 108,
+    "path": "manufacturing/receive/stonereturn/",
+    "status": "ok",
+    "duration_ms": 2598,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 109,
+    "path": "manufacturing/receive/stonereturn/add",
+    "status": "ok",
+    "duration_ms": 3718,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: database is locked}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/stone-receive-billno/"
+    ]
+  },
+  {
+    "i": 110,
+    "path": "manufacturing/repair",
+    "status": "ok",
+    "duration_ms": 2183,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 111,
+    "path": "manufacturing/repair/list/",
+    "status": "ok",
+    "duration_ms": 2579,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 112,
+    "path": "manufacturing/repair/new",
+    "status": "ok",
+    "duration_ms": 3464,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/manufacturing/api/repair-job-card-no/"
+    ]
+  },
+  {
+    "i": 113,
+    "path": "manufacturing/reports",
+    "status": "ok",
+    "duration_ms": 2123,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 114,
+    "path": "manufacturing/reports/finisheditemrec",
+    "status": "ok",
+    "duration_ms": 2659,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 115,
+    "path": "manufacturing/reports/hallmarkreceive",
+    "status": "ok",
+    "duration_ms": 4403,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 116,
+    "path": "manufacturing/reports/hmissue",
+    "status": "ok",
+    "duration_ms": 4349,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 117,
+    "path": "manufacturing/reports/joborder",
+    "status": "ok",
+    "duration_ms": 2481,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 118,
+    "path": "manufacturing/reports/karigar-jobwork",
+    "status": "ok",
+    "duration_ms": 2471,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 119,
+    "path": "manufacturing/reports/karigarstonetxns",
+    "status": "ok",
+    "duration_ms": 2712,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 120,
+    "path": "manufacturing/reports/refinery",
+    "status": "ok",
+    "duration_ms": 2607,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 121,
+    "path": "purchase",
+    "status": "ok",
+    "duration_ms": 2693,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 122,
+    "path": "purchase/add-purchase-voucher/add",
+    "status": "ok",
+    "duration_ms": 5100,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 123,
+    "path": "purchase/add-rawpurchase-voucher/add",
+    "status": "ok",
+    "duration_ms": 5004,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 124,
+    "path": "purchase/add/",
+    "status": "ok",
+    "duration_ms": 5096,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 125,
+    "path": "purchase/customerpurchase/list/",
+    "status": "ok",
+    "duration_ms": 2972,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 126,
+    "path": "purchase/customerpurchase/list/add/",
+    "status": "ok",
+    "duration_ms": 4923,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 127,
+    "path": "purchase/gstr2b-reconcile",
+    "status": "ok",
+    "duration_ms": 2560,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 128,
+    "path": "purchase/list/",
+    "status": "ok",
+    "duration_ms": 2594,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 129,
+    "path": "purchase/purchaseapproval/list/",
+    "status": "ok",
+    "duration_ms": 2694,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 130,
+    "path": "purchase/purchaseorder/list/",
+    "status": "ok",
+    "duration_ms": 2471,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 131,
+    "path": "purchase/purchaseorder/list/add",
+    "status": "ok",
+    "duration_ms": 3676,
+    "console_errors": [
+      "Warning: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version.%s 2 \n    at div\n    at http://127.0.0.1:4321/node_modules/.vite/deps/chunk-VSPSX53G.js?v=042d15a4:135:13\n    at http://127.0.0.1:4321/node_modules/.vite/deps/chunk-62LC4TTB.js?v=042d15a4:102:11\n    at http://127.0.0.1:4321/no",
+      "Warning: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version.%s 2 \n    at div\n    at http://127.0.0.1:4321/node_modules/.vite/deps/chunk-VSPSX53G.js?v=042d15a4:135:13\n    at http://127.0.0.1:4321/node_modules/.vite/deps/chunk-62LC4TTB.js?v=042d15a4:102:11\n    at http://127.0.0.1:4321/no",
+      "Warning: Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version.%s 2 \n    at div\n    at http://127.0.0.1:4321/node_modules/.vite/deps/chunk-VSPSX53G.js?v=042d15a4:135:13\n    at http://127.0.0.1:4321/node_modules/.vite/deps/chunk-62LC4TTB.js?v=042d15a4:102:11\n    at http://127.0.0.1:4321/no"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 132,
+    "path": "purchase/purchasereturn/list/",
+    "status": "ok",
+    "duration_ms": 2489,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 133,
+    "path": "purchase/purchasereturn/list/add/",
+    "status": "ok",
+    "duration_ms": 3675,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 134,
+    "path": "purchase/purchasevoucher",
+    "status": "ok",
+    "duration_ms": 2202,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 135,
+    "path": "purchase/purchasevoucher/list/",
+    "status": "ok",
+    "duration_ms": 2670,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 136,
+    "path": "purchase/purchasevoucher/list/add/",
+    "status": "ok",
+    "duration_ms": 5284,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 137,
+    "path": "sales",
+    "status": "ok",
+    "duration_ms": 2459,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 138,
+    "path": "sales/add/",
+    "status": "ok",
+    "duration_ms": 4433,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 139,
+    "path": "sales/customerorder",
+    "status": "ok",
+    "duration_ms": 1928,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 140,
+    "path": "sales/customerorder/kanban/",
+    "status": "ok",
+    "duration_ms": 2576,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 141,
+    "path": "sales/customerorder/list/",
+    "status": "ok",
+    "duration_ms": 2682,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 142,
+    "path": "sales/customerorder/list/add/",
+    "status": "ok",
+    "duration_ms": 3875,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 143,
+    "path": "sales/estimate",
+    "status": "ok",
+    "duration_ms": 2556,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 144,
+    "path": "sales/eway-bills",
+    "status": "ok",
+    "duration_ms": 2404,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 145,
+    "path": "sales/list/",
+    "status": "ok",
+    "duration_ms": 2808,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 146,
+    "path": "sales/pending-cheques",
+    "status": "ok",
+    "duration_ms": 2635,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 147,
+    "path": "sales/quotation",
+    "status": "ok",
+    "duration_ms": 2075,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 148,
+    "path": "sales/quotation/add/",
+    "status": "ok",
+    "duration_ms": 2469,
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/sales/api/quotation-initial-data/"
+    ]
+  },
+  {
+    "i": 149,
+    "path": "sales/quotation/list/",
+    "status": "ok",
+    "duration_ms": 2540,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 150,
+    "path": "sales/rawsalesvoucher/add/",
+    "status": "ok",
+    "duration_ms": 4456,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 151,
+    "path": "sales/reports/commission",
+    "status": "ok",
+    "duration_ms": 2652,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 152,
+    "path": "sales/salesapproval",
+    "status": "ok",
+    "duration_ms": 2253,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 153,
+    "path": "sales/salesapproval/add/",
+    "status": "ok",
+    "duration_ms": 6567,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 154,
+    "path": "sales/salesapproval/list/",
+    "status": "ok",
+    "duration_ms": 2639,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 155,
+    "path": "sales/salesreturn",
+    "status": "ok",
+    "duration_ms": 2118,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 156,
+    "path": "sales/salesreturn/add/",
+    "status": "ok",
+    "duration_ms": 3342,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 157,
+    "path": "sales/salesreturn/list/",
+    "status": "ok",
+    "duration_ms": 2855,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 158,
+    "path": "scheme",
+    "status": "ok",
+    "duration_ms": 2555,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 159,
+    "path": "scheme/dashboard",
+    "status": "ok",
+    "duration_ms": 2587,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 160,
+    "path": "scheme/enrollments",
+    "status": "ok",
+    "duration_ms": 2376,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 161,
+    "path": "scheme/enrollments/add",
+    "status": "ok",
+    "duration_ms": 3087,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 162,
+    "path": "scheme/master",
+    "status": "ok",
+    "duration_ms": 2400,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 163,
+    "path": "settings",
+    "status": "ok",
+    "duration_ms": 5073,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 164,
+    "path": "settings/audit-log",
+    "status": "ok",
+    "duration_ms": 2226,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 165,
+    "path": "settings/carry-forward",
+    "status": "ok",
+    "duration_ms": 2629,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 166,
+    "path": "settings/crm-automation",
+    "status": "ok",
+    "duration_ms": 5320,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 167,
+    "path": "settings/roles",
+    "status": "ok",
+    "duration_ms": 2431,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 168,
+    "path": "settings/setup",
+    "status": "ok",
+    "duration_ms": 5642,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 169,
+    "path": "settings/user-management",
+    "status": "ok",
+    "duration_ms": 2551,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 170,
+    "path": "setup",
+    "status": "ok",
+    "duration_ms": 2338,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 171,
+    "path": "setup/b2b-pricelist",
+    "status": "ok",
+    "duration_ms": 4062,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 172,
+    "path": "setup/branch",
+    "status": "ok",
+    "duration_ms": 2613,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 173,
+    "path": "setup/color",
+    "status": "ok",
+    "duration_ms": 2534,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 174,
+    "path": "setup/company",
+    "status": "ok",
+    "duration_ms": 2640,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 175,
+    "path": "setup/exhibitions",
+    "status": "ok",
+    "duration_ms": 2576,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 176,
+    "path": "setup/fiscal-years",
+    "status": "ok",
+    "duration_ms": 2740,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 177,
+    "path": "setup/hsn",
+    "status": "ok",
+    "duration_ms": 2888,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 178,
+    "path": "setup/import-data",
+    "status": "ok",
+    "duration_ms": 2645,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 179,
+    "path": "setup/item",
+    "status": "ok",
+    "duration_ms": 3962,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 180,
+    "path": "setup/item-group",
+    "status": "ok",
+    "duration_ms": 2176,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 181,
+    "path": "setup/karigar-making",
+    "status": "ok",
+    "duration_ms": 2851,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 182,
+    "path": "setup/packet",
+    "status": "ok",
+    "duration_ms": 3246,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 183,
+    "path": "setup/packet-group",
+    "status": "ok",
+    "duration_ms": 2728,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 184,
+    "path": "setup/purity",
+    "status": "ok",
+    "duration_ms": 2616,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 185,
+    "path": "setup/retail",
+    "status": "ok",
+    "duration_ms": 2646,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 186,
+    "path": "setup/retail-discount-pricelist",
+    "status": "ok",
+    "duration_ms": 2829,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 187,
+    "path": "setup/sales-offer",
+    "status": "ok",
+    "duration_ms": 2727,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 188,
+    "path": "setup/salesperson",
+    "status": "ok",
+    "duration_ms": 2810,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 189,
+    "path": "setup/shape",
+    "status": "ok",
+    "duration_ms": 2766,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 190,
+    "path": "setup/tcs-section",
+    "status": "ok",
+    "duration_ms": 2576,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  {
+    "i": 191,
+    "path": "setup/tds-section",
+    "status": "ok",
+    "duration_ms": 2482,
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  }
+]

@@ -26,7 +26,7 @@ class BarcodeMain(models.Model):
     rec_item = models.ForeignKey("manufacturing.KarigarReceiveItem", on_delete=models.SET_NULL, null=True)
     pcs = models.IntegerField(blank=True, null=True)
     gw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
-    nw = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    nw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True,null=True)  # Added blank=True
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)  # Added blank=True
     value = models.IntegerField(blank=True, null=True)  # Added blank=True
@@ -43,7 +43,7 @@ class BarcodeMain(models.Model):
     created_date = models.DateField(auto_now_add=True)  # Added auto_now_add=True
     
     stk_status = models.BooleanField(default=True)
-    op_stk = models.BooleanField(default=True)
+    op_stk = models.BooleanField(default=False)
     op_retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True,related_name="opening_barcode")
     
     voucher_no = models.CharField(max_length=50, blank=True)  # Added blank=True
@@ -75,12 +75,13 @@ class BarcodeMain(models.Model):
 
 class BarcodeDetails(models.Model):  # Inherit models.Model
     barcode = models.ForeignKey(BarcodeMain, on_delete=models.CASCADE)
-    
+
     packet = models.ForeignKey(Packet, null=True, blank=True, on_delete=models.SET_NULL)
     pcs = models.IntegerField(blank=True, null=True)  # Changed to IntegerField
     ct = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=3)
     gw = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=3)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
+    purity = models.ForeignKey(PurityMaster, null=True, blank=True, on_delete=models.SET_NULL)
     rate = models.IntegerField()
     amt = models.IntegerField()
 
@@ -223,7 +224,7 @@ class UnBarcodedMain(models.Model):
     label = models.CharField(max_length=255)
     pcs = models.IntegerField(blank=True, null=True)
     gw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
-    nw = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    nw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True,null=True)  # Added blank=True
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)  # Added blank=True
     value = models.IntegerField(blank=True, null=True)  # Added blank=True
@@ -310,7 +311,7 @@ class OpeningInventory(models.Model):
     item = models.ForeignKey(Item,on_delete=models.CASCADE)
     ldgr = models.ForeignKey(Ledger,on_delete=models.CASCADE) 
     pcs = models.PositiveBigIntegerField(default=0)
-    ct = models.DecimalField(decimal_places=2,max_digits=10)
+    ct = models.DecimalField(decimal_places=3,max_digits=10)
     gw = models.DecimalField(decimal_places=3,max_digits=10)
     type = models.CharField(max_length=10, choices=[('SH', 'Showroom'), ('KR', 'Karigar'), ('CO', 'Customer')])
     packet = models.ForeignKey(Packet,on_delete=models.SET_NULL,null=True)

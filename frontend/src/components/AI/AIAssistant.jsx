@@ -173,7 +173,7 @@ export default function AIAssistant() {
                 className="p-1 rounded hover:bg-primary transition-colors"
                 title="Clear chat"
               >
-                <Trash2 size={14} />
+                <Trash2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}

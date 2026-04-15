@@ -65,11 +65,11 @@ function BarcodeListView() {
         <div className="flex space-x-2">
           {row.original.stk_status !== false ? (
             <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center" title="Edit">
-              <SquarePen size={15} />
+              <SquarePen className="w-4 h-4" />
             </Link>
           ) : (
             <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock — editing disabled">
-              <SquarePen size={15} />
+              <SquarePen className="w-4 h-4" />
             </span>
           )}
           <button
@@ -77,7 +77,7 @@ function BarcodeListView() {
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
             title="Delete"
           >
-            <Trash2 size={15} />
+            <Trash2 className="w-4 h-4" />
           </button>
           <Link to={`/inventory/barcodemanagement/barcodehistory/?search=${row.original.barcode}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center" title="History">
             <History size={15} />
@@ -87,7 +87,7 @@ function BarcodeListView() {
             className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center"
             title="Print label"
           >
-            <Printer size={15} />
+            <Printer className="w-4 h-4" />
           </button>
         </div>
       ),

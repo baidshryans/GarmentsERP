@@ -71,7 +71,7 @@ const AccountingVoucherList = () => {
             <Trash2 className="mr-1" />
           </button>
           <button onClick={() => openAndPrint(<AccountingVoucher data={row.original} />)}>
-            <Printer />
+            <Printer className="w-4 h-4" />
           </button>
           <VoucherAttachments
             voucherId={row.original.id}

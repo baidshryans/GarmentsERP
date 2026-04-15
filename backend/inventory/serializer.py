@@ -170,16 +170,21 @@ class DesignMainSerializer(serializers.ModelSerializer):
 
 class BarcodeDetailsSerializer(serializers.ModelSerializer):
 
-
     packet = serializers.SlugRelatedField(
         queryset=Packet.objects.all(),
         required=False,
         slug_field="pckt_no",
-        allow_null = True
+        allow_null=True,
     )
     item = serializers.SlugRelatedField(
         queryset=Item.objects.all(),
-        slug_field="short_code"
+        slug_field="short_code",
+    )
+    purity = serializers.SlugRelatedField(
+        queryset=PurityMaster.objects.all(),
+        required=False,
+        slug_field="purity",
+        allow_null=True,
     )
 
     class Meta:
@@ -193,6 +198,7 @@ class BarcodeDetailsSerializer(serializers.ModelSerializer):
             'uom',
             'gw',
             'item',
+            'purity',
             'rate',
             'amt',
         ]
@@ -226,14 +232,23 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
 
     kr_code = serializers.PrimaryKeyRelatedField(
         queryset=Ledger.objects.all(),
-        required=False
+        required=False,
+        allow_null=True,
     )
     barcodedetails_set = BarcodeDetailsSerializer(many=True)
     item_desc = serializers.SerializerMethodField()
+    item_name = serializers.SerializerMethodField()
+    purity_name = serializers.SerializerMethodField()
     created_from = serializers.SerializerMethodField()
 
     def get_item_desc(self, obj):
         return obj.item.item_name if obj.item else None
+
+    def get_item_name(self, obj):
+        return obj.item.item_name if obj.item else None
+
+    def get_purity_name(self, obj):
+        return obj.purity.purity if obj.purity else None
 
     def get_created_from(self, obj):
         if obj.rec_item_id:
@@ -250,7 +265,10 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             'barcodedetails_set',
             'item',
             'item_desc',
+            'item_name',
+            'purity_name',
             'barcode',
+            'qr_code',
             'pcs',
             'gw',
             'nw',
@@ -274,6 +292,9 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
+            'qr_code': {'read_only': True},
+            'item_name': {'read_only': True},
+            'purity_name': {'read_only': True},
         }
 
 
@@ -306,13 +327,13 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 retail=request.retail
             )
             if pur:
-                pur.pending_pcs = pur.pending_pcs - child.pcs
-                pur.pending_gw = pur.pending_gw - child.gw
+                pur.pending_pcs = (pur.pending_pcs or 0) - (child.pcs or 0)
+                pur.pending_gw  = (pur.pending_gw  or 0) - (child.gw  or 0)
                 pur.save()
 
             if rec_item:
-                rec_item.pending_pcs = rec_item.pending_pcs - child.pcs
-                rec_item.pending_gw = rec_item.pending_gw - child.gw
+                rec_item.pending_pcs = (rec_item.pending_pcs or 0) - (child.pcs or 0)
+                rec_item.pending_gw  = (rec_item.pending_gw  or 0) - (child.gw  or 0)
                 rec_item.save()
         return child
 

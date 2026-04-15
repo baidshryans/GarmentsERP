@@ -203,8 +203,22 @@ function SalesVoucherList() {
     },
     { header: "Bill No", accessorKey: "billno" },
     { header: "Party Name", accessorKey: "ldgr_name" },
-    { header: "Discount", accessorKey: "discount" },
-    { header: "Total Amount", accessorKey: "total_bill_value" },
+    {
+      header: "Discount",
+      accessorKey: "discount",
+      cell: ({ getValue }) => {
+        const v = parseFloat(getValue() || 0);
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+      },
+    },
+    {
+      header: "Total Amount",
+      accessorKey: "total_bill_value",
+      cell: ({ getValue }) => {
+        const v = parseFloat(getValue() || 0);
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+      },
+    },
   ];
 
   return (

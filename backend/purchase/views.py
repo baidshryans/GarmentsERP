@@ -80,25 +80,59 @@ class PurchaseReturnViewset(RetailBaseViewset):
         context['request'] = self.request
         return context
 
+    def _resolve_fiscal_year(self, retail, voucher_date):
+        from mastersconfig.models import FiscalYearMaster
+        if voucher_date:
+            fy = FiscalYearMaster.objects.filter(
+                retail=retail, fy_start__lte=voucher_date, fy_end__gte=voucher_date,
+            ).first()
+            if fy:
+                return fy
+        return getattr(retail, 'active_fy', None)
+
     def perform_create(self, serializer):
         retail = getattr(self.request, 'retail', None)
         if not retail:
             from rest_framework.exceptions import ValidationError
             raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
-        serializer.save(retail=retail)
+        voucher_date = serializer.validated_data.get('date1')
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
+
+    def _check_purchase_return_mutable(self, instance, action):
+        from rest_framework.exceptions import ValidationError
+        if instance.ac_voucher is not None and instance.ac_voucher.status == 'posted':
+            raise ValidationError(
+                f"Purchase return '{instance.billno}' cannot be {action} because its accounting entry is posted."
+            )
+
+    def perform_destroy(self, instance):
+        self._check_purchase_return_mutable(instance, 'deleted')
+        from accounting.utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        billno = instance.billno
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, 'PR', billno, fiscal_year)
 
     def perform_update(self, serializer):
+        from rest_framework.exceptions import ValidationError
         retail = getattr(self.request, 'retail', None)
         if not retail:
-            from rest_framework.exceptions import ValidationError
             raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
-        serializer.save(retail=retail)
+        self._check_purchase_return_mutable(serializer.instance, 'edited')
+        voucher_date = serializer.validated_data.get('date1') or serializer.instance.date1
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 class PurchaseVoucherViewset(RetailBaseViewset):
     queryset = PurchaseVoucher.objects.select_related('ldgr', 'retail', 'hsn').prefetch_related(
-        'purchasevoucheritems_set__purchasevoucherdetails_set'
+        Prefetch(
+            'purchasevoucheritems_set__purchasevoucherdetails_set',
+            queryset=PurchaseVoucherDetails.objects.select_related('sub_item').order_by('id'),
+        )
     ).all()
-    serializer_class = PurchaseVoucherPostSerializer 
+    serializer_class = PurchaseVoucherPostSerializer
     filter_backends = [DjangoFilterBackend,OrderingFilter, SearchFilter]
     filterset_fields = ['voucher_type']
     search_fields = ["billno","ldgr__ac_name"]
@@ -109,6 +143,60 @@ class PurchaseVoucherViewset(RetailBaseViewset):
 
     # Optionally set default ordering
     ordering = ['date1','ldgr__ac_name','billno',]
+
+    def _resolve_fiscal_year(self, retail, voucher_date):
+        """Return the FiscalYearMaster whose date range covers voucher_date.
+        Falls back to retail.active_fy when no matching FY is found."""
+        from mastersconfig.models import FiscalYearMaster
+        if voucher_date:
+            fy = FiscalYearMaster.objects.filter(
+                retail=retail,
+                fy_start__lte=voucher_date,
+                fy_end__gte=voucher_date,
+            ).first()
+            if fy:
+                return fy
+        return getattr(retail, 'active_fy', None)
+
+    def perform_create(self, serializer):
+        retail = getattr(self.request, 'retail', None)
+        if not retail:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
+        voucher_date = serializer.validated_data.get('date1')
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
+
+    def _check_purchase_vou_mutable(self, instance, action):
+        from rest_framework.exceptions import ValidationError
+        if instance.purchase_returns.exists():
+            raise ValidationError(
+                f"Purchase voucher '{instance.billno}' cannot be {action} because a purchase return exists against it."
+            )
+        if (instance.due_amt is not None and instance.bill_value is not None
+                and instance.due_amt < instance.bill_value):
+            raise ValidationError(
+                f"Purchase voucher '{instance.billno}' cannot be {action} because a payment has been made against it."
+            )
+
+    def perform_destroy(self, instance):
+        self._check_purchase_vou_mutable(instance, 'deleted')
+        from accounting.utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        billno = instance.billno
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, 'PV', billno, fiscal_year)
+
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import ValidationError
+        retail = getattr(self.request, 'retail', None)
+        if not retail:
+            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
+        self._check_purchase_vou_mutable(serializer.instance, 'edited')
+        voucher_date = serializer.validated_data.get('date1') or serializer.instance.date1
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 class PurchaseOrderViewset(RetailBaseViewset):
     queryset = PurchaseOrder.objects.select_related('ldgr', 'retail').prefetch_related(

@@ -562,7 +562,7 @@ const BarcodeSplit = () => {
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.gw}</td>
+                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
                                                 <td className="px-2 py-1.5">{item.purity}</td>
                                                 <td className="px-2 py-1.5">{item.making}</td>
                                                 <td className="px-2 py-1.5">{item.making_type}</td>
@@ -731,10 +731,10 @@ const BarcodeSplit = () => {
                                         <Input type="number" {...register("table.details.sub_pcs")} className="h-9 text-sm bg-white w-20" placeholder="0" />
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
-                                        <Input type="number" step="0.01" {...register("table.details.sub_ct")} className="h-9 text-sm bg-white w-20" placeholder="0.00" />
+                                        <Input type="number" step="0.001" {...register("table.details.sub_ct")} className="h-9 text-sm bg-white w-20" placeholder="0.000" />
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
-                                        <Input type="number" step="0.01" {...register("table.details.sub_gw")} className="h-9 text-sm bg-white w-24" placeholder="0.000" />
+                                        <Input type="number" step="0.001" {...register("table.details.sub_gw")} className="h-9 text-sm bg-white w-24" placeholder="0.000" />
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
                                         <Input type="number" step="0.01" {...register("table.details.rate")} className="h-9 text-sm bg-white w-24" placeholder="0.00" />
@@ -786,7 +786,7 @@ const BarcodeSplit = () => {
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.gw}</td>
+                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
                                                 <td className="px-2 py-1.5">{item.purity}</td>
                                                 <td className="px-2 py-1.5">{item.making}</td>
                                                 <td className="px-2 py-1.5">{item.making_type}</td>
@@ -798,14 +798,14 @@ const BarcodeSplit = () => {
                                                             onClick={() => handleEdit(idx)}
                                                             className="p-1 rounded text-primary hover:bg-violet-50"
                                                         >
-                                                            <Pencil size={13} />
+                                                            <Pencil className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelete(idx)}
                                                             className="p-1 rounded text-red-500 hover:bg-red-50"
                                                         >
-                                                            <Trash2 size={13} />
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
                                                 </td>

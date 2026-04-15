@@ -38,7 +38,12 @@ from django.db.models import Q,Prefetch
 # Create your views here.
 @api_view()
 def get_next_slip_no(request):
-    return Response({"next_slip_no" : generate_slip_no(request.retail)})
+    try:
+        return Response({"next_slip_no": generate_slip_no(request.retail)})
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["POST"])
@@ -2083,8 +2088,10 @@ def repair_job_card_billno_view(request):
         retail = request.retail
         bill_no = get_next_bill_number(retail, 'RJC')
         return Response({'rjc_no': bill_no})
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        return Response({'error': str(e)}, status=500)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # ── Karigar Subcontractor Ledger — split view ─────────────────────────────────

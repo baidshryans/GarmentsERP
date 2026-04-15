@@ -1,4 +1,6 @@
 import json
+import logging
+logger = logging.getLogger(__name__)
 from django.shortcuts import get_object_or_404, render
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
@@ -81,6 +83,27 @@ class CustomerOrderViewset(views.RetailBaseViewset):
 
     # Optionally set default ordering
     ordering = ['order_no']
+
+    def perform_destroy(self, instance):
+        from rest_framework.exceptions import ValidationError
+        if instance.linked_vouchers.exists():
+            raise ValidationError(
+                f"Customer order '{instance.order_no}' cannot be deleted because a sales voucher has been raised against it."
+            )
+        super().perform_destroy(instance)
+
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import ValidationError
+        instance = serializer.instance
+        if instance.items.filter(sale_status=True).exists():
+            raise ValidationError(
+                f"Customer order '{instance.order_no}' cannot be edited because one or more items have already been billed."
+            )
+        if instance.delivery_status in ('delivered', 'cancelled'):
+            raise ValidationError(
+                f"Customer order '{instance.order_no}' cannot be edited because it is in '{instance.delivery_status}' state."
+            )
+        super().perform_update(serializer)
 
     @action(detail=True, methods=['get'], url_path='advance-available')
     def advance_available(self, request, pk=None):
@@ -243,6 +266,60 @@ class SalesVoucherViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     ordering = ['billno']
+
+    def _resolve_fiscal_year(self, retail, voucher_date):
+        """Return the FiscalYearMaster whose date range covers voucher_date.
+        Falls back to retail.active_fy when no matching FY is found."""
+        from mastersconfig.models import FiscalYearMaster
+        if voucher_date:
+            fy = FiscalYearMaster.objects.filter(
+                retail=retail,
+                fy_start__lte=voucher_date,
+                fy_end__gte=voucher_date,
+            ).first()
+            if fy:
+                return fy
+        return getattr(retail, 'active_fy', None)
+
+    def perform_create(self, serializer):
+        retail = getattr(self.request, 'retail', None)
+        if not retail:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
+        voucher_date = serializer.validated_data.get('date1')
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
+
+    def _check_sales_vou_mutable(self, instance, action):
+        from rest_framework.exceptions import ValidationError
+        if instance.ret_status or instance.sale_returns.exists():
+            raise ValidationError(
+                f"Sales voucher '{instance.billno}' cannot be {action} because a sale return exists against it."
+            )
+        bill_value = float(instance.total_bill_value or 0)
+        if instance.ac_rec_voucher is not None or (bill_value > 0 and float(instance.due_amt or 0) < bill_value):
+            raise ValidationError(
+                f"Sales voucher '{instance.billno}' cannot be {action} because a payment has been received against it."
+            )
+
+    def perform_destroy(self, instance):
+        self._check_sales_vou_mutable(instance, 'deleted')
+        from accounting.utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        billno = instance.billno
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, 'SV', billno, fiscal_year)
+
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import ValidationError
+        retail = getattr(self.request, 'retail', None)
+        if not retail:
+            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
+        self._check_sales_vou_mutable(serializer.instance, 'edited')
+        voucher_date = serializer.validated_data.get('date1') or serializer.instance.date1
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 
 class GSTInputRegisterView(APIView):
@@ -904,8 +981,18 @@ class SalesApprovalViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
     ordering=['billno']
 
+    def perform_destroy(self, instance):
+        from accounting.utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        billno = instance.billno
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, 'SA', billno, fiscal_year)
+
 class SalesReturnViewset(views.RetailBaseViewset):
-    queryset = SaleReturn.objects.all()
+    queryset = SaleReturn.objects.select_related('ldgr', 'ac_voucher', 'retail').prefetch_related(
+        'salereturnitem_set__salereturndetails_set'
+    ).all()
     serializer_class = SaleReturnSerializer
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
 
@@ -916,6 +1003,56 @@ class SalesReturnViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     ordering = ['billno']
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def _resolve_fiscal_year(self, retail, voucher_date):
+        from mastersconfig.models import FiscalYearMaster
+        if voucher_date:
+            fy = FiscalYearMaster.objects.filter(
+                retail=retail, fy_start__lte=voucher_date, fy_end__gte=voucher_date,
+            ).first()
+            if fy:
+                return fy
+        return getattr(retail, 'active_fy', None)
+
+    def perform_create(self, serializer):
+        retail = getattr(self.request, 'retail', None)
+        if not retail:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
+        voucher_date = serializer.validated_data.get('date1')
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
+
+    def _check_sale_return_mutable(self, instance, action):
+        from rest_framework.exceptions import ValidationError
+        if instance.ac_voucher is not None and instance.ac_voucher.status == 'posted':
+            raise ValidationError(
+                f"Sale return '{instance.billno}' cannot be {action} because its accounting entry is posted."
+            )
+
+    def perform_destroy(self, instance):
+        self._check_sale_return_mutable(instance, 'deleted')
+        from accounting.utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        billno = instance.billno
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, 'SR', billno, fiscal_year)
+
+    def perform_update(self, serializer):
+        from rest_framework.exceptions import ValidationError
+        retail = getattr(self.request, 'retail', None)
+        if not retail:
+            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
+        self._check_sale_return_mutable(serializer.instance, 'edited')
+        voucher_date = serializer.validated_data.get('date1') or serializer.instance.date1
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 @api_view(['GET'])
 def get_next_sv_no(request):
@@ -1026,7 +1163,9 @@ def sale_voucher_initial_data(request):
     items_qs = Item.objects.select_related('hsn_no').all()
     purity_qs = PurityMaster.objects.all()
     packets_qs = Packet.objects.select_related('packet_group', 'stone_item_id', 'color', 'shape').all()
-    salespersons_qs = SalesPersonMaster.objects.filter(retail=request.retail)
+    salespersons_qs = SalesPersonMaster.objects.filter(
+        Q(retail=request.retail) | Q(retail__isnull=True)
+    )
     hsns_qs = Hsn.objects.prefetch_related('item_set').all()
 
     # Derive retail state code using STATES_OF_INDIA to stay consistent
@@ -1125,7 +1264,8 @@ def build_invoice_context(voucher, retail):
             retail.address_line1, retail.address_line2, retail.address_line3,
             retail.city, retail.pincode,
         ]))
-        company_gstin      = retail.gstin or ''
+        _gm                = retail.gstin_master
+        company_gstin      = (_gm.gstin if _gm else '') or ''
         company_state_name = retail.state.name if retail.state else ''
         company_state_code = str(retail.state.tin) if retail.state else ''
 
@@ -1138,15 +1278,18 @@ def build_invoice_context(voucher, retail):
     customer_state_obj = StateModel.objects.filter(name__iexact=customer_state_name).first()
     customer_state_code = str(customer_state_obj.tin) if customer_state_obj else ''
 
-    # ── Metal rates: purity → rate (from R-type sub-items) ───────────────────
+    # ── Build purity PK → slug map (vi.purity stores PK; d.metal_purity stores slug) ─
+    purity_pk_to_slug = {str(p.pk): p.purity for p in PurityMaster.objects.all()}
+
+    # ── Metal rates: purity slug → rate (from R-type sub-items) ──────────────
     metal_rates = {}
     for vi in voucher.salesvouitem_set.all():
         for d in vi.main_item_set.all():
             if d.item and d.item.item_type == 'R' and d.metal_purity and d.rate:
-                key = str(d.metal_purity)
+                key = str(d.metal_purity)   # already a slug like "14K"
                 if key not in metal_rates:
                     metal_rates[key] = float(d.rate)
-    metal_rate_str = ', '.join(f'{k}K @ {v:.0f}' for k, v in metal_rates.items())
+    metal_rate_str = ', '.join(f'{k} @ {v:.0f}' for k, v in metal_rates.items())
 
     # ── Line items ────────────────────────────────────────────────────────────
     items_data = []
@@ -1154,7 +1297,8 @@ def build_invoice_context(voucher, retail):
         'item', 'item__hsn_no'
     ).prefetch_related('main_item_set__item').all():
 
-        purity_str = str(vi.purity) if vi.purity else ''
+        # vi.purity is IntegerField storing PK — convert to slug for matching
+        purity_str = purity_pk_to_slug.get(str(vi.purity), str(vi.purity) if vi.purity else '')
         details = list(vi.main_item_set.all())
 
         nw = sum(
@@ -1297,7 +1441,12 @@ def sale_voucher_print_data(request, pk):
     except SalesVou.DoesNotExist:
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    data = build_invoice_context(voucher, request.retail)
+    try:
+        data = build_invoice_context(voucher, request.retail)
+    except Exception as exc:
+        import traceback
+        logger.error("build_invoice_context failed for voucher %s: %s\n%s", pk, exc, traceback.format_exc())
+        return Response({'detail': f'Invoice build failed: {exc}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response(data)
 
 
@@ -1321,6 +1470,28 @@ def eway_transport_update(request, pk):
         if field in request.data:
             setattr(voucher, field, request.data[field] or '' if field != 'trans_distance' else (int(request.data[field]) if request.data[field] else 0))
     voucher.save(update_fields=list(allowed & set(request.data.keys())))
+
+    # Create or update an EWayBill tracking record so it appears in the E-Way Bills list
+    from .models import EWayBill
+    ewb = EWayBill.objects.filter(sales_vou=voucher, retail=request.retail).order_by('-generated_date').first()
+    transport_fields = {
+        'vehicle_no':       voucher.vehicle_no or '',
+        'transporter_name': voucher.transporter_name or '',
+        'transporter_id':   voucher.transporter_id or '',
+        'trans_distance':   voucher.trans_distance or 0,
+        'mode_of_transport': voucher.mode_of_transport or 'Road',
+    }
+    if ewb:
+        for k, v in transport_fields.items():
+            setattr(ewb, k, v)
+        ewb.save(update_fields=list(transport_fields.keys()))
+    else:
+        EWayBill.objects.create(
+            sales_vou=voucher,
+            retail=request.retail,
+            fiscal_year=getattr(request.retail, 'active_fy', None),
+            **transport_fields,
+        )
 
     return Response({
         'id': voucher.id,
@@ -1357,7 +1528,8 @@ class EwayBillGenerateView(APIView):
         ep = voucher.exhibition_profile
 
         # ── Seller (From) details ─────────────────────────────────────────────
-        seller_gstin = (ep.gstin if ep else retail.gstin) or ''
+        _gm          = retail.gstin_master
+        seller_gstin = (ep.gstin if ep else (_gm.gstin if _gm else '')) or ''
         seller_name  = (ep.name  if ep else retail.retail_name) or ''
         seller_addr1 = (ep.address_line1 if ep else retail.address_line1) or ''
         seller_addr2 = (ep.address_line2 if ep else retail.address_line2) or ''
@@ -1408,7 +1580,7 @@ class EwayBillGenerateView(APIView):
                     'productName': si.item.item_name if si.item else '',
                     'productDesc': si.item.item_name if si.item else '',
                     'hsnCode': hsn_no,
-                    'quantity': float(si.wt or 0),
+                    'quantity': float(si.gw or 0),
                     'qtyUnit': 'GMS',
                     'taxableAmount': round(float(si.amount or 0), 2),
                     'cgstRate': float(voucher.cgst_per or 0),
@@ -1435,7 +1607,7 @@ class EwayBillGenerateView(APIView):
             'supplyType': 'O',
             'subSupplyType': '1',
             'docType': 'INV',
-            'docNo': voucher.gst_bill_no or voucher.billno,
+            'docNo': voucher.gst_billno or voucher.billno,
             'docDate': doc_date,
             'fromGstin': seller_gstin,
             'fromTrdName': seller_name,
@@ -1841,7 +2013,6 @@ def quotation_initial_data(request):
     """Combined initial data for the Quotation form."""
     from mastersconfig.models import SalesPersonMaster
     from mastersconfig.serializers import SalesPersonMasterSerializer
-    from contacts.serializers import LedgerSerializer
     from accounting.utils import peek_next_bill_number
 
     if not request.retail:

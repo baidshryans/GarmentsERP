@@ -1810,13 +1810,15 @@ export async function fetchSalesApproval({ search = "", page = 1, ordering = "" 
   }
 }
 
-export async function fetchBarcodeList({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchBarcodeList({ search = "", page = 1, ordering = "", ids = "", page_size = "" } = {}) {
   try {
     const params = new URLSearchParams();
 
     // Add query parameters conditionally
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (ids) params.append("ids", ids);
+    if (page_size) params.append("page_size", page_size);
     params.append("page", page);
 
     const response = await apiClient.get(`inventory/barcode/?${params.toString()}`);
@@ -3691,7 +3693,7 @@ export async function fetchItemDataAPI() {
 
 export async function fetchUserDataAPI() {
   try {
-    const response = await apiClient.get("/auth/api/users/");
+    const response = await apiClient.get("/userauth/api/users/");
     return { success: true, data: response.data.results || response.data };
   } catch (error) {
     console.error("Error fetching user data:", error.response?.data || error.message);

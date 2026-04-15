@@ -65,7 +65,7 @@ function tagHTML(b, size) {
         ${b.item_name || b.item || ""} ${b.purity_name ? `| ${b.purity_name}` : ""}
       </div>
       <div style="color:#666;white-space:nowrap">
-        Gw:${parseFloat(b.gw || 0).toFixed(3)}g Nw:${parseFloat(b.nw || 0).toFixed(2)}g${b.huid ? ` HUID:${b.huid}` : ""}
+        Gw:${parseFloat(b.gw || 0).toFixed(3)}g Nw:${parseFloat(b.nw || 0).toFixed(3)}g${b.huid ? ` HUID:${b.huid}` : ""}
       </div>
     </div>
   </div>`;
@@ -168,7 +168,7 @@ export default function BarcodeBulkOps() {
 
   // Load master data
   useEffect(() => {
-    fetchMainItem({ type: "M" }).then((r) => { if (r.success) setItems(r.data); });
+    fetchMainItem({ type: "M" }).then((r) => { if (r.success) setItems(Array.isArray(r.data) ? r.data : r.data?.results ?? []); });
     fetchPackets().then((r) => {
       if (r.success) {
         const data = Array.isArray(r.data) ? r.data : r.data?.results ?? [];

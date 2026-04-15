@@ -66,7 +66,7 @@ export default function IDGenerationReport() {
         setPurities(list);
       }).catch(() => {});
 
-    apiClient.get("/auth/api/users/?page_size=500")
+    apiClient.get("/userauth/api/users/?page_size=500")
       .then((res) => {
         const list = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
         setUsers(list);

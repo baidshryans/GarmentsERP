@@ -347,6 +347,40 @@ class BarCodeView(RetailBaseViewset):
     filterset_fields = ['barcode', 'item', 'purity', 'stk_status']
     search_fields = ['barcode', 'item__short_code', 'item__item_name',]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        ids_param = self.request.query_params.get('ids', '').strip()
+        if ids_param:
+            try:
+                id_list = [int(i) for i in ids_param.split(',') if i.strip().isdigit()]
+                if id_list:
+                    qs = qs.filter(id__in=id_list)
+            except (ValueError, TypeError):
+                pass
+        return qs
+
+    def perform_destroy(self, instance):
+        if not instance.stk_status:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                f"Barcode '{instance.barcode}' cannot be deleted because it is not in stock "
+                "(it has been sold, transferred, or is otherwise unavailable)."
+            )
+        super().perform_destroy(instance)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        if not instance.stk_status:
+            from rest_framework.exceptions import ValidationError
+            ALWAYS_EDITABLE = {'rfid_tag', 'huid', 'design_code'}
+            restricted = set(serializer.validated_data.keys()) - ALWAYS_EDITABLE
+            if restricted:
+                raise ValidationError(
+                    f"Barcode '{instance.barcode}' cannot be edited while it is not in stock. "
+                    "Only RFID tag, HUID, and design code may be updated."
+                )
+        super().perform_update(serializer)
+
 class BarcodeBulkListView(APIView):
     """
     GET /inventory/api/barcode-bulk/?item=GL&packet=PKT001&stk_status=true&search=...
@@ -392,13 +426,14 @@ class BarcodeBulkListView(APIView):
         qs = qs.order_by('-created_date')[:2000]  # safety cap
         data = BarCodeMainSerializer(qs, many=True).data
 
-        # Enrich with qr_code URL and purity display name for label printing
+        # Enrich with qr_code URL, item_name and purity display name for label printing
         bc_map = {bc.id: bc for bc in qs}
         for item in data:
             bc = bc_map.get(item['id'])
             if bc:
                 item['qr_code'] = bc.qr_code.url if bc.qr_code else None
                 item['purity_name'] = bc.purity.purity if bc.purity else ''
+                item['item_name'] = bc.item.item_name if bc.item else ''
 
         return Response({'count': len(data), 'results': data})
 
@@ -406,6 +441,22 @@ class BarcodeBulkListView(APIView):
 class UnBarCodeView(RetailBaseViewset):
     serializer_class = UnBarcodedMainSerializer
     queryset = UnBarcodedMain.objects.all()
+
+    def perform_destroy(self, instance):
+        if not instance.stk_status:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                "This unbarcoded item cannot be deleted because it is not in stock."
+            )
+        super().perform_destroy(instance)
+
+    def perform_update(self, serializer):
+        if not serializer.instance.stk_status:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                "This unbarcoded item cannot be edited because it is not in stock."
+            )
+        super().perform_update(serializer)
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -516,7 +567,7 @@ class StockValuationReportView(APIView):
                 "pcs": barcode.pcs,
                 "gw": barcode.gw,
                 "nw": barcode.nw,
-                "purity": barcode.purity,  # Assuming purity is a field in BarcodeMain
+                "purity": barcode.purity.purity if barcode.purity else None,
                 "stones": stones,
                 "others": others,
                 "making": barcode.making_val,
@@ -811,15 +862,16 @@ class ClosingStockCal:
 
     def get_purchases(self, item, retail_id=None, from_date=None, to_date=None):
         result = self._zero()
-        query = PurchaseVoucherItems.objects.filter(item=item, is_return=False)
+
+        # Main item purchases (non-finished, non-return). Date lives on the voucher header.
+        query = PurchaseVoucherItems.objects.filter(item=item, is_return=False, is_finished=False)
         if retail_id:
             query = query.filter(retail_id=retail_id)
         if from_date:
-            query = query.filter(date1__gte=from_date)
+            query = query.filter(billno__date1__gte=from_date)
         if to_date:
-            query = query.filter(date1__lte=to_date)
+            query = query.filter(billno__date1__lte=to_date)
 
-        # gw always from main items
         agg = query.aggregate(
             total_gw=Coalesce(Sum('gw'), Decimal('0.00')),
             total_amt=Coalesce(Sum('item_value'), Decimal('0.00')),
@@ -827,18 +879,35 @@ class ClosingStockCal:
         result['gw'] = agg['total_gw']
         result['amt'] = agg['total_amt']
 
-        # ct from details for stone items (or any item that has detail-level ct)
-        detail_ct = PurchaseVoucherDetails.objects.filter(
-            main_item__in=query, sub_item=item
-        ).aggregate(total_ct=Coalesce(Sum('sub_ct'), Decimal('0.00')))['total_ct']
-        result['ct'] = detail_ct
+        # Detail sub-item purchases: query directly by sub_item so that S/R items
+        # that are only sub-components (never main items) are still captured.
+        detail_query = PurchaseVoucherDetails.objects.filter(
+            sub_item=item,
+            main_item__is_finished=False,
+            main_item__is_return=False,
+        )
+        if retail_id:
+            detail_query = detail_query.filter(retail_id=retail_id)
+        if from_date:
+            detail_query = detail_query.filter(billno__date1__gte=from_date)
+        if to_date:
+            detail_query = detail_query.filter(billno__date1__lte=to_date)
 
-        # For stone items, value comes from details
+        detail_agg = detail_query.aggregate(
+            total_ct=Coalesce(Sum('sub_ct'), Decimal('0.00')),
+            total_gw=Coalesce(Sum('sub_gw'), Decimal('0.00')),
+            total_val=Coalesce(Sum('value'), Decimal('0.00')),
+        )
+        result['ct'] = detail_agg['total_ct']
+
+        # Stone items exist only as sub-items — gw and amt come entirely from details.
         if item.item_type == 'S':
-            detail_val = PurchaseVoucherDetails.objects.filter(
-                main_item__in=query, sub_item=item
-            ).aggregate(total_val=Coalesce(Sum('value'), Decimal('0.00')))['total_val']
-            result['amt'] = detail_val
+            result['gw'] = detail_agg['total_gw']
+            result['amt'] = detail_agg['total_val']
+        # R items may also appear as sub-items; add detail quantities on top of main-item totals.
+        elif item.item_type == 'R':
+            result['gw'] += detail_agg['total_gw']
+            result['amt'] += detail_agg['total_val']
 
         return result
 
@@ -859,9 +928,15 @@ class ClosingStockCal:
         result['gw'] = agg['total_gw']
         result['amt'] = agg['total_amt']
 
-        # ct from details
+        # ct from details — query directly so stone items (only sub-items) are found.
         if item.item_type == 'S':
-            detail_q = PurchaseReturnDetails.objects.filter(main_item__in=query, sub_item=item)
+            detail_q = PurchaseReturnDetails.objects.filter(sub_item=item)
+            if retail_id:
+                detail_q = detail_q.filter(retail_id=retail_id)
+            if from_date:
+                detail_q = detail_q.filter(billno__date1__gte=from_date)
+            if to_date:
+                detail_q = detail_q.filter(billno__date1__lte=to_date)
             detail_agg = detail_q.aggregate(
                 total_ct=Coalesce(Sum('sub_ct'), Decimal('0.00')),
                 total_val=Coalesce(Sum('value'), Decimal('0.00')),
@@ -1049,6 +1124,14 @@ class StockJournalViewSet(RetailBaseViewset):
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
     search_fields=['billno']
 
+    def perform_destroy(self, instance):
+        from accounting.utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        billno = instance.billno
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, 'SJ', billno, fiscal_year)
+
 class BarcodeTransactionView(RetailBaseViewset):
     serializer_class = BarcodeTransactionSerializer
     queryset = BarcodeTransaction.objects.all()
@@ -1135,6 +1218,14 @@ class StockTransferViewset(RetailBaseViewset):
             Q(retail=retail) | Q(to_rt_code=retail)
         ).select_related('retail', 'to_rt_code').order_by('-date1', '-billno')
 
+    def perform_update(self, serializer):
+        if serializer.instance.sent_status:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                f"Stock transfer '{serializer.instance.billno}' cannot be edited because it has already been dispatched."
+            )
+        super().perform_update(serializer)
+
     def destroy(self, request, *args, **kwargs):
         transfer = self.get_object()
         if transfer.rec_status:
@@ -1142,6 +1233,10 @@ class StockTransferViewset(RetailBaseViewset):
                 {'detail': 'Cannot delete a received transfer.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        from accounting.utils import release_last_bill_number
+        retail = transfer.retail
+        fiscal_year = transfer.fiscal_year
+        billno = transfer.billno
         with transaction.atomic():
             barcode_ids = list(transfer.stocktransfermain_set.values_list('barcode_id', flat=True))
             if transfer.sent_status:
@@ -1149,7 +1244,9 @@ class StockTransferViewset(RetailBaseViewset):
                 BarcodeMain.objects.filter(id__in=barcode_ids).update(stk_status=True)
             # Clean up barcode transaction audit records
             BarcodeTransaction.objects.filter(billno=transfer.billno).delete()
-        return super().destroy(request, *args, **kwargs)
+        response = super().destroy(request, *args, **kwargs)
+        release_last_bill_number(retail, 'RST', billno, fiscal_year)
+        return response
 
     @action(detail=True, methods=['post'], url_path='mark-sent')
     def mark_sent(self, request, pk=None):

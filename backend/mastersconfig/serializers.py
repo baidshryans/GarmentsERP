@@ -36,7 +36,7 @@ class ItemWriteSerializer(ModelSerializer):
             raise serializers.ValidationError({'sale_ledger': 'Sale ledger is required.'})
         return attrs
 class HSNSerializer(ModelSerializer):
-    item_set = ItemSerializer(many=True)
+    item_set = ItemSerializer(many=True, read_only=True)
     class Meta:
         model= Hsn
         fields = "__all__"

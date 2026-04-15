@@ -447,7 +447,7 @@ const SalesVoucherAdd = () => {
     amount: "SUM(main_item_set.amount) + making_value",
   };
   const sub_formulas = {
-    amount: "uom === 'Ct' ? ct * rate : gw * rate",
+    amount: "uom === 'Ct' ? ct * rate : uom === 'Pcs' ? pcs * rate : gw * rate",
   };
 
   const mrp_formula = "SUM(salesvouitem_set.amount) + SUM(rs.value)";

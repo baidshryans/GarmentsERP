@@ -273,7 +273,21 @@ const StoneIssue = () => {
       setValue("table.tot_val", tot ?? 0)
     } else { }
   }
-  const handlePCSchange = (e) => { }
+  const handlePCSchange = (e) => {
+    const { pcs, rate } = getValues("table")
+
+    const calculatedValue = pcs * rate;
+    setValue("table.taxable_value", calculatedValue)
+    if (true) {
+      const { sgst_rate, cgst_rate } = getValues("table");
+      const sgst_val = sgst_rate * calculatedValue / 100
+      const cgst_val = cgst_rate * calculatedValue / 100
+      const tot = cgst_rate + sgst_rate + calculatedValue
+      setValue("table.sgst", sgst_val ?? 0)
+      setValue("table.cgst", cgst_val?? 0)
+      setValue("table.tot_val", tot ?? 0)
+    } else { }
+  }
 
   const handleCTchange = (e) => {
     const { ct, rate } = getValues("table")

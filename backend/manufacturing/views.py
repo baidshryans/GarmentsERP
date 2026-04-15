@@ -16,6 +16,7 @@ from purchase.models import *
 from decimal import Decimal
 from django.db.models import Sum, F
 from django.shortcuts import render,redirect
+from accounting.utils import peek_next_bill_number
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
 from rest_framework import status
@@ -36,10 +37,11 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q,Prefetch
 
 # Create your views here.
-@api_view()
+@api_view(['GET'])
 def get_next_slip_no(request):
     try:
-        return Response({"next_slip_no": generate_slip_no(request.retail)})
+        bill_no = peek_next_bill_number(request.retail, 'IV')
+        return Response({"next_slip_no": bill_no})
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
@@ -128,72 +130,90 @@ class ListKarigarStoneIssue(ListAPIView):
 @api_view(['GET'])
 def hallmark_issue_billno_view(request):
     try:
-        bill_no = generate_hallmark_issue_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'HMIS')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def hallmark_receive_billno_view(request):
     try:
-        bill_no = generate_hallmark_rec_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'HM/RE')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def refinery_issue_billno_view(request):
     try:
-        bill_no = generate_refinary_iss_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'REF/ISS')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def refinery_receive_billno_view(request):
     try:
-        bill_no = generate_refinary_rec_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'REF/REC')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def melting_issue_billno_view(request):
     try:
-        bill_no = generate_melting_iss_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'MLT/ISS')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def melting_receive_billno_view(request):
     try:
-        bill_no = generate_melting_rec_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'MLT/REC')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def assay_issue_billno_view(request):
     try:
-        bill_no = generate_assay_iss_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'ASY/ISS')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def assay_receive_billno_view(request):
     try:
-        bill_no = generate_assay_rec_bill(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'ASY/REC')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 def gold_issue_billno_view(request):
     try:
-        order_no = generate_gold_issue_billno(request.retail)
-        return Response({"bill_no": order_no}, status=status.HTTP_200_OK)
+        bill_no = peek_next_bill_number(request.retail, 'IV/GL')
+        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -216,8 +236,10 @@ def create_karigar_gold_issue(request):
 @api_view(['GET'])
 def stone_issue_billno_view(request):
     try:
-        order_no = generate_stone_issue_billno(request.retail)
-        return Response({"bill_no": order_no}, status=status.HTTP_200_OK)
+        bill_no = peek_next_bill_number(request.retail, 'IV/STN')
+        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -233,9 +255,10 @@ def stone_receive_billno_view(request):
 @api_view(['GET'])
 def receiver_slip_no_view(request):
     try:
-        order_no = generate_kr_rec_slip_no(request.retail)
-        print(order_no)
-        return Response({"receive_slip_no": order_no}, status=status.HTTP_200_OK)
+        bill_no = peek_next_bill_number(request.retail, 'RS')
+        return Response({"receive_slip_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -2082,11 +2105,9 @@ class RepairJobCardViewSet(views.RetailBaseViewset):
 
 @api_view(['GET'])
 def repair_job_card_billno_view(request):
-    """Return the next RJC bill number for the current retail."""
+    """Return the next RJC bill number preview for the current retail."""
     try:
-        from accounting.utils import get_next_bill_number
-        retail = request.retail
-        bill_no = get_next_bill_number(retail, 'RJC')
+        bill_no = peek_next_bill_number(request.retail, 'RJC')
         return Response({'rjc_no': bill_no})
     except ValueError as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

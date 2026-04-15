@@ -1191,8 +1191,10 @@ class BarcodeCreationReportView(APIView):
 @api_view(['GET'])
 def stock_journal_billno_view(request):
     try:
-        bill_no = generate_stock_journal_billno(request.retail)
+        bill_no = peek_next_bill_number(request.retail, 'SJ')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

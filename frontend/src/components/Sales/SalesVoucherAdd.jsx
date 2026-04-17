@@ -1492,7 +1492,9 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{detail?.purity}</TableCell>
                       <TableCell className="w-20 px-3 py-2 border">
-                        <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.tunch`)} placeholder="Tunch" />
+                        {detail?.item === "Gold" && (
+                          <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.tunch`)} placeholder="Tunch" />
+                        )}
                       </TableCell>
                       <TableCell className="px-3 py-2 border text-sm"></TableCell>
                       <TableCell className="w-20 px-3 py-2 border">
@@ -1674,10 +1676,14 @@ const SalesVoucherAdd = () => {
                   />
                 </TableCell>
                 <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.001" {...register("details.loss")} placeholder="Loss" />
+                  {detailItem?.short_code === "Gold" && (
+                    <Input type="number" step="0.001" {...register("details.loss")} placeholder="Loss" />
+                  )}
                 </TableCell>
                 <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.001" {...register("details.tunch")} placeholder="Tunch" />
+                  {detailItem?.short_code === "Gold" && (
+                    <Input type="number" step="0.001" {...register("details.tunch")} placeholder="Tunch" />
+                  )}
                 </TableCell>
                 <TableCell className="w-20 px-3 py-2 border">
                   <Input type="number" step="0.001" {...register("details.fine_wt")} placeholder="Fine Wt" />

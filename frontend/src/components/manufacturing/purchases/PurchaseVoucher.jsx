@@ -1426,7 +1426,7 @@ const PurchaseVoucher = () => {
                     placeholder="Loss"
                   />
                 </TableCell>
-                <TableCell className={`w-28 px-4 py-2 border${showMetalFields ? "" : " hidden"}`}>
+                <TableCell className={`w-28 px-4 py-2 border${showMetalFields && detailItemData?.short_code === "Gold" ? "" : " hidden"}`}>
                   <Input
                     type="number"
                     step="0.01"
@@ -1551,9 +1551,9 @@ const PurchaseVoucher = () => {
                       <TableCell className="w-28 px-4 py-2 border">{detail.metal_purity}</TableCell>
 
 
-                      <TableCell className="w-28 px-4 py-2 border">{detail.loss}</TableCell>
-                      <TableCell className="w-28 px-4 py-2 border">{detail.tunch}</TableCell>
-                      <TableCell className="w-28 px-4 py-2 border">{detail.fine_wt}</TableCell>
+                      <TableCell className="w-28 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.loss : ""}</TableCell>
+                      <TableCell className="w-28 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.tunch : ""}</TableCell>
+                      <TableCell className="w-28 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.fine_wt : ""}</TableCell>
                       <TableCell className="w-28 px-4 py-2 border">{detail.rate}</TableCell>
                       <TableCell className="w-28 px-4 py-2 border"></TableCell>
                       <TableCell className="w-28 px-4 py-2 border">{detail.value}</TableCell>
@@ -1599,9 +1599,9 @@ const PurchaseVoucher = () => {
                   <TableCell className="w-20 px-4 py-2 border">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
                   <TableCell className="w-20 px-4 py-2 border">{detail.sub_gw}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{detail.metal_purity}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.loss}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.tunch}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.fine_wt}</TableCell>
+                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.loss : ""}</TableCell>
+                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.tunch : ""}</TableCell>
+                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.fine_wt : ""}</TableCell>
                   <TableCell className="w-20 px-4 py-2 border">{detail.rate}</TableCell>
                   <TableCell className="w-20 px-4 py-2 border font-semibold">{detail.value}</TableCell>
                 </TableRow>

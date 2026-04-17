@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useGoldRates } from "../../contexts/GoldRateContext";
 
 const GoldRateForm = () => {
@@ -18,6 +19,7 @@ const GoldRateForm = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { refreshGoldRates } = useGoldRates();
+  const navigate = useNavigate();
 
   const form = useForm({
     defaultValues: {
@@ -83,6 +85,7 @@ const GoldRateForm = () => {
         });
         refreshGoldRates();
         form.reset({ rates: {} });
+        navigate('/');
       })
       .catch((err) => {
         console.error("Error submitting form", err);

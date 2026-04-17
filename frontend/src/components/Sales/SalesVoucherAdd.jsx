@@ -61,7 +61,7 @@ const SectionHeader = ({ number, title }) => (
 
 // ─── Table header cell helper ────────────────────────────────────────────────
 const TH = ({ children, className = "" }) => (
-  <TableCell className={`px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}>
+  <TableCell className={`px-4 py-2.5 border text-sm font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}>
     {children}
   </TableCell>
 );
@@ -370,7 +370,7 @@ const SalesVoucherAdd = () => {
       getGoldRate(today).then(res => {
         if (res.success && Array.isArray(res.data)) {
           const rateMap = {};
-          res.data.forEach(r => { if (r.purity_name) rateMap[r.purity_name] = r.rate; });
+          res.data.forEach(r => { if (r.purity_name) rateMap[r.purity_name] = r.selling_rate || r.rate; });
           setGoldRates(rateMap);
         }
       });
@@ -1440,20 +1440,20 @@ const SalesVoucherAdd = () => {
                 <React.Fragment key={field.id || index}>
                   {/* Main item row */}
                   <TableRow className="bg-violet-50">
-                    <TableCell className="px-3 py-2 border text-xs">{field?.barcode}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{field?.packet}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{field?.item}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{field?.pcs}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{Number(field?.ct || 0).toFixed(3)}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{field?.gw}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{field?.barcode}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{field?.packet}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{field?.item}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{field?.pcs}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{Number(field?.ct || 0).toFixed(3)}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{field?.gw}</TableCell>
                     <TableCell className="w-24 px-3 py-2 border">
-                      <Input type="number" className="h-7 text-xs" {...register(`salesvouitem_set.${index}.making`, { valueAsNumber: true })} />
+                      <Input type="number" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.making`, { valueAsNumber: true })} />
                     </TableCell>
                     <TableCell className="w-28 px-3 py-2 border">
                       <Controller name={`salesvouitem_set.${index}.making_type`} control={control}
                         render={({ field }) => (
                           <Select onValueChange={(v) => { field.onChange(v); setCalculate(prev => prev + 1); }} value={field.value}>
-                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
+                            <SelectTrigger className="h-7 text-sm"><SelectValue placeholder="Type" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="per_nw">% of wt</SelectItem>
                               <SelectItem value="val">Value</SelectItem>
@@ -1463,13 +1463,13 @@ const SalesVoucherAdd = () => {
                       />
                     </TableCell>
                     <TableCell className="w-24 px-3 py-2 border">
-                      <Input type="number" className="h-7 text-xs bg-muted/30" readOnly tabIndex={-1} {...register(`salesvouitem_set.${index}.making_value`, { valueAsNumber: true })} />
+                      <Input type="number" className="h-7 text-sm bg-muted/30" readOnly tabIndex={-1} {...register(`salesvouitem_set.${index}.making_value`, { valueAsNumber: true })} />
                     </TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{field?.purity}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{field?.tunch ? Number(field.tunch).toFixed(2) : "0.00"}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
-                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">
+                    <TableCell className="px-3 py-2 border text-sm">{field?.purity}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{field?.tunch ? Number(field.tunch).toFixed(2) : "0.00"}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                    <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">
                       {field?.amount}
                       <input type="hidden" {...register(`salesvouitem_set.${index}.amount`)} />
                     </TableCell>
@@ -1482,23 +1482,23 @@ const SalesVoucherAdd = () => {
                   {field.main_item_set?.map((detail, idx) => (
                     <TableRow key={idx} className="bg-gray-50">
                       <TableCell className="px-3 py-2 border"></TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{detail?.packet}</TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{detail?.item}</TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{detail?.pcs}</TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{detail?.gw}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.packet}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.item}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.pcs}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.gw}</TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{detail?.purity}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.purity}</TableCell>
                       <TableCell className="w-20 px-3 py-2 border">
-                        <Input type="text" className="h-7 text-xs" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.tunch`)} placeholder="Tunch" />
+                        <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.tunch`)} placeholder="Tunch" />
                       </TableCell>
-                      <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                      <TableCell className="px-3 py-2 border text-sm"></TableCell>
                       <TableCell className="w-20 px-3 py-2 border">
-                        <Input type="text" className="h-7 text-xs" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.rate`)} placeholder="Rate" />
+                        <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.rate`)} placeholder="Rate" />
                       </TableCell>
-                      <TableCell className="px-3 py-2 border text-xs">{detail?.amount}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.amount}</TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                     </TableRow>
                   ))}
@@ -1749,18 +1749,18 @@ const SalesVoucherAdd = () => {
                         <TableRow key={subIdx} className="bg-white">
                           <TableCell className="px-3 py-2 border text-xs text-gray-400">{mainIdx + 1}</TableCell>
                           <TableCell className="px-3 py-2 border text-xs text-gray-500">{detail.packet || detail.item}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{detail.item_name || detail.item}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{detail.pcs || ""}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{Number(detail.ct || 0).toFixed(3)}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{detail.gw}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{rowIsRaw ? detail.loss : ""}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{rowIsRaw ? detail.tunch : ""}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{rowIsRaw ? detail.fine_wt : ""}</TableCell>
-                          <TableCell className="px-3 py-2 border text-xs">{detail.rate}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{detail.item_name || detail.item}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{detail.pcs || ""}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{Number(detail.ct || 0).toFixed(3)}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{detail.gw}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{rowIsRaw ? detail.loss : ""}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{rowIsRaw ? detail.tunch : ""}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{rowIsRaw ? detail.fine_wt : ""}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{detail.rate}</TableCell>
                           {/* Making/Discount blank for sub-items */}
                           <TableCell className="px-3 py-2 border" />
                           <TableCell className="px-3 py-2 border" />
-                          <TableCell className="px-3 py-2 border text-xs">{detail.value}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{detail.value}</TableCell>
                           <TableCell className="px-3 py-2 border" />
                           <TableCell className="px-3 py-2 border text-center">
                             <Trash2 color="#d45959" className="size-4 cursor-pointer mx-auto" onClick={() => handleDeleteSubItem(mainIdx, subIdx)} />
@@ -1851,7 +1851,7 @@ const SalesVoucherAdd = () => {
                       <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteBank(index)} />
                     </div>
                   </TableCell>
-                  <TableCell className="px-3 py-2 border text-xs">
+                  <TableCell className="px-3 py-2 border text-sm">
                     <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${
                       b?.payment_mode === "CHEQUE" ? "bg-amber-100 text-amber-800" :
                       b?.payment_mode === "UPI"    ? "bg-green-100 text-green-800" :
@@ -1862,11 +1862,11 @@ const SalesVoucherAdd = () => {
                       <span className="ml-1 text-[10px] text-green-700 font-medium">{b.cheque_status}</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-3 py-2 border text-xs">{b?.amount}</TableCell>
-                  <TableCell className="px-3 py-2 border text-xs">{b?.chq_no}</TableCell>
-                  <TableCell className="px-3 py-2 border text-xs">{b?.bank_name}</TableCell>
-                  <TableCell className="px-3 py-2 border text-xs">{b?.ledger_name}</TableCell>
-                  <TableCell className="px-3 py-2 border text-xs">{b?.payment_mode === "CHEQUE" ? b?.chq_date : ""}</TableCell>
+                  <TableCell className="px-3 py-2 border text-sm">{b?.amount}</TableCell>
+                  <TableCell className="px-3 py-2 border text-sm">{b?.chq_no}</TableCell>
+                  <TableCell className="px-3 py-2 border text-sm">{b?.bank_name}</TableCell>
+                  <TableCell className="px-3 py-2 border text-sm">{b?.ledger_name}</TableCell>
+                  <TableCell className="px-3 py-2 border text-sm">{b?.payment_mode === "CHEQUE" ? b?.chq_date : ""}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

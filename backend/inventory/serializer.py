@@ -485,7 +485,7 @@ def get_recent_gold_rate(purity_value):
         latest_rate = GoldRates.objects.filter(purity=purity_obj).order_by('-date1').first()
         
         if latest_rate:
-            return latest_rate.rate
+            return latest_rate.selling_rate or latest_rate.rate
         else:
             return None
             

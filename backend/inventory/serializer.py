@@ -500,7 +500,7 @@ class BarcodeDetToSaleVouDetSerializer(BarcodeDetailsSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["metal_purity"] = self.context.get('purity')
-        if instance.item.short_code == "GOLD":
+        if instance.item.short_code == "Gold":
             representation["rate"] = get_recent_gold_rate(self.context.get('purity'))
         return representation
 

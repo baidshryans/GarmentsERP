@@ -1419,10 +1419,10 @@ const SalesVoucherAdd = () => {
           <Table>
             <TableBody>
               <TableRow className="bg-violet-50">
-                <TH>Barcode</TH><TH>Packet</TH><TH>Item</TH><TH>Pcs</TH>
+                <TH>Del</TH><TH>Barcode</TH><TH>Packet</TH><TH>Item</TH><TH>Pcs</TH>
                 <TH>Ct</TH><TH>GW</TH><TH>Making</TH><TH>Making Type</TH>
                 <TH>Making Value</TH><TH>Purity</TH><TH>Tunch</TH>
-                <TH>Fine Wt</TH><TH>Rate</TH><TH>Amount</TH><TH>Del</TH>
+                <TH>Fine Wt</TH><TH>Rate</TH><TH>Amount</TH>
               </TableRow>
 
               {watchFields.length === 0 && (
@@ -1440,9 +1440,12 @@ const SalesVoucherAdd = () => {
                 <React.Fragment key={field.id || index}>
                   {/* Main item row */}
                   <TableRow className="bg-violet-50">
+                    <TableCell className="px-3 py-2 border">
+                      <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => remove(index)} />
+                    </TableCell>
                     <TableCell className="px-3 py-2 border text-sm">{field?.barcode}</TableCell>
                     <TableCell className="px-3 py-2 border text-sm">{field?.packet}</TableCell>
-                    <TableCell className="px-3 py-2 border text-sm">{field?.item}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{mainItemData.find(m => m.short_code === field?.item)?.item_name || field?.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-sm">{field?.pcs}</TableCell>
                     <TableCell className="px-3 py-2 border text-sm">{Number(field?.ct || 0).toFixed(3)}</TableCell>
                     <TableCell className="px-3 py-2 border text-sm">{field?.gw}</TableCell>
@@ -1473,17 +1476,15 @@ const SalesVoucherAdd = () => {
                       {field?.amount}
                       <input type="hidden" {...register(`salesvouitem_set.${index}.amount`)} />
                     </TableCell>
-                    <TableCell className="px-3 py-2 border">
-                      <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => remove(index)} />
-                    </TableCell>
                   </TableRow>
 
                   {/* Sub-item (stone / metal) rows */}
                   {field.main_item_set?.map((detail, idx) => (
                     <TableRow key={idx} className="bg-gray-50">
                       <TableCell className="px-3 py-2 border"></TableCell>
+                      <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{detail?.packet}</TableCell>
-                      <TableCell className="px-3 py-2 border text-sm">{detail?.item}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.item_name || detail?.item}</TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{detail?.pcs}</TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{detail?.gw}</TableCell>
@@ -1501,7 +1502,6 @@ const SalesVoucherAdd = () => {
                         <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.rate`)} placeholder="Rate" />
                       </TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{detail?.amount}</TableCell>
-                      <TableCell className="px-3 py-2 border"></TableCell>
                     </TableRow>
                   ))}
                 </React.Fragment>

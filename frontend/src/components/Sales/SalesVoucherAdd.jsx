@@ -467,7 +467,7 @@ const SalesVoucherAdd = () => {
     sgst_amt: `(${taxable_value_formula}) * sgst_per / 100`,
     total_incl_gst: total_incl_gst_formula,
     tcs_amt: tcs_amt_formula,
-    total_bill_value: `${tcs_amt_formula} + ${total_incl_gst_formula}`,
+    total_bill_value: `${tcs_amt_formula} + ${total_incl_gst_formula} + round_off`,
   };
 
   const evaluateFormula = (formula, data) => {

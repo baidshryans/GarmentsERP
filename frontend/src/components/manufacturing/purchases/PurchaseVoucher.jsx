@@ -498,6 +498,7 @@ const PurchaseVoucher = () => {
 
   const watchedFields = watch('form')
   const watchedPacketDetail = watch('details.packet')
+  const watchedTunch = watch('details.tunch')
 
 
 
@@ -524,7 +525,7 @@ const PurchaseVoucher = () => {
     Object.keys(statmaintableFormulas).forEach((col) => {
       setValue(`table.${col}`, evaluateFormula(statmaintableFormulas[col], maintable));
     })
-  }, [rs, rsRaw, watchedFields, calculate]);
+  }, [rs, rsRaw, watchedFields, watchedTunch, calculate]);
 
   useEffect(() => {
     // Skip when editing a sub-item — rate/value are already set by handleEditSubItem

@@ -83,7 +83,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                       step={row.step || '0.01'}
                       disabled={!watch?.(row.captionField)}
                       className="w-24 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400 disabled:opacity-40 disabled:cursor-not-allowed"
-                      {...register(row.field, { valueAsNumber: true })}
+                      {...register(row.field, { setValueAs: v => (v === "" || v === null || v === undefined ? 0 : parseFloat(v) || 0) })}
                     />
                   </div>
                 ) : showEditableTotal ? (
@@ -110,7 +110,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                     type="number"
                     step={row.step || '0.01'}
                     className="w-36 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400"
-                    {...register(row.field, { valueAsNumber: true })}
+                    {...register(row.field, { setValueAs: v => (v === "" || v === null || v === undefined ? 0 : parseFloat(v) || 0) })}
                   />
                 ) : (
                   <>

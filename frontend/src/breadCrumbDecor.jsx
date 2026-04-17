@@ -51,7 +51,6 @@ const SEGMENT_LABEL_OVERRIDES = {
   karigarstonetxns: "Karigar Stone Transactions",
   finisheditemrec: "Finished Item Receive",
   profitlosscal: "Profit Loss Calculation",
-  profitdemo: "Profit Demo",
   idgen: "ID Generation",
   joborder: "Job Order",
   rawsalesvoucher: "Raw Sales Voucher",
@@ -192,7 +191,7 @@ const Header = ({ heading, children }) => {
                 to="/"
                 className="text-gray-400 hover:text-primary transition-colors flex items-center"
               >
-                <Home className="w-3 h-3" />
+                <Home className="size-3" />
               </Link>
 
               {segments.map((seg, idx) => {

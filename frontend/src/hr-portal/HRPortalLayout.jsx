@@ -17,13 +17,13 @@ export default function HRPortalLayout() {
       <header className="border-b bg-card">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/hr-portal/dashboard")}>
-            <BriefcaseBusiness className="h-5 w-5 text-primary" />
+            <BriefcaseBusiness className="size-5 text-primary" />
             <span className="font-semibold text-sm">Employee Portal</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:inline">{emp.full_name}</span>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4" />
+              <LogOut className="size-4" />
             </Button>
           </div>
         </div>

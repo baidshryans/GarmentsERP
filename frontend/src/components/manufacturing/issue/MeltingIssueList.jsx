@@ -50,13 +50,13 @@ function MeltingIssueList() {
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
-            <SquarePen className="w-4 h-4" />
+            <SquarePen className="size-4" />
           </Link>
           <button
             onClick={() => handleDelete(row.original.id)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="size-4" />
           </button>
         </div>
       ),

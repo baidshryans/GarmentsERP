@@ -99,7 +99,7 @@ export default function CarryForwardPage() {
       {/* Controls */}
       <div className="border rounded-lg p-4 space-y-4 bg-card">
         <h3 className="font-semibold flex items-center gap-2">
-          <Database className="h-4 w-4" /> Database Carry-Forward
+          <Database className="size-4" /> Database Carry-Forward
         </h3>
         <p className="text-sm text-muted-foreground">
           Create a fresh database carrying forward only master data, opening balances, and pending work.
@@ -135,15 +135,15 @@ export default function CarryForwardPage() {
           </div>
           <div className="flex items-end gap-2">
             <Button variant="outline" onClick={handlePreview} disabled={loading}>
-              <Eye className="h-4 w-4 mr-1" /> Preview
+              <Eye className="size-4 mr-1" /> Preview
             </Button>
             {!confirming ? (
               <Button variant="destructive" onClick={handleExecute} disabled={loading || !previewOutput}>
-                <Play className="h-4 w-4 mr-1" /> Execute
+                <Play className="size-4 mr-1" /> Execute
               </Button>
             ) : (
               <Button variant="destructive" onClick={handleExecute} disabled={loading}>
-                <AlertTriangle className="h-4 w-4 mr-1" /> Confirm Execute
+                <AlertTriangle className="size-4 mr-1" /> Confirm Execute
               </Button>
             )}
           </div>
@@ -198,7 +198,7 @@ export default function CarryForwardPage() {
                     <td className="py-2 pr-3">
                       {log.status === "success" ? (
                         <span className="text-green-600 flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" /> Success
+                          <CheckCircle2 className="size-3" /> Success
                         </span>
                       ) : (
                         <span className="text-red-600">{log.status}</span>

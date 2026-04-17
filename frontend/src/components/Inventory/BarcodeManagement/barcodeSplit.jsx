@@ -18,7 +18,7 @@ import { Scissors, ScanBarcode, Plus, Pencil, Trash2 } from "lucide-react";
 // ── Section header (matches ERP design language) ────────────────────────────
 const SectionHeader = ({ icon: Icon, title, subtitle }) => (
   <div className="flex items-center gap-3 mb-4">
-    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white shrink-0">
+    <span className="flex items-center justify-center size-8 rounded-full bg-primary text-white shrink-0">
       <Icon size={16} />
     </span>
     <div>
@@ -798,14 +798,14 @@ const BarcodeSplit = () => {
                                                             onClick={() => handleEdit(idx)}
                                                             className="p-1 rounded text-primary hover:bg-violet-50"
                                                         >
-                                                            <Pencil className="w-4 h-4" />
+                                                            <Pencil className="size-4" />
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelete(idx)}
                                                             className="p-1 rounded text-red-500 hover:bg-red-50"
                                                         >
-                                                            <Trash2 className="w-4 h-4" />
+                                                            <Trash2 className="size-4" />
                                                         </button>
                                                     </div>
                                                 </td>

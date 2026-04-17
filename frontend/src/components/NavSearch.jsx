@@ -114,7 +114,7 @@ export function NavSearch({ className = "" }) {
           >
             {/* Search input */}
             <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+              <Search className="size-4 text-muted-foreground shrink-0" />
               <input
                 ref={inputRef}
                 value={query}
@@ -148,8 +148,8 @@ export function NavSearch({ className = "" }) {
                   }`}
                 >
                   {item.icon
-                    ? <item.icon className="w-4 h-4 shrink-0 text-muted-foreground" />
-                    : <Search className="w-4 h-4 shrink-0 text-muted-foreground opacity-40" />
+                    ? <item.icon className="size-4 shrink-0 text-muted-foreground" />
+                    : <Search className="size-4 shrink-0 text-muted-foreground opacity-40" />
                   }
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium">{item.title}</span>

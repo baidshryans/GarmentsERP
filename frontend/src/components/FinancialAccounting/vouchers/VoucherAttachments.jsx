@@ -79,7 +79,7 @@ export default function VoucherAttachments({ voucherId, voucherNo }) {
           title="Attachments"
           className="text-muted-foreground hover:text-foreground relative"
         >
-          <Paperclip className="size-5" />
+          <Paperclip className="size-4" />
           {attachments.length > 0 && (
             <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full size-4 flex items-center justify-center">
               {attachments.length}

@@ -73,7 +73,7 @@ export default function RawMaterialBalanceReport() {
       {/* Filters */}
       <div className="p-4 bg-muted/30 rounded-lg border border-border space-y-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-          <Filter className="w-4 h-4" /> Raw Material Balance
+          <Filter className="size-4" /> Raw Material Balance
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1 w-40">
@@ -193,7 +193,7 @@ export default function RawMaterialBalanceReport() {
       {!loading && fetched && data.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="rounded-full bg-muted/50 p-4 mb-4">
-            <Package className="h-8 w-8 text-muted-foreground" />
+            <Package className="size-8 text-muted-foreground" />
           </div>
           <h3 className="font-semibold text-foreground mb-1">No raw material stock found</h3>
           <p className="text-sm text-muted-foreground max-w-sm">

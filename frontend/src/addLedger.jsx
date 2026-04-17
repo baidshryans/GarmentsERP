@@ -211,13 +211,13 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode }) => {
                 {hasChildren ? (
                     <button
                         type="button"
-                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
+                        className="shrink-0 size-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
                         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
                     >
                         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                     </button>
                 ) : (
-                    <span className="w-5 h-5 shrink-0 flex items-center justify-center">
+                    <span className="size-5 shrink-0 flex items-center justify-center">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
                     </span>
                 )}
@@ -270,7 +270,7 @@ const SectionCard = ({ number, title, children }) => (
     <div className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden">
         {/* Card header */}
         <div className="flex items-center gap-3 px-7 py-4 bg-violet-50 border-b border-violet-100">
-            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
+            <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                 {number}
             </span>
             <span className="text-sm font-bold text-primary tracking-widest uppercase">
@@ -714,9 +714,9 @@ const LedgerForm = () => {
                                 />
                                 {hasNonCustomerRole && (
                                     <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                                        {nameCheck.checking && <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />}
-                                        {!nameCheck.checking && nameCheck.exists === false && <CheckCircle2 className="w-4 h-4 text-green-500" />}
-                                        {!nameCheck.checking && nameCheck.exists === true && <XCircle className="w-4 h-4 text-red-500" />}
+                                        {nameCheck.checking && <Loader2 className="size-4 text-gray-400 animate-spin" />}
+                                        {!nameCheck.checking && nameCheck.exists === false && <CheckCircle2 className="size-4 text-green-500" />}
+                                        {!nameCheck.checking && nameCheck.exists === true && <XCircle className="size-4 text-red-500" />}
                                     </span>
                                 )}
                             </div>
@@ -845,7 +845,7 @@ const LedgerForm = () => {
                                         isChecked ? activeCircle : 'bg-gray-100'
                                     }`}>
                                         {isLoading
-                                            ? <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                                            ? <Loader2 className="size-4 text-gray-400 animate-spin" />
                                             : Icon
                                                 ? <Icon className={`w-4 h-4 ${isChecked ? activeIcon : 'text-gray-400'}`} />
                                                 : <span className={`text-[10px] font-bold ${isChecked ? activeIcon : 'text-gray-400'}`}>{t.code}</span>
@@ -893,7 +893,7 @@ const LedgerForm = () => {
                                 {activeRoleCodes.length >= 2 && (
                                     <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100">
                                         <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
-                                            <Crown className="w-3 h-3" /> Primary
+                                            <Crown className="size-3" /> Primary
                                         </span>
                                         {activeRoleCodes.map(code => {
                                             const t = types.find(t => t.code === code);
@@ -933,7 +933,7 @@ const LedgerForm = () => {
                             </p>
                             {groupAutoFilled && (
                                 <span className="text-[10px] text-violet-500 font-medium flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3" /> Auto-set from role — you can override
+                                    <CheckCircle2 className="size-3" /> Auto-set from role — you can override
                                 </span>
                             )}
                         </div>
@@ -980,7 +980,7 @@ const LedgerForm = () => {
                                                 }}
                                             >
                                                 <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
-                                                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
+                                                    <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                                                     <div>
                                                         <p className="text-sm font-bold text-primary tracking-widest uppercase">Select Account Group</p>
                                                         <p className="text-xs text-primary mt-0.5">Hover to see examples. Click to assign.</p>

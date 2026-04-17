@@ -113,7 +113,7 @@ export default function BalanceSheet() {
               id="bs-combined"
               checked={combined}
               onChange={(e) => setCombined(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
+              className="size-4 rounded border-gray-300"
             />
             <Label htmlFor="bs-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
           </div>
@@ -128,7 +128,7 @@ export default function BalanceSheet() {
             onClick={handlePrint}
             className="h-9 ml-auto"
           >
-            <Printer className="w-4 h-4 mr-1.5" /> Print
+            <Printer className="size-4 mr-1.5" /> Print
           </Button>
         )}
       </div>

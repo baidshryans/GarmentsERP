@@ -250,7 +250,7 @@ function CommissionReport() {
       {/* Warning if commission ledger not set */}
       {!ldgrConfigured && !loading && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <AlertCircle className="size-5 shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold">Commission ledger not configured</p>
             <p className="mt-0.5">
@@ -332,7 +332,7 @@ function CommissionReport() {
           disabled={creatingJV || selectedCount === 0 || !ldgrConfigured}
           className="gap-1.5"
         >
-          <BookCheck className="w-4 h-4" />
+          <BookCheck className="size-4" />
           {creatingJV ? "Creating…" : `Create Journal Voucher${selectedCount !== 1 ? "s" : ""}`}
           {selectedCount > 0 && ` (${selectedCount})`}
         </Button>
@@ -345,7 +345,7 @@ function CommissionReport() {
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
-          <FileText className="w-10 h-10" />
+          <FileText className="size-10" />
           <p className="text-sm">No commission records found for the selected period.</p>
           <p className="text-xs">Make sure salespersons have a commission rate configured.</p>
         </div>

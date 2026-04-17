@@ -1,0 +1,231 @@
+{
+  "accounting/profitdemo": {
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "401 http://127.0.0.1:8000/accounting/api/pnl | {\"detail\":\"Authentication credentials were not provided.\"}"
+    ]
+  },
+  "inventory/barcode-bulk": {
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "inventory/barcodemanagement/merge/": {
+    "console_errors": [
+      "Warning: validateDOMNesting(...): %s cannot appear as a child of <%s>.%s%s%s <h6> tbody   \n    at h6\n    at tbody\n    at _c5 (http://127.0.0.1:4321/src/components/ui/table.jsx:53:12)\n    at table\n    at div\n    at _c (http://127.0.0.1:4321/src/components/ui/table.jsx:20:11)\n    at form\n    at div\n  "
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "inventory/reports/idgen": {
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "inventory/reports/raw-material": {
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "inventory/reports/stockvalue": {
+    "console_errors": [
+      "Warning: Each child in a list should have a unique \"key\" prop.%s%s See https://reactjs.org/link/warning-keys for more information.%s \n\nCheck the render method of `StockValueReport`.  \n    at StockValueReport (http://127.0.0.1:4321/src/stockValueReport.jsx?t=1776239580683:31:37)\n    at div\n    at Hea"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "inventory/stockjournal/add": {
+    "console_errors": [
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "Failed to fetch order items : {error: name 'peek_next_bill_number' is not defined}"
+    ],
+    "page_errors": [],
+    "http_errors": [
+      "500 http://127.0.0.1:8000/inventory/api/next_stock_journal_no | {\"error\":\"name 'peek_next_bill_number' is not defined\"}"
+    ]
+  },
+  "inventory/stocktransfer/add": {
+    "console_errors": [],
+    "page_errors": [
+      "Navigation: Page.goto: net::ERR_INSUFFICIENT_RESOURCES at http://127.0.0.1:4321/inventory/stocktransfer/add\nCall log:\n  - navigating to \"http://127.0.0.1:4321/inventory/stocktransfer/add\", waiting until \"domconte"
+    ],
+    "http_errors": []
+  },
+  "manufacturing/issue/assay/add": {
+    "console_errors": [
+      "Failed to fetch order items : Object",
+      "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/issue/goldissue/add": {
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/issue/hallmarkissue/add": {
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/issue/jobwork/add": {
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/issue/melting/add": {
+    "console_errors": [],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/issue/refinary/add": {
+    "console_errors": [
+      "Warning: validateDOMNesting(...): %s cannot appear as a child of <%s>.%s%s%s Whitespace text nodes colgroup  Make sure you don't have any extra whitespace between tags on each line of your source code.  \n    at colgroup\n    at table\n    at div\n    at _c (http://127.0.0.1:4321/src/components/ui/table"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/issue/stoneissue/add": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/receive/assay/add": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/receive/hallmarkreceive/add": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/receive/jobworkreceive/add": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/receive/refinary/add": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [],
+    "http_errors": []
+  },
+  "manufacturing/receive/stonereturn/add": {
+    "console_errors": [],
+    "page_errors": [
+      "Navigation: Page.goto: net::ERR_INSUFFICIENT_RESOURCES at http://127.0.0.1:4321/manufacturing/receive/stonereturn/add\nCall log:\n  - navigating to \"http://127.0.0.1:4321/manufacturing/receive/stonereturn/add\", wai"
+    ],
+    "http_errors": []
+  },
+  "manufacturing/repair/new": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [
+      "Navigation: Page.goto: net::ERR_INSUFFICIENT_RESOURCES at http://127.0.0.1:4321/manufacturing/repair/new\nCall log:\n  - navigating to \"http://127.0.0.1:4321/manufacturing/repair/new\", waiting until \"domcontentload"
+    ],
+    "http_errors": []
+  },
+  "purchase/purchaseorder/list/add": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [
+      "Navigation: Page.goto: net::ERR_INSUFFICIENT_RESOURCES at http://127.0.0.1:4321/purchase/purchaseorder/list/add\nCall log:\n  - navigating to \"http://127.0.0.1:4321/purchase/purchaseorder/list/add\", waiting until \""
+    ],
+    "http_errors": []
+  },
+  "sales/quotation/add/": {
+    "console_errors": [
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES",
+      "Failed to load resource: net::ERR_INSUFFICIENT_RESOURCES"
+    ],
+    "page_errors": [
+      "Navigation: Page.goto: net::ERR_INSUFFICIENT_RESOURCES at http://127.0.0.1:4321/sales/quotation/add/\nCall log:\n  - navigating to \"http://127.0.0.1:4321/sales/quotation/add/\", waiting until \"domcontentloaded\"\n"
+    ],
+    "http_errors": []
+  }
+}

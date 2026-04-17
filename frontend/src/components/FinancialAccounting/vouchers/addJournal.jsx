@@ -581,7 +581,7 @@ const AddJournal = () => {
         {/* ── Attachments ── */}
         <div className="border rounded-lg p-4 mt-4">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Paperclip className="w-4 h-4 text-muted-foreground" />
+            <Paperclip className="size-4 text-muted-foreground" />
             Attachments
             <span className="text-xs text-muted-foreground font-normal">
               ({(savedAttachments.length + pendingFiles.length)}/3)
@@ -596,7 +596,7 @@ const AddJournal = () => {
             const baseUrl = (sessionStorage.getItem("baseUrl") || "http://127.0.0.1:8000/").replace(/\/$/, "");
             return (
               <div key={att.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border bg-muted/20 mb-2">
-                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                <FileText className="size-4 text-muted-foreground shrink-0" />
                 <div className="flex-1 min-w-0">
                   <a
                     href={`${baseUrl}${att.file}`}
@@ -620,7 +620,7 @@ const AddJournal = () => {
                   className="p-1 rounded hover:bg-destructive/10 text-destructive"
                   title="Remove"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="size-4" />
                 </button>
               </div>
             );
@@ -629,7 +629,7 @@ const AddJournal = () => {
           {/* Pending files (new voucher — queued for upload) */}
           {pendingFiles.map((file, i) => (
             <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50/40 mb-2">
-              <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+              <FileText className="size-4 text-amber-600 shrink-0" />
               <span className="flex-1 text-sm truncate text-amber-800">{file.name}</span>
               <span className="text-[10px] text-amber-600 mr-2">pending</span>
               <button
@@ -638,7 +638,7 @@ const AddJournal = () => {
                 className="p-1 rounded hover:bg-destructive/10 text-destructive"
                 title="Remove"
               >
-                <X className="w-4 h-4" />
+                <X className="size-4" />
               </button>
             </div>
           ))}
@@ -646,7 +646,7 @@ const AddJournal = () => {
           {/* Upload control */}
           {(savedAttachments.length + pendingFiles.length) < 3 && (
             <label className="flex items-center gap-2 justify-center border-2 border-dashed border-border rounded-lg p-3 cursor-pointer hover:bg-muted/30 transition-colors mt-1">
-              <Upload className="w-4 h-4 text-muted-foreground" />
+              <Upload className="size-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
                 {uploadingFiles ? "Uploading…" : "Click to attach a file"}
               </span>

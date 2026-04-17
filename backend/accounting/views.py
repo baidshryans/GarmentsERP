@@ -1,42 +1,45 @@
 from datetime import date, datetime, timedelta
-from decimal import Decimal
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
+from decimal import Decimal, InvalidOperation
+import json
+
 from django.db import transaction
+from django.db.models import Sum, F, Case, When, Value, DecimalField, FloatField, Prefetch
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import JsonResponse
+from django.utils import timezone
+
+from rest_framework import serializers, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.generics import ListCreateAPIView, ListAPIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django_filters.rest_framework import DjangoFilterBackend
+
 from contacts.models import Ledger
 from global_vars import VoucherType
 from inventory.views import ClosingStockCal
 from sales.models import SalesVou
 from sales.serializers import SalesVouSerializer
 from userauth.views import RetailBaseViewset
-from .models import *
 from purchase.models import PurchaseVoucher
-from accounting.utils import *
-from django.utils import timezone
-from django.http import JsonResponse, HttpResponse
-import json
-from rest_framework.generics import ListCreateAPIView,ListAPIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Account
-from .serializers import AccountSerializer, CashbookTransactionSerializer, GoldCashSerializder, LedgerSerializer, PurchaseVoucherSerializer, LedgerOpenBalanceSerializer
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.decorators import api_view
-from django.utils import timezone
-from .models import Ledger
-from .serializers import JournalEntrySerializer
-from .utils import generate_voucher_no  # Assuming you have this utility function
-from decimal import InvalidOperation
-from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Sum
-from rest_framework.request import Request
 
-from rest_framework import serializers
-from .models import VoucherDetail
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import OrderingFilter, SearchFilter
+from .models import *
+from .models import Account, VoucherDetail
+from .serializers import (
+    AccountSerializer,
+    CashbookTransactionSerializer,
+    GoldCashSerializder,
+    JournalEntrySerializer,
+    LedgerSerializer,
+    LedgerLightSerializer,
+    LedgerOpenBalanceSerializer,
+    PurchaseVoucherSerializer,
+)
+from .utils import generate_voucher_no
+from accounting.utils import *
 
 
 class DueAdvanceReportSerializer(serializers.Serializer):
@@ -48,13 +51,6 @@ class DueAdvanceReportSerializer(serializers.Serializer):
     net_crdt = serializers.DecimalField(max_digits=15, decimal_places=2)
     balance = serializers.DecimalField(max_digits=15, decimal_places=2)
 
-# views/api
-from django.db.models import Sum, F, Case, When, Value, DecimalField
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import  VoucherDetail #LedgerOpenBalance,
-from django.db.models import FloatField
 
 
 def get_all_descendants(account: Account):
@@ -699,6 +695,7 @@ from rest_framework.exceptions import PermissionDenied
 class AccountViewSet(ModelViewSet):
     serializer_class = AccountSerializer
     queryset = Account.objects.select_related('parent').prefetch_related('ledger_set__roles').all()
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
     def perform_create(self, serializer):
@@ -850,6 +847,7 @@ class CashbookReportView(APIView):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def account_tree(request):
     from contacts.models import Ledger
     from django.db.models import Count
@@ -954,9 +952,13 @@ class JournalEntryViewSet(RetailBaseViewset):
             return Response({'success': False, 'errors': response.data}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def initial_data_view(request):
     # Retrieve ledgers, voucher number, and default date
-    ledgers = LedgerSerializer(Ledger.objects.only('id', 'ac_name', 'type', 'ac_group'), many=True, context={'request': request}).data
+    ledgers = LedgerLightSerializer(
+        Ledger.objects.select_related('ac_group').prefetch_related('roles').only('id', 'ac_name', 'ac_group'),
+        many=True
+    ).data
     from accounting.utils import peek_next_bill_number
     voucher_no = peek_next_bill_number(request.retail, 'JRNL')
     default_date = timezone.localdate()
@@ -967,13 +969,15 @@ def initial_data_view(request):
         'default_date': default_date
     })
 
-@api_view()
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_gc_no(request):
     from accounting.utils import peek_next_bill_number
     bill_no = peek_next_bill_number(request.retail, "GC")
     return Response({"billno":bill_no})
 
-@api_view()
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_vou_no(request,type):
     from accounting.utils import peek_next_bill_number
     type_map = {
@@ -989,12 +993,13 @@ def get_next_vou_no(request,type):
     }
     prefix = type_map.get(type)
     if not prefix:
-        return Response(status=400)
+        return Response({"error": f"Unknown voucher type: {type}"}, status=status.HTTP_400_BAD_REQUEST)
     bill_no = peek_next_bill_number(request.retail, prefix)
     return Response({"billno":bill_no})
 
 
-@api_view()
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_cg_no(request):
     from accounting.utils import peek_next_bill_number
     bill_no = peek_next_bill_number(request.retail, "CG")
@@ -1243,6 +1248,7 @@ class SaleVoucherView(ListAPIView):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def cash_total_of_ledger(request, ledger_id):
     total_debit = VoucherDetail.objects.filter(
     voucher_main_id__in=VoucherDetail.objects.filter(account=ledger_id).values('voucher_main_id'),
@@ -1573,7 +1579,7 @@ class PnlDrilldownView(APIView):
 
             return Response({"metric": "Expenses", "vouchers": list(rows)})
 
-        return Response({"error": "Invalid metric. Use: sales, purchases, purchase_returns, expenses"}, status=400)
+        return Response({"error": "Invalid metric. Use: sales, purchases, purchase_returns, expenses"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PnlGroupLedgersView(APIView):
@@ -1589,12 +1595,12 @@ class PnlGroupLedgersView(APIView):
         end_date = request.query_params.get("end_date", str(date.today()))
 
         if not group_id:
-            return Response({"error": "group_id is required"}, status=400)
+            return Response({"error": "group_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             group = Account.objects.get(pk=group_id)
         except Account.DoesNotExist:
-            return Response({"error": "Account group not found"}, status=404)
+            return Response({"error": "Account group not found"}, status=status.HTTP_404_NOT_FOUND)
 
         # Get all descendant groups (including this one) to find all ledgers
         descendants = [group] + get_all_descendants(group)
@@ -1653,12 +1659,12 @@ class PnlLedgerTransactionsView(APIView):
         end_date = request.query_params.get("end_date", str(date.today()))
 
         if not ledger_id:
-            return Response({"error": "ledger_id is required"}, status=400)
+            return Response({"error": "ledger_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             ledger = Ledger.objects.get(pk=ledger_id)
         except Ledger.DoesNotExist:
-            return Response({"error": "Ledger not found"}, status=404)
+            return Response({"error": "Ledger not found"}, status=status.HTTP_404_NOT_FOUND)
 
         txn_filter = {
             'account': ledger,
@@ -1906,6 +1912,7 @@ class BankStatementDetail(APIView):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def bank_statement_match(request, pk):
     """
     POST /api/bank-statement/<pk>/match/
@@ -1915,12 +1922,12 @@ def bank_statement_match(request, pk):
     from .models import BankStatementEntry
     entry = BankStatementEntry.objects.filter(pk=pk, retail=request.retail).first()
     if not entry:
-        return Response({"detail": "Not found."}, status=404)
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
     vd_id = request.data.get('voucher_detail_id')
     if vd_id:
         vd = VoucherDetail.objects.filter(pk=vd_id, voucher_main__retail=request.retail).first()
         if not vd:
-            return Response({"detail": "VoucherDetail not found."}, status=404)
+            return Response({"detail": "VoucherDetail not found."}, status=status.HTTP_404_NOT_FOUND)
         entry.matched_entry = vd
     else:
         entry.matched_entry = None
@@ -1929,6 +1936,7 @@ def bank_statement_match(request, pk):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def bank_book_for_recon(request):
     """
     GET /api/bank-reconciliation/book-entries/?bank_ledger=<id>&from_date=&to_date=
@@ -1940,7 +1948,7 @@ def bank_book_for_recon(request):
     to_date      = request.GET.get('to_date')
 
     if not bank_ldgr_id:
-        return Response({"detail": "bank_ledger is required."}, status=400)
+        return Response({"detail": "bank_ledger is required."}, status=status.HTTP_400_BAD_REQUEST)
 
     qs = VoucherDetail.objects.filter(
         voucher_main__retail=retail,
@@ -2001,7 +2009,7 @@ class AuditQueueView(APIView):
         show          = request.query_params.get('show', 'unaudited')  # unaudited | audited | all
 
         if not all([from_date_str, to_date_str]):
-            return Response({'error': 'from_date and to_date are required.'}, status=400)
+            return Response({'error': 'from_date and to_date are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
         to_date   = datetime.strptime(to_date_str,   '%Y-%m-%d').date()
@@ -2012,6 +2020,7 @@ class AuditQueueView(APIView):
         ).prefetch_related(
             'transactions__account',
             'audit_mark__audited_by',
+            'attachments',
         ).order_by('date', 'voucher_no')
 
         # Collect audit marks for this retail in one query
@@ -2086,7 +2095,7 @@ class AuditMarkView(APIView):
         notes       = request.data.get('notes', '')
 
         if not voucher_ids:
-            return Response({'error': 'voucher_ids is required.'}, status=400)
+            return Response({'error': 'voucher_ids is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         vouchers = VoucherMain.objects.filter(
             id__in=voucher_ids, retail=request.retail
@@ -2115,7 +2124,7 @@ class AuditMarkView(APIView):
         voucher_ids = request.data.get('voucher_ids', [])
 
         if not voucher_ids:
-            return Response({'error': 'voucher_ids is required.'}, status=400)
+            return Response({'error': 'voucher_ids is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         deleted, _ = AuditMark.objects.filter(
             voucher_id__in=voucher_ids,
@@ -2239,9 +2248,9 @@ class CreditDebitNoteViewSet(RetailBaseViewset):
         from .signals import cancel_voucher
         note = self.get_object()
         if not note.ac_voucher:
-            return Response({'error': 'No accounting voucher linked.'}, status=400)
+            return Response({'error': 'No accounting voucher linked.'}, status=status.HTTP_400_BAD_REQUEST)
         if note.ac_voucher.status == 'cancelled':
-            return Response({'error': 'Already cancelled.'}, status=400)
+            return Response({'error': 'Already cancelled.'}, status=status.HTTP_400_BAD_REQUEST)
         cancel_voucher(note.ac_voucher, user=request.user)
         return Response({'detail': 'Credit/Debit Note cancelled and ledger effects reversed.'})
 
@@ -2252,7 +2261,7 @@ class NextCNDNNumberView(APIView):
     def get(self, request, note_type):
         note_type = note_type.upper()
         if note_type not in ('CN', 'DN'):
-            return Response({'error': "type must be 'CN' or 'DN'"}, status=400)
+            return Response({'error': "type must be 'CN' or 'DN'"}, status=status.HTTP_400_BAD_REQUEST)
         from .utils import peek_next_bill_number
         retail = request.retail
         next_no = peek_next_bill_number(retail, note_type)
@@ -2295,6 +2304,7 @@ _DEFAULT_FA_GROUP = 'FA-PM'
 class FixedAssetViewSet(RetailBaseViewset):
     queryset         = FixedAsset.objects.all()
     serializer_class = FixedAssetSerializer
+    permission_classes = [RBACPermission]
 
     def get_queryset(self):
         retail = getattr(self.request, 'retail', None)
@@ -2329,6 +2339,7 @@ class FixedAssetViewSet(RetailBaseViewset):
 class DepreciationSuggestionViewSet(RetailBaseViewset):
     queryset         = DepreciationSuggestion.objects.all()
     serializer_class = DepreciationSuggestionSerializer
+    permission_classes = [RBACPermission]
 
     def get_queryset(self):
         retail = getattr(self.request, 'retail', None)
@@ -2356,23 +2367,23 @@ class GenerateDepreciationSuggestionView(APIView):
         fy_id           = request.data.get('fiscal_year_id')
 
         if not all([period_from_str, period_to_str, label]):
-            return Response({'detail': 'period_from, period_to, and label are required.'}, status=400)
+            return Response({'detail': 'period_from, period_to, and label are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             period_from = _dt.date.fromisoformat(period_from_str)
             period_to   = _dt.date.fromisoformat(period_to_str)
         except ValueError:
-            return Response({'detail': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+            return Response({'detail': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if period_from > period_to:
-            return Response({'detail': 'period_from must be before period_to.'}, status=400)
+            return Response({'detail': 'period_from must be before period_to.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if fy_id:
             from mastersconfig.models import FiscalYearMaster
             try:
                 fiscal_year = FiscalYearMaster.objects.get(pk=fy_id, retail=retail)
             except FiscalYearMaster.DoesNotExist:
-                return Response({'detail': 'Fiscal year not found.'}, status=404)
+                return Response({'detail': 'Fiscal year not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         overlapping = DepreciationSuggestion.objects.filter(
             retail=retail, status='PENDING',
@@ -2381,12 +2392,12 @@ class GenerateDepreciationSuggestionView(APIView):
         if overlapping:
             return Response(
                 {'detail': 'A pending suggestion already covers this period. Approve or reject it first.'},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         lines_data = generate_suggestion_lines(retail, period_from, period_to)
         if not lines_data:
-            return Response({'detail': 'No active fixed assets found for this retail.'}, status=400)
+            return Response({'detail': 'No active fixed assets found for this retail.'}, status=status.HTTP_400_BAD_REQUEST)
 
         total = sum(d['calculated_amount'] for d in lines_data)
 
@@ -2418,12 +2429,12 @@ class UpdateSuggestionLineView(APIView):
         try:
             line = DepreciationSuggestionLine.objects.select_related('suggestion__retail').get(pk=pk)
         except DepreciationSuggestionLine.DoesNotExist:
-            return Response({'detail': 'Line not found.'}, status=404)
+            return Response({'detail': 'Line not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         if line.suggestion.retail != retail:
-            return Response({'detail': 'Not found.'}, status=404)
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         if line.suggestion.status != 'PENDING':
-            return Response({'detail': 'Only PENDING suggestions can be edited.'}, status=400)
+            return Response({'detail': 'Only PENDING suggestions can be edited.'}, status=status.HTTP_400_BAD_REQUEST)
 
         new_amount = request.data.get('approved_amount')
         narration  = request.data.get('narration')
@@ -2432,7 +2443,7 @@ class UpdateSuggestionLineView(APIView):
             try:
                 line.approved_amount = Decimal(str(new_amount))
             except (InvalidOperation, ValueError):
-                return Response({'detail': 'Invalid amount.'}, status=400)
+                return Response({'detail': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
             line.overridden = (line.approved_amount != line.calculated_amount)
 
         if narration is not None:
@@ -2466,10 +2477,10 @@ class ApproveDepreciationSuggestionView(APIView):
                 .get(pk=pk, retail=retail)
             )
         except DepreciationSuggestion.DoesNotExist:
-            return Response({'detail': 'Suggestion not found.'}, status=404)
+            return Response({'detail': 'Suggestion not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         if suggestion.status != 'PENDING':
-            return Response({'detail': f'Suggestion is already {suggestion.status}.'}, status=400)
+            return Response({'detail': f'Suggestion is already {suggestion.status}.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if suggestion.fiscal_year:
             fiscal_year = suggestion.fiscal_year
@@ -2477,12 +2488,12 @@ class ApproveDepreciationSuggestionView(APIView):
         try:
             fa_settings = retail.fa_settings
         except FixedAssetSettings.DoesNotExist:
-            return Response({'detail': 'Fixed Asset Settings not configured. Set up ledgers first.'}, status=400)
+            return Response({'detail': 'Fixed Asset Settings not configured. Set up ledgers first.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not fa_settings.default_depreciation_expense_ldgr or not fa_settings.default_accum_depreciation_ldgr:
             return Response(
                 {'detail': 'Both Depreciation Expense and Accumulated Depreciation ledgers must be set in Fixed Asset Settings.'},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         lines = list(suggestion.lines.select_related(
@@ -2491,7 +2502,7 @@ class ApproveDepreciationSuggestionView(APIView):
         total_approved = sum(l.approved_amount for l in lines)
 
         if total_approved <= 0:
-            return Response({'detail': 'Total approved amount must be > 0.'}, status=400)
+            return Response({'detail': 'Total approved amount must be > 0.'}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             voucher_no = get_next_bill_number(retail, VoucherType.depreciation, fiscal_year)
@@ -2547,10 +2558,10 @@ class RejectDepreciationSuggestionView(APIView):
         try:
             suggestion = DepreciationSuggestion.objects.get(pk=pk, retail=retail)
         except DepreciationSuggestion.DoesNotExist:
-            return Response({'detail': 'Suggestion not found.'}, status=404)
+            return Response({'detail': 'Suggestion not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         if suggestion.status != 'PENDING':
-            return Response({'detail': f'Suggestion is already {suggestion.status}.'}, status=400)
+            return Response({'detail': f'Suggestion is already {suggestion.status}.'}, status=status.HTTP_400_BAD_REQUEST)
 
         suggestion.status = 'REJECTED'
         suggestion.save(update_fields=['status'])

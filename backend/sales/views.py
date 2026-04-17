@@ -15,7 +15,8 @@ from .models import *
 from django.contrib.auth.decorators import login_required
 from userauth import views
 from rest_framework.generics import ListCreateAPIView,RetrieveUpdateDestroyAPIView
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 #import other relevant models
@@ -47,6 +48,7 @@ def generate_order_no():
     return new_order_no
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def order_no_view(request):
     try:
         order_no = generate_order_no()
@@ -138,6 +140,7 @@ class RetrieveCustomerOrderView(RetrieveUpdateDestroyAPIView):
 from .serializers import CustomerOrderItemsToPurchaseStyleSerializer
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_customer_item_as_purchase_style(request, order_no, sl_no):
     try:
         item = CustomerOrderItems.objects.get(order_no=order_no, sl_no=sl_no)
@@ -149,6 +152,7 @@ def get_customer_item_as_purchase_style(request, order_no, sl_no):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def customer_order_delivery_overview(request):
     """
     Returns delivery KPI stats for the current retail:
@@ -209,6 +213,7 @@ def customer_order_delivery_overview(request):
 
 
 @api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
 def customer_order_update_delivery(request, pk):
     """
     Quick update of delivery_status and optionally actual_delivery_date.
@@ -282,13 +287,18 @@ class SalesVoucherViewset(views.RetailBaseViewset):
         return getattr(retail, 'active_fy', None)
 
     def perform_create(self, serializer):
+        from accounting.utils import get_next_bill_number
+        from mastersconfig.models import SystemSettings
         retail = getattr(self.request, 'retail', None)
         if not retail:
             from rest_framework.exceptions import ValidationError
             raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
         voucher_date = serializer.validated_data.get('date1')
         fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
-        serializer.save(retail=retail, fiscal_year=fiscal_year)
+        save_kwargs = dict(retail=retail, fiscal_year=fiscal_year)
+        if SystemSettings.get().enable_gst_bill:
+            save_kwargs['gst_billno'] = get_next_bill_number(retail, "GST", fiscal_year)
+        serializer.save(**save_kwargs)
 
     def _check_sales_vou_mutable(self, instance, action):
         from rest_framework.exceptions import ValidationError
@@ -433,6 +443,7 @@ class GSTOutputRegisterView(APIView):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def tcs_register(request):
     """
     TCS Register — Section 206C(1H) sales TCS.
@@ -474,6 +485,7 @@ def tcs_register(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def gstr1_report(request):
     """
     GSTR-1 data split into B2B, B2CL, B2CS, CDNR, CDNUR sections.
@@ -627,6 +639,7 @@ def gstr1_report(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def gstr3b_report(request):
     """
     GSTR-3B summary: outward supplies, ITC, and net tax payable.
@@ -960,6 +973,7 @@ class GenerateJsonView(APIView):
 
 
 @api_view()
+@permission_classes([IsAuthenticated])
 def get_sale_voucher_for_return(request):
     bill_no = request.query_params.get('bill_no')
     if not bill_no:
@@ -1055,6 +1069,7 @@ class SalesReturnViewset(views.RetailBaseViewset):
         serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_sv_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
@@ -1066,6 +1081,7 @@ def get_next_sv_no(request):
     return Response({"billno":bill_no})
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_sr_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
@@ -1077,6 +1093,7 @@ def get_next_sr_no(request):
     return Response({"billno":bill_no})
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_sa_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
@@ -1088,6 +1105,7 @@ def get_next_sa_no(request):
     return Response({"billno":bill_no})
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def customer_cash_received_view(request):
     """
     Returns the total cash already received from a customer in the active fiscal year.
@@ -1137,11 +1155,12 @@ def customer_cash_received_view(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def sale_voucher_initial_data(request):
     """Combined endpoint that replaces 8 parallel API calls on the SalesVoucher form mount."""
     from global_vars import STATES_OF_INDIA
     from mastersconfig.models import Item, Packet, SalesPersonMaster, Hsn
-    from mastersconfig.serializers import ItemSerializer, PacketSerializer, SalesPersonMasterSerializer, HSNSerializer
+    from mastersconfig.serializers import ItemSerializer, PacketSerializer, SalesPersonMasterSerializer, HSNListSerializer
     from goldrates.serializer import PurityMasterSerializer
 
     if not request.retail:
@@ -1151,22 +1170,26 @@ def sale_voucher_initial_data(request):
         )
 
     from accounting.utils import peek_next_bill_number
+    from mastersconfig.models import SystemSettings
 
     states = [{"code": code, "name": name} for code, name in STATES_OF_INDIA]
     bill_no = peek_next_bill_number(request.retail, "SV")
+    sys_settings = SystemSettings.get()
+    gst_bill_enabled = sys_settings.enable_gst_bill
+    gst_bill_no = peek_next_bill_number(request.retail, "GST") if gst_bill_enabled else ""
 
     ledgers_qs = (Ledger.objects
                   .filter(roles__role='CO')
                   .only('id', 'ac_name', 'ac_group')
                   .prefetch_related('roles')
                   .distinct())
-    items_qs = Item.objects.select_related('hsn_no').all()
+    items_qs = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger').all()
     purity_qs = PurityMaster.objects.all()
     packets_qs = Packet.objects.select_related('packet_group', 'stone_item_id', 'color', 'shape').all()
     salespersons_qs = SalesPersonMaster.objects.filter(
         Q(retail=request.retail) | Q(retail__isnull=True)
     )
-    hsns_qs = Hsn.objects.prefetch_related('item_set').all()
+    hsns_qs = Hsn.objects.all()
 
     # Derive retail state code using STATES_OF_INDIA to stay consistent
     # with the place_of_supply select options on the frontend
@@ -1178,6 +1201,8 @@ def sale_voucher_initial_data(request):
 
     return Response({
         "billno": bill_no,
+        "gst_billno": gst_bill_no,
+        "enable_gst_bill": gst_bill_enabled,
         "retail_state_code": retail_state_code,
         "is_exhibition": request.retail.is_exhibition,
         "states": states,
@@ -1186,11 +1211,12 @@ def sale_voucher_initial_data(request):
         "purity": PurityMasterSerializer(purity_qs, many=True).data,
         "packets": PacketSerializer(packets_qs, many=True).data,
         "salespersons": SalesPersonMasterSerializer(salespersons_qs, many=True).data,
-        "hsns": HSNSerializer(hsns_qs, many=True).data,
+        "hsns": HSNListSerializer(hsns_qs, many=True).data,
     })
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def sale_return_initial_data(request):
     """Combined initial data for the SalesReturn form."""
     from mastersconfig.models import Item, Packet
@@ -1208,10 +1234,11 @@ def sale_return_initial_data(request):
     bill_no = peek_next_bill_number(request.retail, "SR")
     ledgers_qs = (Ledger.objects
                   .filter(roles__role='CO')
+                  .select_related('ac_group')
                   .only('id', 'ac_name', 'ac_group')
                   .prefetch_related('roles')
                   .distinct())
-    items_qs = Item.objects.select_related('hsn_no').all()
+    items_qs = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger').all()
     purity_qs = PurityMaster.objects.all()
     packets_qs = Packet.objects.select_related('packet_group', 'stone_item_id', 'color', 'shape').all()
 
@@ -1283,7 +1310,7 @@ def build_invoice_context(voucher, retail):
 
     # ── Metal rates: purity slug → rate (from R-type sub-items) ──────────────
     metal_rates = {}
-    for vi in voucher.salesvouitem_set.all():
+    for vi in voucher.salesvouitem_set.prefetch_related('main_item_set').all():
         for d in vi.main_item_set.all():
             if d.item and d.item.item_type == 'R' and d.metal_purity and d.rate:
                 key = str(d.metal_purity)   # already a slug like "14K"
@@ -1427,6 +1454,7 @@ def build_invoice_context(voucher, retail):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def sale_voucher_print_data(request, pk):
     """Return fully-computed invoice JSON for the React print component."""
     try:
@@ -1455,6 +1483,7 @@ def sale_voucher_print_data(request, pk):
 # ─────────────────────────────────────────────────────────────────────────────
 
 @api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
 def eway_transport_update(request, pk):
     """Save transport details onto a SalesVou so they can be used for e-way bill."""
     try:
@@ -1693,6 +1722,7 @@ class EWayBillListView(APIView):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def eway_bill_cancel(request, pk):
     """POST /sales/api/eway-bills/<pk>/cancel/ — cancel an E-Way bill."""
     from .models import EWayBill
@@ -1713,6 +1743,7 @@ def eway_bill_cancel(request, pk):
 
 
 @api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
 def eway_bill_update_ebn(request, pk):
     """PATCH /sales/api/eway-bills/<pk>/update-ebn/ — save EBN after NIC upload."""
     from .models import EWayBill
@@ -1732,6 +1763,7 @@ def eway_bill_update_ebn(request, pk):
 
 
 @api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def eway_bill_delete(request, pk):
     """DELETE /sales/api/eway-bills/<pk>/ — hard delete (only if no EBN assigned)."""
     from .models import EWayBill
@@ -1841,6 +1873,7 @@ class CustomerPurchaseHistoryView(APIView):
 # ── Cheque Management ──────────────────────────────────────────────────────────
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def pending_cheques(request):
     """List all received cheques that are still pending deposit for this retail."""
     retail = getattr(request, 'retail', None)
@@ -1868,6 +1901,7 @@ def pending_cheques(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def deposit_cheque(request, pk):
     """
     Mark a pending cheque as deposited and create the Contra voucher:
@@ -1938,6 +1972,7 @@ def deposit_cheque(request, pk):
 # ── B2B Pricelist lookup for a ledger ────────────────────────────────────────
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def b2b_pricelist_for_ledger(request, ledger_id):
     """Return the full B2B pricelist data for a ledger, plus wholesale packet rates."""
     ledger = get_object_or_404(Ledger, pk=ledger_id)
@@ -1957,6 +1992,7 @@ def b2b_pricelist_for_ledger(request, ledger_id):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def retail_discount_pricelist_for_ledger(request, ledger_id):
     """Return the Retail Discount Pricelist for a ledger (if assigned)."""
     ledger = get_object_or_404(Ledger, pk=ledger_id)
@@ -2000,6 +2036,7 @@ class QuotationViewset(views.RetailBaseViewset):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_qt_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
@@ -2009,27 +2046,35 @@ def get_next_qt_no(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def quotation_initial_data(request):
     """Combined initial data for the Quotation form."""
     from mastersconfig.models import SalesPersonMaster
     from mastersconfig.serializers import SalesPersonMasterSerializer
     from accounting.utils import peek_next_bill_number
+    from accounting.serializers import LedgerLightSerializer
 
     if not request.retail:
         return Response({"error": "Missing or invalid X-RETAIL-ID header"}, status=status.HTTP_400_BAD_REQUEST)
 
     bill_no = peek_next_bill_number(request.retail, "QT")
-    ledgers_qs = Ledger.objects.filter(roles__role='CO').only('id', 'ac_name', 'ac_group').distinct()
+    ledgers_qs = (Ledger.objects
+                  .filter(roles__role='CO')
+                  .select_related('ac_group')
+                  .prefetch_related('roles')
+                  .only('id', 'ac_name', 'ac_group')
+                  .distinct())
     salespersons_qs = SalesPersonMaster.objects.filter(retail=request.retail)
 
     return Response({
         "billno": bill_no,
-        "ledgers": LedgerSerializer(ledgers_qs, many=True, context={'request': request}).data,
+        "ledgers": LedgerLightSerializer(ledgers_qs, many=True).data,
         "salespersons": SalesPersonMasterSerializer(salespersons_qs, many=True).data,
     })
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def quotation_print_data(request, pk):
     """Full quotation data for the print template."""
     qt = get_object_or_404(
@@ -2048,6 +2093,7 @@ def quotation_print_data(request, pk):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def quotation_duplicate(request, pk):
     """Duplicate a quotation with new number and draft status."""
     from accounting.utils import peek_next_bill_number
@@ -2123,6 +2169,7 @@ def quotation_duplicate(request, pk):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def quotation_finalize(request, pk):
     """Finalize a quotation (draft → finalized)."""
     qt = get_object_or_404(Quotation, pk=pk)

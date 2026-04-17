@@ -52,7 +52,7 @@ export default function PortalEnrollment() {
   return (
     <div className="space-y-4">
       <Button variant="ghost" size="sm" onClick={() => navigate("/portal/")}>
-        <ArrowLeft className="h-4 w-4 mr-1" /> Back
+        <ArrowLeft className="size-4 mr-1" /> Back
       </Button>
 
       {/* Enrollment header */}
@@ -162,7 +162,7 @@ export default function PortalEnrollment() {
             className="w-full shadow-lg"
             onClick={() => navigate(`/portal/pay/${e.enrollment_no}`)}
           >
-            <CreditCard className="h-4 w-4 mr-1" />
+            <CreditCard className="size-4 mr-1" />
             Pay Installment #{e.payments_made + 1} — {inr(e.installment_amount)}
           </Button>
         </div>

@@ -37,7 +37,7 @@ function SummaryCard({ icon: Icon, label, value, sub, colorClass = "text-foregro
   return (
     <div className="rounded-xl border bg-card p-4 flex items-start gap-3 shadow-sm">
       <div className={`mt-0.5 ${colorClass}`}>
-        <Icon className="w-5 h-5" />
+        <Icon className="size-5" />
       </div>
       <div>
         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</p>
@@ -58,8 +58,8 @@ function IssueRow({ row }) {
         <TableRow className="cursor-pointer hover:bg-muted/40 select-none">
           <TableCell className="w-6">
             {open
-              ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              : <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              ? <ChevronDown className="size-4 text-muted-foreground" />
+              : <ChevronRight className="size-4 text-muted-foreground" />
             }
           </TableCell>
           <TableCell className="font-medium">{row.billno}</TableCell>
@@ -127,8 +127,8 @@ function ReceiveRow({ row }) {
         <TableRow className="cursor-pointer hover:bg-muted/40 select-none">
           <TableCell className="w-6">
             {open
-              ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              : <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              ? <ChevronDown className="size-4 text-muted-foreground" />
+              : <ChevronRight className="size-4 text-muted-foreground" />
             }
           </TableCell>
           <TableCell className="font-medium">{row.billno}</TableCell>
@@ -241,7 +241,7 @@ function RefineryReport() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Flame className="w-6 h-6 text-orange-500" /> Refinery Report
+            <Flame className="size-6 text-orange-500" /> Refinery Report
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Track metal issued to and received from refiners with loss analysis
@@ -379,7 +379,7 @@ function RefineryReport() {
               </div>
             ) : issues.length === 0 ? (
               <div className="p-10 text-center text-muted-foreground">
-                <ArrowUpFromLine className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <ArrowUpFromLine className="size-10 mx-auto mb-2 opacity-30" />
                 No refinery issues found for the selected period.
               </div>
             ) : (
@@ -418,7 +418,7 @@ function RefineryReport() {
               </div>
             ) : receives.length === 0 ? (
               <div className="p-10 text-center text-muted-foreground">
-                <ArrowDownToLine className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <ArrowDownToLine className="size-10 mx-auto mb-2 opacity-30" />
                 No refinery receives found for the selected period.
               </div>
             ) : (
@@ -460,7 +460,7 @@ function RefineryReport() {
               </div>
             ) : pending.length === 0 ? (
               <div className="p-10 text-center text-muted-foreground">
-                <Clock className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <Clock className="size-10 mx-auto mb-2 opacity-30" />
                 <p className="font-medium text-green-600">All issues received!</p>
                 <p className="text-sm mt-1">No pending refinery issues in the selected period.</p>
               </div>

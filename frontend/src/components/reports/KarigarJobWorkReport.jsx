@@ -37,7 +37,7 @@ function DaysChip({ dueDate, completed }) {
   if (diff < 0) {
     return (
       <span className="text-xs font-semibold text-red-600 flex items-center gap-0.5">
-        <AlertTriangle className="w-3 h-3" />{Math.abs(diff)}d overdue
+        <AlertTriangle className="size-3" />{Math.abs(diff)}d overdue
       </span>
     );
   }
@@ -193,20 +193,20 @@ function KarigarJobWorkReport() {
         if (r.rec_status) {
           return (
             <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5 font-medium">
-              <CheckCircle2 className="w-3 h-3" />Completed
+              <CheckCircle2 className="size-3" />Completed
             </span>
           );
         }
         if (isOverdue(r.due_date)) {
           return (
             <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-700 rounded-full px-2 py-0.5 font-medium">
-              <AlertTriangle className="w-3 h-3" />Overdue
+              <AlertTriangle className="size-3" />Overdue
             </span>
           );
         }
         return (
           <span className="inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 font-medium">
-            <Clock className="w-3 h-3" />Pending
+            <Clock className="size-3" />Pending
           </span>
         );
       },
@@ -269,25 +269,25 @@ function KarigarJobWorkReport() {
       {!loading && rows.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <SummaryCard
-            icon={<Hammer className="w-4 h-4 text-primary" />}
+            icon={<Hammer className="size-4 text-primary" />}
             label="Total Jobs"
             value={total}
             color="violet"
           />
           <SummaryCard
-            icon={<Clock className="w-4 h-4 text-amber-500" />}
+            icon={<Clock className="size-4 text-amber-500" />}
             label="Pending"
             value={pending}
             color="amber"
           />
           <SummaryCard
-            icon={<CheckCircle2 className="w-4 h-4 text-green-500" />}
+            icon={<CheckCircle2 className="size-4 text-green-500" />}
             label="Completed"
             value={completed}
             color="green"
           />
           <SummaryCard
-            icon={<AlertTriangle className="w-4 h-4 text-red-500" />}
+            icon={<AlertTriangle className="size-4 text-red-500" />}
             label="Overdue"
             value={overdue}
             color="red"
@@ -302,7 +302,7 @@ function KarigarJobWorkReport() {
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground">
-          <Hammer className="w-10 h-10" />
+          <Hammer className="size-10" />
           <p className="text-sm">No job work records found for the selected filters.</p>
         </div>
       ) : (

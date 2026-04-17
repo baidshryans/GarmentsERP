@@ -489,10 +489,10 @@ const StockJournal = () => {
           {/* ── Action Buttons ── */}
           <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
             <Button type="button" variant="outline" onClick={() => window.history.back()} className="gap-2">
-              <X className="w-4 h-4" /> Cancel
+              <X className="size-4" /> Cancel
             </Button>
             <Button type="submit" className="gap-2 bg-primary hover:bg-primary text-white">
-              <Save className="w-4 h-4" /> Save
+              <Save className="size-4" /> Save
             </Button>
           </div>
         </form>

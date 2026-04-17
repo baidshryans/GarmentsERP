@@ -66,7 +66,7 @@ function HallmarkReceiveAdd() {
             <Trash2 className="mr-1" />
           </button>
           <button onClick={() => openAndPrint(<ReceiveFromHallmark data={row.original} />)}>
-                     <Printer className="w-4 h-4" />
+                     <Printer className="size-4" />
                    </button>
         </div>
       ),

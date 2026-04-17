@@ -159,7 +159,7 @@ function KarigarStoneTransactions() {
       {/* Filter bar */}
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
-          <Gem className="w-4 h-4 text-primary" />
+          <Gem className="size-4 text-primary" />
           <h2 className="text-sm font-semibold text-gray-800">Filters</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -208,7 +208,7 @@ function KarigarStoneTransactions() {
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-primary">
-                <ArrowUpFromLine className="w-4 h-4" />
+                <ArrowUpFromLine className="size-4" />
                 <span className="text-sm font-semibold">Stone Issues</span>
               </div>
               <span className="text-xs text-gray-500">{issueSummary.count} rows</span>
@@ -224,7 +224,7 @@ function KarigarStoneTransactions() {
           <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-primary">
-                <ArrowDownToLine className="w-4 h-4" />
+                <ArrowDownToLine className="size-4" />
                 <span className="text-sm font-semibold">Stone Receives</span>
               </div>
               <span className="text-xs text-gray-500">{receiveSummary.count} rows</span>
@@ -251,7 +251,7 @@ function KarigarStoneTransactions() {
       {!loading && showIssue && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
-            <ArrowUpFromLine className="w-4 h-4 text-primary" />
+            <ArrowUpFromLine className="size-4 text-primary" />
             <h3 className="text-sm font-semibold text-gray-800">Stone Issues</h3>
           </div>
           <div className="overflow-x-auto">
@@ -296,7 +296,7 @@ function KarigarStoneTransactions() {
       {!loading && showReceive && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
-            <ArrowDownToLine className="w-4 h-4 text-primary" />
+            <ArrowDownToLine className="size-4 text-primary" />
             <h3 className="text-sm font-semibold text-gray-800">Stone Receives</h3>
           </div>
           <div className="overflow-x-auto">

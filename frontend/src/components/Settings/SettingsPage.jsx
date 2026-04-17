@@ -75,6 +75,7 @@ export default function SettingsPage() {
       {/* Bill Calculation */}
       <Section title="Bill Calculation" icon={<Calculator className="size-4" />}>
         <BillCalcSettingCard />
+        <GstBillCard />
       </Section>
 
       {/* Search & Input */}
@@ -317,6 +318,58 @@ function SpellCheckCard() {
     <SettingRow
       title="Spell Check & Fuzzy Search"
       description="Enable browser spell checking on address / notes fields, and fuzzy matching in account group & picker searches."
+    >
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        disabled={saving}
+        onClick={handleToggle}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          enabled ? "bg-green-600" : "bg-muted-foreground/30"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            enabled ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+    </SettingRow>
+  );
+}
+
+// ─── GST Bill Number Setting ─────────────────────────────────────────────────
+
+function GstBillCard() {
+  const { toast } = useToast();
+  const [enabled, setEnabled] = useState(false);
+  const [saving, setSaving]   = useState(false);
+
+  useEffect(() => {
+    fetchSystemSettings().then((res) => {
+      if (res.success) setEnabled(!!res.data.enable_gst_bill);
+    });
+  }, []);
+
+  const handleToggle = async () => {
+    const next = !enabled;
+    setEnabled(next);
+    setSaving(true);
+    const res = await updateSystemSettings({ enable_gst_bill: next });
+    setSaving(false);
+    if (res.success) {
+      toast({ title: next ? "GST Bill Number enabled" : "GST Bill Number disabled" });
+    } else {
+      setEnabled(!next);
+      toast({ title: "Failed to save setting", variant: "destructive" });
+    }
+  };
+
+  return (
+    <SettingRow
+      title="GST Bill Number"
+      description="When enabled, a separate GST bill number is auto-generated for each sales voucher in the format GST/&lt;retail code&gt;/&lt;FY&gt;/NNNNN (e.g. GST/R001/26-27/00001). The field becomes mandatory on the sales voucher."
     >
       <button
         type="button"

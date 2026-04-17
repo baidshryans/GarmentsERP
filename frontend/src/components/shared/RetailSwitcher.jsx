@@ -73,7 +73,7 @@ export function RetailSwitcher() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="sm" className="h-9 px-3">
-                <Building2 className="w-4 h-4 text-primary shrink-0" />
+                <Building2 className="size-4 text-primary shrink-0" />
                 <span className="flex-1 text-xs font-semibold text-sidebar-foreground truncate">
                   {active?.retail_name || '—'}
                 </span>
@@ -107,7 +107,7 @@ export function RetailSwitcher() {
                     {r.retail_name}
                   </span>
                   {r.retail_code === activeCode && (
-                    <Check className="w-4 h-4 text-primary ml-auto" />
+                    <Check className="size-4 text-primary ml-auto" />
                   )}
                 </DropdownMenuItem>
               ))}

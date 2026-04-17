@@ -141,7 +141,7 @@ export default function FixedAssetMasterPage() {
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button size="sm" onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1" /> Add Asset
+              <Plus className="size-4 mr-1" /> Add Asset
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
@@ -222,7 +222,7 @@ export default function FixedAssetMasterPage() {
 
                 {/* Asset ledger — auto-created, read-only */}
                 <div className="flex items-start gap-2 rounded-md bg-muted/50 border px-3 py-2">
-                  <Info className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                  <Info className="size-4 mt-0.5 text-muted-foreground shrink-0" />
                   <p className="text-xs text-muted-foreground">
                     {editId && editLedgerName
                       ? <>Asset ledger <span className="font-semibold text-foreground">"{editLedgerName}"</span> was auto-created in the Ledger Master under the appropriate Fixed Asset account group.</>
@@ -293,7 +293,7 @@ export default function FixedAssetMasterPage() {
                 </TableCell>
                 <TableCell>
                   <Button size="icon" variant="ghost" onClick={() => openEdit(a)}>
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="size-4" />
                   </Button>
                 </TableCell>
               </TableRow>

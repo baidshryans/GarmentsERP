@@ -60,6 +60,7 @@ class VoucherMain(models.Model):
         indexes = [
             models.Index(fields=['retail', 'voucher_type', '-voucher_no'], name='idx_vm_retail_type_vno'),
             models.Index(fields=['retail', 'date'], name='idx_vm_retail_date'),
+            models.Index(fields=['retail', 'voucher_no'], name='idx_vm_retail_vno'),
         ]
 
 class VoucherDetail(models.Model):
@@ -243,6 +244,12 @@ class LedgerOpenBalance(models.Model):
         indexes = [
             models.Index(fields=['ldgr'], name='idx_lob_ldgr'),
             models.Index(fields=['ldgr', 'retail'], name='idx_lob_ldgr_retail'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ldgr', 'retail', 'acc_year'],
+                name='uniq_lob_ldgr_retail_year',
+            ),
         ]
 
 

@@ -160,7 +160,7 @@ class PurchaseOrder(models.Model):
     po_no = models.CharField(max_length=30, unique=True)
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
     ldgr = models.ForeignKey(Ledger, on_delete = models.CASCADE)
-    place_of_supply = models.CharField(max_length=100, null=True, choices=STATES_OF_INDIA)
+    place_of_supply = models.CharField(max_length=100, null=True, blank=True, choices=STATES_OF_INDIA)
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
     #return tag
@@ -253,7 +253,7 @@ class PurchaseReturnItems(models.Model): #main item
     making_type = models.CharField(max_length=20, blank=True, default='')
     making_value = models.IntegerField(null=True)
     making = models.DecimalField(null=True, max_digits=10, decimal_places =2)
-    remarks = models.CharField(max_length=100, null=True)
+    remarks = models.CharField(max_length=100, null=True, blank=True)
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
 

@@ -16,7 +16,7 @@ const GoldRates = () => {
   if (error) {
     return (
       <div className="flex items-center text-sm text-red-500">
-        <CircleAlert className="w-4 h-4 mr-1" />
+        <CircleAlert className="size-4 mr-1" />
         <span>Could not load gold rates</span>
       </div>
     );
@@ -40,7 +40,7 @@ const GoldRates = () => {
         to="/goldrate/form"
         className="flex items-center text-sm font-medium text-primary hover:text-primary transition-colors"
       >
-        <PenSquare className="w-4 h-4 mr-1" />
+        <PenSquare className="size-4 mr-1" />
         Update Rates
       </Link>
     </div>

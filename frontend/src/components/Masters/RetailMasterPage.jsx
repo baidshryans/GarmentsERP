@@ -285,7 +285,7 @@ export default function RetailMasterPage() {
                     name="is_exhibition"
                     checked={form.is_exhibition}
                     onChange={handleChange}
-                    className="w-4 h-4 rounded border-gray-300 accent-violet-700 cursor-pointer"
+                    className="size-4 rounded border-gray-300 accent-violet-700 cursor-pointer"
                   />
                   <span className="text-sm text-muted-foreground group-hover:text-foreground flex items-center gap-1">
                     <Zap className="size-3.5 text-amber-500" />

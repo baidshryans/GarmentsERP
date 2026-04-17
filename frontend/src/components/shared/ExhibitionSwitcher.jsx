@@ -95,7 +95,7 @@ export function ExhibitionSwitcher() {
                     onClick={handleDeactivate}
                     className="gap-2 cursor-pointer text-amber-700 hover:text-amber-900"
                   >
-                    <ZapOff className="w-4 h-4" />
+                    <ZapOff className="size-4" />
                     <span className="text-sm">Deactivate exhibition</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -117,7 +117,7 @@ export function ExhibitionSwitcher() {
                     </div>
                     <div className="text-xs text-muted-foreground font-mono truncate">{exh.gstin}</div>
                   </div>
-                  {exh.is_active && <Check className="w-4 h-4 text-amber-600 ml-auto shrink-0" />}
+                  {exh.is_active && <Check className="size-4 text-amber-600 ml-auto shrink-0" />}
                 </DropdownMenuItem>
               ))}
 

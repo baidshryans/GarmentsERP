@@ -75,7 +75,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
             <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
+                <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                     {initial ? '✎' : '+'}
                 </span>
                 <div>
@@ -112,7 +112,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'debit' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
                                 onClick={() => field.onChange('debit')}
                             >
-                                <TrendingUp className="w-4 h-4" />
+                                <TrendingUp className="size-4" />
                                 Debit (Dr)
                             </button>
                             <button
@@ -120,7 +120,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'credit' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
                                 onClick={() => field.onChange('credit')}
                             >
-                                <TrendingDown className="w-4 h-4" />
+                                <TrendingDown className="size-4" />
                                 Credit (Cr)
                             </button>
                         </div>
@@ -258,7 +258,7 @@ const OpeningBalance = () => {
                         className="h-10 px-5 gap-2 bg-primary hover:bg-primary text-white font-semibold shadow-sm"
                         onClick={openAdd}
                     >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="size-4" />
                         Add Balance
                     </Button>
                 </div>
@@ -276,8 +276,8 @@ const OpeningBalance = () => {
             {!loading && balances.length === 0 && (
                 <div className="rounded-xl border border-violet-100 bg-white shadow-sm">
                     <div className="flex flex-col items-center gap-4 py-16 text-center">
-                        <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center">
-                            <TrendingUp className="w-6 h-6 text-violet-300" />
+                        <div className="size-12 rounded-full bg-violet-50 flex items-center justify-center">
+                            <TrendingUp className="size-6 text-violet-300" />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-600">No opening balances yet</p>
@@ -287,7 +287,7 @@ const OpeningBalance = () => {
                             className="gap-2 bg-primary hover:bg-primary text-white"
                             onClick={openAdd}
                         >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="size-4" />
                             Add First Balance
                         </Button>
                     </div>
@@ -304,7 +304,7 @@ const OpeningBalance = () => {
                         {/* Year header */}
                         <div className="flex items-center justify-between px-6 py-3 bg-violet-50 border-b border-violet-100">
                             <div className="flex items-center gap-3">
-                                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
+                                <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                                     {year.slice(0, 2)}
                                 </span>
                                 <span className="text-sm font-bold text-primary tracking-widest uppercase">

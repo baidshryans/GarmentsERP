@@ -116,7 +116,7 @@ export default function DayBook() {
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {report && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">
-            <Printer className="w-4 h-4 mr-1.5" /> Print
+            <Printer className="size-4 mr-1.5" /> Print
           </Button>
         )}
       </div>
@@ -151,7 +151,7 @@ export default function DayBook() {
                 className="w-full flex items-center gap-3 px-4 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
                 onClick={() => toggle(v.voucher_no)}
               >
-                {expanded[v.voucher_no] ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                {expanded[v.voucher_no] ? <ChevronDown className="size-4 text-muted-foreground shrink-0" /> : <ChevronRight className="size-4 text-muted-foreground shrink-0" />}
                 <span className="font-mono text-xs text-muted-foreground w-28 shrink-0">{v.voucher_no}</span>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium shrink-0">
                   {VOUCHER_TYPE_LABELS[v.voucher_type] ?? v.voucher_type}

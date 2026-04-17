@@ -18,10 +18,15 @@ class StateSerializer(ModelSerializer):
 
 
 class ItemSerializer(ModelSerializer):
+    """Read serializer for Item — resolves FK names without depth=1 to avoid N+1."""
+    grp_name = serializers.CharField(source='grp.name', read_only=True, default=None)
+    hsn_code = serializers.CharField(source='hsn_no.hsn_no', read_only=True, default=None)
+    purchase_ledger_name = serializers.CharField(source='purchase_ledger.ac_name', read_only=True, default=None)
+    sale_ledger_name = serializers.CharField(source='sale_ledger.ac_name', read_only=True, default=None)
+
     class Meta:
-        model= Item
+        model = Item
         fields = "__all__"
-        depth = 1
 
 class ItemWriteSerializer(ModelSerializer):
     """Flat serializer for create/update — enforces purchase_ledger & sale_ledger."""
@@ -35,10 +40,17 @@ class ItemWriteSerializer(ModelSerializer):
         if not attrs.get('sale_ledger'):
             raise serializers.ValidationError({'sale_ledger': 'Sale ledger is required.'})
         return attrs
+
 class HSNSerializer(ModelSerializer):
     item_set = ItemSerializer(many=True, read_only=True)
     class Meta:
-        model= Hsn
+        model = Hsn
+        fields = "__all__"
+
+class HSNListSerializer(ModelSerializer):
+    """Lightweight HSN serializer for list endpoints — no nested item_set."""
+    class Meta:
+        model = Hsn
         fields = "__all__"
 
 
@@ -299,7 +311,7 @@ class TCSSectionMasterSerializer(ModelSerializer):
 class SystemSettingsSerializer(ModelSerializer):
     class Meta:
         model  = SystemSettings
-        fields = ['attachment_storage_path', 'barcode_image_storage_path', 'bill_total_auto_calc', 'spell_check_enabled', 'updated_at']
+        fields = ['attachment_storage_path', 'barcode_image_storage_path', 'bill_total_auto_calc', 'spell_check_enabled', 'enable_gst_bill', 'updated_at']
         read_only_fields = ['updated_at']
 
 

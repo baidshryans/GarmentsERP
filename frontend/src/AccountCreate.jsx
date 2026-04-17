@@ -43,13 +43,13 @@ const GroupPickerNode = ({ node, level, onSelect, disabledId }) => {
                 {hasChildren ? (
                     <button
                         type="button"
-                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
+                        className="shrink-0 size-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
                         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
                     >
                         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                     </button>
                 ) : (
-                    <span className="w-5 h-5 shrink-0 flex items-center justify-center">
+                    <span className="size-5 shrink-0 flex items-center justify-center">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
                     </span>
                 )}
@@ -226,7 +226,7 @@ const AccountCreate = () => {
             {/* ── Form card ───────────────────────────────────────────────── */}
             <div className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-7 py-4 bg-violet-50 border-b border-violet-100">
-                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">1</span>
+                    <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">1</span>
                     <span className="text-sm font-bold text-primary tracking-widest uppercase">Group Details</span>
                 </div>
 
@@ -317,7 +317,7 @@ const AccountCreate = () => {
                                         <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
                                             <SheetContent side="right" className="w-[400px] sm:max-w-[400px] flex flex-col p-0">
                                                 <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
-                                                    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
+                                                    <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                                                     <div>
                                                         <p className="text-sm font-bold text-primary tracking-widest uppercase">Select Parent Group</p>
                                                         <p className="text-xs text-primary mt-0.5">Click a group to set it as the parent</p>

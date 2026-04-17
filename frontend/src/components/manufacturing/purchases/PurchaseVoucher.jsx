@@ -991,7 +991,7 @@ const PurchaseVoucher = () => {
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">1</span>
+            <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">1</span>
             <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Bill Details</span>
           </div>
           <InvoiceUpload
@@ -1196,7 +1196,7 @@ const PurchaseVoucher = () => {
 
           {/* Item Details */}
           <div className="flex items-center gap-3 my-5">
-            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">2</span>
+            <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">2</span>
             <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Main and Sub Item Details</span>
             <div className="flex-1 h-px bg-violet-100" />
           </div>
@@ -1532,8 +1532,8 @@ const PurchaseVoucher = () => {
                     <TableRow key={sub_id} className="bg-white">
                       <TableCell className="px-4 py-2 border align-middle">
                         <div className="flex flex-row justify-center items-center gap-1">
-                          <SquarePen color="#6d6d6d" className="w-4 h-4 cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
-                          <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                          <SquarePen color="#6d6d6d" className="size-4 cursor-pointer" onClick={() => handleEditSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
+                          <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteSubItem(rs.indexOf(item), sub_id, 'purchasevoucherdetails_set')} />
                         </div>
                       </TableCell>
                       <TableCell className="w-28 px-4 py-2 border">{item.sl_no}</TableCell>
@@ -1591,7 +1591,7 @@ const PurchaseVoucher = () => {
               {rsRaw.map((detail, idx) => (
                 <TableRow key={idx}>
                   <TableCell className="px-4 py-2 border text-center">
-                    <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer mx-auto" onClick={() => handleDeleteRawRow(idx)} />
+                    <Trash2 color="#d45959" className="size-4 cursor-pointer mx-auto" onClick={() => handleDeleteRawRow(idx)} />
                   </TableCell>
                   <TableCell className="w-24 px-4 py-2 border">{detail.packet}</TableCell>
                   <TableCell className="w-24 px-4 py-2 border">{detail.sub_item}</TableCell>

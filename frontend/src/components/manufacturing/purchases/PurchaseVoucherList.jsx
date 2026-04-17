@@ -120,10 +120,10 @@ const totalPages = data?.data?.total_pages ?? 1;
             onClick={() => deleteVoucherMutation.mutate({id:row.original.id})}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="size-4" />
           </button>
           <button onClick={() => openAndPrint(<PurchaseVoucher data={{ ...row.original, ...companyInfo }} />)}>
-            <Printer className="w-4 h-4" />
+            <Printer className="size-4" />
           </button>
           {row.original.voucher_type === "Vendor" && (
             <PurchaseAttachments
@@ -230,14 +230,16 @@ const totalPages = data?.data?.total_pages ?? 1;
           ) : (
             <>
               {/* Data Table */}
+              <div className={isFetching ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
               <DataTable columns={columns} data={data?.data?.results ?? []} rowClick={handleRowClick} />
+              </div>
 
               {/* Pagination Controls */}
               <div className="flex justify-between items-center mt-4">
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page === 1}
+                  disabled={page === 1 || isFetching}
                 >
                   Previous
                 </Button>
@@ -249,7 +251,7 @@ const totalPages = data?.data?.total_pages ?? 1;
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page === totalPages}
+                  disabled={page === totalPages || isFetching}
                 >
                   Next
                 </Button>
@@ -279,7 +281,7 @@ const totalPages = data?.data?.total_pages ?? 1;
                 onClick={() => setShowPanel(false)}
                 className="p-1 rounded-md hover:bg-muted transition-colors"
               >
-                <X className="w-4 h-4 text-muted-foreground" />
+                <X className="size-4 text-muted-foreground" />
               </button>
             </div>
 

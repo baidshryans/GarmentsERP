@@ -112,7 +112,7 @@ export default function EmployeeMasterPage() {
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button size="sm" onClick={openCreate}>
-              <Plus className="h-4 w-4 mr-1" /> Add Employee
+              <Plus className="size-4 mr-1" /> Add Employee
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
@@ -238,7 +238,7 @@ export default function EmployeeMasterPage() {
                 </TableCell>
                 <TableCell>
                   <Button size="icon" variant="ghost" onClick={() => openEdit(emp)}>
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="size-4" />
                   </Button>
                 </TableCell>
               </TableRow>

@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 from .models import RetailMaster, ExhibitionProfile
@@ -28,10 +29,11 @@ class RetailMiddleware(MiddlewareMixin):
             user_auth_tuple = auth.authenticate(request)
             if user_auth_tuple:
                 request.user, request.auth = user_auth_tuple
-            else:
-                pass
-        except AuthenticationFailed:
-            pass
+        except AuthenticationFailed as exc:
+            return JsonResponse(
+                {"detail": str(exc.detail)},
+                status=exc.status_code,
+            )
 
         model_id = request.headers.get("X-RETAIL-ID")
         if model_id:
@@ -62,8 +64,8 @@ class RetailMiddleware(MiddlewareMixin):
                 if has_access is None:
                     try:
                         has_access = request.user.userlocation.location.filter(id=retail.id).exists()
-                    except Exception:
-                        # Superuser or user without a UserLocation record can access all retails
+                    except (AttributeError, ObjectDoesNotExist):
+                        # User without a UserLocation record: only staff can access all retails
                         has_access = request.user.is_staff
                     cache.set(access_key, has_access, timeout=300)
                 if not has_access:

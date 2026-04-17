@@ -17,7 +17,8 @@ from decimal import Decimal
 from django.db.models import Sum, F
 from django.shortcuts import render,redirect
 from accounting.utils import peek_next_bill_number
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from collections import defaultdict
@@ -38,6 +39,7 @@ from django.db.models import Q,Prefetch
 
 # Create your views here.
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_slip_no(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'IV')
@@ -49,6 +51,7 @@ def get_next_slip_no(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def create_karigar_issue(request):
     data = request.data
     serializer = KarigarIssueForPostSerializer(data=data)
@@ -128,6 +131,7 @@ class ListKarigarStoneIssue(ListAPIView):
     search_fields = ["issue_slip_no"]
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def hallmark_issue_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'HMIS')
@@ -138,6 +142,7 @@ def hallmark_issue_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def hallmark_receive_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'HM/RE')
@@ -148,6 +153,7 @@ def hallmark_receive_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def refinery_issue_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'REF/ISS')
@@ -158,6 +164,7 @@ def refinery_issue_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def refinery_receive_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'REF/REC')
@@ -168,6 +175,7 @@ def refinery_receive_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def melting_issue_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'MLT/ISS')
@@ -178,6 +186,7 @@ def melting_issue_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def melting_receive_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'MLT/REC')
@@ -188,6 +197,7 @@ def melting_receive_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def assay_issue_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'ASY/ISS')
@@ -198,6 +208,7 @@ def assay_issue_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def assay_receive_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'ASY/REC')
@@ -208,6 +219,7 @@ def assay_receive_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def gold_issue_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'IV/GL')
@@ -221,6 +233,7 @@ def gold_issue_billno_view(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def create_karigar_gold_issue(request):
     with transaction.atomic():
 
@@ -234,6 +247,7 @@ def create_karigar_gold_issue(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def stone_issue_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'IV/STN')
@@ -244,15 +258,19 @@ def stone_issue_billno_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def stone_receive_billno_view(request):
     try:
-        order_no = generate_stone_rec_billno(request.retail)
-        return Response({"bill_no": order_no}, status=status.HTTP_200_OK)
+        bill_no = peek_next_bill_number(request.retail, 'REC/STN')
+        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def receiver_slip_no_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'RS')
@@ -273,6 +291,7 @@ def get_pojo_list(request):
     return JsonResponse({'results': job_data})
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def create_karigar_stone_issue(request):
     with transaction.atomic():
         serializer = KarigarStoneIssueSerializer(data=request.data,many=True)
@@ -299,6 +318,7 @@ def filter_job_items(request):
 from django.db.models import Sum, OuterRef, Subquery, Value, IntegerField, DecimalField
 from django.db.models.functions import Coalesce
 @api_view()
+@permission_classes([IsAuthenticated])
 def fetch_receive_packets(request):
     ref_job_no = request.GET.get('ref_job_no')
     slip_type = request.GET.get('slip_type')
@@ -399,6 +419,7 @@ def fetch_receive_packets(request):
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def create_karigar_stone_receive(request):
     with transaction.atomic():
 
@@ -1921,6 +1942,7 @@ class PacketWiseLooseStoneReportView(APIView):
 # ── Refinery Report ────────────────────────────────────────────────────────────
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def refinery_report(request):
     """
     Aggregated refinery report with date / refiner filters.
@@ -2104,6 +2126,7 @@ class RepairJobCardViewSet(views.RetailBaseViewset):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def repair_job_card_billno_view(request):
     """Return the next RJC bill number preview for the current retail."""
     try:

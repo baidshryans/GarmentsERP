@@ -27,18 +27,22 @@ import io
 
 #__________HSN-API____________________
 class ListCreateHsn(ListCreateAPIView):
-    serializer_class = HSNSerializer
-    queryset         = Hsn.objects.all()
+    queryset = Hsn.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return HSNSerializer
+        return HSNListSerializer
 
 class RetrieveUpdateDeleteHsn(RetrieveUpdateDestroyAPIView):
     serializer_class = HSNSerializer
-    queryset         = Hsn.objects.all()
+    queryset         = Hsn.objects.prefetch_related('item_set')
 
 
 
 #------------------Item-API-------------------------------------------
 class ListCreateItem(ListCreateAPIView):
-    queryset         = Item.objects.all()
+    queryset         = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger')
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['hsn_no','item_type']
     search_fields    = ['item_name', 'short_name']
@@ -50,7 +54,7 @@ class ListCreateItem(ListCreateAPIView):
 
 
 class RetrieveUpdateDestroyItem(RetrieveUpdateDestroyAPIView):
-    queryset         = Item.objects.all()
+    queryset         = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger')
 
     def get_serializer_class(self):
         if self.request.method in ('PUT', 'PATCH'):

@@ -75,7 +75,7 @@ export default function SchemeStatement() {
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" onClick={() => navigate("/scheme/enrollments")}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+      <Button variant="ghost" onClick={() => navigate("/scheme/enrollments")}><ArrowLeft className="size-4 mr-1" /> Back</Button>
 
       {/* Summary Card */}
       <Card>
@@ -126,12 +126,12 @@ export default function SchemeStatement() {
           <div className="mt-4 flex gap-2">
             {e.status === "ACTIVE" && (
               <Button onClick={() => navigate(`/scheme/enrollments/${id}/pay`)}>
-                <CreditCard className="h-4 w-4 mr-1" /> Record Payment
+                <CreditCard className="size-4 mr-1" /> Record Payment
               </Button>
             )}
             {(e.status === "ACTIVE" || e.status === "MATURED") && (
               <Button variant="outline" onClick={handleCancel}>
-                <XCircle className="h-4 w-4 mr-1" /> Cancel Enrollment
+                <XCircle className="size-4 mr-1" /> Cancel Enrollment
               </Button>
             )}
           </div>

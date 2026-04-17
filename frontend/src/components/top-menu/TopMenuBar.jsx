@@ -154,7 +154,7 @@ export function TopMenuBar() {
           title="Switch to sidebar layout"
           className="p-1.5 rounded hover:bg-sidebar-accent text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
         >
-          <PanelLeft className="w-4 h-4" />
+          <PanelLeft className="size-4" />
         </button>
       </div>
     </nav>

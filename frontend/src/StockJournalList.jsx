@@ -97,6 +97,7 @@ const StockJournalList = () => {
   const [params, setParams] = useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -106,7 +107,8 @@ const StockJournalList = () => {
 
   useEffect(() => {
     const fetchLedgers = async () => {
-      setLoading(true);
+      if (ledgers.length === 0) setLoading(true);
+      else setTransitioning(true);
       const result = await fetchStockJournal({ search, page, ordering: sortby });
       if (result.success) {
         setLedgers(result.data.results);
@@ -115,6 +117,7 @@ const StockJournalList = () => {
         setError(result.error);
       }
       setLoading(false);
+      setTransitioning(false);
     };
     fetchLedgers();
   }, [search, page, sortby]);
@@ -135,20 +138,20 @@ const StockJournalList = () => {
       cell: ({ row }) => (
         <div className="flex items-center space-x-3">
           <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
-            <SquarePen className="w-4 h-4" />
+            <SquarePen className="size-4" />
           </Link>
           <button
             onClick={() => deleteStockJournal(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="size-4" />
           </button>
           <button
             onClick={() => handlePrint(row.original.id)}
             className="text-blue-500 hover:text-blue-700"
             title="Print"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="size-4" />
           </button>
         </div>
       ),
@@ -198,13 +201,15 @@ const StockJournalList = () => {
         <div>Error: {error}</div>
       ) : (
         <>
+          <div className={transitioning ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
           <DataTable columns={columns} data={ledgers} />
+          </div>
 
           <div className="flex justify-between items-center mt-4">
             <Button
               variant="outline"
               onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
+              disabled={page === 1 || transitioning}
             >
               Previous
             </Button>
@@ -212,7 +217,7 @@ const StockJournalList = () => {
             <Button
               variant="outline"
               onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={page === totalPages}
+              disabled={page === totalPages || transitioning}
             >
               Next
             </Button>

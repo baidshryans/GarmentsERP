@@ -43,8 +43,8 @@ export default function HRPortalLogin() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-3">
-            <BriefcaseBusiness className="h-6 w-6 text-primary" />
+          <div className="inline-flex items-center justify-center size-12 rounded-full bg-primary/10 mb-3">
+            <BriefcaseBusiness className="size-6 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">Employee Portal</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in with your ERP credentials</p>

@@ -98,7 +98,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="h-7 w-7 shrink-0 border-violet-300 text-primary hover:bg-violet-50"
+                      className="size-7 shrink-0 border-violet-300 text-primary hover:bg-violet-50"
                       onClick={onAutoCalc}
                       title="Auto-calculate Discount & GST from this total"
                     >

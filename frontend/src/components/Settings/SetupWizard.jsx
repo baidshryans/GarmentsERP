@@ -36,6 +36,7 @@ import {
   setupRollback,
   seedStates,
   syncUserRetails,
+  getRetails,
   seedHRLedgers,
   getHRSettings,
   saveHRSettings,
@@ -1080,6 +1081,20 @@ export default function SetupWizard() {
               <Button
                 onClick={async () => {
                   await syncUserRetails();
+                  // Populate the active retail in localStorage so the dashboard
+                  // retail dropdown picks up the newly created retail. Mirrors
+                  // the logic that runs during login in loginAndSaveToken().
+                  try {
+                    const data = await getRetails();
+                    if (data.success && data.data.results?.length > 0) {
+                      const ul = data.data.results[0];
+                      const loc = ul.default_location || (ul.location?.length > 0 ? ul.location[0] : null);
+                      if (loc) {
+                        localStorage.setItem("retail_code", loc.retail_code);
+                        localStorage.setItem("state_code", loc.state?.code ?? "");
+                      }
+                    }
+                  } catch (_) {}
                   sessionStorage.setItem("erpSetupComplete", "true");
                   navigate("/");
                 }}

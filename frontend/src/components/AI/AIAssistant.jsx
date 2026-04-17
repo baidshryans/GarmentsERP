@@ -27,7 +27,7 @@ function MessageBubble({ message }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-3`}>
       {!isUser && (
-        <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center mr-2 mt-0.5 shrink-0">
+        <div className="size-6 rounded-full bg-primary flex items-center justify-center mr-2 mt-0.5 shrink-0">
           <Sparkles size={12} className="text-white" />
         </div>
       )}
@@ -52,7 +52,7 @@ function MessageBubble({ message }) {
 function TypingIndicator() {
   return (
     <div className="flex justify-start mb-3">
-      <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center mr-2 mt-0.5 shrink-0">
+      <div className="size-6 rounded-full bg-primary flex items-center justify-center mr-2 mt-0.5 shrink-0">
         <Sparkles size={12} className="text-white" />
       </div>
       <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-3 py-2">
@@ -152,7 +152,7 @@ export default function AIAssistant() {
       {/* Floating trigger button */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-primary hover:bg-primary text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-6 right-6 z-50 size-12 rounded-full bg-primary hover:bg-primary text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
         title="AI Assistant"
       >
         {isOpen ? <ChevronDown size={20} /> : <Sparkles size={20} />}
@@ -173,7 +173,7 @@ export default function AIAssistant() {
                 className="p-1 rounded hover:bg-primary transition-colors"
                 title="Clear chat"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="size-4" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
@@ -210,7 +210,7 @@ export default function AIAssistant() {
               <button
                 onClick={sendMessage}
                 disabled={!input.trim() || loading}
-                className="w-8 h-8 rounded-lg bg-primary hover:bg-primary disabled:bg-gray-300 text-white flex items-center justify-center transition-colors shrink-0"
+                className="size-8 rounded-lg bg-primary hover:bg-primary disabled:bg-gray-300 text-white flex items-center justify-center transition-colors shrink-0"
               >
                 <Send size={14} />
               </button>

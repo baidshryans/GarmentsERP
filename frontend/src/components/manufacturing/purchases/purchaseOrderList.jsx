@@ -18,6 +18,7 @@ function PurchaseOrderList() {
   const [params, setParams]= useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -27,7 +28,8 @@ function PurchaseOrderList() {
 
   useEffect(() => {
     const fetchLedgers = async () => {
-      setLoading(true);
+      if (ledgers.length === 0) setLoading(true);
+      else setTransitioning(true);
       const result = await fetchPurchaseOrder({
         search,
         page,
@@ -41,6 +43,7 @@ function PurchaseOrderList() {
         setError(result.error);
       }
       setLoading(false);
+      setTransitioning(false);
     };
 
     fetchLedgers();
@@ -129,14 +132,16 @@ function PurchaseOrderList() {
           error ?
             <div>Error: {error}</div> :
             <>  {/* Data Table */}
+              <div className={transitioning ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
               <DataTable columns={columns} data={ledgers} />
+              </div>
 
               {/* Pagination Controls */}
               <div className="flex justify-between items-center mt-4">
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page === 1}
+                  disabled={page === 1 || transitioning}
                 >
                   Previous
                 </Button>
@@ -148,7 +153,7 @@ function PurchaseOrderList() {
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page === totalPages}
+                  disabled={page === totalPages || transitioning}
                 >
                   Next
                 </Button>

@@ -26,6 +26,7 @@ function BarcodeListView() {
   const [params, setParams] = useSearchParams() 
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -36,7 +37,8 @@ function BarcodeListView() {
 
   useEffect(() => {
     const fetchLedgers = async () => {
-      setLoading(true);
+      if (ledgers.length === 0) setLoading(true);
+      else setTransitioning(true);
       const result = await fetchBarcodeList({
         search,
         page,
@@ -50,6 +52,7 @@ function BarcodeListView() {
         setError(result.error);
       }
       setLoading(false);
+      setTransitioning(false);
     };
 
     fetchLedgers();
@@ -65,11 +68,11 @@ function BarcodeListView() {
         <div className="flex space-x-2">
           {row.original.stk_status !== false ? (
             <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center" title="Edit">
-              <SquarePen className="w-4 h-4" />
+              <SquarePen className="size-4" />
             </Link>
           ) : (
             <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock — editing disabled">
-              <SquarePen className="w-4 h-4" />
+              <SquarePen className="size-4" />
             </span>
           )}
           <button
@@ -77,7 +80,7 @@ function BarcodeListView() {
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
             title="Delete"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="size-4" />
           </button>
           <Link to={`/inventory/barcodemanagement/barcodehistory/?search=${row.original.barcode}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center" title="History">
             <History size={15} />
@@ -87,7 +90,7 @@ function BarcodeListView() {
             className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center"
             title="Print label"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="size-4" />
           </button>
         </div>
       ),
@@ -204,15 +207,16 @@ function BarcodeListView() {
           error ?
             <div>Error: {error}</div> :
             <>  {/* Data Table */}
-
+              <div className={transitioning ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
               <DataTable columns={columns} data={ledgers} />
+              </div>
 
               {/* Pagination Controls */}
               <div className="flex justify-between items-center mt-4">
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page === 1}
+                  disabled={page === 1 || transitioning}
                 >
                   Previous
                 </Button>
@@ -224,7 +228,7 @@ function BarcodeListView() {
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page === totalPages}
+                  disabled={page === totalPages || transitioning}
                 >
                   Next
                 </Button>

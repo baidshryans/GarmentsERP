@@ -164,7 +164,7 @@ export default function DepreciationWorksheetPage() {
             </div>
           </div>
           <Button onClick={handleGenerate} disabled={generating} size="sm">
-            <Calculator className="h-4 w-4 mr-1.5" />
+            <Calculator className="size-4 mr-1.5" />
             {generating ? "Calculating…" : "Generate Suggestion"}
           </Button>
           <p className="text-xs text-muted-foreground">
@@ -238,10 +238,10 @@ export default function DepreciationWorksheetPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleReject} className="text-destructive border-destructive/30">
-                <XCircle className="h-4 w-4 mr-1" /> Reject
+                <XCircle className="size-4 mr-1" /> Reject
               </Button>
               <Button size="sm" onClick={handleApprove} disabled={approving}>
-                <CheckCircle className="h-4 w-4 mr-1" />
+                <CheckCircle className="size-4 mr-1" />
                 {approving ? "Posting…" : "Approve & Post Journal Entry"}
               </Button>
             </div>
@@ -259,7 +259,7 @@ export default function DepreciationWorksheetPage() {
             className="flex items-center gap-2 px-4 py-3 w-full text-left text-sm font-medium"
             onClick={() => setHistOpen(o => !o)}
           >
-            {histOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            {histOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
             Past Suggestions ({history.length})
           </button>
           {histOpen && (

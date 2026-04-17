@@ -193,7 +193,21 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
+            'pcs': {'allow_null': True, 'required': False},
+            'ct': {'allow_null': True, 'required': False},
+            'gw': {'allow_null': True, 'required': False},
         }
+
+    def validate(self, data):
+        # BarcodeDetails allows null for pcs/ct/gw; SalesVouItemDetails model does not.
+        # Coerce any null weight/count fields to 0 so the DB save never fails.
+        if data.get('pcs') is None:
+            data['pcs'] = 0
+        if data.get('ct') is None:
+            data['ct'] = 0
+        if data.get('gw') is None:
+            data['gw'] = 0
+        return data
 
 
 class SalesVouItemSerializer(serializers.ModelSerializer):

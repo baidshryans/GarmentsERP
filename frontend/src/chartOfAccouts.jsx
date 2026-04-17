@@ -62,7 +62,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                     ? isOpen
                         ? <FolderOpen className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-violet-400'}`} />
                         : <Folder className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-violet-400'}`} />
-                    : <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+                    : <span className="size-4 shrink-0 flex items-center justify-center">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
                     </span>
                 }
@@ -105,14 +105,14 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                             className="p-1 rounded hover:bg-violet-100 text-primary transition-colors"
                             title="Edit group"
                         >
-                            <Pencil className="w-4 h-4" />
+                            <Pencil className="size-4" />
                         </Link>
                     ) : (
                         <span
                             className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
                             title="System group — cannot be modified"
                         >
-                            <Pencil className="w-4 h-4" />
+                            <Pencil className="size-4" />
                         </span>
                     )}
                     {node.can_delete ? (
@@ -121,7 +121,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                             className="p-1 rounded hover:bg-red-50 text-red-400 transition-colors"
                             title="Delete group"
                         >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="size-4" />
                         </button>
                     ) : (
                         <span
@@ -134,7 +134,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                                     : 'System group — cannot delete'
                             }
                         >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="size-4" />
                         </span>
                     )}
                 </div>
@@ -240,7 +240,7 @@ const AccountTree = () => {
                     </Button>
                     <Link to="/accounting/account-create">
                         <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary text-white">
-                            <Plus className="w-4 h-4" />
+                            <Plus className="size-4" />
                             Add Group
                         </Button>
                     </Link>
@@ -250,15 +250,15 @@ const AccountTree = () => {
             {/* Legend */}
             <div className="flex items-center gap-4 mb-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                    <Users className="w-3 h-3" />
+                    <Users className="size-3" />
                     Number = ledgers assigned to group
                 </span>
                 <span className="flex items-center gap-1.5">
-                    <Pencil className="w-3 h-3 text-muted-foreground/40" />
+                    <Pencil className="size-3 text-muted-foreground/40" />
                     Greyed edit = system group — cannot be modified
                 </span>
                 <span className="flex items-center gap-1.5">
-                    <Trash2 className="w-3 h-3 text-muted-foreground/40" />
+                    <Trash2 className="size-3 text-muted-foreground/40" />
                     Greyed delete = cannot delete (has ledgers, sub-groups, or is system group)
                 </span>
             </div>
@@ -266,7 +266,7 @@ const AccountTree = () => {
             {/* Tree card */}
             <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                 <div className="flex items-center gap-3 px-5 py-3 bg-muted/50 border-b border-border">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
+                    <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                     <span className="text-sm font-semibold tracking-wider uppercase text-foreground">Account Groups</span>
                 </div>
 
@@ -292,7 +292,7 @@ const AccountTree = () => {
 
                     {!loading && !error && treeData.length === 0 && (
                         <div className="flex flex-col items-center gap-4 py-16 text-center">
-                            <FolderOpen className="w-10 h-10 text-muted-foreground/30" />
+                            <FolderOpen className="size-10 text-muted-foreground/30" />
                             <div>
                                 <p className="text-sm font-medium">No account groups yet</p>
                                 <p className="text-xs text-muted-foreground mt-1">

@@ -18,7 +18,7 @@ class CustomerOrder(models.Model):
     nature = models.CharField(max_length=20, default="New Booking",blank=True)
     status = models.CharField(max_length=20, default="",blank=True)
     delivery_date = models.DateField(null=True)
-    remarks = models.CharField(max_length=100, null=True)
+    remarks = models.CharField(max_length=100, null=True, blank=True)
 
     DELIVERY_STATUS_CHOICES = [
         ('pending',   'Pending'),

@@ -264,7 +264,7 @@ export default function CombinedBankBook() {
       {!loading && !error && !report && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="rounded-full bg-muted/50 p-4 mb-4">
-            <Landmark className="h-8 w-8 text-muted-foreground" />
+            <Landmark className="size-8 text-muted-foreground" />
           </div>
           <h3 className="font-semibold text-foreground mb-1">Bank Book</h3>
           <p className="text-sm text-muted-foreground max-w-sm">

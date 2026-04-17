@@ -94,7 +94,7 @@ export default function PortalLogin() {
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-2">
-              <Gem className="h-8 w-8 text-primary" />
+              <Gem className="size-8 text-primary" />
             </div>
             <CardTitle className="text-lg">Gold Scheme Portal</CardTitle>
             {customerName && step === 2 && (
@@ -117,7 +117,7 @@ export default function PortalLogin() {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Sending OTP..." : "Continue"}
-                  {!loading && <ArrowRight className="h-4 w-4 ml-1" />}
+                  {!loading && <ArrowRight className="size-4 ml-1" />}
                 </Button>
               </form>
             ) : (

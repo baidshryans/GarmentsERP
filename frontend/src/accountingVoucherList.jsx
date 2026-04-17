@@ -21,18 +21,21 @@ const AccountingVoucherList = () => {
   const [params , setParams]=useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
- 
+
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
-  
-  
+
+
  useEffect(() => {
   const fetchLedgers = async () => {
-    setLoading(true);
+    if (ledgers.length === 0) setLoading(true);
+    else setTransitioning(true);
+
     const result = await fetchAccountingVoucher({
       search,
       page,
@@ -48,6 +51,7 @@ const AccountingVoucherList = () => {
       setError(result.error);
     }
     setLoading(false);
+    setTransitioning(false);
   };
 
   fetchLedgers();
@@ -62,16 +66,16 @@ const AccountingVoucherList = () => {
       cell: ({ row }) => (
         <div className="flex space-x-4">
           <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" />
+            <SquarePen className="size-4" />
           </Link>
           <button
             onClick={() => deleteJournalentry(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
-            <Trash2 className="mr-1" />
+            <Trash2 className="size-4" />
           </button>
           <button onClick={() => openAndPrint(<AccountingVoucher data={row.original} />)}>
-            <Printer className="w-4 h-4" />
+            <Printer className="size-4" />
           </button>
           <VoucherAttachments
             voucherId={row.original.id}
@@ -87,16 +91,34 @@ const AccountingVoucherList = () => {
       cell: ({ getValue }) => new Date(getValue()).toLocaleDateString('en-GB').replaceAll('/', '-'),
     },
     {
-      header: "Bill No",
+      header: "Voucher No",
       accessorKey: "voucher_no",
     },
-
-     {
-      header: "Voucher Type",
-      accessorKey: "voucher_type",
+    {
+      header: "Party Name",
+      id: "party_name",
+      cell: ({ row }) => {
+        const details = row.original.voucher_details || [];
+        const names = [...new Set(details.map(d => d.account).filter(Boolean))];
+        return names.join(", ");
+      },
     },
-
-
+    {
+      header: "Narration",
+      accessorKey: "narration",
+    },
+    {
+      header: "Amount",
+      id: "amount",
+      cell: ({ row }) => {
+        const details = row.original.voucher_details || [];
+        const total = details.reduce(
+          (sum, d) => sum + (Number(d.debit) || 0),
+          0
+        );
+        return total.toFixed(2);
+      },
+    },
   ];
 
   return (
@@ -139,14 +161,16 @@ const AccountingVoucherList = () => {
         error ?
           <div>Error: {error}</div> :
           <>  {/* Data Table */}
-            <DataTable columns={columns} data={ledgers} />
+            <div className={transitioning ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
+              <DataTable columns={columns} data={ledgers} />
+            </div>
 
             {/* Pagination Controls */}
             <div className="flex justify-between items-center mt-4">
               <Button
                 variant="outline"
                 onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                disabled={page === 1}
+                disabled={page === 1 || transitioning}
               >
                 Previous
               </Button>
@@ -158,7 +182,7 @@ const AccountingVoucherList = () => {
               <Button
                 variant="outline"
                 onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                disabled={page === totalPages}
+                disabled={page === totalPages || transitioning}
               >
                 Next
               </Button>

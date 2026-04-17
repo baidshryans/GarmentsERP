@@ -76,11 +76,11 @@ export default function SchemeEnrollmentList() {
         <div className="flex gap-1">
           <Button variant="ghost" size="icon" title="View Statement"
             onClick={() => navigate(`/scheme/enrollments/${row.original.id}/statement`)}
-          ><Eye className="h-4 w-4" /></Button>
+          ><Eye className="size-4" /></Button>
           {row.original.status === "ACTIVE" && (
             <Button variant="ghost" size="icon" title="Record Payment"
               onClick={() => navigate(`/scheme/enrollments/${row.original.id}/pay`)}
-            ><CreditCard className="h-4 w-4 text-green-600" /></Button>
+            ><CreditCard className="size-4 text-green-600" /></Button>
           )}
         </div>
       ),
@@ -102,7 +102,7 @@ export default function SchemeEnrollmentList() {
               <SelectItem value="CANCELLED">Cancelled</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => navigate("/scheme/enrollments/add")}><Plus className="h-4 w-4 mr-1" /> New Enrollment</Button>
+          <Button onClick={() => navigate("/scheme/enrollments/add")}><Plus className="size-4 mr-1" /> New Enrollment</Button>
         </div>
       </div>
 

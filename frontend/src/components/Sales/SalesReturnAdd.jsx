@@ -38,7 +38,7 @@ import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
+    <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
       {number}
     </span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
@@ -458,7 +458,7 @@ const SalesReturnAdd = () => {
       >
         {/* Title */}
         <div className="flex items-center gap-3 my-5">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">↩</span>
+          <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">↩</span>
           <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Sales Return</span>
           <div className="flex-1 h-px bg-violet-100" />
         </div>
@@ -515,7 +515,7 @@ const SalesReturnAdd = () => {
                 <TableBody>
                   <TableRow className="bg-violet-50">
                     <TH className="w-10">
-                      <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-violet-700 w-4 h-4 cursor-pointer" />
+                      <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-violet-700 size-4 cursor-pointer" />
                     </TH>
                     <TH>#</TH><TH>Barcode</TH><TH>Item</TH><TH>Pcs</TH><TH>GW</TH><TH>Making</TH><TH>Amount</TH>
                   </TableRow>
@@ -523,7 +523,7 @@ const SalesReturnAdd = () => {
                     <React.Fragment key={i}>
                       <TableRow className={`cursor-pointer transition-colors ${selectedIndices.has(i) ? "bg-violet-50" : "hover:bg-gray-50"}`} onClick={() => toggleOne(i)}>
                         <TableCell className="px-4 py-2 border">
-                          <input type="checkbox" checked={selectedIndices.has(i)} onChange={() => toggleOne(i)} onClick={(e) => e.stopPropagation()} className="accent-violet-700 w-4 h-4 cursor-pointer" />
+                          <input type="checkbox" checked={selectedIndices.has(i)} onChange={() => toggleOne(i)} onClick={(e) => e.stopPropagation()} className="accent-violet-700 size-4 cursor-pointer" />
                         </TableCell>
                         <TableCell className="px-4 py-2 border text-xs font-semibold text-gray-500">{i + 1}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.barcode}</TableCell>
@@ -763,7 +763,7 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-3 py-2 border">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-gray-400 font-semibold">{idx + 1}</span>
-                            <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
+                            <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
                           </div>
                         </TableCell>
                         <TableCell className="px-3 py-2 border text-xs">
@@ -783,7 +783,7 @@ const SalesReturnAdd = () => {
                       {item.salereturndetails_set?.map((detail, detailIdx) => (
                         <TableRow className="bg-white" key={detailIdx}>
                           <TableCell className="px-3 py-1.5 border">
-                            <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
+                            <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
                           </TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs text-gray-400">
                             ↳ #{detailIdx + 1}

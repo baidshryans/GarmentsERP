@@ -38,7 +38,7 @@ function InitialsAvatar({ name, occasion }) {
     : "bg-primary";
   return (
     <div className={`w-9 h-9 rounded-full ${bg} text-white flex items-center justify-center text-sm font-bold flex-shrink-0`}>
-      {initials || <User className="w-4 h-4" />}
+      {initials || <User className="size-4" />}
     </div>
   );
 }
@@ -92,7 +92,7 @@ function OccasionRow({ row, isToday = false }) {
       <TableCell className="py-3 px-3">
         {row.mobile ? (
           <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
-            <Phone className="w-3 h-3" /> {row.mobile}
+            <Phone className="size-3" /> {row.mobile}
           </div>
         ) : (
           <span className="text-xs text-red-500 italic">No mobile</span>
@@ -163,7 +163,7 @@ function CRMDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Heart className="w-6 h-6 text-pink-500" /> Customer Occasions
+            <Heart className="size-6 text-pink-500" /> Customer Occasions
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Birthday & anniversary greetings with 20% off on making charges
@@ -263,7 +263,7 @@ function CRMDashboard() {
       {/* ── Upcoming Tabs ── */}
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="px-4 py-3 border-b flex items-center gap-2">
-          <CalendarDays className="w-5 h-5 text-muted-foreground" />
+          <CalendarDays className="size-5 text-muted-foreground" />
           <h2 className="font-semibold text-base">Upcoming Occasions</h2>
           {upcomingRows.length > 0 && (
             <span className="text-xs bg-muted text-foreground rounded-full px-2 py-0.5 font-semibold">

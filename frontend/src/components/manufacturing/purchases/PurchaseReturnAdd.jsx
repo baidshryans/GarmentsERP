@@ -38,7 +38,7 @@ import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
+    <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
       {number}
     </span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
@@ -346,7 +346,7 @@ const PurchaseReturnAdd = () => {
       >
         {/* Title */}
         <div className="flex items-center gap-3 my-5">
-          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
+          <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
             ↩
           </span>
           <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">

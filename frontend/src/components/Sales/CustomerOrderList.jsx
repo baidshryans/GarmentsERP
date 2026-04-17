@@ -83,7 +83,7 @@ function OverdueBanner({ overview, onDismiss }) {
 
   return (
     <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex gap-3">
-      <Bell className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+      <Bell className="size-5 text-red-600 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-red-800">
           {overview.overdue_count} order{overview.overdue_count !== 1 ? 's' : ''} overdue
@@ -110,7 +110,7 @@ function OverdueBanner({ overview, onDismiss }) {
         </div>
       </div>
       <button onClick={onDismiss} className="shrink-0 text-red-400 hover:text-red-600">
-        <X className="w-4 h-4" />
+        <X className="size-4" />
       </button>
     </div>
   );
@@ -121,11 +121,11 @@ function OverdueBanner({ overview, onDismiss }) {
 function KpiStrip({ overview }) {
   if (!overview) return null;
   const cards = [
-    { label: 'Overdue',        value: overview.overdue_count,        icon: <AlertTriangle className="w-4 h-4" />, color: 'text-red-600 bg-red-50 border-red-100' },
-    { label: 'Due Today',      value: overview.due_today_count,       icon: <Clock className="w-4 h-4" />,         color: 'text-amber-600 bg-amber-50 border-amber-100' },
-    { label: 'Due This Week',  value: overview.due_this_week_count,   icon: <Bell className="w-4 h-4" />,          color: 'text-sky-600 bg-sky-50 border-sky-100' },
-    { label: 'All Open',       value: overview.pending_count,         icon: <Truck className="w-4 h-4" />,         color: 'text-primary bg-violet-50 border-violet-100' },
-    { label: 'Delivered (Mo)', value: overview.delivered_this_month,  icon: <CheckCircle2 className="w-4 h-4" />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+    { label: 'Overdue',        value: overview.overdue_count,        icon: <AlertTriangle className="size-4" />, color: 'text-red-600 bg-red-50 border-red-100' },
+    { label: 'Due Today',      value: overview.due_today_count,       icon: <Clock className="size-4" />,         color: 'text-amber-600 bg-amber-50 border-amber-100' },
+    { label: 'Due This Week',  value: overview.due_this_week_count,   icon: <Bell className="size-4" />,          color: 'text-sky-600 bg-sky-50 border-sky-100' },
+    { label: 'All Open',       value: overview.pending_count,         icon: <Truck className="size-4" />,         color: 'text-primary bg-violet-50 border-violet-100' },
+    { label: 'Delivered (Mo)', value: overview.delivered_this_month,  icon: <CheckCircle2 className="size-4" />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
   ];
   return (
     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -177,7 +177,7 @@ function DeliveryUpdateSheet({ order, open, onClose, onUpdated }) {
       <SheetContent side="right" className="sm:max-w-sm" aria-describedby={undefined}>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-primary" />
+            <Truck className="size-5 text-primary" />
             Update Delivery — {order.order_no}
           </SheetTitle>
         </SheetHeader>
@@ -309,20 +309,20 @@ function CustomerOrderList() {
       cell: ({ row }) => (
         <div className="flex gap-2 items-center">
           <Link to={`/sales/customerorder/list/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
-            <SquarePen className="w-4 h-4" />
+            <SquarePen className="size-4" />
           </Link>
           <button
             onClick={() => deleteCustomerOrder(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="size-4" />
           </button>
           <button
             onClick={() => openSheet(row.original)}
             className="text-sky-500 hover:text-sky-700"
             title="Update delivery status"
           >
-            <Truck className="w-4 h-4" />
+            <Truck className="size-4" />
           </button>
           <button onClick={() => openAndPrint(<CustomerOrder data={{
             name: row.original.ldgr_code_name,
@@ -330,7 +330,7 @@ function CustomerOrderList() {
             orderDate: fmtDate(row.original.date1),
             deliveryDate: fmtDate(row.original.delivery_date),
           }} />)}>
-            <Printer className="w-4 h-4 text-muted-foreground" />
+            <Printer className="size-4 text-muted-foreground" />
           </button>
         </div>
       ),

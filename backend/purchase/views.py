@@ -24,7 +24,8 @@ from rest_framework.generics import ListCreateAPIView,ListAPIView
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
 # Create your views here.
 from global_vars import STATES_OF_INDIA
@@ -34,6 +35,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def purchase_voucher_number_view(request):
     try:
         order_no = generate_pv_no()
@@ -43,6 +45,7 @@ def purchase_voucher_number_view(request):
     
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def purchase_order_number_view(request):
     try:
         order_no = generate_po_no()
@@ -217,6 +220,7 @@ class PurchaseOrderViewset(RetailBaseViewset):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_purchase_for_return(request, po_no):
     if not request.retail:
         return Response({"error": "Missing or invalid X-RETAIL-ID header"}, status=status.HTTP_400_BAD_REQUEST)
@@ -240,6 +244,7 @@ class PurchaseItemView(ListAPIView):
     filterset_class = PurchaseItemFilterSet
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_pv_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
@@ -248,6 +253,7 @@ def get_next_pv_no(request):
     return Response({"billno": bill_no})
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_pr_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
@@ -256,6 +262,7 @@ def get_next_pr_no(request):
     return Response({"billno": bill_no})
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_next_po_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
@@ -265,13 +272,14 @@ def get_next_po_no(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def purchase_return_initial_data(request):
     """Combined initial data for the PurchaseReturn form."""
     from mastersconfig.models import Item, Packet
     from mastersconfig.serializers import ItemSerializer, PacketSerializer
     from goldrates.serializer import PurityMasterSerializer
     from contacts.models import Ledger
-    from accounting.serializers import LedgerSerializer
+    from accounting.serializers import LedgerLightSerializer
     from goldrates.models import PurityMaster
 
     if not request.retail:
@@ -282,14 +290,19 @@ def purchase_return_initial_data(request):
 
     from accounting.utils import peek_next_bill_number
     bill_no = peek_next_bill_number(request.retail, "PR")
-    ledgers_qs = Ledger.objects.filter(roles__role='SC').only('id', 'ac_name', 'ac_group').distinct()
-    items_qs = Item.objects.select_related('hsn_no').all()
+    ledgers_qs = (Ledger.objects
+                  .filter(roles__role='SC')
+                  .select_related('ac_group')
+                  .prefetch_related('roles')
+                  .only('id', 'ac_name', 'ac_group')
+                  .distinct())
+    items_qs = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger').all()
     purity_qs = PurityMaster.objects.all()
     packets_qs = Packet.objects.select_related('stone_item_id').all()
 
     return Response({
         "billno": bill_no,
-        "ledgers": LedgerSerializer(ledgers_qs, many=True, context={'request': request}).data,
+        "ledgers": LedgerLightSerializer(ledgers_qs, many=True).data,
         "items": ItemSerializer(items_qs, many=True).data,
         "purity": PurityMasterSerializer(purity_qs, many=True).data,
         "packets": PacketSerializer(packets_qs, many=True).data,
@@ -323,6 +336,7 @@ class PurchaseAttachmentDelete(APIView):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def serve_attachment_file(request, name):
     """
     Stream an attachment file from the configured (dynamic) storage root.
@@ -360,6 +374,7 @@ def serve_attachment_file(request, name):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def customer_purchases_for_adjustment(request):
     """Return customer-type purchase vouchers for a given ledger that have unadjusted balance."""
     from django.db.models import Sum, F, DecimalField, Value
@@ -389,6 +404,7 @@ def customer_purchases_for_adjustment(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def tds_register(request):
     retail = request.retail
     from_date = request.GET.get('from_date')
@@ -423,6 +439,7 @@ def tds_register(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def rcm_register(request):
     """RCM liability register — old gold purchased from unregistered individuals."""
     retail = request.retail

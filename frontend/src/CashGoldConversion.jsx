@@ -10,7 +10,7 @@ import { ArrowDownUp, Coins, Banknote } from "lucide-react";
 // ── Shared section header (matches SalesVoucherAdd style) ───────────────────
 const SectionHeader = ({ icon: Icon, title, subtitle }) => (
   <div className="flex items-center gap-3 mb-6">
-    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white shrink-0">
+    <span className="flex items-center justify-center size-8 rounded-full bg-primary text-white shrink-0">
       <Icon size={16} />
     </span>
     <div>
@@ -197,7 +197,7 @@ const CashGoldConversion = () => {
       {/* ══ DIVIDER ════════════════════════════════════════════════════════ */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-px bg-gray-100" />
-        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400">
+        <span className="flex items-center justify-center size-8 rounded-full bg-gray-100 text-gray-400">
           <ArrowDownUp size={16} />
         </span>
         <div className="flex-1 h-px bg-gray-100" />

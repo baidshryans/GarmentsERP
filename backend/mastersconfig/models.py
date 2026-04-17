@@ -478,6 +478,10 @@ class SystemSettings(models.Model):
         default=True,
         help_text="Enable browser spell checking and fuzzy matching in search/picker fields."
     )
+    enable_gst_bill = models.BooleanField(
+        default=False,
+        help_text="Enable GST bill number (auto-generated as GST/<retail_code>/<FY>/NNNNN) on sales vouchers. When enabled the field is mandatory."
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -513,11 +517,11 @@ class Packet(models.Model):
     packet_group = models.ForeignKey(PacketGroup,max_length=10, on_delete=models.CASCADE,null=True)
     pckt_no = models.CharField(max_length=10, unique=True)
     stone_item_id = models.ForeignKey(Item, on_delete = models.CASCADE, null=True)
-    cut = models.CharField(max_length=50, null=True)
-    clarity = models.CharField(max_length=10, null=True)
+    cut = models.CharField(max_length=50, null=True, blank=True)
+    clarity = models.CharField(max_length=10, null=True, blank=True)
     color = models.ForeignKey(Colors, on_delete = models.SET_NULL,max_length=20, null=True)
     shape = models.ForeignKey(Shapes,on_delete=models.SET_NULL,max_length=10, null=True)
-    seives = models.CharField(max_length=10, null=True)
+    seives = models.CharField(max_length=10, null=True, blank=True)
     is_solitaire = models.BooleanField()
     rate_for_retail = models.IntegerField()
     rate_for_wholesale = models.IntegerField(blank=True, null=True)

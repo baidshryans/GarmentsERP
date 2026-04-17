@@ -128,7 +128,7 @@ const ItemwiseBarcodeReport = () => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-              <FileText className="h-6 w-6" />
+              <FileText className="size-6" />
               Itemwise Barcode Report
             </h1>
           </div>
@@ -192,7 +192,7 @@ const ItemwiseBarcodeReport = () => {
         {/* Loading and Error States */}
         {loading && (
           <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full size-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-gray-600">Loading report data...</p>
           </div>
         )}

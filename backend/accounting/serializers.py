@@ -53,10 +53,30 @@ def _has_role(account, role):
     return account.roles.filter(role=role).exists()
 
 
+class LedgerLightSerializer(serializers.ModelSerializer):
+    """Lightweight ledger serializer for dropdowns and initial-data endpoints.
+    Returns only the fields needed for select options — no nested roles or masking."""
+    ac_group_name = serializers.CharField(source='ac_group.name', read_only=True, default=None)
+    primary_role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ledger
+        fields = ['id', 'ac_name', 'ac_group', 'ac_group_name', 'primary_role']
+
+    def get_primary_role(self, obj):
+        # Uses prefetched roles if available
+        roles = obj.roles.all()
+        for r in roles:
+            if r.is_primary:
+                return r.role
+        return roles[0].role if roles else None
+
+
 class LedgerSerializer(serializers.ModelSerializer):
     roles = _LedgerRoleSerializer(many=True, read_only=True)
     primary_role = serializers.SerializerMethodField()
     ac_group_name = serializers.CharField(source='ac_group.name', read_only=True, allow_null=True)
+    parent_group_name = serializers.CharField(source='ac_group.parent.name', read_only=True, allow_null=True, default=None)
 
     class Meta:
         model = Ledger

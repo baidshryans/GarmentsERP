@@ -19,13 +19,13 @@ export default function PortalHeader() {
     <header className="border-b bg-card">
       <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Gem className="h-5 w-5 text-primary" />
+          <Gem className="size-5 text-primary" />
           <span className="font-semibold text-sm">Gold Scheme Portal</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:inline">{customerName}</span>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
+            <LogOut className="size-4" />
           </Button>
         </div>
       </div>

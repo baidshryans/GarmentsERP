@@ -72,8 +72,8 @@ export default function PortalPayment() {
   if (paymentState === "success" && paymentResult) {
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-          <CheckCircle className="h-10 w-10 text-green-600" />
+        <div className="size-16 rounded-full bg-green-100 flex items-center justify-center">
+          <CheckCircle className="size-10 text-green-600" />
         </div>
         <h2 className="text-lg font-semibold text-green-800">Payment Successful!</h2>
         <p className="text-sm text-muted-foreground text-center">
@@ -110,15 +110,15 @@ export default function PortalPayment() {
   if (paymentState === "processing") {
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-6">
-        <div className="w-40 h-40 border-2 border-dashed border-muted rounded-lg flex items-center justify-center">
-          <QrCode className="h-24 w-24 text-muted-foreground/40" />
+        <div className="size-40 border-2 border-dashed border-muted rounded-lg flex items-center justify-center">
+          <QrCode className="size-24 text-muted-foreground/40" />
         </div>
         <div className="text-center">
           <p className="text-sm font-medium">Scan QR or pay via UPI</p>
           <p className="text-xs text-muted-foreground mt-1">shop@upi (mock)</p>
         </div>
         <div className="flex items-center gap-2 text-primary">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="size-4 animate-spin" />
           <span className="text-sm">Processing payment of {inr(amount)}...</span>
         </div>
       </div>
@@ -132,7 +132,7 @@ export default function PortalPayment() {
   return (
     <div className="space-y-4">
       <Button variant="ghost" size="sm" onClick={() => navigate(`/portal/enrollment/${enrollmentNo}`)}>
-        <ArrowLeft className="h-4 w-4 mr-1" /> Back
+        <ArrowLeft className="size-4 mr-1" /> Back
       </Button>
 
       <Card>

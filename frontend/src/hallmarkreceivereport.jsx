@@ -125,7 +125,7 @@ export default function HallmarkReceiveReport() {
       {/* Filter bar */}
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-primary" />
+          <Filter className="size-4 text-primary" />
           <h2 className="text-sm font-semibold text-gray-800">Filters</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -175,7 +175,7 @@ export default function HallmarkReceiveReport() {
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 text-primary">
-            <ShieldCheck className="w-4 h-4" />
+            <ShieldCheck className="size-4" />
             <span className="text-sm font-semibold">Hallmark Receive Summary</span>
           </div>
           <span className="text-xs text-gray-500">
@@ -204,7 +204,7 @@ export default function HallmarkReceiveReport() {
       {!loading && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
-            <ArrowDownToLine className="w-4 h-4 text-primary" />
+            <ArrowDownToLine className="size-4 text-primary" />
             <h3 className="text-sm font-semibold text-gray-800">Receive Lines</h3>
           </div>
           <div className="overflow-x-auto">

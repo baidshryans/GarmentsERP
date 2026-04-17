@@ -18,6 +18,7 @@ function KarigarGoldIssuesList() {
   const [params, setParams] = useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -28,7 +29,8 @@ function KarigarGoldIssuesList() {
 
   useEffect(() => {
     const fetchLedgers = async () => {
-      setLoading(true);
+      if (ledgers.length === 0) setLoading(true);
+      else setTransitioning(true);
       const result = await fetchGoldIssues({
         search,
         page,
@@ -42,6 +44,7 @@ function KarigarGoldIssuesList() {
         setError(result.error);
       }
       setLoading(false);
+      setTransitioning(false);
     };
 
     fetchLedgers();
@@ -65,7 +68,7 @@ function KarigarGoldIssuesList() {
             <Trash2 className="mr-1" />
           </button>
           <button onClick={() => openAndPrint(<h1>Karigar Issue</h1>)}>
-            <Printer className="w-4 h-4" />
+            <Printer className="size-4" />
           </button>
         </div>
       ),
@@ -179,14 +182,16 @@ function KarigarGoldIssuesList() {
           error ?
             <div>Error: {error}</div> :
             <>  {/* Data Table */}
+              <div className={transitioning ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
               <DataTable columns={columns} data={ledgers} />
+              </div>
 
               {/* Pagination Controls */}
               <div className="flex justify-between items-center mt-4">
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page === 1}
+                  disabled={page === 1 || transitioning}
                 >
                   Previous
                 </Button>
@@ -198,7 +203,7 @@ function KarigarGoldIssuesList() {
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page === totalPages}
+                  disabled={page === totalPages || transitioning}
                 >
                   Next
                 </Button>

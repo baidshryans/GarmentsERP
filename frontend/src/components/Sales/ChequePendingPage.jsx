@@ -65,7 +65,7 @@ export default function ChequePendingPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center gap-2">
-        <Landmark className="h-5 w-5 text-amber-600" />
+        <Landmark className="size-5 text-amber-600" />
         <h2 className="text-lg font-semibold">Pending Cheques</h2>
       </div>
       <p className="text-sm text-muted-foreground">

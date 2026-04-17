@@ -143,7 +143,7 @@ function AppCard({ app, installed }) {
             installed ? "bg-violet-100 text-primary" : "bg-gray-200 text-gray-400"
           }`}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="size-5" />
         </div>
         <div className="min-w-0">
           <h4 className="text-sm font-semibold text-gray-800 truncate">{app.name}</h4>

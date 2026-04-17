@@ -71,6 +71,7 @@ const StockTransferList = () => {
   // Transfers tab state
   const [transfers, setTransfers] = useState([]);
   const [loadingTransfers, setLoadingTransfers] = useState(true);
+  const [transitioningTransfers, setTransitioningTransfers] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [actionLoading, setActionLoading] = useState(null);
@@ -84,7 +85,8 @@ const StockTransferList = () => {
 
   // ── Load transfers ──
   const loadTransfers = useCallback(async () => {
-    setLoadingTransfers(true);
+    if (transfers.length === 0) setLoadingTransfers(true);
+    else setTransitioningTransfers(true);
     const result = await fetchStockTransferForList({ search, page });
     if (result.success) {
       setTransfers(result.data.results ?? result.data ?? []);
@@ -93,6 +95,7 @@ const StockTransferList = () => {
       toast({ title: "Failed to load transfers", variant: "destructive" });
     }
     setLoadingTransfers(false);
+    setTransitioningTransfers(false);
   }, [search, page]);
 
   useEffect(() => { loadTransfers(); }, [loadTransfers]);
@@ -343,13 +346,13 @@ const StockTransferList = () => {
           {/* Legend */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground bg-muted/40 rounded-lg px-4 py-2">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" /> Draft
+              <span className="size-2 rounded-full bg-gray-400 inline-block" /> Draft
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> In Transit
+              <span className="size-2 rounded-full bg-amber-400 inline-block" /> In Transit
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Received
+              <span className="size-2 rounded-full bg-green-500 inline-block" /> Received
             </span>
           </div>
 
@@ -359,14 +362,16 @@ const StockTransferList = () => {
             </div>
           ) : (
             <>
+              <div className={transitioningTransfers ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
               <DataTable columns={transferColumns} data={transfers} />
+              </div>
               {totalPages > 1 && (
                 <div className="flex justify-between items-center">
-                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(p - 1, 1))} disabled={page === 1}>
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(p - 1, 1))} disabled={page === 1 || transitioningTransfers}>
                     Previous
                   </Button>
                   <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
-                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(p + 1, totalPages))} disabled={page === totalPages}>
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(p + 1, totalPages))} disabled={page === totalPages || transitioningTransfers}>
                     Next
                   </Button>
                 </div>

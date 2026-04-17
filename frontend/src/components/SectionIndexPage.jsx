@@ -271,8 +271,8 @@ export default function SectionIndexPage() {
               className="flex items-start gap-3 p-4 rounded-lg border border-gray-200 bg-white hover:border-violet-300 hover:shadow-md transition-all group"
             >
               {/* Icon badge */}
-              <div className="flex-shrink-0 w-8 h-8 rounded-md bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
-                <Icon className="w-4 h-4 text-primary" />
+              <div className="flex-shrink-0 size-8 rounded-md bg-violet-50 flex items-center justify-center group-hover:bg-violet-100 transition-colors">
+                <Icon className="size-4 text-primary" />
               </div>
 
               {/* Text */}
@@ -286,7 +286,7 @@ export default function SectionIndexPage() {
               </div>
 
               {/* Arrow */}
-              <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-violet-400 transition-colors mt-0.5 flex-shrink-0" />
+              <ArrowRight className="size-4 text-gray-300 group-hover:text-violet-400 transition-colors mt-0.5 flex-shrink-0" />
             </Link>
           );
         })}

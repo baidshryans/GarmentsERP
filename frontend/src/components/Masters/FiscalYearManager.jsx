@@ -140,7 +140,7 @@ function FiscalYearManager() {
           }}
           className="gap-1.5 bg-primary hover:bg-primary"
         >
-          <Plus className="w-4 h-4" /> New Fiscal Year
+          <Plus className="size-4" /> New Fiscal Year
         </Button>
       </div>
 
@@ -192,7 +192,7 @@ function FiscalYearManager() {
         <div className="text-sm text-gray-400">Loading...</div>
       ) : fiscalYears.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
-          <CalendarDays className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+          <CalendarDays className="size-10 mx-auto mb-3 text-gray-300" />
           <p className="text-sm">No fiscal years created yet.</p>
           <p className="text-xs mt-1">Click "New Fiscal Year" to get started.</p>
         </div>

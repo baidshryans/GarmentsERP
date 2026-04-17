@@ -114,7 +114,7 @@ export default function SalaryStructurePage() {
           </Select>
         </div>
         {selectedEmp && (
-          <Button size="sm" onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Add Structure</Button>
+          <Button size="sm" onClick={openAdd}><Plus className="size-4 mr-1" /> Add Structure</Button>
         )}
       </div>
 

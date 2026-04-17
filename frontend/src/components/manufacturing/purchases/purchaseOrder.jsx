@@ -416,9 +416,9 @@ const PurchaseOrder = () => {
                              <TableRow key={index} className="w-full bg-white">
                                <TableCell className="w-28 px-4 py-2 border">
                                  <div className="flex gap-4">
-                                   <SquarePen className="w-4 h-4 mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
+                                   <SquarePen className="size-4 mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
 
-                                   <Trash2 color="#d45959" className="w-4 h-4 mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
+                                   <Trash2 color="#d45959" className="size-4 mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
                                  </div>
                                </TableCell>
                                 <TableCell className="w-20 px-4 py-2 border"> {row.po_sl_no}</TableCell>

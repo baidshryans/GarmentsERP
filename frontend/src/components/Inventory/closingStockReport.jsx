@@ -28,7 +28,7 @@ function KpiCard({ icon: Icon, label, value, sub }) {
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 shadow-sm min-w-[130px] flex-1">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <Icon className="w-4 h-4 text-muted-foreground/50" />
+        <Icon className="size-4 text-muted-foreground/50" />
       </div>
       <p className="text-xl font-bold tabular-nums text-foreground leading-none">{value}</p>
       {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
@@ -73,7 +73,7 @@ function LoadingSkeleton() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="rounded-xl border p-4 flex flex-col gap-2">
-            <div className="flex justify-between"><Skeleton className="h-3 w-20" /><Skeleton className="h-4 w-4 rounded" /></div>
+            <div className="flex justify-between"><Skeleton className="h-3 w-20" /><Skeleton className="size-4 rounded" /></div>
             <Skeleton className="h-6 w-24" />
             <Skeleton className="h-3 w-16" />
           </div>
@@ -173,7 +173,7 @@ export default function ClosingStockTable() {
 
         {data && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto gap-1.5">
-            <Printer className="w-4 h-4" /> Print
+            <Printer className="size-4" /> Print
           </Button>
         )}
       </div>
@@ -377,7 +377,7 @@ export default function ClosingStockTable() {
       {!loading && !error && !data && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="rounded-2xl bg-muted/40 border border-border p-6 mb-5">
-            <Package className="h-9 w-9 text-muted-foreground/50" />
+            <Package className="size-9 text-muted-foreground/50" />
           </div>
           <h3 className="text-sm font-semibold text-foreground mb-1.5">Closing Stock Valuation</h3>
           <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">

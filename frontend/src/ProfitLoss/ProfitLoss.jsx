@@ -50,7 +50,7 @@ function DrilldownModal({ title, metric, startDate, endDate, onClose, accountGro
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h3 className="font-semibold text-foreground">{title}</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted transition-colors">
-            <X className="w-4 h-4" />
+            <X className="size-4" />
           </button>
         </div>
 
@@ -165,7 +165,7 @@ function PnlRow({ label, value, indent = false, bold = false, metric, onDrill, n
         <span className="flex items-center gap-2">
           {label}
           {clickable && (
-            <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+            <ChevronRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
           )}
         </span>
       </td>
@@ -346,7 +346,7 @@ export default function ProfitLoss() {
               id="pnl-combined"
               checked={combined}
               onChange={(e) => setCombined(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
+              className="size-4 rounded border-gray-300"
             />
             <Label htmlFor="pnl-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
           </div>
@@ -354,7 +354,7 @@ export default function ProfitLoss() {
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {data && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">
-            <Printer className="w-4 h-4 mr-1.5" /> Print
+            <Printer className="size-4 mr-1.5" /> Print
           </Button>
         )}
       </div>

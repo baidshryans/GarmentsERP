@@ -654,11 +654,11 @@ export default function QuotationAdd() {
                             <img
                               src={item.image_url.startsWith("http") ? item.image_url : `${baseUrl}${item.image_url}`}
                               alt=""
-                              className="w-12 h-12 object-cover rounded border"
+                              className="size-12 object-cover rounded border"
                               onError={(e) => { e.target.style.display = "none"; }}
                             />
                           ) : (
-                            <div className="w-12 h-12 bg-muted/50 rounded border flex items-center justify-center text-muted-foreground text-[8px]">
+                            <div className="size-12 bg-muted/50 rounded border flex items-center justify-center text-muted-foreground text-[8px]">
                               No img
                             </div>
                           )}

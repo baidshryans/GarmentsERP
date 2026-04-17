@@ -294,7 +294,7 @@ const ReceiveFromRefinary = () => {
                                                 className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
                                                 title="Remove row"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Trash2 className="size-4" />
                                             </button>
                                         </TableCell>
                                     </TableRow>

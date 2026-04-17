@@ -121,7 +121,7 @@ export default function FinancialRatios() {
               id="fr-combined"
               checked={combined}
               onChange={(e) => setCombined(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
+              className="size-4 rounded border-gray-300"
             />
             <Label htmlFor="fr-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
           </div>

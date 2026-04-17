@@ -24,6 +24,7 @@ const KarigarReceive = () => {
   const [params, setParams] = useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
   const navigate = useNavigate()
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
@@ -36,7 +37,8 @@ const KarigarReceive = () => {
 
   useEffect(() => {
     const fetchLedgers = async () => {
-      setLoading(true);
+      if (ledgers.length === 0) setLoading(true);
+      else setTransitioning(true);
       const result = await fetchKarigarReceive({
         search,
         page,
@@ -50,6 +52,7 @@ const KarigarReceive = () => {
         setError(result.error);
       }
       setLoading(false);
+      setTransitioning(false);
     };
 
     fetchLedgers();
@@ -74,7 +77,7 @@ const KarigarReceive = () => {
             <Trash2 className="mr-1" />
           </button>
           <button onClick={() => openAndPrint(<ReceiveFromKarigar data={row.original} />)}>
-            <Printer className="w-4 h-4" />
+            <Printer className="size-4" />
           </button>
         </div>
       ),
@@ -181,21 +184,23 @@ const KarigarReceive = () => {
             <div>Error: {error}</div>
           ) : (
             <>
-              <DataTable 
-                columns={columns} 
-                data={ledgers} 
-                rowClick={(row) => { 
+              <div className={transitioning ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
+              <DataTable
+                columns={columns}
+                data={ledgers}
+                rowClick={(row) => {
                   setDetails(row);
                   setShowPanel(true);
                 }}
               />
+              </div>
 
               {/* Pagination Controls */}
               <div className="flex justify-between items-center mt-4">
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page === 1}
+                  disabled={page === 1 || transitioning}
                 >
                   Previous
                 </Button>
@@ -207,7 +212,7 @@ const KarigarReceive = () => {
                 <Button
                   variant="outline"
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page === totalPages}
+                  disabled={page === totalPages || transitioning}
                 >
                   Next
                 </Button>
@@ -230,7 +235,7 @@ const KarigarReceive = () => {
             <div className="flex items-center justify-between p-2 bg-gray-50 border-b">
             <br></br>
               <button onClick={() => setShowPanel(false)}>
-                <X className="w-5 h-5 text-gray-600 hover:text-red-500" />
+                <X className="size-5 text-gray-600 hover:text-red-500" />
               </button>
             </div>
             <div className="overflow-auto h-full">

@@ -32,8 +32,8 @@ function GoldRateCard() {
     <div className="col-span-full rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/80 to-white p-6 shadow-sm">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary shadow-md shadow-violet-200">
-            <Gem className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-center size-10 rounded-xl bg-primary shadow-md shadow-violet-200">
+            <Gem className="size-5 text-white" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-gray-900 tracking-tight">
@@ -222,7 +222,7 @@ function QuickAction({ to, icon: Icon, label, description, color }) {
           {description}
         </div>
       </div>
-      <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-violet-400 mt-0.5 shrink-0 transition-colors" />
+      <ArrowRight className="size-4 text-gray-300 group-hover:text-violet-400 mt-0.5 shrink-0 transition-colors" />
     </Link>
   );
 }
@@ -351,7 +351,7 @@ export default function Dashboard() {
                 to={to}
                 className="group flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:border-violet-200 transition-all"
               >
-                <Icon className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
+                <Icon className="size-4 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
                 <span className="text-sm text-gray-700 group-hover:text-primary font-medium transition-colors truncate">
                   {label}
                 </span>

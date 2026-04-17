@@ -4,13 +4,15 @@ from datetime import datetime
 
 from django.conf import settings
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 
 from .models import CarryForwardLog
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
 def carry_forward_preview(request):
     """Run the management command in dry-run mode and return the stats."""
     cutoff_date = request.data.get('cutoff_date')
@@ -44,6 +46,7 @@ def carry_forward_preview(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
 def carry_forward_execute(request):
     """Run the carry-forward for real. This replaces the database."""
     cutoff_date = request.data.get('cutoff_date')
@@ -78,6 +81,7 @@ def carry_forward_execute(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
 def carry_forward_log(request):
     """Return the list of past carry-forward events."""
     logs = CarryForwardLog.objects.all().values(

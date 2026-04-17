@@ -146,7 +146,7 @@ export default function TrialBalance() {
               id="tb-combined"
               checked={combined}
               onChange={(e) => setCombined(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
+              className="size-4 rounded border-gray-300"
             />
             <Label htmlFor="tb-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
           </div>
@@ -154,7 +154,7 @@ export default function TrialBalance() {
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {report && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">
-            <Printer className="w-4 h-4 mr-1.5" /> Print
+            <Printer className="size-4 mr-1.5" /> Print
           </Button>
         )}
       </div>

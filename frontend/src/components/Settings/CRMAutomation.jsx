@@ -60,18 +60,18 @@ function StatusChip({ status }) {
   if (status === "success")
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
-        <CheckCircle2 className="w-3 h-3" /> Sent
+        <CheckCircle2 className="size-3" /> Sent
       </span>
     );
   if (status === "failed")
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
-        <XCircle className="w-3 h-3" /> Failed
+        <XCircle className="size-3" /> Failed
       </span>
     );
   return (
     <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-      <SkipForward className="w-3 h-3" /> Skipped
+      <SkipForward className="size-3" /> Skipped
     </span>
   );
 }
@@ -186,7 +186,7 @@ export default function CRMAutomation() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <MessageCircle className="w-6 h-6 text-green-600" />
+            <MessageCircle className="size-6 text-green-600" />
             CRM Automation
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
@@ -210,7 +210,7 @@ export default function CRMAutomation() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="size-4" />
             {label}
           </button>
         ))}
@@ -222,7 +222,7 @@ export default function CRMAutomation() {
           {/* Enable + Send Time card */}
           <div className="rounded-xl border bg-card p-5 space-y-5">
             <h2 className="font-semibold text-base flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
+              <Clock className="size-4 text-muted-foreground" />
               Schedule
             </h2>
 
@@ -279,7 +279,7 @@ export default function CRMAutomation() {
           {/* Provider card */}
           <div className="rounded-xl border bg-card p-5 space-y-5">
             <h2 className="font-semibold text-base flex items-center gap-2">
-              <MessageCircle className="w-4 h-4 text-muted-foreground" />
+              <MessageCircle className="size-4 text-muted-foreground" />
               WhatsApp Provider
             </h2>
 
@@ -376,8 +376,8 @@ export default function CRMAutomation() {
           <div className="flex items-center gap-3 flex-wrap">
             <Button onClick={handleSave} disabled={saving} className="gap-2">
               {saving
-                ? <RefreshCw className="w-4 h-4 animate-spin" />
-                : <Save className="w-4 h-4" />}
+                ? <RefreshCw className="size-4 animate-spin" />
+                : <Save className="size-4" />}
               {saving ? "Saving…" : "Save Settings"}
             </Button>
 
@@ -389,8 +389,8 @@ export default function CRMAutomation() {
               title={!form.is_enabled ? "Enable CRM automation first" : "Immediately send today's occasion messages"}
             >
               {testing
-                ? <RefreshCw className="w-4 h-4 animate-spin" />
-                : <PlayCircle className="w-4 h-4 text-green-600" />}
+                ? <RefreshCw className="size-4 animate-spin" />
+                : <PlayCircle className="size-4 text-green-600" />}
               {testing ? "Sending…" : "Send Now (Test)"}
             </Button>
 

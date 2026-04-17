@@ -71,7 +71,7 @@ export default function SchemeEnrollmentForm() {
 
   return (
     <div className="space-y-4 max-w-2xl">
-      <Button variant="ghost" onClick={() => navigate("/scheme/enrollments")}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+      <Button variant="ghost" onClick={() => navigate("/scheme/enrollments")}><ArrowLeft className="size-4 mr-1" /> Back</Button>
 
       <Card>
         <CardHeader><CardTitle>New Scheme Enrollment</CardTitle></CardHeader>
@@ -132,7 +132,7 @@ export default function SchemeEnrollmentForm() {
 
             <div><Label>Remarks</Label><Textarea value={form.remarks} onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))} rows={2} /></div>
 
-            <Button type="submit" disabled={submitting}><Check className="h-4 w-4 mr-1" /> Enroll Customer</Button>
+            <Button type="submit" disabled={submitting}><Check className="size-4 mr-1" /> Enroll Customer</Button>
           </form>
         </CardContent>
       </Card>

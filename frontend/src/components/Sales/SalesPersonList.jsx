@@ -209,7 +209,7 @@ function SalesPersonList() {
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto" aria-describedby={undefined}>
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
-              <Percent className="w-5 h-5 text-primary" />
+              <Percent className="size-5 text-primary" />
               {editingId ? "Edit Sales Person" : "Add Sales Person"}
             </SheetTitle>
           </SheetHeader>
@@ -259,7 +259,7 @@ function SalesPersonList() {
             {/* Commission Section */}
             <div className="border-t pt-4 mt-2">
               <p className="text-sm font-semibold mb-3 flex items-center gap-1">
-                <Percent className="w-4 h-4 text-primary" /> Commission Configuration
+                <Percent className="size-4 text-primary" /> Commission Configuration
               </p>
 
               <div className="flex flex-col gap-4">

@@ -235,7 +235,7 @@ export default function BankReconciliation() {
                 </div>
                 <Button size="sm" className="self-end h-7 text-xs bg-primary hover:bg-primary text-white"
                   onClick={handleAddEntry} disabled={saving}>
-                  <Plus className="w-4 h-4 mr-1" /> Add
+                  <Plus className="size-4 mr-1" /> Add
                 </Button>
               </div>
 
@@ -285,7 +285,7 @@ export default function BankReconciliation() {
                               </button>
                             )}
                             <button onClick={() => handleDelete(r.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors">
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="size-4" />
                             </button>
                           </div>
                         </td>

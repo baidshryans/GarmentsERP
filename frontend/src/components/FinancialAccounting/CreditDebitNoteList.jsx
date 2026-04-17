@@ -19,12 +19,14 @@ const fmt = (v) =>
 export default function CreditDebitNoteList() {
   const { toast } = useToast();
   const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
 
   const load = async () => {
-    setLoading(true);
+    if (notes.length === 0) setLoading(true);
+    else setTransitioning(true);
     const res = await fetchCreditDebitNotes(typeFilter);
     if (res.success) {
       setNotes(Array.isArray(res.data) ? res.data : res.data.results || []);
@@ -32,6 +34,7 @@ export default function CreditDebitNoteList() {
       toast({ title: "Error", description: "Failed to load notes", variant: "destructive" });
     }
     setLoading(false);
+    setTransitioning(false);
   };
 
   useEffect(() => { load(); }, [typeFilter]);
@@ -98,19 +101,19 @@ export default function CreditDebitNoteList() {
             </button>
           ))}
         </div>
-        <Button size="sm" onClick={load} className="h-9 gap-2" disabled={loading}>
+        <Button size="sm" onClick={load} className="h-9 gap-2" disabled={loading || transitioning}>
           <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
         <Link to="/accounting/credit-debit-notes/add" className="ml-auto">
           <Button size="sm" className="h-9 gap-2">
-            <Plus className="w-4 h-4" /> New Note
+            <Plus className="size-4" /> New Note
           </Button>
         </Link>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className={`rounded-lg border border-border overflow-hidden ${transitioning ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}`}>
         <table className="w-full text-sm">
           <thead className="bg-muted/40">
             <tr>

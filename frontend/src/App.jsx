@@ -111,7 +111,6 @@ const QuotationAdd               = lazy(() => import("./components/Sales/Quotati
 const QuotationList              = lazy(() => import("./components/Sales/QuotationList"));
 const ForbiddenPage              = lazy(() => import("./Forbidden.jsx"));
 const ProfitLoss                 = lazy(() => import("./ProfitLoss/ProfitLoss.jsx"));
-const ProfitDemo                 = lazy(() => import("./ProfitLoss/ProfitDemo.jsx"));
 const ProfitLossCal              = lazy(() => import("./ProfitLoss/ProfitLossCal.jsx"));
 const BalanceSheet               = lazy(() => import("./components/FinancialAccounting/reports/BalanceSheet.jsx"));
 const FinancialRatios            = lazy(() => import("./components/FinancialAccounting/reports/FinancialRatios.jsx"));
@@ -185,7 +184,7 @@ const CarryForwardPage           = lazy(() => import("./components/Settings/Carr
 function PageSpinner() {
   return (
     <div className="flex h-screen w-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>
   );
 }
@@ -273,7 +272,6 @@ const appRoutes = [
   { path: "accounting/balancesheet",              heading: "Balance Sheet",            component: <BalanceSheet /> },
   { path: "accounting/profitloss",                heading: "Profit & Loss",            component: <ProfitLoss /> },
   { path: "accounting/profitlosscal",             heading: "Profit Loss Calculation",  component: <ProfitLossCal /> },
-  { path: "accounting/profitdemo",                heading: "Profit Demo Report",       component: <ProfitDemo /> },
   { path: "accounting/gstinputregister",          heading: "GST Input Register",       component: <GstInputRegister /> },
   { path: "accounting/gstoutputregister",         heading: "GST Output Register",      component: <GstOutputRegister /> },
   { path: "accounting/audit-queue",               heading: "Audit Queue",              component: <AuditQueue /> },

@@ -11,9 +11,12 @@ Usage:
     python manage.py carry_forward --cutoff-date 2025-10-15 --retail-id 3
 """
 
+import logging
 import os
 import re
 import shutil
+
+logger = logging.getLogger(__name__)
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -274,8 +277,8 @@ class Command(BaseCommand):
             if new_db_path.exists():
                 try:
                     connections['carry_forward_target'].close()
-                except Exception:
-                    pass
+                except (KeyError, AttributeError):
+                    pass  # connection may not have been opened
                 os.remove(str(new_db_path))
             # Remove the temp DB alias
             if 'carry_forward_target' in settings.DATABASES:
@@ -479,15 +482,15 @@ class Command(BaseCommand):
         from licensing.models import AppRegistry
         try:
             count += self._bulk_copy_m2m(AppRegistry, 'depends_on')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("carry_forward: failed to copy AppRegistry.depends_on M2M: %s", e)
 
         # UserLocation M2M (location)
         from contacts.models import UserLocation
         try:
             count += self._bulk_copy_m2m(UserLocation, 'location')
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("carry_forward: failed to copy UserLocation.location M2M: %s", e)
 
         self.stdout.write(f"         → {count} rows")
         return count

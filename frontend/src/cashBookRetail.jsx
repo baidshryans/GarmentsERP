@@ -179,7 +179,7 @@ export default function CashBookRetail() {
         </Button>
         {report && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">
-            <Printer className="w-4 h-4 mr-1.5" /> Print
+            <Printer className="size-4 mr-1.5" /> Print
           </Button>
         )}
       </div>
@@ -310,7 +310,7 @@ export default function CashBookRetail() {
       {!loading && !error && !report && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="rounded-full bg-muted/50 p-4 mb-4">
-            <BookOpen className="h-8 w-8 text-muted-foreground" />
+            <BookOpen className="size-8 text-muted-foreground" />
           </div>
           <h3 className="font-semibold text-foreground mb-1">Cash Book</h3>
           <p className="text-sm text-muted-foreground max-w-sm">

@@ -197,7 +197,7 @@ export default function TCSSectionMasterPage() {
             </div>
           </div>
           <div className="flex items-center gap-3 mb-4">
-            <input type="checkbox" id="is_active" name="is_active" checked={form.is_active} onChange={handleChange} className="h-4 w-4 accent-violet-600" />
+            <input type="checkbox" id="is_active" name="is_active" checked={form.is_active} onChange={handleChange} className="size-4 accent-violet-600" />
             <label htmlFor="is_active" className="text-sm text-foreground/80">Active</label>
           </div>
           <div className="flex gap-3">

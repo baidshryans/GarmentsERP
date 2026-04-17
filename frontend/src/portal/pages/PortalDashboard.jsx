@@ -48,21 +48,21 @@ export default function PortalDashboard() {
       <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="pt-3 pb-3 text-center">
-            <Gem className="h-5 w-5 mx-auto text-primary mb-1" />
+            <Gem className="size-5 mx-auto text-primary mb-1" />
             <p className="text-xl font-bold">{summary.total_schemes}</p>
             <p className="text-[11px] text-muted-foreground">Schemes</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-3 pb-3 text-center">
-            <IndianRupee className="h-5 w-5 mx-auto text-green-600 mb-1" />
+            <IndianRupee className="size-5 mx-auto text-green-600 mb-1" />
             <p className="text-xl font-bold">{inr(summary.total_invested)}</p>
             <p className="text-[11px] text-muted-foreground">Invested</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-3 pb-3 text-center">
-            <Clock className="h-5 w-5 mx-auto text-orange-600 mb-1" />
+            <Clock className="size-5 mx-auto text-orange-600 mb-1" />
             <p className="text-xl font-bold">{summary.active_schemes}</p>
             <p className="text-[11px] text-muted-foreground">Active</p>
           </CardContent>
@@ -72,7 +72,7 @@ export default function PortalDashboard() {
       {/* Enrollment cards */}
       {enrollments.length === 0 ? (
         <div className="text-center py-12">
-          <Gem className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+          <Gem className="size-12 mx-auto text-muted-foreground/30 mb-3" />
           <p className="text-muted-foreground">No scheme enrollments found.</p>
           <p className="text-sm text-muted-foreground mt-1">Contact the shop to enroll in a gold scheme.</p>
         </div>

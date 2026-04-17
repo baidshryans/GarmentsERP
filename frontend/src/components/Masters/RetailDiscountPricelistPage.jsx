@@ -125,10 +125,10 @@ export default function RetailDiscountPricelistPage() {
       cell: ({ row }) => (
         <div className="flex gap-1.5">
           <button onClick={() => openEdit(row.original)} className="p-1 rounded text-primary hover:bg-primary/10">
-            <SquarePen className="w-4 h-4" />
+            <SquarePen className="size-4" />
           </button>
           <button onClick={() => handleDelete(row.original.id)} className="p-1 rounded text-destructive hover:bg-red-50">
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="size-4" />
           </button>
         </div>
       ),
@@ -154,7 +154,7 @@ export default function RetailDiscountPricelistPage() {
       <div className="flex flex-col gap-6 max-w-3xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{editingId ? "Edit" : "Add"} Retail Discount Pricelist</h2>
-          <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}><X className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}><X className="size-4" /></Button>
         </div>
 
         {/* Basic info */}
@@ -250,7 +250,7 @@ export default function RetailDiscountPricelistPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Retail Discount Pricelists</h2>
         <Button size="sm" className="gap-1.5" onClick={openAdd}>
-          <Plus className="w-4 h-4" /> Add Pricelist
+          <Plus className="size-4" /> Add Pricelist
         </Button>
       </div>
 

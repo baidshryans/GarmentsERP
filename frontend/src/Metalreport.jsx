@@ -108,7 +108,7 @@ export default function KarigarMetalLedger() {
       {/* Filter bar */}
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-primary" />
+          <Filter className="size-4 text-primary" />
           <h2 className="text-sm font-semibold text-gray-800">Filters</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
@@ -168,7 +168,7 @@ export default function KarigarMetalLedger() {
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 text-primary">
-            <Coins className="w-4 h-4" />
+            <Coins className="size-4" />
             <span className="text-sm font-semibold">Karigar Metal Ledger ({reportType})</span>
           </div>
           <span className="text-xs text-gray-500">{data.length} karigars</span>
@@ -195,7 +195,7 @@ export default function KarigarMetalLedger() {
       {!loading && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
-            <Coins className="w-4 h-4 text-primary" />
+            <Coins className="size-4 text-primary" />
             <h3 className="text-sm font-semibold text-gray-800">Metal Ledger Detail</h3>
           </div>
           <div className="overflow-x-auto">

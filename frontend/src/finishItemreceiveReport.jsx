@@ -98,7 +98,7 @@ export default function FinishedItemReceiveReport() {
       {/* Filter bar */}
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-primary" />
+          <Filter className="size-4 text-primary" />
           <h2 className="text-sm font-semibold text-gray-800">Filters</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
@@ -159,7 +159,7 @@ export default function FinishedItemReceiveReport() {
       <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 text-primary">
-            <PackageCheck className="w-4 h-4" />
+            <PackageCheck className="size-4" />
             <span className="text-sm font-semibold">Finished Item Receive Summary</span>
           </div>
           <span className="text-xs text-gray-500">
@@ -188,7 +188,7 @@ export default function FinishedItemReceiveReport() {
       {!loading && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
-            <PackageCheck className="w-4 h-4 text-primary" />
+            <PackageCheck className="size-4 text-primary" />
             <h3 className="text-sm font-semibold text-gray-800">Receive Lines</h3>
           </div>
           <div className="overflow-x-auto">

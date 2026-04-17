@@ -223,7 +223,7 @@ class KarigarStoneReceive(models.Model):
 #-------------------karigar master----------------------------------
 class KarigarMaster(models.Model):
     karigar = models.ForeignKey(Ledger, on_delete = models.CASCADE)
-    kr_code = models.CharField(max_length=10, null=True)
+    kr_code = models.CharField(max_length=10, null=True, blank=True)
     making_per_gm = models.DecimalField(max_digits=10, decimal_places=2)
     making_per_pc = models.DecimalField(max_digits=10, decimal_places=2)
     loss_rate = models.DecimalField(max_digits=10, decimal_places=3)

@@ -254,7 +254,7 @@ const ReceiveFromAssay = () => {
                                                             setValue(`table.${index}.conv_purity`, "99.5");
                                                         }
                                                     }}
-                                                    className="h-4 w-4"
+                                                    className="size-4"
                                                     title="Mark as cornet (goes to fine-gold stock)"
                                                 />
                                             </TableCell>
@@ -331,7 +331,7 @@ const ReceiveFromAssay = () => {
                                                     className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
                                                     title="Remove row"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="size-4" />
                                                 </button>
                                             </TableCell>
                                         </TableRow>
@@ -351,7 +351,7 @@ const ReceiveFromAssay = () => {
                             onClick={handleAddCornetRow}
                             className="text-amber-600 border-amber-300 hover:bg-amber-50"
                         >
-                            <Plus className="w-4 h-4 mr-1" /> Add Cornet Row
+                            <Plus className="size-4 mr-1" /> Add Cornet Row
                         </Button>
                     </div>
                 )}

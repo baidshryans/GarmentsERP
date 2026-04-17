@@ -1284,7 +1284,7 @@ export async function fetchNextHallMarkIssueNo() {
 
 export async function fetchNextStockTransferNo() {
   try {
-    const response = await apiClient.get(`/manufacturing/api/next_stock_transfer_no`);
+    const response = await apiClient.get(`/inventory/api/next_stock_transfer_no`);
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch order items :", error.response?.data || error.message);
@@ -3522,17 +3522,6 @@ export async function fetchBarcodeStockReport(asOnDate) {
   }
 }
 
-export async function fetchProfitDemo() {
-
-  try {
-    const response = await apiClient.get(`/accounting/api/pnl`);
-
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error("Failed to fetch ProfitDemo:", error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
-  }
-} 
 
 export async function fetchBankBookReport(fromDate, toDate, selectedLedgerId) {
   try {

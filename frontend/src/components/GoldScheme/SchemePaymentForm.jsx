@@ -80,7 +80,7 @@ export default function SchemePaymentForm() {
 
   return (
     <div className="space-y-4 max-w-xl">
-      <Button variant="ghost" onClick={() => navigate(`/scheme/enrollments/${id}/statement`)}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
+      <Button variant="ghost" onClick={() => navigate(`/scheme/enrollments/${id}/statement`)}><ArrowLeft className="size-4 mr-1" /> Back</Button>
 
       <Card>
         <CardHeader>
@@ -132,7 +132,7 @@ export default function SchemePaymentForm() {
               {enrollment.gold_accumulated_wt > 0 && ` | Gold: ${Number(enrollment.gold_accumulated_wt).toFixed(3)}g`}
             </div>
 
-            <Button type="submit" disabled={submitting}><Check className="h-4 w-4 mr-1" /> Record Payment</Button>
+            <Button type="submit" disabled={submitting}><Check className="size-4 mr-1" /> Record Payment</Button>
           </form>
         </CardContent>
       </Card>

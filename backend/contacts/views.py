@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from accounting.serializers import LedgerSerializer
 from contacts.filters import LedgerFilter
@@ -69,6 +70,7 @@ def _name_conflicts(ac_name, exclude_id=None):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def check_ledger_name(request):
     """
     GET /contacts/api/ledger/check-name/?ac_name=X&exclude_id=Y
@@ -85,7 +87,7 @@ def check_ledger_name(request):
 
 class ListCreateLedger(ListCreateAPIView):
     serializer_class = LedgerSerializer
-    queryset         = Ledger.objects.select_related('ac_group').prefetch_related('roles').all()
+    queryset         = Ledger.objects.select_related('ac_group', 'ac_group__parent').prefetch_related('roles').all()
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     filterset_class = LedgerFilter          # supports ?type= and ?role=
 
@@ -218,16 +220,19 @@ class AllowedRetailView(ListAPIView):
         return UserLocation.objects.filter(user=user).order_by('id')
     
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_customer_type(request):
     customer_type_dict_list = [{"code": code, "name": name} for code, name in CUSTOMER_TYPE]
     return Response(customer_type_dict_list)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_states_of_india(request):
     states_dict_list = [{"code": code, "name": name} for code, name in STATES_OF_INDIA]
     return Response(states_dict_list)
 
 @api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
 def manage_ledger_role(request, pk):
     """
     POST   /api/ledger/<pk>/roles/  {"role": "CO"}  → add role
@@ -279,6 +284,7 @@ def manage_ledger_role(request, pk):
 
 
 @api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
 def set_primary_ledger_role(request, pk):
     """
     PATCH /api/ledger/<pk>/roles/primary/  {"role": "CO"}
@@ -337,6 +343,8 @@ class AccountTreeViewSet(viewsets.ViewSet):
     """
     Returns the account tree structure including child accounts and associated ledgers.
     """
+    permission_classes = [IsAuthenticated]
+
     def list(self, request):
         root_accounts = Account.objects.filter(parent=None)  # Get only top-level accounts
         serializer = AccountSerializer(root_accounts, many=True, context={'request': request})
@@ -344,6 +352,7 @@ class AccountTreeViewSet(viewsets.ViewSet):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def ledger_tds_info(request, pk):
     from contacts.models import Ledger
     ledger = get_object_or_404(Ledger, pk=pk)
@@ -372,6 +381,7 @@ def ledger_tds_info(request, pk):
 # ── CRM — Birthday & Anniversary Occasions ────────────────────────────────────
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def crm_occasions(request):
     """
     Returns customers (type=CO) whose birthday (dob) or anniversary

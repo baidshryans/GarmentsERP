@@ -53,7 +53,7 @@ import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 // ─── Section header helper ──────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
-    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">{number}</span>
+    <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">{number}</span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
     <div className="flex-1 h-px bg-violet-100" />
   </div>
@@ -194,6 +194,7 @@ const SalesVoucherAdd = () => {
   const [b2bPricelist, setB2bPricelist] = useState(null);         // null = retail mode; object = B2B pricelist data
   const [retailDiscountPricelist, setRetailDiscountPricelist] = useState(null); // retail discount pricelist for Apply Discount
   const [activeOffer, setActiveOffer] = useState(null);           // company-wide active offer (retail only)
+  const [enableGstBill, setEnableGstBill] = useState(false);      // driven by SystemSettings.enable_gst_bill
   const [showManualItems, setShowManualItems] = useState(false);  // section 3 toggle
   const [isVoucherLocked, setIsVoucherLocked] = useState(false); // true when any barcode is no longer in stock
   // Resolved item for the current manual input row
@@ -340,6 +341,10 @@ const SalesVoucherAdd = () => {
           setPurityData(d.purity || []);
           setPackets(d.packets || []);
           setValue("form.billno", d.billno);
+          if (d.enable_gst_bill) {
+            setEnableGstBill(true);
+            setValue("form.gst_billno", d.gst_billno || "");
+          }
           if (d.retail_state_code) setRetailStateCode(d.retail_state_code);
           if (d.is_exhibition) setIsExhibitionRetail(true);
         } else {
@@ -993,10 +998,17 @@ const SalesVoucherAdd = () => {
             </div>
           </FieldContainer>
 
-          <FieldContainer>
-            <Label className="text-nowrap">GST Bill No</Label>
-            <Input type="text" {...register("form.gst_billno", { required: true })} />
-          </FieldContainer>
+          {enableGstBill && (
+            <FieldContainer>
+              <Label className="text-nowrap">GST Bill No</Label>
+              <div className="flex items-center gap-2 flex-1">
+                <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+                  {watch("form.gst_billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+                </span>
+                <input type="hidden" {...register("form.gst_billno", { required: true })} />
+              </div>
+            </FieldContainer>
+          )}
 
           {/* Party Name with ledger lookup */}
           <FieldContainer>
@@ -1055,41 +1067,41 @@ const SalesVoucherAdd = () => {
                   </span>
                 )}
               </p>
-              {customerCashInfo && (() => {
-                const { cash_received, limit, remaining } = customerCashInfo;
-                const pct = limit > 0 ? Math.min(100, (cash_received / limit) * 100) : 0;
-                const isNearLimit = remaining < limit * 0.1;   // < 10% remaining
-                const isAtLimit   = remaining <= 0;
-                return (
-                  <div className={`mt-1.5 rounded-md border px-2.5 py-1.5 text-xs ${
-                    isAtLimit   ? 'bg-red-50 border-red-200 text-red-700' :
-                    isNearLimit ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                                  'bg-gray-50 border-gray-200 text-gray-600'
-                  }`}>
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="font-medium">Cash received this FY</span>
-                      <span className="font-mono font-semibold">
-                        ₹{cash_received.toLocaleString('en-IN')} / ₹{limit.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="h-1 rounded-full bg-gray-200 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          isAtLimit ? 'bg-red-500' : isNearLimit ? 'bg-amber-400' : 'bg-violet-400'
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    {isAtLimit
-                      ? <p className="mt-1 font-semibold text-red-600">⚠ Cash limit reached — no further cash can be accepted from this customer this FY.</p>
-                      : <p className="mt-1 text-muted-foreground">Remaining: ₹{remaining.toLocaleString('en-IN')}</p>
-                    }
-                  </div>
-                );
-              })()}
             </div>
           </FieldContainer>
         </div>
+        {customerCashInfo && (() => {
+          const { cash_received, limit, remaining } = customerCashInfo;
+          const pct = limit > 0 ? Math.min(100, (cash_received / limit) * 100) : 0;
+          const isNearLimit = remaining < limit * 0.1;
+          const isAtLimit   = remaining <= 0;
+          return (
+            <div className={`mb-4 rounded-md border px-3 py-2 text-xs ${
+              isAtLimit   ? 'bg-red-50 border-red-200 text-red-700' :
+              isNearLimit ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                            'bg-gray-50 border-gray-200 text-gray-600'
+            }`}>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="font-medium">Cash received this FY</span>
+                <span className="font-mono font-semibold">
+                  ₹{cash_received.toLocaleString('en-IN')} / ₹{limit.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="h-1 rounded-full bg-gray-200 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    isAtLimit ? 'bg-red-500' : isNearLimit ? 'bg-amber-400' : 'bg-violet-400'
+                  }`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {isAtLimit
+                ? <p className="mt-1 font-semibold text-red-600">⚠ Cash limit reached — no further cash can be accepted from this customer this FY.</p>
+                : <p className="mt-1 text-muted-foreground">Remaining: ₹{remaining.toLocaleString('en-IN')}</p>
+              }
+            </div>
+          );
+        })()}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
@@ -1462,7 +1474,7 @@ const SalesVoucherAdd = () => {
                       <input type="hidden" {...register(`salesvouitem_set.${index}.amount`)} />
                     </TableCell>
                     <TableCell className="px-3 py-2 border">
-                      <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => remove(index)} />
+                      <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => remove(index)} />
                     </TableCell>
                   </TableRow>
 
@@ -1504,7 +1516,7 @@ const SalesVoucherAdd = () => {
               type="checkbox"
               checked={showManualItems}
               onChange={e => setShowManualItems(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 accent-primary"
+              className="size-4 rounded border-gray-300 accent-primary"
             />
             <span className="text-sm text-muted-foreground">Add manual items</span>
           </label>
@@ -1725,7 +1737,7 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.value}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs text-sky-700">{mainItem.remarks}</TableCell>
                       <TableCell className="px-3 py-2 border text-center">
-                        <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer mx-auto" onClick={() => handleDeleteMainItem(mainIdx)} />
+                        <Trash2 color="#d45959" className="size-4 cursor-pointer mx-auto" onClick={() => handleDeleteMainItem(mainIdx)} />
                       </TableCell>
                     </TableRow>
 
@@ -1751,7 +1763,7 @@ const SalesVoucherAdd = () => {
                           <TableCell className="px-3 py-2 border text-xs">{detail.value}</TableCell>
                           <TableCell className="px-3 py-2 border" />
                           <TableCell className="px-3 py-2 border text-center">
-                            <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer mx-auto" onClick={() => handleDeleteSubItem(mainIdx, subIdx)} />
+                            <Trash2 color="#d45959" className="size-4 cursor-pointer mx-auto" onClick={() => handleDeleteSubItem(mainIdx, subIdx)} />
                           </TableCell>
                         </TableRow>
                       );
@@ -1835,8 +1847,8 @@ const SalesVoucherAdd = () => {
                 <TableRow key={index}>
                   <TableCell className="px-3 py-2 border">
                     <div className="flex gap-3">
-                      <SquarePen className="w-4 h-4 cursor-pointer" onClick={() => handleEditBank(index)} />
-                      <Trash2 color="#d45959" className="w-4 h-4 cursor-pointer" onClick={() => handleDeleteBank(index)} />
+                      <SquarePen className="size-4 cursor-pointer" onClick={() => handleEditBank(index)} />
+                      <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteBank(index)} />
                     </div>
                   </TableCell>
                   <TableCell className="px-3 py-2 border text-xs">

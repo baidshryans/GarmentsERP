@@ -420,7 +420,7 @@ const IssueToAssay = () => {
                                                     className="text-violet-400 hover:text-primary"
                                                     title="Edit"
                                                 >
-                                                    <SquarePen className="w-4 h-4" />
+                                                    <SquarePen className="size-4" />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -428,7 +428,7 @@ const IssueToAssay = () => {
                                                     className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
                                                     title="Delete"
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="size-4" />
                                                 </button>
                                             </div>
                                         </TableCell>

@@ -60,7 +60,7 @@ export default function HRSettingsPage() {
 
         {locked && (
           <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            <Lock className="h-4 w-4 shrink-0" />
+            <Lock className="size-4 shrink-0" />
             Ledger mappings are locked because salary slips have been approved using these ledgers.
           </div>
         )}
@@ -73,7 +73,7 @@ export default function HRSettingsPage() {
                 {locked && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Lock className="h-3 w-3 text-amber-500 cursor-help" />
+                      <Lock className="size-3 text-amber-500 cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
                       Cannot change — salary slips have been approved using this ledger.

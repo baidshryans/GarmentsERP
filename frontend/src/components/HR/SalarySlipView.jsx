@@ -26,7 +26,7 @@ export default function SalarySlipView({ slip, company }) {
     <div>
       <div className="flex justify-end mb-3 print:hidden">
         <Button variant="outline" size="sm" onClick={() => window.print()}>
-          <Printer className="h-4 w-4 mr-1" /> Print
+          <Printer className="size-4 mr-1" /> Print
         </Button>
       </div>
 

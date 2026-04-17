@@ -144,8 +144,8 @@ export default function SchemeMasterPage() {
       id: "actions", header: "",
       cell: ({ row }) => (
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)}><SquarePen className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original)}><SquarePen className="size-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => handleDelete(row.original.id)}><Trash2 className="size-4 text-red-500" /></Button>
         </div>
       ),
     },
@@ -155,7 +155,7 @@ export default function SchemeMasterPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Gold Scheme Master</h2>
-        <Button onClick={() => { reset(); setShowForm(true); }}><Plus className="h-4 w-4 mr-1" /> New Scheme</Button>
+        <Button onClick={() => { reset(); setShowForm(true); }}><Plus className="size-4 mr-1" /> New Scheme</Button>
       </div>
 
       {showForm && (
@@ -199,7 +199,7 @@ export default function SchemeMasterPage() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Benefit Tiers (Making Charge Discounts)</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addTier}><Plus className="h-3 w-3 mr-1" /> Add Tier</Button>
+              <Button type="button" variant="outline" size="sm" onClick={addTier}><Plus className="size-3 mr-1" /> Add Tier</Button>
             </div>
             {form.benefit_tiers.map((tier, idx) => (
               <div key={idx} className="grid grid-cols-6 gap-2 items-end">
@@ -217,14 +217,14 @@ export default function SchemeMasterPage() {
                 <div><Label className="text-xs">To (months)</Label><Input type="number" value={tier.max_months} onChange={(e) => updateTier(idx, "max_months", e.target.value)} /></div>
                 <div><Label className="text-xs">LC Discount %</Label><Input type="number" value={tier.lc_discount_pct} onChange={(e) => updateTier(idx, "lc_discount_pct", e.target.value)} /></div>
                 <div><Label className="text-xs">Value Discount %</Label><Input type="number" value={tier.value_discount_pct} onChange={(e) => updateTier(idx, "value_discount_pct", e.target.value)} /></div>
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeTier(idx)}><X className="h-4 w-4 text-red-500" /></Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => removeTier(idx)}><X className="size-4 text-red-500" /></Button>
               </div>
             ))}
           </div>
 
           <div className="flex gap-2">
-            <Button type="submit" disabled={submitting}><Check className="h-4 w-4 mr-1" /> {editingId ? "Update" : "Create"}</Button>
-            <Button type="button" variant="outline" onClick={reset}><X className="h-4 w-4 mr-1" /> Cancel</Button>
+            <Button type="submit" disabled={submitting}><Check className="size-4 mr-1" /> {editingId ? "Update" : "Create"}</Button>
+            <Button type="button" variant="outline" onClick={reset}><X className="size-4 mr-1" /> Cancel</Button>
           </div>
         </form>
       )}

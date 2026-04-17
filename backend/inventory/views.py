@@ -19,18 +19,22 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework import status
 from rest_framework.generics import ListAPIView
-from rest_framework.decorators import api_view, action
+from rest_framework.decorators import api_view, action, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from accounting.utils import peek_next_bill_number
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 from django.db.models import OuterRef, Subquery, Sum, IntegerField, Q, F, ExpressionWrapper, Prefetch
 
 
 @api_view()
-def gen_barcode(request):   
+@permission_classes([IsAuthenticated])
+def gen_barcode(request):
     res = {"barcode":generate_ean13()}
     return Response(res)
 
 @api_view()
+@permission_classes([IsAuthenticated])
 def get_barcode(request, barcode, hsn):
     try:
         obj = BarcodeMain.objects.get(
@@ -48,6 +52,7 @@ def get_barcode(request, barcode, hsn):
     return Response(data)
 
 @api_view()
+@permission_classes([IsAuthenticated])
 def get_barcode_only(request, barcode):
     try:
         obj = BarcodeMain.objects.get(
@@ -68,6 +73,7 @@ def get_barcode_only(request, barcode):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def create_barcode_from_receive_api(request):
     sl_no = request.GET.get('sl_no')
     rec_slip_no = request.GET.get('rec_slip_no')
@@ -126,6 +132,7 @@ def create_barcode_from_receive_api(request):
         )
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def create_barcode_from_purchase(request):
     bill_no = request.GET.get('bill_no')
     sl_no = request.GET.get('sl_no')
@@ -178,6 +185,7 @@ def create_barcode_from_purchase(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def barcode_merge_view(request):
     with transaction.atomic():
         data = request.data.copy()
@@ -225,6 +233,8 @@ def barcode_merge_view(request):
         return Response(data=serializer.data)
 from rest_framework.views import APIView  
 class ConvertBarcodeToUnbarcodedView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         barcode_value = request.data.get("barcode")
         if not barcode_value:
@@ -295,6 +305,7 @@ class ConvertBarcodeToUnbarcodedView(APIView):
 
     
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def barcode_split_view(request,old_barcode):
     with transaction.atomic():
         old_br = BarcodeMain.objects.get(barcode=old_barcode)
@@ -385,6 +396,7 @@ class BarcodeBulkListView(APIView):
     """
     GET /inventory/api/barcode-bulk/?item=GL&packet=PKT001&stk_status=true&search=...
     Returns ALL matching barcodes (no pagination) for bulk print / CSV export.
+
     Supports filtering by:
       - item (short_code)
       - packet (pckt_no on BarcodeDetails)
@@ -392,6 +404,8 @@ class BarcodeBulkListView(APIView):
       - stk_status
       - search (barcode number, item name, item short_code)
     """
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         retail = getattr(request, 'retail', None)
         qs = BarcodeMain.objects.select_related('item', 'purity').prefetch_related('barcodedetails_set__packet', 'barcodedetails_set__item')
@@ -497,6 +511,7 @@ class ClosingStockCalculator(APIView):
     API endpoint to calculate closing stock value using weighted average method.
     Closing Stock = Opening Stock + Purchases - Purchase Returns - Sales + Sale Returns
     """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, format=None):
         """
@@ -531,39 +546,47 @@ class ClosingStockCalculator(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
 class StockValuationReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, *args, **kwargs):
-        # Fetch query parameters
         purity_filter = request.query_params.get("purity")
         item_filter = request.query_params.get("item")
-        # Filter only in-stock barcodes
-        barcodes = BarcodeMain.objects.filter(stk_status=True)
+
+        # Build detail prefetch with optional item filter
+        from django.db.models import Prefetch
+        detail_qs = BarcodeDetails.objects.select_related('item', 'packet')
+        if item_filter:
+            detail_qs = detail_qs.filter(item__id=item_filter)
+
+        barcodes = (
+            BarcodeMain.objects
+            .filter(stk_status=True)
+            .select_related('purity', 'customer_order')
+            .prefetch_related(Prefetch('barcodedetails_set', queryset=detail_qs))
+        )
         if purity_filter:
             barcodes = barcodes.filter(purity=purity_filter)
+
         stock_data = []
         for barcode in barcodes:
-            barcode_details = BarcodeDetails.objects.filter(barcode=barcode)
-            # Apply item filter if provided
-            if item_filter:
-                barcode_details = barcode_details.filter(item__id=item_filter)
             stones = []
             others = []
-            for detail in barcode_details:
-                item_type = detail.item.item_type  # Assuming `item_type` determines if it's a stone
+            for detail in barcode.barcodedetails_set.all():
                 detail_data = {
-                    "code": detail.item.id,  # Assuming `id` acts as code
-                    "sub": detail.packet.id if detail.packet else None,  # Packet details
+                    "code": detail.item_id,
+                    "sub": detail.packet_id,
                     "pcs": detail.pcs or 0,
                     "weight": detail.ct or 0,
                     "rate": detail.rate,
                     "value": detail.amt
                 }
-                if item_type == "stone":
+                if detail.item.item_type == "stone":
                     stones.append(detail_data)
                 else:
                     others.append(detail_data)
             stock_data.append({
                 "barcode": barcode.barcode,
-                "order": barcode.customer_order.id if barcode.customer_order else None,
+                "order": barcode.customer_order_id,
                 "pcs": barcode.pcs,
                 "gw": barcode.gw,
                 "nw": barcode.nw,
@@ -576,6 +599,8 @@ class StockValuationReportView(APIView):
         return Response({"stock_valuation": stock_data}, status=status.HTTP_200_OK)
 
 class StockReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         as_on_date = request.query_params.get('as_on_date')
 
@@ -684,6 +709,8 @@ class ItemBarcodeSerializer(serializers.ModelSerializer):
 
 
 class ItemwiseBarcodeReport(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         from_date = request.query_params.get('from_date')
         to_date = request.query_params.get('to_date')
@@ -1077,6 +1104,7 @@ class CVDTestSerializer(serializers.ModelSerializer):
 class CVDTestViewSet(ListCreateAPIView):
     queryset = CVDTest.objects.all()
     serializer_class = CVDTestSerializer
+    permission_classes = [IsAuthenticated]
 
 class IDGenerationReportFilter(filters.FilterSet):
     start_date = filters.DateFilter(field_name='barcode__created_date', lookup_expr='gte')
@@ -1124,6 +1152,15 @@ class StockJournalViewSet(RetailBaseViewset):
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
     search_fields=['billno']
 
+    @transaction.atomic
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+
+    @transaction.atomic
     def perform_destroy(self, instance):
         from accounting.utils import release_last_bill_number
         retail = instance.retail
@@ -1140,6 +1177,8 @@ class BarcodeTransactionView(RetailBaseViewset):
 
 
 class BarcodeCreationReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
 
         from_date = request.query_params.get('from_date')
@@ -1189,6 +1228,7 @@ class BarcodeCreationReportView(APIView):
     
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def stock_journal_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'SJ')
@@ -1317,6 +1357,7 @@ class StockTransferViewset(RetailBaseViewset):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def stock_transfer_billno_view(request):
     try:
         from accounting.utils import peek_next_bill_number
@@ -1358,6 +1399,8 @@ class BarcodeImageListCreate(ListCreateAPIView):
 
 
 class BarcodeImageDelete(APIView):
+    permission_classes = [IsAuthenticated]
+
     def delete(self, request, pk):
         try:
             img = BarcodeImage.objects.get(pk=pk)
@@ -1369,6 +1412,7 @@ class BarcodeImageDelete(APIView):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def serve_barcode_image_file(request, name):
     """Stream a barcode image from the configured storage root."""
     import os, mimetypes
@@ -1416,6 +1460,7 @@ class RawMaterialTransactionListView(RetailBaseViewset):
 
 class RawMaterialBalanceReportView(APIView):
     """Current raw material stock balance grouped by item."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from django.db.models import Sum, CharField, Value
@@ -1467,6 +1512,7 @@ class RawMaterialBalanceReportView(APIView):
 
 class RawMaterialMovementLedgerView(APIView):
     """Chronological transaction ledger for a specific item with running balance."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         item_id = request.query_params.get('item')
@@ -1515,6 +1561,7 @@ class RawMaterialMovementLedgerView(APIView):
 
 class SemiFinishedStockReportView(APIView):
     """Semi-finished stock in two categories: With Karigar (WIP) and Pending Barcode."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from manufacturing.models import KarigarIssueItem
@@ -1601,6 +1648,7 @@ class RfidTagAssignView(APIView):
     Body: { "barcode": "<13-digit>", "rfid_tag": "<EPC>" }
     To clear: send rfid_tag as empty string.
     """
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         ser = RfidTagAssignSerializer(data=request.data, context={'retail': request.retail, 'request': request})
@@ -1625,6 +1673,7 @@ class RfidInventoryCountView(APIView):
     Body: { "tags": ["EPC1", "EPC2", ...] }
     Optional: { "save_session": true, "note": "..." } to persist results.
     """
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         tags = request.data.get('tags', [])
@@ -1718,6 +1767,7 @@ class RfidInventoryCountView(APIView):
 class RfidCountSessionViewSet(ModelViewSet):
     """CRUD for saved RFID count sessions."""
     serializer_class = RfidCountSessionSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         if not self.request.retail:
@@ -1738,6 +1788,7 @@ class RfidTagListView(APIView):
     Returns all barcodes with their rfid_tag assignments for the current retail.
     Supports ?search=<barcode or item> and ?assigned=true|false filter.
     """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         retail = request.retail

@@ -7,8 +7,8 @@ export default function Page() {
       {/* Left branding panel — Excalidraw-inspired */}
       <div className="hidden md:flex md:w-1/2 flex-col items-center justify-center bg-violet-50 p-12">
         <div className="flex flex-col items-center gap-6 max-w-xs text-center">
-          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary shadow-lg shadow-violet-200">
-            <Gem className="w-8 h-8 text-white" />
+          <div className="flex items-center justify-center size-16 rounded-2xl bg-primary shadow-lg shadow-violet-200">
+            <Gem className="size-8 text-white" />
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-wide text-gray-900">Jewel India</h1>

@@ -107,6 +107,7 @@ def _user_to_dict(user):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def list_users(request):
     """GET /userauth/api/users/  — list all users with their retail assignments."""
     if not _is_admin(request):
@@ -116,6 +117,7 @@ def list_users(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_user(request):
     """POST /userauth/api/users/create/  — create a new user."""
     if not _is_admin(request):
@@ -143,6 +145,7 @@ def create_user(request):
 
 
 @api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
 def update_user(request, pk):
     """PATCH /userauth/api/users/<pk>/  — update name/email/is_staff/is_active."""
     if not _is_admin(request):
@@ -367,6 +370,7 @@ def assign_user_role(request, pk):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def assign_retail(request, pk):
     """
     POST /userauth/api/users/<pk>/assign-retail/
@@ -397,6 +401,7 @@ def assign_retail(request, pk):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def backup_database(request):
     """
     POST /userauth/api/backup-database/
@@ -466,6 +471,7 @@ def backup_database(request):
 # ── Audit Log ────────────────────────────────────────────────────────────────
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def audit_log(request):
     """GET /userauth/api/audit-log/ — paginated CRUD event log (admin only)."""
     if not _is_admin(request):
@@ -520,6 +526,7 @@ def audit_log(request):
 # ── Dashboard Summary ────────────────────────────────────────────────────────
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def dashboard_summary(request):
     """GET /userauth/api/dashboard-summary/ — today's KPIs for the active retail."""
     retail = getattr(request, 'retail', None)

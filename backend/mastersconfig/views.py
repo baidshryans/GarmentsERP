@@ -335,10 +335,11 @@ def system_settings_view(request):
                     )
             setattr(settings_obj, field, path)
 
-    # Handle non-path fields
-    bill_total = request.data.get('bill_total_auto_calc', None)
-    if bill_total is not None:
-        settings_obj.bill_total_auto_calc = bill_total
+    # Handle non-path boolean/value fields
+    for field in ('bill_total_auto_calc', 'spell_check_enabled', 'enable_gst_bill'):
+        val = request.data.get(field, None)
+        if val is not None:
+            setattr(settings_obj, field, val)
 
     settings_obj.save()
 

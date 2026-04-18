@@ -384,7 +384,10 @@ const SalesVoucherAdd = () => {
         // In create mode (no id) resolves immediately to null.
         id ? fetchSalesVoucherwithID(id) : Promise.resolve(null),
       ]);
-      if (sysSettings.success) setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
+      if (sysSettings.success) {
+        setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
+        setEnableGstBill(!!sysSettings.data.enable_gst_bill);
+      }
       if (bankLedgersRes.success) {
         const list = Array.isArray(bankLedgersRes.data) ? bankLedgersRes.data : (bankLedgersRes.data?.results ?? []);
         setBankLedgers(list);
@@ -1010,7 +1013,7 @@ const SalesVoucherAdd = () => {
                 <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                   {watch("form.gst_billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
                 </span>
-                <input type="hidden" {...register("form.gst_billno", { required: true })} />
+                <input type="hidden" {...register("form.gst_billno", { required: enableGstBill })} />
               </div>
             </FieldContainer>
           )}

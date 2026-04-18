@@ -62,7 +62,7 @@ export async function loginAndSaveToken(username, password) {
 //   }
 // } getLedgers()
 
-export async function getLedgers({ search = "", page = 1, ordering = "", type = "KR", page_size } = {}) {
+export async function getLedgers({ search = "", page = 1, ordering = "", type = "KR", page_size, ac_group_code = "" } = {}) {
   try {
     const params = new URLSearchParams();
 
@@ -77,6 +77,11 @@ export async function getLedgers({ search = "", page = 1, ordering = "", type = 
     // Empty string means "all ledgers" — skip the filter entirely.
     if (type) {
       params.append("role", type);          // supports comma-separated: "DL,SD,KR"
+    }
+
+    // Account-group code filter — e.g. "INC-DIR-SAL" or "EXP-DIR-PUR"
+    if (ac_group_code) {
+      params.append("ac_group_code", ac_group_code);
     }
 
     const response = await apiClient.get(`/contacts/api/ledger/?${params.toString()}`);

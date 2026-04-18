@@ -59,7 +59,8 @@ export default function ItemMaster() {
   const [rows, setRows] = useState([]);
   const [itemGroups, setItemGroups] = useState([]);
   const [hsns, setHsns] = useState([]);
-  const [ledgers, setLedgers] = useState([]);
+  const [purchaseLedgers, setPurchaseLedgers] = useState([]);
+  const [saleLedgers, setSaleLedgers] = useState([]);
   const [purityData, setPurityData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -72,17 +73,19 @@ export default function ItemMaster() {
 
   const load = async () => {
     setLoading(true);
-    const [itemsRes, groupsRes, hsnRes, ledgersRes, purityRes] = await Promise.all([
+    const [itemsRes, groupsRes, hsnRes, purLedgersRes, salLedgersRes, purityRes] = await Promise.all([
       fetchItems(),
       fetchItemGroups(),
       fetchHSNs(),
-      getLedgers({ type: "" }),
+      getLedgers({ type: "", ac_group_code: "EXP-DIR-PUR" }),
+      getLedgers({ type: "", ac_group_code: "INC-DIR-SAL" }),
       fetchPurity(),
     ]);
     if (itemsRes.success) setRows(toArr(itemsRes.data));
     if (groupsRes.success) setItemGroups(toArr(groupsRes.data));
     if (hsnRes.success) setHsns(toArr(hsnRes.data));
-    if (ledgersRes.success) setLedgers(toArr(ledgersRes.data));
+    if (purLedgersRes.success) setPurchaseLedgers(toArr(purLedgersRes.data));
+    if (salLedgersRes.success) setSaleLedgers(toArr(salLedgersRes.data));
     if (purityRes.success) setPurityData(Array.isArray(purityRes.data) ? purityRes.data : purityRes.data?.results ?? []);
     setLoading(false);
   };
@@ -396,7 +399,7 @@ export default function ItemMaster() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">-- Select --</SelectItem>
-                    {ledgers.map((l) => (
+                    {purchaseLedgers.map((l) => (
                       <SelectItem key={l.id} value={String(l.id)}>
                         {l.ac_name}
                       </SelectItem>
@@ -416,7 +419,7 @@ export default function ItemMaster() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">-- Select --</SelectItem>
-                    {ledgers.map((l) => (
+                    {saleLedgers.map((l) => (
                       <SelectItem key={l.id} value={String(l.id)}>
                         {l.ac_name}
                       </SelectItem>

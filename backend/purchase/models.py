@@ -284,7 +284,8 @@ class PurchaseReturnDetails(models.Model): #main item
  
     @property
     def fine_wt(self):
-        return self.sub_gw * self.tunch
+        # tunch is stored as a percentage (e.g. 91.6 means 91.6%)
+        return (self.sub_gw or 0) * ((self.tunch or 0) / 100)
 
     class Meta:
         db_table="purchase_return_details"

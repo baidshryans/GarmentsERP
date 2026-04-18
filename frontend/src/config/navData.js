@@ -66,7 +66,7 @@ export const navData = {
       items: [
         { title: "HSN",           url: "/setup/hsn"          },
         { title: "Item Groups",   url: "/setup/item-group"   },
-        { title: "Items",         url: "/setup/item"         },
+        { title: "Item Master",   url: "/setup/item"         },
         { title: "Packet Groups", url: "/setup/packet-group" },
         { title: "Packets",       url: "/setup/packet"       },
         { title: "Purity Master", url: "/setup/purity"       },

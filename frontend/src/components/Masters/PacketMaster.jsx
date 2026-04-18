@@ -54,6 +54,8 @@ export default function PacketMaster() {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   const toArr = (d) => (Array.isArray(d) ? d : d?.results ?? []);
 
@@ -174,6 +176,9 @@ export default function PacketMaster() {
     ? rows.filter((r) => r.pckt_no?.toLowerCase().includes(search.toLowerCase()))
     : rows;
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const columns = [
     {
       header: "Action",
@@ -249,7 +254,7 @@ export default function PacketMaster() {
         <Input
           placeholder="Search by packet no..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           className="h-9 w-56"
         />
         {!showForm && (
@@ -490,7 +495,34 @@ export default function PacketMaster() {
           {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
         </div>
       ) : (
-        <DataTable columns={columns} data={filtered} />
+        <>
+          <DataTable columns={columns} data={paginated} />
+          {/* Pagination controls */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Previous
+              </Button>
+              <span className="px-2">Page {page} of {totalPages}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

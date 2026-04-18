@@ -22,6 +22,7 @@ const emptyForm = {
   city: "",
   pincode: "",
   website: "",
+  enforce_cash_limits: false,
   max_cash_receipt_limit: 199999,
   max_cash_payment_limit: 10000,
 };
@@ -60,8 +61,8 @@ export default function CompanyMasterPage() {
   useEffect(() => { load(); }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
     if (name === "cin") setCinError(validateCIN(value));
   };
 
@@ -107,6 +108,7 @@ export default function CompanyMasterPage() {
       city:                   row.city                   ?? "",
       pincode:                row.pincode                ?? "",
       website:                row.website                ?? "",
+      enforce_cash_limits:    row.enforce_cash_limits    ?? false,
       max_cash_receipt_limit: row.max_cash_receipt_limit ?? 199999,
       max_cash_payment_limit: row.max_cash_payment_limit ?? 10000,
     });
@@ -299,10 +301,24 @@ export default function CompanyMasterPage() {
 
             {/* Cash Compliance Limits */}
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                Cash Compliance Limits
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Cash Compliance Limits
+                </p>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    name="enforce_cash_limits"
+                    checked={form.enforce_cash_limits}
+                    onChange={handleChange}
+                    className="size-4 accent-primary cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Enforce limits
+                  </span>
+                </label>
+              </div>
+              <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity ${form.enforce_cash_limits ? "" : "opacity-40 pointer-events-none"}`}>
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs">
                     Cash Limit / Customer / FY (₹){" "}
@@ -316,6 +332,7 @@ export default function CompanyMasterPage() {
                     placeholder="199999"
                     className="h-9 text-sm"
                     min="0"
+                    disabled={!form.enforce_cash_limits}
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -331,6 +348,7 @@ export default function CompanyMasterPage() {
                     placeholder="10000"
                     className="h-9 text-sm"
                     min="0"
+                    disabled={!form.enforce_cash_limits}
                   />
                 </div>
               </div>

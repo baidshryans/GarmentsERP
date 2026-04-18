@@ -451,7 +451,7 @@ const PurchaseVoucher = () => {
 
   const stattableFormulas =
   {
-    fine_wt: ` (tunch !== '0' && tunch !== ''  )? ((tunch/100) * sub_gw) : sub_gw`
+    fine_wt: `sub_gw * tunch / 100`
   }
   const statmaintableFormulas =
   {
@@ -499,6 +499,8 @@ const PurchaseVoucher = () => {
   const watchedFields = watch('form')
   const watchedPacketDetail = watch('details.packet')
   const watchedTunch = watch('details.tunch')
+  const watchedMaking = watch('table.making')
+  const watchedMakingType = watch('table.making_type')
 
 
 
@@ -525,7 +527,19 @@ const PurchaseVoucher = () => {
     Object.keys(statmaintableFormulas).forEach((col) => {
       setValue(`table.${col}`, evaluateFormula(statmaintableFormulas[col], maintable));
     })
+
+    // When tunch is entered for Gold, rate must be 0 (tunch-based pricing)
+    if (parseFloat(table.tunch || 0) > 0 && detailItemData?.short_code === "Gold") {
+      setValue('details.rate', 0);
+    }
   }, [rs, rsRaw, watchedFields, watchedTunch, calculate]);
+
+  // Auto-fill making_value when making_type is 'val' (flat value)
+  useEffect(() => {
+    if (watchedMakingType === 'val') {
+      setValue('table.making_value', parseFloat(watchedMaking) || 0);
+    }
+  }, [watchedMaking, watchedMakingType]);
 
   useEffect(() => {
     // Skip when editing a sub-item — rate/value are already set by handleEditSubItem
@@ -718,9 +732,9 @@ const PurchaseVoucher = () => {
       prev.map((row, i) => {
         if (i !== rowIndex) return row;
         const updatedDetails = row[key].filter((_, j) => j !== subIndex);
-        const updatedItemValue = parseFloat(
-          updatedDetails.reduce((sum, d) => parseFloat(sum) + parseFloat(d.value || 0), 0).toFixed(2)
-        );
+        const subTotal = updatedDetails.reduce((sum, d) => parseFloat(sum) + parseFloat(d.value || 0), 0);
+        const makingAmt = row.making_type === 'val' ? parseFloat(row.making_value || 0) : 0;
+        const updatedItemValue = parseFloat((subTotal + makingAmt).toFixed(2));
         return { ...row, [key]: updatedDetails, item_value: updatedItemValue };
       })
     );
@@ -765,9 +779,9 @@ const PurchaseVoucher = () => {
       prev.map((row, i) => {
         if (i !== rowIndex) return row;
         const updatedDetails = row[key].filter((_, j) => j !== subIndex);
-        const updatedItemValue = parseFloat(
-          updatedDetails.reduce((sum, d) => parseFloat(sum) + parseFloat(d.value || 0), 0).toFixed(2)
-        );
+        const subTotal = updatedDetails.reduce((sum, d) => parseFloat(sum) + parseFloat(d.value || 0), 0);
+        const makingAmt = row.making_type === 'val' ? parseFloat(row.making_value || 0) : 0;
+        const updatedItemValue = parseFloat((subTotal + makingAmt).toFixed(2));
         return { ...row, [key]: updatedDetails, item_value: updatedItemValue };
       })
     );
@@ -819,7 +833,9 @@ const PurchaseVoucher = () => {
         }
 
         tablevalues.purchasevoucherdetails_set = [...existing, vals];
-        tablevalues.item_value = parseFloat(tablevalues.purchasevoucherdetails_set.reduce((sum, detail) => parseFloat(sum) + parseFloat(detail.value || 0), 0).toFixed(2));
+        const subTotal = tablevalues.purchasevoucherdetails_set.reduce((sum, detail) => parseFloat(sum) + parseFloat(detail.value || 0), 0);
+        const makingAmt = tablevalues.making_type === 'val' ? parseFloat(tablevalues.making_value || 0) : 0;
+        tablevalues.item_value = parseFloat((subTotal + makingAmt).toFixed(2));
 
         setRows((prevData) =>
           prevData.map((row, i) => (i === idx ? { ...tablevalues } : row))
@@ -899,16 +915,20 @@ const PurchaseVoucher = () => {
         billno: "",
         barcode: "",
         item: "",
+        order_no: "",
         pcs: 0,
         pending_pcs: 0,
         gw: 0.0,
         pending_gw: 0.0,
+        size: "",
+        purity: 0,
         making: 0.0,
         making_type: "",
         making_value: 0,
-        purity: 0,
+        item_value: 0,
         ret_status: false,
         amount: 0,
+        remarks: "",
         purchasevoucherdetails_set: [],
       },
       details: {
@@ -1369,7 +1389,7 @@ const PurchaseVoucher = () => {
                     className={selectedPacketData ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
                   />
                   <datalist id="sub_item_list">
-                    {mainItemData.map((item, index) => (
+                    {mainItemData.filter(item => item.item_type !== 'S').map((item, index) => (
                       <option key={index} value={item.item_name} />
                     ))}
                   </datalist>
@@ -1449,6 +1469,7 @@ const PurchaseVoucher = () => {
                     step="0.01"
                     {...register("details.rate")}
                     placeholder="Rate"
+                    disabled={parseFloat(watchedTunch || 0) > 0 && detailItemData?.short_code === "Gold"}
                   />
                 </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
@@ -1523,8 +1544,8 @@ const PurchaseVoucher = () => {
 
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                    <TableCell className="w-28 px-4 py-2 border">{item.making_value}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
+                    <TableCell className="w-28 px-4 py-2 border">{item.making_value}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.item_value}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.remarks}</TableCell>
                   </TableRow>

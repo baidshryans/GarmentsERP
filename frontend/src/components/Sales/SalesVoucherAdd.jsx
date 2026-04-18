@@ -453,6 +453,7 @@ const SalesVoucherAdd = () => {
   };
   const sub_formulas = {
     amount: "uom === 'Ct' ? ct * rate : uom === 'Pcs' ? pcs * rate : gw * rate",
+    fine_wt: "gw * tunch / 100",
   };
 
   const mrp_formula = "SUM(salesvouitem_set.amount) + SUM(rs.value)";
@@ -515,6 +516,10 @@ const SalesVoucherAdd = () => {
         Object.keys(sub_formulas).forEach(column => {
           setValue(`salesvouitem_set.${index}.main_item_set.${sub_index}.${column}`, evaluateFormula(sub_formulas[column], data));
         });
+        // When tunch is entered for gold/raw sub-items, rate must be 0 (tunch-based pricing)
+        if (Number(data.tunch || 0) > 0 && (data.item_type === 'R' || (data.item || '').toUpperCase() === 'GOLD')) {
+          setValue(`salesvouitem_set.${index}.main_item_set.${sub_index}.rate`, 0);
+        }
       });
 
       // Calculate making_value based on making_type
@@ -938,7 +943,6 @@ const SalesVoucherAdd = () => {
   const billSummaryRows = [
     { label: 'Freight Charge', field: 'form.freight_charge', editable: true },
     { label: 'Other Charge',   field: 'form.other_charge',   editable: true },
-    { label: 'Round Off',      field: 'form.round_off',      editable: true, step: '0.01' },
     { isSeparator: true },
     { label: 'MRP',            field: 'form.mrp' },
     { label: 'Discount',       field: 'form.discount',       editable: true, step: '0.01' },
@@ -948,6 +952,7 @@ const SalesVoucherAdd = () => {
     { label: 'SGST',           field: 'form.sgst_amt' },
     { label: 'Total incl. GST',field: 'form.total_incl_gst' },
     { label: 'TCS',            field: 'form.tcs_amt' },
+    { label: 'Round Off',      field: 'form.round_off',      editable: true, step: '0.01' },
     { isSeparator: true },
     { label: 'Total',          field: 'form.total_bill_value', isTotal: true, isEditableTotal: true },
     ...(selectedOrder ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: false, step: '1' }] : []),
@@ -1448,7 +1453,7 @@ const SalesVoucherAdd = () => {
                     <TableCell className="px-3 py-2 border text-sm">{mainItemData.find(m => m.short_code === field?.item)?.item_name || field?.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-sm">{field?.pcs}</TableCell>
                     <TableCell className="px-3 py-2 border text-sm">{Number(field?.ct || 0).toFixed(3)}</TableCell>
-                    <TableCell className="px-3 py-2 border text-sm">{field?.gw}</TableCell>
+                    <TableCell className="px-3 py-2 border text-sm">{Number(field?.gw || 0).toFixed(3)}</TableCell>
                     <TableCell className="w-24 px-3 py-2 border">
                       <Input type="number" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.making`, { valueAsNumber: true })} />
                     </TableCell>
@@ -1487,21 +1492,26 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border text-sm">{detail?.item_name || detail?.item}</TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{detail?.pcs}</TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
-                      <TableCell className="px-3 py-2 border text-sm">{detail?.gw}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{Number(detail?.gw || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border text-sm">{detail?.purity}</TableCell>
                       <TableCell className="w-20 px-3 py-2 border">
-                        {detail?.item === "Gold" && (
+                        {(detail?.item_type === 'R' || detail?.item === "Gold") && (
                           <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.tunch`)} placeholder="Tunch" />
                         )}
                       </TableCell>
-                      <TableCell className="px-3 py-2 border text-sm"></TableCell>
-                      <TableCell className="w-20 px-3 py-2 border">
-                        <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.rate`)} placeholder="Rate" />
+                      <TableCell className="w-16 px-3 py-2 border text-sm">
+                        {Number(detail?.fine_wt || 0) > 0 ? Number(detail.fine_wt).toFixed(3) : "—"}
+                        <input type="hidden" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.fine_wt`)} />
                       </TableCell>
-                      <TableCell className="px-3 py-2 border text-sm">{detail?.amount}</TableCell>
+                      <TableCell className="w-28 px-3 py-2 border">
+                        <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.rate`)} placeholder="Rate" disabled={Number(detail?.tunch || 0) > 0 && (detail?.item_type === 'R' || (detail?.item || '').toUpperCase() === 'GOLD')} />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.amount}
+                        <input type="hidden" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.amount`)} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </React.Fragment>
@@ -1647,7 +1657,7 @@ const SalesVoucherAdd = () => {
                     className={itemLockedByPacket ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}
                   />
                   <datalist id="manual_item_list">
-                    {mainItemData.map((m, i) => <option key={i} value={m.item_name} />)}
+                    {mainItemData.filter(m => m.item_type !== 'S').map((m, i) => <option key={i} value={m.item_name} />)}
                   </datalist>
                   <input type="hidden" {...register("details.item")} />
                 </TableCell>
@@ -1732,7 +1742,7 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.item_desc}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.pcs}</TableCell>
                       <TableCell className="px-3 py-2 border" />{/* Ct — not on main item */}
-                      <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.gw}</TableCell>
+                      <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{Number(mainItem.gw || 0).toFixed(3)}</TableCell>
                       {/* Loss/Tunch/Fine Wt/Rate blank for main item */}
                       <TableCell className="px-3 py-2 border" />
                       <TableCell className="px-3 py-2 border" />
@@ -1758,7 +1768,7 @@ const SalesVoucherAdd = () => {
                           <TableCell className="px-3 py-2 border text-sm">{detail.item_name || detail.item}</TableCell>
                           <TableCell className="px-3 py-2 border text-sm">{detail.pcs || ""}</TableCell>
                           <TableCell className="px-3 py-2 border text-sm">{Number(detail.ct || 0).toFixed(3)}</TableCell>
-                          <TableCell className="px-3 py-2 border text-sm">{detail.gw}</TableCell>
+                          <TableCell className="px-3 py-2 border text-sm">{Number(detail.gw || 0).toFixed(3)}</TableCell>
                           <TableCell className="px-3 py-2 border text-sm">{rowIsRaw ? detail.loss : ""}</TableCell>
                           <TableCell className="px-3 py-2 border text-sm">{rowIsRaw ? detail.tunch : ""}</TableCell>
                           <TableCell className="px-3 py-2 border text-sm">{rowIsRaw ? detail.fine_wt : ""}</TableCell>

@@ -172,6 +172,7 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
     # works correctly in edit mode as well as add mode.
     uom = serializers.CharField(source='item.uom', read_only=True)
     item_type = serializers.CharField(source='item.item_type', read_only=True)
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
 
     class Meta:
         model = SalesVouItemDetails
@@ -190,6 +191,7 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
             'fine_wt',  # Computed property
             'uom',       # Read-only — item.uom, needed for frontend amount recalc
             'item_type', # Read-only — item.item_type, needed for frontend B2B overrides
+            'item_name', # Read-only — item.item_name, shown in the sub-item row item column
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -411,6 +413,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'id': {'read_only': False, 'required': False},
             'remarks': {'required': False, 'allow_blank': True, 'allow_null': True},
             'cash': {'required': False, 'allow_null': True},
+            'gst_billno': {'required': False, 'allow_blank': True},
         }
 
     def validate_cash(self, value):

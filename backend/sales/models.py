@@ -111,7 +111,7 @@ class SalesVou(models.Model):
 
     date1 = models.DateField()
     billno = models.CharField(max_length=30)
-    gst_billno = models.CharField(max_length=20)
+    gst_billno = models.CharField(max_length=20, blank=True, default='')
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
     ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT)
     sales_person = models.ForeignKey(SalesPersonMaster, on_delete=models.PROTECT)
@@ -287,7 +287,7 @@ class SalesVouItemDetails(models.Model):
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     gw = models.DecimalField(max_digits=10, decimal_places=3)
     metal_purity = models.CharField(max_length=10) # can have characters also
-    tunch = models.DecimalField(max_digits=3, decimal_places=3, null=True, blank=True)
+    tunch = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=3)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     packet = models.ForeignKey("mastersconfig.Packet", on_delete=models.SET_NULL, null=True, blank=True)
@@ -299,7 +299,8 @@ class SalesVouItemDetails(models.Model):
         return self.main_item.billno.date1 if self.main_item else self.billno.date1
     @property
     def fine_wt(self):
-        return (self.gw if self.gw else Decimal(0)) * (self.tunch if self.tunch else Decimal(0))
+        # tunch is stored as a percentage (e.g. 101 means 101%)
+        return (self.gw if self.gw else Decimal(0)) * ((self.tunch / Decimal('100')) if self.tunch else Decimal(0))
 
     class Meta:
         db_table = "sales_vou_detail"
@@ -398,7 +399,8 @@ class SaleReturnDetails(models.Model):
 
     @property
     def fine_wt(self):
-        return self.gw * self.tunch
+        # tunch is stored as a percentage (e.g. 101 means 101%)
+        return (self.gw if self.gw else Decimal(0)) * ((self.tunch / Decimal('100')) if self.tunch else Decimal(0))
 
     class Meta:
         db_table = "sale_return_details"
@@ -503,7 +505,7 @@ class SalesApprovalItemDetails(models.Model):
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     gw = models.DecimalField(max_digits=10, decimal_places=3)
     metal_purity = models.CharField(max_length=10) # can have characters also
-    tunch = models.DecimalField(max_digits=3, decimal_places=3)
+    tunch = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=3)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     packet = models.ForeignKey("mastersconfig.Packet", on_delete=models.SET_NULL, null=True)
@@ -513,7 +515,8 @@ class SalesApprovalItemDetails(models.Model):
 
     @property
     def fine_wt(self):
-        return self.gw * self.tunch
+        # tunch is stored as a percentage (e.g. 101 means 101%)
+        return (self.gw if self.gw else Decimal(0)) * ((self.tunch / Decimal('100')) if self.tunch else Decimal(0))
 
     class Meta:
         db_table = "sales_vou_appr_detail"

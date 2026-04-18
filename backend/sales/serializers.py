@@ -581,6 +581,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
+            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
 
             def _making_recv_ldgr_for_item(item):
                 """Return purity-specific making charge received ledger for a barcode item."""
@@ -606,6 +607,16 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     else _raise_missing_ledger("TCS Payable (configure TCS Section master)")
                 )
                 _tcs_lines = [{'account': _tcs_ldgr_name, 'debit': 0, 'credit': f"{_tcs_amt:.2f}"}]
+
+            # Compute party debit using Decimal-rounded components so it matches
+            # credit-side rounding exactly (avoids 0.01 mismatch with float arithmetic).
+            _cgst_d  = Decimal(f"{sales_vou_instance.cgst_amt:.2f}")
+            _sgst_d  = Decimal(f"{sales_vou_instance.sgst_amt:.2f}")
+            _igst_d  = Decimal(f"{sales_vou_instance.igst_amt:.2f}")
+            _taxable_d = Decimal(str(sales_vou_instance.mrp or 0)) - Decimal(str(sales_vou_instance.discount or 0))
+            _round_off_d = Decimal(str(sales_vou_instance.round_off or 0))
+            _tcs_d   = Decimal(f"{_tcs_amt:.2f}")
+            _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
@@ -642,11 +653,15 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'account':_discount_ldgr,
                                         'debit':f"{sales_vou_instance.discount:.2f}",
                                         'credit':0
-                                    },
-
-                                    {
+                                    }] +
+                                    ([{
+                                        'account': _round_off_ldgr,
+                                        'debit':  f"{abs(sales_vou_instance.round_off):.2f}" if sales_vou_instance.round_off and sales_vou_instance.round_off < 0 else 0,
+                                        'credit': f"{abs(sales_vou_instance.round_off):.2f}" if sales_vou_instance.round_off and sales_vou_instance.round_off > 0 else 0,
+                                    }] if sales_vou_instance.round_off else []) +
+                                    [{
                                         'account':sales_vou_instance.ldgr.ac_name,
-                                        'debit':f"{(sales_vou_instance.total_bill_value):.2f}",
+                                        'debit':f"{_party_debit:.2f}",
                                         'credit':0
                                     }]},
                                     context=self.context)
@@ -827,6 +842,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
+            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
 
             def _making_recv_ldgr_for_item(item):
                 """Return purity-specific making charge received ledger for a barcode item."""
@@ -852,6 +868,16 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     else _raise_missing_ledger("TCS Payable (configure TCS Section master)")
                 )
                 _tcs_lines = [{'account': _tcs_ldgr_name, 'debit': 0, 'credit': f"{_tcs_amt:.2f}"}]
+
+            # Compute party debit using Decimal-rounded components so it matches
+            # credit-side rounding exactly (avoids 0.01 mismatch with float arithmetic).
+            _cgst_d  = Decimal(f"{sales_vou_instance.cgst_amt:.2f}")
+            _sgst_d  = Decimal(f"{sales_vou_instance.sgst_amt:.2f}")
+            _igst_d  = Decimal(f"{sales_vou_instance.igst_amt:.2f}")
+            _taxable_d = Decimal(str(sales_vou_instance.mrp or 0)) - Decimal(str(sales_vou_instance.discount or 0))
+            _round_off_d = Decimal(str(sales_vou_instance.round_off or 0))
+            _tcs_d   = Decimal(f"{_tcs_amt:.2f}")
+            _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
@@ -888,8 +914,13 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'account':_discount_ldgr,
                                         'debit':f"{sales_vou_instance.discount:.2f}",
                                         'credit':0
-                                    },
-                                    {
+                                    }] +
+                                    ([{
+                                        'account': _round_off_ldgr,
+                                        'debit':  f"{abs(sales_vou_instance.round_off):.2f}" if sales_vou_instance.round_off and sales_vou_instance.round_off < 0 else 0,
+                                        'credit': f"{abs(sales_vou_instance.round_off):.2f}" if sales_vou_instance.round_off and sales_vou_instance.round_off > 0 else 0,
+                                    }] if sales_vou_instance.round_off else []) +
+                                    [{
                                         'account':_cash_ldgr,
                                         'debit':f"{sales_vou_instance.cash:.2f}",
                                         'credit':0
@@ -904,7 +935,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                     } for bank in bank_details] +
                                     [{
                                         'account':sales_vou_instance.ldgr.ac_name,
-                                        'debit':f"{(sales_vou_instance.total_bill_value - sales_vou_instance.cash - sum((int(bank['amount']) for bank in bank_details))):.2f}",
+                                        'debit':f"{(_party_debit - Decimal(str(sales_vou_instance.cash or 0)) - sum(Decimal(str(bank['amount'])) for bank in bank_details)):.2f}",
                                         'credit':0
                                     }]},
                                     context=self.context)

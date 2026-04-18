@@ -85,6 +85,11 @@ def check_ledger_name(request):
     return Response({'exists': exists})
 
 
+# FA asset account groups that are managed exclusively via the Fixed Asset Master.
+# Ledgers under these groups are auto-created when a FixedAsset is added.
+FA_ASSET_GROUP_CODES = {'FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH'}
+
+
 class ListCreateLedger(ListCreateAPIView):
     serializer_class = LedgerSerializer
     queryset         = Ledger.objects.select_related('ac_group', 'ac_group__parent').prefetch_related('roles').all()
@@ -95,9 +100,6 @@ class ListCreateLedger(ListCreateAPIView):
 
     # Optionally set default ordering
     ordering = ['ac_name']
-
-    # FA asset account groups that are managed exclusively via the Fixed Asset Master
-    FA_ASSET_GROUP_CODES = {'FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH'}
 
     # These account groups are branch-specific (each retail has its own cash/bank).
     # Every other group is treated as global (retail_code=None) so ledgers like
@@ -141,7 +143,7 @@ class ListCreateLedger(ListCreateAPIView):
             try:
                 from accounting.models import Account
                 group = Account.objects.get(pk=ac_group_id)
-                if group.code in self.FA_ASSET_GROUP_CODES:
+                if group.code in FA_ASSET_GROUP_CODES:
                     return Response(
                         {'ac_group': (
                             f"Ledgers under '{group.name}' are managed automatically. "
@@ -182,6 +184,53 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
                 {'error': 'System-created ledgers cannot be edited.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        # --- Validate ac_group transitions (Expense <-> Fixed Asset) ---
+        new_ac_group_id = request.data.get('ac_group')
+        if new_ac_group_id is not None:
+            from accounting.models import Account, FixedAsset
+            old_group = instance.ac_group
+            try:
+                new_group = Account.objects.get(pk=new_ac_group_id) if new_ac_group_id else None
+            except Account.DoesNotExist:
+                new_group = None  # serializer will catch the invalid FK
+
+            old_pk = old_group.pk if old_group else None
+            new_pk = new_group.pk if new_group else None
+
+            if old_pk != new_pk:
+                old_is_fa = old_group.code in FA_ASSET_GROUP_CODES if old_group else False
+                new_is_fa = new_group.code in FA_ASSET_GROUP_CODES if new_group else False
+
+                # Block: any group -> FA asset group
+                if new_is_fa:
+                    return Response(
+                        {'ac_group': (
+                            f"Ledgers cannot be moved into '{new_group.name}'. "
+                            "Fixed asset ledgers are created automatically when you "
+                            "add an asset in Fixed Assets \u2192 Asset Master."
+                        )},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Block: FA asset group -> any non-FA group while active assets exist
+                if old_is_fa:
+                    has_active_assets = (
+                        FixedAsset.objects
+                        .filter(asset_ledger=instance)
+                        .exclude(status='DISPOSED')
+                        .exists()
+                    )
+                    if has_active_assets:
+                        return Response(
+                            {'ac_group': (
+                                "This ledger is linked to an active fixed asset. "
+                                "Please dispose the asset in Fixed Assets \u2192 Asset Master "
+                                "before changing its account group."
+                            )},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
         # If the ledger has non-CO roles and the name is being changed, check uniqueness
         new_name = (request.data.get('ac_name') or '').strip()
         if new_name and new_name.lower() != instance.ac_name.lower():
@@ -199,6 +248,14 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
                 {'error': 'System-created ledgers cannot be deleted.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        # Block deletion if ledger is linked to active fixed assets
+        if instance.ac_group and instance.ac_group.code in FA_ASSET_GROUP_CODES:
+            from accounting.models import FixedAsset
+            if FixedAsset.objects.filter(asset_ledger=instance).exclude(status='DISPOSED').exists():
+                return Response(
+                    {'error': 'This ledger is linked to an active fixed asset and cannot be deleted.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         return super().destroy(request, *args, **kwargs)
 
 class AllowedRetailView(ListAPIView):

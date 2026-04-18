@@ -318,8 +318,11 @@ class SalesVoucherViewset(views.RetailBaseViewset):
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno
+        gst_billno = instance.gst_billno
         super().perform_destroy(instance)
         release_last_bill_number(retail, 'SV', billno, fiscal_year)
+        if gst_billno:
+            release_last_bill_number(retail, 'GST', gst_billno, fiscal_year)
 
     def perform_update(self, serializer):
         from rest_framework.exceptions import ValidationError
@@ -750,7 +753,7 @@ class GenerateJsonView(APIView):
         json_array = {}
         json_array1 = []
         sales_vou = SalesVou.objects.select_related(
-            'ldgr__state', 'retail__state'
+            'ldgr', 'retail__state'
         ).get(billno=bill, retail=request.retail)
         ldgr_master = sales_vou.ldgr
 

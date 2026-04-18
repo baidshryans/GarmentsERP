@@ -1,6 +1,6 @@
 # Jewel India ERP - User Manual
 
-**Version:** 1.1
+**Version:** 1.2
 **Last Updated:** April 2026
 **Audience:** First-time clients, store managers, accountants, and administrators
 
@@ -453,7 +453,27 @@ In Jewel India ERP, every entity (customer, vendor, bank, expense account) is a 
    - **Contact details**: Mobile, email, address
 4. **Documents**: Upload PAN card, Aadhar, GST certificate, etc.
 
-### 6.3 Bulk Ledger Import (CSV)
+### 6.3 Ledger List
+
+Navigate to **CRM > Ledger** to see all ledger accounts. The list includes the following features:
+
+| Column / Feature | Description |
+|------------------|-------------|
+| **Name** | Ledger account name |
+| **Roles** | Role badges (CO, VD, KR, DL, etc.) assigned to the ledger |
+| **Group** | Account group with parent group shown above |
+| **Address** | Registered address |
+| **Sort** | Sort by Name, Address, Group (Asc), or Group (Desc) using the dropdown |
+
+**Actions per row:**
+
+- **Edit** (pencil icon): Open the ledger for editing
+- **Documents** (paperclip icon): Manage attached documents (PAN, Aadhar, GST certificate, etc.) — available for Customer, Vendor, Karigar, and Dealer ledgers only
+- **Delete** (trash icon): Delete the ledger — disabled for system ledgers (Cash, GST accounts, etc.) which show a tooltip "System ledger — cannot be deleted"
+
+> **Note:** Deleting a ledger is permanent. Ledgers with existing transactions cannot be deleted — close or deactivate them instead.
+
+### 6.4 Bulk Ledger Import (CSV)
 
 For large migrations or bulk creation of ledger accounts, use the CSV import feature instead of creating entries one by one.
 
@@ -467,7 +487,7 @@ For large migrations or bulk creation of ledger accounts, use the CSV import fea
 
 > **Tip:** Use bulk import during migration from another ERP. See Section 22 for the full migration workflow.
 
-### 6.4 Customer History
+### 6.5 Customer History
 
 Navigate to **CRM > Customer History** to view:
 - All past purchases by a customer
@@ -535,7 +555,27 @@ Customer orders represent advance bookings, often with a fixed gold rate option.
    - Advance deduction (from customer order)
 6. **Save & Print** the invoice
 
-### 7.5 Sales Return
+### 7.5 GST Bill Number (Auto-Generation)
+
+When enabled, the system automatically assigns a separate GST bill number to each sales voucher. This number follows the format `GST/<retail code>/<FY>/NNNNN` (e.g., `GST/R001/26-27/00001`) and auto-increments per retail location per fiscal year.
+
+**Enabling GST Bill Numbers:**
+
+1. Navigate to **Settings > Bill Calculation**
+2. Toggle **GST Bill Number** to ON
+3. The setting takes effect immediately for all new sales vouchers
+
+**How it works on the Sales Voucher:**
+
+- When the setting is enabled, a **GST Bill No** field appears in the sales voucher header
+- The field is auto-populated with the next available number (read-only)
+- The number is finalised when the voucher is saved
+- The GST bill number is used as the invoice number in GSTR-1 and e-invoice exports
+- If the setting is disabled, the regular voucher number is used for GST reporting instead
+
+> **Note:** Enabling this mid-year is safe — the sequence starts from `00001` for the current fiscal year and does not retroactively number existing vouchers.
+
+### 7.6 Sales Return
 
 1. Navigate to **Sales > Sales Return**
 2. Select the original sales voucher
@@ -545,7 +585,7 @@ Customer orders represent advance bookings, often with a fixed gold rate option.
    - Accounting entry (credit note)
    - Salesperson commission (reversal created)
 
-### 7.6 Cheque Deposit Tracking
+### 7.7 Cheque Deposit Tracking
 
 When customers pay by cheque, you can track the cheque through its lifecycle (received → deposited → cleared/bounced).
 
@@ -560,7 +600,7 @@ When customers pay by cheque, you can track the cheque through its lifecycle (re
 
 This ensures your bank book reflects only cleared funds, not just received cheques.
 
-### 7.7 E-Way Bills
+### 7.8 E-Way Bills
 
 For inter-state sales above the threshold, e-way bills are required.
 
@@ -966,7 +1006,19 @@ The bill allocation system ensures payments and receipts are properly matched to
   - Ledger must match — you cannot pay Vendor A's bill from Vendor B's ledger
 - **Due amount tracking**: When a voucher is saved, the allocated amounts are deducted from each invoice's `due_amt`, keeping the outstanding report accurate
 
-### 11.4 Opening Balances
+### 11.4 Voucher List Features
+
+Navigate to any voucher list (e.g., **Financial Accounting > Voucher Lists > Payment Vouchers**) to see all vouchers of that type. Each voucher row includes:
+
+| Action | Icon | Description |
+|--------|------|-------------|
+| **View/Edit** | Pencil | Open the voucher for viewing or editing |
+| **Print** | Printer | Open a print-formatted view of the voucher for printing |
+| **Attachments** | Paperclip | View or upload supporting documents (up to 3 files per voucher) |
+
+**Keyboard shortcut:** Press **F2** from any voucher list to quickly navigate to the "Add New" form for that voucher type.
+
+### 11.5 Opening Balances
 
 Set up beginning balances for a new fiscal year:
 
@@ -977,7 +1029,7 @@ Set up beginning balances for a new fiscal year:
 
 > For subsequent years, use the **Sync Opening Balances** feature in Fiscal Year management.
 
-### 11.5 Cash Gold Conversion
+### 11.6 Cash Gold Conversion
 
 Track conversion between cash and gold accounts:
 
@@ -986,7 +1038,7 @@ Track conversion between cash and gold accounts:
 3. Enter ledger, weight, rate, amount
 4. System auto-creates a journal voucher
 
-### 11.6 Ledger Statement
+### 11.7 Ledger Statement
 
 View detailed transaction history for any ledger:
 
@@ -994,7 +1046,7 @@ View detailed transaction history for any ledger:
 2. Select ledger and date range
 3. View all debits, credits, and running balance
 
-### 11.7 Outstanding Report
+### 11.8 Outstanding Report
 
 View amounts due from customers / to vendors:
 
@@ -1002,7 +1054,7 @@ View amounts due from customers / to vendors:
 2. Filter by ledger type (Receivable / Payable)
 3. See invoice-wise outstanding amounts
 
-### 11.8 Bank Reconciliation
+### 11.9 Bank Reconciliation
 
 Match bank statement entries to book entries:
 
@@ -1012,7 +1064,7 @@ Match bank statement entries to book entries:
 4. Match statement lines to voucher entries
 5. View reconciliation summary (book vs bank balance)
 
-### 11.9 Audit Queue
+### 11.10 Audit Queue
 
 Auditors can review and approve vouchers:
 
@@ -1533,10 +1585,18 @@ Configure automated WhatsApp messages:
 
 ### 17.6 Advanced Settings
 
-Configure system-wide settings:
+Configure system-wide settings at **Settings > Settings**:
+
+**Bill Calculation:**
+- Bill total auto-calculation mode
+- **GST Bill Number**: Toggle to enable automatic GST bill number generation on sales vouchers (see Section 7.5 for details)
+
+**Search & Input:**
+- **Spell Check & Fuzzy Search**: Enable or disable browser spell checking on address/notes fields and fuzzy matching in account group and picker searches (on by default)
+
+**Storage Paths:**
 - Attachment storage path
 - Barcode image storage path
-- Bill total auto-calculation mode
 
 ### 17.7 Licensing & Module Subscriptions
 
@@ -1691,6 +1751,13 @@ A separate web portal for customers to access their scheme information.
 **Cause:** Section 40A(3) limits cash payments to Rs 10,000 per vendor per day.
 **Fix:** Make the payment via bank transfer instead.
 
+#### "Unauthorized access" or sudden logout
+**Cause:** Your session token has expired or is invalid.
+**Fix:**
+1. Log out and log back in to get a fresh session token
+2. If the issue persists, check with your administrator that your user account is still active
+3. Sessions expire after a period of inactivity — this is expected security behavior
+
 #### "Total debit and credit amounts must be equal" error
 **Cause:** Voucher lines don't balance.
 **Fix:** Check all debit and credit amounts. Ensure they sum to the same total.
@@ -1834,7 +1901,7 @@ Create ledger accounts for every party you transact with. Navigate to **CRM > Le
 - If a party is both a customer and a supplier, assign both roles (CO + VD) on the same ledger
 - GST number, PAN, and state are required for B2B parties for correct tax treatment
 - For banks, enter the account number and IFSC in the contact section
-- For large ledger lists (100+ parties), use the **bulk CSV import** at **CRM > Ledger > Import** instead of manual entry — see Section 6.3 for details
+- For large ledger lists (100+ parties), use the **bulk CSV import** at **CRM > Ledger > Import** instead of manual entry — see Section 6.4 for details
 
 #### Step 4 — Enter Opening Stock
 
@@ -2111,7 +2178,7 @@ To avoid "Python not found" errors, use the full path to the virtual environment
 | Field | Value |
 |-------|-------|
 | **Document Title** | Jewel India ERP - User Manual |
-| **Version** | 1.1 — April 2026 update |
+| **Version** | 1.2 — April 2026 update |
 | **Date** | April 2026 |
 | **Prepared For** | First-time ERP clients |
 | **Confidentiality** | Client-use only |

@@ -135,6 +135,10 @@ const SalesReturnAdd = () => {
   const detailGw      = watch("details.gw");
   const detailRate    = watch("details.rate");
   const detailTunch   = watch("details.tunch");
+  // Watching form.mrp subscribes the parent to bill-summary setValue updates,
+  // triggering re-renders that propagate to BillSummaryPanel (same pattern as
+  // SalesVoucherAdd watching watchFields).
+  watch("form.mrp");
 
   // ── Derived flags ─────────────────────────────────────────────────────────
   // "R" (raw/gold) items are the only valid sub-item type when entered manually
@@ -578,7 +582,7 @@ const SalesReturnAdd = () => {
                         </TableCell>
                         <TableCell className="px-4 py-2 border text-xs font-semibold text-gray-500">{i + 1}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.barcode}</TableCell>
-                        <TableCell className="px-4 py-2 border text-xs">{item.item}</TableCell>
+                        <TableCell className="px-4 py-2 border text-xs">{item.item_name || mainItemData.find(m => m.short_code === item.item)?.item_name || item.item}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.pcs}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.making}</TableCell>
@@ -822,7 +826,7 @@ const SalesReturnAdd = () => {
                         </TableCell>
                         <TableCell className="px-3 py-2 border text-sm">{item.barcode}</TableCell>
                         <TableCell className="px-3 py-2 border text-sm"></TableCell>
-                        <TableCell className="px-3 py-2 border text-sm font-semibold">{item.item_name || item.item}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm font-semibold">{item.item_name || mainItemData.find(m => m.short_code === item.item)?.item_name || item.item}</TableCell>
                         <TableCell className="px-3 py-2 border text-sm">{item.pcs}</TableCell>
                         <TableCell className="px-3 py-2 border text-sm">{Number(item.ct || 0).toFixed(3)}</TableCell>
                         <TableCell className="px-3 py-2 border text-sm">{Number(item.gw || 0).toFixed(3)}</TableCell>
@@ -852,7 +856,7 @@ const SalesReturnAdd = () => {
                             </TableCell>
                             <TableCell className="px-3 py-2 border text-sm"></TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{detail.packet}</TableCell>
-                            <TableCell className="px-3 py-2 border text-sm">{detail.item_name || detail.item}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.item_name || mainItemData.find(m => m.short_code === detail.item)?.item_name || detail.item}</TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{detail.pcs}</TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{Number(detail.ct || 0).toFixed(3)}</TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{Number(detail.gw || 0).toFixed(3)}</TableCell>

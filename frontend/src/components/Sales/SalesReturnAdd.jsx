@@ -134,6 +134,7 @@ const SalesReturnAdd = () => {
   const detailCt      = watch("details.ct");
   const detailGw      = watch("details.gw");
   const detailRate    = watch("details.rate");
+  const detailTunch   = watch("details.tunch");
 
   // ── Derived flags ─────────────────────────────────────────────────────────
   // "R" (raw/gold) items are the only valid sub-item type when entered manually
@@ -212,10 +213,33 @@ const SalesReturnAdd = () => {
   useEffect(() => {
     if (!isRawItem) {
       setValue("details.metal_purity", "");
+      setValue("details.tunch", null);
     }
   }, [detailItem]);
 
-  // ── Auto-calculation ───────────────────────────────────────────────────────
+  // ── Sub-item amount auto-calculation (mirrors sales voucher logic) ─────────
+  useEffect(() => {
+    const gw    = parseFloat(detailGw    || 0);
+    const rate  = parseFloat(detailRate  || 0);
+    const tunch = parseFloat(detailTunch || 0);
+    const ct    = parseFloat(detailCt    || 0);
+    const pcs   = parseFloat(detailPcs   || 0);
+
+    let amount = 0;
+    if (isRawItem && tunch > 0) {
+      // Gold: fine weight (gw × tunch/100) × rate
+      amount = gw * (tunch / 100) * rate;
+    } else if (detailItem?.uom === "Ct") {
+      amount = ct * rate;
+    } else if (detailItem?.uom === "Pcs") {
+      amount = pcs * rate;
+    } else {
+      amount = gw * rate;
+    }
+    setValue("details.amount", parseFloat(amount.toFixed(2)));
+  }, [detailGw, detailRate, detailTunch, detailCt, detailPcs, detailItem]);
+
+  // ── Bill-level auto-calculation ───────────────────────────────────────────
   useEffect(() => {
     const mrp      = rs.reduce((s, item) => s + parseFloat(item.amount || 0), 0);
     const discount = parseFloat(getValues("form.discount")) || 0;
@@ -765,65 +789,57 @@ const SalesReturnAdd = () => {
             <Table className="w-full border-collapse">
               <TableBody>
                 <TableRow className="bg-violet-50">
-                  <TH className="w-16">Actions</TH>
-                  <TH>Type</TH>
+                  <TH className="w-10">#</TH>
                   <TH>Barcode / Packet</TH>
                   <TH>Item</TH>
-                  <TH>Pcs</TH>
-                  <TH>GW</TH>
-                  <TH>Tunch</TH>
-                  <TH>Making</TH>
-                  <TH>Making Type</TH>
-                  <TH>Amount</TH>
+                  <TH className="w-14">Pcs</TH>
+                  <TH className="w-20">GW</TH>
+                  <TH className="w-20">Tunch</TH>
+                  <TH className="w-24">Rate</TH>
+                  <TH className="w-24">Making</TH>
+                  <TH className="w-24">Amount</TH>
+                  <TH className="w-12">Del</TH>
                 </TableRow>
 
                 {rs.map((item, idx) => {
                   const isManual = item.sale_billno === null;
-                  // Find which manual index this is (1-based) for the sl_no label
-                  const manualIdx = isManual
-                    ? rs.slice(0, idx + 1).filter((r) => r.sale_billno === null).length
-                    : null;
 
                   return (
                     <React.Fragment key={idx}>
+                      {/* ── Main item row ── */}
                       <TableRow className={isManual ? "bg-sky-50 border-t-2 border-sky-200" : "bg-blue-50/40"}>
-                        <TableCell className="px-3 py-2 border">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-gray-400 font-semibold">{idx + 1}</span>
-                            <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">
-                          {isManual
-                            ? <span className="text-sky-700 font-semibold">Manual #{manualIdx}</span>
-                            : <span className="text-blue-600">Ref Bill</span>}
-                        </TableCell>
+                        <TableCell className="px-3 py-2 border text-xs font-bold text-gray-500">{idx + 1}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.barcode || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs font-medium">{item.item_name || item.item}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs font-semibold">{item.item_name || item.item}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{item.making}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{item.making_type}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs font-medium">{item.amount}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">—</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{item.making_value != null ? item.making_value : (item.making || "—")}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs font-semibold">{item.amount}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">
+                          <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
+                        </TableCell>
                       </TableRow>
 
+                      {/* ── Sub-item rows ── */}
                       {item.salereturndetails_set?.map((detail, detailIdx) => (
                         <TableRow className="bg-white" key={detailIdx}>
-                          <TableCell className="px-3 py-1.5 border">
-                            <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
-                          </TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs text-gray-400">
-                            ↳ #{detailIdx + 1}
-                          </TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs text-gray-400">↳</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.packet || "—"}</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.item_name || detail.item}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.pcs}</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs">{detail.pcs || "—"}</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.tunch != null ? detail.tunch : "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">—</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs">{detail.rate != null ? detail.rate : "—"}</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.metal_purity || "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs font-medium">{detail.amount}</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs font-semibold">{detail.amount}</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs">
+                            {/* Only allow deleting sub-items on manual (non-barcode) items */}
+                            {isManual && (
+                              <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>

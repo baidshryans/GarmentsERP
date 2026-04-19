@@ -1506,7 +1506,7 @@ const SalesVoucherAdd = () => {
                         )}
                       </TableCell>
                       <TableCell className="w-16 px-3 py-2 border text-sm">
-                        {Number(detail?.fine_wt || 0) > 0 ? Number(detail.fine_wt).toFixed(3) : "—"}
+                        {(detail?.item_type === 'R' || detail?.item === "Gold") && Number(detail?.fine_wt || 0) > 0 ? Number(detail.fine_wt).toFixed(3) : ""}
                         <input type="hidden" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.fine_wt`)} />
                       </TableCell>
                       <TableCell className="w-28 px-3 py-2 border">

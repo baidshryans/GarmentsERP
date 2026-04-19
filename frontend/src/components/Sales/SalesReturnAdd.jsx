@@ -842,11 +842,15 @@ const SalesReturnAdd = () => {
 
                       {/* ── Sub-item rows — same 15 columns, blanks for main-item-only fields ── */}
                       {item.salereturndetails_set?.map((detail, detailIdx) => {
-                        const fineWt = detail.fine_wt != null
-                          ? detail.fine_wt
-                          : (detail.tunch && detail.gw
-                              ? parseFloat((parseFloat(detail.gw) * parseFloat(detail.tunch) / 100).toFixed(3))
-                              : null);
+                        const detailItemType = detail.item_type || mainItemData.find(m => m.short_code === detail.item)?.item_type;
+                        const isGold = detailItemType === "R";
+                        const fineWt = isGold
+                          ? (detail.fine_wt != null
+                              ? detail.fine_wt
+                              : (detail.tunch && detail.gw
+                                  ? parseFloat((parseFloat(detail.gw) * parseFloat(detail.tunch) / 100).toFixed(3))
+                                  : null))
+                          : null;
                         return (
                           <TableRow className="bg-gray-50" key={detailIdx}>
                             <TableCell className="px-3 py-2 border">
@@ -864,8 +868,8 @@ const SalesReturnAdd = () => {
                             <TableCell className="px-3 py-2 border text-sm"></TableCell>
                             <TableCell className="px-3 py-2 border text-sm"></TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{detail.metal_purity}</TableCell>
-                            <TableCell className="px-3 py-2 border text-sm">{detail.tunch ? Number(detail.tunch).toFixed(2) : "0.00"}</TableCell>
-                            <TableCell className="px-3 py-2 border text-sm">{fineWt != null ? Number(fineWt).toFixed(3) : ""}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{isGold ? (detail.tunch ? Number(detail.tunch).toFixed(2) : "0.00") : ""}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{isGold && fineWt != null ? Number(fineWt).toFixed(3) : ""}</TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{detail.rate}</TableCell>
                             <TableCell className="px-3 py-2 border text-sm font-semibold">{detail.amount}</TableCell>
                           </TableRow>

@@ -68,7 +68,7 @@ const emptyMainItem = {
 
 const emptyDetail = {
   sl_no: 1, packet: "", item: "", pcs: 0, ct: 0, gw: 0,
-  metal_purity: "", tunch: 0, rate: 0, amount: 0,
+  metal_purity: "", tunch: null, rate: 0, amount: 0,
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -348,7 +348,7 @@ const SalesReturnAdd = () => {
                   ct:           detail.ct,
                   gw:           detail.gw,
                   metal_purity: detail.metal_purity || null,
-                  tunch:        detail.tunch,
+                  tunch:        detailItem?.item_type === "R" ? (detail.tunch ?? null) : null,
                   rate:         detail.rate,
                   amount:       detail.amount,
                 },
@@ -641,7 +641,7 @@ const SalesReturnAdd = () => {
                 <TH className="w-16">Ct</TH>
                 <TH className="w-20">GW</TH>
                 {showMetalPurity     && <TH className="w-28">Metal Purity</TH>}
-                <TH className="w-20">Tunch</TH>
+                {isRawItem           && <TH className="w-20">Tunch</TH>}
                 <TH className="w-20">Rate</TH>
                 <TH className="w-24">Amount</TH>
               </TableRow>
@@ -713,9 +713,11 @@ const SalesReturnAdd = () => {
                   </TableCell>
                 )}
 
-                <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.001" {...register("details.tunch")} placeholder="Tunch" />
-                </TableCell>
+                {isRawItem && (
+                  <TableCell className="w-20 px-3 py-2 border">
+                    <Input type="number" step="0.001" {...register("details.tunch")} placeholder="Tunch" />
+                  </TableCell>
+                )}
                 <TableCell className="w-20 px-3 py-2 border">
                   <Input type="number" step="0.01" {...register("details.rate")} placeholder="Rate" />
                 </TableCell>
@@ -745,6 +747,7 @@ const SalesReturnAdd = () => {
                   <TH>Item</TH>
                   <TH>Pcs</TH>
                   <TH>GW</TH>
+                  <TH>Tunch</TH>
                   <TH>Making</TH>
                   <TH>Making Type</TH>
                   <TH>Amount</TH>
@@ -775,6 +778,7 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-3 py-2 border text-xs font-medium">{item.item_name || item.item}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">—</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.making}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{item.making_type}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs font-medium">{item.amount}</TableCell>
@@ -791,10 +795,11 @@ const SalesReturnAdd = () => {
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.packet || "—"}</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.item_name || detail.item}</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.pcs}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.gw}</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs">{detail.tunch != null ? detail.tunch : "—"}</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs">—</TableCell>
                           <TableCell className="px-3 py-1.5 border text-xs">{detail.metal_purity || "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.tunch}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.amount}</TableCell>
+                          <TableCell className="px-3 py-1.5 border text-xs font-medium">{detail.amount}</TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>

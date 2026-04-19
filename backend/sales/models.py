@@ -389,7 +389,7 @@ class SaleReturnDetails(models.Model):
     pcs = models.IntegerField()
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     gw = models.DecimalField(max_digits=10, decimal_places=3)
-    tunch = models.DecimalField(max_digits=10, decimal_places=3)
+    tunch = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=3)
     amount = models.DecimalField(max_digits=10, decimal_places=3)
     packet = models.ForeignKey("mastersconfig.Packet", on_delete=models.SET_NULL, null=True)

@@ -981,7 +981,8 @@ class SaleReturnDetailsSerializer(serializers.ModelSerializer):
             'fine_wt',  # Computed property
         ]
         extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
+            'id':    {'read_only': False, 'required': False},
+            'tunch': {'required': False, 'allow_null': True},
         }
 
 

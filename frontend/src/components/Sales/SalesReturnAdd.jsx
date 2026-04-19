@@ -245,7 +245,13 @@ const SalesReturnAdd = () => {
 
   // ── Bill-level auto-calculation ───────────────────────────────────────────
   useEffect(() => {
-    const mrp      = rs.reduce((s, item) => s + parseFloat(item.amount || 0), 0);
+    const itemAmount = (item) => {
+      const a = parseFloat(item.amount || 0);
+      if (a > 0) return a;
+      // Main item amount is 0/null — sum sub-item amounts instead
+      return (item.salereturndetails_set || []).reduce((ss, d) => ss + parseFloat(d.amount || 0), 0);
+    };
+    const mrp      = rs.reduce((s, item) => s + itemAmount(item), 0);
     const discount = parseFloat(getValues("form.discount")) || 0;
     const cgst_per = parseFloat(getValues("form.cgst_per")) || 0;
     const sgst_per = parseFloat(getValues("form.sgst_per")) || 0;
@@ -837,7 +843,11 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-3 py-2 border text-sm"></TableCell>
                         <TableCell className="px-3 py-2 border text-sm"></TableCell>
                         <TableCell className="px-3 py-2 border text-sm"></TableCell>
-                        <TableCell className="px-3 py-2 border text-sm font-semibold">{item.amount}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm font-semibold">
+                          {parseFloat(item.amount || 0) > 0
+                            ? item.amount
+                            : (item.salereturndetails_set || []).reduce((s, d) => s + parseFloat(d.amount || 0), 0) || ""}
+                        </TableCell>
                       </TableRow>
 
                       {/* ── Sub-item rows — same 15 columns, blanks for main-item-only fields ── */}

@@ -208,6 +208,12 @@ class BarcodeDetailsSerializer(serializers.ModelSerializer):
             'barcode_text': {'required': False},
         }
 
+    def validate(self, attrs):
+        item = attrs.get('item')
+        if item and item.item_type != 'M':
+            attrs['purity'] = None
+        return attrs
+
 from manufacturing.models import KarigarReceiveItem
 class BarCodeMainSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(

@@ -395,6 +395,9 @@ const SalesReturnAdd = () => {
                   gw:           detail.gw,
                   metal_purity: detail.metal_purity || null,
                   tunch:        detailItem?.item_type === "R" ? (detail.tunch ?? null) : null,
+                  fine_wt:      detailItem?.item_type === "R" && detail.tunch
+                                  ? parseFloat((parseFloat(detail.gw || 0) * parseFloat(detail.tunch || 0) / 100).toFixed(3))
+                                  : null,
                   rate:         detail.rate,
                   amount:       detail.amount,
                 },
@@ -788,17 +791,23 @@ const SalesReturnAdd = () => {
           <div className="overflow-x-auto mb-6">
             <Table className="w-full border-collapse">
               <TableBody>
+                {/* ── 15-column header matching sales voucher barcode table ── */}
                 <TableRow className="bg-violet-50">
-                  <TH className="w-10">#</TH>
-                  <TH>Barcode / Packet</TH>
+                  <TH className="w-10">Del</TH>
+                  <TH className="w-28">Barcode</TH>
+                  <TH className="w-24">Packet</TH>
                   <TH>Item</TH>
                   <TH className="w-14">Pcs</TH>
+                  <TH className="w-16">Ct</TH>
                   <TH className="w-20">GW</TH>
-                  <TH className="w-20">Tunch</TH>
+                  <TH className="w-20">Making</TH>
+                  <TH className="w-24">Making Type</TH>
+                  <TH className="w-24">Making Value</TH>
+                  <TH className="w-20">Purity</TH>
+                  <TH className="w-16">Tunch</TH>
+                  <TH className="w-16">Fine Wt</TH>
                   <TH className="w-24">Rate</TH>
-                  <TH className="w-24">Making</TH>
                   <TH className="w-24">Amount</TH>
-                  <TH className="w-12">Del</TH>
                 </TableRow>
 
                 {rs.map((item, idx) => {
@@ -808,40 +817,56 @@ const SalesReturnAdd = () => {
                     <React.Fragment key={idx}>
                       {/* ── Main item row ── */}
                       <TableRow className={isManual ? "bg-sky-50 border-t-2 border-sky-200" : "bg-blue-50/40"}>
-                        <TableCell className="px-3 py-2 border text-xs font-bold text-gray-500">{idx + 1}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{item.barcode || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs font-semibold">{item.item_name || item.item}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{item.making_value != null ? item.making_value : (item.making || "—")}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs font-semibold">{item.amount}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">
+                        <TableCell className="px-2 py-2 border">
                           <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
                         </TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">{item.barcode || "—"}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs font-semibold">{item.item_name || item.item}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">{item.pcs}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">{item.making != null ? item.making : "—"}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">{item.making_type || "—"}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">{item.making_value != null ? item.making_value : "—"}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">{item.purity || "—"}</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
+                        <TableCell className="px-2 py-2 border text-xs font-semibold">{item.amount}</TableCell>
                       </TableRow>
 
-                      {/* ── Sub-item rows ── */}
-                      {item.salereturndetails_set?.map((detail, detailIdx) => (
-                        <TableRow className="bg-white" key={detailIdx}>
-                          <TableCell className="px-3 py-1.5 border text-xs text-gray-400">↳</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.packet || "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.item_name || detail.item}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.pcs || "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.tunch != null ? detail.tunch : "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.rate != null ? detail.rate : "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">{detail.metal_purity || "—"}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs font-semibold">{detail.amount}</TableCell>
-                          <TableCell className="px-3 py-1.5 border text-xs">
-                            {/* Only allow deleting sub-items on manual (non-barcode) items */}
-                            {isManual && (
-                              <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {/* ── Sub-item rows — same 15 columns, blanks for main-item-only fields ── */}
+                      {item.salereturndetails_set?.map((detail, detailIdx) => {
+                        const fineWt = detail.fine_wt != null
+                          ? detail.fine_wt
+                          : (detail.tunch && detail.gw
+                              ? parseFloat((parseFloat(detail.gw) * parseFloat(detail.tunch) / 100).toFixed(3))
+                              : null);
+                        return (
+                          <TableRow className="bg-white" key={detailIdx}>
+                            <TableCell className="px-2 py-1.5 border">
+                              {isManual
+                                ? <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
+                                : <span className="text-xs text-gray-400">↳</span>}
+                            </TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.packet || "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.item_name || detail.item}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.pcs != null ? detail.pcs : "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.ct != null ? Number(detail.ct).toFixed(3) : "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.metal_purity || "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.tunch != null ? detail.tunch : "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{fineWt != null ? fineWt : "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs">{detail.rate != null ? detail.rate : "—"}</TableCell>
+                            <TableCell className="px-2 py-1.5 border text-xs font-semibold">{detail.amount}</TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </React.Fragment>
                   );
                 })}

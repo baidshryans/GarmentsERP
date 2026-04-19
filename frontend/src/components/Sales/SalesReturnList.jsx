@@ -8,9 +8,8 @@ import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { SquarePen, Trash2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteSalesReturn, fetchCNDNPrintData, createCreditDebitNote, fetchSaleReturnPrintData } from '../../services/apiService';
+import { deleteSalesReturn, fetchSaleReturnPrintData } from '../../services/apiService';
 import { openAndPrint } from "@/services/print/utils";
-import CreditDebitNotePrint from "@/services/print/CreditDebitNote";
 import SaleReturnCreditNote from "@/services/print/SaleReturnCreditNote";
 import { useSearchParams } from 'react-router-dom';
 import { useF2Navigate } from "@/hooks/useF2Navigate";

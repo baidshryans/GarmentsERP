@@ -826,7 +826,7 @@ const SalesReturnAdd = () => {
                   return (
                     <React.Fragment key={idx}>
                       {/* ── Main item row ── */}
-                      <TableRow className={isManual ? "bg-sky-50 border-t-2 border-sky-200" : "bg-blue-50/40"}>
+                      <TableRow className={isManual ? "bg-sky-50 border-t-2 border-sky-200" : "bg-violet-50"}>
                         <TableCell className="px-3 py-2 border">
                           <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
                         </TableCell>
@@ -843,7 +843,7 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-3 py-2 border text-sm"></TableCell>
                         <TableCell className="px-3 py-2 border text-sm"></TableCell>
                         <TableCell className="px-3 py-2 border text-sm"></TableCell>
-                        <TableCell className="px-3 py-2 border text-sm font-semibold">
+                        <TableCell className="px-3 py-2 border text-sm">
                           {parseFloat(item.amount || 0) > 0
                             ? item.amount
                             : (item.salereturndetails_set || []).reduce((s, d) => s + parseFloat(d.amount || 0), 0) || ""}
@@ -881,7 +881,7 @@ const SalesReturnAdd = () => {
                             <TableCell className="px-3 py-2 border text-sm">{isGold ? (detail.tunch ? Number(detail.tunch).toFixed(2) : "0.00") : ""}</TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{isGold && fineWt != null ? Number(fineWt).toFixed(3) : ""}</TableCell>
                             <TableCell className="px-3 py-2 border text-sm">{detail.rate}</TableCell>
-                            <TableCell className="px-3 py-2 border text-sm font-semibold">{detail.amount}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.amount}</TableCell>
                           </TableRow>
                         );
                       })}

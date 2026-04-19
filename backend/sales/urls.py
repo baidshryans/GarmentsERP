@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/sale-voucher-initial-data/', views.sale_voucher_initial_data),
     path('api/sale-return-initial-data/', views.sale_return_initial_data),
     path('api/sale-voucher/<int:pk>/print-data/', views.sale_voucher_print_data),
+    path('api/sale-return/<int:pk>/print-data/', views.sale_return_print_data),
     path('api/customer-cash-received/', views.customer_cash_received_view),
     path('api/tcs-register/', views.tcs_register),
     path('api/gstr1/', views.gstr1_report),

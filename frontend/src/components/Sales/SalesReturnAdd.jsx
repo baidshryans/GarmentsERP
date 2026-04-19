@@ -119,6 +119,9 @@ const SalesReturnAdd = () => {
   const [mainItemDisplay, setMainItemDisplay]     = useState("");
   const [detailItemDisplay, setDetailItemDisplay] = useState("");
   const [detailItem, setDetailItem]               = useState(null); // resolved item object for sub-item
+  // Original bill metadata — stored when a ref bill is fetched
+  const [origBillMeta, setOrigBillMeta]           = useState({ mrp: 0, discount: 0, id: null, gst_billno: "", billno: "" });
+  const [isPartialReturn, setIsPartialReturn]     = useState(false);
 
   const packetInputRef   = useRef(null);
   const mainItemInputRef = useRef(null);
@@ -256,6 +259,15 @@ const SalesReturnAdd = () => {
         setValue("form.sgst_per", d.sgst_per || 0);
         setValue("form.igst_per", d.igst_per || 0);
         setValue("form.tcs_per",  d.tcs_per  || 0);
+        // Save original bill metadata for proportional discount logic
+        setOrigBillMeta({
+          mrp:       parseFloat(d.mrp     || 0),
+          discount:  parseFloat(d.discount|| 0),
+          id:        d.id   || null,
+          gst_billno: d.gst_billno || "",
+          billno:    d.billno || "",
+        });
+        setIsPartialReturn(false);
         setCalculate((c) => c + 1);
       } else {
         toast({ title: "Bill not found", description: `No sale voucher found for "${bill_no}"`, variant: "destructive" });
@@ -276,9 +288,19 @@ const SalesReturnAdd = () => {
 
   const handleAddSelected = () => {
     if (selectedIndices.size === 0) { toast({ title: "No items selected" }); return; }
-    setRows((prev) => [...prev, ...fetchedBillItems.filter((_, i) => selectedIndices.has(i))]);
+    const selected = fetchedBillItems.filter((_, i) => selectedIndices.has(i));
+    setRows((prev) => [...prev, ...selected]);
     setFetchedBillItems([]);
     setSelectedIndices(new Set());
+
+    // Discount & ref logic
+    const selectedMrp = selected.reduce((s, item) => s + parseFloat(item.amount || 0), 0);
+    const fullReturn   = origBillMeta.mrp > 0 && Math.abs(selectedMrp - origBillMeta.mrp) < 0.01;
+    setValue("form.discount", fullReturn ? origBillMeta.discount : 0);
+    setValue("form.sales_voucher_ref",        origBillMeta.id || null);
+    setValue("form.original_sale_gst_billno", origBillMeta.gst_billno || "");
+    setIsPartialReturn(!fullReturn);
+
     setCalculate((c) => c + 1);
   };
 
@@ -502,6 +524,8 @@ const SalesReturnAdd = () => {
         <input type="hidden" {...register("form.sgst_per")} />
         <input type="hidden" {...register("form.igst_per")} />
         <input type="hidden" {...register("form.tcs_per")} />
+        <input type="hidden" {...register("form.sales_voucher_ref")} />
+        <input type="hidden" {...register("form.original_sale_gst_billno")} />
 
         {/* ══ SECTION 2: Select from Ref Bill ════════════════════════════════ */}
         {fetchedBillItems.length > 0 && (
@@ -811,6 +835,12 @@ const SalesReturnAdd = () => {
         )}
 
         {/* ══ Bill Summary ══════════════════════════════════════════════════ */}
+        {isPartialReturn && origBillMeta.discount > 0 && (
+          <p className="text-xs text-amber-600 mb-2 px-1">
+            ⚠ Original bill had a discount of ₹{origBillMeta.discount.toFixed(2)}.
+            Enter the applicable discount for the returned items in the Discount field below.
+          </p>
+        )}
         <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} autoCalcTotal={autoCalcEnabled} onAutoCalc={handleAutoCalcFromTotal} />
 
         {/* ══ Action Buttons ════════════════════════════════════════════════ */}

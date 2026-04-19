@@ -325,6 +325,8 @@ class SaleReturn(models.Model):
         SalesVou, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='sale_returns'
     )
+    # GST bill number of the original invoice — stored for credit note printing
+    original_sale_gst_billno = models.CharField(max_length=20, blank=True, default='')
 
     @property
     def taxable_value(self):

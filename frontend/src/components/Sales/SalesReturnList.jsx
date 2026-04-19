@@ -8,9 +8,10 @@ import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { SquarePen, Trash2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteSalesReturn, fetchCNDNPrintData, createCreditDebitNote } from '../../services/apiService';
+import { deleteSalesReturn, fetchCNDNPrintData, createCreditDebitNote, fetchSaleReturnPrintData } from '../../services/apiService';
 import { openAndPrint } from "@/services/print/utils";
 import CreditDebitNotePrint from "@/services/print/CreditDebitNote";
+import SaleReturnCreditNote from "@/services/print/SaleReturnCreditNote";
 import { useSearchParams } from 'react-router-dom';
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 
@@ -51,20 +52,13 @@ function SalesReturnList() {
       
 
     const handlePrintCN = async (row) => {
-      // Check if a CN already exists for this return via the credit_note relation
-      if (row.credit_note_id) {
-        const res = await fetchCNDNPrintData(row.credit_note_id);
-        if (res.success) { openAndPrint(<CreditDebitNotePrint data={res.data} />); return; }
+      // Direct print from sale return data (items + discount + GST)
+      const res = await fetchSaleReturnPrintData(row.id);
+      if (res.success) {
+        openAndPrint(<SaleReturnCreditNote data={res.data} />);
+        return;
       }
-      // Navigate to CN form pre-filled
-      const params = new URLSearchParams({
-        type: 'CN',
-        ref_sale_return: row.id,
-        ldgr_name: row.ldgr_name || '',
-        bill_no: row.billno || '',
-        amount: row.total_bill_value || '',
-      });
-      window.open(`/accounting/credit-debit-notes/add?${params.toString()}`, '_blank');
+      toast({ title: "Print failed", description: "Could not load credit note data.", variant: "destructive" });
     };
 
     const columns = [

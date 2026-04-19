@@ -2680,6 +2680,16 @@ export async function fetchSalesReturnById(id) {
   }
 }
 
+export async function fetchSaleReturnPrintData(id) {
+  try {
+    const response = await apiClient.get(`/sales/api/sale-return/${id}/print-data/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Failed to fetch sale return print data:', error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function updateJournalEntryForEdit(data, id) {
   try {
     const response = await apiClient.put(`/accounting/api/journal/${id}/`, data);

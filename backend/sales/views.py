@@ -1458,6 +1458,116 @@ def build_invoice_context(voucher, retail):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def sale_return_print_data(request, pk):
+    """Return fully-computed credit-note JSON for a SaleReturn (for React print)."""
+    try:
+        sr = SaleReturn.objects.select_related(
+            'ldgr', 'retail', 'retail__state', 'sales_voucher_ref',
+        ).prefetch_related(
+            'salereturnitem_set__item',
+            'salereturnitem_set__salereturndetails_set__item',
+            'salereturnitem_set__salereturndetails_set__metal_purity',
+        ).get(pk=pk, retail=request.retail)
+    except SaleReturn.DoesNotExist:
+        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    retail = request.retail
+    ldgr   = sr.ldgr
+
+    # ── Company info ─────────────────────────────────────────────────────────
+    company = None
+    if retail.branch_id and retail.branch and retail.branch.company_id:
+        company = retail.branch.company
+    company_address = ', '.join(filter(None, [
+        retail.address_line1, retail.address_line2, retail.address_line3,
+        retail.city, retail.pincode,
+    ]))
+    _gm = retail.gstin_master
+    company_gstin = (_gm.gstin if _gm else '') or ''
+
+    # ── Customer info ─────────────────────────────────────────────────────────
+    customer_address = ', '.join(filter(None, [ldgr.add1, ldgr.add2, ldgr.city, ldgr.pincode]))
+
+    # ── Build items list ─────────────────────────────────────────────────────
+    items_data = []
+    for ri in sr.salereturnitem_set.all():
+        sub_rows = []
+        for d in ri.salereturndetails_set.all():
+            parts = []
+            if d.item:
+                parts.append(d.item.item_name or d.item.short_code)
+            if d.metal_purity:
+                parts.append(str(d.metal_purity))
+            if d.gw:
+                parts.append(f'GW: {float(d.gw):.3f}g')
+            if d.tunch:
+                parts.append(f'Tunch: {float(d.tunch):.2f}%')
+            if d.rate:
+                parts.append(f'@ ₹{float(d.rate):.0f}')
+            sub_rows.append({
+                'text':         ' | '.join(parts),
+                'pcs':          d.pcs,
+                'gw':           float(d.gw or 0),
+                'rate':         float(d.rate or 0),
+                'amount':       float(d.amount or 0),
+                'item_type':    d.item.item_type if d.item else '',
+                'metal_purity': str(d.metal_purity) if d.metal_purity else '',
+            })
+
+        items_data.append({
+            'sn':        len(items_data) + 1,
+            'barcode':   ri.barcode or '',
+            'item_name': ri.item.item_name if ri.item else (ri.item.short_code if ri.item else ''),
+            'pcs':       ri.pcs or 0,
+            'gw':        float(ri.gw or 0),
+            'making':    float(ri.making_value or 0),
+            'amount':    float(ri.amount or 0),
+            'sub_rows':  sub_rows,
+        })
+
+    # ── Tax & totals ──────────────────────────────────────────────────────────
+    taxable  = float(sr.taxable_value)
+    cgst_amt = round(taxable * float(sr.cgst_per or 0) / 100, 2)
+    sgst_amt = round(taxable * float(sr.sgst_per or 0) / 100, 2)
+    igst_amt = round(taxable * float(sr.igst_per or 0) / 100, 2)
+    total    = round(taxable + cgst_amt + sgst_amt + igst_amt, 2)
+
+    # ── Original invoice reference ────────────────────────────────────────────
+    ref_billno  = sr.sales_voucher_ref.billno if sr.sales_voucher_ref else ''
+    ref_gst_no  = sr.original_sale_gst_billno or (
+        sr.sales_voucher_ref.gst_billno if sr.sales_voucher_ref else ''
+    )
+    ref_date    = str(sr.sales_voucher_ref.date1) if sr.sales_voucher_ref and sr.sales_voucher_ref.date1 else ''
+
+    return Response({
+        'note_type':        'CN',
+        'company_name':     (company.company_name if company else retail.retail_name) or '',
+        'company_address':  company_address,
+        'company_gstin':    company_gstin,
+        'company_state':    getattr(retail.state, 'name', '') if retail.state else '',
+        'note_no':          sr.billno or '',
+        'date':             str(sr.date1) if sr.date1 else '',
+        'party_name':       ldgr.ac_name or '',
+        'party_address':    customer_address,
+        'party_gstin':      ldgr.gst or '',
+        'party_state':      ldgr.state or '',
+        'ref_invoice_no':   f'{ref_billno}{(" / GST: " + ref_gst_no) if ref_gst_no else ""}',
+        'ref_invoice_date': ref_date,
+        'reason':           'Customer Return',
+        'items':            items_data,
+        'mrp':              float(sr.mrp or 0),
+        'discount':         float(sr.discount or 0),
+        'taxable_value':    round(taxable, 2),
+        'cgst_per':         float(sr.cgst_per or 0), 'cgst_amt': cgst_amt,
+        'sgst_per':         float(sr.sgst_per or 0), 'sgst_amt': sgst_amt,
+        'igst_per':         float(sr.igst_per or 0), 'igst_amt': igst_amt,
+        'amount':           total,
+        'adjustment_ledger': '',
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def sale_voucher_print_data(request, pk):
     """Return fully-computed invoice JSON for the React print component."""
     try:

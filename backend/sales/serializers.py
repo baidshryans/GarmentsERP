@@ -1046,6 +1046,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             'date1',
             'billno',
             'sales_voucher_ref',
+            'original_sale_gst_billno',
             "igst_per",
            "cgst_per",
            "sgst_per",
@@ -1055,12 +1056,19 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             'mrp',
             'taxable_value',
             'discount',
+            'cgst_amt',
+            'sgst_amt',
+            'igst_amt',
+            'tcs_amt',
+            'total_bill_value',
 
             'salereturnitem_set',  # Nested items serializer
 
         ]
         extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
+            'id':                       {'read_only': False, 'required': False},
+            'sales_voucher_ref':        {'required': False, 'allow_null': True},
+            'original_sale_gst_billno': {'required': False, 'allow_blank': True},
         }
 
     def create(self, validated_data):
@@ -1288,6 +1296,7 @@ class SaleVoucherToReturnSerializer(SalesVouSerializer):
     def to_representation(self, instance):
         repr = super().to_representation(instance)
         data = {
+           "id":             instance.id,          # needed for sales_voucher_ref FK
            "salereturnitem_set": repr["salesvouitem_set"],
            "sgst_amt":repr["sgst_amt"],
            "cgst_amt":repr["cgst_amt"],
@@ -1300,6 +1309,7 @@ class SaleVoucherToReturnSerializer(SalesVouSerializer):
            "taxable_value":repr["taxable_value"],
            "discount":repr["discount"],
            "billno":repr["billno"],
+           "gst_billno": repr.get("gst_billno", ""),  # for credit note printing
            "ldgr":repr["ldgr"],
            "ldgr_name":repr["ldgr_name"],
         }

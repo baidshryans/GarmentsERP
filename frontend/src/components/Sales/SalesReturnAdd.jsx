@@ -48,7 +48,7 @@ const SectionHeader = ({ number, title }) => (
 
 const TH = ({ children, className = "" }) => (
   <TableCell
-    className={`px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}
+    className={`px-4 py-2.5 border text-sm font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}
   >
     {children}
   </TableCell>
@@ -817,23 +817,23 @@ const SalesReturnAdd = () => {
                     <React.Fragment key={idx}>
                       {/* ── Main item row ── */}
                       <TableRow className={isManual ? "bg-sky-50 border-t-2 border-sky-200" : "bg-blue-50/40"}>
-                        <TableCell className="px-2 py-2 border">
+                        <TableCell className="px-3 py-2 border">
                           <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
                         </TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">{item.barcode || "—"}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs font-semibold">{item.item_name || item.item}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">{item.pcs}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">{item.making != null ? item.making : "—"}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">{item.making_type || "—"}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">{item.making_value != null ? item.making_value : "—"}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">{item.purity || "—"}</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs">—</TableCell>
-                        <TableCell className="px-2 py-2 border text-xs font-semibold">{item.amount}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{item.barcode}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                        <TableCell className="px-3 py-2 border text-sm font-semibold">{item.item_name || item.item}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{item.pcs}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{Number(item.ct || 0).toFixed(3)}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{Number(item.gw || 0).toFixed(3)}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{item.making}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{item.making_type}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{item.making_value}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm">{item.purity}</TableCell>
+                        <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                        <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                        <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                        <TableCell className="px-3 py-2 border text-sm font-semibold">{item.amount}</TableCell>
                       </TableRow>
 
                       {/* ── Sub-item rows — same 15 columns, blanks for main-item-only fields ── */}
@@ -844,26 +844,26 @@ const SalesReturnAdd = () => {
                               ? parseFloat((parseFloat(detail.gw) * parseFloat(detail.tunch) / 100).toFixed(3))
                               : null);
                         return (
-                          <TableRow className="bg-white" key={detailIdx}>
-                            <TableCell className="px-2 py-1.5 border">
+                          <TableRow className="bg-gray-50" key={detailIdx}>
+                            <TableCell className="px-3 py-2 border">
                               {isManual
                                 ? <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteDetail(idx, detailIdx)} />
-                                : <span className="text-xs text-gray-400">↳</span>}
+                                : <span className="text-sm text-gray-400">↳</span>}
                             </TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.packet || "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.item_name || detail.item}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.pcs != null ? detail.pcs : "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.ct != null ? Number(detail.ct).toFixed(3) : "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">—</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.metal_purity || "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.tunch != null ? detail.tunch : "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{fineWt != null ? fineWt : "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs">{detail.rate != null ? detail.rate : "—"}</TableCell>
-                            <TableCell className="px-2 py-1.5 border text-xs font-semibold">{detail.amount}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.packet}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.item_name || detail.item}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.pcs}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{Number(detail.ct || 0).toFixed(3)}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{Number(detail.gw || 0).toFixed(3)}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                            <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                            <TableCell className="px-3 py-2 border text-sm"></TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.metal_purity}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.tunch ? Number(detail.tunch).toFixed(2) : "0.00"}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{fineWt != null ? Number(fineWt).toFixed(3) : ""}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm">{detail.rate}</TableCell>
+                            <TableCell className="px-3 py-2 border text-sm font-semibold">{detail.amount}</TableCell>
                           </TableRow>
                         );
                       })}

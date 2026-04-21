@@ -1936,18 +1936,31 @@ class CustomerPurchaseHistoryView(APIView):
         ).values('id', 'order_no', 'date1', 'est_amount')
 
         # ── Sales approvals ─────────────────────────────────────────────────
+        # SalesApproval has taxable_value as a real DB field (no mrp column)
         approvals = SalesApproval.objects.filter(
             ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
+        ).values('id', 'billno', 'date1', 'taxable_value', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
 
         def _bill_value(row):
+            """For SalesVou / SaleReturn: mrp is a real DB field, taxable = mrp - discount."""
             mrp     = float(row.get('mrp') or 0)
             disc    = float(row.get('discount') or 0)
-            taxable = mrp - disc           # taxable_value = mrp - discount
+            taxable = mrp - disc
             cgst    = taxable * float(row.get('cgst_per') or 0) / 100
             sgst    = taxable * float(row.get('sgst_per') or 0) / 100
             igst    = taxable * float(row.get('igst_per') or 0) / 100
             return round(mrp, 2), round(cgst + sgst + igst, 2)
+
+        def _approval_bill_value(row):
+            """For SalesApproval: taxable_value is the real DB field (no mrp)."""
+            taxable = float(row.get('taxable_value') or 0)
+            disc    = float(row.get('discount') or 0)
+            base    = taxable - disc
+            cgst    = base * float(row.get('cgst_per') or 0) / 100
+            sgst    = base * float(row.get('sgst_per') or 0) / 100
+            igst    = base * float(row.get('igst_per') or 0) / 100
+            total   = round(base + cgst + sgst + igst, 2)
+            return total, round(cgst + sgst + igst, 2)
 
         rows = []
         for r in sales:
@@ -1959,8 +1972,8 @@ class CustomerPurchaseHistoryView(APIView):
         for r in orders:
             rows.append({'doc_type': 'Order', 'doc_no': r['order_no'], 'date': str(r['date1']), 'id': r['id'], 'amount': float(r['est_amount'] or 0), 'tax': 0})
         for r in approvals:
-            mrp, tax = _bill_value(r)
-            rows.append({'doc_type': 'Approval', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': mrp, 'tax': tax})
+            amt, tax = _approval_bill_value(r)
+            rows.append({'doc_type': 'Approval', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': amt, 'tax': tax})
 
         rows.sort(key=lambda x: x['date'], reverse=True)
 

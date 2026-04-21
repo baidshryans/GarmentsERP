@@ -133,7 +133,7 @@ export const navData = {
         { title: "Hallmark Receive",          url: "/manufacturing/reports/hallmarkreceive"         },
         { title: "Hallmark Issue",            url: "/manufacturing/reports/hmissue"                 },
         { title: "Finished Item Receive",     url: "/manufacturing/reports/finisheditemrec"         },
-        { title: "Karigar – Job Work",        url: "/manufacturing/reports/karigar-jobwork"         },
+        { title: "Job Work Status",           url: "/manufacturing/reports/karigar-jobwork"         },
         { title: "Refinery Report",           url: "/manufacturing/reports/refinery"                },
       ],
     },

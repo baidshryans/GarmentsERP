@@ -6,12 +6,12 @@ from goldrates.models import PurityMaster
 class CustomerOrder(models.Model):
     ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
     date1 = models.DateField()
-    order_no = models.CharField(max_length=14,unique=True)
+    order_no = models.CharField(max_length=30, unique=True)
     fix_gold_rate = models.BooleanField(null=True, default=False)
     gold_rate_date = models.DateField(null=True)
+    rate_14kt = models.IntegerField(default=0)
     rate_18kt = models.IntegerField(default=0)
     rate_22kt = models.IntegerField(default=0)
-    rate_24kt = models.IntegerField(default=0)
     salesman_1 = models.ForeignKey(SalesPersonMaster, related_name = "salesman_1", on_delete = models.SET_NULL, null=True)
     salesman_2 = models.ForeignKey(SalesPersonMaster, related_name = "salesman_2", on_delete = models.SET_NULL, null=True, blank=True)
     est_amount = models.IntegerField(null=True, default=0)
@@ -286,7 +286,7 @@ class SalesVouItemDetails(models.Model):
     pcs = models.IntegerField()
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     gw = models.DecimalField(max_digits=10, decimal_places=3)
-    metal_purity = models.CharField(max_length=10) # can have characters also
+    metal_purity = models.CharField(max_length=10, blank=True, null=True) # can have characters also
     tunch = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=3)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -506,7 +506,7 @@ class SalesApprovalItemDetails(models.Model):
     pcs = models.IntegerField()
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     gw = models.DecimalField(max_digits=10, decimal_places=3)
-    metal_purity = models.CharField(max_length=10) # can have characters also
+    metal_purity = models.CharField(max_length=10, blank=True, null=True) # can have characters also
     tunch = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=3)
     amount = models.DecimalField(max_digits=10, decimal_places=2)

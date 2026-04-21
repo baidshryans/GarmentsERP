@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { SquarePen, Trash2 } from "lucide-react";
+import { SquarePen, Trash2, Plus } from "lucide-react";
 
 
 
@@ -128,18 +128,19 @@ function PurchaseApprovalList() {
         ]
 
   return (
-    <>
     <div className="p-4">
-          <div className="flex justify-between mb-4">
-            {/* Search Input */}
+      <div className="flex flex-col gap-4">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-1">
             <Input
               type="text"
-              placeholder="Search..."
-              className="max-w-sm"
+              placeholder="Search approvals..."
+              className="max-w-xs"
             />
-             <Select >
-              <SelectTrigger className="max-w-sm">
-                <span>Sort By</span>
+            <Select>
+              <SelectTrigger className="w-44">
+                <span>Sort by</span>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ac_name">Name</SelectItem>
@@ -149,58 +150,39 @@ function PurchaseApprovalList() {
               </SelectContent>
             </Select>
           </div>
+          <Link to="add/">
+            <Button size="sm" className="gap-1.5">
+              <Plus className="size-4" />
+              Add Approval
+            </Button>
+          </Link>
+        </div>
 
-          { (loading) ? 
-              
-                <div>
-                 
-                  {[...Array(4)].map((_, i) => (
-                    <Skeleton key={i} className="w-full h-8 mb-2" />
-                  ))}
-                </div>
-              
-             :
-          
-            error ?
-              <div>Error: {error}</div> :     
-              <>  {/* Data Table */}
-              <DataTable columns={columns} data={ledgers} />
-          
-              {/* Pagination Controls */}
-              <div className="flex justify-between items-center mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
-          
-                <span>
-                  Page {page} of {totalPages}
-                </span>
-          
-                <Button
-                  variant="outline"
-                  onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-          
-              <div className="flex justify-end mt-4">
-                <Link to="add/">
-                  <Button>Add New</Button>
-                </Link>
-              </div>
-              </>
-          }
-                  {/* Ordering Dropdown */}
-           
-    
+        {/* Content */}
+        {loading ? (
+          <div className="flex flex-col gap-2">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="w-full h-10" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="text-destructive text-sm">Error: {String(error)}</div>
+        ) : (
+          <>
+            <DataTable columns={columns} data={ledgers} />
+            <div className="flex items-center justify-between pt-1">
+              <Button variant="outline" size="sm" onClick={() => setPage((prev) => Math.max(prev - 1, 1))} disabled={page === 1}>
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))} disabled={page === totalPages}>
+                Next
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
-    </>
   )
 }
 

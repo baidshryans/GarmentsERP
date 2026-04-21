@@ -3,563 +3,631 @@ import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
-import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder } from "@/services/apiService";
-import { Link, useParams } from "react-router-dom";
+import { Table, TableRow, TableCell, TableBody } from "@/components/ui/table";
+import {
+  fetchMainItem, fetchOrderNoNext, fetchSalesperson,
+  fetchPurity, getLedgers, createCustomerOrder,
+} from "@/services/apiService";
+import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit } from "./services/apiService";
-import { SquarePen, Search, Trash2 } from "lucide-react";
+import { SquarePen, Trash2, Loader2, Plus, Zap } from "lucide-react";
 import { arrayToObject } from "./Utils";
-import { useNavigate } from "react-router-dom";
 import { renderErrorTree } from "./Utils";
 
+/* ─── tiny helpers ─────────────────────────────────────────── */
+function SectionCard({ title, children, className = "" }) {
+  return (
+    <div className={`bg-white border border-border rounded-xl overflow-hidden ${className}`}>
+      <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+        <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h3>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, required, children, className = "" }) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className}`}>
+      <Label className="text-xs font-medium text-muted-foreground">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+/* ─── component ────────────────────────────────────────────── */
 const CustomerOrderForm = () => {
   const defaultTableValues = {
-      item_id: "",
-      purity: "",
-      pcs: 0,
-      gw: 0,
-      making: "",
-      making_type: "",
-      other_chg: 0,
-      size: "",
-      remarks: ""
+    item_id: "", item_name: "", purity: "", pcs: 0, gw: 0,
+    making: "", making_type: "", other_chg: 0, size: "", remarks: "",
   };
-  const { toast } = useToast()
-  const {id} = useParams()
-  const { register, setFocus,handleSubmit, control, reset, watch, setValue, getValues } = useForm({
-    defaultValues: {
-      form:{
-        rate_18kt: 0,
-        rate_22kt: 0,
-        rate_24kt: 0,
-        // advance_amt is derived from linked RCPT vouchers (backend property)
-        est_amount
-          :
-          0,
-        date1: new Date().toISOString().split("T")[0],
-        fix_gold_rate: false,
-        gold_rate_date:null,
-        salesman_1: null,
-        salesman_2: null,
-        nature:"new_booking",
-        delivery_status: "pending",
-        actual_delivery_date: null,
-      },
-      table:{...defaultTableValues}
 
+  const { toast } = useToast();
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const { register, setFocus, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+    defaultValues: {
+      form: {
+        rate_14kt: 0, rate_18kt: 0, rate_22kt: 0,
+        est_amount: 0,
+        date1: new Date().toISOString().split("T")[0],
+        fix_gold_rate: false, gold_rate_date: null,
+        salesman_1: null, salesman_2: null,
+        nature: "new_booking", delivery_status: "pending",
+      },
+      table: { ...defaultTableValues },
     },
   });
-  const navigate = useNavigate();
+
   const [rs, setRows] = useState([]);
   const [salespersonData, setSalespersonData] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [purityData, setPurityData] = useState([]);
+  const [fetchingRates, setFetchingRates] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const party_name = watch("form.ldgr_code_name")
-  const gold_rate_date = watch("form.gold_rate_date")
-  
+  const party_name    = watch("form.ldgr_code_name");
+  const gold_rate_date = watch("form.gold_rate_date");
+  const fix_gold_rate  = watch("form.fix_gold_rate");
+
+  /* pre-fill customer when redirected back from the ledger add page */
   useEffect(() => {
-    async function fetchData() {
-      const [customers] = await Promise.all([
-        getLedgers({ type: "CO" ,search:party_name}),
-      ]);
-      if (customers.success) setCustomers(customers.data.results);
+    const ldgr     = searchParams.get("ldgr");
+    const ldgrName = searchParams.get("ldgr_name");
+    if (ldgr && ldgrName) {
+      setValue("form.ldgr", ldgr);
+      setValue("form.ldgr_code_name", ldgrName);
+      // Add the new customer into the local list so the datalist shows it
+      setCustomers((prev) => {
+        const already = prev.some((c) => String(c.id) === String(ldgr));
+        return already ? prev : [{ id: ldgr, ac_name: ldgrName, mobile1: "" }, ...prev];
+      });
     }
-    console.log('runs')
-    fetchData();
-  
+  }, []);   // intentionally empty — only run once on mount
+
+  /* party search */
+  useEffect(() => {
+    getLedgers({ type: "CO", search: party_name }).then(r => {
+      if (r.success) setCustomers(r.data.results ?? []);
+    });
   }, [party_name]);
 
+  /* fetch rates when date changes */
   useEffect(() => {
-    async function fetchGoldRates() {
-      try {
-        console.log("runnin")
-        const response = await getGoldRate(gold_rate_date);
-        const data = response;
-        if (data.success) {
-          const dict = arrayToObject(data.data, 'purity_name', 'rate')
-          console.log(dict)
-
-            setValue("form.rate_18kt", dict['18'] ?? 0);
-            setValue("form.rate_22kt", dict['22'] ?? 0);
-            setValue("form.rate_24kt", dict['24'] ?? 0);
-          
-        }
-      } catch (error) {
-        console.error("Error fetching gold rates:", error);
+    if (!gold_rate_date) return;
+    setFetchingRates(true);
+    getGoldRate(gold_rate_date).then(response => {
+      if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+        const dict = arrayToObject(response.data, 'purity_name', 'rate');
+        setValue("form.rate_14kt", dict['14K'] ?? 0);
+        setValue("form.rate_18kt", dict['18K'] ?? 0);
+        setValue("form.rate_22kt", dict['22K'] ?? 0);
       }
-    }
-    console.log(gold_rate_date)
-    if (gold_rate_date) {
-      fetchGoldRates();
-    }
+    }).finally(() => setFetchingRates(false));
   }, [gold_rate_date]);
 
+  /* initial load */
   useEffect(() => {
-    async function fetchData() {
-      const [customers, salesperson, orderNo, mainItem, purity] = await Promise.all([
-        getLedgers({ type: "CO" }),
-        fetchSalesperson(),
-        fetchOrderNoNext(),
-        fetchMainItem(),
-        fetchPurity(),
-      ]);
-      if (customers.success) setCustomers(Array.isArray(customers.data.results) ? customers.data.results : (Array.isArray(customers.data) ? customers.data : []));
-      if (salesperson.success) setSalespersonData(Array.isArray(salesperson.data) ? salesperson.data : (Array.isArray(salesperson.data?.results) ? salesperson.data.results : []));
+    Promise.all([
+      getLedgers({ type: "CO" }),
+      fetchSalesperson(),
+      fetchOrderNoNext(),
+      fetchMainItem({ type: "M" }),
+      fetchPurity(),
+    ]).then(([cust, sp, orderNo, items, purity]) => {
+      if (cust.success)    setCustomers(Array.isArray(cust.data.results) ? cust.data.results : cust.data ?? []);
+      if (sp.success)      setSalespersonData(Array.isArray(sp.data) ? sp.data : sp.data?.results ?? []);
       if (orderNo.success) setValue("form.order_no", orderNo.data.order_no);
-      if (mainItem.success) setMainItemData(Array.isArray(mainItem.data) ? mainItem.data : (Array.isArray(mainItem.data?.results) ? mainItem.data.results : []));
-      if (purity.success) setPurityData(Array.isArray(purity.data) ? purity.data : (Array.isArray(purity.data?.results) ? purity.data.results : []));
-    }
-    fetchData().then(d =>{
-                if(id){
-          
-                fetchCustomerOrderForEdit(id).then(data => {
-                  if(data.success){
-                    Object.entries(data.data).forEach(([key, value]) => {
-                      if (key !== 'items') {
-                        setValue(`form.${key}`, value);
-                      }
-                    })
-                    };
-                    setRows(JSON.parse(JSON.stringify(data.data.items)))
-                    
-                  })
-                
-                }
+      if (items.success)   setMainItemData(Array.isArray(items.data) ? items.data : items.data?.results ?? []);
+      if (purity.success)  setPurityData(Array.isArray(purity.data) ? purity.data : purity.data?.results ?? []);
+
+      if (id) {
+        fetchCustomerOrderForEdit(id).then(data => {
+          if (data.success) {
+            Object.entries(data.data).forEach(([k, v]) => {
+              if (k !== 'items') setValue(`form.${k}`, v);
+            });
+            setRows(JSON.parse(JSON.stringify(data.data.items)));
+          }
+        });
+      }
     });
   }, []);
 
-  const onSubmit = (da) => {
-
-    const data = getValues("form")
-
-    // advance_amt is now a computed backend property — never send it as part
-    // of the order payload. It is derived from linked Receipt Vouchers.
-    delete data.advance_amt;
-    delete data.advance_reconciled;
-    delete data.advance_available;
-
-    data.items = [...rs];
-
-    if(rs.length===0){
-      toast({title: "Table is empty"})
-      return;
+  /* fix gold rate checkbox */
+  const handleFixGoldRateChange = async (checked) => {
+    setValue("form.fix_gold_rate", checked);
+    if (checked) {
+      setFetchingRates(true);
+      try {
+        const response = await getGoldRate("");
+        if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+          const dict = arrayToObject(response.data, 'purity_name', 'rate');
+          setValue("form.rate_14kt", dict['14K'] ?? 0);
+          setValue("form.rate_18kt", dict['18K'] ?? 0);
+          setValue("form.rate_22kt", dict['22K'] ?? 0);
+          const latestDate = response.data[0]?.date1;
+          if (latestDate) setValue("form.gold_rate_date", latestDate.split("T")[0]);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setFetchingRates(false);
+      }
+    } else {
+      setValue("form.rate_14kt", 0);
+      setValue("form.rate_18kt", 0);
+      setValue("form.rate_22kt", 0);
+      setValue("form.gold_rate_date", null);
     }
+  };
 
-
-    (id ? updateCustomerOrderForEdit(data,id): createCustomerOrder(data))
-      .then((response) => {
-
-        if (response.success) {
-          toast({
-            title: "Form submitted successfully!",
-          });  // Success toast
-
-          setTimeout(() => {
-            navigate("/sales/customerorder/list/");
-          }, 2000);
-
+  /* submit */
+  const onSubmit = () => {
+    if (rs.length === 0) { toast({ title: "Add at least one item." }); return; }
+    const data = getValues("form");
+    delete data.advance_amt; delete data.advance_reconciled; delete data.advance_available;
+    // Treat the "— None —" sentinel as null for salesman_2
+    if (data.salesman_2 === "__none__") data.salesman_2 = null;
+    data.items = [...rs];
+    setSubmitting(true);
+    (id ? updateCustomerOrderForEdit(data, id) : createCustomerOrder(data))
+      .then(r => {
+        if (r.success) {
+          toast({ title: "Customer order saved!" });
+          setTimeout(() => navigate("/sales/customerorder/list/"), 1500);
         } else {
-          toast({
-            title: "Form submission failed. Please try again.",
-            description: renderErrorTree(response.error),
-          });  // Error toast
+          toast({ title: "Save failed", description: renderErrorTree(r.error), variant: "destructive" });
         }
       })
-      .catch((error) => {
-        console.error("Error submitting form:", error);
-        toast({ title: "An error occurred. Please try again later." });  // Error toast on catch
-      });
+      .catch(() => toast({ title: "An error occurred.", variant: "destructive" }))
+      .finally(() => setSubmitting(false));
   };
 
+  /* item table handlers */
   const handleEdit = (index) => {
-    const row = rs[index];
-    reset({form:getValues('form'),table:row});
-    setRows((prev) => prev.filter((_, i) => i !== index));
+    reset({ form: getValues('form'), table: rs[index] });
+    setRows(prev => prev.filter((_, i) => i !== index));
   };
-
-  const handleDelete = (index) => {
-    setRows((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const fix_gold_rate = watch("form.fix_gold_rate")
-
+  const handleDelete = (index) => setRows(prev => prev.filter((_, i) => i !== index));
   const handleKeyDown = (e) => {
-    const row = getValues("table");
-    const sl_no = rs.length + 1
-    const iss_status = false;
-    const rec_status = false;
-    const del_status = false;
-    const sale_status = false;
-    const rowVals = {
-      sl_no,
-      ...row
-    }
-    if (e.key === "Tab") {
-      e.preventDefault()
-      setRows([...rs, rowVals])
-      reset({form:getValues('form'),table:defaultTableValues})
-      setFocus("table.item_id")
-
-    }
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    setRows([...rs, { sl_no: rs.length + 1, ...getValues("table") }]);
+    reset({ form: getValues('form'), table: defaultTableValues });
+    setFocus("table.item_id");
   };
 
+  /* ─── render ─────────────────────────────────────────────── */
   return (
-    <div className="mt-5">
-      <form
-        className="p-4 shadow-lg rounded-lg bg-white"
-        id="orderForm"
-        onSubmit={handleSubmit(onSubmit)}
-      >
-        <h6 className="text-lg font-semibold">Add Customer Order</h6>
-        <hr className="my-3" />
+    <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
 
-        {/* Date, Order No, Fixed Gold Rate */}
-        <div className="grid grid-cols-7 gap-4 mb-4">
-          <div>
-            <Label htmlFor="cof-date">Date</Label>
-            <Input id="cof-date" type="date" {...register("form.date1")} required />
-          </div>
-          <div>
-            <Label htmlFor="cof-order_no">Order No</Label>
-            <Input id="cof-order_no" type="text" {...register("form.order_no")} readOnly disabled />
-          </div>
-          <div className="flex items-center">
-            <Checkbox id="fix_rate" checked={fix_gold_rate}
-              onCheckedChange={(checked) => setValue("form.fix_gold_rate", checked)}
-            />
-            <Label htmlFor="fix_rate" className="ml-2">
-              Fixed Gold Rate
-            </Label>
-          </div>
-          <div>
-            <Label htmlFor="cof-fix_date">Gold Rate Date</Label>
-            <Input id="cof-fix_date" type="date" {...register("form.gold_rate_date")} />
-          </div>
-
-          <div>
-            <Label htmlFor="cof-rate_18kt">18K Rate</Label>
-            <Input id="cof-rate_18kt" type="number" {...register("form.rate_18kt", {
-              valueAsNumber: true,
-            })} />
-          </div>
-          <div>
-            <Label htmlFor="cof-rate_22kt">22K Rate</Label>
-            <Input id="cof-rate_22kt" type="number" {...register("form.rate_22kt", {
-              valueAsNumber: true,
-            })} />
-          </div>
-          <div>
-            <Label htmlFor="cof-rate_24kt">24K Rate</Label>
-            <Input id="cof-rate_24kt" type="number" {...register("form.rate_24kt", {
-              valueAsNumber: true,
-            })} />
-          </div>
+      {/* ── Page header ── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-foreground">
+            {id ? "Edit Customer Order" : "New Customer Order"}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {id ? "Update order details below" : "Fill in the details to create a new order"}
+          </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/sales/customerorder/list/")}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={submitting}
+            onClick={handleSubmit(onSubmit)}
+          >
+            {submitting ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />Saving…</> : "Save Order"}
+          </Button>
+        </div>
+      </div>
 
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
-        {/* Party Details */}
-        <div className="grid grid-cols-6 gap-4 mb-4">
-          <div>
-            <Label htmlFor="cof-party_name">Party Name</Label>
-            <Input id="cof-party_name" list="party_list" {...register("form.ldgr_code_name",{onChange : (e) => {
-                const selectedCustomer = customers.find(
-                  (customer) => customer.ac_name === e.target.value
-                );
-                selectedCustomer ? setValue("form.ldgr", selectedCustomer.id) : e.target.value;
+        {/* ── Card 1: Order reference ── */}
+        <SectionCard title="Order Reference">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Field label="Date" required>
+              <Input type="date" {...register("form.date1")} required />
+            </Field>
 
-                }})}
-             required className="self-end" />
-              <Input type="hidden" {...register("form.ldgr")} />
-              <datalist id="party_list" >
-                {(Array.isArray(customers) ? customers : []).map((customer, index) => (
-                <option key={index} value={customer.ac_name}>{customer.mobile1}</option>
+            <Field label="Order No">
+              <span className="inline-flex items-center px-3 h-9 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold truncate">
+                {watch("form.order_no") || (
+                  <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>
+                )}
+              </span>
+              <input type="hidden" {...register("form.order_no")} />
+            </Field>
 
-                ))}
+            <Field label="Estimated Delivery Date" required>
+              <Input type="date" {...register("form.delivery_date")} required />
+            </Field>
 
-              </datalist>
-              </div>
-              <div className="self-end">
-              <Link to="/crm/ledger/add/" ><Button>New</Button>  </Link>
+            <Field label="Nature">
+              <Controller
+                name="form.nature"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new_booking">New Booking</SelectItem>
+                      <SelectItem value="repair">Repair</SelectItem>
+                      <SelectItem value="sample">Sample</SelectItem>
+                      <SelectItem value="to_be_altered">To be altered</SelectItem>
+                      <SelectItem value="valuation">Valuation</SelectItem>
+                      <SelectItem value="melting">Melting</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+          </div>
+        </SectionCard>
 
-              </div>
-              <div>
-              <Label>Salesperson 1</Label>
+        {/* ── Card 2: Customer & Sales ── */}
+        <SectionCard title="Customer & Sales">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {/* Party — spans 2 cols */}
+            <div className="col-span-2">
+              <Field label="Party Name" required>
+                <div className="flex gap-2">
+                  <Input
+                    list="party_list"
+                    placeholder="Search customer…"
+                    {...register("form.ldgr_code_name", {
+                      onChange: (e) => {
+                        const sel = customers.find(c => c.ac_name === e.target.value);
+                        if (sel) setValue("form.ldgr", sel.id);
+                      },
+                    })}
+                    required
+                  />
+                  <Link
+                    to={`/crm/ledger/add/?next=${encodeURIComponent(location.pathname)}`}
+                    tabIndex={-1}
+                  >
+                    <Button type="button" size="icon" variant="outline" title="New customer">
+                      <Plus className="size-4" />
+                    </Button>
+                  </Link>
+                </div>
+                <input type="hidden" {...register("form.ldgr")} />
+                <datalist id="party_list">
+                  {customers.map((c, i) => (
+                    <option key={i} value={c.ac_name}>{c.mobile1}</option>
+                  ))}
+                </datalist>
+              </Field>
+            </div>
+
+            <Field label="Salesperson 1" required>
               <Controller
                 name="form.salesman_1"
                 control={control}
-                render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger data-id="saleperson-1">
-                  <SelectValue placeholder="Select Sales" />
-                  </SelectTrigger>
-                  <SelectContent>
-                  {(Array.isArray(salespersonData) ? salespersonData : []).map((sp, index) => (
-                    <SelectItem key={index} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>
-                  ))}
-
-                  </SelectContent>
-                </Select>
+                rules={{ required: true }}
+                render={({ field, fieldState }) => (
+                  <>
+                    <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                      <SelectTrigger className={fieldState.error ? "border-red-500 focus:ring-red-500" : ""}>
+                        <SelectValue placeholder="Select salesperson" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {salespersonData.map((sp, i) => (
+                          <SelectItem key={i} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldState.error && (
+                      <p className="text-[11px] text-red-500">Salesperson 1 is required.</p>
+                    )}
+                  </>
                 )}
               />
+            </Field>
 
-              </div>
-              <div>
-              <Label>Salesperson 2</Label>
+            <Field label="Salesperson 2">
               <Controller
                 name="form.salesman_2"
                 control={control}
                 render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger data-id="saleperson-2">
-                  <SelectValue placeholder="Select Sales" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                  {salespersonData.map((sp, index) => (
-                    <SelectItem key={`sp2-${index}`} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>
-                  ))}
-
-                  </SelectContent>
-                </Select>
+                  <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                    <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {salespersonData.map((sp, i) => (
+                        <SelectItem key={`sp2-${i}`} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               />
+            </Field>
 
-              </div>
-              <div>
-              <Label>Advance (from receipts)</Label>
-              <div className="flex items-center gap-2">
+            <Field label="Advance (from receipts)">
+              <div className="flex gap-2">
                 <Input
                   type="number"
                   value={watch("form.advance_amt") || 0}
                   readOnly
                   disabled
-                  className="bg-gray-50"
+                  className="bg-muted/50 cursor-not-allowed"
                 />
                 {id && watch("form.ldgr") && (
                   <Button
                     type="button"
-                    size="sm"
+                    size="icon"
                     variant="outline"
+                    title="Add receipt"
                     onClick={() => {
-                      const ldgrId = watch("form.ldgr");
-                      const ldgrName = watch("form.ldgr_code_name") || "";
-                      const orderNo = watch("form.order_no") || "";
                       const qs = new URLSearchParams({
                         customer_order: String(id),
-                        order_no: orderNo,
-                        ldgr: String(ldgrId),
-                        ldgr_name: ldgrName,
+                        order_no: watch("form.order_no") || "",
+                        ldgr: String(watch("form.ldgr")),
+                        ldgr_name: watch("form.ldgr_code_name") || "",
                       }).toString();
                       window.open(`/accounting/AddJournal/RCPT/add?${qs}`, "_blank");
                     }}
                   >
-                    + Receipt
+                    <Plus className="size-4" />
                   </Button>
                 )}
               </div>
               {id && (
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Advance is the sum of linked receipt vouchers — click <strong>+ Receipt</strong> to record one.
+                <p className="text-[10px] text-muted-foreground">
+                  Sum of linked receipt vouchers
                 </p>
               )}
-              </div>
-              <div>
-              <Label htmlFor="cof-est_amount">Estimated Amount</Label>
-              <Input id="cof-est_amount" type="number" {...register("form.est_amount")} />
-              </div>
-              <div>
-              <Label htmlFor="cof-delivery_date">Estimated Delivery date</Label>
-              <Input id="cof-delivery_date" type="date" {...register("form.delivery_date")} required />
-              </div>
-              <div>
-              <Label>Nature</Label>
-              <Controller
-                name="form.nature"
-                control={control}
-                render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger data-id="select-sales">
-                  <SelectValue placeholder="Select Sales" />
-                  </SelectTrigger>
+            </Field>
 
-                  <SelectContent>
-                  <SelectItem key="new_booking" value="new_booking">{`New Booking`}</SelectItem>
-                  <SelectItem key="repair" value="repair">{`Repair`}</SelectItem>
-                  <SelectItem key="sample" value="sample">{`Sample`}</SelectItem>
-                  <SelectItem key="to_be_altered" value="to_be_altered">{`To be altered`}</SelectItem>
-                  <SelectItem key="valuation" value="valuation">{`Valuation`}</SelectItem>
-                  <SelectItem key="melting" value="melting">{`Melting`}</SelectItem>
-
-                  </SelectContent>
-                </Select>
-                )}
-              />
-
-              {/* <Input type="text" {...register("nature")} /> */}
+            <Field label="Estimated Amount">
+              <Input type="number" {...register("form.est_amount")} />
+            </Field>
           </div>
-          <div>
-            <Label htmlFor="cof-status">Billing Status</Label>
-            <Input id="cof-status" type="text" {...register("form.status")} />
-          </div>
-          <div>
-            <Label>Delivery Status</Label>
-            <Controller
-              name="form.delivery_status"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value || 'pending'}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="ready">Ready for Delivery</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+        </SectionCard>
+
+        {/* ── Card 3: Gold Rate ── */}
+        <SectionCard title="Gold Rate">
+          <div className="flex flex-wrap items-end gap-4">
+            {/* Toggle */}
+            <div className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-border bg-muted/30 cursor-pointer">
+              {fetchingRates
+                ? <Loader2 className="size-4 text-primary animate-spin" />
+                : <Checkbox
+                    id="fix_rate"
+                    checked={fix_gold_rate}
+                    onCheckedChange={handleFixGoldRateChange}
+                    disabled={fetchingRates}
+                  />
+              }
+              <Label htmlFor="fix_rate" className="cursor-pointer text-sm font-medium select-none">
+                Fix Gold Rate
+              </Label>
+              {fix_gold_rate && !fetchingRates && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                  <Zap className="size-2.5" /> FIXED
+                </span>
               )}
-            />
-          </div>
-          <div>
-            <Label htmlFor="cof-actual_delivery_date">Actual Delivery Date</Label>
-            <Input id="cof-actual_delivery_date" type="date" {...register("form.actual_delivery_date")} />
-          </div>
-        </div>
+            </div>
 
-        {/* Item Details */}
-        <h6 className="text-lg font-semibold my-3">Item Detail</h6>
-        <Table className="w-full table-fixed border-collapse">
-          <TableBody>
-            <TableRow className=" w-full bg-gray-100">
-              <TableCell className="w-32 px-4 py-2 border">OPtions</TableCell>
-              <TableCell className="w-32 px-4 py-2 border">Main Item</TableCell>
-              <TableCell className="w-20 px-4 py-2 border">Purity</TableCell>
-              <TableCell className="w-16 px-4 py-2 border">Pcs</TableCell>
-              <TableCell className="w-16 px-4 py-2 border">GW</TableCell>
-              <TableCell className="w-24 px-4 py-2 border">Making</TableCell>
-              <TableCell className="w-32 px-4 py-2 border">Making Type</TableCell>
-              <TableCell className="w-32 px-4 py-2 border">Other Charges</TableCell>
-              <TableCell className="w-16 px-4 py-2 border">Size</TableCell>
-              <TableCell className="w-32 px-4 py-2 border">Remarks</TableCell>
-            </TableRow>
-
-            <TableRow>
-            <TableCell className="w-32 px-4 py-2 border">
-                
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input list="item_list" {...register("table.item_id")} />
-                <datalist id="item_list">
-                  {mainItemData && Array.isArray(mainItemData) ? mainItemData.map((item, index) => (
-                    <option key={index} value={item.short_code}  > {item.item_name}</option>
-                  )) : null}
-
-                </datalist>
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Controller
-                  name="table.purity"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <SelectTrigger data-id="pty">
-                        <SelectValue placeholder="Select Purity" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(Array.isArray(purityData) ? purityData : []).map((item, index) => (
-                          <SelectItem key={index} value={`${item.purity}`}> {item.purity}</SelectItem>
-                        ))}
-
-
-                      </SelectContent>
-                    </Select>
-                  )}
+            {/* Rate fields — only visible when fix is on */}
+            <div className={`flex flex-wrap gap-4 transition-opacity duration-200 ${fix_gold_rate ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+              <Field label="Rate Date" className="w-36">
+                <Input type="date" {...register("form.gold_rate_date")} disabled={!fix_gold_rate} />
+              </Field>
+              <Field label="14K Rate (/g)" className="w-28">
+                <Input type="number" disabled={!fix_gold_rate}
+                  {...register("form.rate_14kt", { valueAsNumber: true })}
                 />
-
-              </TableCell>
-              <TableCell className="w-16 px-4 py-2 border">
-                <Input type="number" {...register("table.pcs")} />
-              </TableCell>
-              <TableCell className="w-16 px-4 py-2 border">
-                <Input type="number" {...register("table.gw")} />
-              </TableCell>
-              <TableCell className="w-24 px-4 py-2 border">
-                <Input type="number" {...register("table.making_amt")} />
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Controller
-                  name="table.making_type"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <SelectTrigger data-id="making">
-                        <SelectValue placeholder="Making type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="per_nw">% of wt</SelectItem>
-                        <SelectItem value="val">Value</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
+              </Field>
+              <Field label="18K Rate (/g)" className="w-28">
+                <Input type="number" disabled={!fix_gold_rate}
+                  {...register("form.rate_18kt", { valueAsNumber: true })}
                 />
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input type="number" {...register("table.other_chg",{valueAsNumber:true})} />
-              </TableCell>
-              <TableCell className="w-16 px-4 py-2 border">
-                <Input type="text" {...register("table.size")} />
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input onKeyDown={(e) => handleKeyDown(e)} type="text" {...register("table.remarks")} />
-              </TableCell>
-            </TableRow>
-            {rs.map((row, index) => (
-              <TableRow key={index} className="w-full bg-white">
-                <TableCell className="w-32 px-4 py-2 border">
-                  <div className="flex gap-4">
-                    <SquarePen size={24} className="mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
+              </Field>
+              <Field label="22K Rate (/g)" className="w-28">
+                <Input type="number" disabled={!fix_gold_rate}
+                  {...register("form.rate_22kt", { valueAsNumber: true })}
+                />
+              </Field>
+            </div>
+          </div>
+        </SectionCard>
 
-                    <Trash2 size={24} color="#d45959" className="mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
-                  </div>
+        {/* ── Card 4: Item Details ── */}
+        <SectionCard title="Item Details">
+          <div className="overflow-x-auto">
+            <Table className="w-full text-sm">
+              <TableBody>
+                {/* Header row */}
+                <TableRow className="bg-muted/40 hover:bg-muted/40">
+                  {["", "Main Item", "Purity", "Pcs", "GW (g)", "Making", "Making Type", "Other Chg", "Size", "Remarks"].map((h, i) => (
+                    <TableCell key={i} className="px-3 py-2 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap border-b">
+                      {h}
+                    </TableCell>
+                  ))}
+                </TableRow>
 
-                </TableCell>
-                <TableCell className="w-32 px-4 py-2 border">
-                  {row.item_id}
+                {/* Input row */}
+                <TableRow className="align-top">
+                  <TableCell className="px-3 py-2 border-b w-10" />
+                  <TableCell className="px-2 py-2 border-b">
+                    <Input
+                      list="item_list"
+                      className="h-8 text-sm"
+                      placeholder="Search…"
+                      {...register("table.item_id", {
+                        onChange: (e) => {
+                          const match = mainItemData.find(
+                            (it) => it.short_code === e.target.value
+                          );
+                          setValue("table.item_name", match ? match.item_name : "");
+                        },
+                      })}
+                    />
+                    <datalist id="item_list">
+                      {mainItemData.map((item, i) => (
+                        <option key={i} value={item.short_code}>{item.item_name}</option>
+                      ))}
+                    </datalist>
+                    <input type="hidden" {...register("table.item_name")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b w-28">
+                    <Controller
+                      name="table.purity"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Purity" /></SelectTrigger>
+                          <SelectContent>
+                            {purityData.map((p, i) => (
+                              <SelectItem key={i} value={`${p.purity}`}>{p.purity}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b w-20">
+                    <Input type="number" className="h-8 text-sm" {...register("table.pcs")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b w-20">
+                    <Input type="number" className="h-8 text-sm" {...register("table.gw")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b w-24">
+                    <Input type="number" className="h-8 text-sm" {...register("table.making_amt")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b w-32">
+                    <Controller
+                      name="table.making_type"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Type" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="per_nw">% of wt</SelectItem>
+                            <SelectItem value="val">Value</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b w-24">
+                    <Input type="number" className="h-8 text-sm" {...register("table.other_chg", { valueAsNumber: true })} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b w-20">
+                    <Input type="text" className="h-8 text-sm" {...register("table.size")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 border-b">
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="text"
+                        className="h-8 text-sm"
+                        placeholder="Tab to add row"
+                        onKeyDown={handleKeyDown}
+                        {...register("table.remarks")}
+                      />
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden lg:block">↹ add</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
 
-                </TableCell>
+                {/* Added rows */}
+                {rs.map((row, index) => (
+                  <TableRow key={index} className="hover:bg-muted/20 transition-colors">
+                    <TableCell className="px-3 py-2 border-b">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(index)}
+                          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          title="Edit"
+                        >
+                          <SquarePen className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(index)}
+                          className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 border-b">
+                      <span className="font-medium text-primary">{row.item_id}</span>
+                      {row.item_name && (
+                        <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{row.item_name}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-3 py-2 border-b">{row.purity}</TableCell>
+                    <TableCell className="px-3 py-2 border-b text-right">{row.pcs}</TableCell>
+                    <TableCell className="px-3 py-2 border-b text-right">{row.gw}</TableCell>
+                    <TableCell className="px-3 py-2 border-b text-right">{row.making_amt}</TableCell>
+                    <TableCell className="px-3 py-2 border-b text-muted-foreground text-xs">{row.making_type}</TableCell>
+                    <TableCell className="px-3 py-2 border-b text-right">{row.other_chg}</TableCell>
+                    <TableCell className="px-3 py-2 border-b">{row.size}</TableCell>
+                    <TableCell className="px-3 py-2 border-b text-muted-foreground">{row.remarks}</TableCell>
+                  </TableRow>
+                ))}
 
-                  
+                {rs.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground text-sm">
+                      No items added yet — fill the row above and press <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Tab</kbd> to add
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-                <TableCell className="w-20 px-4 py-2 border">{row.purity}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.pcs}</TableCell>
+          {/* Row count badge */}
+          {rs.length > 0 && (
+            <div className="mt-3 flex justify-end">
+              <span className="text-xs text-muted-foreground">
+                {rs.length} item{rs.length !== 1 ? "s" : ""} added
+              </span>
+            </div>
+          )}
+        </SectionCard>
 
-                <TableCell className="w-16 px-4 py-2 border">{row.gw}</TableCell>
-                <TableCell className="w-24 px-4 py-2 border">{row.making_amt}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.making_type}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.other_chg}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.size}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.remarks}</TableCell>
-              </TableRow>
-            ))}
-
-
-
-          </TableBody>
-        </Table>
-
-
-        {/* Submit */}
-        <div className="flex justify-center mt-5">
-          <Button type="submit" className="mr-4">
-            Save
+        {/* ── Bottom action bar ── */}
+        <div className="flex items-center justify-end gap-3 pt-1 pb-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate("/sales/customerorder/list/")}
+          >
+            Cancel
           </Button>
-          <Button variant="outline">Cancel</Button>
+          <Button type="submit" disabled={submitting} className="min-w-28">
+            {submitting
+              ? <><Loader2 className="size-4 mr-2 animate-spin" />Saving…</>
+              : "Save Order"
+            }
+          </Button>
         </div>
       </form>
     </div>

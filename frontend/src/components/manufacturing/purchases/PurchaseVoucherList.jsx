@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { DataTable } from "@/table"
-import { SquarePen, Printer, Trash2, X } from "lucide-react";
+import { SquarePen, Printer, Trash2, X, Plus } from "lucide-react";
 import { openAndPrint } from '@/services/print/utils';
 import PurchaseVoucher from '@/services/print/PurchaseVoucherVendor';
 import { useToast } from "@/hooks/use-toast";
@@ -98,7 +98,6 @@ function PurchaseVoucherList({ voucherType = "" }) {
   });
 
 
-  console.log(data);
 
 const totalPages = data?.data?.total_pages ?? 1;
   const handleRowClick = (row) => {
@@ -184,83 +183,71 @@ const totalPages = data?.data?.total_pages ?? 1;
   return (
     <ResizablePanelGroup className="min-h-screen h-full" direction="vertical">
       <ResizablePanel defaultSize={showPanel ? 60 : 100}>
-        <div className="p-4">
-          <div className="flex justify-between mb-4">
-            {/* Search Input */}
-            <Input
-              type="text"
-              value={search}
-              onChange={(e) => setParams({search:e.target.value,sortby})}
-              placeholder="Search..."
-              className="max-w-sm"
-            />
-           
-              <Select value={sortby} onValueChange={(value)=>setParams({search,sortby:value})}>
-                <SelectTrigger className="max-w-sm">
-                  <span>Sort By</span>
+        <div className="flex flex-col gap-4 p-4">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              <Input
+                type="text"
+                value={search}
+                onChange={(e) => setParams({ search: e.target.value, sortby })}
+                placeholder="Search purchase vouchers..."
+                className="max-w-xs"
+              />
+              <Select value={sortby} onValueChange={(value) => setParams({ search, sortby: value })}>
+                <SelectTrigger className="w-44">
+                  <span>{sortby ? sortby.replace('-', '↓ ') : 'Sort by'}</span>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="date1">(Old)Date</SelectItem>
-                  <SelectItem value="-date1">(New)Date</SelectItem>
-                  <SelectItem value="billno">(Asc)Billno</SelectItem>
-                  <SelectItem value="-billno">(Des)Billno</SelectItem>
+                  <SelectItem value="date1">Date (Old first)</SelectItem>
+                  <SelectItem value="-date1">Date (New first)</SelectItem>
+                  <SelectItem value="billno">Bill No (Asc)</SelectItem>
+                  <SelectItem value="-billno">Bill No (Desc)</SelectItem>
                 </SelectContent>
               </Select>
-              {/* {!showPanel && (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPanel(true)}
-                  className="text-sm"
-                >
-                  Show Details
-                </Button>
-              )} */}
-           
+            </div>
+            <Link to={voucherType ? `/purchase/customerpurchase/list/add/?vou_type=${voucherType}` : "/purchase/add/"}>
+              <Button size="sm" className="gap-1.5">
+                <Plus className="size-4" />
+                Add Purchase
+              </Button>
+            </Link>
           </div>
 
           {loading ? (
-            <div>
-        
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="w-full h-8 mb-2" />
+            <div className="flex flex-col gap-2">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="w-full h-10" />
               ))}
             </div>
           ) : error ? (
-            <div>Error: {error}</div>
+            <div className="text-destructive text-sm">Error: {String(error)}</div>
           ) : (
             <>
-              {/* Data Table */}
               <div className={isFetching ? "opacity-50 pointer-events-none transition-opacity duration-150" : "transition-opacity duration-150"}>
-              <DataTable columns={columns} data={data?.data?.results ?? []} rowClick={handleRowClick} />
+                <DataTable columns={columns} data={data?.data?.results ?? []} rowClick={handleRowClick} />
               </div>
 
-              {/* Pagination Controls */}
-              <div className="flex justify-between items-center mt-4">
+              <div className="flex items-center justify-between pt-1">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                   disabled={page === 1 || isFetching}
                 >
                   Previous
                 </Button>
-
-                <span>
+                <span className="text-sm text-muted-foreground">
                   Page {page} of {totalPages}
                 </span>
-
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={page === totalPages || isFetching}
                 >
                   Next
                 </Button>
-              </div>
-
-              <div className="flex justify-end mt-4">
-                <Link to={voucherType ? `/purchase/customerpurchase/list/add/?vou_type=${voucherType}` : "/purchase/add/"}>
-                  <Button>Add New</Button>
-                </Link>
               </div>
             </>
           )}

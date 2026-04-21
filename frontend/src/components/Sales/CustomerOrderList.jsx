@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus } from "@/services/apiService";
+import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -324,12 +324,17 @@ function CustomerOrderList() {
           >
             <Truck className="size-4" />
           </button>
-          <button onClick={() => openAndPrint(<CustomerOrder data={{
-            name: row.original.ldgr_code_name,
-            orderNo: row.original.order_no,
-            orderDate: fmtDate(row.original.date1),
-            deliveryDate: fmtDate(row.original.delivery_date),
-          }} />)}>
+          <button
+            title="Print order"
+            onClick={async () => {
+              const res = await fetchCustomerOrderForEdit(row.original.id);
+              if (res.success) {
+                openAndPrint(<CustomerOrder data={res.data} />);
+              } else {
+                toast({ title: "Could not load order details for printing.", variant: "destructive" });
+              }
+            }}
+          >
             <Printer className="size-4 text-muted-foreground" />
           </button>
         </div>

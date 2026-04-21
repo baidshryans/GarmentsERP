@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/table";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from "react-router-dom";
-import { Truck, Ban, Pencil, Trash2, Check, X } from "lucide-react";
+import { Truck, Ban, Pencil, Trash2, Check, X, Download } from "lucide-react";
 import {
   fetchEWayBills,
   cancelEWayBill,
@@ -78,6 +78,21 @@ export default function EWayBillList() {
     }
   };
 
+  const handleDownloadJson = (bill) => {
+    const payload = bill.json_payload;
+    if (!payload) {
+      toast({ title: "No JSON available", description: "This record has no stored JSON payload.", variant: "destructive" });
+      return;
+    }
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `EWAY_${bill.source_billno || bill.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleSaveEBN = async (id) => {
     const res = await updateEWayBillEBN(id, { eway_bill_no: ebnInput });
     if (res.success) {
@@ -96,6 +111,15 @@ export default function EWayBillList() {
         const b = row.original;
         return (
           <div className="flex items-center gap-1">
+            {b.json_payload && (
+              <button
+                onClick={() => handleDownloadJson(b)}
+                className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors"
+                title="Download E-Way Bill JSON"
+              >
+                <Download className="size-4" />
+              </button>
+            )}
             {b.status !== "CANCELLED" && (
               <button
                 onClick={() => handleCancel(b.id)}

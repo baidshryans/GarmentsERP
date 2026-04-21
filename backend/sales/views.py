@@ -27,31 +27,14 @@ from .models import *
 
 # Create your views here.
 
-def generate_order_no():
-    # Fetch the last order from the database
-    last_order = CustomerOrder.objects.order_by('id').last()
-    
-    if not last_order:
-        # If there are no orders, start with C2324/00001
-        return "C2324/00001"
-    
-    # Extract the last part of the order number
-    last_order_no = last_order.order_no
-    order_no_suffix = int(last_order_no.split('/')[-1])
-    
-    # Increment the suffix by 1
-    new_order_no_suffix = order_no_suffix + 1
-    
-    # Format the new order number with leading zeros (ensures 5 digits after the '/')
-    new_order_no = f"C2324/{new_order_no_suffix:05}"
-    
-    return new_order_no
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def order_no_view(request):
+    """Return a read-only preview of the next Customer Order number (no DB write)."""
     try:
-        order_no = generate_order_no()
+        from accounting.utils import peek_next_bill_number
+        retail = request.retail
+        order_no = peek_next_bill_number(retail, "CO")
         return Response({"order_no": order_no}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -86,13 +69,24 @@ class CustomerOrderViewset(views.RetailBaseViewset):
     # Optionally set default ordering
     ordering = ['order_no']
 
+    def perform_create(self, serializer):
+        from accounting.utils import get_next_bill_number
+        retail = self.request.retail
+        order_no = get_next_bill_number(retail, "CO")
+        serializer.save(retail=retail, order_no=order_no)
+
     def perform_destroy(self, instance):
         from rest_framework.exceptions import ValidationError
+        from accounting.utils import release_last_bill_number
         if instance.linked_vouchers.exists():
             raise ValidationError(
                 f"Customer order '{instance.order_no}' cannot be deleted because a sales voucher has been raised against it."
             )
+        order_no = instance.order_no
+        retail = instance.retail
+        fiscal_year = getattr(retail, 'active_fy', None)
         super().perform_destroy(instance)
+        release_last_bill_number(retail, "CO", order_no, fiscal_year)
 
     def perform_update(self, serializer):
         from rest_framework.exceptions import ValidationError
@@ -257,8 +251,9 @@ class SalesVoucherViewset(views.RetailBaseViewset):
     queryset = SalesVou.objects.select_related(
         'ldgr', 'sales_person', 'sales_person2', 'ac_voucher', 'retail'
     ).prefetch_related(
-        'salesvouitem_set__main_item_set',
-        'salesvouitemdetails_set',
+        'salesvouitem_set__barcode',
+        'salesvouitem_set__main_item_set__item',
+        'salesvouitemdetails_set__item',
         'bank_details'
     ).all()
     serializer_class = SalesVouSerializer
@@ -306,11 +301,16 @@ class SalesVoucherViewset(views.RetailBaseViewset):
             raise ValidationError(
                 f"Sales voucher '{instance.billno}' cannot be {action} because a sale return exists against it."
             )
-        bill_value = float(instance.total_bill_value or 0)
-        if instance.ac_rec_voucher is not None or (bill_value > 0 and float(instance.due_amt or 0) < bill_value):
-            raise ValidationError(
-                f"Sales voucher '{instance.billno}' cannot be {action} because a payment has been received against it."
-            )
+        # Payment-received block applies to delete only. Edits are allowed
+        # because the serializer rebuilds the sale's journal entry and
+        # recomputes due_amt while preserving subsequent payment receipts,
+        # keeping the ledger balance consistent.
+        if action == 'deleted':
+            bill_value = float(instance.total_bill_value or 0)
+            if instance.ac_rec_voucher is not None or (bill_value > 0 and float(instance.due_amt or 0) < bill_value):
+                raise ValidationError(
+                    f"Sales voucher '{instance.billno}' cannot be {action} because a payment has been received against it."
+                )
 
     def perform_destroy(self, instance):
         self._check_sales_vou_mutable(instance, 'deleted')
@@ -637,7 +637,7 @@ def gstr1_report(request):
             'credit_notes': return_count,
         },
         'period': {'from': from_date, 'to': to_date},
-        'retail_gstin': retail.gstin or '' if retail else '',
+        'retail_gstin': (retail.gstin_master.gstin if retail and retail.gstin_master else ''),
     })
 
 
@@ -790,7 +790,8 @@ class GenerateJsonView(APIView):
         # ── Seller details — use exhibition profile if present ─────────────────
         retail = request.retail
         ep = getattr(request, 'exhibition', None)
-        seller_gstin   = (ep.gstin if ep and ep.gstin else retail.gstin) or ''
+        _gm            = retail.gstin_master
+        seller_gstin   = (ep.gstin if ep and ep.gstin else (_gm.gstin if _gm else '')) or ''
         seller_addr1   = (ep.address_line1 if ep else retail.address_line1) or ''
         seller_addr2   = (ep.address_line2 if ep else retail.address_line2) or ''
         seller_city    = (ep.city if ep else retail.city) or ''
@@ -1919,14 +1920,15 @@ class CustomerPurchaseHistoryView(APIView):
             date_filter['date1__lte'] = to_date
 
         # ── Sales vouchers ──────────────────────────────────────────────────
+        # Note: taxable_value is a @property (mrp - discount), not a DB column.
         sales = SalesVou.objects.filter(
             ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'taxable_value', 'discount')
+        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
 
         # ── Sale returns ────────────────────────────────────────────────────
         returns = SaleReturn.objects.filter(
             ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'taxable_value', 'discount')
+        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
 
         # ── Customer orders ─────────────────────────────────────────────────
         orders = CustomerOrder.objects.filter(
@@ -1936,16 +1938,16 @@ class CustomerPurchaseHistoryView(APIView):
         # ── Sales approvals ─────────────────────────────────────────────────
         approvals = SalesApproval.objects.filter(
             ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'taxable_value', 'discount')
+        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
 
         def _bill_value(row):
-            taxable = float(row.get('taxable_value') or 0)
+            mrp     = float(row.get('mrp') or 0)
             disc    = float(row.get('discount') or 0)
-            base    = taxable - disc
-            cgst    = base * float(row.get('cgst_per') or 0) / 100
-            sgst    = base * float(row.get('sgst_per') or 0) / 100
-            igst    = base * float(row.get('igst_per') or 0) / 100
-            return round(float(row.get('mrp') or 0), 2), round(cgst + sgst + igst, 2)
+            taxable = mrp - disc           # taxable_value = mrp - discount
+            cgst    = taxable * float(row.get('cgst_per') or 0) / 100
+            sgst    = taxable * float(row.get('sgst_per') or 0) / 100
+            igst    = taxable * float(row.get('igst_per') or 0) / 100
+            return round(mrp, 2), round(cgst + sgst + igst, 2)
 
         rows = []
         for r in sales:

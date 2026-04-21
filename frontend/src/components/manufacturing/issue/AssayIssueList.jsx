@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
-import { SquarePen, Trash2 } from "lucide-react";
+import { SquarePen, Trash2, Plus } from "lucide-react";
 import { deleteAssayIssue, fetchAssayIssue } from '../../../services/apiService';
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from 'react-router-dom';
@@ -112,65 +112,61 @@ function AssayIssueList() {
 
   return (
     <div className="p-4">
-      <div className="flex flex-wrap gap-3 justify-between mb-4">
-        <Input
-          type="text"
-          value={search}
-          onChange={(e) => setParams({ search: e.target.value, sortby })}
-          placeholder="Search by bill no..."
-          className="max-w-xs"
-        />
-        <div className="flex gap-2 items-center">
-          <Select value={sortby} onValueChange={(v) => setParams({ search, sortby: v })}>
-            <SelectTrigger className="w-44">
-              <span>Sort: {sortby.startsWith('-') ? "Newest first" : "Oldest first"}</span>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="-date1">Date (Newest first)</SelectItem>
-              <SelectItem value="date1">Date (Oldest first)</SelectItem>
-              <SelectItem value="billno">Bill No (A→Z)</SelectItem>
-              <SelectItem value="-billno">Bill No (Z→A)</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-4">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            <Input
+              type="text"
+              value={search}
+              onChange={(e) => setParams({ search: e.target.value, sortby })}
+              placeholder="Search by bill no..."
+              className="max-w-xs"
+            />
+            <Select value={sortby} onValueChange={(v) => setParams({ search, sortby: v })}>
+              <SelectTrigger className="w-44">
+                <span>{sortby ? sortby.replace('-', '↓ ') : 'Sort by'}</span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date1">Date (Old first)</SelectItem>
+                <SelectItem value="-date1">Date (New first)</SelectItem>
+                <SelectItem value="billno">Bill No (Asc)</SelectItem>
+                <SelectItem value="-billno">Bill No (Desc)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Link to="add/">
-            <Button className="bg-primary hover:bg-primary text-white">+ Add New</Button>
+            <Button size="sm" className="gap-1.5">
+              <Plus className="size-4" />
+              Add Assay Issue
+            </Button>
           </Link>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="w-full h-10" />
-          ))}
-        </div>
-      ) : error ? (
-        <div className="text-red-500">Error: {String(error)}</div>
-      ) : (
-        <>
-          <DataTable columns={columns} data={records} />
-
-          <div className="flex justify-between items-center mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-gray-600">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page === totalPages}
-            >
-              Next
-            </Button>
+        {/* Content */}
+        {loading ? (
+          <div className="flex flex-col gap-2">
+            {[...Array(6)].map((_, i) => (
+              <Skeleton key={i} className="w-full h-10" />
+            ))}
           </div>
-        </>
-      )}
+        ) : error ? (
+          <div className="text-destructive text-sm">Error: {String(error)}</div>
+        ) : (
+          <>
+            <DataTable columns={columns} data={records} />
+            <div className="flex items-center justify-between pt-1">
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1}>
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(p + 1, totalPages))} disabled={page === totalPages}>
+                Next
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -68,6 +68,12 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     linked_bill_count  = serializers.SerializerMethodField(read_only=True)
     is_overdue         = serializers.SerializerMethodField(read_only=True)
     days_overdue       = serializers.SerializerMethodField(read_only=True)
+    salesman_1_name    = serializers.SerializerMethodField(read_only=True)
+    salesman_2_name    = serializers.SerializerMethodField(read_only=True)
+    ldgr_mobile        = serializers.SerializerMethodField(read_only=True)
+    retail_name        = serializers.SerializerMethodField(read_only=True)
+    retail_phone       = serializers.SerializerMethodField(read_only=True)
+    retail_city        = serializers.SerializerMethodField(read_only=True)
 
     def get_advance_amt(self, obj):
         return float(obj.advance_amt)
@@ -97,19 +103,42 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
             return 0
         return (date.today() - obj.delivery_date).days
 
+    def get_salesman_1_name(self, obj):
+        return obj.salesman_1.salesperson_name if obj.salesman_1 else ""
+
+    def get_salesman_2_name(self, obj):
+        return obj.salesman_2.salesperson_name if obj.salesman_2 else ""
+
+    def get_ldgr_mobile(self, obj):
+        return obj.ldgr.mobile1 if obj.ldgr and obj.ldgr.mobile1 else ""
+
+    def get_retail_name(self, obj):
+        return obj.retail.retail_name if obj.retail else ""
+
+    def get_retail_phone(self, obj):
+        return obj.retail.phone if obj.retail else ""
+
+    def get_retail_city(self, obj):
+        return obj.retail.city if obj.retail else ""
+
     class Meta:
         model = CustomerOrder
-        fields = ['id', 'ldgr', 'ldgr_code_name', 'date1', 'order_no', 'fix_gold_rate', 'gold_rate_date',
-             'rate_18kt', 'rate_22kt', 'rate_24kt', 'salesman_1', 'salesman_2',
+        fields = ['id', 'ldgr', 'ldgr_code_name', 'ldgr_mobile', 'date1', 'order_no',
+             'fix_gold_rate', 'gold_rate_date',
+             'rate_14kt', 'rate_18kt', 'rate_22kt', 'salesman_1', 'salesman_2',
+             'salesman_1_name', 'salesman_2_name',
              'advance_amt', 'est_amount', 'nature', 'status',
              'delivery_date', 'delivery_status', 'actual_delivery_date',
              'remarks', 'items',
              'advance_reconciled', 'advance_available', 'linked_bill_count',
-             'is_overdue', 'days_overdue']
+             'is_overdue', 'days_overdue',
+             'retail_name', 'retail_phone', 'retail_city']
 
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
             'ldgr_code_name': {'read_only': True},
+            # order_no is generated server-side; frontend may omit or send a stale peek
+            'order_no': {'required': False, 'allow_blank': True, 'default': ''},
         }
 
     def create(self, validated_data):
@@ -173,6 +202,7 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
     uom = serializers.CharField(source='item.uom', read_only=True)
     item_type = serializers.CharField(source='item.item_type', read_only=True)
     item_name = serializers.CharField(source='item.item_name', read_only=True)
+    metal_purity = serializers.CharField(max_length=10, allow_null=True, allow_blank=True, required=False)
 
     class Meta:
         model = SalesVouItemDetails
@@ -360,6 +390,36 @@ class SalesVouSerializer(serializers.ModelSerializer):
         allow_null=True, required=False
     )
 
+    total_gw = serializers.SerializerMethodField(read_only=True)
+    total_net_wt = serializers.SerializerMethodField(read_only=True)
+    total_diamond_ct = serializers.SerializerMethodField(read_only=True)
+
+    def get_total_gw(self, obj):
+        from decimal import Decimal
+        return sum((i.gw or Decimal('0')) for i in obj.salesvouitem_set.all())
+
+    def get_total_net_wt(self, obj):
+        from decimal import Decimal
+        total = Decimal('0')
+        for i in obj.salesvouitem_set.all():
+            if i.barcode_id and i.barcode and i.barcode.nw:
+                total += i.barcode.nw
+        return total
+
+    def get_total_diamond_ct(self, obj):
+        from decimal import Decimal
+        total = Decimal('0')
+        # Sub-items nested under barcode-linked main items
+        for it in obj.salesvouitem_set.all():
+            for d in it.main_item_set.all():
+                if d.item_id and d.item and d.item.item_type == 'S' and d.ct:
+                    total += d.ct
+        # Manual sub-items (not linked to a main item)
+        for d in obj.salesvouitemdetails_set.all():
+            if d.main_item_id is None and d.item_id and d.item and d.item.item_type == 'S' and d.ct:
+                total += d.ct
+        return total
+
     class Meta:
         model = SalesVou
         fields = [
@@ -399,6 +459,9 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'igst_amt',  # Computed property
             'total_bill_value',  # Computed property
             'tcs_amt',  # Computed property
+            'total_gw',
+            'total_net_wt',
+            'total_diamond_ct',
             'salesvouitem_set',  # Nested items serializer
             'salesvouitemdetails_set',
             'exhibition_profile',
@@ -761,18 +824,16 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         with transaction.atomic():
-            # ── Prevent editing if any barcode is no longer in stock ─────────
-            sold_barcodes = [
-                item.barcode.barcode
-                for item in instance.salesvouitem_set.select_related('barcode').all()
-                if item.barcode_id and item.barcode and not item.barcode.stk_status
-            ]
-            if sold_barcodes:
-                raise serializers.ValidationError(
-                    f"This voucher cannot be edited because the following barcode(s) are no longer "
-                    f"in stock (already sold or transferred): {', '.join(sold_barcodes)}. "
-                    f"Please create a Sales Return to reverse this transaction."
-                )
+            # ── Release this voucher's barcodes back to stock before update ──
+            # The voucher's own barcodes have stk_status=False (they were marked
+            # sold at create time). Temporarily flipping them to True lets the
+            # nested update validate/add/remove barcodes freely. We re-mark the
+            # FINAL item set as sold after the nested update runs. Everything
+            # below is inside transaction.atomic() — any failure rolls back.
+            for _it in instance.salesvouitem_set.select_related('barcode').all():
+                if _it.barcode_id and _it.barcode and not _it.barcode.stk_status:
+                    _it.barcode.stk_status = True
+                    _it.barcode.save(update_fields=['stk_status'])
 
             detail_data = validated_data.pop('salesvouitem_set', [])
             item_details_data = validated_data.pop('salesvouitemdetails_set', [])
@@ -797,6 +858,14 @@ class SalesVouSerializer(serializers.ModelSerializer):
             instance.save()
 
             create_or_update_nested(SalesVouItemSerializer, instance, 'salesvouitem_set', 'billno', SalesVouItemSerializer(detail_data, many=True).data)
+
+            # ── Mark the final set of barcodes as sold ────────────────────────
+            # Kept/added barcodes end up sold; removed barcodes were released
+            # above and stay in stock because they're no longer in the set.
+            for _it in instance.salesvouitem_set.select_related('barcode').all():
+                if _it.barcode_id and _it.barcode and _it.barcode.stk_status:
+                    _it.barcode.stk_status = False
+                    _it.barcode.save(update_fields=['stk_status'])
 
             # Rebuild direct manual details (those not linked to a barcode item).
             # These were previously dropped on update — now they are properly saved.

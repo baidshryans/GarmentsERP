@@ -4,7 +4,7 @@ import { useForm, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {
     Select,
@@ -300,6 +300,8 @@ const LedgerForm = () => {
     const { id } = useParams();
     const { toast } = useToast();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const nextUrl = searchParams.get("next"); // e.g. /sales/customerorder/list/add/
     const acGroupBtnRef = React.useRef(null);
 
     const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { errors } } = useForm({
@@ -560,7 +562,18 @@ const LedgerForm = () => {
                     setPendingDocs([]);
                 }
                 toast({ title: "Success", description: `Ledger ${id ? 'updated' : 'created'} successfully.` });
-                setTimeout(() => navigate("/crm/ledger"), 1200);
+                setTimeout(() => {
+                    // If opened from another page (e.g. Customer Order form), redirect back with new ledger info
+                    if (!id && nextUrl) {
+                        const qs = new URLSearchParams({
+                            ldgr: newId,
+                            ldgr_name: payload.ac_name ?? "",
+                        }).toString();
+                        navigate(`${nextUrl}?${qs}`);
+                    } else {
+                        navigate("/crm/ledger");
+                    }
+                }, 1200);
             } else {
                 toast({ title: "Submission failed", description: renderErrorTree(response.error) });
             }

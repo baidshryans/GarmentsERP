@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { SquarePen, PlusCircle, Printer, Trash2, Wrench } from "lucide-react";
+import { SquarePen, PlusCircle, Printer, Trash2, Wrench, Plus } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchRepairJobCards, deleteRepairJobCard, fetchRepairJobCardById } from "@/services/apiService";
 import { openAndPrint } from "@/services/print/utils";
 import RepairJobCardPrint from "@/services/print/RepairJobCard";
@@ -137,9 +138,9 @@ export default function RepairJobCardList() {
           <h1 className="text-lg font-semibold">Repair Job Cards</h1>
         </div>
         <Link to="/manufacturing/repair/new">
-          <Button size="sm" className="gap-1.5 h-8">
-            <PlusCircle className="size-4" />
-            New
+          <Button size="sm" className="gap-1.5">
+            <Plus className="size-4" />
+            Add Repair Job Card
           </Button>
         </Link>
       </div>
@@ -180,7 +181,11 @@ export default function RepairJobCardList() {
 
       {/* Table */}
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <div className="flex flex-col gap-2">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="w-full h-10" />
+          ))}
+        </div>
       ) : (
         <DataTable
           columns={columns}

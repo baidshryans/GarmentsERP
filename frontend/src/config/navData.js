@@ -134,7 +134,6 @@ export const navData = {
         { title: "Hallmark Issue",            url: "/manufacturing/reports/hmissue"                 },
         { title: "Finished Item Receive",     url: "/manufacturing/reports/finisheditemrec"         },
         { title: "Karigar – Job Work",        url: "/manufacturing/reports/karigar-jobwork"         },
-        { title: "Karigar – Broken Stones",   url: "#"                                             },
         { title: "Refinery Report",           url: "/manufacturing/reports/refinery"                },
       ],
     },

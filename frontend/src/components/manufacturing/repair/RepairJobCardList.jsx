@@ -131,11 +131,39 @@ export default function RepairJobCardList() {
 
   return (
     <div className="p-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Wrench className="size-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold">Repair Job Cards</h1>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <Input
+            className="max-w-xs"
+            placeholder="Search RJC no / customer…"
+            value={search}
+            onChange={(e) => {
+              setPage(1);
+              setSearchParams((p) => { p.set("search", e.target.value); return p; });
+            }}
+          />
+          <Select
+            value={status || "__all__"}
+            onValueChange={(v) => {
+              setPage(1);
+              setSearchParams((p) => {
+                if (v === "__all__") p.delete("status");
+                else p.set("status", v);
+                return p;
+              });
+            }}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All statuses</SelectItem>
+              {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <Link to="/manufacturing/repair/new">
           <Button size="sm" className="gap-1.5">
@@ -143,40 +171,6 @@ export default function RepairJobCardList() {
             Add Repair Job Card
           </Button>
         </Link>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-3 items-center">
-        <Input
-          className="h-8 w-56 text-sm"
-          placeholder="Search RJC no / customer…"
-          value={search}
-          onChange={(e) => {
-            setPage(1);
-            setSearchParams((p) => { p.set("search", e.target.value); return p; });
-          }}
-        />
-        <Select
-          value={status || "__all__"}
-          onValueChange={(v) => {
-            setPage(1);
-            setSearchParams((p) => {
-              if (v === "__all__") p.delete("status");
-              else p.set("status", v);
-              return p;
-            });
-          }}
-        >
-          <SelectTrigger className="h-8 w-44 text-sm">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All statuses</SelectItem>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Table */}

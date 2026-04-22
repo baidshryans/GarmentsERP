@@ -56,3 +56,6 @@ desktop.ini
 *.sw?
 .idea/
 *.log
+
+# Local MCP server config (contains machine-specific paths)
+.mcp.json

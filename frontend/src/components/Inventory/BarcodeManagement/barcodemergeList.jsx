@@ -1,14 +1,14 @@
 import React,{useState, useEffect} from 'react'
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
-import { fetchKarigarIssues, fetchStoneIssues, getLedgers,fetchSalesApproval, fetchBarcodeList, fetchBarcodeMerges} from "@/services/apiService";
+import { Label } from "@/components/ui/label";
+import { fetchBarcodeMerges, getFiscalYears } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { SquarePen, Trash2 } from "lucide-react";
 
-
+const today = new Date().toISOString().split("T")[0];
 
 function BarcodeMergeView() {
 
@@ -18,28 +18,41 @@ function BarcodeMergeView() {
       const [search, setSearch] = useState("");
       const [page, setPage] = useState(1);
       const [totalPages, setTotalPages] = useState(1);
-      const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
-    
+      const [fromDate, setFromDate] = useState("");
+      const [toDate, setToDate] = useState(today);
+
+      useEffect(() => {
+        getFiscalYears().then((res) => {
+          if (res.success) {
+            const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+            const activeFy = data.find((fy) => fy.is_active);
+            if (activeFy?.fy_start) {
+              setFromDate(activeFy.fy_start);
+            } else {
+              const now = new Date();
+              const fyYear = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+              setFromDate(`${fyYear}-04-01`);
+            }
+          }
+        });
+      }, []);
+
     useEffect(() => {
+        if (!fromDate) return;
         const fetchLedgers = async () => {
           setLoading(true);
-          const result = await fetchBarcodeMerges({
-            search,
-            page,
-            ordering,
-          });
-    
+          const result = await fetchBarcodeMerges({ from_date: fromDate, to_date: toDate });
           if (result.success) {
-            setLedgers(result.data.results);
-            setTotalPages(result.data.total_pages);
+            const d = result.data;
+            setLedgers(Array.isArray(d) ? d : d?.results ?? []);
+            setTotalPages(d?.total_pages ?? 1);
           } else {
             setError(result.error);
           }
           setLoading(false);
         };
-    
         fetchLedgers();
-      }, [search, page, ordering]);
+      }, [fromDate, toDate, page, search]);
     
       
 
@@ -81,24 +94,22 @@ function BarcodeMergeView() {
   return (
     <>
     <div className="p-4">
-          <div className="flex justify-between mb-4">
-            {/* Search Input */}
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">From Date</Label>
+              <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="w-36" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">To Date</Label>
+              <Input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="w-36" />
+            </div>
             <Input
               type="text"
               placeholder="Search..."
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="max-w-sm"
             />
-             <Select >
-              <SelectTrigger className="max-w-sm">
-                <span>Sort By</span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ac_name">Name</SelectItem>
-                <SelectItem value="mobile1">Phone</SelectItem>
-                <SelectItem value="add1">Address</SelectItem>
-                <SelectItem value="ac_group">Group</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           { (loading) ? 

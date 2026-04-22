@@ -196,7 +196,6 @@ const SalesVoucherAdd = () => {
   const [activeOffer, setActiveOffer] = useState(null);           // company-wide active offer (retail only)
   const [enableGstBill, setEnableGstBill] = useState(false);      // driven by SystemSettings.enable_gst_bill
   const [showManualItems, setShowManualItems] = useState(false);  // section 3 toggle
-  const [isVoucherLocked, setIsVoucherLocked] = useState(false); // true when any barcode is no longer in stock
   // Resolved item for the current manual input row
   const [detailItem, setDetailItem] = useState(null);
   // Display name shown in the item text box (item_name, not short_code)
@@ -397,18 +396,18 @@ const SalesVoucherAdd = () => {
       return voucherResponse;
     }
 
+    let cancelled = false;
+
     fetchData().then((voucherResponse) => {
+      // React 18 Strict Mode runs effects twice (mount → cleanup → remount).
+      // Without this guard, both .then() callbacks would call append(), doubling every item.
+      if (cancelled) return;
+
       if (id) {
         if (!voucherResponse?.success) {
           console.error('Error fetching sales voucher for edit:', voucherResponse?.error);
         } else {
           const data = voucherResponse.data;
-          // Lock editing if any barcode in this voucher is no longer in stock
-          // (stk_status=false means it has been sold/transferred).
-          const hasSoldBarcode = (data.salesvouitem_set ?? []).some(
-            item => item.barcode_stk_status === false
-          );
-          if (hasSoldBarcode) setIsVoucherLocked(true);
           const formData = {
             form: {
               ...data,
@@ -442,6 +441,8 @@ const SalesVoucherAdd = () => {
         }
       }
     });
+
+    return () => { cancelled = true; };
   }, [setValue]);
 
   // ── Formulas ───────────────────────────────────────────────────────────────
@@ -572,8 +573,8 @@ const SalesVoucherAdd = () => {
     const hsn_ = hsns.find(e => e.hsn_no === hsn_current);
     if (!hsn_) return;
     // Use retailStateCode from initial data (same code system as place_of_supply options).
-    // Fall back to localStorage only if initial data hasn't loaded yet.
-    const retailState = retailStateCode || localStorage.getItem('state_code') || "";
+    // Fall back to sessionStorage only if initial data hasn't loaded yet.
+    const retailState = retailStateCode || sessionStorage.getItem('state_code') || "";
     const isIntraState = place_of_supply === retailState;
     setValue('form.sgst_per', isIntraState ? parseFloat(hsn_.sgst) : 0.0);
     setValue('form.cgst_per', isIntraState ? parseFloat(hsn_.cgst) : 0.0);
@@ -976,20 +977,6 @@ const SalesVoucherAdd = () => {
           if (msgs.length) toast({ title: "Please fix the following", description: msgs.join(", "), variant: "destructive" });
         })}
       >
-
-        {/* ── Locked voucher banner ────────────────────────────────────────── */}
-        {isVoucherLocked && (
-          <div className="flex items-start gap-3 mb-5 px-4 py-3 rounded-lg bg-amber-50 border border-amber-300 text-amber-800 text-sm">
-            <span className="text-lg leading-none">🔒</span>
-            <div>
-              <p className="font-semibold">This voucher cannot be edited.</p>
-              <p className="text-xs mt-0.5 text-amber-700">
-                One or more barcodes in this bill are no longer in stock (already sold or transferred).
-                To make corrections, please create a <strong>Sales Return</strong> first.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* ══ 1. BILL DETAILS ══════════════════════════════════════════════════ */}
         <SectionHeader number="1" title="Bill Details" />
@@ -1499,7 +1486,7 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
                       <TableCell className="px-3 py-2 border"></TableCell>
-                      <TableCell className="px-3 py-2 border text-sm">{detail?.purity}</TableCell>
+                      <TableCell className="px-3 py-2 border text-sm">{detail?.metal_purity}</TableCell>
                       <TableCell className="w-20 px-3 py-2 border">
                         {(detail?.item_type === 'R' || detail?.item === "Gold") && (
                           <Input type="text" className="h-7 text-sm" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.tunch`)} placeholder="Tunch" />
@@ -1930,10 +1917,8 @@ const SalesVoucherAdd = () => {
           <Button
             asChild
             className="bg-primary hover:bg-primary text-white px-8"
-            disabled={isVoucherLocked}
-            title={isVoucherLocked ? "Voucher is locked — barcodes are no longer in stock" : undefined}
           >
-            <button type="submit" disabled={isVoucherLocked}>Save</button>
+            <button type="submit">Save</button>
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>

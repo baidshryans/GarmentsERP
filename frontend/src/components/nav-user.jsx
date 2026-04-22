@@ -89,7 +89,7 @@ export function NavUser({
                   await setupRollback();
                 }
               } catch (err) { /* swallow */ }
-              localStorage.clear();
+              sessionStorage.clear();
               sessionStorage.removeItem("erpSetupComplete");
               window.location.reload();
             }} >

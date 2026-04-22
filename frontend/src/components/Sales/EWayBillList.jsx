@@ -212,7 +212,10 @@ export default function EWayBillList() {
     {
       header: "Distance (km)",
       accessorKey: "trans_distance",
-      cell: ({ getValue }) => <span className="text-xs text-right block">{getValue() || "—"}</span>,
+      cell: ({ getValue }) => {
+        const v = getValue();
+        return <span className="text-xs text-right block">{v != null && v !== '' ? v : "—"}</span>;
+      },
     },
     {
       header: "Generated",

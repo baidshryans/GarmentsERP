@@ -166,13 +166,22 @@ function SalesVoucherList() {
           >
             <FileJson className="size-4" />
           </button>
-          <button
-            title="Generate E-Way Bill"
-            onClick={() => openEwaySheet(row.original)}
-            className="text-orange-500 hover:text-orange-700"
-          >
-            <Truck className="size-4" />
-          </button>
+          {row.original.has_eway_bill ? (
+            <span
+              title="E-Way Bill already generated for this voucher"
+              className="text-green-500 cursor-default"
+            >
+              <Truck className="size-4" />
+            </span>
+          ) : (
+            <button
+              title="Generate E-Way Bill"
+              onClick={() => openEwaySheet(row.original)}
+              className="text-orange-500 hover:text-orange-700"
+            >
+              <Truck className="size-4" />
+            </button>
+          )}
           {(() => {
             const phone = row.original.mobile1 || row.original.mobile2 || row.original.mobile3;
             const hasPhone = !!phone;
@@ -203,6 +212,30 @@ function SalesVoucherList() {
     },
     { header: "Bill No", accessorKey: "billno" },
     { header: "Party Name", accessorKey: "ldgr_name" },
+    {
+      header: "GW",
+      accessorKey: "total_gw",
+      cell: ({ getValue }) => {
+        const v = parseFloat(getValue() || 0);
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
+      },
+    },
+    {
+      header: "Net Wt",
+      accessorKey: "total_net_wt",
+      cell: ({ getValue }) => {
+        const v = parseFloat(getValue() || 0);
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
+      },
+    },
+    {
+      header: "Diamond Ct",
+      accessorKey: "total_diamond_ct",
+      cell: ({ getValue }) => {
+        const v = parseFloat(getValue() || 0);
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
+      },
+    },
     {
       header: "Discount",
       accessorKey: "discount",

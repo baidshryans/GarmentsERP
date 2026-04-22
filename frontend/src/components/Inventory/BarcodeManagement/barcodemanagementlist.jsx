@@ -103,12 +103,23 @@ const BarcodeManagementList = () => {
       return;
     }
     const pkt = packetData.find((p) => p.pckt_no === detailPacket);
-    if (pkt?.stone_item_id) {
-      const item = pkt.stone_item_id;
-      setValue("detail.item", item.short_code || "");
+    if (pkt) {
+      const shortCode =
+        (pkt.stone_item_id && typeof pkt.stone_item_id === "object"
+          ? pkt.stone_item_id.short_code
+          : pkt.stone_item_short_code) || "";
+      const itemName =
+        (pkt.stone_item_id && typeof pkt.stone_item_id === "object"
+          ? pkt.stone_item_id.item_name
+          : pkt.stone_item_name) || "";
+      const uom =
+        (pkt.stone_item_id && typeof pkt.stone_item_id === "object"
+          ? pkt.stone_item_id.uom
+          : pkt.stone_item_uom) || "";
+      setValue("detail.item", shortCode);
       setValue("detail.rate", pkt.rate_for_retail ?? pkt.rate ?? "");
-      setDetailItemDisplay(item.item_name || "");
-      setDetailUom(item.uom || "");
+      setDetailItemDisplay(itemName);
+      setDetailUom(uom);
     }
   }, [detailPacket, packetData, setValue]);
 
@@ -706,7 +717,25 @@ const BarcodeManagementList = () => {
                   <TableRow key={field.id} className="hover:bg-muted/20">
                     <TableCell className="p-1.5">
                       <Input type="text" list={`saved_pckt_${index}`} className="h-8 text-sm"
-                        {...register(`form.barcodedetails_set.${index}.packet`)}
+                        {...register(`form.barcodedetails_set.${index}.packet`, {
+                          onChange: (e) => {
+                            const pkt = packetData.find((p) => p.pckt_no === e.target.value);
+                            if (pkt) {
+                              const itemObj = pkt.stone_item_id;
+                              if (itemObj && typeof itemObj === "object") {
+                                setValue(`form.barcodedetails_set.${index}.item`, itemObj.short_code || "");
+                                setValue(`form.barcodedetails_set.${index}.item_name`, itemObj.item_name || "");
+                                setValue(`form.barcodedetails_set.${index}.uom`, itemObj.uom || "");
+                              } else if (pkt.stone_item_short_code) {
+                                setValue(`form.barcodedetails_set.${index}.item`, pkt.stone_item_short_code);
+                                setValue(`form.barcodedetails_set.${index}.item_name`, pkt.stone_item_name || "");
+                                setValue(`form.barcodedetails_set.${index}.uom`, pkt.stone_item_uom || "");
+                              }
+                              setValue(`form.barcodedetails_set.${index}.rate`, pkt.rate_for_retail ?? 0);
+                              recalcDetailAmt(index);
+                            }
+                          },
+                        })}
                       />
                       <datalist id={`saved_pckt_${index}`}>
                         {packetData.map((p, i) => <option key={i} value={p.pckt_no} />)}

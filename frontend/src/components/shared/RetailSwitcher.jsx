@@ -22,26 +22,42 @@ export function RetailSwitcher() {
   const { toast } = useToast();
   const [retails, setRetails] = useState([]);
   const [activeCode, setActiveCode] = useState(
-    () => localStorage.getItem('retail_code') || ''
+    () => sessionStorage.getItem('retail_code') || ''
   );
 
   useEffect(() => {
     getRetails().then((res) => {
       if (res.success && res.data.results?.length > 0) {
         const ul = res.data.results[0];
-        setRetails(ul.location || []);
+        const locations = ul.location || [];
+        setRetails(locations);
+
         // Store the default country code for the active retail so PhoneInput can use it
         const countryCode = ul.default_country_code || 'IN';
-        localStorage.setItem('default_country_code', countryCode);
+        sessionStorage.setItem('default_country_code', countryCode);
+
+        // Auto-select default retail if none is saved in sessionStorage yet
+        const savedCode = sessionStorage.getItem('retail_code');
+        if (!savedCode && locations.length > 0) {
+          // Prefer user's default_location, fall back to first in list
+          const defaultRetail = ul.default_location || locations[0];
+          if (defaultRetail) {
+            sessionStorage.setItem('retail_code', defaultRetail.retail_code);
+            sessionStorage.setItem('state_code', defaultRetail.state?.code ?? '');
+            setActiveCode(defaultRetail.retail_code);
+            // Reload so all API calls pick up the new X-RETAIL-ID header
+            window.location.reload();
+          }
+        }
       }
     });
   }, []);
 
   const handleSwitch = (retail) => {
     if (retail.retail_code === activeCode) return;
-    localStorage.setItem('retail_code', retail.retail_code);
-    localStorage.setItem('state_code', retail.state?.code ?? '');
-    localStorage.setItem('default_country_code', retail.default_country_code || 'IN');
+    sessionStorage.setItem('retail_code', retail.retail_code);
+    sessionStorage.setItem('state_code', retail.state?.code ?? '');
+    sessionStorage.setItem('default_country_code', retail.default_country_code || 'IN');
     setActiveCode(retail.retail_code);
     toast({
       title: 'Retail Switched',

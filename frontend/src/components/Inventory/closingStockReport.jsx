@@ -1,10 +1,10 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getClosingStockValuation } from "../../services/apiService";
-import { Package, Printer, TrendingUp, Weight, Gem, BarChart3 } from "lucide-react";
+import { getClosingStockValuation, getClosingStockTxns, fetchCompanies } from "../../services/apiService";
+import { Package, Printer, TrendingUp, Weight, Gem, BarChart3, X, Loader2 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 
 const today = new Date().toISOString().split("T")[0];
@@ -17,10 +17,20 @@ const CATEGORY_TABS = [
   { key: "C",   label: "Coin" },
 ];
 
+const TXN_LABELS = {
+  purchases:        "Purchases",
+  purchase_returns: "Purchase Returns",
+  sales:            "Sales",
+  sale_returns:     "Sale Returns",
+  refinery_issues:  "Refinery Issues",
+  refinery_receives:"Refinery Receives",
+};
+
 const fmt   = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const fmtK  = (v) => { const n = Number(v); if (n >= 1e7) return (n/1e7).toFixed(2)+"Cr"; if (n >= 1e5) return (n/1e5).toFixed(2)+"L"; return fmt(n); };
 const isNonZero = (v) => Math.abs(Number(v)) > 0.001;
+const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 /* ─── KPI Card ──────────────────────────────────────────────────────────── */
 function KpiCard({ icon: Icon, label, value, sub }) {
@@ -36,30 +46,39 @@ function KpiCard({ icon: Icon, label, value, sub }) {
   );
 }
 
-/* ─── column group header ───────────────────────────────────────────────── */
+/* ─── Column group headers ──────────────────────────────────────────────── */
 const ColGroup = ({ label, span, className = "" }) => (
   <th colSpan={span} className={`px-2 py-2 text-center text-[10px] uppercase tracking-widest font-bold border border-border bg-muted/60 text-muted-foreground ${className}`}>
     {label}
   </th>
 );
-
-/* ─── closing column group header (uses primary tint) ──────────────────── */
 const ColGroupPrimary = ({ label, span }) => (
   <th colSpan={span} className="px-2 py-2 text-center text-[10px] uppercase tracking-widest font-bold border border-border bg-primary/8 text-primary">
     {label}
   </th>
 );
-
-/* ─── sub-header cell ───────────────────────────────────────────────────── */
 const SubHead = ({ label, className = "" }) => (
   <th className={`px-2 py-1.5 text-right text-[10px] uppercase tracking-wider font-semibold border border-border bg-muted/30 text-muted-foreground ${className}`}>
     {label}
   </th>
 );
 
-/* ─── data cell ─────────────────────────────────────────────────────────── */
+/* ─── Plain data cell ───────────────────────────────────────────────────── */
 const Td = ({ children, className = "" }) => (
   <td className={`px-2 py-1.5 text-right text-xs border border-border/50 tabular-nums ${className}`}>
+    {children}
+  </td>
+);
+
+/* ─── Clickable data cell ───────────────────────────────────────────────── */
+const ClickTd = ({ children, className = "", onClick, active = false }) => (
+  <td
+    onClick={onClick}
+    className={`px-2 py-1.5 text-right text-xs border border-border/50 tabular-nums
+      cursor-pointer select-none transition-colors duration-100
+      ${active ? "bg-primary/15 text-primary font-semibold" : "hover:bg-primary/8 hover:text-primary"}
+      ${className}`}
+  >
     {children}
   </td>
 );
@@ -89,13 +108,129 @@ function LoadingSkeleton() {
   );
 }
 
+/* ─── Drill-down Transaction Modal ─────────────────────────────────────── */
+function TxnModal({ drill, asOnDate, onClose }) {
+  const [vouchers, setVouchers]   = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState("");
+
+  useEffect(() => {
+    if (!drill) return;
+    setLoading(true);
+    setError("");
+    setVouchers(null);
+    getClosingStockTxns({ item_id: drill.item_id, txn_type: drill.txn_type, to_date: asOnDate })
+      .then((res) => {
+        if (res.success) setVouchers(res.data.vouchers);
+        else setError("Failed to load transactions.");
+      })
+      .finally(() => setLoading(false));
+  }, [drill, asOnDate]);
+
+  const totals = useMemo(() => {
+    if (!vouchers) return null;
+    return vouchers.reduce(
+      (acc, v) => ({ gw: acc.gw + v.gw, ct: acc.ct + v.ct, amount: acc.amount + v.amount }),
+      { gw: 0, ct: 0, amount: 0 }
+    );
+  }, [vouchers]);
+
+  const showAmt   = drill?.txn_type !== "refinery_issues" && drill?.txn_type !== "refinery_receives";
+  const showCt    = true;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-card rounded-xl shadow-2xl w-[96vw] max-w-3xl max-h-[85vh] flex flex-col border border-border"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-4 border-b border-border">
+          <div>
+            <p className="font-semibold text-foreground text-sm">{drill?.item_name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {TXN_LABELS[drill?.txn_type]} · up to {fmtDate(asOnDate)}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-accent rounded-lg transition-colors">
+            <X className="size-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-auto flex-1">
+          {loading && (
+            <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
+              <Loader2 className="size-4 animate-spin" /> Loading…
+            </div>
+          )}
+          {error && (
+            <p className="text-center py-16 text-destructive text-sm">{error}</p>
+          )}
+          {!loading && vouchers && vouchers.length === 0 && (
+            <p className="text-center py-16 text-muted-foreground text-sm">No transactions found.</p>
+          )}
+          {!loading && vouchers && vouchers.length > 0 && (
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-muted/50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wide font-semibold text-muted-foreground border-b border-border">Date</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wide font-semibold text-muted-foreground border-b border-border">Voucher No</th>
+                  <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wide font-semibold text-muted-foreground border-b border-border">Party</th>
+                  <th className="px-3 py-2.5 text-right text-[10px] uppercase tracking-wide font-semibold text-muted-foreground border-b border-border">GW (g)</th>
+                  {showCt && <th className="px-3 py-2.5 text-right text-[10px] uppercase tracking-wide font-semibold text-muted-foreground border-b border-border">Ct</th>}
+                  {showAmt && <th className="px-3 py-2.5 text-right text-[10px] uppercase tracking-wide font-semibold text-muted-foreground border-b border-border">Amount (₹)</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {vouchers.map((v, i) => (
+                  <tr key={i} className="hover:bg-accent/30 transition-colors">
+                    <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(v.date)}</td>
+                    <td className="px-3 py-2 font-medium text-foreground">{v.voucher_no}</td>
+                    <td className="px-3 py-2 text-muted-foreground max-w-[180px] truncate">{v.party || "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{isNonZero(v.gw) ? fmtWt(v.gw) : <Dash />}</td>
+                    {showCt  && <td className="px-3 py-2 text-right tabular-nums">{isNonZero(v.ct) ? fmtWt(v.ct) : <Dash />}</td>}
+                    {showAmt && <td className="px-3 py-2 text-right tabular-nums font-medium">{isNonZero(v.amount) ? fmt(v.amount) : <Dash />}</td>}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t-2 border-border bg-muted/50">
+                <tr>
+                  <td colSpan={3} className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    Total ({vouchers.length} rows)
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-foreground">{fmtWt(totals.gw)}</td>
+                  {showCt  && <td className="px-3 py-2.5 text-right tabular-nums font-bold text-foreground">{fmtWt(totals.ct)}</td>}
+                  {showAmt && <td className="px-3 py-2.5 text-right tabular-nums font-bold text-primary">₹{fmt(totals.amount)}</td>}
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main component ────────────────────────────────────────────────────── */
 export default function ClosingStockTable() {
   const [asOnDate, setAsOnDate] = useState(today);
   const tableRef = useRef(null);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
   const [category, setCategory] = useState("all");
+  const [drill, setDrill]       = useState(null); // { item_id, item_name, txn_type }
+  const [companyName, setCompanyName] = useState("");
+
+  useEffect(() => {
+    fetchCompanies().then((res) => {
+      if (res.success) {
+        const results = res.data?.results || res.data || [];
+        if (results.length > 0) setCompanyName(results[0].company_name || "");
+      }
+    });
+  }, []);
 
   const fetchReport = async () => {
     setError("");
@@ -106,6 +241,10 @@ export default function ClosingStockTable() {
     else setError(typeof res.error === "string" ? res.error : res.error?.error || "Failed to load report.");
     setLoading(false);
   };
+
+  const openDrill = useCallback((item_id, item_name, txn_type) => {
+    setDrill({ item_id, item_name, txn_type });
+  }, []);
 
   const filteredDetails = useMemo(() => {
     if (!data?.details) return [];
@@ -147,7 +286,56 @@ export default function ClosingStockTable() {
 
   const handlePrint = () => {
     if (!tableRef.current || !data) return;
-    printReport({ title: "Closing Stock Valuation", subtitle: `As on ${asOnDate}`, html: tableRef.current.outerHTML, landscape: true });
+    // Light vertical dividers between column groups (Opening | Purchases | Purc Ret | Sales |
+    // Sale Ret | Refinery | Wtd Avg | Closing). nth-child indices reference the 24-col data layout.
+    const groupBorderCss = `
+      thead tr:nth-child(2) th:nth-child(2),
+      thead tr:nth-child(2) th:nth-child(5),
+      thead tr:nth-child(2) th:nth-child(8),
+      thead tr:nth-child(2) th:nth-child(11),
+      thead tr:nth-child(2) th:nth-child(14),
+      thead tr:nth-child(2) th:nth-child(17),
+      thead tr:nth-child(2) th:nth-child(21),
+      thead tr:nth-child(2) th:nth-child(22),
+      tbody tr td:nth-child(2),
+      tbody tr td:nth-child(5),
+      tbody tr td:nth-child(8),
+      tbody tr td:nth-child(11),
+      tbody tr td:nth-child(14),
+      tbody tr td:nth-child(17),
+      tbody tr td:nth-child(21),
+      tbody tr td:nth-child(22),
+      tfoot tr td:nth-child(2),
+      tfoot tr td:nth-child(5),
+      tfoot tr td:nth-child(8),
+      tfoot tr td:nth-child(11),
+      tfoot tr td:nth-child(14),
+      tfoot tr td:nth-child(17),
+      tfoot tr td:nth-child(21),
+      tfoot tr td:nth-child(22) {
+        border-left: 0.75px solid #cbd5e1 !important;
+      }
+      tbody tr td:last-child,
+      tfoot tr td:last-child,
+      thead tr:nth-child(2) th:last-child {
+        border-right: 0.75px solid #cbd5e1 !important;
+      }
+      tbody tr td:first-child,
+      tfoot tr td:first-child,
+      thead tr:nth-child(2) th:first-child {
+        border-left: 0.75px solid #cbd5e1 !important;
+      }
+    `;
+    const [y, m, d] = (asOnDate || "").split("-");
+    const ddmmyyyy  = y && m && d ? `${d}-${m}-${y}` : asOnDate;
+    printReport({
+      title: "Closing Stock Valuation",
+      subtitle: `As on ${ddmmyyyy}`,
+      html: tableRef.current.outerHTML,
+      landscape: true,
+      extraCss: groupBorderCss,
+      company: companyName,
+    });
   };
 
   return (
@@ -159,7 +347,6 @@ export default function ClosingStockTable() {
           <Label className="text-xs font-medium text-muted-foreground">As on Date</Label>
           <Input type="date" value={asOnDate} onChange={(e) => setAsOnDate(e.target.value)} className="h-9 w-44" />
         </div>
-
         <Button size="sm" onClick={fetchReport} disabled={loading} className="h-9 px-5">
           {loading ? (
             <span className="flex items-center gap-2">
@@ -170,7 +357,6 @@ export default function ClosingStockTable() {
             <span className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Show Report</span>
           )}
         </Button>
-
         {data && (
           <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto gap-1.5">
             <Printer className="size-4" /> Print
@@ -230,13 +416,18 @@ export default function ClosingStockTable() {
         </div>
       )}
 
+      {data && !loading && (
+        <p className="text-[11px] text-muted-foreground -mt-3 print:hidden">
+          Click any amount cell to drill into its vouchers.
+        </p>
+      )}
+
       {/* ── Data table ─────────────────────────────────────────────────── */}
       {data && !loading && (
         <div className="rounded-xl border border-border overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table ref={tableRef} className="w-full text-xs border-collapse">
               <thead className="sticky top-0 z-10">
-                {/* Level 1 — group headers */}
                 <tr>
                   <ColGroup label="Item"         span={1} className="text-left w-36" />
                   <ColGroup label="Opening"      span={3} />
@@ -248,7 +439,6 @@ export default function ClosingStockTable() {
                   <ColGroup label="Wtd Avg"      span={1} />
                   <ColGroupPrimary label="Closing" span={3} />
                 </tr>
-                {/* Level 2 — sub-headers */}
                 <tr>
                   <SubHead label="Name" className="text-left !font-bold w-36" />
                   <SubHead label="GW" /><SubHead label="Ct" /><SubHead label="Amt" />
@@ -273,61 +463,65 @@ export default function ClosingStockTable() {
                   </tr>
                 )}
 
-                {filteredDetails.map((d, i) => (
-                  <tr
-                    key={d.item_id}
-                    className={`border-t border-border/40 transition-colors hover:bg-muted/30 ${i % 2 === 1 ? "bg-muted/10" : ""}`}
-                  >
-                    {/* Item name */}
-                    <td className="px-2 py-2 text-left border border-border/40 font-medium whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
-                          {d.item_type}
-                        </span>
-                        <span>{d.item_name}</span>
-                      </div>
-                    </td>
+                {filteredDetails.map((d, i) => {
+                  const isActive = (txn) => drill?.item_id === d.item_id && drill?.txn_type === txn;
+                  const click    = (txn) => () => openDrill(d.item_id, d.item_name, txn);
+                  return (
+                    <tr
+                      key={d.item_id}
+                      className={`border-t border-border/40 transition-colors hover:bg-muted/30 ${i % 2 === 1 ? "bg-muted/10" : ""}`}
+                    >
+                      {/* Item name */}
+                      <td className="px-2 py-2 text-left border border-border/40 font-medium whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
+                            {d.item_type}
+                          </span>
+                          <span>{d.item_name}</span>
+                        </div>
+                      </td>
 
-                    {/* Opening */}
-                    <Td>{isNonZero(d.opening_gw)  ? fmtWt(d.opening_gw)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.opening_ct)  ? fmtWt(d.opening_ct)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.opening_amt) ? fmt(d.opening_amt)   : <Dash/>}</Td>
+                      {/* Opening — not drillable (opening stock from op_stk records, not vouchers) */}
+                      <Td>{isNonZero(d.opening_gw)  ? fmtWt(d.opening_gw)  : <Dash/>}</Td>
+                      <Td>{isNonZero(d.opening_ct)  ? fmtWt(d.opening_ct)  : <Dash/>}</Td>
+                      <Td>{isNonZero(d.opening_amt) ? fmt(d.opening_amt)   : <Dash/>}</Td>
 
-                    {/* Purchases */}
-                    <Td>{isNonZero(d.purchase_gw)  ? fmtWt(d.purchase_gw)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.purchase_ct)  ? fmtWt(d.purchase_ct)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.purchase_amt) ? fmt(d.purchase_amt)   : <Dash/>}</Td>
+                      {/* Purchases */}
+                      <ClickTd active={isActive("purchases")} onClick={click("purchases")}>{isNonZero(d.purchase_gw)  ? fmtWt(d.purchase_gw)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("purchases")} onClick={click("purchases")}>{isNonZero(d.purchase_ct)  ? fmtWt(d.purchase_ct)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("purchases")} onClick={click("purchases")}>{isNonZero(d.purchase_amt) ? fmt(d.purchase_amt)   : <Dash/>}</ClickTd>
 
-                    {/* Purchase Return */}
-                    <Td>{isNonZero(d.purc_ret_gw)  ? fmtWt(d.purc_ret_gw)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.purc_ret_ct)  ? fmtWt(d.purc_ret_ct)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.purc_ret_amt) ? fmt(d.purc_ret_amt)   : <Dash/>}</Td>
+                      {/* Purchase Returns */}
+                      <ClickTd active={isActive("purchase_returns")} onClick={click("purchase_returns")}>{isNonZero(d.purc_ret_gw)  ? fmtWt(d.purc_ret_gw)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("purchase_returns")} onClick={click("purchase_returns")}>{isNonZero(d.purc_ret_ct)  ? fmtWt(d.purc_ret_ct)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("purchase_returns")} onClick={click("purchase_returns")}>{isNonZero(d.purc_ret_amt) ? fmt(d.purc_ret_amt)   : <Dash/>}</ClickTd>
 
-                    {/* Sales */}
-                    <Td>{isNonZero(d.sales_gw)  ? fmtWt(d.sales_gw)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.sales_ct)  ? fmtWt(d.sales_ct)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.sales_amt) ? fmt(d.sales_amt)   : <Dash/>}</Td>
+                      {/* Sales */}
+                      <ClickTd active={isActive("sales")} onClick={click("sales")}>{isNonZero(d.sales_gw)  ? fmtWt(d.sales_gw)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("sales")} onClick={click("sales")}>{isNonZero(d.sales_ct)  ? fmtWt(d.sales_ct)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("sales")} onClick={click("sales")}>{isNonZero(d.sales_amt) ? fmt(d.sales_amt)   : <Dash/>}</ClickTd>
 
-                    {/* Sale Return */}
-                    <Td>{isNonZero(d.sale_ret_gw)  ? fmtWt(d.sale_ret_gw)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.sale_ret_ct)  ? fmtWt(d.sale_ret_ct)  : <Dash/>}</Td>
-                    <Td>{isNonZero(d.sale_ret_amt) ? fmt(d.sale_ret_amt)   : <Dash/>}</Td>
+                      {/* Sale Returns */}
+                      <ClickTd active={isActive("sale_returns")} onClick={click("sale_returns")}>{isNonZero(d.sale_ret_gw)  ? fmtWt(d.sale_ret_gw)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("sale_returns")} onClick={click("sale_returns")}>{isNonZero(d.sale_ret_ct)  ? fmtWt(d.sale_ret_ct)  : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("sale_returns")} onClick={click("sale_returns")}>{isNonZero(d.sale_ret_amt) ? fmt(d.sale_ret_amt)   : <Dash/>}</ClickTd>
 
-                    {/* Refinery */}
-                    <Td>{isNonZero(d.ref_iss_gw) ? fmtWt(d.ref_iss_gw) : <Dash/>}</Td>
-                    <Td>{isNonZero(d.ref_iss_ct) ? fmtWt(d.ref_iss_ct) : <Dash/>}</Td>
-                    <Td>{isNonZero(d.ref_rec_gw) ? fmtWt(d.ref_rec_gw) : <Dash/>}</Td>
-                    <Td>{isNonZero(d.ref_rec_ct) ? fmtWt(d.ref_rec_ct) : <Dash/>}</Td>
+                      {/* Refinery */}
+                      <ClickTd active={isActive("refinery_issues")}   onClick={click("refinery_issues")}>{isNonZero(d.ref_iss_gw) ? fmtWt(d.ref_iss_gw) : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("refinery_issues")}   onClick={click("refinery_issues")}>{isNonZero(d.ref_iss_ct) ? fmtWt(d.ref_iss_ct) : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("refinery_receives")} onClick={click("refinery_receives")}>{isNonZero(d.ref_rec_gw) ? fmtWt(d.ref_rec_gw) : <Dash/>}</ClickTd>
+                      <ClickTd active={isActive("refinery_receives")} onClick={click("refinery_receives")}>{isNonZero(d.ref_rec_ct) ? fmtWt(d.ref_rec_ct) : <Dash/>}</ClickTd>
 
-                    {/* Wtd Avg Rate */}
-                    <Td className="font-mono text-muted-foreground">{fmtWt(d.weighted_avg_rate)}</Td>
+                      {/* Wtd Avg Rate */}
+                      <Td className="font-mono text-muted-foreground">{fmtWt(d.weighted_avg_rate)}</Td>
 
-                    {/* Closing */}
-                    <Td className="bg-primary/5 font-medium">{isNonZero(d.closing_gw) ? fmtWt(d.closing_gw) : <Dash/>}</Td>
-                    <Td className="bg-primary/5 font-medium">{isNonZero(d.closing_ct) ? fmtWt(d.closing_ct) : <Dash/>}</Td>
-                    <Td className="bg-primary/5 font-bold text-primary">{fmt(d.closing_amt)}</Td>
-                  </tr>
-                ))}
+                      {/* Closing — derived, not drillable */}
+                      <Td className="bg-primary/5 font-medium">{isNonZero(d.closing_gw) ? fmtWt(d.closing_gw) : <Dash/>}</Td>
+                      <Td className="bg-primary/5 font-medium">{isNonZero(d.closing_ct) ? fmtWt(d.closing_ct) : <Dash/>}</Td>
+                      <Td className="bg-primary/5 font-bold text-primary">{fmt(d.closing_amt)}</Td>
+                    </tr>
+                  );
+                })}
               </tbody>
 
               {filteredDetails.length > 0 && totals && (
@@ -384,6 +578,11 @@ export default function ClosingStockTable() {
             Select a date and click <span className="font-medium text-foreground">Show Report</span> to view closing stock with category breakdowns.
           </p>
         </div>
+      )}
+
+      {/* ── Drill-down modal ─────────────────────────────────────────────── */}
+      {drill && (
+        <TxnModal drill={drill} asOnDate={asOnDate} onClose={() => setDrill(null)} />
       )}
     </div>
   );

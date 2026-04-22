@@ -7,8 +7,10 @@
  * @param {string}  [opts.subtitle]  — Optional line below the title (e.g. date range)
  * @param {string}  opts.html        — The inner HTML of the report body (usually a <table>)
  * @param {boolean} [opts.landscape] — If true, prints in landscape orientation (default: portrait)
+ * @param {string}  [opts.company]   — Company name shown above the title (falls back to blank if not provided)
+ * @param {string}  [opts.extraCss]  — Additional CSS injected into the print stylesheet
  */
-export function printReport({ title, subtitle, html, landscape = false }) {
+export function printReport({ title, subtitle, html, landscape = false, company = "", extraCss = "" }) {
   const win = window.open("", "_blank", "width=900,height=700");
   if (!win) {
     alert("Please allow popups for this site to print reports.");
@@ -191,11 +193,13 @@ export function printReport({ title, subtitle, html, landscape = false }) {
 
     /* Utility: hide screen-only elements */
     .print-hide, .no-print { display: none !important; }
+
+    ${extraCss}
   </style>
 </head>
 <body>
   <div class="report-header">
-    <div class="company">Jewel India</div>
+    ${company ? `<div class="company">${company}</div>` : ""}
     <h1>${title}</h1>
     ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ""}
   </div>

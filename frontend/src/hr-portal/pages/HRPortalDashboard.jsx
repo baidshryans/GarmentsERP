@@ -12,7 +12,7 @@ const STATUS_COLORS = {
 
 export default function HRPortalDashboard() {
   const navigate = useNavigate();
-  const emp = JSON.parse(localStorage.getItem("hrPortalEmployee") || "{}");
+  const emp = JSON.parse(sessionStorage.getItem("hrPortalEmployee") || "{}");
   const [slips, setSlips] = useState([]);
 
   useEffect(() => {

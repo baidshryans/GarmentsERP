@@ -8,7 +8,7 @@ const hrPortalApiClient = axios.create({
 });
 
 hrPortalApiClient.interceptors.request.use(config => {
-  const token = localStorage.getItem("hrPortalToken");
+  const token = sessionStorage.getItem("hrPortalToken");
   if (token) config.headers["Authorization"] = `Token ${token}`;
   return config;
 });
@@ -17,8 +17,8 @@ hrPortalApiClient.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401) {
-      localStorage.removeItem("hrPortalToken");
-      localStorage.removeItem("hrPortalEmployee");
+      sessionStorage.removeItem("hrPortalToken");
+      sessionStorage.removeItem("hrPortalEmployee");
       window.location.href = "/hr-portal/login";
     }
     return Promise.reject(err);

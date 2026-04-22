@@ -7,16 +7,18 @@ export async function loginAndSaveToken(username, password) {
 
     const { token, user } = response.data;
 
-    localStorage.setItem("Token", token);
-    localStorage.setItem("user", JSON.stringify(user));
+    sessionStorage.setItem("Token", token);
+    sessionStorage.setItem("user", JSON.stringify(user));
+    // Notify same-tab listeners (storage event only fires cross-tab natively)
+    window.dispatchEvent(new Event("storage"));
     const data = await getRetails();
     if (data.success && data.data.results?.length > 0) {
       const ul = data.data.results[0];
       // Prefer default_location; fall back to first assigned retail
       const loc = ul.default_location || (ul.location?.length > 0 ? ul.location[0] : null);
       if (loc) {
-        localStorage.setItem('retail_code', loc.retail_code);
-        localStorage.setItem('state_code', loc.state?.code ?? '');
+        sessionStorage.setItem('retail_code', loc.retail_code);
+        sessionStorage.setItem('state_code', loc.state?.code ?? '');
       }
     }
 
@@ -37,7 +39,7 @@ export async function loginAndSaveToken(username, password) {
       
       const token  = req.cookies.token; 
   
-      localStorage.setItem("Token", token);
+      sessionStorage.setItem("Token", token);
   
   
       return { success: true, data: response.data };
@@ -119,6 +121,16 @@ export async function getClosingStockValuation({ to_date } = {}) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+export async function getClosingStockTxns({ item_id, txn_type, to_date } = {}) {
+  try {
+    const params = new URLSearchParams({ item_id, txn_type, to_date });
+    const response = await apiClient.get(`/inventory/api/closing-stock-txns/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function getStates() {
   try {
     const response = await apiClient.get("/contacts/api/states/");
@@ -452,11 +464,10 @@ export async function deleteAccount(id) {
 }
 
 // Fetch all ledgers (no type filter, no pagination) — for pickers
-export async function getLedgerList() {
+export async function getLedgerList(params = {}) {
   try {
-    const response = await apiClient.get('/contacts/api/ledger/?page_size=10000');
+    const response = await apiClient.get('/contacts/api/ledger/', { params: { page_size: 10000, ...params } });
     const data = response.data;
-    // Handle both paginated and plain list responses
     return { success: true, data: Array.isArray(data) ? data : (data.results || []) };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -577,9 +588,9 @@ export async function fetchPoNoNext() {
   }
 }
 
-export async function fetchPVNoNext() {
+export async function fetchPVNoNext(voucher_type = 'Vendor') {
   try {
-    const response = await apiClient.get(`/purchase/get-next-pv-no/`);
+    const response = await apiClient.get(`/purchase/get-next-pv-no/`, { params: { voucher_type } });
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch order number :", error.response?.data || error.message);
@@ -1026,6 +1037,16 @@ export async function fetchPurchaseOrderForEdit(id) {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch PurchaseOrder:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchPendingCustomerOrderItems() {
+  try {
+    const response = await apiClient.get(`/sales/api/customer-orders/pending-items/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch pending customer order items:", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }
@@ -1541,6 +1562,20 @@ export async function fetchPackets() {
   }
 }
 
+export async function fetchBarcodeByText(barcodeText) {
+  try {
+    const response = await apiClient.get(
+      `inventory/barcode/?barcode=${encodeURIComponent(barcodeText)}`
+    );
+    const results = response.data?.results ?? response.data;
+    const found = Array.isArray(results) ? results.find((b) => b.barcode === barcodeText) : null;
+    return { success: true, data: found || null };
+  } catch (error) {
+    console.error("Failed to fetch barcode by text:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchBarcodes({ search = "", page = 1, ordering = "" } = {}) {
   try {
     const params = new URLSearchParams();
@@ -1568,21 +1603,27 @@ export async function fetchDetailsforSaleReturn(billno) {
   }
 }
 
-export async function fetchBarcodeMerges() {
+export async function fetchBarcodeMerges({ from_date = "", to_date = "" } = {}) {
   try {
-    const response = await apiClient.get(`inventory/api/barcode-merge/`);
+    const params = new URLSearchParams({ transaction_type: "Merge" });
+    if (from_date) params.append("date1__gte", from_date);
+    if (to_date) params.append("date1__lte", to_date);
+    const response = await apiClient.get(`inventory/api/brcode-split-merge?${params}`);
     return { success: true, data: response.data };
   } catch (error) {
-    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    console.error("Failed to fetch barcode merges:", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }
-export async function fetchBarcodeSplits() {
+export async function fetchBarcodeSplits({ from_date = "", to_date = "" } = {}) {
   try {
-    const response = await apiClient.get(`inventory/api/barcode-split/`);
+    const params = new URLSearchParams({ transaction_type: "Split" });
+    if (from_date) params.append("date1__gte", from_date);
+    if (to_date) params.append("date1__lte", to_date);
+    const response = await apiClient.get(`inventory/api/brcode-split-merge?${params}`);
     return { success: true, data: response.data };
   } catch (error) {
-    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    console.error("Failed to fetch barcode splits:", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }
@@ -3438,6 +3479,15 @@ export const deleteCustomerOrder = async (id, toast) => {
   handleDelete(result, toast, "Customer order deleted successfully.");
 };
 
+export async function cancelCustomerOrder(id) {
+  try {
+    const res = await apiClient.post(`/sales/api/customer-orders-vs/${id}/cancel/`);
+    return { success: true, data: res.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchDeliveryOverview() {
   try {
     const res = await apiClient.get('/sales/api/customer-orders/delivery-overview/');
@@ -3531,6 +3581,16 @@ export async function fetchGSTR3BReport({ from_date, to_date } = {}) {
 export async function fetchBarcodeStockReport(asOnDate) {
   try {
     const response = await apiClient.get(`/inventory/api/stock-report?as_on_date=${asOnDate}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
+export async function fetchBarcodeStockReportBarcodes({ itemId, column, asOnDate }) {
+  try {
+    const params = new URLSearchParams({ item_id: itemId, column, as_on_date: asOnDate });
+    const response = await apiClient.get(`/inventory/api/stock-report/barcodes?${params.toString()}`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
@@ -4287,9 +4347,18 @@ export async function uploadKarigarMakingCSV(file) {
   }
 }
 
-export async function runMySQLSync(tables = null) {
+export async function getMySQLConfig() {
   try {
-    const body = tables ? { tables } : {};
+    const r = await apiClient.get("/mastersconfig/api/mysql-sync/");
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
+export async function runMySQLSync(connection = {}, tables = null) {
+  try {
+    const body = { ...connection, ...(tables ? { tables } : {}) };
     const response = await apiClient.post("/mastersconfig/api/mysql-sync/", body, { timeout: 300000 });
     return { success: true, data: response.data };
   } catch (error) {

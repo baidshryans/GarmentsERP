@@ -14,7 +14,7 @@ import { useSearchParams } from "react-router-dom";
 // ── Print template rendered inside the new window ───────────────────────────
 function StockJournalPrintView({ data }) {
   const rows    = data.stockjournaldetail_set ?? [];
-  const retail  = localStorage.getItem("retail_name") || "";
+  const retail  = sessionStorage.getItem("retail_name") || "";
 
   const totals = ["Issue", "Receive"].map(type => {
     const filtered = rows.filter(r => r.doc_type === type);

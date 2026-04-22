@@ -24,18 +24,18 @@ export default function HRPortalLogin() {
       return;
     }
 
-    localStorage.setItem("hrPortalToken", r.data.token);
+    sessionStorage.setItem("hrPortalToken", r.data.token);
 
     // Verify this user has an employee profile
     const pr = await hrPortalFetchProfile();
     setLoading(false);
     if (!pr.success) {
-      localStorage.removeItem("hrPortalToken");
+      sessionStorage.removeItem("hrPortalToken");
       setError("Your account is not linked to an employee profile. Please contact HR.");
       return;
     }
 
-    localStorage.setItem("hrPortalEmployee", JSON.stringify(pr.data));
+    sessionStorage.setItem("hrPortalEmployee", JSON.stringify(pr.data));
     navigate("/hr-portal/dashboard");
   }
 

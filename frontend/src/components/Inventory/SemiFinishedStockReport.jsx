@@ -64,14 +64,14 @@ export default function SemiFinishedStockReport() {
     <div className="flex flex-col gap-5">
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 text-center">
-          <p className="text-[10px] text-amber-700 uppercase tracking-wider">With Karigar</p>
-          <p className="text-lg font-semibold text-amber-800 tabular-nums">{wipSummary?.count || 0} items</p>
-          <p className="text-xs text-amber-600">{fmtWt(wipSummary?.total_approx_wt || 0)} g approx</p>
+        <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-center">
+          <p className="text-[10px] text-primary uppercase tracking-wider">With Karigar</p>
+          <p className="text-lg font-semibold text-primary tabular-nums">{wipSummary?.count || 0} items</p>
+          <p className="text-xs text-primary">{fmtWt(wipSummary?.total_approx_wt || 0)} g approx</p>
         </div>
-        <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/50 text-center">
-          <p className="text-[10px] text-amber-700 uppercase tracking-wider">WIP Pcs</p>
-          <p className="text-lg font-semibold text-amber-800 tabular-nums">{fmtQty(wipSummary?.total_pcs || 0)}</p>
+        <div className="p-3 rounded-lg border border-primary/20 bg-primary/5 text-center">
+          <p className="text-[10px] text-primary uppercase tracking-wider">WIP Pcs</p>
+          <p className="text-lg font-semibold text-primary tabular-nums">{fmtQty(wipSummary?.total_pcs || 0)}</p>
         </div>
         <div className="p-3 rounded-lg border border-violet-200 bg-violet-50/50 text-center">
           <p className="text-[10px] text-primary uppercase tracking-wider">Pending Barcode</p>
@@ -89,7 +89,7 @@ export default function SemiFinishedStockReport() {
         <div className="flex rounded-lg border border-border overflow-hidden">
           <button
             className={`px-4 py-2 text-xs font-medium transition-colors ${
-              tab === "wip" ? "bg-amber-600 text-white" : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
+              tab === "wip" ? "bg-primary text-white" : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
             }`}
             onClick={() => setTab("wip")}
           >
@@ -127,7 +127,7 @@ export default function SemiFinishedStockReport() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-amber-50 text-xs uppercase tracking-wider text-amber-800">
+                <tr className="bg-primary/10 text-xs uppercase tracking-wider text-primary">
                   <th className="px-3 py-2.5 text-left font-semibold">Karigar</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Issue Slip</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Issue Date</th>

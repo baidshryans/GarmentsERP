@@ -1,16 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Calendar, FileText, Download } from 'lucide-react';
-import { fetchItemWiseBarcode } from './services/apiService';
+import { fetchItemWiseBarcode, getFiscalYears } from './services/apiService';
+
+const today = new Date().toISOString().split("T")[0];
 
 const ItemwiseBarcodeReport = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({
-    fromDate: '2024-02-01',
-    toDate: '2025-02-01',
+    fromDate: '',
+    toDate: today,
     searchTerm: ''
   });
+
+  useEffect(() => {
+    getFiscalYears().then((res) => {
+      if (res.success) {
+        const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+        const activeFy = data.find((fy) => fy.is_active);
+        if (activeFy?.fy_start) {
+          setFilters((f) => ({ ...f, fromDate: activeFy.fy_start }));
+        } else {
+          const now = new Date();
+          const fyYear = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+          setFilters((f) => ({ ...f, fromDate: `${fyYear}-04-01` }));
+        }
+      }
+    });
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);

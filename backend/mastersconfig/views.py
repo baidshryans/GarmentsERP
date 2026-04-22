@@ -896,10 +896,26 @@ class ItemGroupCSVUploadView(APIView):
 
 class MySQLSyncView(APIView):
     """
-    POST /mastersconfig/api/mysql-sync/
-    Body: { "tables": ["hsn", "item", "packet_group", "packet"] }  (optional — all synced if omitted)
-    Requires MYSQL_SYNC_CONFIG in settings.py with host/port/user/password/database.
+    GET  /mastersconfig/api/mysql-sync/  — return saved connection config (password omitted)
+    POST /mastersconfig/api/mysql-sync/  — save connection details and run sync
+    Body: {
+        "host": "...", "port": 3306, "database": "...", "user": "...", "password": "...",
+        "tables": ["hsn", "item", "packet_group", "packet"]   (optional)
+    }
+    Connection details are persisted to SystemSettings so they only need to be entered once.
     """
+
+    def get(self, request):
+        from .models import SystemSettings
+        saved = SystemSettings.get().mysql_sync_config or {}
+        fallback = getattr(settings, 'MYSQL_SYNC_CONFIG', {})
+        return Response({
+            'host':     saved.get('host')     or fallback.get('host', ''),
+            'port':     saved.get('port')     or fallback.get('port', 3306),
+            'database': saved.get('database') or fallback.get('database', ''),
+            'user':     saved.get('user')     or fallback.get('user', ''),
+            'password': saved.get('password') or fallback.get('password', ''),
+        })
 
     def post(self, request):
         try:
@@ -910,14 +926,31 @@ class MySQLSyncView(APIView):
                 status=500
             )
 
-        cfg = getattr(settings, 'MYSQL_SYNC_CONFIG', {})
-        if not cfg.get('database'):
-            return Response(
-                {'error': 'MYSQL_SYNC_DB is not configured in settings / environment variables'},
-                status=500
-            )
+        from .models import SystemSettings
 
-        tables_requested = request.data.get('tables', ['hsn', 'item', 'packet_group', 'packet'])
+        # Build config: request body takes precedence, then saved DB config, then settings.py
+        body = request.data
+        saved = SystemSettings.get().mysql_sync_config or {}
+        fallback = getattr(settings, 'MYSQL_SYNC_CONFIG', {})
+
+        cfg = {
+            'host':     body.get('host')     or saved.get('host')     or fallback.get('host', '127.0.0.1'),
+            'port':     int(body.get('port') or saved.get('port')     or fallback.get('port', 3306)),
+            'user':     body.get('user')     or saved.get('user')     or fallback.get('user', 'root'),
+            'password': body.get('password') or saved.get('password') or fallback.get('password', ''),
+            'database': body.get('database') or saved.get('database') or fallback.get('database', ''),
+            'charset':  'utf8mb4',
+        }
+
+        if not cfg['database']:
+            return Response({'error': 'Database name is required'}, status=400)
+
+        # Persist updated config to SystemSettings
+        ss = SystemSettings.get()
+        ss.mysql_sync_config = {k: v for k, v in cfg.items() if k != 'charset'}
+        ss.save(update_fields=['mysql_sync_config'])
+
+        tables_requested = body.get('tables', ['hsn', 'item', 'packet_group', 'packet'])
         results = {}
 
         try:
@@ -927,7 +960,7 @@ class MySQLSyncView(APIView):
                 user=cfg['user'],
                 password=cfg['password'],
                 database=cfg['database'],
-                charset=cfg.get('charset', 'utf8mb4'),
+                charset=cfg['charset'],
                 cursorclass=pymysql.cursors.DictCursor,
             )
         except Exception as e:

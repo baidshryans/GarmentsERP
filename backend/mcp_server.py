@@ -35,7 +35,7 @@ mcp = FastMCP("Jewel India ERP")
 # ---------------------------------------------------------------------------
 # Django model imports (after django.setup())
 # ---------------------------------------------------------------------------
-from mastersconfig.models import RetailMaster
+from mastersconfig.models import RetailMaster, FiscalYearMaster
 from contacts.models import Ledger
 from accounting.models import VoucherMain, VoucherDetail, LedgerOpenBalance, Account
 from sales.models import SalesVou, SalesVouItem, CustomerOrder
@@ -945,6 +945,482 @@ def get_scheme_overdue_payments(retail_code: str = "") -> str:
 
     from goldscheme.services.reports import overdue_payments
     return json.dumps(overdue_payments(retail), indent=2, default=str)
+
+
+# ===================================================================
+#  COMPARISON / MULTI-PERIOD TOOLS
+# ===================================================================
+
+@mcp.tool()
+def compare_profit_and_loss(
+    period1_from: str,
+    period1_to: str,
+    period2_from: str,
+    period2_to: str,
+    retail_code: str = "",
+) -> str:
+    """Compare Profit & Loss statements across two periods (e.g. two financial years).
+
+    Returns both periods side-by-side with absolute and percentage change.
+
+    Args:
+        period1_from: Period 1 start date (YYYY-MM-DD)
+        period1_to:   Period 1 end date   (YYYY-MM-DD)
+        period2_from: Period 2 start date (YYYY-MM-DD)
+        period2_to:   Period 2 end date   (YYYY-MM-DD)
+        retail_code:  Retail location code (optional)
+    """
+    from accounting.views import calcuate_pnl
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    def _pnl(start, end):
+        data = calcuate_pnl(start_date=start, end_date=end, retail=retail)
+        return {k: float(v) if isinstance(v, Decimal) else v for k, v in data.items()}
+
+    p1 = _pnl(period1_from, period1_to)
+    p2 = _pnl(period2_from, period2_to)
+
+    def _change(v1, v2):
+        try:
+            v1f, v2f = float(v1), float(v2)
+            diff = v2f - v1f
+            pct = (diff / v1f * 100) if v1f != 0 else None
+            return {"period1": round(v1f, 2), "period2": round(v2f, 2),
+                    "change": round(diff, 2), "change_pct": round(pct, 2) if pct is not None else None}
+        except (TypeError, ValueError):
+            return {"period1": v1, "period2": v2}
+
+    numeric_keys = ["total_income", "total_direct_expense", "gross_profit",
+                    "total_indirect_expense", "net_profit"]
+    comparison = {}
+    for key in numeric_keys:
+        comparison[key] = _change(p1.get(key, 0), p2.get(key, 0))
+
+    return json.dumps({
+        "period1": f"{period1_from} to {period1_to}",
+        "period2": f"{period2_from} to {period2_to}",
+        "comparison": comparison,
+        "period1_detail": p1,
+        "period2_detail": p2,
+    }, indent=2, default=str)
+
+
+@mcp.tool()
+def compare_balance_sheet(
+    date1: str,
+    date2: str,
+    retail_code: str = "",
+) -> str:
+    """Compare Balance Sheet at two different dates (e.g. end of two financial years).
+
+    Returns assets and liabilities for both dates with the movement.
+
+    Args:
+        date1:       First as-of date  (YYYY-MM-DD)
+        date2:       Second as-of date (YYYY-MM-DD)
+        retail_code: Retail location code (optional)
+    """
+    from django.db.models import Sum, F, DecimalField
+    from accounting.views import calcuate_pnl
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    def _build_bs(as_of_date):
+        txn_by_group = {}
+        for row in VoucherDetail.objects.filter(
+            voucher_main__date__lte=as_of_date, voucher_main__retail=retail
+        ).values("account__ac_group").annotate(balance=Sum(F("debit")) - Sum(F("credit"))):
+            gid = row["account__ac_group"]
+            if gid is not None:
+                txn_by_group[gid] = row["balance"] or Decimal(0)
+
+        ob_by_group = {}
+        for row in LedgerOpenBalance.objects.filter(retail=retail).values(
+            "ldgr__ac_group"
+        ).annotate(balance=Sum(F("debit") - F("credit"), output_field=DecimalField())):
+            gid = row["ldgr__ac_group"]
+            if gid is not None:
+                ob_by_group[gid] = row["balance"] or Decimal(0)
+
+        all_accounts = list(Account.objects.all())
+        children_map = {}
+        for acc in all_accounts:
+            pid = acc.parent_id
+            children_map.setdefault(pid, []).append(acc)
+
+        def get_descendants(pid):
+            result = []
+            for child in children_map.get(pid, []):
+                result.append(child)
+                result.extend(get_descendants(child.id))
+            return result
+
+        def group_total(group_name):
+            parent = next((a for a in all_accounts if a.name == group_name), None)
+            if not parent:
+                return 0.0
+            total = Decimal(0)
+            for acc in get_descendants(parent.id):
+                total += txn_by_group.get(acc.id, Decimal(0)) + ob_by_group.get(acc.id, Decimal(0))
+            return float(total)
+
+        pnl = calcuate_pnl("2000-01-01", as_of_date, retail=retail)
+        net_profit = float(pnl.get("net_profit", 0))
+        assets = group_total("Assets")
+        liabilities = group_total("Liabilities") + net_profit
+        return {"assets": round(assets, 2), "liabilities": round(liabilities, 2),
+                "net_profit": round(net_profit, 2)}
+
+    bs1 = _build_bs(date1)
+    bs2 = _build_bs(date2)
+
+    def _chg(v1, v2):
+        diff = round(v2 - v1, 2)
+        pct = round(diff / v1 * 100, 2) if v1 != 0 else None
+        return {"date1": v1, "date2": v2, "change": diff, "change_pct": pct}
+
+    return json.dumps({
+        "date1": date1,
+        "date2": date2,
+        "assets":      _chg(bs1["assets"],      bs2["assets"]),
+        "liabilities": _chg(bs1["liabilities"], bs2["liabilities"]),
+        "net_profit":  _chg(bs1["net_profit"],  bs2["net_profit"]),
+        "balance_sheet_date1": bs1,
+        "balance_sheet_date2": bs2,
+    }, indent=2)
+
+
+@mcp.tool()
+def compare_sales(
+    period1_from: str,
+    period1_to: str,
+    period2_from: str,
+    period2_to: str,
+    retail_code: str = "",
+) -> str:
+    """Compare sales performance across two periods — total, count, average ticket, and top customers.
+
+    Args:
+        period1_from: Period 1 start date (YYYY-MM-DD)
+        period1_to:   Period 1 end date   (YYYY-MM-DD)
+        period2_from: Period 2 start date (YYYY-MM-DD)
+        period2_to:   Period 2 end date   (YYYY-MM-DD)
+        retail_code:  Retail location code (optional)
+    """
+    from django.db.models import Sum, Count, Avg
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    def _stats(from_d, to_d):
+        qs = SalesVou.objects.filter(retail=retail, date1__range=(from_d, to_d))
+        agg = qs.aggregate(total=Sum("bill_value"), count=Count("id"), avg=Avg("bill_value"))
+        top = list(
+            qs.values("ldgr__ac_name")
+            .annotate(amt=Sum("bill_value"))
+            .order_by("-amt")[:5]
+        )
+        return {
+            "total": float(agg["total"] or 0),
+            "count": agg["count"],
+            "avg_ticket": round(float(agg["avg"] or 0), 2),
+            "top_customers": [{"name": r["ldgr__ac_name"], "amount": float(r["amt"] or 0)} for r in top],
+        }
+
+    s1 = _stats(period1_from, period1_to)
+    s2 = _stats(period2_from, period2_to)
+
+    def _chg(v1, v2):
+        diff = round(v2 - v1, 2)
+        pct = round(diff / v1 * 100, 2) if v1 != 0 else None
+        return {"period1": round(v1, 2), "period2": round(v2, 2), "change": diff, "change_pct": pct}
+
+    return json.dumps({
+        "period1": f"{period1_from} to {period1_to}",
+        "period2": f"{period2_from} to {period2_to}",
+        "total_sales":  _chg(s1["total"], s2["total"]),
+        "invoice_count": _chg(s1["count"], s2["count"]),
+        "avg_ticket":   _chg(s1["avg_ticket"], s2["avg_ticket"]),
+        "period1_detail": s1,
+        "period2_detail": s2,
+    }, indent=2)
+
+
+@mcp.tool()
+def get_monthly_sales_trend(year: int, retail_code: str = "") -> str:
+    """Get month-by-month sales figures for a calendar or financial year.
+
+    Args:
+        year:        Calendar year (e.g. 2025). Returns Apr–Mar for that financial year.
+        retail_code: Retail location code (optional)
+    """
+    from django.db.models import Sum
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    # Financial year: Apr year → Mar year+1
+    fy_start = datetime.date(year, 4, 1)
+    fy_end   = datetime.date(year + 1, 3, 31)
+
+    monthly = []
+    cursor = fy_start
+    while cursor <= fy_end:
+        month_end = (cursor.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) - datetime.timedelta(days=1)
+        if month_end > fy_end:
+            month_end = fy_end
+        total = SalesVou.objects.filter(
+            retail=retail, date1__range=(cursor, month_end)
+        ).aggregate(t=Sum("bill_value"))["t"] or 0
+        monthly.append({
+            "month": cursor.strftime("%b %Y"),
+            "from": str(cursor),
+            "to": str(month_end),
+            "sales": round(float(total), 2),
+        })
+        cursor = month_end + datetime.timedelta(days=1)
+
+    fy_total = sum(m["sales"] for m in monthly)
+    return json.dumps({
+        "financial_year": f"FY {year}-{str(year + 1)[-2:]}",
+        "total": round(fy_total, 2),
+        "monthly": monthly,
+    }, indent=2)
+
+
+# ===================================================================
+#  FINANCIAL-YEAR-AWARE COMPARISON TOOLS
+# ===================================================================
+
+@mcp.tool()
+def list_financial_years(retail_code: str = "") -> str:
+    """List all financial years configured in the ERP for a retail location.
+
+    Use the fy_code values (e.g. "24-25") as inputs to compare_pnl_by_fy
+    and compare_balance_sheet_by_fy.
+
+    Args:
+        retail_code: Retail location code (optional, defaults to first retail)
+    """
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    fys = FiscalYearMaster.objects.filter(retail=retail).order_by("fy_start")
+    return json.dumps({
+        "retail": retail.retail_name,
+        "financial_years": [
+            {
+                "fy_code": fy.fy_code,
+                "label": f"FY {fy.fy_code}",
+                "from": str(fy.fy_start),
+                "to": str(fy.fy_end),
+                "is_closed": fy.is_closed,
+            }
+            for fy in fys
+        ],
+    }, indent=2)
+
+
+def _resolve_fy(fy_code: str, retail) -> dict | None:
+    """Return the FiscalYearMaster row for a given fy_code, or None."""
+    return FiscalYearMaster.objects.filter(retail=retail, fy_code=fy_code).first()
+
+
+@mcp.tool()
+def compare_pnl_by_fy(
+    fy_code1: str,
+    fy_code2: str,
+    retail_code: str = "",
+) -> str:
+    """Compare Profit & Loss statements across two financial years.
+
+    Pass the fy_code values from list_financial_years (e.g. "23-24" and "24-25").
+    Returns a structured comparison with absolute and percentage change for every
+    P&L line: gross sales, sales returns, purchases, COGS, gross profit,
+    direct expenses, indirect expenses, and net profit.
+
+    Args:
+        fy_code1:    First financial year code  (e.g. "23-24")
+        fy_code2:    Second financial year code (e.g. "24-25")
+        retail_code: Retail location code (optional)
+    """
+    from accounting.views import calcuate_pnl
+
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    fy1 = _resolve_fy(fy_code1, retail)
+    fy2 = _resolve_fy(fy_code2, retail)
+    missing = [c for c, f in [(fy_code1, fy1), (fy_code2, fy2)] if f is None]
+    if missing:
+        return json.dumps({"error": f"Financial year(s) not found: {', '.join(missing)}. Use list_financial_years to see available codes."})
+
+    def _pnl(fy):
+        raw = calcuate_pnl(start_date=str(fy.fy_start), end_date=str(fy.fy_end), retail=retail)
+        return {k: float(v) if isinstance(v, Decimal) else v for k, v in raw.items()}
+
+    p1 = _pnl(fy1)
+    p2 = _pnl(fy2)
+
+    def _row(key):
+        v1 = float(p1.get(key, 0) or 0)
+        v2 = float(p2.get(key, 0) or 0)
+        diff = round(v2 - v1, 2)
+        pct  = round(diff / v1 * 100, 2) if v1 != 0 else None
+        return {
+            f"fy_{fy_code1}": round(v1, 2),
+            f"fy_{fy_code2}": round(v2, 2),
+            "change":         diff,
+            "change_pct":     pct,
+        }
+
+    comparison = {
+        "gross_sales":            _row("gross_sales"),
+        "sales_returns":          _row("sales_return"),
+        "net_sales_revenue":      _row("sales_revenue"),
+        "opening_stock":          _row("opening_stock"),
+        "purchases":              _row("purchases"),
+        "purchase_returns":       _row("purchase_returns"),
+        "closing_stock":          _row("closing_stock"),
+        "cogs":                   _row("cogs"),
+        "gross_profit":           _row("gross_profit"),
+        "direct_expenses":        _row("direct_expenses_total"),
+        "indirect_expenses":      _row("indirect_expenses_total"),
+        "total_expenses":         _row("total_expenses"),
+        "net_profit":             _row("net_profit"),
+    }
+
+    return json.dumps({
+        "comparison_type": "Profit & Loss — Year on Year",
+        "fy1": {"code": fy_code1, "period": f"{fy1.fy_start} to {fy1.fy_end}"},
+        "fy2": {"code": fy_code2, "period": f"{fy2.fy_start} to {fy2.fy_end}"},
+        "line_items": comparison,
+        "note": "change = fy2 − fy1. Positive change_pct on net_profit means improvement.",
+    }, indent=2)
+
+
+@mcp.tool()
+def compare_balance_sheet_by_fy(
+    fy_code1: str,
+    fy_code2: str,
+    retail_code: str = "",
+) -> str:
+    """Compare Balance Sheets at the closing dates of two financial years.
+
+    Pass the fy_code values from list_financial_years (e.g. "23-24" and "24-25").
+    The balance sheet is evaluated as of the last day of each FY (fy_end).
+    Returns assets, liabilities, and net-worth side-by-side with movement.
+
+    Args:
+        fy_code1:    First financial year code  (e.g. "23-24")
+        fy_code2:    Second financial year code (e.g. "24-25")
+        retail_code: Retail location code (optional)
+    """
+    from django.db.models import Sum, F, DecimalField
+    from accounting.views import calcuate_pnl
+
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    fy1 = _resolve_fy(fy_code1, retail)
+    fy2 = _resolve_fy(fy_code2, retail)
+    missing = [c for c, f in [(fy_code1, fy1), (fy_code2, fy2)] if f is None]
+    if missing:
+        return json.dumps({"error": f"Financial year(s) not found: {', '.join(missing)}. Use list_financial_years to see available codes."})
+
+    all_accounts = list(Account.objects.all())
+    children_map: dict = {}
+    for acc in all_accounts:
+        children_map.setdefault(acc.parent_id, []).append(acc)
+
+    def _descendants(pid):
+        result = []
+        for child in children_map.get(pid, []):
+            result.append(child)
+            result.extend(_descendants(child.id))
+        return result
+
+    def _build_bs(as_of_date_str: str):
+        # Transaction balances up to as_of_date
+        txn = {}
+        for row in VoucherDetail.objects.filter(
+            voucher_main__date__lte=as_of_date_str, voucher_main__retail=retail
+        ).values("account__ac_group").annotate(bal=Sum(F("debit")) - Sum(F("credit"))):
+            if row["account__ac_group"] is not None:
+                txn[row["account__ac_group"]] = row["bal"] or Decimal(0)
+
+        # Opening balances (always from ob table, FY-independent)
+        ob = {}
+        for row in LedgerOpenBalance.objects.filter(retail=retail).values(
+            "ldgr__ac_group"
+        ).annotate(bal=Sum(F("debit") - F("credit"), output_field=DecimalField())):
+            if row["ldgr__ac_group"] is not None:
+                ob[row["ldgr__ac_group"]] = row["bal"] or Decimal(0)
+
+        def group_total(group_name):
+            parent = next((a for a in all_accounts if a.name == group_name), None)
+            if not parent:
+                return Decimal(0), []
+            total = Decimal(0)
+            accounts = []
+            for acc in _descendants(parent.id):
+                bal = txn.get(acc.id, Decimal(0)) + ob.get(acc.id, Decimal(0))
+                if bal != 0:
+                    accounts.append({"name": acc.name, "balance": round(float(bal), 2)})
+                total += bal
+            return total, accounts
+
+        assets_total, assets_detail       = group_total("Assets")
+        liabilities_total, liab_detail    = group_total("Liabilities")
+
+        # Add retained earnings (cumulative net profit up to as_of_date)
+        pnl = calcuate_pnl("2000-01-01", as_of_date_str, retail=retail)
+        net_profit = float(pnl.get("net_profit", 0) or 0)
+        liabilities_total += Decimal(str(net_profit))
+
+        return {
+            "as_of":           as_of_date_str,
+            "assets":          round(float(assets_total), 2),
+            "assets_detail":   assets_detail,
+            "liabilities":     round(float(liabilities_total), 2),
+            "liabilities_detail": liab_detail,
+            "net_profit":      round(net_profit, 2),
+        }
+
+    bs1 = _build_bs(str(fy1.fy_end))
+    bs2 = _build_bs(str(fy2.fy_end))
+
+    def _row(key):
+        v1 = bs1[key]
+        v2 = bs2[key]
+        diff = round(v2 - v1, 2)
+        pct  = round(diff / v1 * 100, 2) if v1 != 0 else None
+        return {
+            f"fy_{fy_code1}": v1,
+            f"fy_{fy_code2}": v2,
+            "change":         diff,
+            "change_pct":     pct,
+        }
+
+    return json.dumps({
+        "comparison_type": "Balance Sheet — Year on Year",
+        "fy1": {"code": fy_code1, "closing_date": str(fy1.fy_end)},
+        "fy2": {"code": fy_code2, "closing_date": str(fy2.fy_end)},
+        "summary": {
+            "total_assets":      _row("assets"),
+            "total_liabilities": _row("liabilities"),
+            "net_profit":        _row("net_profit"),
+        },
+        "fy1_detail": bs1,
+        "fy2_detail": bs2,
+        "note": "Liabilities include cumulative net profit (retained earnings).",
+    }, indent=2)
 
 
 # ---------------------------------------------------------------------------

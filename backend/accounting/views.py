@@ -106,8 +106,8 @@ def calcuate_pnl(start_date, end_date, retail=None):
     Opening Stock  : Opening balance of ledgers under CA-STK (Stock-in-Hand).
     Purchases      : Period debits to ledgers under EXP-DIR-PUR (Purchase Account).
     Purchase Returns: Period credits to ledgers under EXP-DIR-PUR.
-    Closing Stock  : Period net debit balance of CA-STK ledgers — recorded by the
-                     user via a journal entry (Dr Closing Stock / Cr P&L).
+    Closing Stock  : Current physical inventory value as of end_date, sourced from
+                     ClosingStockCal (weighted average method), same as the balance sheet.
     Expenses       : All Expense account descendants EXCLUDING EXP-DIR-PUR, so that
                      purchases are not counted twice.
     """
@@ -120,14 +120,6 @@ def calcuate_pnl(start_date, end_date, retail=None):
     # unbarcoded stock (op_stk=True), and raw material inventory,
     # each valued at the item's weighted average rate.
     opening_stock = calculate_opening_stock(retail=retail)
-
-    # Closing stock: net debit balance of CA-STK ledgers during the period.
-    try:
-        stk_group = Account.objects.get(code='CA-STK')
-        stk_all = [stk_group] + get_all_descendants(stk_group)
-        stk_ldgrs = Ledger.objects.filter(ac_group__in=stk_all)
-    except Account.DoesNotExist:
-        stk_ldgrs = Ledger.objects.none()
 
     # ── Purchases & Purchase Returns ──────────────────────────────────────────
     # Read directly from the Purchase Account ledger group (EXP-DIR-PUR) to avoid
@@ -151,13 +143,16 @@ def calcuate_pnl(start_date, end_date, retail=None):
         purchase_returns = Decimal(0)
 
     # ── Closing Stock ─────────────────────────────────────────────────────────
-    # Net debit balance of CA-STK ledgers during the period.
-    # User records closing stock via: Dr Closing Stock (CA-STK) / Cr P&L.
-    closing_stock = VoucherDetail.objects.filter(
-        account__in=stk_ldgrs, **base_filter
-    ).aggregate(
-        total=Sum(F('debit') - F('credit'), output_field=DecimalField())
-    )['total'] or Decimal(0)
+    # Derived from physical inventory (same source the balance sheet uses), not
+    # from manual journal entries, so the value is always current.
+    try:
+        from inventory.views import ClosingStockCal
+        retail_id = retail.id if retail else None
+        closing_stock = ClosingStockCal().calculate_closing_stock(
+            from_date="2000-01-01", to_date=str(end_date), retail_id=retail_id
+        )['total_value'] or Decimal(0)
+    except Exception:
+        closing_stock = Decimal(0)
 
     # ── COGS & Gross Profit ───────────────────────────────────────────────────
     cogs = opening_stock + purchases - purchase_returns - closing_stock
@@ -397,40 +392,68 @@ class TrialBalanceReportView(APIView):
             )
             in_range_dict = {row['account']: (_D(row['total_debit']), _D(row['total_credit'])) for row in in_range_raw}
 
-            # Batch query 4: All ledgers with their groups (single query)
-            ledger_filter = {}
-            if retail:
-                ledger_filter['retail_code'] = retail
-            all_ledgers = Ledger.objects.select_related('ac_group').filter(**ledger_filter)
-            ledger_groups = Account.objects.all()
+            # Batch query 4: All ledgers and all account groups.
+            # Do NOT filter by retail_code — system ledgers (Sales, Purchase, GST, etc.)
+            # have retail_code=NULL and are shared across all retails. Transaction data
+            # is already scoped to the selected retail via voucher_main__retail above.
+            all_ledgers = Ledger.objects.select_related('ac_group').all()
+            all_groups = {g.id: g for g in Account.objects.all()}
+            # Pre-compute children_by_parent so _build_group_node does an
+            # O(1) dict lookup instead of scanning all_groups on every call.
+            # Previously this was O(N²) in the number of account groups.
+            children_by_parent = {}
+            for _g in all_groups.values():
+                children_by_parent.setdefault(_g.parent_id, []).append(_g)
 
-            # Group ledgers by account group
-            group_ledgers = {}
+            # Map group_id → list of ledgers
+            group_ledgers_map = {}
             for ledger in all_ledgers:
                 gid = ledger.ac_group_id
-                if gid not in group_ledgers:
-                    group_ledgers[gid] = []
-                group_ledgers[gid].append(ledger)
+                if gid not in group_ledgers_map:
+                    group_ledgers_map[gid] = []
+                group_ledgers_map[gid].append(ledger)
 
-            report_data = []
-            for group in ledger_groups:
-                group_data = {"group_name": group.name, "ledgers": []}
-                for ledger in group_ledgers.get(group.id, []):
+            def _build_group_node(group):
+                """Recursively build a group node with ledgers and child groups."""
+                ledger_rows = []
+                for ledger in group_ledgers_map.get(group.id, []):
                     ob_debit, ob_credit = ob_dict.get(ledger.id, (0, 0))
                     before_total = before_dict.get(ledger.id, 0)
                     ir_debit, ir_credit = in_range_dict.get(ledger.id, (0, 0))
-
                     opening_balance_amount = (ob_debit - ob_credit) + before_total
                     closing_balance = opening_balance_amount + ir_debit - ir_credit
-
-                    group_data["ledgers"].append({
+                    if not any([opening_balance_amount, ir_debit, ir_credit, closing_balance]):
+                        continue
+                    ledger_rows.append({
+                        "ledger_id": ledger.id,
                         "ledger_name": ledger.ac_name,
                         "opening_balance": opening_balance_amount,
                         "total_debit": ir_debit,
                         "total_credit": ir_credit,
-                        "closing_balance": closing_balance
+                        "closing_balance": closing_balance,
                     })
-                report_data.append(group_data)
+
+                children = []
+                for child_group in children_by_parent.get(group.id, []):
+                    child_node = _build_group_node(child_group)
+                    if child_node:
+                        children.append(child_node)
+
+                if not ledger_rows and not children:
+                    return None
+
+                return {
+                    "group_name": group.name,
+                    "ledgers": ledger_rows,
+                    "children": children,
+                }
+
+            # Only top-level groups (no parent) form the root of the tree
+            report_data = []
+            for group in children_by_parent.get(None, []):
+                node = _build_group_node(group)
+                if node:
+                    report_data.append(node)
 
             return Response({"from_date": from_date, "to_date": to_date, "trial_balance": report_data}, status=status.HTTP_200_OK)
         except Exception as e:
@@ -513,12 +536,21 @@ class BalanceSheetAPIView(APIView):
         assets = get_group_balance("Assets")
         liabilities = get_group_balance("Liabilities")
 
-        # Inject closing stock value (from inventory) into Assets > Stock-in-Hand
+        # Capital Account (Owner's Capital, Reserves & Surplus) is a root group
+        # separate from Liabilities in the chart of accounts, but belongs on the
+        # right-hand side of the balance sheet (equity = owner's stake).
+        capital = get_group_balance("Capital Account")
+        liabilities["total"] += capital["total"]
+        liabilities["accounts"].extend(capital["accounts"])
+
+        # ── Closing stock (one call, reused for both assets and P&L) ────────────
+        closing_stock_value = Decimal(0)
         try:
-            from inventory.views import ClosingStockCal
-            closing_stock_value = ClosingStockCal().calculate_closing_stock(
-                from_date="2000-01-01", to_date=end_date
-            )['total_value']
+            retail_id = retail.id if retail else None
+            raw_cs = ClosingStockCal().calculate_closing_stock(
+                from_date="2000-01-01", to_date=str(end_date), retail_id=retail_id
+            )
+            closing_stock_value = Decimal(str(raw_cs.get('total_value') or 0))
             if closing_stock_value:
                 assets["total"] += closing_stock_value
                 assets["accounts"].append({
@@ -527,25 +559,95 @@ class BalanceSheetAPIView(APIView):
                     "balance": closing_stock_value,
                     "group": "Stock-in-Hand"
                 })
-        except (ImportError, AttributeError, KeyError):
-            # Inventory module unavailable or returned unexpected structure — skip closing stock
+        except Exception:
             pass
 
-        pnl_data = calcuate_pnl("2000-01-01", end_date, retail=retail)
-        net_profit = pnl_data.get("net_profit", Decimal(0))
-        liabilities["total"] += net_profit
+        # ── Opening stock from physical inventory ─────────────────────────────
+        opening_stock = calculate_opening_stock(retail=retail)
+
+        # ── Net profit: reuse already-fetched group data (zero extra queries) ─
+        # income["total"] is negative (credit-normal Dr-Cr convention)
+        # expenses["total"] is positive (debit-normal Dr-Cr convention)
+        # Adjust for inventory: +closing_stock (asset, not journaled) −opening_stock
+        income_total   = get_group_balance("Income")["total"]
+        expenses_total = get_group_balance("Expenses")["total"]
+        net_profit = -income_total - expenses_total + closing_stock_value - opening_stock
+
+        liabilities["total"] -= net_profit
         liabilities["accounts"].append({
             "id": "net_profit",
-            "name": "Net Profit",
-            "balance": net_profit
+            "name": "Net Profit / Loss",
+            "balance": -net_profit  # negative = credit side = equity
         })
 
+        # net_worth = assets + liabilities:
+        #   assets["total"]      is positive  (debit-normal accounts)
+        #   liabilities["total"] is negative  (credit-normal accounts stored as Dr-Cr)
+        # A perfectly balanced set of books gives net_worth = 0.
         data = {
             "assets": assets,
             "liabilities": liabilities,
-            "net_worth": assets["total"] - liabilities["total"]
+            "net_worth": assets["total"] + liabilities["total"]
         }
         return Response(data, status=status.HTTP_200_OK)
+
+class BsGroupLedgersView(APIView):
+    """Ledger-level drill-down for the Balance Sheet.
+
+    Returns each ledger's cumulative closing balance (opening + all transactions
+    up to end_date) using the same debit-minus-credit convention as the main
+    balance sheet view: positive = debit balance, negative = credit balance.
+    """
+
+    def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        group_id = request.query_params.get("group_id")
+        end_date  = request.query_params.get("end_date", str(date.today()))
+
+        if not group_id:
+            return Response({"error": "group_id is required."}, status=400)
+
+        try:
+            group = Account.objects.get(pk=group_id)
+        except Account.DoesNotExist:
+            return Response({"ledgers": [], "group_name": ""})
+
+        all_groups = [group] + get_all_descendants(group)
+        ledgers    = Ledger.objects.filter(ac_group__in=all_groups)
+
+        # Transactions up to end_date (debit - credit)
+        txn_filter = {'account__in': ledgers, 'voucher_main__date__lte': end_date}
+        if retail:
+            txn_filter['voucher_main__retail'] = retail
+        txn_map = {
+            row['account_id']: row['net'] or Decimal(0)
+            for row in VoucherDetail.objects.filter(**txn_filter)
+            .values('account_id')
+            .annotate(net=Sum(F('debit') - F('credit'), output_field=DecimalField()))
+        }
+
+        # Opening balances (debit - credit)
+        ob_filter = {'ldgr__in': ledgers}
+        if retail:
+            ob_filter['retail'] = retail
+        ob_map = {
+            row['ldgr_id']: row['net'] or Decimal(0)
+            for row in LedgerOpenBalance.objects.filter(**ob_filter)
+            .values('ldgr_id')
+            .annotate(net=Sum(F('debit') - F('credit'), output_field=DecimalField()))
+        }
+
+        result = []
+        for ldgr in ledgers.order_by('ac_name'):
+            balance = txn_map.get(ldgr.id, Decimal(0)) + ob_map.get(ldgr.id, Decimal(0))
+            if balance:
+                result.append({'id': ldgr.id, 'ac_name': ldgr.ac_name, 'balance': balance})
+
+        return Response({'group_name': group.name, 'ledgers': result})
+
 
 class ProfitLossAPIView(APIView):
 
@@ -1322,17 +1424,38 @@ class LedgerStatementView(APIView):
         ).select_related('voucher_main').order_by(
             'voucher_main__date', 'voucher_main__id'
         ).values(
-            'voucher_main__date', 'voucher_main__voucher_no', 'voucher_main__voucher_type',
-            'voucher_main__narration', 'debit', 'credit', 'party_bank_name', 'chq_no', 'ref_bill_no'
+            'voucher_main__id', 'voucher_main__date', 'voucher_main__voucher_no',
+            'voucher_main__voucher_type', 'voucher_main__narration',
+            'debit', 'credit', 'party_bank_name', 'chq_no', 'ref_bill_no'
         )
+
+        # Map accounting VoucherMain → source document bill number so the ledger
+        # shows the user-visible bill number (SV/.., PV/.., SR/..) instead of
+        # the internal accounting voucher number (SALE/.., PUR/..).
+        vm_ids = [t['voucher_main__id'] for t in txns]
+        src_billno = {}
+        if vm_ids:
+            from sales.models import SalesVou, SaleReturn
+            from purchase.models import PurchaseVoucher, PurchaseReturn
+            for sv in SalesVou.objects.filter(ac_voucher_id__in=vm_ids).values('ac_voucher_id', 'billno'):
+                src_billno[sv['ac_voucher_id']] = sv['billno']
+            for sv in SalesVou.objects.filter(ac_rec_voucher_id__in=vm_ids).values('ac_rec_voucher_id', 'billno'):
+                src_billno.setdefault(sv['ac_rec_voucher_id'], sv['billno'])
+            for sr in SaleReturn.objects.filter(ac_voucher_id__in=vm_ids).values('ac_voucher_id', 'billno'):
+                src_billno[sr['ac_voucher_id']] = sr['billno']
+            for pv in PurchaseVoucher.objects.filter(ac_voucher_id__in=vm_ids).values('ac_voucher_id', 'billno'):
+                src_billno[pv['ac_voucher_id']] = pv['billno']
+            for pr in PurchaseReturn.objects.filter(ac_voucher_id__in=vm_ids).values('ac_voucher_id', 'billno'):
+                src_billno[pr['ac_voucher_id']] = pr['billno']
 
         running_balance = opening_balance
         transactions = []
         for txn in txns:
             running_balance += Decimal(str(txn['debit'])) - Decimal(str(txn['credit']))
+            vm_id = txn['voucher_main__id']
             transactions.append({
                 'date': txn['voucher_main__date'],
-                'voucher_no': txn['voucher_main__voucher_no'],
+                'voucher_no': src_billno.get(vm_id) or txn['voucher_main__voucher_no'],
                 'voucher_type': txn['voucher_main__voucher_type'],
                 'narration': txn['voucher_main__narration'],
                 'debit': txn['debit'],
@@ -1771,7 +1894,7 @@ class FinancialRatiosView(APIView):
             )
 
         total_assets      = get_group_total("Assets")
-        total_liabilities = get_group_total("Liabilities") + net_profit
+        total_liabilities = get_group_total("Liabilities") + get_group_total("Capital Account") + net_profit
         equity            = total_assets - total_liabilities
 
         # ── Outstanding debtors / creditors ──────────────────────────────
@@ -2594,3 +2717,103 @@ class ITBlockRatesView(APIView):
             for k, v in IT_BLOCK_RATES.items()
         ]
         return Response(data)
+
+
+class PnlGroupLedgersView(APIView):
+    """Return individual ledger balances for a given account group in a P&L date range."""
+
+    def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        group_id = request.query_params.get("group_id")
+        start_date = request.query_params.get("start_date", "2000-01-01")
+        end_date = request.query_params.get("end_date", str(date.today()))
+
+        if not group_id:
+            return Response({"error": "group_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            group = Account.objects.get(pk=group_id)
+        except Account.DoesNotExist:
+            return Response({"ledgers": []})
+
+        # Include the group itself and all descendant groups
+        all_groups = [group] + get_all_descendants(group)
+        ledgers = Ledger.objects.filter(ac_group__in=all_groups)
+
+        base_filter = {
+            'account__in': ledgers,
+            'voucher_main__date__range': [start_date, end_date],
+        }
+        if retail:
+            base_filter['voucher_main__retail'] = retail
+
+        # Net balance from voucher transactions
+        txn_balances = (
+            VoucherDetail.objects
+            .filter(**base_filter)
+            .values('account_id')
+            .annotate(net=Sum(F('credit') - F('debit'), output_field=DecimalField()))
+        )
+        txn_map = {row['account_id']: row['net'] or Decimal(0) for row in txn_balances}
+
+        # Opening balances
+        ob_filter = {'ldgr__in': ledgers}
+        if retail:
+            ob_filter['retail'] = retail
+        ob_balances = (
+            LedgerOpenBalance.objects
+            .filter(**ob_filter)
+            .values('ldgr_id')
+            .annotate(net=Sum(F('credit') - F('debit'), output_field=DecimalField()))
+        )
+        ob_map = {row['ldgr_id']: row['net'] or Decimal(0) for row in ob_balances}
+
+        result = []
+        for ldgr in ledgers.order_by('ac_name'):
+            balance = txn_map.get(ldgr.id, Decimal(0)) + ob_map.get(ldgr.id, Decimal(0))
+            if balance != 0:
+                result.append({'id': ldgr.id, 'ac_name': ldgr.ac_name, 'balance': balance})
+
+        return Response({"ledgers": result})
+
+
+class PnlLedgerTransactionsView(APIView):
+    """Return voucher-detail transactions for a single ledger in a P&L date range."""
+
+    def get(self, request):
+        retail = _get_retail_for_report(request)
+        if retail == 'FORBIDDEN':
+            return Response({"error": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+
+        ledger_id = request.query_params.get("ledger_id")
+        start_date = request.query_params.get("start_date", "2000-01-01")
+        end_date = request.query_params.get("end_date", str(date.today()))
+
+        if not ledger_id:
+            return Response({"error": "ledger_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        txn_filter = {
+            'account_id': ledger_id,
+            'voucher_main__date__range': [start_date, end_date],
+        }
+        if retail:
+            txn_filter['voucher_main__retail'] = retail
+
+        txns = (
+            VoucherDetail.objects
+            .filter(**txn_filter)
+            .order_by('voucher_main__date', 'voucher_main__id')
+            .values(
+                'voucher_main__date',
+                'voucher_main__voucher_no',
+                'voucher_main__voucher_type',
+                'voucher_main__narration',
+                'debit',
+                'credit',
+            )
+        )
+
+        return Response({"transactions": list(txns)})

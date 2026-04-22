@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
 import { ChevronDown, ChevronRight, X, Printer } from "lucide-react";
 import { printReport } from "@/lib/printReport";
+import { fetchCompanies } from "@/services/apiService";
 
 const today = new Date().toISOString().split("T")[0];
 const fy = new Date().getMonth() < 3 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -236,8 +237,18 @@ export default function ProfitLoss() {
   const [error, setError] = useState("");
   const [drill, setDrill] = useState(null); // { metric, title, accountGroupId? }
   const [combined, setCombined] = useState(false);
+  const [companyName, setCompanyName] = useState("");
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  useEffect(() => {
+    fetchCompanies().then((res) => {
+      if (res.success) {
+        const results = res.data?.results || res.data || [];
+        if (results.length > 0) setCompanyName(results[0].company_name || "");
+      }
+    });
+  }, []);
+
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   const fetchReport = async () => {
@@ -318,10 +329,15 @@ export default function ProfitLoss() {
       </tr></tfoot>
     </table>`;
 
+    const toDdMm = (s) => {
+      const [y, m, d] = (s || "").split("-");
+      return y && m && d ? `${d}-${m}-${y}` : s;
+    };
     printReport({
       title: "Profit & Loss Statement",
-      subtitle: `${startDate} to ${endDate}`,
+      subtitle: `${toDdMm(startDate)} to ${toDdMm(endDate)}`,
       html,
+      company: companyName,
     });
   };
 

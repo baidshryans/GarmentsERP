@@ -57,7 +57,8 @@ class PurchaseVoucher(models.Model):
         help_text="Reverse charge applies — old gold purchased from unregistered individual"
     )
 
-    ac_voucher = models.ForeignKey("accounting.VoucherMain",on_delete=models.SET_NULL,null=True,blank=True)
+    ac_voucher     = models.ForeignKey("accounting.VoucherMain", on_delete=models.SET_NULL, null=True, blank=True)
+    tds_ac_voucher = models.ForeignKey("accounting.VoucherMain", on_delete=models.SET_NULL, null=True, blank=True, related_name='tds_purchase_vouchers')
 
     retail     = models.ForeignKey("mastersconfig.RetailMaster",  on_delete=models.SET_NULL, null=True, blank=True)
     gstin_ref  = models.ForeignKey("mastersconfig.GSTINMaster",  on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_vouchers')

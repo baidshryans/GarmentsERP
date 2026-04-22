@@ -357,7 +357,7 @@ const RetToRetstockTransfer = () => {
     const totalNW  = rs.reduce((s, r) => s + (parseFloat(r.nw)  || 0), 0);
     const totalPcs = rs.reduce((s, r) => s + (parseInt(r.pcs)   || 0), 0);
 
-    const fromRetailCode = localStorage.getItem('retail_code') || '';
+    const fromRetailCode = sessionStorage.getItem('retail_code') || '';
     const toRetailCode   = watch('form.to_rt_code') || '';
     const toRetailObj    = retails.find(r => r.retail_code === toRetailCode);
 

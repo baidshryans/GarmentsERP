@@ -12,8 +12,8 @@ import {
   fetchPurity, getLedgers, createCustomerOrder,
 } from "@/services/apiService";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
-import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit } from "./services/apiService";
-import { SquarePen, Trash2, Loader2, Plus, Zap } from "lucide-react";
+import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit, cancelCustomerOrder } from "./services/apiService";
+import { SquarePen, Trash2, Loader2, Plus, Zap, Lock } from "lucide-react";
 import { arrayToObject } from "./Utils";
 import { renderErrorTree } from "./Utils";
 
@@ -553,26 +553,39 @@ const CustomerOrderForm = () => {
                 </TableRow>
 
                 {/* Added rows */}
-                {rs.map((row, index) => (
-                  <TableRow key={index} className="hover:bg-muted/20 transition-colors">
+                {rs.map((row, index) => {
+                  const locked = row.lock_state && row.lock_state !== 'unlocked';
+                  return (
+                  <TableRow key={index} className={`hover:bg-muted/20 transition-colors ${locked ? 'bg-amber-50/40' : ''}`}>
                     <TableCell className="px-3 py-2 border-b">
                       <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(index)}
-                          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                          title="Edit"
-                        >
-                          <SquarePen className="size-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(index)}
-                          className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        {locked ? (
+                          <span
+                            className="p-1 rounded text-amber-600"
+                            title={row.lock_reason || `Locked: ${row.lock_state}`}
+                          >
+                            <Lock className="size-3.5" />
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(index)}
+                              className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                              title="Edit"
+                            >
+                              <SquarePen className="size-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(index)}
+                              className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="px-3 py-2 border-b">
@@ -590,7 +603,8 @@ const CustomerOrderForm = () => {
                     <TableCell className="px-3 py-2 border-b">{row.size}</TableCell>
                     <TableCell className="px-3 py-2 border-b text-muted-foreground">{row.remarks}</TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
 
                 {rs.length === 0 && (
                   <TableRow>
@@ -615,12 +629,36 @@ const CustomerOrderForm = () => {
 
         {/* ── Bottom action bar ── */}
         <div className="flex items-center justify-end gap-3 pt-1 pb-6">
+          {id && watch("form.is_cancellable") && (
+            <Button
+              type="button"
+              variant="outline"
+              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              onClick={async () => {
+                const warnings = [];
+                if (watch("form.has_in_production_items")) warnings.push("• Some items are still in production with a karigar or supplier.");
+                if (watch("form.has_advance"))             warnings.push("• Advance receipts will remain on the customer's ledger as a credit.");
+                const orderNo = watch("form.order_no") || id;
+                const msg = `Cancel order ${orderNo}?` + (warnings.length ? `\n\n${warnings.join("\n")}` : "");
+                if (!window.confirm(msg)) return;
+                const res = await cancelCustomerOrder(id);
+                if (res.success) {
+                  toast({ title: "Order cancelled." });
+                  navigate("/sales/customerorder/list/");
+                } else {
+                  toast({ title: "Failed to cancel", description: String(res.error?.detail || res.error), variant: "destructive" });
+                }
+              }}
+            >
+              Cancel Order
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
             onClick={() => navigate("/sales/customerorder/list/")}
           >
-            Cancel
+            Close
           </Button>
           <Button type="submit" disabled={submitting} className="min-w-28">
             {submitting

@@ -268,12 +268,19 @@ class RetailMaster(models.Model):
         help_text="ISO 3166-1 alpha-2 code used as default dial code on mobile inputs (e.g. IN, AE, US)"
     )
 
+    # Maps internal sequence prefix codes → display prefix strings in the bill number
+    _DISPLAY_PREFIX = {
+        'PVC': 'PV/C',
+        'PVV': 'PV/V',
+    }
+
     def get_bill_prefix(self, type=None, fy_code=None):
         fy = fy_code or (self.active_fy.fy_code if self.active_fy else '')
         prefix = type or self.bill_series
+        display = self._DISPLAY_PREFIX.get(prefix, prefix)
         if fy:
-            return f"{prefix}/{self.retail_code}/{fy}/"
-        return f"{prefix}/{self.retail_code}/"
+            return f"{display}/{self.retail_code}/{fy}/"
+        return f"{display}/{self.retail_code}/"
 
 
 
@@ -481,6 +488,10 @@ class SystemSettings(models.Model):
     enable_gst_bill = models.BooleanField(
         default=False,
         help_text="Enable GST bill number (auto-generated as GST/<retail_code>/<FY>/NNNNN) on sales vouchers. When enabled the field is mandatory."
+    )
+    mysql_sync_config = models.JSONField(
+        default=dict, blank=True,
+        help_text="MySQL source database connection details for master data sync."
     )
     updated_at = models.DateTimeField(auto_now=True)
 

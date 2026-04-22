@@ -190,7 +190,7 @@ function PageSpinner() {
 }
 
 
-const isAuthenticate = () => !!localStorage.getItem("Token");
+const isAuthenticate = () => !!sessionStorage.getItem("Token");
 const hasBaseUrl = () => !!sessionStorage.getItem("baseUrl");
 const isSetupComplete = () => sessionStorage.getItem("erpSetupComplete") === "true";
 

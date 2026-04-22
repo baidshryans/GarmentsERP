@@ -24,8 +24,8 @@ apiClient.interceptors.request.use(
     config.baseURL = getBaseUrl();
 
     // Get the token from local storage or wherever you store it
-    const token = localStorage.getItem('Token');
-    const retail_code = localStorage.getItem('retail_code');
+    const token = sessionStorage.getItem('Token');
+    const retail_code = sessionStorage.getItem('retail_code');
 
     if (token) {
       config.headers['Authorization'] = `Token ${token}`;
@@ -57,8 +57,8 @@ apiClient.interceptors.response.use(
 
     if (error.response && error.response.status === 401 && !isSetupOrLogin) {
       console.log("Unauthorized. Redirecting to login...");
-      localStorage.removeItem("Token");
-      localStorage.removeItem("user");
+      sessionStorage.removeItem("Token");
+      sessionStorage.removeItem("user");
       window.location.href = "/login";
     }
 

@@ -5,13 +5,13 @@ import { portalLogout } from "../api/portalApiService";
 
 export default function PortalHeader() {
   const navigate = useNavigate();
-  const customerName = localStorage.getItem("portalCustomerName") || "Customer";
+  const customerName = sessionStorage.getItem("portalCustomerName") || "Customer";
 
   const handleLogout = async () => {
     await portalLogout();
-    localStorage.removeItem("portalToken");
-    localStorage.removeItem("portalCustomerName");
-    localStorage.removeItem("portalMobile");
+    sessionStorage.removeItem("portalToken");
+    sessionStorage.removeItem("portalCustomerName");
+    sessionStorage.removeItem("portalMobile");
     navigate("/portal/login");
   };
 

@@ -1,5 +1,8 @@
 import { Fragment, useEffect, useState, useCallback } from 'react';
-import { ChevronRight, ChevronDown, X, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, X, Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import apiClient from '@/services/apiClient';
 
 const today = new Date().toISOString().split('T')[0];
@@ -16,7 +19,7 @@ const fmtDate = (d) => {
   return new Date(d).toLocaleDateString('en-IN');
 };
 
-/* ── Ledger rows (shown when a group is expanded) ── */
+/* ── Ledger rows ── */
 function LedgerRows({ groupId, startDate, endDate, onLedgerClick }) {
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,8 +35,8 @@ function LedgerRows({ groupId, startDate, endDate, onLedgerClick }) {
   if (loading) {
     return (
       <tr>
-        <td colSpan={3} className="px-8 py-2 text-sm text-gray-400">
-          <Loader2 className="inline size-3.5 animate-spin mr-1.5" />Loading ledgers...
+        <td colSpan={3} className="py-2 text-xs text-muted-foreground" style={{ paddingLeft: 56 }}>
+          <Loader2 className="inline size-3 animate-spin mr-1.5" />Loading…
         </td>
       </tr>
     );
@@ -41,7 +44,9 @@ function LedgerRows({ groupId, startDate, endDate, onLedgerClick }) {
   if (!ledgers.length) {
     return (
       <tr>
-        <td colSpan={3} className="px-8 py-1.5 text-xs text-gray-400 italic">No ledgers with balance</td>
+        <td colSpan={3} className="py-1.5 text-xs text-muted-foreground italic" style={{ paddingLeft: 56 }}>
+          No ledgers with balance
+        </td>
       </tr>
     );
   }
@@ -50,16 +55,18 @@ function LedgerRows({ groupId, startDate, endDate, onLedgerClick }) {
     return (
       <tr
         key={l.id}
-        className="hover:bg-blue-50 cursor-pointer transition-colors"
+        className="hover:bg-accent/30 cursor-pointer transition-colors duration-150 group"
         onClick={() => onLedgerClick(l)}
       >
-        <td className="pl-12 pr-4 py-1 text-sm text-blue-700 underline decoration-dotted">
-          {l.ac_name}
+        <td className="py-1.5 pr-4 text-sm text-muted-foreground group-hover:text-foreground transition-colors" style={{ paddingLeft: 56 }}>
+          <span className="border-b border-dotted border-border group-hover:border-foreground/40">
+            {l.ac_name}
+          </span>
         </td>
-        <td className="px-4 py-1 text-right text-sm font-mono">
+        <td className="px-3 py-1.5 text-right text-sm tabular-nums text-foreground">
           {bal > 0 ? fmt(bal) : ''}
         </td>
-        <td className="px-4 py-1 text-right text-sm font-mono">
+        <td className="px-3 py-1.5 text-right text-sm tabular-nums text-foreground">
           {bal < 0 ? fmt(bal) : ''}
         </td>
       </tr>
@@ -80,67 +87,62 @@ function TransactionModal({ ledger, startDate, endDate, onClose }) {
       .finally(() => setLoading(false));
   }, [ledger.id, startDate, endDate]);
 
+  const totalDr = txns.reduce((s, t) => s + Number(t.debit || 0), 0);
+  const totalCr = txns.reduce((s, t) => s + Number(t.credit || 0), 0);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-white rounded-lg shadow-xl w-[90vw] max-w-3xl max-h-[80vh] flex flex-col"
+        className="bg-card rounded-xl shadow-2xl w-[92vw] max-w-3xl max-h-[82vh] flex flex-col border border-border"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h3 className="font-semibold text-gray-700 text-sm">
-            {ledger.ac_name} — Transactions
-          </h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
-            <X className="size-4" />
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+          <div>
+            <p className="font-semibold text-foreground text-sm">{ledger.ac_name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Transaction ledger</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-accent rounded-lg transition-colors cursor-pointer">
+            <X className="size-4 text-muted-foreground" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-auto flex-1 p-0">
+        <div className="overflow-auto flex-1">
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-gray-400 text-sm">
-              <Loader2 className="size-4 animate-spin mr-2" /> Loading transactions...
+            <div className="flex items-center justify-center py-16 text-muted-foreground text-sm gap-2">
+              <Loader2 className="size-4 animate-spin" /> Loading transactions…
             </div>
           ) : txns.length === 0 ? (
-            <p className="text-center py-12 text-gray-400 text-sm">No transactions found.</p>
+            <p className="text-center py-16 text-muted-foreground text-sm">No transactions in this period.</p>
           ) : (
             <table className="w-full text-sm border-collapse">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-muted/50 sticky top-0">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Date</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Voucher No</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Type</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Narration</th>
-                  <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">Debit (₹)</th>
-                  <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600">Credit (₹)</th>
+                  {['Date', 'Voucher No', 'Type', 'Narration', 'Dr (₹)', 'Cr (₹)'].map((h, i) => (
+                    <th key={h} className={`px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${i >= 4 ? 'text-right' : 'text-left'}`}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border/40">
                 {txns.map((t, i) => (
-                  <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50'}>
-                    <td className="px-4 py-1.5 whitespace-nowrap">{fmtDate(t.voucher_main__date)}</td>
-                    <td className="px-4 py-1.5 font-mono text-xs">{t.voucher_main__voucher_no}</td>
-                    <td className="px-4 py-1.5">{t.voucher_main__voucher_type || '—'}</td>
-                    <td className="px-4 py-1.5 text-gray-600 max-w-[200px] truncate">{t.voucher_main__narration || '—'}</td>
-                    <td className="px-4 py-1.5 text-right font-mono">
+                  <tr key={i} className="hover:bg-accent/30 transition-colors">
+                    <td className="px-4 py-2 text-muted-foreground whitespace-nowrap text-xs">{fmtDate(t.voucher_main__date)}</td>
+                    <td className="px-4 py-2 tabular-nums text-xs text-foreground">{t.voucher_main__voucher_no}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{t.voucher_main__voucher_type || '—'}</td>
+                    <td className="px-4 py-2 text-muted-foreground max-w-[180px] truncate text-xs">{t.voucher_main__narration || '—'}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-xs text-rose-600">
                       {Number(t.debit) > 0 ? fmt(t.debit) : ''}
                     </td>
-                    <td className="px-4 py-1.5 text-right font-mono">
+                    <td className="px-4 py-2 text-right tabular-nums text-xs text-emerald-600">
                       {Number(t.credit) > 0 ? fmt(t.credit) : ''}
                     </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot className="border-t-2 border-gray-300 font-semibold bg-gray-50">
+              <tfoot className="border-t-2 border-border bg-muted/50">
                 <tr>
-                  <td colSpan={4} className="px-4 py-2 text-right text-xs text-gray-500">Total</td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {fmt(txns.reduce((s, t) => s + Number(t.debit || 0), 0))}
-                  </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {fmt(txns.reduce((s, t) => s + Number(t.credit || 0), 0))}
-                  </td>
+                  <td colSpan={4} className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-sm font-semibold text-rose-600">{fmt(totalDr)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-sm font-semibold text-emerald-600">{fmt(totalCr)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -151,7 +153,7 @@ function TransactionModal({ ledger, startDate, endDate, onClose }) {
   );
 }
 
-/* ── Recursive expandable account-group rows ── */
+/* ── Recursive account-group rows ── */
 function AccountRows({ items = [], isCredit = false, depth = 0, startDate, endDate, onLedgerClick }) {
   const [expanded, setExpanded] = useState({});
 
@@ -164,25 +166,28 @@ function AccountRows({ items = [], isCredit = false, depth = 0, startDate, endDa
     const bal = Number(item.balance || 0);
     const hasChildren = item.children?.length > 0;
     const isExpanded = expanded[item.id];
+    const paddingLeft = 16 + depth * 20;
 
     return (
       <Fragment key={item.id}>
         <tr
-          className="hover:bg-gray-50 cursor-pointer transition-colors"
+          className="hover:bg-accent/30 cursor-pointer transition-colors duration-150 group"
           onClick={() => toggle(item.id)}
         >
-          <td className="px-4 py-1.5 text-sm" style={{ paddingLeft: 16 + depth * 16 }}>
-            <span className="inline-flex items-center gap-1">
-              {isExpanded
-                ? <ChevronDown className="size-3.5 text-gray-400" />
-                : <ChevronRight className="size-3.5 text-gray-400" />}
-              <span className={hasChildren ? 'font-medium' : ''}>{item.name}</span>
+          <td className="py-2 pr-4 text-sm text-foreground transition-colors" style={{ paddingLeft }}>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0">
+                {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+              </span>
+              <span className={hasChildren ? 'font-semibold text-foreground' : 'font-medium text-foreground'}>
+                {item.name}
+              </span>
             </span>
           </td>
-          <td className="px-4 py-1.5 text-right text-sm font-mono">
+          <td className="px-3 py-2 text-right text-sm tabular-nums text-foreground">
             {!isCredit && !hasChildren ? fmt(bal) : ''}
           </td>
-          <td className="px-4 py-1.5 text-right text-sm font-mono">
+          <td className="px-3 py-2 text-right text-sm tabular-nums text-foreground">
             {isCredit && !hasChildren ? fmt(bal) : ''}
           </td>
         </tr>
@@ -197,31 +202,68 @@ function AccountRows({ items = [], isCredit = false, depth = 0, startDate, endDa
           />
         )}
         {isExpanded && !hasChildren && (
-          <LedgerRows
-            groupId={item.id}
-            startDate={startDate}
-            endDate={endDate}
-            onLedgerClick={onLedgerClick}
-          />
+          <LedgerRows groupId={item.id} startDate={startDate} endDate={endDate} onLedgerClick={onLedgerClick} />
         )}
       </Fragment>
     );
   });
 }
 
+/* ── Section header ── */
 const SectionHeader = ({ label }) => (
-  <tr className="bg-gray-200">
-    <td className="px-4 py-2 font-semibold text-gray-700 text-sm" colSpan={3}>{label}</td>
+  <tr className="bg-accent">
+    <td className="px-4 py-2 font-semibold text-accent-foreground text-xs uppercase tracking-wider" colSpan={3}>
+      {label}
+    </td>
   </tr>
 );
 
-const AmountRow = ({ label, debit, credit, highlight }) => (
-  <tr className={highlight ? 'bg-green-50 font-semibold' : 'hover:bg-gray-50'}>
-    <td className="px-4 py-1.5 text-sm">{label}</td>
-    <td className="px-4 py-1.5 text-right text-sm font-mono">{debit != null ? fmt(debit) : '—'}</td>
-    <td className="px-4 py-1.5 text-right text-sm font-mono">{credit != null ? fmt(credit) : '—'}</td>
+/* ── Plain indented amount row ── */
+const AmountRow = ({ label, debit, credit }) => (
+  <tr className="hover:bg-accent/30 transition-colors">
+    <td className="px-4 py-1.5 text-sm text-muted-foreground pl-8">{label}</td>
+    <td className="px-3 py-1.5 text-right text-sm tabular-nums text-foreground">
+      {debit != null ? fmt(debit) : ''}
+    </td>
+    <td className="px-3 py-1.5 text-right text-sm tabular-nums text-foreground">
+      {credit != null ? fmt(credit) : ''}
+    </td>
   </tr>
 );
+
+/* ── Subtotal row ── */
+const SubtotalRow = ({ label, debit, credit }) => (
+  <tr className="bg-muted/50 border-t border-b border-border">
+    <td className="px-4 py-2 text-sm font-semibold text-foreground">{label}</td>
+    <td className="px-3 py-2 text-right text-sm tabular-nums font-semibold text-foreground">
+      {debit != null ? fmt(debit) : ''}
+    </td>
+    <td className="px-3 py-2 text-right text-sm tabular-nums font-semibold text-foreground">
+      {credit != null ? fmt(credit) : ''}
+    </td>
+  </tr>
+);
+
+/* ── Profit / Loss row ── */
+const ProfitRow = ({ label, value }) => {
+  const isProfit = Number(value) >= 0;
+  return (
+    <tr className={`border-t-2 border-border font-bold ${isProfit ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+      <td className="px-4 py-2.5 text-sm flex items-center gap-2">
+        {isProfit
+          ? <TrendingUp className="size-4 text-emerald-600" />
+          : <TrendingDown className="size-4 text-rose-600" />}
+        <span className={isProfit ? 'text-emerald-800' : 'text-rose-800'}>{label}</span>
+      </td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-sm font-bold text-rose-700">
+        {!isProfit ? fmt(value) : ''}
+      </td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-sm font-bold text-emerald-700">
+        {isProfit ? fmt(value) : ''}
+      </td>
+    </tr>
+  );
+};
 
 export default function ProfitLossCal() {
   const [startDate, setStartDate] = useState(firstOfYear);
@@ -244,64 +286,58 @@ export default function ProfitLossCal() {
   useEffect(() => { fetchData(); }, []);
 
   return (
-    <div className="min-h-screen w-full p-4 bg-white print:p-0">
-      <h2 className="text-xl font-semibold text-center mb-4 text-gray-700">
-        Profit &amp; Loss Statement
-      </h2>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-end mb-4 print:hidden">
+    <div className="flex flex-col gap-4 max-w-3xl mx-auto w-full">
+      {/* ── Filters ── */}
+      <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border print:hidden">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">From</label>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-            className="border rounded px-2 h-9 text-sm" />
+          <Label className="text-xs">From</Label>
+          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">To</label>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-            className="border rounded px-2 h-9 text-sm" />
+          <Label className="text-xs">To</Label>
+          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-36" />
         </div>
-        <button onClick={fetchData}
-          className="h-9 px-4 rounded bg-primary text-white text-sm">
-          Show
-        </button>
+        <Button size="sm" onClick={fetchData} disabled={loading} className="h-9">
+          {loading ? <Loader2 className="size-4 animate-spin" /> : 'Show'}
+        </Button>
         {data && (
-          <button onClick={() => window.print()}
-            className="h-9 px-4 rounded border text-sm ml-auto">
+          <Button size="sm" variant="outline" onClick={() => window.print()} className="h-9 ml-auto">
             Print
-          </button>
+          </Button>
         )}
       </div>
 
-      <p className="text-xs text-gray-400 mb-3 print:hidden">
-        Click on any account group to see ledger balances. Click a ledger to view transactions.
+      <p className="text-xs text-muted-foreground -mt-2 print:hidden">
+        Click any account group to expand. Click a ledger to view transactions.
       </p>
 
-      {loading && <p className="text-gray-500 text-sm">Loading...</p>}
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {data && !loading && (
-        <div className="w-full overflow-x-auto">
-          <table className="w-full border-collapse text-sm border border-gray-300">
+      {loading && !data && (
+        <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+          <Loader2 className="size-5 animate-spin" />
+          <span className="text-sm">Loading…</span>
+        </div>
+      )}
+
+      {data && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="bg-gray-100">
-                <th className="px-4 py-2.5 text-left border-b border-gray-300 text-gray-700">Particulars</th>
-                <th className="px-4 py-2.5 text-right border-b border-gray-300 text-gray-700 w-36">Dr ({'\u20B9'})</th>
-                <th className="px-4 py-2.5 text-right border-b border-gray-300 text-gray-700 w-36">Cr ({'\u20B9'})</th>
+              <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="px-4 py-2.5 text-left font-semibold border-b border-border">Particulars</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-b border-border w-36">Dr (₹)</th>
+                <th className="px-3 py-2.5 text-right font-semibold border-b border-border w-36">Cr (₹)</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/40">
               {/* Income */}
               <SectionHeader label="Income" />
               <AmountRow label="Gross Sales" credit={data.gross_sales} />
               {Number(data.sales_return) > 0 && (
-                <AmountRow label="(-) Sales Returns" debit={data.sales_return} />
+                <AmountRow label="(−) Sales Returns" debit={data.sales_return} />
               )}
-              <tr className="bg-gray-100 font-semibold">
-                <td className="px-4 py-1.5 text-sm">Net Sales Revenue</td>
-                <td className="px-4 py-1.5 text-right font-mono text-sm" />
-                <td className="px-4 py-1.5 text-right font-mono text-sm">{fmt(data.sales_revenue)}</td>
-              </tr>
+              <SubtotalRow label="Net Sales Revenue" credit={data.sales_revenue} />
               <AccountRows items={data.income} isCredit startDate={startDate} endDate={endDate} onLedgerClick={setModalLedger} />
 
               {/* COGS */}
@@ -309,64 +345,37 @@ export default function ProfitLossCal() {
               <AmountRow label="Opening Stock" debit={data.opening_stock} />
               <AmountRow label="Gross Purchases" debit={data.purchases} />
               {Number(data.purchase_returns) > 0 && (
-                <AmountRow label="(-) Purchase Returns" credit={data.purchase_returns} />
+                <AmountRow label="(−) Purchase Returns" credit={data.purchase_returns} />
               )}
-              <AmountRow label="(-) Closing Stock" credit={data.closing_stock} />
-              <tr className="bg-gray-100 font-semibold">
-                <td className="px-4 py-1.5 text-sm">Total COGS</td>
-                <td className="px-4 py-1.5 text-right font-mono text-sm">{fmt(data.cogs)}</td>
-                <td className="px-4 py-1.5 text-right font-mono text-sm" />
-              </tr>
+              <AmountRow label="(−) Closing Stock" credit={data.closing_stock} />
+              <SubtotalRow label="Total COGS" debit={data.cogs} />
 
               {/* Direct Expenses */}
               <SectionHeader label="Direct Expenses" />
               <AccountRows items={data.direct_expenses} startDate={startDate} endDate={endDate} onLedgerClick={setModalLedger} />
-              <tr className="bg-gray-100 font-semibold">
-                <td className="px-4 py-1.5 text-sm">Total Direct Expenses</td>
-                <td className="px-4 py-1.5 text-right font-mono text-sm">{fmt(data.direct_expenses_total)}</td>
-                <td className="px-4 py-1.5 text-right font-mono text-sm" />
-              </tr>
+              <SubtotalRow label="Total Direct Expenses" debit={data.direct_expenses_total} />
 
-              {/* Gross Profit = Net Sales - COGS - Direct Expenses */}
-              <tr className="bg-green-100 font-semibold border-t-2 border-gray-300">
-                <td className="px-4 py-2 text-sm">
-                  {Number(data.gross_profit) >= 0 ? 'Gross Profit' : 'Gross Loss'}
-                </td>
-                <td className="px-4 py-2 text-right font-mono text-sm">
-                  {Number(data.gross_profit) < 0 ? fmt(data.gross_profit) : ''}
-                </td>
-                <td className="px-4 py-2 text-right font-mono text-sm">
-                  {Number(data.gross_profit) >= 0 ? fmt(data.gross_profit) : ''}
-                </td>
-              </tr>
+              {/* Gross Profit */}
+              <ProfitRow
+                label={Number(data.gross_profit) >= 0 ? 'Gross Profit' : 'Gross Loss'}
+                value={data.gross_profit}
+              />
 
               {/* Indirect Expenses */}
               <SectionHeader label="Indirect Expenses" />
               <AccountRows items={data.indirect_expenses} startDate={startDate} endDate={endDate} onLedgerClick={setModalLedger} />
-              <tr className="bg-gray-100 font-semibold">
-                <td className="px-4 py-1.5 text-sm">Total Indirect Expenses</td>
-                <td className="px-4 py-1.5 text-right font-mono text-sm">{fmt(data.indirect_expenses_total)}</td>
-                <td className="px-4 py-1.5 text-right font-mono text-sm" />
-              </tr>
+              <SubtotalRow label="Total Indirect Expenses" debit={data.indirect_expenses_total} />
 
-              {/* Net Profit / Loss = Gross Profit - Indirect Expenses */}
-              <tr className="bg-green-100 font-bold border-t-2 border-gray-300">
-                <td className="px-4 py-2 text-sm">
-                  {Number(data.net_profit) >= 0 ? 'Net Profit' : 'Net Loss'}
-                </td>
-                <td className="px-4 py-2 text-right font-mono text-sm">
-                  {Number(data.net_profit) < 0 ? fmt(data.net_profit) : ''}
-                </td>
-                <td className="px-4 py-2 text-right font-mono text-sm">
-                  {Number(data.net_profit) >= 0 ? fmt(data.net_profit) : ''}
-                </td>
-              </tr>
+              {/* Net Profit */}
+              <ProfitRow
+                label={Number(data.net_profit) >= 0 ? 'Net Profit' : 'Net Loss'}
+                value={data.net_profit}
+              />
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Transaction Modal */}
       {modalLedger && (
         <TransactionModal
           ledger={modalLedger}

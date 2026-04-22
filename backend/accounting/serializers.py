@@ -83,11 +83,14 @@ class LedgerSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def get_primary_role(self, obj):
-        r = obj.roles.filter(is_primary=True).first()
-        if r:
-            return r.role
-        first = obj.roles.first()
-        return first.role if first else None
+        # Iterate obj.roles.all() to reuse the prefetch_related('roles') cache
+        # set by the viewset. Using .filter() here would bypass the cache and
+        # issue one extra query per ledger row in list endpoints.
+        roles = list(obj.roles.all())
+        for r in roles:
+            if r.is_primary:
+                return r.role
+        return roles[0].role if roles else None
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

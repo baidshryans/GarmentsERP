@@ -12,7 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchTCSRegister, fetchTCSSections } from "@/services/apiService";
+import { fetchTCSRegister, fetchTCSSections, getFiscalYears } from "@/services/apiService";
+
+const today = new Date().toISOString().split("T")[0];
 
 export default function TCSRegister() {
   const [rows, setRows] = useState([]);
@@ -20,7 +22,7 @@ export default function TCSRegister() {
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
     from_date: "",
-    to_date: "",
+    to_date: today,
     section: "",
   });
 
@@ -29,6 +31,19 @@ export default function TCSRegister() {
       if (res.success) {
         const d = res.data;
         setSections(Array.isArray(d) ? d : d?.results ?? []);
+      }
+    });
+    getFiscalYears().then((res) => {
+      if (res.success) {
+        const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+        const activeFy = data.find((fy) => fy.is_active);
+        if (activeFy?.fy_start) {
+          setFilters((f) => ({ ...f, from_date: activeFy.fy_start }));
+        } else {
+          const now = new Date();
+          const fyYear = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+          setFilters((f) => ({ ...f, from_date: `${fyYear}-04-01` }));
+        }
       }
     });
   }, []);

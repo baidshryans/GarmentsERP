@@ -10,7 +10,7 @@ portalApiClient.interceptors.request.use((config) => {
   config.baseURL = base;
 
   // Attach portal token if available
-  const token = localStorage.getItem("portalToken");
+  const token = sessionStorage.getItem("portalToken");
   if (token) {
     config.headers.Authorization = `PortalToken ${token}`;
   }
@@ -23,9 +23,9 @@ portalApiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("portalToken");
-      localStorage.removeItem("portalCustomerName");
-      localStorage.removeItem("portalMobile");
+      sessionStorage.removeItem("portalToken");
+      sessionStorage.removeItem("portalCustomerName");
+      sessionStorage.removeItem("portalMobile");
       window.location.href = "/portal/login";
     }
     return Promise.reject(error);

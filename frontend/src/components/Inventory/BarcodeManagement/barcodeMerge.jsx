@@ -1,412 +1,586 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast"
-import { useF4Submit } from "@/hooks/useF4Submit"
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
-import { fetchMainItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, getLedgers, createCustomerOrder, getStates, fetchNextBarcode, fetchBarcodeList, mergeBarcode } from "@/services/apiService";
+import { useToast } from "@/hooks/use-toast";
+import { useF4Submit } from "@/hooks/useF4Submit";
+import {
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
+} from "@/components/ui/select";
+import {
+  fetchMainItem, fetchBarcodeByText, fetchBarcodeForEdit,
+  mergeBarcode, fetchNextBarcode,
+} from "@/services/apiService";
 import { Link } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { SquarePen, Trash2 } from "lucide-react";
+import { Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { renderErrorTree } from "../../../Utils";
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const fmt3 = (v) => (v != null && v !== "" ? parseFloat(v).toFixed(3) : "—");
+const sumField = (rows, field) =>
+  rows.reduce((acc, r) => acc + (parseFloat(r[field]) || 0), 0);
+
+/**
+ * Build the merged subitems preview:
+ * All barcodedetails_set from all rows, grouped by packet key (fallback: item).
+ * Common packets have their pcs / ct / gw / amt summed.
+ */
+function buildMergedSubitems(rows) {
+  const map = new Map();
+  for (const row of rows) {
+    for (const d of row.barcodedetails_set || []) {
+      const key = d.packet || `__item__${d.item}`;
+      if (map.has(key)) {
+        const e = map.get(key);
+        e.pcs = (e.pcs || 0) + (d.pcs || 0);
+        e.ct  = (parseFloat(e.ct  || 0) + parseFloat(d.ct  || 0)) || null;
+        e.gw  = (parseFloat(e.gw  || 0) + parseFloat(d.gw  || 0)) || null;
+        e.amt = (parseFloat(e.amt || 0) + parseFloat(d.amt || 0)) || null;
+      } else {
+        map.set(key, { ...d });
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 const MergeBarcode = () => {
-    const { toast } = useToast()
-    const { register, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
-        defaultValues: {
-            rate_18kt: 0,
-            rate_22kt: 0,
-            rate_24kt: 0,
-            advance_amt
-                :
-                0,
-            est_amount
-                :
-                0,
-            date1: new Date().toISOString().split("T")[0],
-            fix_gold_rate: false,
-            salesman_1: null
-        },
-    });
-    const navigate=useNavigate();
-    const [rs, setRows] = useState([]);
-    const [salespersonData, setSalespersonData] = useState([]);
-    const [mainItemData, setMainItemData] = useState([]);
-    const [customers, setCustomers] = useState([]);
-    const [purityData, setPurityData] = useState([]);
-    const [barcodes, setBarcodes] = useState([]);
-    useEffect(() => {
-        async function fetchData() {
-            const [customers,barcodeList, barcode, mainItem, purity] = await Promise.all([
-                getLedgers(),
-                fetchBarcodeList(),
-                fetchNextBarcode(),
-                fetchMainItem(),
-                fetchPurity(),
-            ]);
-            if (customers.success) setCustomers(customers.data.results);
-            if (barcodeList.success) setBarcodes(barcodeList.data.results);
-            if (barcode.success) setValue("table.barcode", barcode.data.barcode);
-            if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
-            if (purity.success) setPurityData(purity.data.results ?? purity.data);
-        }
-        fetchData();
-    }, []);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const { register, handleSubmit, control, watch, setValue, getValues } = useForm({
+    defaultValues: {
+      form: {
+        date1: new Date().toISOString().split("T")[0],
+        barcode: "",
+        item: "",
+        purity: "",
+        pcs: "",
+        gw: "",
+        nw: "",
+        making_val: "",
+        making_type: "",
+        other_chg: "",
+        design_code: "",
+        loss_wt: "",
+        loss_value: "",
+        old_barcode: "",
+      },
+    },
+  });
 
-    const evaluateFormula = (formula, data) => {
-        try {
-            // Handle nested SUM operations first
-            let processedFormula = formula.replace(/SUM\(([^)]+)\)/g, (match, path) => {
-                const parts = path.trim().split('.');
-                let array = data[parts[0]];
-                if (!Array.isArray(array)) return 0;
-                const sum = array.reduce((acc, item) => {
-                    return parseFloat(acc) + parseFloat(item[parts[1]]);
-                }, 0);
-                return sum;
-            });
+  const [rs, setRows]                     = useState([]);
+  const [expandedRows, setExpandedRows]   = useState(new Set());
+  const [mergedSubitems, setMergedSubitems] = useState([]);
+  const [showPreview, setShowPreview]     = useState(false);
+  const [mainItemData, setMainItemData]   = useState([]);
+  const [barcodeLoading, setBarcodeLoading] = useState(false);
 
-            processedFormula = processedFormula.replace(/(\b[A-Za-z_][A-Za-z0-9_]*\b)|('[^']*')|(\d+)/g, (match, variable, quoted, number) => {
-                if (quoted) return quoted; // Preserve anything inside single quotes
-                if (number) return number; // Preserve numbers as they are
+  // ── On mount: load lookups + auto-barcode ──────────────────────────────────
+  useEffect(() => {
+    async function fetchData() {
+      const [nextBarcode, mainItem] = await Promise.all([
+        fetchNextBarcode(),
+        fetchMainItem({ type: "M" }),
+      ]);
+      if (nextBarcode.success) setValue("form.barcode", nextBarcode.data.barcode);
+      if (mainItem.success)    setMainItemData(mainItem.data.results ?? mainItem.data);
+    }
+    fetchData();
+  }, []);
 
-                if (data.hasOwnProperty(variable)) {
-                    let value = data[variable];
-                    return typeof value === "number" ? `(${value})` : `'${value}'`;
-                }
-
-                return "0"; // Default replacement if variable is not found
-            });
-
-
-
-
-            // Evaluate the final expression
-            return new Function(`return ${processedFormula};`)()?.toFixed(2);
-        } catch (error) {
-            console.error("Formula evaluation error:", error);
-            return "";
-        }
-    };
-
-    const main_formulas = {
-        pcs: 'SUM(rs.pcs)',
-        gw: 'SUM(rs.gw)',
-        nw: 'SUM(rs.nw)',
-        making_val: 'SUM(rs.making_val)',
-        total_amount: 'SUM(rs.total_amount)',
+  // ── Re-calculate merged totals whenever rs changes ─────────────────────────
+  useEffect(() => {
+    if (rs.length === 0) {
+      setValue("form.purity", "");
+      setValue("form.pcs",    "");
+      setValue("form.gw",     "");
+      setValue("form.nw",     "");
+      setMergedSubitems([]);
+      return;
     }
 
-    useEffect(() => {
-        const form = { ...getValues('form'), rs: rs };
-        Object.keys(main_formulas).forEach((col) => {
-            setValue(`form.${col}`, evaluateFormula(main_formulas[col], form));
-        })
+    // Purity — taken from first barcode (all are guaranteed same purity)
+    // BarcodeMainSerializer uses SlugRelatedField(slug_field="purity"), so purity is the string value (e.g. "22KT")
+    const puritySlug = rs[0].purity ?? "";
+    setValue("form.purity", puritySlug);
 
-    }, [rs]);
+    // Aggregate weights
+    const totalPcs = rs.reduce((acc, r) => acc + (parseInt(r.pcs) || 0), 0);
+    const totalGw  = sumField(rs, "gw").toFixed(3);
+    const totalNw  = sumField(rs, "nw").toFixed(3);
+    setValue("form.pcs", totalPcs);
+    setValue("form.gw",  totalGw);
+    setValue("form.nw",  totalNw);
 
-    const onSubmit = (data) => {
-        const sub_data = getValues('form')
-        sub_data.barcodedetails_set = rs.reduce((acc, curr) => {
-            if (curr.barcodedetails_set && Array.isArray(curr.barcodedetails_set)) {
-                return [...acc, ...curr.barcodedetails_set];
-            }
-            return acc;
-        }, []);
+    // Build merged subitems preview
+    setMergedSubitems(buildMergedSubitems(rs));
+  }, [rs]);
 
-        sub_data.barcodedetails_set = sub_data.barcodedetails_set.map(item => {
-            const { id, ...rest } = item;
-            return rest;
-        });
+  // ── Toggle row expansion ───────────────────────────────────────────────────
+  const toggleExpand = (index) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      next.has(index) ? next.delete(index) : next.add(index);
+      return next;
+    });
+  };
 
-        mergeBarcode(sub_data)
-            .then((response) => {
-                if (response.success) {
-                    toast({
-                        title: "Form submitted successfully!",
-                    });  // Success toast
-                    setTimeout(() => {
-                        navigate("");
-                    }, 2000);
-                } else if (response.status < 500) {
-                    toast({
-                        title: "Form submission failed. Please try again.",
-                        description: renderErrorTree(response.error),
-                    });  // Error toast
-                } else {
-                    toast({ title: "An error occurred. Please try again later." });
-                }
-            })
-            .catch((error) => {
-                console.error("Error submitting form:", error);
-                toast({ title: "An error occurred. Please try again later." });  // Error toast on catch
-            });
-    };
+  // ── Add barcode to merge list ──────────────────────────────────────────────
+  const handleKeyDownBarcode = useCallback(async (e) => {
+    if (e.key !== "Tab" && e.key !== "Enter") return;
+    const barcode = getValues("form.old_barcode").trim();
+    if (!barcode) return;
+    e.preventDefault();
 
-    useF4Submit(handleSubmit(onSubmit));
+    // Prevent duplicate
+    if (rs.some((r) => r.barcode === barcode)) {
+      toast({ title: "This barcode is already added.", variant: "destructive" });
+      setValue("form.old_barcode", "");
+      return;
+    }
 
-    const handleEdit = (index) => {
-        const row = rs[index];
-        reset(row);
-        setRows((prev) => prev.filter((_, i) => i !== index));
-    };
+    setBarcodeLoading(true);
+    try {
+      // Look up barcode in the list to verify it exists and get its ID
+      const lookup = await fetchBarcodeByText(barcode);
+      if (!lookup.success || !lookup.data) {
+        toast({ title: "Barcode not found.", variant: "destructive" });
+        return;
+      }
+      if (!lookup.data.stk_status) {
+        toast({ title: "Barcode is not in stock.", variant: "destructive" });
+        return;
+      }
 
-    const handleDelete = (index) => {
-        setRows((prev) => prev.filter((_, i) => i !== index));
-    };
+      // Fetch full details (barcodedetails_set + purity)
+      const res = await fetchBarcodeForEdit(lookup.data.id);
+      if (!res.success) {
+        toast({ title: "Failed to load barcode details.", variant: "destructive" });
+        return;
+      }
+      const detail = res.data;
 
-    const fix_gold_rate = watch("fix_gold_rate")
-
-    const handleKeyDown = (e) => {
-        if (e.key === "Tab") {
-            const rowVals = getValues("@/table")
-            setRows([...rs, rowVals])
-
+      // Purity validation — all merged barcodes must share the same purity
+      if (rs.length > 0) {
+        const existingPurity = String(rs[0].purity ?? "");
+        const newPurity      = String(detail.purity ?? "");
+        if (existingPurity !== newPurity) {
+          toast({
+            title: "Purity mismatch",
+            description: `Cannot merge barcodes of different purities. Expected: ${rs[0].purity}, got: ${detail.purity}.`,
+            variant: "destructive",
+          });
+          return;
         }
-    };
+      }
 
+      setRows((prev) => [...prev, detail]);
+      setValue("form.old_barcode", "");
+    } finally {
+      setBarcodeLoading(false);
+    }
+  }, [rs]);
 
-    const handleKeyDownBarcode = (e) => {
-        if (e.key === "Tab") {
-            const barcode = getValues("form.old_barcode")
-            const foundBarcode = barcodes.find(item => item.barcode === barcode);
-            if (foundBarcode) {
-                setRows([...rs, { ...foundBarcode }])
-                // Object.keys(foundBarcode).forEach(key => {
-                //     setValue(`table.${key}`, foundBarcode[key]);
-                // });
-            }
+  const handleDelete = (index) => {
+    setRows((prev) => prev.filter((_, i) => i !== index));
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      next.delete(index);
+      return next;
+    });
+  };
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  const onSubmit = (data) => {
+    if (rs.length < 2) {
+      toast({ title: "Add at least 2 barcodes to merge.", variant: "destructive" });
+      return;
+    }
+
+    const sub_data = { ...data.form };
+    delete sub_data.old_barcode;
+
+    // Send original (unaggregated) details so backend can read barcode_text
+    // for deactivating old barcodes
+    sub_data.barcodedetails_set = rs
+      .flatMap((r) => r.barcodedetails_set || [])
+      .map(({ id, ...rest }) => rest);
+
+    mergeBarcode(sub_data)
+      .then((response) => {
+        if (response.success) {
+          toast({ title: "Barcodes merged successfully!" });
+          setTimeout(() => navigate(""), 2000);
+        } else if (response.status < 500) {
+          toast({
+            title: "Merge failed. Please check the details.",
+            description: renderErrorTree(response.error),
+          });
+        } else {
+          toast({ title: "An error occurred. Please try again later." });
         }
-    };
+      })
+      .catch(() => toast({ title: "An error occurred. Please try again later." }));
+  };
 
-    return (
-        <div className="container mt-5">
-            <form
-                className="p-4 shadow-lg rounded-lg bg-white"
-                id="orderForm"
-                onSubmit={handleSubmit(onSubmit)}
-            >
+  useF4Submit(handleSubmit(onSubmit));
 
-                <hr className="my-3" />
-                <br></br>
+  // ── Derived display helpers ────────────────────────────────────────────────
+  // purity is already the slug string (e.g. "22KT") from the serializer
+  const purityLabel = (slug) => slug || "—";
 
-                {/* Date, Order No, Fixed Gold Rate */}
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                    <FieldContainer>
-                        <Label htmlFor="barcode" className="text-nowrap">Enter Old/Currenet Barcode</Label>
-                        <Input list="barcode_list" onKeyDown={handleKeyDownBarcode} type="text" {...register("form.old_barcode")} />
-                        <datalist id="barcode_list" >
-                            {barcodes.map((barcode, index) => (
-                                <option key={index} value={barcode.barcode}>{barcode.barcode}</option>
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <div className="container mt-5">
+      <form
+        className="p-4 shadow-lg rounded-lg bg-white space-y-6"
+        onSubmit={handleSubmit(onSubmit)}
+      >
 
-                            ))}
+        {/* ── Section 1: Barcodes to Merge ─────────────────────────────── */}
+        <div>
+          <h6 className="font-semibold text-sm text-foreground mb-3 border-b pb-2">
+            Barcodes to Merge
+          </h6>
 
-                        </datalist>
-                    </FieldContainer>
-                </div>
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                    <FieldContainer>
-                        <Label htmlFor="new_barcode" className="text-nowrap">New Barcode</Label>
-                        <Input type="text" {...register("form.barcode")} />
-                    </FieldContainer>
-                    <FieldContainer>
-                        <Label htmlFor="design_no" className="text-nowrap">Design No</Label>
-                        <Input type="text" {...register("form.design_code")} />
-                    </FieldContainer>
-                    <FieldContainer>
-                        <Label htmlFor="gold_loss_wt" className="text-nowrap">Gold Loss Wt</Label>
-                        <Input type="number" {...register("form.loss_rate")} />
-                    </FieldContainer>
-                    <FieldContainer>
-                        <Label htmlFor="loss_value" className="text-nowrap">Gold Loss Value</Label>
-                        <Input type="number" {...register("form.loss_rate")} />
-                    </FieldContainer>
-                </div>
+          <div className="flex items-end gap-3 mb-3">
+            <FieldContainer>
+              <Label className="text-nowrap text-xs">Enter Barcode</Label>
+              <Input
+                onKeyDown={handleKeyDownBarcode}
+                type="text"
+                {...register("form.old_barcode")}
+                placeholder={barcodeLoading ? "Looking up…" : "Scan / type barcode, press Enter"}
+                className="w-72"
+                autoComplete="off"
+                disabled={barcodeLoading}
+              />
+            </FieldContainer>
+          </div>
 
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                    <FieldContainer>
+          {rs.length > 0 && (
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-muted/50 text-muted-foreground uppercase tracking-wider">
+                    <th className="px-3 py-2 w-6"></th>
+                    <th className="px-3 py-2 text-left">Barcode</th>
+                    <th className="px-3 py-2 text-left">Item</th>
+                    <th className="px-3 py-2 text-left">Purity</th>
+                    <th className="px-3 py-2 text-right">Pcs</th>
+                    <th className="px-3 py-2 text-right">Gw (g)</th>
+                    <th className="px-3 py-2 text-right">Nw (g)</th>
+                    <th className="px-3 py-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rs.map((row, index) => (
+                    <React.Fragment key={index}>
+                      {/* Main row */}
+                      <tr className={`border-t border-border/50 ${index % 2 === 1 ? "bg-muted/10" : ""}`}>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(index)}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            {expandedRows.has(index)
+                              ? <ChevronDown className="w-3.5 h-3.5" />
+                              : <ChevronRight className="w-3.5 h-3.5" />}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 font-mono">{row.barcode}</td>
+                        <td className="px-3 py-2">{row.item}</td>
+                        <td className="px-3 py-2">{purityLabel(row.purity)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{row.pcs}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{fmt3(row.gw)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{fmt3(row.nw)}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(index)}
+                            className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
 
-                    </FieldContainer>
-                    <FieldContainer>
-                        <Label htmlFor="status" className="text-nowrap">Order No</Label>
-                        <Input type="text" {...register("form.customer_order")} />
-                    </FieldContainer>
-                    <FieldContainer>
-                        <Label htmlFor="status" className="text-nowrap">Karigar Code</Label>
-                        <Input list="party_list"
-                            onChange={(e) => {
-                                const selectedCustomer = customers.find(
-                                    (customer) => customer.ac_name === e.target.value
-                                );
-                                selectedCustomer ? setValue("kr_code", selectedCustomer.id) : e.target.value;
+                      {/* Expandable subitems */}
+                      {expandedRows.has(index) && (row.barcodedetails_set?.length > 0) && (
+                        <tr className="border-t border-dashed border-border/30 bg-primary/5">
+                          <td colSpan={8} className="px-8 py-2">
+                            <table className="w-full text-[11px]">
+                              <thead>
+                                <tr className="text-muted-foreground uppercase tracking-wider">
+                                  <th className="px-2 py-1 text-left">Item</th>
+                                  <th className="px-2 py-1 text-left">Packet</th>
+                                  <th className="px-2 py-1 text-left">Purity</th>
+                                  <th className="px-2 py-1 text-right">Pcs</th>
+                                  <th className="px-2 py-1 text-right">Ct / Gw</th>
+                                  <th className="px-2 py-1 text-left">UOM</th>
+                                  <th className="px-2 py-1 text-right">Rate</th>
+                                  <th className="px-2 py-1 text-right">Amt</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {row.barcodedetails_set.map((d, di) => (
+                                  <tr key={di} className="border-t border-border/20">
+                                    <td className="px-2 py-1">{d.item || "—"}</td>
+                                    <td className="px-2 py-1">{d.packet || "—"}</td>
+                                    <td className="px-2 py-1">{d.purity || "—"}</td>
+                                    <td className="px-2 py-1 text-right tabular-nums">{d.pcs ?? "—"}</td>
+                                    <td className="px-2 py-1 text-right tabular-nums">
+                                      {d.ct != null ? parseFloat(d.ct).toFixed(3)
+                                        : d.gw != null ? parseFloat(d.gw).toFixed(3)
+                                        : "—"}
+                                    </td>
+                                    <td className="px-2 py-1">{d.uom || "—"}</td>
+                                    <td className="px-2 py-1 text-right tabular-nums">{d.rate ?? "—"}</td>
+                                    <td className="px-2 py-1 text-right tabular-nums">{d.amt ?? "—"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
 
-                            }} required />
-                        <Input type="hidden" {...register("kr_code")} />
-                        <datalist id="party_list" >
-                            {customers.map((customer, index) => (
-                                <option key={index} value={customer.ac_name}>{customer.mobile1}</option>
-
-                            ))}
-
-                        </datalist>
-                    </FieldContainer>
-                </div>
-
-                <hr className="my-3" />
-                <br></br>
-
-                {/* Stone Details*/}
-                <Table className="w-full table-fixed border-collapse">
-                    <TableBody>
-
-                        <h6 className="w-28 px-4 py-2 ">Main Item</h6>
-                        <TableRow className=" w-full bg-gray-100">
-                            <TableCell className="w-28 px-4 py-2 border">Item</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Description</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Purity</TableCell>
-
-                            <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Nw</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Making</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Making Type</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Other Charge</TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">Total</TableCell>
-
-
-                        </TableRow>
-                        {rs.map((row, index) => (
-                            <TableRow key={index} className="w-full bg-white">
-                                <TableCell className="w-28 px-4 py-2 border">
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => handleEdit(index)}
-                                    >
-                                        <SquarePen className="mr-1" />
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleDelete(index)}
-                                    >
-                                        <Trash2 className="mr-1" />
-                                    </Button>
-                                    {row.item}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-                                    {row.item_name}
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.purity}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.pcs}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.gw != null ? parseFloat(row.gw).toFixed(3) : "—"}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.nw != null ? parseFloat(row.nw).toFixed(3) : "—"}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.making_val}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.making_type}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-                                    {row.other_chg}
-
-                                </TableCell>
-                                <TableCell className="w-28 px-4 py-2 border">
-
-                                    {row.total_amount}
-
-                                </TableCell>
-
-
-                            </TableRow>
-                        ))}
-
-                        <TableRow>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input list="item_list" {...register("form.item")} />
-                                <datalist id="item_list">
-                                    {mainItemData.map((item, index) => (
-                                        <option key={index} value={item.short_code}  > {item.item_name}</option>
-                                    ))}
-
-                                </datalist>
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input type="text" readOnly value={""} disabled />
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input {...register("form.purity")} />
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input type="number" {...register("form.pcs")} />
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input type="number" {...register("form.gw")} />
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input type="number" {...register("form.nw")} />
-                            </TableCell>
-
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input type="text" {...register("form.making_val")} />
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input
-                                    {...register("form.making_type")}
-                                />
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input type="text" {...register("form.other_chg")} />
-                            </TableCell>
-                            <TableCell className="w-28 px-4 py-2 border">
-                                <Input onKeyDown={(e) => handleKeyDown(e)} type="number" {...register("form.total_amount")} />
-                            </TableCell>
-                        </TableRow>
-
-
-
-
-                    </TableBody>
-                </Table>
-
-
-
-                {/* Submit */}
-                <div className="flex justify-center mt-5">
-                    <Button type="submit" className="mr-4">
-                        Save
-                    </Button>
-                    <Button variant="outline">Cancel</Button>
-                </div>
-            </form>
+                  {/* Totals row */}
+                  {rs.length >= 2 && (
+                    <tr className="border-t-2 border-border bg-muted/30 font-semibold">
+                      <td colSpan={4} className="px-3 py-2 text-xs text-muted-foreground text-right">
+                        Total
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-xs">
+                        {rs.reduce((a, r) => a + (parseInt(r.pcs) || 0), 0)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-xs">
+                        {sumField(rs, "gw").toFixed(3)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-xs">
+                        {sumField(rs, "nw").toFixed(3)}
+                      </td>
+                      <td />
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-    );
+
+        {/* ── Section 2: New Barcode Subitems Preview ──────────────────── */}
+        {mergedSubitems.length > 0 && (
+          <div>
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-sm font-semibold text-foreground border-b pb-2 w-full text-left mb-3"
+              onClick={() => setShowPreview((v) => !v)}
+            >
+              {showPreview ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              New Barcode Subitems Preview
+              <span className="text-xs font-normal text-muted-foreground ml-1">
+                ({mergedSubitems.length} items)
+              </span>
+            </button>
+
+            {showPreview && (
+              <div className="rounded-lg border border-primary/20 overflow-hidden bg-primary/5">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-primary/10 text-primary uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left">Item</th>
+                      <th className="px-3 py-2 text-left">Packet</th>
+                      <th className="px-3 py-2 text-left">Purity</th>
+                      <th className="px-3 py-2 text-right">Pcs</th>
+                      <th className="px-3 py-2 text-right">Ct / Gw</th>
+                      <th className="px-3 py-2 text-left">UOM</th>
+                      <th className="px-3 py-2 text-right">Rate</th>
+                      <th className="px-3 py-2 text-right">Amt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mergedSubitems.map((d, i) => (
+                      <tr key={i} className={`border-t border-primary/10 ${i % 2 === 1 ? "bg-primary/5" : ""}`}>
+                        <td className="px-3 py-2">{d.item || "—"}</td>
+                        <td className="px-3 py-2">{d.packet || "—"}</td>
+                        <td className="px-3 py-2">{d.purity || "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{d.pcs ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {d.ct != null ? parseFloat(d.ct).toFixed(3)
+                            : d.gw != null ? parseFloat(d.gw).toFixed(3)
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2">{d.uom || "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{d.rate ?? "—"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {d.amt != null ? parseFloat(d.amt).toFixed(2) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Section 3: New Merged Barcode Details ────────────────────── */}
+        <div>
+          <h6 className="font-semibold text-sm text-foreground mb-3 border-b pb-2">
+            New Merged Barcode Details
+          </h6>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {/* New barcode — read-only, auto-generated */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">New Barcode</Label>
+              <Input
+                type="text"
+                value={watch("form.barcode") || "Auto-generating…"}
+                readOnly
+                className="bg-muted cursor-not-allowed font-mono text-sm"
+              />
+              <input type="hidden" {...register("form.barcode")} />
+            </FieldContainer>
+
+            {/* Purity — auto-set from merged barcodes */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Purity</Label>
+              <Input
+                type="text"
+                value={purityLabel(watch("form.purity"))}
+                readOnly
+                className="bg-muted cursor-not-allowed text-sm"
+                placeholder="Auto from barcodes"
+              />
+              <input type="hidden" {...register("form.purity")} />
+            </FieldContainer>
+
+            {/* Pcs — auto-summed */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Pcs</Label>
+              <Input
+                type="number"
+                value={watch("form.pcs") || ""}
+                readOnly
+                className="bg-muted cursor-not-allowed text-sm text-right"
+                placeholder="Auto"
+              />
+              <input type="hidden" {...register("form.pcs")} />
+            </FieldContainer>
+
+            {/* Gross Wt — auto-summed */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Gross Wt (g)</Label>
+              <Input
+                type="number"
+                value={watch("form.gw") || ""}
+                readOnly
+                className="bg-muted cursor-not-allowed text-sm text-right"
+                placeholder="Auto"
+              />
+              <input type="hidden" {...register("form.gw")} />
+            </FieldContainer>
+
+            {/* Net Wt — auto-summed */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Net Wt (g)</Label>
+              <Input
+                type="number"
+                value={watch("form.nw") || ""}
+                readOnly
+                className="bg-muted cursor-not-allowed text-sm text-right"
+                placeholder="Auto"
+              />
+              <input type="hidden" {...register("form.nw")} />
+            </FieldContainer>
+
+            {/* Item — M type only */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Item</Label>
+              <Input list="item_list" {...register("form.item")} placeholder="Item code" className="text-sm" />
+              <datalist id="item_list">
+                {mainItemData.map((item, i) => (
+                  <option key={i} value={item.short_code}>{item.item_name}</option>
+                ))}
+              </datalist>
+            </FieldContainer>
+
+            {/* Design Code */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Design Code</Label>
+              <Input type="text" {...register("form.design_code")} className="text-sm" />
+            </FieldContainer>
+
+            {/* Making Value */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Making Value</Label>
+              <Input type="number" {...register("form.making_val")} className="text-sm text-right" />
+            </FieldContainer>
+
+            {/* Making Type — Select */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Making Type</Label>
+              <Controller
+                name="form.making_type"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <SelectTrigger className="text-sm h-9">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="per_nw">% of NW</SelectItem>
+                      <SelectItem value="val">Value</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FieldContainer>
+
+            {/* Other Charges */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Other Charges</Label>
+              <Input type="number" {...register("form.other_chg")} className="text-sm text-right" />
+            </FieldContainer>
+
+            {/* Gold Loss Wt */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Gold Loss Wt (g)</Label>
+              <Input type="number" step="0.001" {...register("form.loss_wt")} className="text-sm text-right" />
+            </FieldContainer>
+
+            {/* Gold Loss Value */}
+            <FieldContainer>
+              <Label className="text-xs text-nowrap">Gold Loss Value</Label>
+              <Input type="number" {...register("form.loss_value")} className="text-sm text-right" />
+            </FieldContainer>
+          </div>
+        </div>
+
+        {/* ── Submit ───────────────────────────────────────────────────── */}
+        <div className="flex justify-end gap-3 pt-2">
+          <Link to="">
+            <Button variant="outline" type="button">Cancel</Button>
+          </Link>
+          <Button type="submit" disabled={rs.length < 2}>
+            Save Merge
+          </Button>
+        </div>
+
+      </form>
+    </div>
+  );
 };
 
 export default MergeBarcode;

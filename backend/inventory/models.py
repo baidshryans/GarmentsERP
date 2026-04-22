@@ -100,7 +100,7 @@ class BarcodeDetails(models.Model):  # Inherit models.Model
         db_table="barcode_details"
 
 class BarcodeTransaction(models.Model):  # Inherit models.Model
-    date = models.DateTimeField(auto_now=True)
+    date = models.DateTimeField(auto_now_add=True)
     barcode = models.ForeignKey(BarcodeMain, on_delete=models.CASCADE)
     billno = models.CharField(max_length=50)
     trans_type = models.CharField(max_length=50)

@@ -57,7 +57,7 @@ export default function BaseUrlConfig() {
     sessionStorage.setItem("baseUrl", formattedUrl);
 
     // Redirect to login or dashboard
-    const token = localStorage.getItem("Token");
+    const token = sessionStorage.getItem("Token");
     if (token) {
       navigate("/");
     } else {

@@ -86,7 +86,7 @@ export function makePhoneValidator() {
  *   disabled         — disables both controls
  *   placeholder      — placeholder for the number input
  *   defaultCountryCode — ISO alpha-2 to pre-select when value is empty
- *                        (defaults to localStorage.default_country_code ?? "IN")
+ *                        (defaults to sessionStorage.default_country_code ?? "IN")
  */
 export default function PhoneInput({
   value,
@@ -98,7 +98,7 @@ export default function PhoneInput({
 }) {
   const resolvedDefault =
     defaultCountryCode ||
-    localStorage.getItem('default_country_code') ||
+    sessionStorage.getItem('default_country_code') ||
     'IN';
 
   const [country, setCountry] = useState(() => parseValue(value, resolvedDefault).country);

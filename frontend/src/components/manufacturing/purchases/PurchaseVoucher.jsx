@@ -10,7 +10,6 @@ import { useEnterAsTab } from "@/hooks/useEnterAsTab"
 import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
 
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, getLedger, createCustomerOrder, getStates, fetchPVNoNext, fetchPoNoNext, fetchPackets, fetchPos, fetchStoneIssuesFilterJobs, fetchStoneIssued, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchLedgerTDSInfo } from "@/services/apiService";
 import { Link, useParams, useSearchParams } from "react-router-dom";
@@ -299,7 +298,7 @@ const PurchaseVoucher = () => {
         /* 11 */ hsnres,
         /* 12 */ voucherResponse,   // null when creating; Response when editing
       ] = await Promise.all([
-        fetchPVNoNext().then(orderNo => { if (orderNo.success) setValue("form.billno", orderNo.data.billno); }),
+        fetchPVNoNext(vou_type).then(orderNo => { if (orderNo.success) setValue("form.billno", orderNo.data.billno); }),
         fetchPackets(),
         fetchBarcodes(),
         fetchCustomerOrders(),
@@ -591,7 +590,7 @@ const PurchaseVoucher = () => {
     let hsn_ = hsns.find(e => e.hsn_no === hsn_current);
 
     if (hsn_) {
-      const retailState = localStorage.getItem('state_code') || "";
+      const retailState = sessionStorage.getItem('state_code') || "";
       // IGST applies if vendor is from a different state; CGST+SGST for same state or no GSTIN
       const isIntraState = vendorStateCode ? vendorStateCode === retailState : true;
       setValue('form.sgst_per', isIntraState ? parseFloat(hsn_.sgst) : 0.0);
@@ -1098,32 +1097,6 @@ const PurchaseVoucher = () => {
             />
             <input type="hidden" {...register("form.ldgr", { required: true })} />
           </FieldContainer>
-          {isCustomer && (
-            <div className="col-span-2 flex flex-col gap-1">
-              <Label className="text-nowrap">RCM (Reverse Charge)</Label>
-              <div className="flex items-center gap-3 h-9">
-                <Controller
-                  name="form.is_rcm"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      checked={!!field.value}
-                      onCheckedChange={field.onChange}
-                      id="is_rcm"
-                    />
-                  )}
-                />
-                <label htmlFor="is_rcm" className="text-sm text-gray-600 cursor-pointer select-none">
-                  Unregistered seller — RCM @ 3% applies
-                </label>
-              </div>
-              {watch('form.is_rcm') && (
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                  GST payable under Reverse Charge. Record in RCM payable ledger via journal entry.
-                </p>
-              )}
-            </div>
-          )}
 
           {!isCustomer && (
           <FieldContainer>

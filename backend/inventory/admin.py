@@ -18,7 +18,12 @@ class BarcodeDetailsInline(admin.TabularInline):
     model = BarcodeDetails
     fk_name = 'barcode'
     extra = 0
-    fields = ('item', 'packet', 'pcs', 'ct', 'gw', 'rate', 'amt')
+    fields = ('item', 'purity_label', 'packet', 'pcs', 'ct', 'gw', 'rate', 'amt')
+    readonly_fields = ('purity_label',)
+
+    @admin.display(description='Purity')
+    def purity_label(self, obj):
+        return obj.purity.purity if obj.purity else '—'
 
 
 @admin.register(BarcodeMain)

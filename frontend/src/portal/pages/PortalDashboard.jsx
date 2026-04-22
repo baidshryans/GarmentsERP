@@ -10,7 +10,7 @@ const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
 export default function PortalDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const customerName = localStorage.getItem("portalCustomerName") || "Customer";
+  const customerName = sessionStorage.getItem("portalCustomerName") || "Customer";
 
   useEffect(() => {
     portalFetchDashboard().then((res) => {

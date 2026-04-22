@@ -204,12 +204,28 @@ const CustomerOrderPrint = ({ data }) => {
 
       {/* ── Shop letterhead ────────────────────────────────────────────── */}
       <div style={S.shopName}>{data.retail_name || "JEWEL INDIA"}</div>
-      {(data.retail_city || data.retail_phone) && (
-        <div style={S.shopSub}>
-          {[data.retail_city, data.retail_phone ? `Ph: ${data.retail_phone}` : ""]
-            .filter(Boolean).join("  |  ")}
-        </div>
-      )}
+      {(() => {
+        const addressLine = [data.retail_address_line1, data.retail_address_line2, data.retail_address_line3]
+          .filter(Boolean).join(", ");
+        const cityLine = [
+          [data.retail_city, data.retail_pincode].filter(Boolean).join(" – "),
+          data.retail_state,
+        ].filter(Boolean).join(", ");
+        const contactLine = [
+          data.retail_phone ? `Ph: ${data.retail_phone}` : "",
+          data.retail_email ? `Email: ${data.retail_email}` : "",
+        ].filter(Boolean).join("  |  ");
+        return (
+          <>
+            {addressLine && <div style={S.shopSub}>{addressLine}</div>}
+            {cityLine && <div style={S.shopSub}>{cityLine}</div>}
+            {contactLine && <div style={S.shopSub}>{contactLine}</div>}
+            {data.retail_gstin && (
+              <div style={S.shopSub}>GSTIN: {data.retail_gstin}</div>
+            )}
+          </>
+        );
+      })()}
       <div style={S.dividerThick} />
       <div style={S.dividerThin} />
 

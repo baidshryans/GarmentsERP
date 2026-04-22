@@ -131,11 +131,14 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
 
     from accounting.models import CreditDebitNote
 
+    from sales.models import CustomerOrder as CustomerOrderModel
     model_map_resolved = {
         'SV': (SalesVou, 'billno'),
         'SR': (SaleReturn, 'billno'),
         'SA': (SalesApproval, 'billno'),
-        'PV': (PurchaseVoucher, 'billno'),
+        'PV':  (PurchaseVoucher, 'billno'),
+        'PVC': (PurchaseVoucher, 'billno'),
+        'PVV': (PurchaseVoucher, 'billno'),
         'PR': (PurchaseReturn, 'billno'),
         'PO': (PurchaseOrder, 'po_no'),
         'GC': (CashGoldConversion, 'billno'),
@@ -143,6 +146,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'SJ': (StockJournal, 'billno'),
         'CN': (CreditDebitNote, 'note_no'),
         'DN': (CreditDebitNote, 'note_no'),
+        'CO': (CustomerOrderModel, 'order_no'),
     }
 
     # Build FY date filter if fiscal year is provided
@@ -157,6 +161,10 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
             qs = qs.filter(conv_type=prefix)
         if prefix in ('CN', 'DN'):
             qs = qs.filter(note_type=prefix)
+        if prefix == 'PVC':
+            qs = qs.filter(voucher_type='Customer')
+        if prefix == 'PVV':
+            qs = qs.filter(voucher_type='Vendor')
         last = qs.order_by(f'-{field}').values_list(field, flat=True).first()
         if last:
             match = re.search(r'(\d+)$', last)

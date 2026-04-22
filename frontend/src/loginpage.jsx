@@ -33,8 +33,8 @@ const RetailSelection = () => {
   const retail = watch('retail')
 
   useEffect(() => {
-    // Set initial retail from localStorage
-    const storedRetail = localStorage.getItem('retail_code');
+    // Set initial retail from sessionStorage
+    const storedRetail = sessionStorage.getItem('retail_code');
     if (storedRetail && !retail) {
       setValue('retail', storedRetail);
     }
@@ -44,11 +44,11 @@ const RetailSelection = () => {
     if (retail) {
       const selectedRetail = statesData.find(state => state.retail_code === retail);
       if (selectedRetail) {
-        const currentStoredRetail = localStorage.getItem('retail_code');
+        const currentStoredRetail = sessionStorage.getItem('retail_code');
         if (currentStoredRetail !== selectedRetail.retail_code) {
-          localStorage.setItem('retail_code', selectedRetail.retail_code);
+          sessionStorage.setItem('retail_code', selectedRetail.retail_code);
           console.log(selectedRetail)
-          localStorage.setItem('state_code', selectedRetail.retail.state.code);
+          sessionStorage.setItem('state_code', selectedRetail.retail.state.code);
           window.location.reload();
         }
       }

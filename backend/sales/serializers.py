@@ -34,13 +34,36 @@ class CustomerOrderItemSerializer(ModelSerializer):
 
 
 
+def _customer_order_item_lock(obj):
+    """Return (lock_state, lock_reason) for a CustomerOrderItems row."""
+    if obj.sale_status:
+        return 'billed', 'Billed in a sales voucher'
+    ki = obj.karigarissueitem_set.select_related('issue_slip').first()
+    if ki:
+        return 'in_production', f"Issued to Karigar job {ki.issue_slip.billno}"
+    po = obj.purchaseorderitems_set.select_related('po_slip').first()
+    if po:
+        return 'in_production', f"Issued to Purchase Order {po.po_slip.po_no}"
+    return 'unlocked', ''
+
+
 class CustomerOrderItemsSerializer(serializers.ModelSerializer):
     item_id = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_name = serializers.CharField(source='item_id.item_name', read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True)
     order_no = serializers.PrimaryKeyRelatedField(queryset=CustomerOrder.objects.all(),required=False)
+    lock_state = serializers.SerializerMethodField(read_only=True)
+    lock_reason = serializers.SerializerMethodField(read_only=True)
+
+    def get_lock_state(self, obj):
+        return _customer_order_item_lock(obj)[0]
+
+    def get_lock_reason(self, obj):
+        return _customer_order_item_lock(obj)[1]
+
     class Meta:
         model = CustomerOrderItems
-        fields = '__all__' 
+        fields = '__all__'
 
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -48,11 +71,21 @@ class CustomerOrderItemsSerializer(serializers.ModelSerializer):
 
 class CustomerOrderItemsSerializer1(serializers.ModelSerializer):
     item_id = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_name = serializers.CharField(source='item_id.item_name', read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True)
     order_no = serializers.SlugRelatedField(queryset=CustomerOrder.objects.all,slug_field="order_no",required=False)
+    lock_state = serializers.SerializerMethodField(read_only=True)
+    lock_reason = serializers.SerializerMethodField(read_only=True)
+
+    def get_lock_state(self, obj):
+        return _customer_order_item_lock(obj)[0]
+
+    def get_lock_reason(self, obj):
+        return _customer_order_item_lock(obj)[1]
+
     class Meta:
         model = CustomerOrderItems
-        fields = '__all__' 
+        fields = '__all__'
 
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -121,6 +154,61 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     def get_retail_city(self, obj):
         return obj.retail.city if obj.retail else ""
 
+    retail_address_line1 = serializers.SerializerMethodField(read_only=True)
+    retail_address_line2 = serializers.SerializerMethodField(read_only=True)
+    retail_address_line3 = serializers.SerializerMethodField(read_only=True)
+    retail_pincode       = serializers.SerializerMethodField(read_only=True)
+    retail_state         = serializers.SerializerMethodField(read_only=True)
+    retail_gstin         = serializers.SerializerMethodField(read_only=True)
+    retail_email         = serializers.SerializerMethodField(read_only=True)
+
+    def get_retail_address_line1(self, obj):
+        return obj.retail.address_line1 if obj.retail else ""
+
+    def get_retail_address_line2(self, obj):
+        return obj.retail.address_line2 if obj.retail else ""
+
+    def get_retail_address_line3(self, obj):
+        return obj.retail.address_line3 if obj.retail else ""
+
+    def get_retail_pincode(self, obj):
+        return obj.retail.pincode if obj.retail else ""
+
+    def get_retail_state(self, obj):
+        return obj.retail.state.name if obj.retail and obj.retail.state else ""
+
+    def get_retail_gstin(self, obj):
+        if obj.retail and obj.retail.gstin_master:
+            return getattr(obj.retail.gstin_master, 'gstin', '') or ''
+        return ""
+
+    def get_retail_email(self, obj):
+        return obj.retail.email if obj.retail else ""
+
+    is_deletable            = serializers.SerializerMethodField(read_only=True)
+    is_cancellable          = serializers.SerializerMethodField(read_only=True)
+    has_in_production_items = serializers.SerializerMethodField(read_only=True)
+    has_advance             = serializers.SerializerMethodField(read_only=True)
+
+    def get_is_deletable(self, obj):
+        return not obj.linked_vouchers.exists()
+
+    def get_is_cancellable(self, obj):
+        return obj.delivery_status not in ('delivered', 'cancelled')
+
+    def get_has_in_production_items(self, obj):
+        for it in obj.items.all():
+            state, _ = _customer_order_item_lock(it)
+            if state == 'in_production':
+                return True
+        return False
+
+    def get_has_advance(self, obj):
+        try:
+            return float(obj.advance_amt) > 0
+        except Exception:
+            return False
+
     class Meta:
         model = CustomerOrder
         fields = ['id', 'ldgr', 'ldgr_code_name', 'ldgr_mobile', 'date1', 'order_no',
@@ -132,7 +220,10 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
              'remarks', 'items',
              'advance_reconciled', 'advance_available', 'linked_bill_count',
              'is_overdue', 'days_overdue',
-             'retail_name', 'retail_phone', 'retail_city']
+             'retail_name', 'retail_phone', 'retail_city',
+             'retail_address_line1', 'retail_address_line2', 'retail_address_line3',
+             'retail_pincode', 'retail_state', 'retail_gstin', 'retail_email',
+             'is_deletable', 'is_cancellable', 'has_in_production_items', 'has_advance']
 
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -370,6 +461,7 @@ class BankDetails(serializers.ModelSerializer):
 
 
 class SalesVouSerializer(serializers.ModelSerializer):
+    has_eway_bill = serializers.BooleanField(read_only=True, default=False)
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
     sales_person = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all())
     sales_person2 = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all(), allow_null=True, required=False)
@@ -471,6 +563,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'trans_distance',
             'trans_doc_no',
             'trans_doc_date',
+            'has_eway_bill',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -1547,8 +1640,8 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
 
 class EWayBillSerializer(serializers.ModelSerializer):
     source_billno = serializers.SerializerMethodField(read_only=True)
-    source_type = serializers.SerializerMethodField(read_only=True)
-    party_name = serializers.SerializerMethodField(read_only=True)
+    source_type   = serializers.SerializerMethodField(read_only=True)
+    party_name    = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         from .models import EWayBill
@@ -1565,6 +1658,9 @@ class EWayBillSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'generated_date', 'json_payload', 'retail', 'fiscal_year']
 
     def get_source_billno(self, obj):
+        # Prefer stored snapshot; fall back to FK lookup for pre-migration records
+        if obj.source_billno:
+            return obj.source_billno
         if obj.sales_vou_id:
             return obj.sales_vou.billno
         if obj.sales_approval_id:
@@ -1579,9 +1675,12 @@ class EWayBillSerializer(serializers.ModelSerializer):
         return None
 
     def get_party_name(self, obj):
-        if obj.sales_vou_id:
+        # Prefer stored snapshot; fall back to FK lookup for pre-migration records
+        if obj.party_name:
+            return obj.party_name
+        if obj.sales_vou_id and obj.sales_vou.ldgr_id:
             return obj.sales_vou.ldgr.ac_name
-        if obj.sales_approval_id:
+        if obj.sales_approval_id and obj.sales_approval.ldgr_id:
             return obj.sales_approval.ldgr.ac_name
         return None
 
@@ -1609,7 +1708,7 @@ class QuotationItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'sl_no', 'barcode', 'barcode_text', 'item', 'item_name',
             'design_code', 'purity_text', 'pcs', 'gw', 'nw',
-            'gold_rate', 'gold_amount', 'making_rate', 'making_amount',
+            'gold_rate', 'gold_amount', 'fine_wt', 'making_rate', 'making_amount',
             'total_diamond_pcs', 'total_diamond_wt', 'total_diamond_amt',
             'total_stone_pcs', 'total_stone_wt', 'total_stone_amt',
             'total_amount', 'image_url', 'details',

@@ -7,7 +7,7 @@ import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from "@/components/ui/select";
 import { Download, Filter, BookOpen } from "lucide-react";
-import { getRawMaterialLedger, fetchMainItem } from "@/services/apiService";
+import { getRawMaterialLedger, fetchMainItem, getFiscalYears } from "@/services/apiService";
 
 const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const fmtAmt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -56,6 +56,19 @@ export default function RawMaterialLedger() {
 
   useEffect(() => {
     fetchMainItem().then((r) => { if (r.success) setItems(Array.isArray(r.data) ? r.data : (r.data?.results ?? [])); });
+    getFiscalYears().then((res) => {
+      if (res.success) {
+        const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+        const activeFy = data.find((fy) => fy.is_active);
+        if (activeFy?.fy_start) {
+          setFromDate(activeFy.fy_start);
+        } else {
+          const now = new Date();
+          const fyYear = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+          setFromDate(`${fyYear}-04-01`);
+        }
+      }
+    });
   }, []);
 
   const handleSearch = async () => {

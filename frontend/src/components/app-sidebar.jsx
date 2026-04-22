@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/sidebar"
 
 const user = {
-  name:   JSON.parse(localStorage.getItem("user"))?.username ?? "",
-  email:  JSON.parse(localStorage.getItem("user"))?.email    ?? "",
+  name:   JSON.parse(sessionStorage.getItem("user"))?.username ?? "",
+  email:  JSON.parse(sessionStorage.getItem("user"))?.email    ?? "",
   avatar: "/avatars/shadcn.jpg",
 }
 

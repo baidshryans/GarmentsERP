@@ -26,7 +26,7 @@ export default function PortalLogin() {
 
   // Already logged in?
   useEffect(() => {
-    if (localStorage.getItem("portalToken")) navigate("/portal/", { replace: true });
+    if (sessionStorage.getItem("portalToken")) navigate("/portal/", { replace: true });
   }, [navigate]);
 
   // Resend countdown
@@ -65,9 +65,9 @@ export default function PortalLogin() {
     });
 
     if (res.success) {
-      localStorage.setItem("portalToken", res.data.token);
-      localStorage.setItem("portalCustomerName", res.data.customer_name);
-      localStorage.setItem("portalMobile", res.data.mobile);
+      sessionStorage.setItem("portalToken", res.data.token);
+      sessionStorage.setItem("portalCustomerName", res.data.customer_name);
+      sessionStorage.setItem("portalMobile", res.data.mobile);
       navigate("/portal/", { replace: true });
     } else {
       toast({ title: "Error", description: String(res.error), variant: "destructive" });

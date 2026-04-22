@@ -82,7 +82,7 @@ export default function FinancialRatios() {
   const [error, setError]         = useState(null);
   const [combined, setCombined]   = useState(false);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   const fetchRatios = () => {

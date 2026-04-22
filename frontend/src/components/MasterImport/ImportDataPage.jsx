@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2 } from "lucide-react";
-import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers } from "@/services/apiService";
+import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff } from "lucide-react";
+import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
 
 const LEDGER_TYPES = [
@@ -199,7 +199,12 @@ function LedgerUploadCard({ type, label, hint }) {
   );
 }
 
+const EMPTY_CONN = { host: "", port: "3306", database: "", user: "", password: "" };
+
 function MySQLSyncCard() {
+  const [conn, setConn] = useState(EMPTY_CONN);
+  const [showPwd, setShowPwd] = useState(false);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [status, setStatus] = useState("idle");
   const [results, setResults] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -207,15 +212,39 @@ function MySQLSyncCard() {
     hsn: true, item: true, packet_group: true, packet: true,
   });
 
+  useEffect(() => {
+    getMySQLConfig().then(r => {
+      if (r.success && r.data) {
+        setConn({
+          host:     r.data.host     || "",
+          port:     String(r.data.port || "3306"),
+          database: r.data.database || "",
+          user:     r.data.user     || "",
+          password: r.data.password || "",
+        });
+      }
+      setConfigLoaded(true);
+    });
+  }, []);
+
+  const setField = (k) => (e) => setConn(prev => ({ ...prev, [k]: e.target.value }));
   const toggleTable = (key) => setSelectedTables((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleSync = async () => {
+    if (!conn.database.trim()) {
+      setStatus("error");
+      setErrorMsg("Database name is required");
+      return;
+    }
     const tables = Object.entries(selectedTables).filter(([, v]) => v).map(([k]) => k);
     if (!tables.length) return;
     setStatus("loading");
     setResults(null);
     setErrorMsg("");
-    const res = await runMySQLSync(tables);
+    const res = await runMySQLSync(
+      { host: conn.host, port: Number(conn.port) || 3306, database: conn.database, user: conn.user, password: conn.password },
+      tables,
+    );
     if (res.success) {
       setStatus("success");
       setResults(res.data.results || {});
@@ -225,45 +254,90 @@ function MySQLSyncCard() {
     }
   };
 
+  const inputCls = "h-8 w-full rounded border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary";
+
   return (
-    <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold text-gray-800 flex items-center gap-1.5">
-            <Database size={15} className="text-primary" />
-            MySQL Sync
-          </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Syncs master tables directly from your source MySQL database (configured in settings).
-          </p>
+    <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 shadow-sm space-y-4">
+      <div className="flex items-center gap-1.5">
+        <Database size={15} className="text-primary" />
+        <h3 className="font-semibold text-gray-800 text-sm">MySQL Sync</h3>
+      </div>
+
+      {/* Connection form */}
+      {configLoaded && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500 font-medium">Host / IP Address</label>
+            <input className={inputCls} placeholder="127.0.0.1" value={conn.host} onChange={setField("host")} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500 font-medium">Port</label>
+            <input className={inputCls} placeholder="3306" value={conn.port} onChange={setField("port")} type="number" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500 font-medium">Database Name</label>
+            <input className={inputCls} placeholder="my_database" value={conn.database} onChange={setField("database")} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500 font-medium">Username</label>
+            <input className={inputCls} placeholder="root" value={conn.user} onChange={setField("user")} />
+          </div>
+          <div className="col-span-2 flex flex-col gap-1">
+            <label className="text-xs text-gray-500 font-medium">Password</label>
+            <div className="relative">
+              <input
+                className={`${inputCls} pr-8`}
+                type={showPwd ? "text" : "password"}
+                placeholder="••••••••"
+                value={conn.password}
+                onChange={setField("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(p => !p)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPwd ? <EyeOff size={13} /> : <Eye size={13} />}
+              </button>
+            </div>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={handleSync}
-          disabled={status === "loading"}
-          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary hover:bg-primary text-white disabled:opacity-50 transition-colors shrink-0"
-        >
-          {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          {status === "loading" ? "Syncing…" : "Sync Now"}
-        </button>
+      )}
+
+      {/* Table selection */}
+      <div>
+        <p className="text-xs text-gray-500 font-medium mb-1.5">Tables to sync</p>
+        <div className="flex flex-wrap gap-3">
+          {TABLES.map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+              <input type="checkbox" checked={!!selectedTables[key]} onChange={() => toggleTable(key)} className="rounded" />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-3">
-        {TABLES.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
-            <input type="checkbox" checked={!!selectedTables[key]} onChange={() => toggleTable(key)} className="rounded" />
-            <span>{label}</span>
-          </label>
-        ))}
-      </div>
+
+      {/* Sync button */}
+      <button
+        type="button"
+        onClick={handleSync}
+        disabled={status === "loading"}
+        className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-md bg-primary text-white disabled:opacity-50 transition-colors"
+      >
+        {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        {status === "loading" ? "Syncing…" : "Sync Now"}
+      </button>
+
+      {/* Feedback */}
       {status === "error" && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs text-red-600">
+        <div className="flex items-center gap-1.5 text-xs text-red-600">
           <XCircle size={13} /><span>{errorMsg}</span>
         </div>
       )}
       {status === "success" && results && (
-        <div className="mt-3 space-y-2">
+        <div className="space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-green-700">
-            <CheckCircle size={13} /><span>Sync complete</span>
+            <CheckCircle size={13} /><span>Sync complete — connection details saved</span>
           </div>
           {Object.entries(results).map(([table, r]) => (
             <div key={table} className="bg-white rounded border border-gray-200 px-3 py-2">

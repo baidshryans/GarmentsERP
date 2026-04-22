@@ -44,6 +44,24 @@ const goldRateForPurity = (purity, r18, r22, r24) => {
   return 0;
 };
 
+// Compute fine weight from B2B tunch pricelist entry.
+// Returns { fine_wt, gold_amount } when tunch applies, null otherwise.
+// Same formula as sale voucher: fine_wt = nw * (gw_per + tunch_markup) / 100
+//                               gold_amount = fine_wt * rate_24kt
+const computeB2BFineWt = (pricelist, purities, purityVal, nw, rate24kt) => {
+  const entries = pricelist?.tunch_entries || [];
+  if (!entries.length) return null;
+  const match = entries.find((e) => String(e.purity) === String(purityVal));
+  if (!match) return null;
+  const purityObj = purities.find((p) => String(p.purity) === String(purityVal));
+  const gwPer = parseFloat(purityObj?.gw_per || 0);
+  const tunchMarkup = parseFloat(match.tunch_percent) || 0;
+  const fullTunch = gwPer + tunchMarkup;
+  const fineWt = (parseFloat(nw) * fullTunch) / 100;
+  const goldAmount = fineWt * parseFloat(rate24kt || 0);
+  return { fine_wt: fineWt, gold_amount: Math.round(goldAmount) };
+};
+
 // Compute making charge from B2B pricelist for a scanned item
 const computeB2BMaking = (pricelist, nw, purityVal, goldAmount) => {
   const entries = pricelist?.making_entries || [];
@@ -105,6 +123,7 @@ export default function QuotationAdd() {
 
   // B2B pricelist (set when a B2B ledger is selected)
   const [b2bPricelist, setB2bPricelist] = useState(null);
+  const [purities, setPurities] = useState([]);
 
   // Scanner
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -121,6 +140,7 @@ export default function QuotationAdd() {
       if (res.success) {
         setLedgers(res.data.ledgers || []);
         setSalespersons(res.data.salespersons || []);
+        setPurities(res.data.purities || []);
         if (!id) setQuotationNo(res.data.billno || "");
       }
       setInitialLoading(false);
@@ -154,6 +174,11 @@ export default function QuotationAdd() {
             _key: Date.now() + idx,
           }))
         );
+        // Restore B2B pricelist so any newly scanned items are priced correctly
+        if (q.ldgr) {
+          const plRes = await fetchB2BPricelistForLedger(q.ldgr);
+          if (plRes.success && plRes.data) setB2bPricelist(plRes.data);
+        }
       }
     })();
   }, [id]);
@@ -203,7 +228,17 @@ export default function QuotationAdd() {
 
       const purityVal = d.purity ? String(d.purity).replace("K", "") : "";
       const gRate = goldRateForPurity(purityVal, rate18kt, rate22kt, rate24kt);
-      const goldAmount = metalItem ? parseFloat(metalItem.amt) || (parseFloat(d.nw) * gRate) : 0;
+
+      // B2B tunch: compute fine weight; gold_amount derives from fine_wt × 24K rate
+      const tunchResult = b2bPricelist
+        ? computeB2BFineWt(b2bPricelist, purities, purityVal, parseFloat(d.nw) || 0, rate24kt)
+        : null;
+
+      const goldAmount = tunchResult
+        ? tunchResult.gold_amount
+        : (metalItem ? parseFloat(metalItem.amt) || (parseFloat(d.nw) * gRate) : 0);
+      const fineWt = tunchResult ? tunchResult.fine_wt : 0;
+
       const makingAmt = parseFloat(d.making) || 0;
 
       // Separate diamonds from other stones (diamonds are items whose short_code suggests diamond)
@@ -258,7 +293,7 @@ export default function QuotationAdd() {
       if (d.id) {
         try {
           const imgRes = await fetch(`/inventory/api/barcode-images/${d.id}/`, {
-            headers: { "Authorization": `Token ${localStorage.getItem("token")}` },
+            headers: { "Authorization": `Token ${sessionStorage.getItem("token")}` },
           });
           if (imgRes.ok) {
             const imgData = await imgRes.json();
@@ -280,8 +315,9 @@ export default function QuotationAdd() {
         pcs: fmtI(d.pcs) || 1,
         gw: parseFloat(d.gw) || 0,
         nw: parseFloat(d.nw) || 0,
-        gold_rate: gRate,
+        gold_rate: tunchResult ? 0 : gRate,
         gold_amount: Math.round(goldAmount),
+        fine_wt: tunchResult ? parseFloat(fineWt.toFixed(3)) : 0,
         making_rate: finalMakingAmt > 0 && parseFloat(d.nw) > 0 ? Math.round(finalMakingAmt / parseFloat(d.nw)) : 0,
         making_amount: Math.round(finalMakingAmt),
         total_diamond_pcs: totalDiamondPcs,
@@ -371,6 +407,7 @@ export default function QuotationAdd() {
         nw: item.nw,
         gold_rate: item.gold_rate,
         gold_amount: item.gold_amount,
+        fine_wt: item.fine_wt || 0,
         making_rate: item.making_rate,
         making_amount: item.making_amount,
         total_diamond_pcs: item.total_diamond_pcs,
@@ -623,7 +660,7 @@ export default function QuotationAdd() {
                   <th className="px-1 py-1 text-center">Qly</th>
                   <th className="px-1 py-1 text-right">Gwt</th>
                   <th className="px-1 py-1 text-right">Nwt</th>
-                  <th className="px-1 py-1 text-right">Rate</th>
+                  <th className="px-1 py-1 text-right">Rate/FW</th>
                   <th className="px-1 py-1 text-right">Amt</th>
                   {/* Diamond sub-headers */}
                   <th className="px-1 py-1 text-right">Pcs</th>
@@ -672,7 +709,11 @@ export default function QuotationAdd() {
                         <td className="px-1 py-2 text-center font-medium">{item.purity_text}</td>
                         <td className="px-1 py-2 text-right tabular-nums">{fmt(item.gw)}</td>
                         <td className="px-1 py-2 text-right tabular-nums">{fmt(item.nw)}</td>
-                        <td className="px-1 py-2 text-right tabular-nums">{fmtI(item.gold_rate)}</td>
+                        <td className="px-1 py-2 text-right tabular-nums">
+                          {item.fine_wt > 0
+                            ? <span className="text-blue-600">{fmt(item.fine_wt, 3)}<span className="text-[10px] text-muted-foreground ml-0.5">fw</span></span>
+                            : fmtI(item.gold_rate)}
+                        </td>
                         <td className="px-1 py-2 text-right tabular-nums font-medium">{fmtI(item.gold_amount)}</td>
                         {/* Diamond */}
                         <td className="px-1 py-2 text-right tabular-nums">{item.total_diamond_pcs || ""}</td>

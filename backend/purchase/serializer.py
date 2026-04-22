@@ -687,21 +687,36 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                 ),
                                 'debit':f"{item.value:.2f}"
                             } for item in item_detail_instances]  +
-                            (
-                                [{
-                                    'account':purchase_voucher_instance.ldgr.ac_name,
-                                    'credit':f"{(purchase_voucher_instance.bill_value - (purchase_voucher_instance.tds_amt or 0)):.2f}" if purchase_voucher_instance.bill_value else '0.0',
-                                }] +
-                                ([{
-                                    'account': purchase_voucher_instance.tds_section.ledger.ac_name if purchase_voucher_instance.tds_section.ledger else _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}"),
-                                    'credit': f"{purchase_voucher_instance.tds_amt:.2f}",
-                                }] if purchase_voucher_instance.tds_amt and purchase_voucher_instance.tds_amt > 0 and purchase_voucher_instance.tds_section else [])
-                            )},
+                            [{
+                                'account': purchase_voucher_instance.ldgr.ac_name,
+                                'credit': f"{purchase_voucher_instance.bill_value:.2f}" if purchase_voucher_instance.bill_value else '0.0',
+                            }]},
                             context=self.context)
 
             if ser.is_valid(raise_exception=True):
                 ref = ser.save()
                 purchase_voucher_instance.ac_voucher = ref
+
+            # Separate TDS journal: Dr Vendor / Cr TDS Payable
+            _tds_amt = purchase_voucher_instance.tds_amt or 0
+            if _tds_amt > 0 and purchase_voucher_instance.tds_section:
+                _tds_ldgr = purchase_voucher_instance.tds_section.ledger
+                if not _tds_ldgr:
+                    _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}")
+                tds_ser = JournalEntrySerializer(data={
+                    'date': purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
+                    'voucher_no': generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                    'narration': f"TDS u/s {purchase_voucher_instance.tds_section.section_code} on {purchase_voucher_instance.billno}",
+                    'voucher_type': global_vars.VoucherType.purc_sc,
+                    'retail': retail.id,
+                    'voucher_details': [
+                        {'account': purchase_voucher_instance.ldgr.ac_name, 'debit': f"{_tds_amt:.2f}"},
+                        {'account': _tds_ldgr.ac_name, 'credit': f"{_tds_amt:.2f}"},
+                    ],
+                }, context=self.context)
+                if tds_ser.is_valid(raise_exception=True):
+                    purchase_voucher_instance.tds_ac_voucher = tds_ser.save()
+
             purchase_voucher_instance.gstin_ref  = retail.gstin_master
             purchase_voucher_instance.branch_ref = retail.branch
             purchase_voucher_instance.save()
@@ -784,6 +799,8 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
 
             if instance.ac_voucher:
                 instance.ac_voucher.delete()
+            if instance.tds_ac_voucher:
+                instance.tds_ac_voucher.delete()
 
             purchase_voucher_instance = instance
             retail = self.context.get('request').retail
@@ -833,21 +850,36 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                 ),
                                 'debit':f"{item.value:.2f}"
                             } for item in item_detail_instances]  +
-                            (
-                                [{
-                                    'account':purchase_voucher_instance.ldgr.ac_name,
-                                    'credit':f"{(purchase_voucher_instance.bill_value - (purchase_voucher_instance.tds_amt or 0)):.2f}" if purchase_voucher_instance.bill_value else '0.0',
-                                }] +
-                                ([{
-                                    'account': purchase_voucher_instance.tds_section.ledger.ac_name if purchase_voucher_instance.tds_section.ledger else _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}"),
-                                    'credit': f"{purchase_voucher_instance.tds_amt:.2f}",
-                                }] if purchase_voucher_instance.tds_amt and purchase_voucher_instance.tds_amt > 0 and purchase_voucher_instance.tds_section else [])
-                            )},
+                            [{
+                                'account': purchase_voucher_instance.ldgr.ac_name,
+                                'credit': f"{purchase_voucher_instance.bill_value:.2f}" if purchase_voucher_instance.bill_value else '0.0',
+                            }]},
                             context=self.context)
 
             if ser.is_valid(raise_exception=True):
                 ref = ser.save()
                 purchase_voucher_instance.ac_voucher = ref
+
+            # Separate TDS journal: Dr Vendor / Cr TDS Payable
+            _tds_amt = purchase_voucher_instance.tds_amt or 0
+            if _tds_amt > 0 and purchase_voucher_instance.tds_section:
+                _tds_ldgr = purchase_voucher_instance.tds_section.ledger
+                if not _tds_ldgr:
+                    _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}")
+                tds_ser = JournalEntrySerializer(data={
+                    'date': purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
+                    'voucher_no': generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                    'narration': f"TDS u/s {purchase_voucher_instance.tds_section.section_code} on {purchase_voucher_instance.billno}",
+                    'voucher_type': global_vars.VoucherType.purc_sc,
+                    'retail': retail.id,
+                    'voucher_details': [
+                        {'account': purchase_voucher_instance.ldgr.ac_name, 'debit': f"{_tds_amt:.2f}"},
+                        {'account': _tds_ldgr.ac_name, 'credit': f"{_tds_amt:.2f}"},
+                    ],
+                }, context=self.context)
+                if tds_ser.is_valid(raise_exception=True):
+                    purchase_voucher_instance.tds_ac_voucher = tds_ser.save()
+
             purchase_voucher_instance.gstin_ref  = retail.gstin_master
             purchase_voucher_instance.branch_ref = retail.branch
             purchase_voucher_instance.save()

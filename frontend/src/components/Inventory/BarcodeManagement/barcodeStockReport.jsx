@@ -3,8 +3,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Printer } from "lucide-react";
-import { fetchBarcodeStockReport } from "../../../services/apiService";
+import {
+  fetchBarcodeStockReport,
+  fetchBarcodeStockReportBarcodes,
+} from "../../../services/apiService";
+
+const COLUMN_LABELS = {
+  opening: "Opening",
+  create_pur: "Purchase",
+  create_rec: "Karigar Receipt",
+  sale_ret: "Sale Return",
+  sale_app_ret: "Approval Return",
+  trf_rr_in: "Transfer In",
+  bar_mer_crt: "Merge Created",
+  bar_split_crt: "Split Created",
+  sale: "Sale",
+  sale_app: "Sale Approval",
+  trf_rr_out: "Transfer Out",
+  bar_mer: "Merge Consumed",
+  bar_split: "Split Consumed",
+  bar_trf_unb: "Barcode Unbar",
+  stock: "In Stock",
+};
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -33,6 +61,22 @@ const Td = ({ children, className = "" }) => (
   </td>
 );
 
+const CTd = ({ value, onClick, className = "" }) => {
+  const clickable = !!value;
+  return (
+    <td
+      className={`px-2 py-1.5 text-right text-xs border border-border tabular-nums ${className} ${
+        clickable
+          ? "cursor-pointer hover:underline hover:bg-accent/30 text-primary"
+          : "text-muted-foreground"
+      }`}
+      onClick={clickable ? onClick : undefined}
+    >
+      {value ? value : "-"}
+    </td>
+  );
+};
+
 const INFLOW_KEYS = [
   "create_pur", "create_rec", "sale_ret", "sale_app_ret",
   "trf_rr_in", "bar_mer_crt", "bar_split_crt",
@@ -48,6 +92,29 @@ export default function BarcodeStockReport() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [drill, setDrill] = useState(null); // { item, column, rows, loading, error }
+
+  const openDrill = async (item, column) => {
+    const count = item[column] || 0;
+    if (!count) return;
+    setDrill({ item, column, rows: [], loading: true, error: "" });
+    const res = await fetchBarcodeStockReportBarcodes({
+      itemId: item.id ?? item.item_id,
+      column,
+      asOnDate,
+    });
+    if (res.success) {
+      setDrill((d) => d && { ...d, rows: res.data, loading: false });
+    } else {
+      setDrill((d) => d && {
+        ...d,
+        loading: false,
+        error: typeof res.error === "string" ? res.error : "Failed to load barcodes.",
+      });
+    }
+  };
+
+  const closeDrill = () => setDrill(null);
 
   const fetchReport = async () => {
     setError("");
@@ -295,26 +362,26 @@ export default function BarcodeStockReport() {
                       {d.item_name || d.short_code}
                     </td>
                     {/* Opening */}
-                    <Td className="bg-violet-50/20 font-medium">{v(d.opening)}</Td>
+                    <CTd value={d.opening} onClick={() => openDrill(d, "opening")} className="bg-violet-50/20 font-medium" />
                     {/* Inflows */}
-                    <Td className="bg-green-50/10">{v(d.create_pur)}</Td>
-                    <Td className="bg-green-50/10">{v(d.create_rec)}</Td>
-                    <Td className="bg-green-50/10">{v(d.sale_ret)}</Td>
-                    <Td className="bg-green-50/10">{v(d.sale_app_ret)}</Td>
-                    <Td className="bg-green-50/10">{v(d.trf_rr_in)}</Td>
-                    <Td className="bg-green-50/10">{v(d.bar_mer_crt)}</Td>
-                    <Td className="bg-green-50/10">{v(d.bar_split_crt)}</Td>
+                    <CTd value={d.create_pur} onClick={() => openDrill(d, "create_pur")} className="bg-green-50/10" />
+                    <CTd value={d.create_rec} onClick={() => openDrill(d, "create_rec")} className="bg-green-50/10" />
+                    <CTd value={d.sale_ret} onClick={() => openDrill(d, "sale_ret")} className="bg-green-50/10" />
+                    <CTd value={d.sale_app_ret} onClick={() => openDrill(d, "sale_app_ret")} className="bg-green-50/10" />
+                    <CTd value={d.trf_rr_in} onClick={() => openDrill(d, "trf_rr_in")} className="bg-green-50/10" />
+                    <CTd value={d.bar_mer_crt} onClick={() => openDrill(d, "bar_mer_crt")} className="bg-green-50/10" />
+                    <CTd value={d.bar_split_crt} onClick={() => openDrill(d, "bar_split_crt")} className="bg-green-50/10" />
                     <Td className="bg-green-50/20 font-semibold">{v(d.inflow)}</Td>
                     {/* Outflows */}
-                    <Td className="bg-red-50/10">{v(d.sale)}</Td>
-                    <Td className="bg-red-50/10">{v(d.sale_app)}</Td>
-                    <Td className="bg-red-50/10">{v(d.trf_rr_out)}</Td>
-                    <Td className="bg-red-50/10">{v(d.bar_mer)}</Td>
-                    <Td className="bg-red-50/10">{v(d.bar_split)}</Td>
-                    <Td className="bg-red-50/10">{v(d.bar_trf_unb)}</Td>
+                    <CTd value={d.sale} onClick={() => openDrill(d, "sale")} className="bg-red-50/10" />
+                    <CTd value={d.sale_app} onClick={() => openDrill(d, "sale_app")} className="bg-red-50/10" />
+                    <CTd value={d.trf_rr_out} onClick={() => openDrill(d, "trf_rr_out")} className="bg-red-50/10" />
+                    <CTd value={d.bar_mer} onClick={() => openDrill(d, "bar_mer")} className="bg-red-50/10" />
+                    <CTd value={d.bar_split} onClick={() => openDrill(d, "bar_split")} className="bg-red-50/10" />
+                    <CTd value={d.bar_trf_unb} onClick={() => openDrill(d, "bar_trf_unb")} className="bg-red-50/10" />
                     <Td className="bg-red-50/20 font-semibold">{v(d.outflow)}</Td>
                     {/* Stock */}
-                    <Td className="bg-primary/5 font-bold text-sm">{v(d.stock)}</Td>
+                    <CTd value={d.stock} onClick={() => openDrill(d, "stock")} className="bg-primary/5 font-bold text-sm" />
                   </tr>
                 ))}
 
@@ -357,6 +424,74 @@ export default function BarcodeStockReport() {
           )}
         </div>
       )}
+
+      <Dialog open={!!drill} onOpenChange={(open) => !open && closeDrill()}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {drill
+                ? `${COLUMN_LABELS[drill.column] || drill.column} — ${drill.item.short_code}${
+                    drill.item.item_name ? ` · ${drill.item.item_name}` : ""
+                  }`
+                : ""}
+            </DialogTitle>
+            <DialogDescription>
+              As on {asOnDate}
+              {drill ? ` · ${drill.rows.length} barcode${drill.rows.length !== 1 ? "s" : ""}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {drill?.loading && (
+            <div className="flex flex-col gap-2">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          )}
+
+          {drill?.error && (
+            <p className="text-sm text-destructive">{drill.error}</p>
+          )}
+
+          {drill && !drill.loading && !drill.error && (
+            <div className="max-h-[60vh] overflow-auto rounded-lg border border-border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold border-b border-border">Barcode</th>
+                    <th className="px-3 py-2 text-right font-semibold border-b border-border">Pcs</th>
+                    <th className="px-3 py-2 text-left font-semibold border-b border-border">Date</th>
+                    <th className="px-3 py-2 text-left font-semibold border-b border-border">Bill No</th>
+                    <th className="px-3 py-2 text-left font-semibold border-b border-border">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drill.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-6 text-muted-foreground">
+                        No barcodes found for this selection.
+                      </td>
+                    </tr>
+                  )}
+                  {drill.rows.map((r, i) => (
+                    <tr key={i} className={i % 2 === 1 ? "bg-muted/15" : ""}>
+                      <td className="px-3 py-1.5 border-b border-border font-mono">{r.barcode}</td>
+                      <td className="px-3 py-1.5 border-b border-border text-right tabular-nums">{r.pcs}</td>
+                      <td className="px-3 py-1.5 border-b border-border">{r.date || "-"}</td>
+                      <td className="px-3 py-1.5 border-b border-border">{r.billno || "-"}</td>
+                      <td className="px-3 py-1.5 border-b border-border">
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-semibold">
+                          {r.trans_type}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

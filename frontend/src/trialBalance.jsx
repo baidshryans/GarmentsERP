@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
-import { Printer, ChevronDown, ChevronRight } from "lucide-react";
+import { fetchCompanies } from "@/services/apiService";
+import { Printer, ChevronDown, ChevronRight, X, Loader2 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 
 const today = new Date().toISOString().split("T")[0];
@@ -17,11 +18,146 @@ const fmt = (v) => {
   return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const balLabel = (v) => {
-  const n = Number(v);
-  if (n === 0) return "—";
-  return `${fmt(n)} ${n >= 0 ? "Dr" : "Cr"}`;
-};
+/* Recursively sum all ledger balances within a node (including children) */
+function sumNode(node) {
+  let od = 0, oc = 0, td = 0, tc = 0, cd = 0, cc = 0;
+  for (const l of node.ledgers || []) {
+    const ob = Number(l.opening_balance), cb = Number(l.closing_balance);
+    if (ob > 0) od += ob; else oc += Math.abs(ob);
+    td += Number(l.total_debit); tc += Number(l.total_credit);
+    if (cb > 0) cd += cb; else cc += Math.abs(cb);
+  }
+  for (const child of node.children || []) {
+    const s = sumNode(child);
+    od += s.od; oc += s.oc; td += s.td; tc += s.tc; cd += s.cd; cc += s.cc;
+  }
+  return { od, oc, td, tc, cd, cc };
+}
+
+/* ── Recursive group renderer ── */
+function GroupRows({ nodes, depth = 0, collapsed, toggle, onLedgerClick }) {
+  return nodes.map((group) => {
+    const isOpen = !collapsed[`${depth}-${group.group_name}`];
+    const key = `${depth}-${group.group_name}`;
+    const { od, oc, td, tc, cd, cc } = sumNode(group);
+    const hasContent = (group.ledgers?.length > 0) || (group.children?.length > 0);
+    const paddingLeft = 16 + depth * 16;
+
+    return (
+      <Fragment key={key}>
+        {/* Group header row */}
+        <tr
+          className="bg-muted/30 border-t border-border cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => toggle(key)}
+        >
+          <td className="px-4 py-2 font-semibold border-r border-border" style={{ paddingLeft }}>
+            <span className="flex items-center gap-1.5">
+              {hasContent
+                ? isOpen
+                  ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                : <span className="w-3.5 h-3.5 flex-shrink-0" />}
+              {group.group_name}
+              {(group.ledgers?.length > 0 || group.children?.length > 0) && (
+                <span className="text-xs font-normal text-muted-foreground ml-1">
+                  ({(group.ledgers?.length || 0) + (group.children?.length || 0)})
+                </span>
+              )}
+            </span>
+          </td>
+          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border/50">{fmt(od)}</td>
+          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border">{fmt(oc)}</td>
+          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border/50">{fmt(td)}</td>
+          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border">{fmt(tc)}</td>
+          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border/50">{fmt(cd)}</td>
+          <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(cc)}</td>
+        </tr>
+
+        {isOpen && (
+          <>
+            {/* Child account groups */}
+            {group.children?.length > 0 && (
+              <GroupRows
+                nodes={group.children}
+                depth={depth + 1}
+                collapsed={collapsed}
+                toggle={toggle}
+                onLedgerClick={onLedgerClick}
+              />
+            )}
+
+            {/* Direct ledger rows */}
+            {group.ledgers?.map((ledger, i) => {
+              const ob = Number(ledger.opening_balance);
+              const cb = Number(ledger.closing_balance);
+              return (
+                <tr
+                  key={`${key}-l-${i}`}
+                  className={`border-t border-border/40 hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/20" : ""}`}
+                >
+                  <td
+                    className="px-4 py-1.5 border-r border-border text-primary hover:underline cursor-pointer"
+                    style={{ paddingLeft: paddingLeft + 24 }}
+                    onClick={() => onLedgerClick && ledger.ledger_id != null && onLedgerClick(ledger.ledger_id, ledger.ledger_name)}
+                  >
+                    {ledger.ledger_name}
+                  </td>
+                  <td className="px-3 py-1.5 text-right tabular-nums border-r border-border/50">{ob > 0 ? fmt(ob) : ""}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums border-r border-border">{ob < 0 ? fmt(ob) : ""}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums border-r border-border/50">{fmt(ledger.total_debit)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums border-r border-border">{fmt(ledger.total_credit)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums border-r border-border/50">{cb > 0 ? fmt(cb) : ""}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{cb < 0 ? fmt(cb) : ""}</td>
+                </tr>
+              );
+            })}
+          </>
+        )}
+      </Fragment>
+    );
+  });
+}
+
+/* Flatten nested tree for grand totals */
+function collectAllLedgers(nodes) {
+  const ledgers = [];
+  for (const node of nodes) {
+    ledgers.push(...(node.ledgers || []));
+    if (node.children?.length) ledgers.push(...collectAllLedgers(node.children));
+  }
+  return ledgers;
+}
+
+/* Recursively build print HTML rows */
+function buildPrintRows(nodes, depth = 0) {
+  return nodes.map((group) => {
+    const { od, oc, td, tc, cd, cc } = sumNode(group);
+    const pad = depth * 16;
+    const childRows = group.children?.length ? buildPrintRows(group.children, depth + 1) : "";
+    const ledgerRows = (group.ledgers || []).map((l, i) => {
+      const ob = Number(l.opening_balance), cb = Number(l.closing_balance);
+      return `<tr${i % 2 === 1 ? ' style="background:#fafafa"' : ""}>
+        <td style="padding-left:${pad + 40}px">${l.ledger_name}</td>
+        <td style="text-align:right" class="tabular-nums">${ob > 0 ? fmt(ob) : ""}</td>
+        <td style="text-align:right" class="tabular-nums">${ob < 0 ? fmt(ob) : ""}</td>
+        <td style="text-align:right" class="tabular-nums">${fmt(l.total_debit)}</td>
+        <td style="text-align:right" class="tabular-nums">${fmt(l.total_credit)}</td>
+        <td style="text-align:right" class="tabular-nums">${cb > 0 ? fmt(cb) : ""}</td>
+        <td style="text-align:right" class="tabular-nums">${cb < 0 ? fmt(cb) : ""}</td>
+      </tr>`;
+    }).join("");
+
+    return `<tr class="group-header">
+      <td style="padding-left:${pad + 16}px;font-weight:600">${group.group_name}</td>
+      <td style="text-align:right;font-weight:600" class="tabular-nums">${fmt(od)}</td>
+      <td style="text-align:right;font-weight:600" class="tabular-nums">${fmt(oc)}</td>
+      <td style="text-align:right;font-weight:600" class="tabular-nums">${fmt(td)}</td>
+      <td style="text-align:right;font-weight:600" class="tabular-nums">${fmt(tc)}</td>
+      <td style="text-align:right;font-weight:600" class="tabular-nums">${fmt(cd)}</td>
+      <td style="text-align:right;font-weight:600" class="tabular-nums">${fmt(cc)}</td>
+    </tr>${childRows}${ledgerRows}`;
+  }).join("");
+}
 
 export default function TrialBalance() {
   const [fromDate, setFromDate] = useState(firstOfYear);
@@ -31,11 +167,22 @@ export default function TrialBalance() {
   const [error, setError] = useState("");
   const [collapsed, setCollapsed] = useState({});
   const [combined, setCombined] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [ledgerModal, setLedgerModal] = useState(null); // { id, name }
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
-  const toggle = (name) => setCollapsed((p) => ({ ...p, [name]: !p[name] }));
+  useEffect(() => {
+    fetchCompanies().then((res) => {
+      if (res.success) {
+        const results = res.data?.results || res.data || [];
+        if (results.length > 0) setCompanyName(results[0].company_name || "");
+      }
+    });
+  }, []);
+
+  const toggle = (key) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
   const fetchReport = async () => {
     setError("");
@@ -51,64 +198,34 @@ export default function TrialBalance() {
     setLoading(false);
   };
 
-  // Compute grand totals
+  // Grand totals from the full nested tree
+  const allLedgers = report ? collectAllLedgers(report.trial_balance) : [];
   let grandOpenDr = 0, grandOpenCr = 0, grandTxnDr = 0, grandTxnCr = 0, grandCloseDr = 0, grandCloseCr = 0;
-  if (report) {
-    for (const group of report.trial_balance) {
-      for (const l of group.ledgers) {
-        const ob = Number(l.opening_balance);
-        if (ob > 0) grandOpenDr += ob; else grandOpenCr += Math.abs(ob);
-        grandTxnDr += Number(l.total_debit);
-        grandTxnCr += Number(l.total_credit);
-        const cb = Number(l.closing_balance);
-        if (cb > 0) grandCloseDr += cb; else grandCloseCr += Math.abs(cb);
-      }
-    }
+  for (const l of allLedgers) {
+    const ob = Number(l.opening_balance), cb = Number(l.closing_balance);
+    if (ob > 0) grandOpenDr += ob; else grandOpenCr += Math.abs(ob);
+    grandTxnDr += Number(l.total_debit); grandTxnCr += Number(l.total_credit);
+    if (cb > 0) grandCloseDr += cb; else grandCloseCr += Math.abs(cb);
   }
 
   const handlePrint = () => {
     if (!report) return;
-    const groupRows = report.trial_balance
-      .filter((g) => g.ledgers.length > 0)
-      .map((group) => {
-        let gOD = 0, gOC = 0, gTD = 0, gTC = 0, gCD = 0, gCC = 0;
-        const ledgerRows = group.ledgers.map((l, i) => {
-          const ob = Number(l.opening_balance), cb = Number(l.closing_balance);
-          if (ob > 0) gOD += ob; else gOC += Math.abs(ob);
-          gTD += Number(l.total_debit); gTC += Number(l.total_credit);
-          if (cb > 0) gCD += cb; else gCC += Math.abs(cb);
-          return `<tr${i % 2 === 1 ? ' style="background:#fafafa"' : ""}>
-            <td class="pl-10">${l.ledger_name}</td>
-            <td style="text-align:right" class="tabular-nums">${ob > 0 ? fmt(ob) : ""}</td>
-            <td style="text-align:right" class="tabular-nums">${ob < 0 ? fmt(ob) : ""}</td>
-            <td style="text-align:right" class="tabular-nums">${fmt(l.total_debit)}</td>
-            <td style="text-align:right" class="tabular-nums">${fmt(l.total_credit)}</td>
-            <td style="text-align:right" class="tabular-nums">${cb > 0 ? fmt(cb) : ""}</td>
-            <td style="text-align:right" class="tabular-nums">${cb < 0 ? fmt(cb) : ""}</td>
-          </tr>`;
-        });
-        return `<tr class="group-header">
-          <td class="font-semibold">${group.group_name} (${group.ledgers.length})</td>
-          <td style="text-align:right" class="tabular-nums font-semibold">${fmt(gOD)}</td>
-          <td style="text-align:right" class="tabular-nums font-semibold">${fmt(gOC)}</td>
-          <td style="text-align:right" class="tabular-nums font-semibold">${fmt(gTD)}</td>
-          <td style="text-align:right" class="tabular-nums font-semibold">${fmt(gTC)}</td>
-          <td style="text-align:right" class="tabular-nums font-semibold">${fmt(gCD)}</td>
-          <td style="text-align:right" class="tabular-nums font-semibold">${fmt(gCC)}</td>
-        </tr>${ledgerRows.join("")}`;
-      });
-
+    const groupRows = buildPrintRows(report.trial_balance);
     const html = `<table>
       <thead>
-        <tr><th rowspan="2" style="width:30%">Particulars</th>
+        <tr>
+          <th rowspan="2" style="width:30%;text-align:left">Particulars</th>
           <th colspan="2" style="text-align:center">Opening Balance</th>
           <th colspan="2" style="text-align:center">Transactions</th>
-          <th colspan="2" style="text-align:center">Closing Balance</th></tr>
-        <tr><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th>
+          <th colspan="2" style="text-align:center">Closing Balance</th>
+        </tr>
+        <tr>
           <th style="text-align:right">Debit</th><th style="text-align:right">Credit</th>
-          <th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr>
+          <th style="text-align:right">Debit</th><th style="text-align:right">Credit</th>
+          <th style="text-align:right">Debit</th><th style="text-align:right">Credit</th>
+        </tr>
       </thead>
-      <tbody>${groupRows.join("")}</tbody>
+      <tbody>${groupRows}</tbody>
       <tfoot><tr class="totals-row">
         <td>Total</td>
         <td style="text-align:right" class="tabular-nums">${fmt(grandOpenDr)}</td>
@@ -120,16 +237,22 @@ export default function TrialBalance() {
       </tr></tfoot>
     </table>`;
 
+    const toDdMm = (s) => {
+      const [y, m, d] = (s || "").split("-");
+      return y && m && d ? `${d}-${m}-${y}` : s;
+    };
     printReport({
       title: "Trial Balance",
-      subtitle: `${fromDate} to ${toDate}`,
+      subtitle: `${toDdMm(fromDate)} to ${toDdMm(toDate)}`,
       html,
+      landscape: true,
+      company: companyName,
     });
   };
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Filters ───────────────────────────────────────── */}
+      {/* ── Filters ── */}
       <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border print:hidden">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
@@ -172,7 +295,6 @@ export default function TrialBalance() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                {/* Two-level header */}
                 <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th rowSpan={2} className="px-4 py-2.5 text-left font-semibold border-r border-border w-[30%]">
                     Particulars
@@ -198,84 +320,13 @@ export default function TrialBalance() {
               </thead>
 
               <tbody>
-                {report.trial_balance
-                  .filter((g) => g.ledgers.length > 0)
-                  .map((group) => {
-                    const isOpen = !collapsed[group.group_name];
-                    // Group subtotals
-                    let gOpenDr = 0, gOpenCr = 0, gTxnDr = 0, gTxnCr = 0, gCloseDr = 0, gCloseCr = 0;
-                    for (const l of group.ledgers) {
-                      const ob = Number(l.opening_balance);
-                      if (ob > 0) gOpenDr += ob; else gOpenCr += Math.abs(ob);
-                      gTxnDr += Number(l.total_debit);
-                      gTxnCr += Number(l.total_credit);
-                      const cb = Number(l.closing_balance);
-                      if (cb > 0) gCloseDr += cb; else gCloseCr += Math.abs(cb);
-                    }
-
-                    return (
-                      <tbody key={group.group_name}>
-                        {/* Group header */}
-                        <tr
-                          className="bg-muted/30 border-t border-border cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => toggle(group.group_name)}
-                        >
-                          <td className="px-4 py-2 font-semibold border-r border-border">
-                            <span className="flex items-center gap-1.5">
-                              {isOpen
-                                ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                                : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
-                              {group.group_name}
-                              <span className="text-xs font-normal text-muted-foreground ml-1">
-                                ({group.ledgers.length})
-                              </span>
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border/50">{fmt(gOpenDr)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border">{fmt(gOpenCr)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border/50">{fmt(gTxnDr)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border">{fmt(gTxnCr)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium border-r border-border/50">{fmt(gCloseDr)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(gCloseCr)}</td>
-                        </tr>
-
-                        {/* Ledger rows */}
-                        {isOpen &&
-                          group.ledgers.map((ledger, i) => {
-                            const ob = Number(ledger.opening_balance);
-                            const cb = Number(ledger.closing_balance);
-                            return (
-                              <tr
-                                key={`${group.group_name}-${i}`}
-                                className={`border-t border-border/40 hover:bg-accent/30 transition-colors ${
-                                  i % 2 === 1 ? "bg-muted/20" : ""
-                                }`}
-                              >
-                                <td className="px-4 py-1.5 pl-10 border-r border-border">{ledger.ledger_name}</td>
-                                <td className="px-3 py-1.5 text-right tabular-nums border-r border-border/50">
-                                  {ob > 0 ? fmt(ob) : ""}
-                                </td>
-                                <td className="px-3 py-1.5 text-right tabular-nums border-r border-border">
-                                  {ob < 0 ? fmt(ob) : ""}
-                                </td>
-                                <td className="px-3 py-1.5 text-right tabular-nums border-r border-border/50">
-                                  {fmt(ledger.total_debit)}
-                                </td>
-                                <td className="px-3 py-1.5 text-right tabular-nums border-r border-border">
-                                  {fmt(ledger.total_credit)}
-                                </td>
-                                <td className="px-3 py-1.5 text-right tabular-nums border-r border-border/50">
-                                  {cb > 0 ? fmt(cb) : ""}
-                                </td>
-                                <td className="px-3 py-1.5 text-right tabular-nums">
-                                  {cb < 0 ? fmt(cb) : ""}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    );
-                  })}
+                <GroupRows
+                  nodes={report.trial_balance}
+                  depth={0}
+                  collapsed={collapsed}
+                  toggle={toggle}
+                  onLedgerClick={(id, name) => setLedgerModal({ id, name })}
+                />
               </tbody>
 
               <tfoot>
@@ -293,6 +344,109 @@ export default function TrialBalance() {
           </div>
         </div>
       )}
+
+      {ledgerModal && (
+        <LedgerTxnModal
+          ledger={ledgerModal}
+          fromDate={fromDate}
+          toDate={toDate}
+          combined={combined}
+          onClose={() => setLedgerModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─── Ledger transactions modal ─────────────────────────────────────────── */
+function LedgerTxnModal({ ledger, fromDate, toDate, combined, onClose }) {
+  const [txns, setTxns] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    setTxns(null);
+    const params = new URLSearchParams({ ledger_id: ledger.id, start_date: fromDate, end_date: toDate });
+    if (combined) params.set("combined", "true");
+    apiClient
+      .get(`/accounting/api/pnl-ledger-txns/?${params}`)
+      .then((res) => setTxns(res.data?.transactions || []))
+      .catch((e) => setError(e.response?.data?.error || "Failed to load transactions."))
+      .finally(() => setLoading(false));
+  }, [ledger.id, fromDate, toDate, combined]);
+
+  const totalDr = (txns || []).reduce((s, t) => s + Number(t.debit || 0), 0);
+  const totalCr = (txns || []).reduce((s, t) => s + Number(t.credit || 0), 0);
+
+  const fmtDate = (s) => {
+    if (!s) return "";
+    const d = new Date(s);
+    if (isNaN(d)) return s;
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-background rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div>
+            <h3 className="font-semibold text-sm">{ledger.name}</h3>
+            <p className="text-xs text-muted-foreground">Transactions from {fromDate} to {toDate}</p>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          {loading && (
+            <div className="flex items-center justify-center py-10 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading…
+            </div>
+          )}
+          {error && <div className="text-sm text-destructive py-4">{error}</div>}
+          {!loading && !error && txns && txns.length === 0 && (
+            <div className="text-center py-10 text-sm text-muted-foreground">No transactions in this period.</div>
+          )}
+          {!loading && !error && txns && txns.length > 0 && (
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left">Date</th>
+                  <th className="px-3 py-2 text-left">Voucher</th>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-left">Narration</th>
+                  <th className="px-3 py-2 text-right">Debit</th>
+                  <th className="px-3 py-2 text-right">Credit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {txns.map((t, i) => (
+                  <tr key={i} className={`border-t border-border/40 ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
+                    <td className="px-3 py-1.5 whitespace-nowrap">{fmtDate(t.voucher_main__date)}</td>
+                    <td className="px-3 py-1.5 font-mono">{t.voucher_main__voucher_no}</td>
+                    <td className="px-3 py-1.5">{t.voucher_main__voucher_type}</td>
+                    <td className="px-3 py-1.5 text-muted-foreground">{t.voucher_main__narration || ""}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{Number(t.debit) ? fmt(t.debit) : ""}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{Number(t.credit) ? fmt(t.credit) : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-border bg-muted/40 font-semibold">
+                  <td colSpan={4} className="px-3 py-2 text-right">Total</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(totalDr)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(totalCr)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

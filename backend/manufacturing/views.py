@@ -95,7 +95,10 @@ def create_karigar_issue(request):
 
 class KarigarIssueViewSet(views.RetailBaseViewset):
     serializer_class = KarigarIssueForPostSerializer
-    queryset = KarigarIssue.objects.all()
+    queryset = KarigarIssue.objects.select_related('karigar_ldgr').prefetch_related(
+        'items__item',
+        'items__purity',
+    ).all()
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
 
     search_fields=['issue_slip_no','karigar_ldgr__ac_name']
@@ -626,7 +629,13 @@ class KarigarJobReceiveListCreateView(ListAPIView):
 
 
 class KarigarReceiveViewSet(views.RetailBaseViewset):
-    queryset = KarigarReceive.objects.all()
+    queryset = KarigarReceive.objects.select_related('karigar_ldgr').prefetch_related(
+        'karigarreceiveitem_set__item',
+        'karigarreceiveitem_set__purity',
+        'karigarreceiveitem_set__karigarreceiveitemdetails_set__item',
+        'karigarreceiveitem_set__karigarreceiveitemdetails_set__metal_purity',
+        'karigarreceiveitem_set__karigarreceiveitemdetails_set__packet',
+    ).all()
     serializer_class = KarigarReceiveForPostSerializer
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
 
@@ -1162,7 +1171,9 @@ class KarigarGoldIssueViewset(views.RetailBaseViewset):
 
 class KarigarReceiveItemView(ListAPIView):
     serializer_class = KarigarReceiveItemForGetSerializer
-    queryset = KarigarReceiveItem.objects.all()
+    queryset = KarigarReceiveItem.objects.select_related(
+        'item', 'purity', 'receive_slip_no__karigar_ldgr',
+    ).prefetch_related('sample_issued_items').all()
     filter_backends = [DjangoFilterBackend , OrderingFilter]
 
     filterset_class = KarigarReceiveItemFilter

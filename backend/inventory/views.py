@@ -1,8 +1,8 @@
-from django.shortcuts import render, redirect, get_object_or_404
+﻿from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction
 from inventory.filters import StockValuationReportFilter
-from inventory.serializer import BarCodeDetailSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, ItemStockReportSerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
+from inventory.serializer import BarCodeDetailSerializer, BarCodeMainListSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, ItemStockReportSerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
 from manufacturing.models import *
 from manufacturing.serializer import HallmarkReceiveItemForPostSerializer
 from userauth.views import RetailBaseViewset
@@ -353,12 +353,42 @@ def barcode_split_view(request,old_barcode):
 
 class BarCodeView(RetailBaseViewset):
     serializer_class = BarCodeMainSerializer
-    queryset = BarcodeMain.objects.all()
+    queryset = BarcodeMain.objects.select_related(
+        'item', 'purity', 'kr_code', 'rec_item'
+    ).prefetch_related(
+        'barcodedetails_set__item',
+        'barcodedetails_set__purity',
+        'barcodedetails_set__packet',
+    ).all()
     filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
     filterset_fields = ['barcode', 'item', 'purity', 'stk_status']
     search_fields = ['barcode', 'item__short_code', 'item__item_name',]
 
+    def get_serializer_class(self):
+        # Use lightweight serializer (no nested sub-items) for list queries
+        if self.action == 'list':
+            return BarCodeMainListSerializer
+        return BarCodeMainSerializer
+
     def get_queryset(self):
+        # For list action use a lean queryset — no heavy barcodedetails_set prefetch
+        if getattr(self, 'action', None) == 'list':
+            retail = getattr(self.request, 'retail', None)
+            qs = (
+                BarcodeMain.objects
+                .select_related('item', 'purity')
+                .filter(retail=retail)
+                .annotate(dia_ct=Sum('barcodedetails__ct'))
+            )
+            ids_param = self.request.query_params.get('ids', '').strip()
+            if ids_param:
+                try:
+                    id_list = [int(i) for i in ids_param.split(',') if i.strip().isdigit()]
+                    if id_list:
+                        qs = qs.filter(id__in=id_list)
+                except (ValueError, TypeError):
+                    pass
+            return qs
         qs = super().get_queryset()
         ids_param = self.request.query_params.get('ids', '').strip()
         if ids_param:
@@ -614,21 +644,24 @@ class StockReportView(APIView):
 
         retail = request.retail
 
-        # Opening stock: barcodes marked as op_stk created on or before as_on_date
+        # Opening stock: barcodes marked as op_stk created on or before as_on_date.
+        # stk_status is intentionally NOT filtered — an op_stk barcode currently held
+        # with a karigar or in approval still belongs to the retail's inventory.
         base_barcodes = BarcodeMain.objects.filter(
             op_retail=retail,
             item=OuterRef('pk'),
             op_stk=True,
-            stk_status=True,
-            created_date__lte=as_on_date
+            created_date__lte=as_on_date,
         ).values('item').annotate(total_pcs=Coalesce(Sum('pcs'), 0)).values('total_pcs')
 
-        # All transactions up to as_on_date from barcode_transaction
+        # All transactions up to as_on_date. Retail-less rows (legacy/import) are
+        # included defensively so they don't vanish from every retail's report.
+        # Compare on the date portion of the datetime field so transactions created
+        # later in the day on as_on_date are still counted.
         transactions = BarcodeTransaction.objects.filter(
             barcode__item=OuterRef('pk'),
-            retail=retail,
-            date__lte=as_on_date
-        )
+            date__date__lte=as_on_date,
+        ).filter(Q(retail=retail) | Q(retail__isnull=True))
 
         # Actual trans_type values from barcode_transaction table
         inflow_types = [
@@ -681,12 +714,127 @@ class StockReportView(APIView):
             outflow=outflow_expr,
         ).annotate(
             stock=F('opening') + F('inflow') - F('outflow')
-        ).exclude(
-            opening=0, inflow=0, outflow=0
-        )
+        ).filter(
+            Q(opening__gt=0) | Q(inflow__gt=0) | Q(outflow__gt=0)
+        ).order_by('short_code')
 
         serializer = ItemStockReportSerializer(qs, many=True)
         return Response(serializer.data)
+
+
+class StockReportBarcodesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    INFLOW_COLUMNS = {
+        'create_pur': 'CREATE-PUR', 'create_rec': 'CREATE-REC',
+        'sale_ret': 'SALE-RET', 'sale_app_ret': 'SALE-APP-RET',
+        'trf_rr_in': 'TRF-RR-IN', 'bar_mer_crt': 'BAR-MER-CRT',
+        'bar_split_crt': 'BAR-SPLIT-CRT',
+    }
+    OUTFLOW_COLUMNS = {
+        'sale': 'SALE', 'sale_app': 'SALE-APP', 'trf_rr_out': 'TRF-RR-OUT',
+        'bar_mer': 'BAR-MER', 'bar_split': 'BAR-SPLIT', 'bar_trf_unb': 'BAR-TRF-UNB',
+    }
+
+    def get(self, request):
+        item_id = request.query_params.get('item_id')
+        column = request.query_params.get('column')
+        as_on_date_raw = request.query_params.get('as_on_date')
+
+        if not (item_id and column and as_on_date_raw):
+            return Response(
+                {"error": "item_id, column, and as_on_date are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            as_on_date = datetime.strptime(as_on_date_raw, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        retail = request.retail
+
+        if column == 'opening':
+            barcodes = BarcodeMain.objects.filter(
+                op_retail=retail,
+                item_id=item_id,
+                op_stk=True,
+                created_date__lte=as_on_date,
+            ).order_by('barcode')
+            rows = [{
+                'barcode': b.barcode,
+                'pcs': b.pcs,
+                'date': b.created_date.isoformat() if b.created_date else None,
+                'billno': '',
+                'trans_type': 'OPENING',
+            } for b in barcodes]
+            return Response(rows)
+
+        if column == 'stock':
+            # Reconstruct in-stock set as of as_on_date:
+            # opening barcodes, plus inflows minus outflows via transaction count parity.
+            opening_ids = set(
+                BarcodeMain.objects.filter(
+                    op_retail=retail, item_id=item_id, op_stk=True,
+                    created_date__lte=as_on_date,
+                ).values_list('pk', flat=True)
+            )
+            txn_qs = BarcodeTransaction.objects.filter(
+                barcode__item_id=item_id,
+                date__date__lte=as_on_date,
+            ).filter(Q(retail=retail) | Q(retail__isnull=True))
+
+            inflow_trans = set(self.INFLOW_COLUMNS.values())
+            outflow_trans = set(self.OUTFLOW_COLUMNS.values())
+            per_barcode = {}
+            for barcode_id, trans_type in txn_qs.order_by('date').values_list('barcode_id', 'trans_type'):
+                net = per_barcode.get(barcode_id, 0)
+                if trans_type in inflow_trans:
+                    net += 1
+                elif trans_type in outflow_trans:
+                    net -= 1
+                per_barcode[barcode_id] = net
+
+            in_stock_ids = set(opening_ids)
+            for bid, net in per_barcode.items():
+                if net > 0:
+                    in_stock_ids.add(bid)
+                elif net < 0 and bid in in_stock_ids:
+                    in_stock_ids.discard(bid)
+
+            barcodes = BarcodeMain.objects.filter(pk__in=in_stock_ids).order_by('barcode')
+            rows = [{
+                'barcode': b.barcode,
+                'pcs': b.pcs,
+                'date': b.created_date.isoformat() if b.created_date else None,
+                'billno': '',
+                'trans_type': 'IN-STOCK',
+            } for b in barcodes]
+            return Response(rows)
+
+        trans_type = self.INFLOW_COLUMNS.get(column) or self.OUTFLOW_COLUMNS.get(column)
+        if not trans_type:
+            return Response({"error": f"Unknown column '{column}'"}, status=status.HTTP_400_BAD_REQUEST)
+
+        txns = BarcodeTransaction.objects.filter(
+            barcode__item_id=item_id,
+            trans_type=trans_type,
+            date__date__lte=as_on_date,
+        ).filter(
+            Q(retail=retail) | Q(retail__isnull=True)
+        ).select_related('barcode').order_by('date')
+
+        rows = [{
+            'barcode': t.barcode.barcode,
+            'pcs': t.barcode.pcs,
+            'date': t.date.date().isoformat() if t.date else None,
+            'billno': t.billno or '',
+            'trans_type': t.trans_type,
+        } for t in txns]
+        return Response(rows)
+
 
 class BarcodeDetailsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -975,53 +1123,79 @@ class ClosingStockCal:
 
     def get_sales(self, item, retail_id=None, from_date=None, to_date=None):
         result = self._zero()
-        query = SalesVouItem.objects.filter(item=item)
-        if retail_id:
-            query = query.filter(retail_id=retail_id)
-        if from_date:
-            query = query.filter(billno__date1__gte=from_date)
-        if to_date:
-            query = query.filter(billno__date1__lte=to_date)
 
-        agg = query.aggregate(
+        # Direct sales: raw material item sold as the main line (loose gold, loose diamonds)
+        main_q = SalesVouItem.objects.filter(item=item)
+        if retail_id:
+            main_q = main_q.filter(retail_id=retail_id)
+        if from_date:
+            main_q = main_q.filter(billno__date1__gte=from_date)
+        if to_date:
+            main_q = main_q.filter(billno__date1__lte=to_date)
+
+        main_agg = main_q.aggregate(
             total_gw=Coalesce(Sum('gw'), Decimal('0.00')),
         )
-        result['gw'] = agg['total_gw']
+        result['gw'] = main_agg['total_gw']
+
+        # Sub-item sales: raw material sold as a component of a finished good
+        detail_q = SalesVouItemDetails.objects.filter(item=item)
+        if retail_id:
+            detail_q = detail_q.filter(retail_id=retail_id)
+        if from_date:
+            detail_q = detail_q.filter(main_item__billno__date1__gte=from_date)
+        if to_date:
+            detail_q = detail_q.filter(main_item__billno__date1__lte=to_date)
+
+        detail_agg = detail_q.aggregate(
+            total_gw=Coalesce(Sum('gw'), Decimal('0.00')),
+            total_ct=Coalesce(Sum('ct'), Decimal('0.00')),
+        )
 
         if item.item_type == 'S':
-            detail_q = SalesVouItemDetails.objects.filter(main_item__in=query, item=item)
-            detail_agg = detail_q.aggregate(
-                total_ct=Coalesce(Sum('ct'), Decimal('0.00')),
-                total_val=Coalesce(Sum('amount'), Decimal('0.00')),
-            )
+            result['gw'] = detail_agg['total_gw']
             result['ct'] = detail_agg['total_ct']
-            # amt for sales is computed via weighted avg in calculate_closing_stock
+        elif item.item_type == 'R':
+            result['gw'] += detail_agg['total_gw']
 
         return result
 
     def get_sale_returns(self, item, retail_id=None, from_date=None, to_date=None):
         result = self._zero()
-        query = SaleReturnItem.objects.filter(item=item)
-        if retail_id:
-            query = query.filter(retail_id=retail_id)
-        if from_date:
-            query = query.filter(billno__date1__gte=from_date)
-        if to_date:
-            query = query.filter(billno__date1__lte=to_date)
 
-        agg = query.aggregate(
+        # Direct returns: raw material item returned as the main line
+        main_q = SaleReturnItem.objects.filter(item=item)
+        if retail_id:
+            main_q = main_q.filter(retail_id=retail_id)
+        if from_date:
+            main_q = main_q.filter(billno__date1__gte=from_date)
+        if to_date:
+            main_q = main_q.filter(billno__date1__lte=to_date)
+
+        main_agg = main_q.aggregate(
             total_gw=Coalesce(Sum('gw'), Decimal('0.00')),
         )
-        result['gw'] = agg['total_gw']
+        result['gw'] = main_agg['total_gw']
+
+        # Sub-item returns: raw material returned as a component of a finished good
+        detail_q = SaleReturnDetails.objects.filter(item=item)
+        if retail_id:
+            detail_q = detail_q.filter(retail_id=retail_id)
+        if from_date:
+            detail_q = detail_q.filter(main_item__billno__date1__gte=from_date)
+        if to_date:
+            detail_q = detail_q.filter(main_item__billno__date1__lte=to_date)
+
+        detail_agg = detail_q.aggregate(
+            total_gw=Coalesce(Sum('gw'), Decimal('0.00')),
+            total_ct=Coalesce(Sum('ct'), Decimal('0.00')),
+        )
 
         if item.item_type == 'S':
-            detail_q = SaleReturnDetails.objects.filter(main_item__in=query, item=item)
-            detail_agg = detail_q.aggregate(
-                total_ct=Coalesce(Sum('ct'), Decimal('0.00')),
-                total_val=Coalesce(Sum('amount'), Decimal('0.00')),
-            )
+            result['gw'] = detail_agg['total_gw']
             result['ct'] = detail_agg['total_ct']
-            # amt for sale returns is computed via weighted avg in calculate_closing_stock
+        elif item.item_type == 'R':
+            result['gw'] += detail_agg['total_gw']
 
         return result
 
@@ -1132,7 +1306,7 @@ class BarcodeSplitMergeView(ListAPIView):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = {
         'transaction_type': ['exact'],
-        'date1': ['range']
+        'date1': ['range', 'gte', 'lte']
     }
 
     def get_queryset(self):
@@ -1380,7 +1554,7 @@ class BarcodeImageListCreate(ListCreateAPIView):
     def get_queryset(self):
         barcode_id = self.request.query_params.get('barcode')
         if barcode_id:
-            return BarcodeImage.objects.filter(barcode_id=barcode_id).order_by('-uploaded_at')
+            return BarcodeImage.objects.select_related('barcode').filter(barcode_id=barcode_id).order_by('-uploaded_at')
         return BarcodeImage.objects.none()
 
     def create(self, request, *args, **kwargs):
@@ -1818,3 +1992,198 @@ class RfidTagListView(APIView):
             'stk_status': b.stk_status,
         } for b in qs]
         return Response({'results': data, 'count': len(data)})
+
+class ClosingStockTxnView(APIView):
+    """Return individual voucher rows for a given item+transaction-type drill-down."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        item_id   = request.query_params.get('item_id')
+        txn_type  = request.query_params.get('txn_type')
+        to_date   = request.query_params.get('to_date', str(datetime.today().date()))
+        retail_id = request.query_params.get('retail_id') or None
+
+        if not item_id or not txn_type:
+            return Response({'error': 'item_id and txn_type are required'}, status=400)
+
+        try:
+            item = Item.objects.get(id=item_id)
+        except Item.DoesNotExist:
+            return Response({'error': 'Item not found'}, status=404)
+
+        vouchers = []
+
+        if txn_type == 'purchases':
+            qs = PurchaseVoucherItems.objects.filter(
+                item=item, is_return=False, is_finished=False,
+                billno__date1__lte=to_date,
+            ).select_related('billno', 'billno__ldgr')
+            if retail_id:
+                qs = qs.filter(retail_id=retail_id)
+            for r in qs:
+                vouchers.append({
+                    'date': str(r.billno.date1),
+                    'voucher_no': r.billno.billno,
+                    'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                    'gw': float(r.gw or 0),
+                    'ct': 0.0,
+                    'amount': float(r.item_value or 0),
+                })
+            if item.item_type in ['S', 'R']:
+                dq = PurchaseVoucherDetails.objects.filter(
+                    sub_item=item,
+                    main_item__is_finished=False,
+                    main_item__is_return=False,
+                    billno__date1__lte=to_date,
+                ).select_related('billno', 'billno__ldgr')
+                if retail_id:
+                    dq = dq.filter(retail_id=retail_id)
+                for r in dq:
+                    vouchers.append({
+                        'date': str(r.billno.date1),
+                        'voucher_no': r.billno.billno,
+                        'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                        'gw': float(r.sub_gw or 0),
+                        'ct': float(r.sub_ct or 0),
+                        'amount': float(r.value or 0),
+                    })
+
+        elif txn_type == 'purchase_returns':
+            qs = PurchaseReturnItems.objects.filter(
+                item=item, billno__date1__lte=to_date,
+            ).select_related('billno', 'billno__ldgr')
+            if retail_id:
+                qs = qs.filter(retail_id=retail_id)
+            for r in qs:
+                vouchers.append({
+                    'date': str(r.billno.date1),
+                    'voucher_no': r.billno.billno,
+                    'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                    'gw': float(r.gw or 0),
+                    'ct': 0.0,
+                    'amount': float((r.gw or 0) * (r.making_value or 0)),
+                })
+            if item.item_type == 'S':
+                dq = PurchaseReturnDetails.objects.filter(
+                    sub_item=item, billno__date1__lte=to_date,
+                ).select_related('billno', 'billno__ldgr')
+                if retail_id:
+                    dq = dq.filter(retail_id=retail_id)
+                for r in dq:
+                    vouchers.append({
+                        'date': str(r.billno.date1),
+                        'voucher_no': r.billno.billno,
+                        'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                        'gw': float(r.sub_gw or 0),
+                        'ct': float(r.sub_ct or 0),
+                        'amount': float(r.value or 0),
+                    })
+
+        elif txn_type == 'sales':
+            qs = SalesVouItem.objects.filter(
+                item=item, billno__date1__lte=to_date,
+            ).select_related('billno', 'billno__ldgr')
+            if retail_id:
+                qs = qs.filter(retail_id=retail_id)
+            for r in qs:
+                vouchers.append({
+                    'date': str(r.billno.date1),
+                    'voucher_no': r.billno.billno,
+                    'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                    'gw': float(r.gw or 0),
+                    'ct': 0.0,
+                    'amount': float(r.amount or 0),
+                })
+            if item.item_type in ['S', 'R']:
+                dq = SalesVouItemDetails.objects.filter(
+                    item=item, main_item__billno__date1__lte=to_date,
+                ).select_related('main_item__billno', 'main_item__billno__ldgr')
+                if retail_id:
+                    dq = dq.filter(retail_id=retail_id)
+                for r in dq:
+                    vou = r.main_item.billno if r.main_item else r.billno
+                    vouchers.append({
+                        'date': str(vou.date1),
+                        'voucher_no': vou.billno,
+                        'party': vou.ldgr.ac_name if vou.ldgr else '',
+                        'gw': float(r.gw or 0),
+                        'ct': float(r.ct or 0),
+                        'amount': float(r.amount or 0),
+                    })
+
+        elif txn_type == 'sale_returns':
+            qs = SaleReturnItem.objects.filter(
+                item=item, billno__date1__lte=to_date,
+            ).select_related('billno', 'billno__ldgr')
+            if retail_id:
+                qs = qs.filter(retail_id=retail_id)
+            for r in qs:
+                vouchers.append({
+                    'date': str(r.billno.date1),
+                    'voucher_no': r.billno.billno,
+                    'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                    'gw': float(r.gw or 0),
+                    'ct': 0.0,
+                    'amount': 0.0,
+                })
+            if item.item_type in ['S', 'R']:
+                dq = SaleReturnDetails.objects.filter(
+                    item=item, main_item__billno__date1__lte=to_date,
+                ).select_related('main_item__billno', 'main_item__billno__ldgr')
+                if retail_id:
+                    dq = dq.filter(retail_id=retail_id)
+                for r in dq:
+                    vou = r.main_item.billno
+                    vouchers.append({
+                        'date': str(vou.date1),
+                        'voucher_no': vou.billno,
+                        'party': vou.ldgr.ac_name if vou.ldgr else '',
+                        'gw': float(r.gw or 0),
+                        'ct': float(r.ct or 0),
+                        'amount': float(r.amount or 0),
+                    })
+
+        elif txn_type == 'refinery_issues':
+            from manufacturing.models import RefinaryIssueDetail as RID
+            qs = RID.objects.filter(
+                item=item, billno__date1__lte=to_date,
+            ).select_related('billno', 'billno__ldgr')
+            if retail_id:
+                qs = qs.filter(retail_id=retail_id)
+            for r in qs:
+                vouchers.append({
+                    'date': str(r.billno.date1),
+                    'voucher_no': r.billno.billno,
+                    'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                    'gw': float(r.gw or 0),
+                    'ct': float(r.ct or 0),
+                    'amount': 0.0,
+                })
+
+        elif txn_type == 'refinery_receives':
+            from manufacturing.models import RefinaryReceiveDetail as RRD
+            qs = RRD.objects.filter(
+                item=item, billno__date1__lte=to_date,
+            ).select_related('billno', 'billno__ldgr')
+            if retail_id:
+                qs = qs.filter(retail_id=retail_id)
+            for r in qs:
+                vouchers.append({
+                    'date': str(r.billno.date1),
+                    'voucher_no': r.billno.billno,
+                    'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                    'gw': float(r.gw or 0),
+                    'ct': float(r.ct or 0),
+                    'amount': 0.0,
+                })
+
+        vouchers.sort(key=lambda x: x['date'])
+        return Response({
+            'item_name': item.item_name,
+            'item_type': item.item_type,
+            'txn_type': txn_type,
+            'to_date': to_date,
+            'vouchers': vouchers,
+        })
+
+

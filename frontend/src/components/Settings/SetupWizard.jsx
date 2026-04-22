@@ -38,9 +38,6 @@ import {
   syncUserRetails,
   getRetails,
   seedHRLedgers,
-  getHRSettings,
-  saveHRSettings,
-  getLedgers,
 } from "@/services/apiService";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -53,7 +50,6 @@ const STEPS = [
   { key: "gstin",    label: "GSTIN",           description: "Register the GSTIN that owns GST ledgers" },
   { key: "retail",   label: "Create Retail",   description: "Set up your first retail location" },
   { key: "tds",      label: "TDS & TCS",       description: "Seed tax deduction sections and ledgers" },
-  { key: "hr",       label: "HR Settings",     description: "Configure payroll ledgers for salary processing" },
   { key: "fiscal",   label: "Fiscal Year",     description: "Create and activate a fiscal year" },
   { key: "review",   label: "Review & Finish", description: "Verify setup and start using the ERP" },
 ];
@@ -176,8 +172,6 @@ export default function SetupWizard() {
   const [retailForm, setRetailForm] = useState({ retail_code: "", retail_name: "", email: "", phone: "", bill_series: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
   const [fyForm, setFyForm] = useState({ fy_code: "", fy_start: "", fy_end: "" });
   const [createdFYs, setCreatedFYs] = useState([]);
-  const [hrSettings, setHrSettings] = useState({ salary_expense_ldgr: "", employee_payable_ldgr: "", pf_payable_ldgr: "", esi_payable_ldgr: "", pt_payable_ldgr: "", tds_payable_ldgr: "" });
-  const [allLedgers, setAllLedgers] = useState([]);
   const [companyForm, setCompanyForm] = useState({ company_name: "", pan: "", phone: "", email: "", address: "", city: "", state: "", pincode: "" });
   const [branchForm, setBranchForm] = useState({ branch_name: "", branch_code: "", state: "", description: "", company: "" });
   const [gstinForm, setGstinForm] = useState({ gstin: "", legal_name: "", branch: "", state: "" });
@@ -191,7 +185,7 @@ export default function SetupWizard() {
       if (sessionStorage.getItem("erpSetupComplete") === "true") return;
       try {
         const baseUrl = sessionStorage.getItem("baseUrl") || "";
-        const token = localStorage.getItem("Token");
+        const token = sessionStorage.getItem("Token");
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `${baseUrl}/userauth/api/setup/rollback/`, false);
         if (token) xhr.setRequestHeader("Authorization", `Token ${token}`);
@@ -231,8 +225,8 @@ export default function SetupWizard() {
       // If setup_status still fails (e.g. stale token after DB reset), clear it so
       // the user is redirected to login on next navigation
       if (!res.success) {
-        localStorage.removeItem("Token");
-        localStorage.removeItem("user");
+        sessionStorage.removeItem("Token");
+        sessionStorage.removeItem("user");
       }
       if (res.success) {
         setSetupStatus(res.data);
@@ -243,10 +237,9 @@ export default function SetupWizard() {
         if (res.data.account_groups_seeded) done.add("accounts");
         if (res.data.retails_created) done.add("retail");
         if (res.data.tds_tcs_seeded) done.add("tds");
-        if (res.data.hr_configured) done.add("hr");
         if (res.data.fiscal_years_created) done.add("fiscal");
         // Mark review complete when all prerequisite steps are done
-        const prereqs = ["company", "branch", "accounts", "gstin", "retail", "tds", "hr", "fiscal"];
+        const prereqs = ["company", "branch", "accounts", "gstin", "retail", "tds", "fiscal"];
         if (prereqs.every((k) => done.has(k))) done.add("review");
         setCompleted(done);
         // Jump to first incomplete step
@@ -351,31 +344,6 @@ export default function SetupWizard() {
       });
     }
     if (stepKey === "accounts" && completed.has("accounts") && accountTree.length === 0) loadTree();
-    if (stepKey === "hr") {
-      // Load ledgers list for dropdowns
-      if (allLedgers.length === 0) {
-        getLedgers({ page_size: 9999 }).then(r => {
-          if (r.success) setAllLedgers(Array.isArray(r.data) ? r.data : (r.data?.results || []));
-        });
-      }
-      // Seed HR ledgers (idempotent) and pre-fill settings
-      handleSeedHR().then(() => {
-        // Also load any existing saved settings (in case returning to step)
-        getHRSettings().then(r => {
-          if (r.success) {
-            const s = r.data;
-            setHrSettings(prev => ({
-              salary_expense_ldgr:   String(s.salary_expense_ldgr   || prev.salary_expense_ldgr   || ""),
-              employee_payable_ldgr: String(s.employee_payable_ldgr || prev.employee_payable_ldgr || ""),
-              pf_payable_ldgr:       String(s.pf_payable_ldgr       || prev.pf_payable_ldgr       || ""),
-              esi_payable_ldgr:      String(s.esi_payable_ldgr      || prev.esi_payable_ldgr      || ""),
-              pt_payable_ldgr:       String(s.pt_payable_ldgr       || prev.pt_payable_ldgr       || ""),
-              tds_payable_ldgr:      String(s.tds_payable_ldgr      || prev.tds_payable_ldgr      || ""),
-            }));
-          }
-        });
-      });
-    }
     if (stepKey === "fiscal") {
       loadFYs().then((list) => {
         setFyForm(suggestNextFY(list));
@@ -469,47 +437,10 @@ export default function SetupWizard() {
     if (res.success) {
       toast({ title: "TDS & TCS sections and ledgers seeded" });
       markDone("tds");
+      seedHRLedgers(); // fire-and-forget: seeds HR payroll ledgers silently
       await refreshStatus();
     } else {
       toast({ title: "Error", description: String(res.error), variant: "destructive" });
-    }
-    setBusy(false);
-  };
-
-  // ─── Step: HR Settings ─────────────────────────────────────────────────
-  const handleSeedHR = async () => {
-    setBusy(true);
-    const res = await seedHRLedgers();
-    if (res.success) {
-      const s = res.data?.settings || {};
-      setHrSettings({
-        salary_expense_ldgr:   String(s.salary_expense_ldgr   || ""),
-        employee_payable_ldgr: String(s.employee_payable_ldgr || ""),
-        pf_payable_ldgr:       String(s.pf_payable_ldgr       || ""),
-        esi_payable_ldgr:      String(s.esi_payable_ldgr      || ""),
-        pt_payable_ldgr:       String(s.pt_payable_ldgr       || ""),
-        tds_payable_ldgr:      String(s.tds_payable_ldgr      || ""),
-      });
-      toast({ title: "HR payroll ledgers seeded and pre-filled" });
-    } else {
-      toast({ title: "Error seeding HR ledgers", description: String(res.error), variant: "destructive" });
-    }
-    setBusy(false);
-  };
-
-  const handleSaveHR = async () => {
-    setBusy(true);
-    const payload = Object.fromEntries(
-      Object.entries(hrSettings).map(([k, v]) => [k, v || null])
-    );
-    const res = await saveHRSettings(payload);
-    if (res.success) {
-      toast({ title: "HR Settings saved" });
-      markDone("hr");
-      await refreshStatus();
-    } else {
-      const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
-      toast({ title: "Error", description: msg, variant: "destructive" });
     }
     setBusy(false);
   };
@@ -520,14 +451,14 @@ export default function SetupWizard() {
     let startYear;
     if (existing.length > 0) {
       const lastEnd = existing.reduce((max, fy) => (fy.fy_end > max ? fy.fy_end : max), "");
-      startYear = new Date(lastEnd).getFullYear() + 1;
+      startYear = new Date(lastEnd).getFullYear();
     } else {
       const today = new Date();
       startYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
     }
     const endYear = startYear + 1;
     return {
-      fy_code: `${startYear}-${String(endYear).slice(-2)}`,
+      fy_code: `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`,
       fy_start: `${startYear}-04-01`,
       fy_end:   `${endYear}-03-31`,
     };
@@ -931,50 +862,6 @@ export default function SetupWizard() {
             </div>
           )}
 
-          {/* ── Step: HR Settings ───────────────────────────── */}
-          {step.key === "hr" && (
-            <div className="flex flex-col gap-5">
-              {completed.has("hr") && (
-                <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
-                  <CheckCircle2 className="size-4" /> HR payroll ledgers configured
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                The 6 payroll ledgers below have been auto-seeded and pre-filled. You can reassign any of them
-                before saving. Once a salary slip is approved these cannot be changed.
-              </p>
-
-              {[
-                { field: "salary_expense_ldgr",   label: "Salary Expense Ledger *",          hint: "Debited for total CTC on every payslip" },
-                { field: "employee_payable_ldgr", label: "Salary Payable Ledger *",           hint: "Credited for net take-home salary" },
-                { field: "pf_payable_ldgr",       label: "PF Payable Ledger",                hint: "Credited for employee + employer PF" },
-                { field: "esi_payable_ldgr",      label: "ESI Payable Ledger",               hint: "Credited for employee + employer ESI" },
-                { field: "pt_payable_ldgr",       label: "Professional Tax Payable Ledger",  hint: "Credited for professional tax deducted" },
-                { field: "tds_payable_ldgr",      label: "TDS Payable Ledger",               hint: "Credited for TDS deducted from salary" },
-              ].map(({ field, label, hint }) => (
-                <div key={field} className="flex flex-col gap-1">
-                  <Label className="text-xs">{label}</Label>
-                  <select
-                    value={hrSettings[field] || ""}
-                    onChange={e => setHrSettings(f => ({ ...f, [field]: e.target.value }))}
-                    className="h-9 text-sm rounded-md border border-input bg-background px-3"
-                  >
-                    <option value="">— Select ledger —</option>
-                    {allLedgers.map(l => (
-                      <option key={l.id} value={String(l.id)}>{l.ac_name}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-muted-foreground">{hint}</p>
-                </div>
-              ))}
-
-              <Button onClick={handleSaveHR} disabled={busy} className="self-start bg-primary hover:bg-primary text-white">
-                {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
-                Save HR Settings
-              </Button>
-            </div>
-          )}
-
           {/* ── Step: Fiscal Year ────────────────────────────── */}
           {step.key === "fiscal" && (
             <div className="flex flex-col gap-5">
@@ -1081,7 +968,7 @@ export default function SetupWizard() {
               <Button
                 onClick={async () => {
                   await syncUserRetails();
-                  // Populate the active retail in localStorage so the dashboard
+                  // Populate the active retail in sessionStorage so the dashboard
                   // retail dropdown picks up the newly created retail. Mirrors
                   // the logic that runs during login in loginAndSaveToken().
                   try {
@@ -1090,8 +977,8 @@ export default function SetupWizard() {
                       const ul = data.data.results[0];
                       const loc = ul.default_location || (ul.location?.length > 0 ? ul.location[0] : null);
                       if (loc) {
-                        localStorage.setItem("retail_code", loc.retail_code);
-                        localStorage.setItem("state_code", loc.state?.code ?? "");
+                        sessionStorage.setItem("retail_code", loc.retail_code);
+                        sessionStorage.setItem("state_code", loc.state?.code ?? "");
                       }
                     }
                   } catch (_) {}

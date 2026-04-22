@@ -140,7 +140,7 @@ _MISC_LEDGERS = [
     # ── General / Other ──────────────────────────────────────────────────────
     ('Customer Advance',         'CL'),          # Advance received on customer orders
     ('Suspense Account',         'CL'),          # Temporary parking for unmatched entries
-    ('Opening Balance Equity',   'CAP-RES'),     # Plug account for trial balance during setup
+    ('Opening Balance Equity',   'CAP-OWN'),     # Plug account for trial balance during setup
     ('Closing Stock',            'CA-STK'),      # Inventory asset — value injected from inventory module
     ('Stock-in-Transit',         'CA-STK'),      # Inventory moving between retail locations
 ]

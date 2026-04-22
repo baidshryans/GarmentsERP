@@ -19,6 +19,7 @@ import { RetailSwitcher } from "@/components/shared/RetailSwitcher"
 import { navSections } from "@/config/navData"
 import { useLayout } from "@/contexts/LayoutContext"
 import { useLicense } from "@/contexts/LicenseContext"
+import { useState, useEffect } from "react"
 
 /** Build visible items for each section by merging licensed parts */
 function useLicensedSections(isNavGroupLicensed) {
@@ -92,16 +93,28 @@ function SectionDropdown({ label, items }) {
 
 // ── Main TopMenuBar ───────────────────────────────────────────────────────────
 
-const user = {
-  name:   JSON.parse(localStorage.getItem("user"))?.username ?? "",
-  email:  JSON.parse(localStorage.getItem("user"))?.email    ?? "",
-  avatar: "/avatars/shadcn.jpg",
-}
-
 export function TopMenuBar() {
   const { setLayout } = useLayout()
   const { isNavGroupLicensed } = useLicense()
   const filteredSections = useLicensedSections(isNavGroupLicensed)
+
+  // Read user from sessionStorage inside the component so it updates after login
+  const [user, setUser] = useState(() => {
+    const u = JSON.parse(sessionStorage.getItem("user") || "null")
+    return { name: u?.username ?? "", email: u?.email ?? "", avatar: "/avatars/shadcn.jpg" }
+  })
+
+  // Re-read if sessionStorage is updated (e.g. after SPA login without page reload)
+  useEffect(() => {
+    const sync = () => {
+      const u = JSON.parse(sessionStorage.getItem("user") || "null")
+      setUser({ name: u?.username ?? "", email: u?.email ?? "", avatar: "/avatars/shadcn.jpg" })
+    }
+    window.addEventListener("storage", sync)
+    // Also fire once on mount in case sessionStorage was updated before this effect ran
+    sync()
+    return () => window.removeEventListener("storage", sync)
+  }, [])
 
   return (
     <nav className="fixed top-0 inset-x-0 z-50 h-12 flex items-center bg-sidebar border-b border-sidebar-border px-3 gap-1">

@@ -26,7 +26,7 @@ export function LicenseProvider({ children }) {
 
   useEffect(() => {
     // Only fetch if user is authenticated
-    if (localStorage.getItem("Token")) {
+    if (sessionStorage.getItem("Token")) {
       fetchLicense()
     }
   }, [fetchLicense])

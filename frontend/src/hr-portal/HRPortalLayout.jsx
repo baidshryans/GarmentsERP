@@ -4,11 +4,11 @@ import { LogOut, BriefcaseBusiness } from "lucide-react";
 
 export default function HRPortalLayout() {
   const navigate = useNavigate();
-  const emp = JSON.parse(localStorage.getItem("hrPortalEmployee") || "{}");
+  const emp = JSON.parse(sessionStorage.getItem("hrPortalEmployee") || "{}");
 
   function handleLogout() {
-    localStorage.removeItem("hrPortalToken");
-    localStorage.removeItem("hrPortalEmployee");
+    sessionStorage.removeItem("hrPortalToken");
+    sessionStorage.removeItem("hrPortalEmployee");
     navigate("/hr-portal/login");
   }
 

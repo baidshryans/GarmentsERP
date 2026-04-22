@@ -69,7 +69,7 @@ class ItemStockReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
         fields = [
-            'short_code', 'item_name', 'opening',
+            'id', 'short_code', 'item_name', 'opening',
             'create_pur', 'create_rec', 'sale_ret', 'sale_app_ret',
             'trf_rr_in', 'bar_mer_crt', 'bar_split_crt', 'inflow',
             'sale', 'sale_app', 'trf_rr_out',
@@ -359,6 +359,32 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             )
             return instance
 
+class BarCodeMainListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for list views — no nested barcodedetails_set."""
+    item = serializers.SlugRelatedField(read_only=True, slug_field="short_code")
+    purity = serializers.SlugRelatedField(read_only=True, slug_field="purity")
+    item_name = serializers.SerializerMethodField()
+    purity_name = serializers.SerializerMethodField()
+    # dia_ct is annotated on the queryset via Sum('barcodedetails_set__ct')
+    dia_ct = serializers.FloatField(read_only=True, default=None)
+
+    def get_item_name(self, obj):
+        return obj.item.item_name if obj.item else None
+
+    def get_purity_name(self, obj):
+        return obj.purity.purity if obj.purity else None
+
+    class Meta:
+        model = BarcodeMain
+        fields = [
+            'id', 'item', 'item_name', 'purity', 'purity_name',
+            'barcode', 'pcs', 'gw', 'nw', 'huid',
+            'making_val', 'making_type', 'other_chg', 'design_code',
+            'total_amount', 'stk_status', 'created_date', 'voucher_no',
+            'dia_ct',
+        ]
+
+
 class UnBarcodedDetailsSerializer(serializers.ModelSerializer):
     packet = serializers.SlugRelatedField(
         queryset=Packet.objects.all(),
@@ -505,7 +531,9 @@ def get_recent_gold_rate(purity_value):
 class BarcodeDetToSaleVouDetSerializer(BarcodeDetailsSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["metal_purity"] = self.context.get('purity')
+        # Use the sub-item's own purity FK (null for stones/diamonds, set for gold).
+        # Do NOT inherit the parent barcode's purity — that would stamp purity on every sub-item.
+        representation["metal_purity"] = instance.purity.purity if instance.purity else None
         representation["item_name"] = instance.item.item_name if instance.item else None
         if instance.item.short_code == "Gold":
             representation["rate"] = get_recent_gold_rate(self.context.get('purity'))

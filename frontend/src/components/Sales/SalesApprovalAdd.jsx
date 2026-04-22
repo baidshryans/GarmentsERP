@@ -120,7 +120,7 @@ const SalesApprovalAdd = () => {
       if (states.success) {
         setStatesData(states.data.results ?? states.data);
         /* Set default place_of_supply from retail's state code */
-        const retailStateCode = localStorage.getItem("state_code");
+        const retailStateCode = sessionStorage.getItem("state_code");
         if (retailStateCode && !id) {
           setValue("form.place_of_supply", retailStateCode);
         }
@@ -157,7 +157,7 @@ const SalesApprovalAdd = () => {
     const hsn_ = hsns.find((h) => h.hsn_no === hsn_current);
     if (!hsn_) return;
 
-    const retailState = localStorage.getItem("state_code");
+    const retailState = sessionStorage.getItem("state_code");
     const isLocal     = place_of_supply === retailState;
 
     setValue("form.sgst_per", isLocal ? parseFloat(hsn_.sgst) : 0);

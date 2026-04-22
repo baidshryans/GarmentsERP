@@ -559,27 +559,27 @@ const BarcodeSplit = () => {
                                             <tr className="bg-violet-50 border-t border-violet-100">
                                                 <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
                                                 <td className="px-2 py-1.5">{item.item}</td>
-                                                <td className="px-2 py-1.5"></td>
+                                                <td className="px-2 py-1.5 text-gray-500">{item.item_name}</td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
                                                 <td className="px-2 py-1.5">{item.purity}</td>
-                                                <td className="px-2 py-1.5">{item.making}</td>
+                                                <td className="px-2 py-1.5">{item.making_val}</td>
                                                 <td className="px-2 py-1.5">{item.making_type}</td>
-                                                <td className="px-2 py-1.5">{item.amt}</td>
+                                                <td className="px-2 py-1.5">{item.other_chg}</td>
                                             </tr>
                                             {item.barcodedetails_set?.map((detail, di) => (
                                                 <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
-                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-500">{detail.barcode_text}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_item}</td>
+                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.item}</td>
                                                     <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_pcs}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_ct}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_gw}</td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs">{detail.amt}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.pcs}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.purity || "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.rate}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.uom}</td>
+                                                    <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
                                                 </tr>
                                             ))}
                                         </React.Fragment>
@@ -783,14 +783,14 @@ const BarcodeSplit = () => {
                                             <tr className="bg-violet-50 border-t border-violet-100">
                                                 <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
                                                 <td className="px-2 py-1.5">{item.item}</td>
-                                                <td className="px-2 py-1.5"></td>
+                                                <td className="px-2 py-1.5 text-gray-500">{item.item_name}</td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
                                                 <td className="px-2 py-1.5">{item.purity}</td>
-                                                <td className="px-2 py-1.5">{item.making}</td>
+                                                <td className="px-2 py-1.5">{item.making_val}</td>
                                                 <td className="px-2 py-1.5">{item.making_type}</td>
-                                                <td className="px-2 py-1.5">{item.making_amt}</td>
+                                                <td className="px-2 py-1.5">{item.other_chg}</td>
                                                 <td className="px-2 py-1.5">
                                                     <div className="flex gap-1">
                                                         <button
@@ -812,16 +812,16 @@ const BarcodeSplit = () => {
                                             </tr>
                                             {item.barcodedetails_set?.map((detail, di) => (
                                                 <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
-                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-500">{detail.barcode_text}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_item}</td>
+                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.item}</td>
                                                     <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_pcs}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_ct}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.sub_gw}</td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs">{detail.amt}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.pcs}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.purity || "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.rate}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.uom}</td>
+                                                    <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
                                                     <td className="px-2 py-1 text-xs"></td>
                                                 </tr>
                                             ))}

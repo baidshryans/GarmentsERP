@@ -545,7 +545,10 @@ class EWayBill(models.Model):
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='GENERATED')
     cancelled_date = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.CharField(max_length=200, blank=True, default='')
-    # Transport snapshot (copied from voucher at generation time)
+    # Snapshot fields (copied from voucher at generation time)
+    party_name = models.CharField(max_length=200, blank=True, default='')
+    source_billno = models.CharField(max_length=30, blank=True, default='')
+    # Transport snapshot
     vehicle_no = models.CharField(max_length=20, blank=True, default='')
     transporter_name = models.CharField(max_length=100, blank=True, default='')
     transporter_id = models.CharField(max_length=20, blank=True, default='')
@@ -638,6 +641,7 @@ class QuotationItem(models.Model):
     nw             = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     gold_rate      = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     gold_amount    = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    fine_wt        = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     making_rate    = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     making_amount  = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 

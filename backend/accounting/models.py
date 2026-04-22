@@ -244,6 +244,7 @@ class LedgerOpenBalance(models.Model):
         indexes = [
             models.Index(fields=['ldgr'], name='idx_lob_ldgr'),
             models.Index(fields=['ldgr', 'retail'], name='idx_lob_ldgr_retail'),
+            models.Index(fields=['retail'], name='idx_lob_retail'),
         ]
         constraints = [
             models.UniqueConstraint(

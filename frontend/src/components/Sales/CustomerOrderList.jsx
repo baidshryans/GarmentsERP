@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit } from "@/services/apiService";
+import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit, cancelCustomerOrder } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
-import { SquarePen, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard } from "lucide-react";
+import { SquarePen, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard, Ban, Lock } from "lucide-react";
 import { openAndPrint } from '@/services/print/utils';
 import CustomerOrder from '@/services/print/CustomerOrder';
 import { useToast } from "@/hooks/use-toast";
@@ -306,19 +306,54 @@ function CustomerOrderList() {
   const columns = [
     {
       header: "Action",
-      cell: ({ row }) => (
+      cell: ({ row }) => {
+        const o = row.original;
+        const isDeletable   = o.is_deletable !== false;
+        const isCancellable = o.is_cancellable !== false;
+        const editHidden    = ['delivered', 'cancelled'].includes(o.delivery_status);
+        return (
         <div className="flex gap-2 items-center">
-          <Link to={`/sales/customerorder/list/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
-            <SquarePen className="size-4" />
-          </Link>
+          {!editHidden && (
+            <Link to={`/sales/customerorder/list/${o.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors" title="Edit order">
+              <SquarePen className="size-4" />
+            </Link>
+          )}
+          {isCancellable && (
+            <button
+              onClick={async () => {
+                const warnings = [];
+                if (o.has_in_production_items) warnings.push("• Some items are still in production with a karigar or supplier.");
+                if (o.has_advance)             warnings.push("• Advance receipts will remain on the customer's ledger as a credit.");
+                const msg = `Cancel order ${o.order_no}?` + (warnings.length ? `\n\n${warnings.join("\n")}` : "");
+                if (!window.confirm(msg)) return;
+                const res = await cancelCustomerOrder(o.id);
+                if (res.success) {
+                  toast({ title: "Order cancelled." });
+                  loadOrders();
+                } else {
+                  toast({ title: "Failed to cancel", description: String(res.error?.detail || res.error), variant: "destructive" });
+                }
+              }}
+              className="p-1.5 rounded text-amber-600 hover:bg-amber-50 transition-colors"
+              title="Cancel order"
+            >
+              <Ban className="size-4" />
+            </button>
+          )}
           <button
-            onClick={() => deleteCustomerOrder(row.original.id, toast)}
-            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
+            onClick={() => {
+              if (!isDeletable) return;
+              if (!window.confirm(`Delete order ${o.order_no}? This cannot be undone.`)) return;
+              deleteCustomerOrder(o.id, toast);
+            }}
+            disabled={!isDeletable}
+            className={`p-1.5 rounded transition-colors ${isDeletable ? 'text-red-500 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+            title={isDeletable ? "Delete order" : "Cannot delete — a sales voucher has been raised against this order"}
           >
             <Trash2 className="size-4" />
           </button>
           <button
-            onClick={() => openSheet(row.original)}
+            onClick={() => openSheet(o)}
             className="text-sky-500 hover:text-sky-700"
             title="Update delivery status"
           >
@@ -338,7 +373,8 @@ function CustomerOrderList() {
             <Printer className="size-4 text-muted-foreground" />
           </button>
         </div>
-      ),
+        );
+      },
     },
     {
       header: "Date",
@@ -352,9 +388,31 @@ function CustomerOrderList() {
     {
       header: "Order No",
       accessorKey: "order_no",
-      cell: ({ row }) => (
-        <span className="font-mono text-sm">{row.original.order_no}</span>
-      ),
+      cell: ({ row }) => {
+        const o = row.original;
+        const items = Array.isArray(o.items) ? o.items : [];
+        let pill = null;
+        if (o.delivery_status === 'cancelled') {
+          pill = { label: 'Cancelled', cls: 'bg-gray-200 text-gray-700' };
+        } else if (o.delivery_status === 'delivered') {
+          pill = { label: 'Delivered', cls: 'bg-emerald-100 text-emerald-800' };
+        } else if (items.some(i => i.lock_state === 'billed')) {
+          pill = { label: 'Billed', cls: 'bg-sky-100 text-sky-800' };
+        } else if (items.some(i => i.lock_state === 'in_production')) {
+          pill = { label: 'In Production', cls: 'bg-amber-100 text-amber-800' };
+        } else {
+          pill = { label: 'Open', cls: 'bg-violet-100 text-primary' };
+        }
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm">{o.order_no}</span>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${pill.cls}`}>
+              {(pill.label === 'In Production' || pill.label === 'Billed') && <Lock className="w-2.5 h-2.5" />}
+              {pill.label}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: "Billing",

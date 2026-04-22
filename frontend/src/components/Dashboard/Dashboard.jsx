@@ -231,7 +231,7 @@ function QuickAction({ to, icon: Icon, label, description, color }) {
 export default function Dashboard() {
   const user = (() => {
     try {
-      return JSON.parse(localStorage.getItem("user"));
+      return JSON.parse(sessionStorage.getItem("user"));
     } catch {
       return null;
     }

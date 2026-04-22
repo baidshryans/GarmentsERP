@@ -127,6 +127,12 @@ class ListCreateLedger(ListCreateAPIView):
                 from contacts.models import LedgerRole
                 co_ids = LedgerRole.objects.filter(role='CO').values_list('ledger_id', flat=True)
                 qs = qs.exclude(id__in=co_ids)
+        exclude_root = self.request.query_params.get('exclude_root_codes', '').strip()
+        if exclude_root:
+            for code in exclude_root.split(','):
+                code = code.strip()
+                if code:
+                    qs = qs.exclude(ac_group__code__startswith=code)
         return qs
 
     def perform_create(self, serializer):

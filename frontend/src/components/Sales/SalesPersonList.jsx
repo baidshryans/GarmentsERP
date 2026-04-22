@@ -78,7 +78,7 @@ function SalesPersonList() {
   const openAdd = () => {
     setEditingId(null);
     // Pre-fill retail from the currently active retail location
-    const currentRetailCode = localStorage.getItem("retail_code") || "";
+    const currentRetailCode = sessionStorage.getItem("retail_code") || "";
     const currentRetail = retails.find(r => r.retail_code === currentRetailCode);
     setForm({
       ...BLANK_FORM,

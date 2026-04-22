@@ -1,15 +1,11 @@
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Plus, Pencil, Trash2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, RefreshCw, TrendingUp, TrendingDown, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import {
-    Sheet, SheetContent,
-} from '@/components/ui/sheet';
+import { SearchableComboBox } from '@/components/ui/SearchableComboBox';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import {
     getOpeningBalances,
@@ -17,50 +13,45 @@ import {
     updateOpeningBalance,
     deleteOpeningBalance,
     getLedgerList,
+    getFiscalYears,
 } from '@/services/apiService';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function currentAndPastYears(count = 5) {
-    const years = [];
-    const now = new Date();
-    const startYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-    for (let i = 0; i < count; i++) {
-        const y = startYear - i;
-        years.push(`${y}-${String(y + 1).slice(-2)}`);
-    }
-    return years;
-}
-
-const YEARS = currentAndPastYears();
-
-const Field = ({ label, required, error, hint, children }) => (
+const Field = ({ label, required, error, children }) => (
     <div className="flex flex-col gap-2">
         <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
             {label}{required && <span className="text-red-400 ml-1">*</span>}
         </label>
         {children}
-        {hint && !error && <p className="text-xs text-gray-400">{hint}</p>}
         {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
 );
 
 // ─── Entry form (used inside Sheet) ──────────────────────────────────────────
 
-const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
-    const { register, handleSubmit, control, watch, setValue, formState: { errors, isSubmitting } } = useForm({
+const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
+    const [searchResults, setSearchResults] = useState(
+        initial ? [{ id: initial.ldgr, ac_name: initial.ledger_name }] : []
+    );
+    const debounceRef = useRef(null);
+
+    const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm({
         defaultValues: {
             ldgr: initial?.ldgr ? String(initial.ldgr) : '',
             type: initial ? (Number(initial.debit) > 0 ? 'debit' : 'credit') : 'debit',
             amount: initial ? String(Number(initial.debit) > 0 ? initial.debit : initial.credit) : '',
-            acc_year: initial?.acc_year || YEARS[0],
         },
     });
 
-    const balanceType = watch('type');
+    const handleSearch = (query) => {
+        clearTimeout(debounceRef.current);
+        if (!query.trim()) { setSearchResults([]); return; }
+        debounceRef.current = setTimeout(async () => {
+            const res = await getLedgerList({ search: query, exclude_root_codes: 'INC,EXP', page_size: 30 });
+            if (res.success) setSearchResults(res.data.map(l => ({ ...l, ac_name: l.display_name || l.ac_name })));
+        }, 250);
+    };
 
     const inputCls = 'h-10 text-sm border-gray-200 focus:border-violet-400 focus:ring-violet-100';
-    const triggerCls = 'h-10 text-sm border-gray-200 focus:border-violet-400';
 
     const onSubmit = (data) => {
         const amount = parseFloat(data.amount) || 0;
@@ -68,7 +59,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
             ldgr: parseInt(data.ldgr),
             debit: data.type === 'debit' ? amount : 0,
             credit: data.type === 'credit' ? amount : 0,
-            acc_year: data.acc_year,
+            acc_year: activeFyCode,
         });
     };
 
@@ -82,46 +73,43 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                     <p className="text-sm font-bold text-primary tracking-widest uppercase">
                         {initial ? 'Edit Opening Balance' : 'Add Opening Balance'}
                     </p>
-                    <p className="text-xs text-primary mt-0.5">Enter debit or credit opening amount</p>
+                    <p className="text-xs text-primary mt-0.5">
+                        FY {activeFyCode} · Enter debit or credit opening amount
+                    </p>
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
                 <Field label="Ledger Account" required error={errors.ldgr?.message}>
-                    <Controller name="ldgr" control={control} rules={{ required: 'Select a ledger' }} render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger className={triggerCls}>
-                                <SelectValue placeholder="Select ledger…" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-64 overflow-y-auto">
-                                {ledgers.map(l => (
-                                    <SelectItem key={l.id} value={String(l.id)}>
-                                        {l.display_name || l.ac_name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )} />
+                    <Controller name="ldgr" control={control} rules={{ required: 'Select a ledger' }} render={({ field }) => {
+                        const selected = searchResults.find(l => String(l.id) === String(field.value));
+                        return (
+                            <SearchableComboBox
+                                options={searchResults}
+                                labelKey="ac_name"
+                                value={selected?.ac_name || ''}
+                                onSelect={opt => field.onChange(String(opt.id))}
+                                onInputChange={handleSearch}
+                                placeholder="Type to search ledger…"
+                            />
+                        );
+                    }} />
                 </Field>
 
                 <Field label="Balance Type" required>
                     <Controller name="type" control={control} render={({ field }) => (
                         <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-                            <button
-                                type="button"
+                            <button type="button"
                                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'debit' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
                                 onClick={() => field.onChange('debit')}
                             >
-                                <TrendingUp className="size-4" />
-                                Debit (Dr)
+                                <TrendingUp className="size-4" /> Debit (Dr)
                             </button>
-                            <button
-                                type="button"
+                            <button type="button"
                                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors ${field.value === 'credit' ? 'bg-primary text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
                                 onClick={() => field.onChange('credit')}
                             >
-                                <TrendingDown className="size-4" />
-                                Credit (Cr)
+                                <TrendingDown className="size-4" /> Credit (Cr)
                             </button>
                         </div>
                     )} />
@@ -132,10 +120,7 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
                         <Input
                             className={`${inputCls} pl-7`}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="0.00"
+                            type="number" min="0" step="0.01" placeholder="0.00"
                             {...register('amount', {
                                 required: 'Amount is required',
                                 min: { value: 0.01, message: 'Must be greater than 0' },
@@ -143,34 +128,14 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
                         />
                     </div>
                 </Field>
-
-                <Field label="Accounting Year" required error={errors.acc_year?.message}>
-                    <Controller name="acc_year" control={control} rules={{ required: 'Select year' }} render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger className={triggerCls}>
-                                <SelectValue placeholder="Select year…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {YEARS.map(y => (
-                                    <SelectItem key={y} value={y}>{y}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )} />
-                </Field>
             </div>
 
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
-                <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex-1 bg-primary hover:bg-primary text-white font-semibold"
-                >
+                <Button type="submit" disabled={isSubmitting}
+                    className="flex-1 bg-primary hover:bg-primary text-white font-semibold">
                     {isSubmitting ? 'Saving…' : initial ? 'Update' : 'Save'}
                 </Button>
-                <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-                    Cancel
-                </Button>
+                <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
             </div>
         </form>
     );
@@ -181,19 +146,22 @@ const EntryForm = ({ ledgers, initial, onSave, onClose }) => {
 const OpeningBalance = () => {
     const { toast } = useToast();
     const [balances, setBalances] = useState([]);
-    const [ledgers, setLedgers] = useState([]);
+    const [activeFyCode, setActiveFyCode] = useState('');
     const [loading, setLoading] = useState(true);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [editing, setEditing] = useState(null); // null = add mode, object = edit mode
 
     const load = useCallback(async () => {
         setLoading(true);
-        const [balRes, ldgrRes] = await Promise.all([
+        const [balRes, fyRes] = await Promise.all([
             getOpeningBalances(),
-            getLedgerList(),
+            getFiscalYears(),
         ]);
         if (balRes.success) setBalances(balRes.data);
-        if (ldgrRes.success) setLedgers(ldgrRes.data);
+        if (fyRes.success) {
+            const active = fyRes.data.find(fy => fy.is_active);
+            if (active) setActiveFyCode(active.fy_code);
+        }
         setLoading(false);
     }, []);
 
@@ -238,6 +206,12 @@ const OpeningBalance = () => {
     }, {});
     const sortedYears = Object.keys(byYear).sort().reverse();
 
+    // Summary totals across all years
+    const grandDr = balances.reduce((s, b) => s + (Number(b.debit) || 0), 0);
+    const grandCr = balances.reduce((s, b) => s + (Number(b.credit) || 0), 0);
+    const diff = grandDr - grandCr;
+    const fmt = (n) => Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     return (
         <div className="max-w-4xl mx-auto pb-12">
 
@@ -263,6 +237,36 @@ const OpeningBalance = () => {
                     </Button>
                 </div>
             </div>
+
+            {/* ── Balance Summary ──────────────────────────────────────── */}
+            {!loading && balances.length > 0 && (
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="rounded-xl border border-green-100 bg-green-50 px-5 py-4">
+                        <p className="text-[10px] font-semibold text-green-600 uppercase tracking-widest mb-1">Total Debit (Dr)</p>
+                        <p className="text-lg font-bold text-green-800 tabular-nums">₹{fmt(grandDr)}</p>
+                        <p className="text-[10px] text-green-500 mt-0.5">Assets &amp; expenses</p>
+                    </div>
+                    <div className="rounded-xl border border-red-100 bg-red-50 px-5 py-4">
+                        <p className="text-[10px] font-semibold text-red-600 uppercase tracking-widest mb-1">Total Credit (Cr)</p>
+                        <p className="text-lg font-bold text-red-800 tabular-nums">₹{fmt(grandCr)}</p>
+                        <p className="text-[10px] text-red-500 mt-0.5">Liabilities &amp; capital</p>
+                    </div>
+                    <div className={`rounded-xl border px-5 py-4 ${diff === 0 ? 'border-violet-100 bg-violet-50' : 'border-amber-100 bg-amber-50'}`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <Scale className={`size-3 ${diff === 0 ? 'text-violet-500' : 'text-amber-500'}`} />
+                            <p className={`text-[10px] font-semibold uppercase tracking-widest ${diff === 0 ? 'text-violet-600' : 'text-amber-600'}`}>
+                                Difference
+                            </p>
+                        </div>
+                        <p className={`text-lg font-bold tabular-nums ${diff === 0 ? 'text-violet-800' : 'text-amber-800'}`}>
+                            ₹{fmt(diff)}
+                        </p>
+                        <p className={`text-[10px] mt-0.5 ${diff === 0 ? 'text-violet-500' : 'text-amber-500'}`}>
+                            {diff === 0 ? 'Balanced' : diff > 0 ? `Dr exceeds Cr by ₹${fmt(diff)}` : `Cr exceeds Dr by ₹${fmt(diff)}`}
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* ── Content ─────────────────────────────────────────────── */}
             {loading && (
@@ -382,7 +386,7 @@ const OpeningBalance = () => {
                     {sheetOpen && (
                         <EntryForm
                             key={editing?.id ?? 'new'}
-                            ledgers={ledgers}
+                            activeFyCode={activeFyCode}
                             initial={editing}
                             onSave={handleSave}
                             onClose={closeSheet}

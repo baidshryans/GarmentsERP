@@ -188,8 +188,9 @@ class PurchaseVoucherViewset(RetailBaseViewset):
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno
+        prefix = 'PVC' if instance.voucher_type == 'Customer' else 'PVV'
         super().perform_destroy(instance)
-        release_last_bill_number(retail, 'PV', billno, fiscal_year)
+        release_last_bill_number(retail, prefix, billno, fiscal_year)
 
     def perform_update(self, serializer):
         from rest_framework.exceptions import ValidationError
@@ -249,7 +250,9 @@ def get_next_pv_no(request):
     from accounting.utils import peek_next_bill_number
     if not request.retail:
         return Response({"error": "Missing or invalid X-RETAIL-ID header"}, status=status.HTTP_400_BAD_REQUEST)
-    bill_no = peek_next_bill_number(request.retail, "PV")
+    voucher_type = request.query_params.get('voucher_type', 'Vendor')
+    prefix = 'PVC' if voucher_type == 'Customer' else 'PVV'
+    bill_no = peek_next_bill_number(request.retail, prefix)
     return Response({"billno": bill_no})
 
 @api_view(['GET'])

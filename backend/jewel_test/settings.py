@@ -243,3 +243,17 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ---------------------------------------------------------------------------
+# SQLite WAL mode — enable on every new connection (init_command is MySQL-only)
+# WAL: readers never block writers; writers never block readers.
+# Eliminates lock contention when Django dev server runs in multi-threaded mode.
+# ---------------------------------------------------------------------------
+from django.db.backends.signals import connection_created
+
+def _activate_sqlite_wal(sender, connection, **kwargs):
+    if connection.vendor == 'sqlite':
+        connection.connection.execute('PRAGMA journal_mode=WAL;')
+        connection.connection.execute('PRAGMA synchronous=NORMAL;')
+
+connection_created.connect(_activate_sqlite_wal)

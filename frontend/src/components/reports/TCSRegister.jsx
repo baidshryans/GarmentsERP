@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { fetchTCSRegister, fetchTCSSections, getFiscalYears } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -49,6 +50,10 @@ export default function TCSRegister() {
   }, []);
 
   const handleSearch = async () => {
+    if (!isValidDateRange(filters.from_date, filters.to_date)) {
+      alert("From date cannot be after To date.");
+      return;
+    }
     setLoading(true);
     const res = await fetchTCSRegister(filters);
     if (res.success) {
@@ -135,6 +140,7 @@ export default function TCSRegister() {
             className="h-9 w-40 text-sm"
             value={filters.from_date}
             onChange={(e) => setFilters((f) => ({ ...f, from_date: e.target.value }))}
+            max={filters.to_date || undefined}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -144,6 +150,7 @@ export default function TCSRegister() {
             className="h-9 w-40 text-sm"
             value={filters.to_date}
             onChange={(e) => setFilters((f) => ({ ...f, to_date: e.target.value }))}
+            min={filters.from_date || undefined}
           />
         </div>
         <div className="flex flex-col gap-1">

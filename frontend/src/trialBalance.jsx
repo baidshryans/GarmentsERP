@@ -7,6 +7,7 @@ import apiClient from "@/services/apiClient";
 import { fetchCompanies } from "@/services/apiService";
 import { Printer, ChevronDown, ChevronRight, X, Loader2 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 const fy = new Date().getMonth() < 3 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -185,6 +186,10 @@ export default function TrialBalance() {
   const toggle = (key) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
 
   const fetchReport = async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -256,11 +261,11 @@ export default function TrialBalance() {
       <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border print:hidden">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="h-9 w-36" />
         </div>
         {canViewCombined && (
           <div className="flex items-center gap-2">

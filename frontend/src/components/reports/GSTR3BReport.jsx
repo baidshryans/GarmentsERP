@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, FileText, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { fetchGSTR3BReport } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const fmt = (v) =>
   Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -51,6 +52,10 @@ export default function GSTR3BReport() {
   const [filters, setFilters] = useState({ from_date: "", to_date: "" });
 
   const handleSearch = async () => {
+    if (!isValidDateRange(filters.from_date, filters.to_date)) {
+      alert("From date cannot be after To date.");
+      return;
+    }
     if (!filters.from_date || !filters.to_date) return;
     setLoading(true);
     const res = await fetchGSTR3BReport(filters);
@@ -74,6 +79,7 @@ export default function GSTR3BReport() {
             type="date" className="h-9 w-40 text-sm"
             value={filters.from_date}
             onChange={(e) => setFilters((f) => ({ ...f, from_date: e.target.value }))}
+            max={filters.to_date || undefined}
           />
         </div>
         <div className="flex flex-col gap-1">
@@ -82,6 +88,7 @@ export default function GSTR3BReport() {
             type="date" className="h-9 w-40 text-sm"
             value={filters.to_date}
             onChange={(e) => setFilters((f) => ({ ...f, to_date: e.target.value }))}
+            min={filters.from_date || undefined}
           />
         </div>
         <Button size="sm" onClick={handleSearch} className="bg-primary hover:bg-primary text-white h-9">

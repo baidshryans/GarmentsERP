@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
 import { ChevronDown, ChevronRight, Printer } from "lucide-react";
 import { printReport } from "@/lib/printReport";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -30,6 +31,10 @@ export default function DayBook() {
   const [expanded, setExpanded] = useState({});
 
   const fetchReport = async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -107,11 +112,11 @@ export default function DayBook() {
       <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="h-9 w-36" />
         </div>
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {report && (

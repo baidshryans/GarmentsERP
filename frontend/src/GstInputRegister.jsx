@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -30,6 +31,10 @@ const GstInputRegister = () => {
   }, []);
 
   const fetchData = async () => {
+    if (!isValidDateRange(startDate, endDate)) {
+      setError('From date cannot be after To date.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -133,6 +138,7 @@ const GstInputRegister = () => {
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
+            max={endDate || undefined}
             className="h-9 w-36"
             style={{ colorScheme: 'light' }}
           />
@@ -143,6 +149,7 @@ const GstInputRegister = () => {
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
+            min={startDate || undefined}
             className="h-9 w-36"
             style={{ colorScheme: 'light' }}
           />

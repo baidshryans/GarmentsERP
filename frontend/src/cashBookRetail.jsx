@@ -12,6 +12,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Printer } from "lucide-react";
 import { printReport } from "@/lib/printReport";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 const fyStart = (() => {
@@ -45,6 +46,10 @@ export default function CashBookRetail() {
   const fetchData = async () => {
     if (!selectedLedger) {
       setError("Please select a ledger.");
+      return;
+    }
+    if (!isValidDateRange(fromDate, toDate)) {
+      setError("From date cannot be after To date.");
       return;
     }
     setError("");
@@ -151,6 +156,7 @@ export default function CashBookRetail() {
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
+            max={toDate || undefined}
             className="h-9 w-36"
           />
         </div>
@@ -160,6 +166,7 @@ export default function CashBookRetail() {
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
+            min={fromDate || undefined}
             className="h-9 w-36"
           />
         </div>

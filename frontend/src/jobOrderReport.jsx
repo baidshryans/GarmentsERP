@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchJobStatusReport, getLedgers } from './services/apiService';
+import { isValidDateRange } from "@/lib/dateRange";
 
 const JoborderReport = () => {
   const [showTable, setShowTable] = useState(false);
@@ -162,6 +163,10 @@ const JoborderReport = () => {
   };
 
   const onGo = () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      alert('From date cannot be after To date.');
+      return;
+    }
     const checkedKarigars = karigars.filter(k => k.checked).map(k => k.id);
     
     console.log('Selected Karigars:', checkedKarigars);
@@ -202,6 +207,7 @@ const JoborderReport = () => {
             <Input type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
+              max={toDate || undefined}
               className="border border-gray-300 p-1 w-24" />
           </div>
 
@@ -211,6 +217,7 @@ const JoborderReport = () => {
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
+              min={fromDate || undefined}
               className="border border-gray-300 p-1 w-24"
             />
           </div>

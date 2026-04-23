@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { fetchJobStatusReport } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
 import { Hammer, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
+import { isValidDateRange } from "@/lib/dateRange";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,10 @@ function KarigarJobWorkReport() {
   }, []);
 
   const load = useCallback(async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const params = { from_date: fromDate, to_date: toDate };
     if (statusFilter !== "all") params.rec_status = statusFilter;
@@ -227,11 +232,11 @@ function KarigarJobWorkReport() {
       <div className="flex flex-wrap gap-3 items-end">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From Date</Label>
-          <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-36" />
+          <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} max={toDate || undefined} className="w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To Date</Label>
-          <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-36" />
+          <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} min={fromDate || undefined} className="w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Karigar</Label>

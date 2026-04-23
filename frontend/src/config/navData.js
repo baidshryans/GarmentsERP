@@ -183,6 +183,7 @@ export const navData = {
       ],
     },
     { title: "Stock Transfer",  url: "/inventory/stocktransfer",                         icon: Package    },
+    { title: "Inter-Retail Transfer", url: "/inventory/inter-retail-transfer",           icon: Package    },
     { title: "Stock Journal",   url: "/inventory/stockjournal/",                         icon: FileText   },
     { title: "Barcode History", url: "/inventory/barcodemanagement/barcodehistory/",     icon: History    },
     { title: "Design",          url: "/inventory/design/list/",                          icon: Palette    },

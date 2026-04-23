@@ -117,6 +117,9 @@ const FinancialRatios            = lazy(() => import("./components/FinancialAcco
 const AuditQueue                 = lazy(() => import("./components/FinancialAccounting/reports/AuditQueue.jsx"));
 const TrialBalance               = lazy(() => import("./trialBalance.jsx"));
 const ClosingStockTable          = lazy(() => import("./components/Inventory/closingStockReport.jsx"));
+const InterRetailTransferList    = lazy(() => import("./components/inventory/transfers/InterRetailTransferList.jsx"));
+const InterRetailTransferAdd     = lazy(() => import("./components/inventory/transfers/InterRetailTransferAdd.jsx"));
+const InterRetailTransferDetail  = lazy(() => import("./components/inventory/transfers/InterRetailTransferDetail.jsx"));
 const HallmarkIssueReport        = lazy(() => import("./hallmarkissuereport.jsx"));
 const HallmarkReceiveReport      = lazy(() => import("./hallmarkreceivereport.jsx"));
 const Metalreport                = lazy(() => import("./Metalreport.jsx"));
@@ -392,6 +395,10 @@ const appRoutes = [
   { path: "inventory/stocktransfer",                heading: "Stock Transfer List",    component: <StockTransferList /> },
   { path: "inventory/stocktransfer/add",            heading: "Add Stock Transfer",     component: <RetToRetstockTransfer /> },
   { path: "inventory/stocktransfer/:id",            heading: "Edit Stock Transfer",    component: <RetToRetstockTransfer /> },
+  { path: "inventory/inter-retail-transfer",            heading: "Inter-Retail Transfers",    component: <InterRetailTransferList /> },
+  { path: "inventory/inter-retail-transfer/new",        heading: "New Inter-Retail Transfer", component: <InterRetailTransferAdd /> },
+  { path: "inventory/inter-retail-transfer/:id/edit",   heading: "Edit Inter-Retail Transfer", component: <InterRetailTransferAdd /> },
+  { path: "inventory/inter-retail-transfer/:id",        heading: "Inter-Retail Transfer",     component: <InterRetailTransferDetail /> },
   { path: "inventory/stockjournal/",                heading: "Stock Journal List",     component: <StockJournalList /> },
   { path: "inventory/stockjournal/add",             heading: "Add Stock Journal",      component: <StockJournal /> },
   { path: "inventory/stockjournal/:id",             heading: "Edit Stock Journal",     component: <StockJournal /> },

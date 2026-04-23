@@ -2,6 +2,7 @@ import React,{useState, useEffect} from 'react'
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchBarcodeSplits, getFiscalYears } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -40,6 +41,11 @@ function BarcodeSplitView() {
     useEffect(() => {
         if (!fromDate) return;
         const fetchLedgers = async () => {
+          if (!isValidDateRange(fromDate, toDate)) {
+            setError("From date cannot be after To date.");
+            setLoading(false);
+            return;
+          }
           setLoading(true);
           const result = await fetchBarcodeSplits({ from_date: fromDate, to_date: toDate });
           if (result.success) {
@@ -97,11 +103,11 @@ function BarcodeSplitView() {
           <div className="flex flex-wrap items-end gap-3 mb-4">
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">From Date</Label>
-              <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="w-36" />
+              <Input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} max={toDate || undefined} className="w-36" />
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs text-muted-foreground">To Date</Label>
-              <Input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="w-36" />
+              <Input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }} min={fromDate || undefined} className="w-36" />
             </div>
             <Input
               type="text"

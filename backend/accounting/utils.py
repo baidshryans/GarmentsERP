@@ -222,7 +222,7 @@ def generate_next_cg_no(retail, fiscal_year=None):
     return get_next_bill_number(retail, "CG", fiscal_year)
 
 
-def calculate_opening_stock(retail=None):
+def calculate_opening_stock(retail=None, retail_ids=None):
     """
     Calculate opening stock value from physical inventory.
 
@@ -235,10 +235,15 @@ def calculate_opening_stock(retail=None):
     """
     total_opening_stock_value = Decimal(0)
 
+    # Normalise: retail_ids (list) takes precedence over the legacy single retail kw.
+    if retail_ids is None and retail is not None:
+        rid = retail.id if hasattr(retail, 'id') else retail
+        retail_ids = [rid]
+
     # Barcoded Stock Value (op_stk=True)
     bar_filter = {'barcode__op_stk': True}
-    if retail:
-        bar_filter['barcode__op_retail'] = retail
+    if retail_ids:
+        bar_filter['barcode__op_retail_id__in'] = retail_ids
     barcoded_stock = BarcodeDetails.objects.filter(**bar_filter).annotate(
         item_rate=F('item__op_wtd_avg_rate'),
         packet_rate=F('packet__op_stock_wtd_avg_rate')
@@ -249,8 +254,8 @@ def calculate_opening_stock(retail=None):
 
     # Unbarcoded Stock Value (op_stk=True)
     unbar_filter = {'main_item__op_stk': True}
-    if retail:
-        unbar_filter['main_item__retail'] = retail
+    if retail_ids:
+        unbar_filter['main_item__retail_id__in'] = retail_ids
     unbarcoded_stock = UnBarcodedDetails.objects.filter(**unbar_filter).annotate(
         item_rate=F('item__op_wtd_avg_rate'),
         packet_rate=F('packet__op_stock_wtd_avg_rate')
@@ -261,8 +266,8 @@ def calculate_opening_stock(retail=None):
 
     # Raw Material Inventory Stock Value
     rm_filter = {}
-    if retail:
-        rm_filter['retail'] = retail
+    if retail_ids:
+        rm_filter['retail_id__in'] = retail_ids
     raw_material_stock = RawMaterialInventory.objects.filter(**rm_filter).annotate(
         item_rate=F('item__op_wtd_avg_rate'),
         packet_rate=F('packet__op_stock_wtd_avg_rate')

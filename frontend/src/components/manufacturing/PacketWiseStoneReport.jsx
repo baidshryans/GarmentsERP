@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Search, SlidersHorizontal } from "lucide-react";
 import apiClient from "@/services/apiClient";
 import { fetchPacketWiseStoneReportAPI } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
@@ -76,6 +77,10 @@ export default function PacketWiseStoneReport() {
         setSelectedPackets(checked ? packetData.map((p) => p.id) : []);
 
     const handleSearch = useCallback(async () => {
+        if (!isValidDateRange(fromDate, toDate)) {
+            setError("From date cannot be after To date.");
+            return;
+        }
         setLoading(true);
         setError(null);
         const p = {
@@ -229,11 +234,11 @@ export default function PacketWiseStoneReport() {
                             <div className="flex flex-wrap gap-3 items-end">
                                 <div className="flex flex-col gap-1">
                                     <Label className="text-xs">From Date</Label>
-                                    <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 text-sm w-40" />
+                                    <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="h-9 text-sm w-40" />
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <Label className="text-xs">To Date</Label>
-                                    <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 text-sm w-40" />
+                                    <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="h-9 text-sm w-40" />
                                 </div>
                             </div>
                             <Button onClick={handleSearch} disabled={loading} className="bg-primary hover:bg-primary text-white h-9 self-start">

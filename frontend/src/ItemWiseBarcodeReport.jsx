@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Calendar, FileText, Download } from 'lucide-react';
 import { fetchItemWiseBarcode, getFiscalYears } from './services/apiService';
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -31,6 +32,10 @@ const ItemwiseBarcodeReport = () => {
   }, []);
 
   const fetchData = async () => {
+    if (!isValidDateRange(filters.fromDate, filters.toDate)) {
+      setError('From date cannot be after To date.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -160,6 +165,7 @@ const ItemwiseBarcodeReport = () => {
                   type="date"
                   value={filters.fromDate}
                   onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+                  max={filters.toDate || undefined}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   style={{
                     colorScheme: 'light'
@@ -174,6 +180,7 @@ const ItemwiseBarcodeReport = () => {
                   type="date"
                   value={filters.toDate}
                   onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                  min={filters.fromDate || undefined}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   style={{
                     colorScheme: 'light'

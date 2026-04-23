@@ -296,7 +296,7 @@ const totalPages = data?.data?.total_pages ?? 1;
                           <TableCell className="px-3 py-2 text-xs font-medium text-center">{idx + 1}</TableCell>
                           <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{item.date}</TableCell>
                           <TableCell className="px-3 py-2 text-xs text-muted-foreground">—</TableCell>
-                          <TableCell className="px-3 py-2 text-xs font-semibold text-foreground">{item.item}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs font-semibold text-foreground">{item.item_name || item.item}</TableCell>
                           <TableCell className="px-3 py-2 text-xs text-center">{item.pcs}</TableCell>
                           <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
                           <TableCell className="px-3 py-2 text-xs text-center font-medium">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>

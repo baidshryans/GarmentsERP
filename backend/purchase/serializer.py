@@ -373,12 +373,16 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
 
 class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    item_name = serializers.SerializerMethodField()
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode", required=False,allow_null=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
     order_no = serializers.SlugRelatedField(queryset=CustomerOrder.objects.all(), slug_field="order_no", required=False,allow_null=True)
 
     # Nested serializer for details
     purchasevoucherdetails_set = PurchaseVoucherDetailsSerializer(many=True,)
+
+    def get_item_name(self, obj):
+        return obj.item.item_name if obj.item else None
 
     class Meta:
         model = PurchaseVoucherItems
@@ -388,6 +392,7 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
             'po_no',
             'po_sl_no',
             'item',
+            'item_name',
             'barcode',
             'barcode_txt',
             'order_no',
@@ -910,7 +915,6 @@ class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):
 
 class PurchaseOrderForPostSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
-    place_of_supply = serializers.ChoiceField(choices=STATES_OF_INDIA, required=False)
     purchaseorderitems_set = PurchaseOrderItemsForPostSerializer(many=True,)
     class Meta:
         model = PurchaseOrder
@@ -922,7 +926,6 @@ class PurchaseOrderForPostSerializer(serializers.ModelSerializer):
             'ldgr',
             'ldgr_name',
             'retail',
-            'place_of_supply',
             'purchaseorderitems_set'
         ]
         extra_kwargs = {

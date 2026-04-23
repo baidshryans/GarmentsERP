@@ -4,7 +4,7 @@ from rest_framework import serializers
 from mastersconfig.models import Packet
 from goldrates.models import GoldRates, PurityMaster
 from sales.models import CustomerOrder
-from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
+from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, InterRetailTransferItem, InterRetailTransferVoucher, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
 from django.db import transaction
 from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
 
@@ -856,3 +856,125 @@ class BarcodeImageSerializer(serializers.ModelSerializer):
         file = validated_data['image']
         validated_data['original_name'] = file.name
         return super().create(validated_data)
+
+
+# ---------------------------------------------------------------------------
+# Inter-Retail Transfer Voucher
+# ---------------------------------------------------------------------------
+
+class InterRetailTransferItemSerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
+    item_type = serializers.CharField(source='item.item_type', read_only=True)
+
+    class Meta:
+        model = InterRetailTransferItem
+        fields = [
+            'id', 'item', 'item_name', 'item_type', 'purity',
+            'qty_pcs', 'qty_gw', 'qty_ct',
+            'primary_qty', 'source_avg_rate', 'transfer_value',
+            'barcode', 'unbarcoded_ref', 'packet',
+        ]
+        read_only_fields = ['primary_qty', 'source_avg_rate', 'transfer_value']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+
+class InterRetailTransferVoucherSerializer(serializers.ModelSerializer):
+    items = InterRetailTransferItemSerializer(many=True)
+    from_retail_name = serializers.CharField(source='from_retail.retail_name', read_only=True)
+    to_retail_name = serializers.CharField(source='to_retail.retail_name', read_only=True)
+
+    class Meta:
+        model = InterRetailTransferVoucher
+        fields = [
+            'id', 'voucher_no', 'transfer_date',
+            'from_retail', 'from_retail_name', 'to_retail', 'to_retail_name',
+            'status', 'narration', 'fiscal_year',
+            'created_by', 'created_at', 'updated_at', 'received_at',
+            'items',
+        ]
+        read_only_fields = [
+            'voucher_no', 'status', 'created_by', 'created_at',
+            'updated_at', 'received_at', 'fiscal_year',
+        ]
+
+    def validate(self, attrs):
+        from_retail = attrs.get('from_retail') or getattr(self.instance, 'from_retail', None)
+        to_retail = attrs.get('to_retail') or getattr(self.instance, 'to_retail', None)
+        if from_retail and to_retail and from_retail == to_retail:
+            raise serializers.ValidationError({'to_retail': 'from_retail and to_retail must differ.'})
+
+        items = attrs.get('items')
+        if items is not None:
+            if not items:
+                raise serializers.ValidationError({'items': 'At least one line item is required.'})
+            for it in items:
+                item_obj = it.get('item')
+                if item_obj and item_obj.item_type not in ('R', 'S', 'M'):
+                    raise serializers.ValidationError(
+                        {'items': f"Item '{item_obj.item_name}' has type {item_obj.item_type}; only R/S/M allowed."}
+                    )
+        return attrs
+
+    def _snapshot_item(self, voucher, item_data):
+        """Compute primary_qty, source_avg_rate, transfer_value and build a model kwargs dict."""
+        from decimal import Decimal
+        from inventory.views import ClosingStockCal
+
+        item_obj = item_data['item']
+        qty_gw = Decimal(str(item_data.get('qty_gw') or 0))
+        qty_ct = Decimal(str(item_data.get('qty_ct') or 0))
+
+        if item_obj.item_type == 'S':
+            primary_qty = qty_ct
+        else:
+            primary_qty = qty_gw
+
+        try:
+            rate = ClosingStockCal().get_weighted_avg_rate(
+                item_obj, voucher.from_retail_id, voucher.transfer_date
+            )
+        except ValueError as e:
+            raise serializers.ValidationError({'items': str(e)})
+
+        rate = Decimal(str(rate))
+        data = dict(item_data)
+        data['primary_qty'] = primary_qty
+        data['source_avg_rate'] = rate
+        data['transfer_value'] = (primary_qty * rate)
+        return data
+
+    def create(self, validated_data):
+        from accounting.utils import get_next_bill_number
+        items_data = validated_data.pop('items', [])
+        request = self.context.get('request')
+        with transaction.atomic():
+            retail = validated_data['from_retail']
+            validated_data['voucher_no'] = get_next_bill_number(retail, 'IRT')
+            req_user = getattr(request, 'user', None)
+            if req_user is not None and getattr(req_user, 'is_authenticated', False):
+                validated_data['created_by'] = req_user
+            validated_data['fiscal_year'] = getattr(retail, 'active_fy', None)
+            validated_data['status'] = InterRetailTransferVoucher.STATUS_DRAFT
+            voucher = InterRetailTransferVoucher.objects.create(**validated_data)
+            for item_data in items_data:
+                snap = self._snapshot_item(voucher, item_data)
+                InterRetailTransferItem.objects.create(voucher=voucher, **snap)
+            return voucher
+
+    def update(self, instance, validated_data):
+        if instance.status != InterRetailTransferVoucher.STATUS_DRAFT:
+            raise serializers.ValidationError(
+                f"Cannot edit voucher in status '{instance.status}'. Only draft vouchers are editable."
+            )
+        items_data = validated_data.pop('items', None)
+        with transaction.atomic():
+            for attr in ('transfer_date', 'from_retail', 'to_retail', 'narration'):
+                if attr in validated_data:
+                    setattr(instance, attr, validated_data[attr])
+            instance.save()
+            if items_data is not None:
+                instance.items.all().delete()
+                for item_data in items_data:
+                    snap = self._snapshot_item(instance, item_data)
+                    InterRetailTransferItem.objects.create(voucher=instance, **snap)
+            return instance

@@ -19,6 +19,7 @@ import {
   Flame, ArrowDownToLine, TrendingDown, Clock, ChevronDown, ChevronRight,
   RefreshCw, ArrowUpFromLine,
 } from "lucide-react";
+import { isValidDateRange } from "@/lib/dateRange";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -209,6 +210,10 @@ function RefineryReport() {
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const params = {
       from_date: fromDate,
@@ -257,6 +262,7 @@ function RefineryReport() {
             type="date"
             value={fromDate}
             onChange={e => setFromDate(e.target.value)}
+            max={toDate || undefined}
             className="w-40"
           />
         </div>
@@ -266,6 +272,7 @@ function RefineryReport() {
             type="date"
             value={toDate}
             onChange={e => setToDate(e.target.value)}
+            min={fromDate || undefined}
             className="w-40"
           />
         </div>

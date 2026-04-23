@@ -95,7 +95,58 @@ def _get_retail_for_report(request):
     return request.retail
 
 
-def calcuate_pnl(start_date, end_date, retail=None):
+def _get_retail_ids_for_report(request):
+    """Multi-retail scope resolver for BS / P&L / Closing Stock.
+
+    Access rules:
+      - Admin / superadmin (``_can_view_combined``): may freely scope via
+        ``?combined=true`` or ``?retail_ids=<ids>``.
+      - Everyone else: scope is pinned to ``request.retail`` regardless of
+        query params, so they can never read another retail's data by crafting
+        a URL. Any explicit scope params they send are ignored.
+
+    Returns:
+      - ``'FORBIDDEN'`` if a non-admin requested multi/combined scope.
+      - ``None`` for all-retails combined (admin only).
+      - ``[retail_id, ...]`` for a specific subset.
+    """
+    is_admin = _can_view_combined(request.user)
+
+    combined = request.query_params.get('combined', '').lower() in ('true', '1')
+    raw_ids = request.query_params.getlist('retail_ids')
+    if not raw_ids:
+        single = request.query_params.get('retail_ids')
+        if single:
+            raw_ids = [single]
+    parsed = []
+    for chunk in raw_ids:
+        for part in str(chunk).split(','):
+            part = part.strip()
+            if part:
+                try:
+                    parsed.append(int(part))
+                except ValueError:
+                    pass
+
+    # Non-admins: ignore any scope params and pin to their own retail. If they
+    # tried to scope explicitly (combined or multiple retails), return FORBIDDEN
+    # so the UI can surface the error clearly instead of silently swapping.
+    if not is_admin:
+        if combined or len(set(parsed)) > 1:
+            return 'FORBIDDEN'
+        r = getattr(request, 'retail', None)
+        return [r.id] if r else None
+
+    # Admin path.
+    if combined:
+        return None
+    if parsed:
+        return sorted(set(parsed))
+    r = getattr(request, 'retail', None)
+    return [r.id] if r else None
+
+
+def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
     """
     Standard Trading & P&L calculation.
 
@@ -111,15 +162,20 @@ def calcuate_pnl(start_date, end_date, retail=None):
     Expenses       : All Expense account descendants EXCLUDING EXP-DIR-PUR, so that
                      purchases are not counted twice.
     """
+    # Normalise scope: retail_ids (list) is the canonical input.
+    # Legacy callers pass a single `retail` object — convert to a 1-element list.
+    if retail_ids is None and retail is not None:
+        retail_ids = [retail.id if hasattr(retail, 'id') else retail]
+
     base_filter = {'voucher_main__date__range': [start_date, end_date]}
-    if retail:
-        base_filter['voucher_main__retail'] = retail
+    if retail_ids:
+        base_filter['voucher_main__retail_id__in'] = retail_ids
 
     # ── Opening Stock ─────────────────────────────────────────────────────────
     # Calculated from physical inventory: barcoded stock (op_stk=True),
     # unbarcoded stock (op_stk=True), and raw material inventory,
     # each valued at the item's weighted average rate.
-    opening_stock = calculate_opening_stock(retail=retail)
+    opening_stock = calculate_opening_stock(retail_ids=retail_ids)
 
     # ── Purchases & Purchase Returns ──────────────────────────────────────────
     # Read directly from the Purchase Account ledger group (EXP-DIR-PUR) to avoid
@@ -145,17 +201,55 @@ def calcuate_pnl(start_date, end_date, retail=None):
     # ── Closing Stock ─────────────────────────────────────────────────────────
     # Derived from physical inventory (same source the balance sheet uses), not
     # from manual journal entries, so the value is always current.
+    import logging
+    logger = logging.getLogger(__name__)
+    from inventory.views import ClosingStockCal
+    from inventory.models import InterRetailTransferItem, InterRetailTransferVoucher
+
     try:
-        from inventory.views import ClosingStockCal
-        retail_id = retail.id if retail else None
         closing_stock = ClosingStockCal().calculate_closing_stock(
-            from_date="2000-01-01", to_date=str(end_date), retail_id=retail_id
+            from_date="2000-01-01", to_date=str(end_date), retail_ids=retail_ids
         )['total_value'] or Decimal(0)
-    except Exception:
+    except (ValueError, TypeError, ArithmeticError, LookupError) as e:
+        logger.warning("P&L closing-stock calculation failed: %s", e, exc_info=True)
         closing_stock = Decimal(0)
 
+    # ── Inter-retail Transfers (period) ───────────────────────────────────────
+    # Include Transfers In / Out on each retail's COGS so per-retail P&L stays correct
+    # when stock moves between retails at different weighted-avg rates. At consolidated
+    # level these net to zero across retails.
+    transfer_in_total = Decimal(0)
+    transfer_out_total = Decimal(0)
+    try:
+        transfer_base = InterRetailTransferItem.objects.filter(
+            voucher__status=InterRetailTransferVoucher.STATUS_RECEIVED,
+            voucher__transfer_date__range=[start_date, end_date],
+        )
+        if retail_ids:
+            transfer_in_total = transfer_base.filter(
+                voucher__to_retail_id__in=retail_ids
+            ).aggregate(t=Sum('transfer_value'))['t'] or Decimal(0)
+            transfer_out_total = transfer_base.filter(
+                voucher__from_retail_id__in=retail_ids
+            ).aggregate(t=Sum('transfer_value'))['t'] or Decimal(0)
+            # Transfers whose both endpoints are inside the selected scope are
+            # internal — they net to zero, don't let them inflate COGS.
+            internal = transfer_base.filter(
+                voucher__to_retail_id__in=retail_ids,
+                voucher__from_retail_id__in=retail_ids,
+            ).aggregate(t=Sum('transfer_value'))['t'] or Decimal(0)
+            transfer_in_total -= internal
+            transfer_out_total -= internal
+        # When no retail scope: both sums cover the whole company — they would cancel.
+        # Leave as zero so consolidated COGS line is unaffected.
+    except (ValueError, TypeError, LookupError) as e:
+        logger.warning("P&L inter-retail transfer aggregation failed: %s", e, exc_info=True)
+
     # ── COGS & Gross Profit ───────────────────────────────────────────────────
-    cogs = opening_stock + purchases - purchase_returns - closing_stock
+    # COGS = Opening + Purchases − Purchase Returns + Transfers In − Transfers Out − Closing
+    # Transfer lines ensure per-retail P&L is correct; they cancel at consolidated scope.
+    cogs = (opening_stock + purchases - purchase_returns
+            + transfer_in_total - transfer_out_total - closing_stock)
 
     # Sales Revenue — read from Sales Account ledger group (INC-DIR-SAL).
     # Credits = sales, Debits = sales returns.  Net = credits − debits.
@@ -189,8 +283,8 @@ def calcuate_pnl(start_date, end_date, retail=None):
         ).aggregate(total=Sum(F('debit') - F('credit')))['total'] or Decimal(0)
 
         dir_ob_filter = {'ldgr__in': dir_ldgrs}
-        if retail:
-            dir_ob_filter['retail'] = retail
+        if retail_ids:
+            dir_ob_filter['retail_id__in'] = retail_ids
         dir_ob = LedgerOpenBalance.objects.filter(**dir_ob_filter).aggregate(
             total=Sum(F('debit') - F('credit'), output_field=DecimalField())
         )['total'] or Decimal(0)
@@ -213,8 +307,8 @@ def calcuate_pnl(start_date, end_date, retail=None):
         ).aggregate(total=Sum(F('debit') - F('credit')))['total'] or Decimal(0)
 
         ind_ob_filter = {'ldgr__in': ind_ldgrs}
-        if retail:
-            ind_ob_filter['retail'] = retail
+        if retail_ids:
+            ind_ob_filter['retail_id__in'] = retail_ids
         ind_ob = LedgerOpenBalance.objects.filter(**ind_ob_filter).aggregate(
             total=Sum(F('debit') - F('credit'), output_field=DecimalField())
         )['total'] or Decimal(0)
@@ -230,6 +324,8 @@ def calcuate_pnl(start_date, end_date, retail=None):
         "opening_stock": opening_stock,
         "purchases": purchases,
         "purchase_returns": purchase_returns,
+        "transfer_in": transfer_in_total,
+        "transfer_out": transfer_out_total,
         "closing_stock": closing_stock,
         "cogs": cogs,
         "gross_sales": sales_revenue + sales_return,
@@ -240,16 +336,16 @@ def calcuate_pnl(start_date, end_date, retail=None):
         "indirect_expenses_total": indirect_expenses_total,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
-        "income": get_accounts_tree('Income', retail=retail, start_date=start_date, end_date=end_date),
+        "income": get_accounts_tree('Income', retail_ids=retail_ids, start_date=start_date, end_date=end_date),
         # Direct Expenses tree excluding Purchase Account (already in COGS)
         "direct_expenses": get_accounts_tree(
-            'Direct Expenses', retail=retail,
+            'Direct Expenses', retail_ids=retail_ids,
             start_date=start_date, end_date=end_date,
             exclude_codes=['EXP-DIR-PUR'],
         ),
         # Indirect Expenses tree
         "indirect_expenses": get_accounts_tree(
-            'Indirect Expenses', retail=retail,
+            'Indirect Expenses', retail_ids=retail_ids,
             start_date=start_date, end_date=end_date,
         ),
     }
@@ -462,8 +558,8 @@ class TrialBalanceReportView(APIView):
 
 class BalanceSheetAPIView(APIView):
     def get(self, request: Response):
-        retail = _get_retail_for_report(request)
-        if retail == 'FORBIDDEN':
+        retail_ids = _get_retail_ids_for_report(request)
+        if retail_ids == 'FORBIDDEN':
             return Response({"error": "You do not have permission to view combined reports."},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -471,8 +567,8 @@ class BalanceSheetAPIView(APIView):
 
         # Aggregate transaction balances grouped by ledger's account group
         txn_filter = dict(voucher_main__date__lte=end_date)
-        if retail:
-            txn_filter['voucher_main__retail'] = retail
+        if retail_ids:
+            txn_filter['voucher_main__retail_id__in'] = retail_ids
         txn_by_group = {}
         for row in VoucherDetail.objects.filter(**txn_filter).values(
             'account__ac_group'
@@ -485,8 +581,8 @@ class BalanceSheetAPIView(APIView):
 
         # Aggregate opening balances grouped by ledger's account group
         ob_filter = {}
-        if retail:
-            ob_filter['retail'] = retail
+        if retail_ids:
+            ob_filter['retail_id__in'] = retail_ids
         ob_by_group = {}
         for row in LedgerOpenBalance.objects.filter(**ob_filter).values(
             'ldgr__ac_group'
@@ -520,50 +616,87 @@ class BalanceSheetAPIView(APIView):
             return txn_by_group.get(account.id, Decimal(0)) + ob_by_group.get(account.id, Decimal(0))
 
         def get_group_balance(group_name):
+            """Return the group broken down into its immediate subgroups.
+
+            Each subgroup (e.g. "Current Assets" under "Assets") gets a nested
+            block with its own total and the list of descendant accounts that
+            carry balances. This preserves the chart-of-accounts hierarchy on
+            the report instead of flattening every leaf directly under Assets /
+            Liabilities.
+            """
             try:
                 parent = next(a for a in all_accounts if a.name == group_name)
             except StopIteration:
-                return {"total": Decimal(0), "accounts": []}
-            descendants = get_descendants(parent.id)
-            accounts_data = []
+                return {"total": Decimal(0), "groups": []}
+
+            subgroups = []
             total = Decimal(0)
-            for acc in descendants:
-                bal = get_balance(acc)
-                accounts_data.append({"id": acc.id, "name": acc.name, "balance": bal})
-                total += bal
-            return {"total": total, "accounts": accounts_data}
+            for sub in children_map.get(parent.id, []):
+                descendants = get_descendants(sub.id)
+                sub_accounts = []
+                sub_total = Decimal(0)
+                # Include the subgroup's own direct balance (rare: most subgroups
+                # are pure headers with no ledgers pointing directly at them).
+                own_bal = get_balance(sub)
+                sub_total += own_bal
+                if own_bal:
+                    sub_accounts.append({"id": sub.id, "name": sub.name, "balance": own_bal})
+                for acc in descendants:
+                    bal = get_balance(acc)
+                    if bal:
+                        sub_accounts.append({"id": acc.id, "name": acc.name, "balance": bal})
+                    sub_total += bal
+                subgroups.append({
+                    "id": sub.id,
+                    "name": sub.name,
+                    "total": sub_total,
+                    "accounts": sub_accounts,
+                })
+                total += sub_total
+            return {"total": total, "groups": subgroups}
+
+        def _ensure_subgroup(side, name):
+            """Find or synthesise a subgroup bucket on the given side."""
+            for g in side["groups"]:
+                if g["name"] == name:
+                    return g
+            bucket = {"id": f"synthetic_{name.lower().replace(' ', '_')}",
+                      "name": name, "total": Decimal(0), "accounts": []}
+            side["groups"].append(bucket)
+            return bucket
 
         assets = get_group_balance("Assets")
         liabilities = get_group_balance("Liabilities")
 
         # Capital Account (Owner's Capital, Reserves & Surplus) is a root group
         # separate from Liabilities in the chart of accounts, but belongs on the
-        # right-hand side of the balance sheet (equity = owner's stake).
+        # right-hand side of the balance sheet (equity = owner's stake). Fold
+        # its subgroups into liabilities so the right side shows a single tree.
         capital = get_group_balance("Capital Account")
         liabilities["total"] += capital["total"]
-        liabilities["accounts"].extend(capital["accounts"])
+        liabilities["groups"].extend(capital["groups"])
 
         # ── Closing stock (one call, reused for both assets and P&L) ────────────
         closing_stock_value = Decimal(0)
         try:
-            retail_id = retail.id if retail else None
             raw_cs = ClosingStockCal().calculate_closing_stock(
-                from_date="2000-01-01", to_date=str(end_date), retail_id=retail_id
+                from_date="2000-01-01", to_date=str(end_date), retail_ids=retail_ids
             )
             closing_stock_value = Decimal(str(raw_cs.get('total_value') or 0))
             if closing_stock_value:
                 assets["total"] += closing_stock_value
-                assets["accounts"].append({
+                stock_bucket = _ensure_subgroup(assets, "Stock-in-Hand")
+                stock_bucket["total"] += closing_stock_value
+                stock_bucket["accounts"].append({
                     "id": "closing_stock",
                     "name": "Closing Stock",
                     "balance": closing_stock_value,
-                    "group": "Stock-in-Hand"
                 })
         except Exception:
             pass
 
         # ── Opening stock from physical inventory ─────────────────────────────
-        opening_stock = calculate_opening_stock(retail=retail)
+        opening_stock = calculate_opening_stock(retail_ids=retail_ids)
 
         # ── Net profit: reuse already-fetched group data (zero extra queries) ─
         # income["total"] is negative (credit-normal Dr-Cr convention)
@@ -574,7 +707,9 @@ class BalanceSheetAPIView(APIView):
         net_profit = -income_total - expenses_total + closing_stock_value - opening_stock
 
         liabilities["total"] -= net_profit
-        liabilities["accounts"].append({
+        reserves_bucket = _ensure_subgroup(liabilities, "Reserves & Surplus")
+        reserves_bucket["total"] -= net_profit
+        reserves_bucket["accounts"].append({
             "id": "net_profit",
             "name": "Net Profit / Loss",
             "balance": -net_profit  # negative = credit side = equity
@@ -652,20 +787,20 @@ class BsGroupLedgersView(APIView):
 class ProfitLossAPIView(APIView):
 
     def get(self, request):
-        retail = _get_retail_for_report(request)
-        if retail == 'FORBIDDEN':
+        retail_ids = _get_retail_ids_for_report(request)
+        if retail_ids == 'FORBIDDEN':
             return Response({"error": "You do not have permission to view combined reports."},
                             status=status.HTTP_403_FORBIDDEN)
 
         start_date = request.GET.get("start_date", "2000-01-01")
         end_date = request.GET.get("end_date", date.today())
 
-        data = calcuate_pnl(start_date=start_date, end_date=end_date, retail=retail)
+        data = calcuate_pnl(start_date=start_date, end_date=end_date, retail_ids=retail_ids)
 
         return Response(data, status=status.HTTP_200_OK)
  
    
-def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, exclude_codes=None):
+def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, exclude_codes=None, retail_ids=None):
     """Fetch Chart of Accounts as a nested tree — optimized with batch queries.
 
     Args:
@@ -699,10 +834,14 @@ def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, ex
             children_map[pid] = []
         children_map[pid].append(acc)
 
+    # Normalise retail scope — retail_ids (list) wins over legacy single retail.
+    if retail_ids is None and retail is not None:
+        retail_ids = [retail.id if hasattr(retail, 'id') else retail]
+
     # Batch query: net balances (debit - credit) grouped by ac_group, date-filtered
     txn_filter = {}
-    if retail:
-        txn_filter['voucher_main__retail'] = retail
+    if retail_ids:
+        txn_filter['voucher_main__retail_id__in'] = retail_ids
     if start_date and end_date:
         txn_filter['voucher_main__date__range'] = [start_date, end_date]
     balance_raw = VoucherDetail.objects.filter(**txn_filter).values('account__ac_group').annotate(
@@ -712,8 +851,8 @@ def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, ex
 
     # Add opening balances grouped by ac_group (always included — period-independent)
     ob_filter = {}
-    if retail:
-        ob_filter['retail'] = retail
+    if retail_ids:
+        ob_filter['retail_id__in'] = retail_ids
     ob_raw = LedgerOpenBalance.objects.filter(**ob_filter).values('ldgr__ac_group').annotate(
         total_balance=Sum(F('debit') - F('credit'), output_field=DecimalField())
     )

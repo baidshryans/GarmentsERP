@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { Download, Filter, BookOpen } from "lucide-react";
 import { getRawMaterialLedger, fetchMainItem, getFiscalYears } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const fmtAmt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -72,6 +73,10 @@ export default function RawMaterialLedger() {
   }, []);
 
   const handleSearch = async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      alert("From date cannot be after To date.");
+      return;
+    }
     if (!itemFilter) return;
     setLoading(true);
     setFetched(true);
@@ -112,11 +117,11 @@ export default function RawMaterialLedger() {
           </div>
           <div className="flex flex-col gap-1 w-36">
             <Label className="text-xs">From Date</Label>
-            <Input type="date" className="h-9" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <Input type="date" className="h-9" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} />
           </div>
           <div className="flex flex-col gap-1 w-36">
             <Label className="text-xs">To Date</Label>
-            <Input type="date" className="h-9" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <Input type="date" className="h-9" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} />
           </div>
           <Button size="sm" onClick={handleSearch} disabled={loading || !itemFilter} className="h-9">
             {loading ? "Loading..." : "Search"}

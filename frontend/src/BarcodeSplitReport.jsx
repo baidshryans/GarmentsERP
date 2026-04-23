@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchSplitBarcodeReport } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 function fmt(v, dec = 3) {
   const n = parseFloat(v);
@@ -34,6 +35,10 @@ export default function BarcodeSplitReport() {
 
   const fetchData = async () => {
     if (!fromDate || !toDate) return;
+    if (!isValidDateRange(fromDate, toDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
     setLoading(true);
     setError("");
     const res = await fetchSplitBarcodeReport(fromDate, toDate);
@@ -104,11 +109,11 @@ ${tableEl.outerHTML}
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
             <Label className="text-xs">From Date</Label>
-            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 text-sm w-40" />
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="h-9 text-sm w-40" />
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs">To Date</Label>
-            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 text-sm w-40" />
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="h-9 text-sm w-40" />
           </div>
           <Button onClick={fetchData} disabled={loading} className="bg-primary hover:bg-primary text-white h-9">
             {loading ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : <Search className="size-4 mr-1.5" />}

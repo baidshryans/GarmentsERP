@@ -530,6 +530,10 @@ const LedgerForm = () => {
             toast({ title: "Select at least one role", description: "Every ledger must have at least one role.", variant: "destructive" });
             return;
         }
+        if (!data.ac_group) {
+            toast({ title: "Account group is required", description: "Every ledger must belong to an account group. Please select one.", variant: "destructive" });
+            return;
+        }
         if (nameCheck.exists === true) {
             toast({ title: "Duplicate ledger name", description: "A ledger with this name already exists. Please use a different name.", variant: "destructive" });
             return;

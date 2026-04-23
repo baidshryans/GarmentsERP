@@ -9,6 +9,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import apiClient from "@/services/apiClient";
 import { ShieldCheck, ArrowUpFromLine, Filter } from "lucide-react";
+import { isValidDateRange } from "@/lib/dateRange";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function fmtDate(d) {
@@ -56,6 +57,10 @@ export default function HallmarkIssueReport() {
   }, []);
 
   const load = useCallback(async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const params = new URLSearchParams();
     params.append("start_date", fromDate);
@@ -140,12 +145,12 @@ export default function HallmarkIssueReport() {
           <div>
             <Label htmlFor="from" className="text-xs">From Date</Label>
             <Input id="from" type="date" value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)} />
+              onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} />
           </div>
           <div>
             <Label htmlFor="to" className="text-xs">To Date</Label>
             <Input id="to" type="date" value={toDate}
-              onChange={(e) => setToDate(e.target.value)} />
+              onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} />
           </div>
           <div>
             <Label className="text-xs">Hallmark Center</Label>

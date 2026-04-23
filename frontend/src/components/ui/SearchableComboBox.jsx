@@ -31,6 +31,7 @@ export function SearchableComboBox({
   className = "",
   disabled = false,
   autoFocus = false,
+  tabIndex,
 }) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -106,6 +107,7 @@ export function SearchableComboBox({
         disabled={disabled}
         placeholder={placeholder}
         autoFocus={autoFocus}
+        tabIndex={tabIndex}
         autoComplete="off"
         onChange={(e) => {
           const val = e.target.value

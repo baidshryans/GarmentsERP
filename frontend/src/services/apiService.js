@@ -108,16 +108,108 @@ export async function getNextGCno() {
   }
 }
 
-export async function getClosingStockValuation({ to_date } = {}) {
+export async function getClosingStockValuation({ to_date, retail_ids, hide_zero } = {}) {
   try {
     const params = new URLSearchParams();
     if (to_date) params.append("to_date", to_date);
+    if (Array.isArray(retail_ids) && retail_ids.length > 0) {
+      retail_ids.forEach((rid) => params.append("retail_ids", String(rid)));
+    }
+    if (hide_zero === false) params.append("hide_zero", "false");
     const response = await apiClient.get(`/inventory/api/closing-stock?${params.toString()}`);
 
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch closing stock:", error.response?.data || error.message);
 
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Inter-Retail Transfer Vouchers ────────────────────────────────────────
+export async function fetchInterRetailTransfers(params = {}) {
+  try {
+    const qp = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") qp.append(k, v);
+    });
+    const qs = qp.toString();
+    const response = await apiClient.get(`/inventory/inter-retail-transfers/${qs ? `?${qs}` : ""}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch inter-retail transfers:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchInterRetailTransfer(id) {
+  try {
+    const response = await apiClient.get(`/inventory/inter-retail-transfers/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createInterRetailTransfer(payload) {
+  try {
+    const response = await apiClient.post(`/inventory/inter-retail-transfers/`, payload);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateInterRetailTransfer(id, payload) {
+  try {
+    const response = await apiClient.patch(`/inventory/inter-retail-transfers/${id}/`, payload);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteInterRetailTransfer(id) {
+  try {
+    const response = await apiClient.delete(`/inventory/inter-retail-transfers/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function sendInterRetailTransfer(id) {
+  try {
+    const response = await apiClient.post(`/inventory/inter-retail-transfers/${id}/send/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function receiveInterRetailTransfer(id) {
+  try {
+    const response = await apiClient.post(`/inventory/inter-retail-transfers/${id}/receive/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function cancelInterRetailTransfer(id) {
+  try {
+    const response = await apiClient.post(`/inventory/inter-retail-transfers/${id}/cancel/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getNextInterRetailTransferNo() {
+  try {
+    const response = await apiClient.get(`/inventory/api/next_inter_retail_transfer_no`);
+    return { success: true, data: response.data };
+  } catch (error) {
     return { success: false, error: error.response?.data || error.message };
   }
 }

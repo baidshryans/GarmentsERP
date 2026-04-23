@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchHallMarkIssueReport, fetchPurity, getLedgers } from './services/apiService';
+import { isValidDateRange } from "@/lib/dateRange";
 
 const HallmarkIssueReceiveReport = () => {
   const [showTable, setShowTable] = useState(false);
@@ -198,6 +199,10 @@ const HallmarkIssueReceiveReport = () => {
   };
 
   const onGo = () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      alert('From date cannot be after To date.');
+      return;
+    }
     const checkedKarigars = karigars.filter(k => k.checked).map(k => k.id);
     const checkedPurity = purity.filter(p => p.checked).map(p => p.id);
     
@@ -227,6 +232,7 @@ const HallmarkIssueReceiveReport = () => {
             <Input type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
+              max={toDate || undefined}
               className="border border-gray-300 p-1 w-24" />
           </div>
 
@@ -236,6 +242,7 @@ const HallmarkIssueReceiveReport = () => {
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
+              min={fromDate || undefined}
               className="border border-gray-300 p-1 w-24"
             />
           </div>

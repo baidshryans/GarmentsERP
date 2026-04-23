@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Search, SlidersHorizontal, Printer, Scale } from "lucide-react";
 import apiClient from "@/services/apiClient";
 import { useToast } from "@/hooks/use-toast";
+import { isValidDateRange } from "@/lib/dateRange";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -160,6 +161,10 @@ export default function GoldLedgerBalances() {
   };
 
   const handleSearch = async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
       const result = await fetchGoldLedger({
@@ -285,6 +290,7 @@ export default function GoldLedgerBalances() {
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
+                  max={toDate || undefined}
                   className="h-9 text-sm"
                 />
               </div>
@@ -294,6 +300,7 @@ export default function GoldLedgerBalances() {
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
+                  min={fromDate || undefined}
                   className="h-9 text-sm"
                 />
               </div>

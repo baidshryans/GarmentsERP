@@ -1,12 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
 import { fetchCompanies } from "@/services/apiService";
-import { Printer, ChevronRight, ChevronDown, X, Loader2 } from "lucide-react";
+import {
+  Printer, ChevronRight, ChevronDown, X, Loader2, Scale,
+  TrendingUp, Wallet, Landmark,
+} from "lucide-react";
 import { printReport } from "@/lib/printReport";
+import { RetailScopePicker, applyRetailScopeParams } from "@/components/common/RetailScopePicker";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -21,6 +25,15 @@ const balLabel = (v) => {
   const n = Number(v);
   if (n === 0) return "—";
   return `${fmt(n)} ${n >= 0 ? "Dr" : "Cr"}`;
+};
+
+// Indian-lakh compact formatter for the summary tiles (e.g. ₹ 16.99 L)
+const fmtCompact = (v) => {
+  const n = Math.abs(Number(v) || 0);
+  if (n >= 1e7) return `${(n / 1e7).toFixed(2)} Cr`;
+  if (n >= 1e5) return `${(n / 1e5).toFixed(2)} L`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)} K`;
+  return n.toFixed(0);
 };
 
 /* ── Ledger drill-down modal ──────────────────────────────────────────────── */
@@ -49,7 +62,6 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
         className="bg-card rounded-xl shadow-2xl w-[92vw] max-w-xl max-h-[80vh] flex flex-col border border-border"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <div>
             <p className="font-semibold text-foreground text-sm">{groupName}</p>
@@ -57,12 +69,15 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
               Ledger balances as on {new Date(endDate + "T00:00:00").toLocaleDateString("en-IN")}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-accent rounded-lg transition-colors">
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1.5 hover:bg-accent rounded-lg transition-colors cursor-pointer"
+          >
             <X className="size-4 text-muted-foreground" />
           </button>
         </div>
 
-        {/* Body */}
         <div className="overflow-auto flex-1">
           {loading && (
             <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
@@ -77,10 +92,10 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
             <table className="w-full text-sm border-collapse">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
                     Ledger
                   </th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border w-36">
+                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border w-36">
                     Balance
                   </th>
                 </tr>
@@ -97,7 +112,7 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
               </tbody>
               <tfoot className="border-t-2 border-border bg-muted/50">
                 <tr>
-                  <td className="px-4 py-2.5 font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                  <td className="px-4 py-2.5 font-semibold text-[11px] uppercase tracking-wide text-muted-foreground">
                     Total
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-bold text-foreground">
@@ -113,34 +128,97 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
   );
 }
 
-/* ── Account group row ────────────────────────────────────────────────────── */
-function AccountRow({ acc, endDate, onOpen, activeId }) {
-  const isSpecial = acc.id === "net_profit" || acc.id === "closing_stock";
-  const isActive  = activeId === acc.id;
+/* ── Subgroup block (header + child rows + subtotal) ──────────────────────── */
+function SubgroupBlock({ group, onOpen, activeId }) {
+  const [expanded, setExpanded] = useState(true);
+  const visibleAccounts = (group.accounts || []).filter(
+    (a) => Number(a.balance || 0) !== 0
+  );
+  if (visibleAccounts.length === 0 && Number(group.total || 0) === 0) return null;
 
   return (
-    <tr
-      onClick={() => !isSpecial && onOpen(acc.id, acc.name)}
-      className={`border-t border-border/40 transition-colors
-        ${isSpecial ? "opacity-80" : "cursor-pointer hover:bg-primary/5"}
-        ${isActive ? "bg-primary/10" : ""}
-      `}
-    >
-      <td className="px-4 py-2 pl-8 flex items-center gap-1.5 text-sm">
-        {!isSpecial && (
-          isActive
-            ? <ChevronDown className="size-3.5 text-primary flex-shrink-0" />
-            : <ChevronRight className="size-3.5 text-muted-foreground/50 flex-shrink-0" />
-        )}
-        {acc.id === "net_profit"
-          ? <span className="italic text-muted-foreground">{acc.name}</span>
-          : acc.name
-        }
-      </td>
-      <td className="px-4 py-2 text-right tabular-nums text-sm">
-        {balLabel(acc.balance)}
-      </td>
-    </tr>
+    <>
+      <tr
+        className="bg-muted/40 border-t border-border cursor-pointer hover:bg-muted/60 transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <td className="px-4 py-2 text-sm font-semibold flex items-center gap-1.5">
+          {expanded
+            ? <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
+            : <ChevronRight className="size-3.5 text-muted-foreground" aria-hidden="true" />}
+          {group.name}
+        </td>
+        <td className="px-4 py-2 text-right tabular-nums text-sm font-semibold">
+          {fmt(group.total)}
+        </td>
+      </tr>
+      {expanded && visibleAccounts.map((acc) => {
+        const isSpecial = acc.id === "net_profit" || acc.id === "closing_stock";
+        const isActive = activeId === acc.id;
+        return (
+          <tr
+            key={acc.id}
+            onClick={() => !isSpecial && onOpen(acc.id, acc.name)}
+            className={`border-t border-border/30 transition-colors
+              ${isSpecial ? "opacity-80" : "cursor-pointer hover:bg-primary/5"}
+              ${isActive ? "bg-primary/10" : ""}`}
+          >
+            <td className="px-4 py-1.5 pl-12 text-sm flex items-center gap-1.5">
+              {!isSpecial && (
+                isActive
+                  ? <ChevronDown className="size-3 text-primary flex-shrink-0" aria-hidden="true" />
+                  : <ChevronRight className="size-3 text-muted-foreground/40 flex-shrink-0" aria-hidden="true" />
+              )}
+              {acc.id === "net_profit"
+                ? <span className="italic text-muted-foreground">{acc.name}</span>
+                : <span className="text-muted-foreground">{acc.name}</span>}
+            </td>
+            <td className="px-4 py-1.5 text-right tabular-nums text-sm text-muted-foreground">
+              {balLabel(acc.balance)}
+            </td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+/* ── Side panel (Assets or Liabilities) ───────────────────────────────────── */
+function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId }) {
+  const groups = (side?.groups || []).filter(
+    (g) => Number(g.total || 0) !== 0 || (g.accounts || []).some((a) => Number(a.balance || 0) !== 0)
+  );
+  return (
+    <div className="rounded-lg border border-border overflow-hidden bg-card">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/50 border-b border-border">
+        <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h3>
+      </div>
+      <table className="w-full text-sm">
+        <tbody>
+          {groups.length === 0 && (
+            <tr>
+              <td colSpan={2} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No {title.toLowerCase()} with balance.
+              </td>
+            </tr>
+          )}
+          {groups.map((g) => (
+            <SubgroupBlock key={g.id} group={g} onOpen={onOpen} activeId={activeId} />
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-border bg-muted/60">
+            <td className="px-4 py-2.5 font-semibold text-sm">{totalLabel}</td>
+            <td className="px-4 py-2.5 text-right tabular-nums font-bold text-sm">
+              {fmt(side?.total)}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
   );
 }
 
@@ -150,8 +228,9 @@ export default function BalanceSheet() {
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
-  const [combined, setCombined] = useState(false);
-  const [modal, setModal]       = useState(null); // { id, name }
+  const [scope, setScope]             = useState("all");
+  const [selectedRetailIds, setSelectedRetailIds] = useState([]);
+  const [modal, setModal]       = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [companyName, setCompanyName] = useState("");
 
@@ -169,12 +248,16 @@ export default function BalanceSheet() {
 
   const fetchReport = async () => {
     setError("");
+    if (scope === "selected" && selectedRetailIds.length === 0) {
+      setError("Select at least one retail, or choose 'All retails (combined)'.");
+      return;
+    }
     setLoading(true);
     setModal(null);
     setActiveId(null);
     try {
       const params = new URLSearchParams({ end_date: endDate });
-      if (combined) params.set("combined", "true");
+      applyRetailScopeParams(params, scope, selectedRetailIds);
       const res = await apiClient.get(`/accounting/api/bal-sheet?${params}`);
       setData(res.data);
     } catch (e) {
@@ -182,6 +265,8 @@ export default function BalanceSheet() {
     }
     setLoading(false);
   };
+
+  useEffect(() => { fetchReport(); /* eslint-disable-next-line */ }, []);
 
   const openGroup = useCallback((id, name) => {
     if (activeId === id) {
@@ -193,28 +278,40 @@ export default function BalanceSheet() {
     }
   }, [activeId]);
 
+  const netWorth = Number(data?.net_worth ?? 0);
+  const isBalanced = netWorth === 0;
+
+  const assetsTotal = Number(data?.assets?.total || 0);
+  const liabilitiesTotal = Math.abs(Number(data?.liabilities?.total || 0));
+
   const handlePrint = () => {
     if (!data) return;
-    const assets      = (data.assets?.accounts || []).filter((a) => Number(a.balance || 0) !== 0);
-    const liabilities = (data.liabilities?.accounts || []).filter((a) => Number(a.balance || 0) !== 0);
 
-    const renderSection = (title, accounts, total) => {
-      const rows = accounts.map(
-        (acc, i) => `<tr${i % 2 === 1 ? ' style="background:#fafafa"' : ""}>
-          <td class="pl-8">${acc.id === "net_profit" ? `<em>${acc.name}</em>` : acc.name}</td>
-          <td style="text-align:right" class="tabular-nums">${balLabel(acc.balance)}</td>
-        </tr>`
-      );
+    const renderSection = (title, groups, total) => {
+      const rows = (groups || [])
+        .filter((g) => Number(g.total || 0) !== 0 || (g.accounts || []).some((a) => Number(a.balance || 0) !== 0))
+        .map((g) => {
+          const accRows = (g.accounts || [])
+            .filter((a) => Number(a.balance || 0) !== 0)
+            .map((acc) => `<tr>
+              <td style="padding-left:32px">${acc.id === "net_profit" ? `<em>${acc.name}</em>` : acc.name}</td>
+              <td style="text-align:right" class="tabular-nums">${balLabel(acc.balance)}</td>
+            </tr>`).join("");
+          return `<tr style="background:#f5f5f5"><td style="font-weight:600;padding-left:12px">${g.name}</td>
+                    <td style="text-align:right;font-weight:600" class="tabular-nums">${fmt(g.total)}</td></tr>
+                  ${accRows}`;
+        }).join("");
       return `<tr class="section-header"><td colspan="2">${title}</td></tr>
-        ${rows.join("")}
-        <tr class="totals-row"><td>Total ${title}</td><td style="text-align:right" class="tabular-nums">${fmt(total)}</td></tr>`;
+        ${rows}
+        <tr class="totals-row"><td>Total ${title}</td>
+          <td style="text-align:right" class="tabular-nums">${fmt(total)}</td></tr>`;
     };
 
     const html = `<table>
       <thead><tr><th>Particulars</th><th style="text-align:right;width:150px">Amount (₹)</th></tr></thead>
       <tbody>
-        ${renderSection("Assets", assets, data.assets?.total)}
-        ${renderSection("Liabilities", liabilities, data.liabilities?.total)}
+        ${renderSection("Assets", data.assets?.groups, data.assets?.total)}
+        ${renderSection("Liabilities & Equity", data.liabilities?.groups, data.liabilities?.total)}
       </tbody>
       <tfoot><tr class="totals-row">
         <td>Difference (Assets − Liabilities)</td>
@@ -224,26 +321,35 @@ export default function BalanceSheet() {
 
     const [y, m, d] = (endDate || "").split("-");
     const ddmmyyyy  = y && m && d ? `${d}-${m}-${y}` : endDate;
+    const scopeLabel = scope === "all"
+      ? " (Combined — All Retails)"
+      : selectedRetailIds.length === 1
+        ? ""
+        : ` (${selectedRetailIds.length} retails)`;
     printReport({
       title: "Balance Sheet",
-      subtitle: `As on ${ddmmyyyy}${combined ? " (Combined — All Retails)" : ""}`,
+      subtitle: `As on ${ddmmyyyy}${scopeLabel}`,
       html,
       company: companyName,
     });
   };
 
-  const assetAccounts     = (data?.assets?.accounts     || []).filter((a) => Number(a.balance || 0) !== 0);
-  const liabilityAccounts = (data?.liabilities?.accounts || []).filter((a) => Number(a.balance || 0) !== 0);
-
-  const netWorth = Number(data?.net_worth ?? 0);
+  const asOnLabel = useMemo(() => {
+    if (!endDate) return "";
+    const [y, m, d] = endDate.split("-");
+    return `${d}-${m}-${y}`;
+  }, [endDate]);
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Filters ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border print:hidden">
+      {/* ── Filter bar ───────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-end gap-3 p-3 bg-muted/30 rounded-lg border border-border print:hidden">
         <div className="flex flex-col gap-1">
-          <Label className="text-xs">As on Date</Label>
+          <Label htmlFor="bs-end-date" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            As on
+          </Label>
           <Input
+            id="bs-end-date"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
@@ -251,111 +357,116 @@ export default function BalanceSheet() {
           />
         </div>
         {canViewCombined && (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="bs-combined"
-              checked={combined}
-              onChange={(e) => setCombined(e.target.checked)}
-              className="size-4 rounded border-gray-300"
-            />
-            <Label htmlFor="bs-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
-          </div>
+          <RetailScopePicker
+            scope={scope}
+            selectedIds={selectedRetailIds}
+            onChange={({ scope: s, selectedIds }) => {
+              setScope(s);
+              setSelectedRetailIds(selectedIds);
+            }}
+          />
         )}
-        <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
-        {data && (
-          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">
-            <Printer className="size-4 mr-1.5" /> Print
-          </Button>
-        )}
+        <Button size="sm" onClick={fetchReport} disabled={loading} className="h-9 cursor-pointer">
+          {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : "Show Report"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handlePrint}
+          disabled={!data}
+          aria-label="Print balance sheet"
+          className="h-9 cursor-pointer ml-auto"
+        >
+          <Printer className="size-4 mr-1.5" aria-hidden="true" /> Print
+        </Button>
       </div>
 
-      {data && !loading && (
-        <p className="text-[11px] text-muted-foreground -mt-2 print:hidden">
-          Click any account group to see its individual ledgers.
+      {error && (
+        <p className="text-sm text-destructive border border-destructive/40 bg-destructive/5 rounded-md px-3 py-2">
+          {error}
         </p>
       )}
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      {loading && (
-        <div className="flex flex-col gap-2">
-          {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
+      {/* ── Summary tiles ────────────────────────────────────────────────── */}
+      {data && !loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <Wallet className="size-3.5" aria-hidden="true" /> Total Assets
+            </div>
+            <p className="mt-1.5 text-xl font-semibold tabular-nums">
+              ₹ {fmt(assetsTotal)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">₹ {fmtCompact(assetsTotal)}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <Landmark className="size-3.5" aria-hidden="true" /> Total Liabilities & Equity
+            </div>
+            <p className="mt-1.5 text-xl font-semibold tabular-nums">
+              ₹ {fmt(liabilitiesTotal)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">₹ {fmtCompact(liabilitiesTotal)}</p>
+          </div>
+          <div className={`rounded-lg border p-4 ${isBalanced
+            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-900/10"
+            : "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10"}`}>
+            <div className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide ${isBalanced
+              ? "text-emerald-800 dark:text-emerald-300"
+              : "text-amber-800 dark:text-amber-300"}`}>
+              <Scale className="size-3.5" aria-hidden="true" /> Status
+            </div>
+            <p className={`mt-1.5 text-xl font-semibold tabular-nums ${isBalanced
+              ? "text-emerald-700 dark:text-emerald-300"
+              : "text-amber-700 dark:text-amber-300"}`}>
+              {isBalanced ? "Balanced" : balLabel(netWorth)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isBalanced ? "Assets = Liabilities + Equity" : "Difference (Assets − Liabilities)"}
+            </p>
+          </div>
         </div>
       )}
 
       {data && !loading && (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                  Particulars
-                </th>
-                <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider text-muted-foreground w-40">
-                  Amount (₹)
-                </th>
-              </tr>
-            </thead>
+        <p className="text-[11px] text-muted-foreground -mt-1 print:hidden">
+          Balance Sheet as on {asOnLabel}{scope === "all" ? " · Combined (all retails)" : selectedRetailIds.length > 1 ? ` · ${selectedRetailIds.length} retails` : ""}. Click any account to see its ledgers.
+        </p>
+      )}
 
-            {/* ── Assets ─────────────────────────────────────────────────── */}
-            <tbody>
-              <tr className="bg-muted/30 border-t border-border">
-                <td colSpan={2} className="px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                  Assets
-                </td>
-              </tr>
-              {assetAccounts.length === 0 && (
-                <tr className="border-t border-border/40">
-                  <td colSpan={2} className="px-4 py-6 text-center text-muted-foreground">No asset accounts with balance.</td>
-                </tr>
-              )}
-              {assetAccounts.map((acc) => (
-                <AccountRow key={acc.id} acc={acc} endDate={endDate} onOpen={openGroup} activeId={activeId} />
-              ))}
-              <tr className="border-t-2 border-border bg-muted/50 font-semibold">
-                <td className="px-4 py-2.5">Total Assets</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{fmt(data.assets?.total)}</td>
-              </tr>
-            </tbody>
-
-            {/* ── Liabilities ────────────────────────────────────────────── */}
-            <tbody>
-              <tr className="bg-muted/30 border-t border-border">
-                <td colSpan={2} className="px-4 py-2 font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-                  Liabilities
-                </td>
-              </tr>
-              {liabilityAccounts.length === 0 && (
-                <tr className="border-t border-border/40">
-                  <td colSpan={2} className="px-4 py-6 text-center text-muted-foreground">No liability accounts with balance.</td>
-                </tr>
-              )}
-              {liabilityAccounts.map((acc) => (
-                <AccountRow key={acc.id} acc={acc} endDate={endDate} onOpen={openGroup} activeId={activeId} />
-              ))}
-              <tr className="border-t-2 border-border bg-muted/50 font-semibold">
-                <td className="px-4 py-2.5">Total Liabilities</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{fmt(data.liabilities?.total)}</td>
-              </tr>
-            </tbody>
-
-            {/* ── Difference ─────────────────────────────────────────────── */}
-            <tfoot>
-              <tr className={`border-t-2 border-border ${netWorth === 0 ? "bg-emerald-50" : "bg-amber-50"}`}>
-                <td className="px-4 py-3 font-semibold text-base">
-                  Difference (Assets − Liabilities)
-                </td>
-                <td className={`px-4 py-3 text-right font-bold text-base tabular-nums ${netWorth === 0 ? "text-emerald-700" : "text-amber-700"}`}>
-                  {netWorth === 0 ? "Balanced ✓" : balLabel(netWorth)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+      {loading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
+          </div>
+          <div className="flex flex-col gap-2">
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
+          </div>
         </div>
       )}
 
-      {/* ── Ledger drill-down modal ─────────────────────────────────────── */}
+      {/* ── Side-by-side two-column layout ───────────────────────────────── */}
+      {data && !loading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SidePanel
+            title="Assets"
+            icon={Wallet}
+            side={data.assets}
+            totalLabel="Total Assets"
+            onOpen={openGroup}
+            activeId={activeId}
+          />
+          <SidePanel
+            title="Liabilities & Equity"
+            icon={Landmark}
+            side={data.liabilities}
+            totalLabel="Total Liabilities & Equity"
+            onOpen={openGroup}
+            activeId={activeId}
+          />
+        </div>
+      )}
+
       {modal && (
         <LedgerModal
           groupId={modal.id}

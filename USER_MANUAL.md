@@ -1,6 +1,6 @@
 # Jewel India ERP - User Manual
 
-**Version:** 1.2
+**Version:** 1.3
 **Last Updated:** April 2026
 **Audience:** First-time clients, store managers, accountants, and administrators
 
@@ -446,11 +446,13 @@ In Jewel India ERP, every entity (customer, vendor, bank, expense account) is a 
 2. Click **New Ledger**
 3. Fill in the required fields:
    - **Account Name**: Display name (e.g., "Ravi Jewellers")
-   - **Account Group**: Classification (e.g., Sundry Debtors)
+   - **Account Group** *(required)*: Classification from the Chart of Accounts (e.g., Sundry Debtors). **Every ledger must belong to an account group** — the form will block submission and the API will reject any create/update attempt without one. Selecting a role auto-suggests a sensible group; you can still override it.
    - **Roles**: Assign one or more roles (Customer, Vendor, etc.)
    - **GSTIN**: Customer's/vendor's GST number (for GST invoicing)
    - **State**: State of the party (for IGST vs CGST/SGST determination)
    - **Contact details**: Mobile, email, address
+
+> **Note — Quick Add from Customer Order:** If you click "+ New Ledger" while filling a Customer Order (or similar voucher), the system returns you to the originating page after saving and automatically pre-fills the newly created ledger.
 4. **Documents**: Upload PAN card, Aadhar, GST certificate, etc.
 
 ### 6.3 Ledger List
@@ -482,8 +484,10 @@ For large migrations or bulk creation of ledger accounts, use the CSV import fea
 3. Fill in the template with your ledger data:
    - Account Name, Account Group, Role(s), GSTIN, State, Mobile, Email, Opening Balance (Dr/Cr)
 4. Upload the completed CSV file
-5. The system validates each row and shows errors if any fields are missing or invalid
+5. The system validates each row and shows errors if any fields are missing or invalid. **Rows without a resolvable `ac_group_name` are skipped** — every imported ledger must map to an existing account group in the Chart of Accounts.
 6. Confirm the import — successfully validated rows are created as ledger accounts
+
+> **Tip — Bank / POS charge ledgers:** The system now auto-seeds common bank & POS-related expense ledgers (Cash Pickup Charges, Cash Deposit Charges, Settlement Charges, Low Usage Charges, POS Machine Installation/Rental/Service Charges) under **Bank Charges and Commission**. If existing ledgers in your database have no account group, run `python manage.py seed_system_ledgers` once — the command will backfill the correct group on any matching orphan ledger.
 
 > **Tip:** Use bulk import during migration from another ERP. See Section 22 for the full migration workflow.
 
@@ -533,9 +537,12 @@ Customer orders represent advance bookings, often with a fixed gold rate option.
 2. Click **New Order**
 3. Select customer, add items with specifications:
    - Pieces, gross weight, purity
+   - Item name (captured and stored per line for clearer prints)
    - Making charges, other charges
-4. **Fixed Gold Rate**: Lock the gold rate at the time of ordering
-5. **Advance Receipt**: Record advance payment (creates an RCPT voucher automatically)
+4. **Fixed Gold Rate** *(checkbox)*: Lock the gold rate at the time of ordering. When enabled, the form fetches and freezes the current 14K / 18K / 22K rates.
+5. **Salespersons**: Salesperson 1 is mandatory; Salesperson 2 is optional (use "None" to leave unassigned).
+6. **Advance Receipt**: Record advance payment (creates an RCPT voucher automatically)
+7. **Print**: The customer-order printout is an A4 B&W format with shop letterhead, item table, totals, gold-rate band, and signature blocks.
 
 ### 7.4 Sales Invoice (Sales Voucher)
 
@@ -578,12 +585,20 @@ When enabled, the system automatically assigns a separate GST bill number to eac
 ### 7.6 Sales Return
 
 1. Navigate to **Sales > Sales Return**
-2. Select the original sales voucher
-3. Choose items being returned
-4. System auto-reverses:
+2. Select the original sales voucher — its items are pulled into a **15-column return table** that mirrors the sales voucher layout (Barcode, Packet, Item, Pcs, Ct, GW, Making / Making Type / Making Value, Purity, Tunch, Fine Wt, Rate, Amount).
+3. Choose items being returned:
+   - Sub-item rows are indented with a ↳ marker. Delete icons appear only on manual (non-barcode) sub-items.
+   - **Tunch** and **Fine Wt** are shown only for gold sub-items (item type = Raw). Non-gold rows leave them blank.
+   - Sub-item Amount auto-calculates: `GW × Tunch/100 × Rate` for gold, `Ct × Rate` for stones, `GW × Rate` otherwise.
+4. **Discount auto-detection**:
+   - **Full return** (all items from the ref bill) — the original bill's full discount is re-applied automatically.
+   - **Partial return** — discount defaults to 0, and an amber note displays the original bill's discount for reference.
+5. The return is linked back to the original sale via `sales_voucher_ref` and `original_sale_gst_billno`, preserved on save.
+6. System auto-reverses:
    - Inventory (barcodes return to stock)
    - Accounting entry (credit note)
    - Salesperson commission (reversal created)
+7. **Credit Note print**: Click **Print** in the Sales Return list to produce a printable credit note (A4, matches the sales invoice style) showing returned items, original invoice reference, discount, CGST/SGST/IGST breakdown, total credit, and amount in words. No separate CNDN entry is required.
 
 ### 7.7 Cheque Deposit Tracking
 
@@ -634,6 +649,8 @@ Purchase Return (if defective)
    - **Repair**: Repair job
 3. Add items with specifications
 4. Save and send to karigar/vendor
+
+**Pending Customer-Order Picker:** When the order type is **Customer Order**, use the **Pick from Pending Orders** button to open a modal listing customer-order items that are not yet fulfilled. You can multi-select line items; they are auto-filled into the PO with a per-row CO badge. If a row is deleted from the PO, its item returns to the pending pool.
 
 ### 8.3 Purchase Voucher (Invoice)
 
@@ -1522,7 +1539,7 @@ Configure accounting ledgers for salary posting:
 
 | Report | Path | Description |
 |--------|------|-------------|
-| Karigar Job Work | Manufacturing > Reports | Outstanding with each karigar |
+| Job Work Status | Manufacturing > Reports | Outstanding job work with each karigar (renamed from "Karigar – Job Work") |
 | Karigar Stone Transactions | Manufacturing > Reports | Stone issue/return per karigar |
 | Hallmark Issue/Receive | Manufacturing > Reports | Hallmarking status per item |
 | Finished Item Receive | Manufacturing > Reports | Items received from manufacturing |
@@ -2178,7 +2195,7 @@ To avoid "Python not found" errors, use the full path to the virtual environment
 | Field | Value |
 |-------|-------|
 | **Document Title** | Jewel India ERP - User Manual |
-| **Version** | 1.2 — April 2026 update |
+| **Version** | 1.3 — April 2026 update |
 | **Date** | April 2026 |
 | **Prepared For** | First-time ERP clients |
 | **Confidentiality** | Client-use only |

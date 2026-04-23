@@ -7,6 +7,8 @@ import apiClient from "@/services/apiClient";
 import { ChevronDown, ChevronRight, X, Printer } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { fetchCompanies } from "@/services/apiService";
+import { RetailScopePicker, applyRetailScopeParams } from "@/components/common/RetailScopePicker";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 const fy = new Date().getMonth() < 3 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -236,7 +238,8 @@ export default function ProfitLoss() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [drill, setDrill] = useState(null); // { metric, title, accountGroupId? }
-  const [combined, setCombined] = useState(false);
+  const [scope, setScope] = useState("all");
+  const [selectedRetailIds, setSelectedRetailIds] = useState([]);
   const [companyName, setCompanyName] = useState("");
 
   useEffect(() => {
@@ -253,10 +256,18 @@ export default function ProfitLoss() {
 
   const fetchReport = async () => {
     setError("");
+    if (!isValidDateRange(startDate, endDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
+    if (scope === "selected" && selectedRetailIds.length === 0) {
+      setError("Select at least one retail, or choose 'All retails (combined)'.");
+      return;
+    }
     setLoading(true);
     try {
       const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
-      if (combined) params.set("combined", "true");
+      applyRetailScopeParams(params, scope, selectedRetailIds);
       const res = await apiClient.get(`/accounting/api/pnl?${params}`);
       setData(res.data);
     } catch (e) {
@@ -349,23 +360,21 @@ export default function ProfitLoss() {
       <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border print:hidden">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-36" />
         </div>
         {canViewCombined && (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="pnl-combined"
-              checked={combined}
-              onChange={(e) => setCombined(e.target.checked)}
-              className="size-4 rounded border-gray-300"
-            />
-            <Label htmlFor="pnl-combined" className="text-xs cursor-pointer">Combined (All Retails)</Label>
-          </div>
+          <RetailScopePicker
+            scope={scope}
+            selectedIds={selectedRetailIds}
+            onChange={({ scope: s, selectedIds }) => {
+              setScope(s);
+              setSelectedRetailIds(selectedIds);
+            }}
+          />
         )}
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {data && (

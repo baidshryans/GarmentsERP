@@ -81,6 +81,12 @@ class LedgerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ledger
         fields = "__all__"
+        # Every ledger must belong to an account group. The model field still
+        # allows NULL to avoid breaking historical rows, but all writes go
+        # through this serializer so we enforce it at the API boundary.
+        extra_kwargs = {
+            'ac_group': {'required': True, 'allow_null': False},
+        }
 
     def get_primary_role(self, obj):
         # Iterate obj.roles.all() to reuse the prefetch_related('roles') cache

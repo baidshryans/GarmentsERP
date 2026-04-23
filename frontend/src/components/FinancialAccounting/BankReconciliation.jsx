@@ -12,6 +12,7 @@ import {
   fetchBankStatements, createBankStatement, deleteBankStatement,
   matchBankStatement, fetchBankReconBookEntries, getLedgers,
 } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const fmt = (v) =>
   Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -57,6 +58,10 @@ export default function BankReconciliation() {
   }, []);
 
   const load = async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     if (!bankLedger) return;
     setLoading(true);
     const params = { bank_ledger: bankLedger, from_date: fromDate, to_date: toDate };
@@ -156,11 +161,11 @@ export default function BankReconciliation() {
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From Date</Label>
-          <Input type="date" className="h-9 w-36 text-sm" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <Input type="date" className="h-9 w-36 text-sm" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To Date</Label>
-          <Input type="date" className="h-9 w-36 text-sm" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          <Input type="date" className="h-9 w-36 text-sm" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} />
         </div>
         <Button size="sm" onClick={load} className="bg-primary hover:bg-primary text-white h-9">
           <Search className="size-4 mr-1" /> Load

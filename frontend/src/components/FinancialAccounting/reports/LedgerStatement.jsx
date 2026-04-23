@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Printer, Download, X } from "lucide-react";
 import apiClient from "@/services/apiClient";
 import { printReport } from "@/lib/printReport";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -124,6 +125,10 @@ export default function LedgerStatement() {
   };
 
   const fetchReport = async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
     if (selectedLedgers.length === 0) { setError("Please select at least one ledger."); return; }
     setError("");
     setLoading(true);
@@ -309,11 +314,11 @@ export default function LedgerStatement() {
 
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="h-9 w-36" />
         </div>
         <Button size="sm" onClick={fetchReport} className="h-9" disabled={selectedLedgers.length === 0}>
           Show {selectedLedgers.length > 1 ? `(${selectedLedgers.length})` : ""}

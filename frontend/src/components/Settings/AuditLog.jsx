@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Search, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { fetchAuditLog } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const EVENT_STYLE = {
   CREATE: "bg-green-50 text-green-700",
@@ -38,6 +39,10 @@ export default function AuditLog() {
   useEffect(() => { load(); }, []);
 
   const applyFilters = () => {
+    if (!isValidDateRange(filters.from_date, filters.to_date)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     const f = { ...filters, page: 1 };
     setFilters(f);
     load(f);
@@ -66,12 +71,12 @@ export default function AuditLog() {
         <div>
           <Label className="text-xs">From Date</Label>
           <Input type="date" className="h-8 text-sm mt-1 w-36"
-            value={filters.from_date} onChange={(e) => sf("from_date", e.target.value)} />
+            value={filters.from_date} onChange={(e) => sf("from_date", e.target.value)} max={filters.to_date || undefined} />
         </div>
         <div>
           <Label className="text-xs">To Date</Label>
           <Input type="date" className="h-8 text-sm mt-1 w-36"
-            value={filters.to_date} onChange={(e) => sf("to_date", e.target.value)} />
+            value={filters.to_date} onChange={(e) => sf("to_date", e.target.value)} min={filters.from_date || undefined} />
         </div>
         <div>
           <Label className="text-xs">Model / Table</Label>

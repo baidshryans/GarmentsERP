@@ -6,24 +6,27 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableRow, TableCell, TableBody } from "@/components/ui/table";
+import { Table, TableRow, TableCell, TableBody, TableHead, TableHeader } from "@/components/ui/table";
 import {
   fetchMainItem, fetchOrderNoNext, fetchSalesperson,
   fetchPurity, getLedgers, createCustomerOrder,
 } from "@/services/apiService";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit, cancelCustomerOrder } from "./services/apiService";
-import { SquarePen, Trash2, Loader2, Plus, Zap, Lock } from "lucide-react";
+import { SquarePen, Trash2, Loader2, Plus, Zap, Lock, ChevronRight } from "lucide-react";
 import { arrayToObject } from "./Utils";
 import { renderErrorTree } from "./Utils";
 
-/* ─── tiny helpers ─────────────────────────────────────────── */
-function SectionCard({ title, children, className = "" }) {
+/* ─── helpers ─────────────────────────────────────────────── */
+function SectionCard({ title, children, className = "", action }) {
   return (
-    <div className={`bg-white border border-border rounded-xl overflow-hidden ${className}`}>
-      <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
-        <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h3>
+    <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${className}`}>
+      <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h3>
+        </div>
+        {action}
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -34,12 +37,19 @@ function Field({ label, required, children, className = "" }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       <Label className="text-xs font-medium text-muted-foreground">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        {label}{required && <span className="text-destructive ml-0.5">*</span>}
       </Label>
       {children}
     </div>
   );
 }
+
+const DELIVERY_STATUS_LABELS = {
+  pending: { label: "Pending", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  partially_delivered: { label: "Partial", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  delivered: { label: "Delivered", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  cancelled: { label: "Cancelled", className: "bg-red-50 text-red-600 border-red-200" },
+};
 
 /* ─── component ────────────────────────────────────────────── */
 const CustomerOrderForm = () => {
@@ -79,6 +89,7 @@ const CustomerOrderForm = () => {
   const party_name    = watch("form.ldgr_code_name");
   const gold_rate_date = watch("form.gold_rate_date");
   const fix_gold_rate  = watch("form.fix_gold_rate");
+  const delivery_status = watch("form.delivery_status");
 
   /* pre-fill customer when redirected back from the ledger add page */
   useEffect(() => {
@@ -87,22 +98,19 @@ const CustomerOrderForm = () => {
     if (ldgr && ldgrName) {
       setValue("form.ldgr", ldgr);
       setValue("form.ldgr_code_name", ldgrName);
-      // Add the new customer into the local list so the datalist shows it
       setCustomers((prev) => {
         const already = prev.some((c) => String(c.id) === String(ldgr));
         return already ? prev : [{ id: ldgr, ac_name: ldgrName, mobile1: "" }, ...prev];
       });
     }
-  }, []);   // intentionally empty — only run once on mount
+  }, []);
 
-  /* party search */
   useEffect(() => {
     getLedgers({ type: "CO", search: party_name }).then(r => {
       if (r.success) setCustomers(r.data.results ?? []);
     });
   }, [party_name]);
 
-  /* fetch rates when date changes */
   useEffect(() => {
     if (!gold_rate_date) return;
     setFetchingRates(true);
@@ -116,7 +124,6 @@ const CustomerOrderForm = () => {
     }).finally(() => setFetchingRates(false));
   }, [gold_rate_date]);
 
-  /* initial load */
   useEffect(() => {
     Promise.all([
       getLedgers({ type: "CO" }),
@@ -144,7 +151,6 @@ const CustomerOrderForm = () => {
     });
   }, []);
 
-  /* fix gold rate checkbox */
   const handleFixGoldRateChange = async (checked) => {
     setValue("form.fix_gold_rate", checked);
     if (checked) {
@@ -172,12 +178,10 @@ const CustomerOrderForm = () => {
     }
   };
 
-  /* submit */
   const onSubmit = () => {
     if (rs.length === 0) { toast({ title: "Add at least one item." }); return; }
     const data = getValues("form");
     delete data.advance_amt; delete data.advance_reconciled; delete data.advance_available;
-    // Treat the "— None —" sentinel as null for salesman_2
     if (data.salesman_2 === "__none__") data.salesman_2 = null;
     data.items = [...rs];
     setSubmitting(true);
@@ -194,7 +198,6 @@ const CustomerOrderForm = () => {
       .finally(() => setSubmitting(false));
   };
 
-  /* item table handlers */
   const handleEdit = (index) => {
     reset({ form: getValues('form'), table: rs[index] });
     setRows(prev => prev.filter((_, i) => i !== index));
@@ -208,18 +211,40 @@ const CustomerOrderForm = () => {
     setFocus("table.item_id");
   };
 
+  const statusInfo = DELIVERY_STATUS_LABELS[delivery_status] ?? DELIVERY_STATUS_LABELS.pending;
+
   /* ─── render ─────────────────────────────────────────────── */
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
 
+      {/* ── Breadcrumb ── */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => navigate("/sales/customerorder/list/")}
+          className="hover:text-foreground transition-colors cursor-pointer"
+        >
+          Customer Orders
+        </button>
+        <ChevronRight className="size-3" />
+        <span className="text-foreground font-medium">
+          {id ? watch("form.order_no") || "Edit Order" : "New Order"}
+        </span>
+        {id && (
+          <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusInfo.className}`}>
+            {statusInfo.label}
+          </span>
+        )}
+      </div>
+
       {/* ── Page header ── */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">
             {id ? "Edit Customer Order" : "New Customer Order"}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {id ? "Update order details below" : "Fill in the details to create a new order"}
+            {id ? "Update order details and items below" : "Fill in the details to create a new order"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -228,38 +253,43 @@ const CustomerOrderForm = () => {
             variant="outline"
             size="sm"
             onClick={() => navigate("/sales/customerorder/list/")}
+            className="cursor-pointer"
           >
-            Cancel
+            Close
           </Button>
           <Button
             size="sm"
             disabled={submitting}
             onClick={handleSubmit(onSubmit)}
+            className="min-w-24 cursor-pointer"
           >
-            {submitting ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />Saving…</> : "Save Order"}
+            {submitting
+              ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />Saving…</>
+              : "Save Order"
+            }
           </Button>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
-        {/* ── Card 1: Order reference ── */}
+        {/* ── Card 1: Order Reference ── */}
         <SectionCard title="Order Reference">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Field label="Date" required>
-              <Input type="date" {...register("form.date1")} required />
-            </Field>
-
+          <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
             <Field label="Order No">
-              <span className="inline-flex items-center px-3 h-9 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold truncate">
+              <span className="inline-flex items-center px-3 h-9 rounded-md bg-primary/5 border border-primary/20 text-primary text-sm font-semibold truncate">
                 {watch("form.order_no") || (
-                  <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>
+                  <span className="text-primary/50 text-xs font-normal">Auto-generating…</span>
                 )}
               </span>
               <input type="hidden" {...register("form.order_no")} />
             </Field>
 
-            <Field label="Estimated Delivery Date" required>
+            <Field label="Order Date" required>
+              <Input type="date" {...register("form.date1")} required />
+            </Field>
+
+            <Field label="Delivery Date" required>
               <Input type="date" {...register("form.delivery_date")} required />
             </Field>
 
@@ -269,7 +299,7 @@ const CustomerOrderForm = () => {
                 control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="cursor-pointer"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="new_booking">New Booking</SelectItem>
                       <SelectItem value="repair">Repair</SelectItem>
@@ -282,12 +312,30 @@ const CustomerOrderForm = () => {
                 )}
               />
             </Field>
+
+            <Field label="Delivery Status">
+              <Controller
+                name="form.delivery_status"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value ?? "pending"}>
+                    <SelectTrigger className="cursor-pointer"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="partially_delivered">Partially Delivered</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
           </div>
         </SectionCard>
 
         {/* ── Card 2: Customer & Sales ── */}
         <SectionCard title="Customer & Sales">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
             {/* Party — spans 2 cols */}
             <div className="col-span-2">
               <Field label="Party Name" required>
@@ -307,7 +355,7 @@ const CustomerOrderForm = () => {
                     to={`/crm/ledger/add/?next=${encodeURIComponent(location.pathname)}`}
                     tabIndex={-1}
                   >
-                    <Button type="button" size="icon" variant="outline" title="New customer">
+                    <Button type="button" size="icon" variant="outline" title="New customer" className="cursor-pointer shrink-0">
                       <Plus className="size-4" />
                     </Button>
                   </Link>
@@ -329,7 +377,7 @@ const CustomerOrderForm = () => {
                 render={({ field, fieldState }) => (
                   <>
                     <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                      <SelectTrigger className={fieldState.error ? "border-red-500 focus:ring-red-500" : ""}>
+                      <SelectTrigger className={`cursor-pointer ${fieldState.error ? "border-destructive focus:ring-destructive" : ""}`}>
                         <SelectValue placeholder="Select salesperson" />
                       </SelectTrigger>
                       <SelectContent>
@@ -339,7 +387,7 @@ const CustomerOrderForm = () => {
                       </SelectContent>
                     </Select>
                     {fieldState.error && (
-                      <p className="text-[11px] text-red-500">Salesperson 1 is required.</p>
+                      <p className="text-[11px] text-destructive">Required</p>
                     )}
                   </>
                 )}
@@ -352,7 +400,7 @@ const CustomerOrderForm = () => {
                 control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                    <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                    <SelectTrigger className="cursor-pointer"><SelectValue placeholder="Optional" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">— None —</SelectItem>
                       {salespersonData.map((sp, i) => (
@@ -362,6 +410,10 @@ const CustomerOrderForm = () => {
                   </Select>
                 )}
               />
+            </Field>
+
+            <Field label="Estimated Amount">
+              <Input type="number" {...register("form.est_amount")} />
             </Field>
 
             <Field label="Advance (from receipts)">
@@ -379,6 +431,7 @@ const CustomerOrderForm = () => {
                     size="icon"
                     variant="outline"
                     title="Add receipt"
+                    className="cursor-pointer shrink-0"
                     onClick={() => {
                       const qs = new URLSearchParams({
                         customer_order: String(id),
@@ -394,14 +447,8 @@ const CustomerOrderForm = () => {
                 )}
               </div>
               {id && (
-                <p className="text-[10px] text-muted-foreground">
-                  Sum of linked receipt vouchers
-                </p>
+                <p className="text-[10px] text-muted-foreground">Sum of linked receipt vouchers</p>
               )}
-            </Field>
-
-            <Field label="Estimated Amount">
-              <Input type="number" {...register("form.est_amount")} />
             </Field>
           </div>
         </SectionCard>
@@ -409,8 +456,7 @@ const CustomerOrderForm = () => {
         {/* ── Card 3: Gold Rate ── */}
         <SectionCard title="Gold Rate">
           <div className="flex flex-wrap items-end gap-4">
-            {/* Toggle */}
-            <div className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-border bg-muted/30 cursor-pointer">
+            <div className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-border bg-muted/20 cursor-pointer select-none">
               {fetchingRates
                 ? <Loader2 className="size-4 text-primary animate-spin" />
                 : <Checkbox
@@ -418,9 +464,10 @@ const CustomerOrderForm = () => {
                     checked={fix_gold_rate}
                     onCheckedChange={handleFixGoldRateChange}
                     disabled={fetchingRates}
+                    className="cursor-pointer"
                   />
               }
-              <Label htmlFor="fix_rate" className="cursor-pointer text-sm font-medium select-none">
+              <Label htmlFor="fix_rate" className="cursor-pointer text-sm font-medium">
                 Fix Gold Rate
               </Label>
               {fix_gold_rate && !fetchingRates && (
@@ -430,22 +477,21 @@ const CustomerOrderForm = () => {
               )}
             </div>
 
-            {/* Rate fields — only visible when fix is on */}
             <div className={`flex flex-wrap gap-4 transition-opacity duration-200 ${fix_gold_rate ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
               <Field label="Rate Date" className="w-36">
                 <Input type="date" {...register("form.gold_rate_date")} disabled={!fix_gold_rate} />
               </Field>
-              <Field label="14K Rate (/g)" className="w-28">
+              <Field label="14K (₹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_14kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="18K Rate (/g)" className="w-28">
+              <Field label="18K (₹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_18kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="22K Rate (/g)" className="w-28">
+              <Field label="22K (₹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_22kt", { valueAsNumber: true })}
                 />
@@ -455,31 +501,41 @@ const CustomerOrderForm = () => {
         </SectionCard>
 
         {/* ── Card 4: Item Details ── */}
-        <SectionCard title="Item Details">
-          <div className="overflow-x-auto">
-            <Table className="w-full text-sm">
-              <TableBody>
-                {/* Header row */}
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  {["", "Main Item", "Purity", "Pcs", "GW (g)", "Making", "Making Type", "Other Chg", "Size", "Remarks"].map((h, i) => (
-                    <TableCell key={i} className="px-3 py-2 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap border-b">
+        <SectionCard
+          title="Item Details"
+          action={
+            rs.length > 0 && (
+              <span className="text-xs text-muted-foreground font-normal">
+                {rs.length} item{rs.length !== 1 ? "s" : ""}
+              </span>
+            )
+          }
+        >
+          <div className="overflow-x-auto rounded-md border border-border">
+            <Table className="w-full text-sm min-w-[800px]">
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  {["", "Item", "Purity", "Pcs", "GW (g)", "Making", "Type", "Other Chg", "Size", "Remarks"].map((h, i) => (
+                    <TableHead key={i} className="px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap first:w-16">
                       {h}
-                    </TableCell>
+                    </TableHead>
                   ))}
                 </TableRow>
+              </TableHeader>
 
-                {/* Input row */}
-                <TableRow className="align-top">
-                  <TableCell className="px-3 py-2 border-b w-10" />
-                  <TableCell className="px-2 py-2 border-b">
+              <TableBody>
+                {/* ── Input row ── */}
+                <TableRow className="bg-primary/[0.03] border-b-2 border-primary/10 align-top">
+                  <TableCell className="px-3 py-2 w-16" />
+                  <TableCell className="px-2 py-2">
                     <Input
                       list="item_list"
                       className="h-8 text-sm"
-                      placeholder="Search…"
+                      placeholder="Search item…"
                       {...register("table.item_id", {
                         onChange: (e) => {
                           const match = mainItemData.find(
-                            (it) => it.short_code === e.target.value
+                            (it) => it.short_code === e.target.value || it.item_name === e.target.value
                           );
                           setValue("table.item_name", match ? match.item_name : "");
                         },
@@ -492,13 +548,13 @@ const CustomerOrderForm = () => {
                     </datalist>
                     <input type="hidden" {...register("table.item_name")} />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b w-28">
+                  <TableCell className="px-2 py-2 w-28">
                     <Controller
                       name="table.purity"
                       control={control}
                       render={({ field }) => (
                         <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Purity" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-sm cursor-pointer"><SelectValue placeholder="Purity" /></SelectTrigger>
                           <SelectContent>
                             {purityData.map((p, i) => (
                               <SelectItem key={i} value={`${p.purity}`}>{p.purity}</SelectItem>
@@ -508,22 +564,22 @@ const CustomerOrderForm = () => {
                       )}
                     />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b w-20">
+                  <TableCell className="px-2 py-2 w-20">
                     <Input type="number" className="h-8 text-sm" {...register("table.pcs")} />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b w-20">
+                  <TableCell className="px-2 py-2 w-20">
                     <Input type="number" className="h-8 text-sm" {...register("table.gw")} />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b w-24">
+                  <TableCell className="px-2 py-2 w-24">
                     <Input type="number" className="h-8 text-sm" {...register("table.making_amt")} />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b w-32">
+                  <TableCell className="px-2 py-2 w-32">
                     <Controller
                       name="table.making_type"
                       control={control}
                       render={({ field }) => (
                         <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Type" /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-sm cursor-pointer"><SelectValue placeholder="Type" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="per_nw">% of wt</SelectItem>
                             <SelectItem value="val">Value</SelectItem>
@@ -532,140 +588,151 @@ const CustomerOrderForm = () => {
                       )}
                     />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b w-24">
+                  <TableCell className="px-2 py-2 w-24">
                     <Input type="number" className="h-8 text-sm" {...register("table.other_chg", { valueAsNumber: true })} />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b w-20">
+                  <TableCell className="px-2 py-2 w-20">
                     <Input type="text" className="h-8 text-sm" {...register("table.size")} />
                   </TableCell>
-                  <TableCell className="px-2 py-2 border-b">
+                  <TableCell className="px-2 py-2">
                     <div className="flex items-center gap-1.5">
                       <Input
                         type="text"
                         className="h-8 text-sm"
-                        placeholder="Tab to add row"
+                        placeholder="Remarks — Tab↹ to add"
                         onKeyDown={handleKeyDown}
                         {...register("table.remarks")}
                       />
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap hidden lg:block">↹ add</span>
                     </div>
                   </TableCell>
                 </TableRow>
 
-                {/* Added rows */}
+                {/* ── Added rows ── */}
                 {rs.map((row, index) => {
                   const locked = row.lock_state && row.lock_state !== 'unlocked';
                   return (
-                  <TableRow key={index} className={`hover:bg-muted/20 transition-colors ${locked ? 'bg-amber-50/40' : ''}`}>
-                    <TableCell className="px-3 py-2 border-b">
-                      <div className="flex items-center gap-1.5">
-                        {locked ? (
-                          <span
-                            className="p-1 rounded text-amber-600"
-                            title={row.lock_reason || `Locked: ${row.lock_state}`}
-                          >
-                            <Lock className="size-3.5" />
-                          </span>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleEdit(index)}
-                              className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                              title="Edit"
+                    <TableRow
+                      key={index}
+                      className={`hover:bg-muted/20 transition-colors duration-150 ${locked ? "bg-amber-50/60" : ""}`}
+                    >
+                      <TableCell className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          {locked ? (
+                            <span
+                              className="p-1 rounded text-amber-500"
+                              title={row.lock_reason || `Locked: ${row.lock_state}`}
                             >
-                              <SquarePen className="size-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(index)}
-                              className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </>
+                              <Lock className="size-3.5" />
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(index)}
+                                className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors duration-150 cursor-pointer"
+                                title="Edit"
+                              >
+                                <SquarePen className="size-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(index)}
+                                className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors duration-150 cursor-pointer"
+                                title="Delete"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-3 py-2">
+                        <span className="font-medium text-foreground text-sm">
+                          {row.item_name || row.item_id}
+                        </span>
+                        {row.item_name && row.item_id && (
+                          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{row.item_id}</p>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-3 py-2 border-b">
-                      <span className="font-medium text-primary">{row.item_id}</span>
-                      {row.item_name && (
-                        <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{row.item_name}</p>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-3 py-2 border-b">{row.purity}</TableCell>
-                    <TableCell className="px-3 py-2 border-b text-right">{row.pcs}</TableCell>
-                    <TableCell className="px-3 py-2 border-b text-right">{row.gw}</TableCell>
-                    <TableCell className="px-3 py-2 border-b text-right">{row.making_amt}</TableCell>
-                    <TableCell className="px-3 py-2 border-b text-muted-foreground text-xs">{row.making_type}</TableCell>
-                    <TableCell className="px-3 py-2 border-b text-right">{row.other_chg}</TableCell>
-                    <TableCell className="px-3 py-2 border-b">{row.size}</TableCell>
-                    <TableCell className="px-3 py-2 border-b text-muted-foreground">{row.remarks}</TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-sm">{row.purity}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm text-right tabular-nums">{row.pcs}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm text-right tabular-nums">{row.gw}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm text-right tabular-nums">{row.making_amt}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs text-muted-foreground">{row.making_type}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm text-right tabular-nums">{row.other_chg}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm">{row.size}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm text-muted-foreground">{row.remarks}</TableCell>
+                    </TableRow>
                   );
                 })}
 
                 {rs.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground text-sm">
-                      No items added yet — fill the row above and press <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Tab</kbd> to add
+                    <TableCell colSpan={10} className="text-center py-10 text-muted-foreground text-sm">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <span>No items added yet</span>
+                        <span className="text-xs">
+                          Fill the row above and press{" "}
+                          <kbd className="px-1.5 py-0.5 bg-muted border border-border rounded text-[10px] font-mono">Tab</kbd>{" "}
+                          to add
+                        </span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </div>
-
-          {/* Row count badge */}
-          {rs.length > 0 && (
-            <div className="mt-3 flex justify-end">
-              <span className="text-xs text-muted-foreground">
-                {rs.length} item{rs.length !== 1 ? "s" : ""} added
-              </span>
-            </div>
-          )}
         </SectionCard>
 
         {/* ── Bottom action bar ── */}
-        <div className="flex items-center justify-end gap-3 pt-1 pb-6">
-          {id && watch("form.is_cancellable") && (
+        <div className="flex items-center justify-between gap-3 pt-1 pb-6">
+          <div>
+            {id && watch("form.is_cancellable") && (
+              <Button
+                type="button"
+                variant="outline"
+                className="border-amber-300 text-amber-700 hover:bg-amber-50 cursor-pointer"
+                onClick={async () => {
+                  const warnings = [];
+                  if (watch("form.has_in_production_items")) warnings.push("• Some items are still in production with a karigar or supplier.");
+                  if (watch("form.has_advance"))             warnings.push("• Advance receipts will remain on the customer's ledger as a credit.");
+                  const orderNo = watch("form.order_no") || id;
+                  const msg = `Cancel order ${orderNo}?` + (warnings.length ? `\n\n${warnings.join("\n")}` : "");
+                  if (!window.confirm(msg)) return;
+                  const res = await cancelCustomerOrder(id);
+                  if (res.success) {
+                    toast({ title: "Order cancelled." });
+                    navigate("/sales/customerorder/list/");
+                  } else {
+                    toast({ title: "Failed to cancel", description: String(res.error?.detail || res.error), variant: "destructive" });
+                  }
+                }}
+              >
+                Cancel Order
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
-              className="border-amber-300 text-amber-700 hover:bg-amber-50"
-              onClick={async () => {
-                const warnings = [];
-                if (watch("form.has_in_production_items")) warnings.push("• Some items are still in production with a karigar or supplier.");
-                if (watch("form.has_advance"))             warnings.push("• Advance receipts will remain on the customer's ledger as a credit.");
-                const orderNo = watch("form.order_no") || id;
-                const msg = `Cancel order ${orderNo}?` + (warnings.length ? `\n\n${warnings.join("\n")}` : "");
-                if (!window.confirm(msg)) return;
-                const res = await cancelCustomerOrder(id);
-                if (res.success) {
-                  toast({ title: "Order cancelled." });
-                  navigate("/sales/customerorder/list/");
-                } else {
-                  toast({ title: "Failed to cancel", description: String(res.error?.detail || res.error), variant: "destructive" });
-                }
-              }}
+              onClick={() => navigate("/sales/customerorder/list/")}
+              className="cursor-pointer"
             >
-              Cancel Order
+              Close
             </Button>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/sales/customerorder/list/")}
-          >
-            Close
-          </Button>
-          <Button type="submit" disabled={submitting} className="min-w-28">
-            {submitting
-              ? <><Loader2 className="size-4 mr-2 animate-spin" />Saving…</>
-              : "Save Order"
-            }
-          </Button>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="min-w-28 cursor-pointer"
+            >
+              {submitting
+                ? <><Loader2 className="size-4 mr-2 animate-spin" />Saving…</>
+                : "Save Order"
+              }
+            </Button>
+          </div>
         </div>
       </form>
     </div>

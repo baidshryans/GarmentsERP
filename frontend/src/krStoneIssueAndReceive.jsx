@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchGroup, fetchKarigarReceiveReport, fetchKarigarStoneIssueReport, fetchMainItem, fetchPurity, fetchShape, getLedgers } from './services/apiService';
 import { useForm } from 'react-hook-form';
+import { isValidDateRange } from "@/lib/dateRange";
 
 const KrStoneIssueAndReceive = () => {
     const [showTable, setShowTable] = useState(false);
@@ -275,6 +276,10 @@ const KrStoneIssueAndReceive = () => {
     };
 
     const onGo = () => {
+        if (!isValidDateRange(fromDate, toDate)) {
+            alert('From date cannot be after To date.');
+            return;
+        }
         const checkedKarigars = karigars.filter(k => k.checked).map(k => k.id);
         const checkedGroups = groups.filter(p => p.checked).map(p => p.id);
         const checkedShapes = shapes.filter(s => s.checked).map(s => s.id);
@@ -328,6 +333,7 @@ const KrStoneIssueAndReceive = () => {
                             type="date"
                             {...register("fromDate")}
                             defaultValue={fromDate}
+                            max={toDate || undefined}
                             className="border border-gray-300 p-1 w-24"
                         />
                     </div>
@@ -339,6 +345,7 @@ const KrStoneIssueAndReceive = () => {
                             type="date"
                             value={toDate}
                             onChange={(e) => setToDate(e.target.value)}
+                            min={fromDate || undefined}
                             className="border border-gray-300 p-1 w-24"
                         />
                     </div>

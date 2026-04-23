@@ -8,6 +8,7 @@ import { DataTable } from "@/table";
 import { useToast } from "@/hooks/use-toast";
 import { BookCheck, AlertCircle, FileText } from "lucide-react";
 import { fetchCommissionReport, createCommissionJV } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 function CommissionReport() {
   const { toast } = useToast();
@@ -34,6 +35,10 @@ function CommissionReport() {
   const rowKey = (r) => `${r.voucher_id}_${r.salesperson_id}`;
 
   const load = useCallback(async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     setSelected(new Set());
     const params = { from_date: fromDate, to_date: toDate };
@@ -265,11 +270,11 @@ function CommissionReport() {
       <div className="flex flex-wrap gap-3 items-end">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From Date</Label>
-          <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="w-36" />
+          <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} max={toDate || undefined} className="w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To Date</Label>
-          <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} className="w-36" />
+          <Input type="date" value={toDate} onChange={e => setToDate(e.target.value)} min={fromDate || undefined} className="w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Salesperson</Label>

@@ -19,12 +19,14 @@ router.register(r'stock-transfer', views.StockTransferViewset, basename='stock-t
 router.register(r'raw-material', views.RawMaterialInventoryViewSet, basename='raw-material')
 router.register(r'raw-material-txn', views.RawMaterialTransactionListView, basename='raw-material-txn')
 router.register(r'rfid-sessions', views.RfidCountSessionViewSet, basename='rfid-sessions')
+router.register(r'inter-retail-transfers', views.InterRetailTransferVoucherViewSet, basename='inter-retail-transfers')
 
 
 urlpatterns = [
     #path('create-barcode/', views.create_barcode_view, name='create_barcode_view'),
     path('api/next_stock_journal_no', views.stock_journal_billno_view, name='stock_journal_billno'),
     path('api/next_stock_transfer_no', views.stock_transfer_billno_view, name='stock_transfer_billno'),
+    path('api/next_inter_retail_transfer_no', views.inter_retail_transfer_next_no, name='inter_retail_transfer_next_no'),
     path('api/create-barcode-from-receive/', views.create_barcode_from_receive_api, name='create_barcode_from_receive_api'),
     path('api/create-barcode-from-pur/', views.create_barcode_from_purchase),
     path('api/stock-valuation-report/',views.StockValuationReportView.as_view() ),

@@ -61,6 +61,8 @@ class Command(BaseCommand):
             'Discount':       ('Sales Discount',         'INC-DIR-SAL', 'INC'),
             'Making Receive': ('Making Charge Received', 'INC-DIR-SAL', 'INC'),
             'Sale Discount':  ('Sales Discount',         'INC-DIR-SAL', 'INC'),
+            # Fix lowercase "machine" variant imported via CSV template
+            'POS machine installation Charges': ('POS Machine Installation Charges', 'EXP-IND-FIN', 'EXP'),
         }
         with transaction.atomic():
             for old_name, (new_name, group_code, role) in RENAMES.items():
@@ -79,6 +81,31 @@ class Command(BaseCommand):
                             pr.role = role
                             pr.save(update_fields=['role'])
                     self.stdout.write(self.style.SUCCESS(f"  [RENAMED] '{old_name}' → '{new_name}'"))
+
+        # ── 0b. Backfill ac_group on existing non-system ledgers whose name
+        # matches a known system-ledger definition (e.g. ledgers imported via
+        # CSV template without a resolvable group).
+        with transaction.atomic():
+            name_to_code = {}
+            for _, label, code, _role in _OPERATIONAL_LEDGERS:
+                name_to_code[label.lower()] = code
+            for label, code, _role in _TRADING_LEDGERS:
+                name_to_code[label.lower()] = code
+            for label, code in _MISC_LEDGERS + _OFFICE_EQUIPMENT_LEDGERS:
+                name_to_code[label.lower()] = code
+
+            orphans = Ledger.objects.filter(ac_group__isnull=True)
+            fixed = 0
+            for ldgr in orphans:
+                code = name_to_code.get((ldgr.ac_name or '').lower())
+                if code and acct.get(code):
+                    ldgr.ac_group = acct[code]
+                    ldgr.save(update_fields=['ac_group'])
+                    fixed += 1
+            if fixed:
+                self.stdout.write(self.style.SUCCESS(
+                    f"  [BACKFILL] Assigned ac_group to {fixed} orphan ledger(s)"
+                ))
 
         # ── 1. Company-level ledgers ─────────────────────────────────────────
         with transaction.atomic():

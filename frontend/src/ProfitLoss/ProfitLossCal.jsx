@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import apiClient from '@/services/apiClient';
+import { RetailScopePicker, applyRetailScopeParams } from '@/components/common/RetailScopePicker';
+import { isValidDateRange } from '@/lib/dateRange';
 
 const today = new Date().toISOString().split('T')[0];
 const fy = new Date().getMonth() < 3 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -272,12 +274,27 @@ export default function ProfitLossCal() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [modalLedger, setModalLedger] = useState(null);
+  const [scope, setScope] = useState('all');
+  const [selectedRetailIds, setSelectedRetailIds] = useState([]);
+
+  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const canViewCombined = user.is_superuser || ['admin', 'super admin'].includes((user.role || '').toLowerCase());
 
   const fetchData = () => {
+    if (!isValidDateRange(startDate, endDate)) {
+      setError('From date cannot be after To date.');
+      return;
+    }
+    if (scope === 'selected' && selectedRetailIds.length === 0) {
+      setError("Select at least one retail, or choose 'All retails (combined)'.");
+      return;
+    }
     setLoading(true);
     setError('');
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+    applyRetailScopeParams(params, scope, selectedRetailIds);
     apiClient
-      .get(`/accounting/api/pnl?start_date=${startDate}&end_date=${endDate}`)
+      .get(`/accounting/api/pnl?${params}`)
       .then((res) => setData(res.data))
       .catch(() => setError('Failed to fetch P&L data.'))
       .finally(() => setLoading(false));
@@ -291,12 +308,19 @@ export default function ProfitLossCal() {
       <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border print:hidden">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={startDate} max={endDate || undefined} onChange={(e) => setStartDate(e.target.value)} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} className="h-9 w-36" />
         </div>
+        {canViewCombined && (
+          <RetailScopePicker
+            scope={scope}
+            selectedIds={selectedRetailIds}
+            onChange={({ scope: s, selectedIds }) => { setScope(s); setSelectedRetailIds(selectedIds); }}
+          />
+        )}
         <Button size="sm" onClick={fetchData} disabled={loading} className="h-9">
           {loading ? <Loader2 className="size-4 animate-spin" /> : 'Show'}
         </Button>
@@ -346,6 +370,12 @@ export default function ProfitLossCal() {
               <AmountRow label="Gross Purchases" debit={data.purchases} />
               {Number(data.purchase_returns) > 0 && (
                 <AmountRow label="(−) Purchase Returns" credit={data.purchase_returns} />
+              )}
+              {Number(data.transfer_in) > 0 && (
+                <AmountRow label="(+) Transfers In (from other retails)" debit={data.transfer_in} />
+              )}
+              {Number(data.transfer_out) > 0 && (
+                <AmountRow label="(−) Transfers Out (to other retails)" credit={data.transfer_out} />
               )}
               <AmountRow label="(−) Closing Stock" credit={data.closing_stock} />
               <SubtotalRow label="Total COGS" debit={data.cogs} />

@@ -2,7 +2,7 @@
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction
 from inventory.filters import StockValuationReportFilter
-from inventory.serializer import BarCodeDetailSerializer, BarCodeMainListSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, ItemStockReportSerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
+from inventory.serializer import BarCodeDetailSerializer, BarCodeMainListSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, InterRetailTransferVoucherSerializer, ItemStockReportSerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
 from manufacturing.models import *
 from manufacturing.serializer import HallmarkReceiveItemForPostSerializer
 from userauth.views import RetailBaseViewset
@@ -554,13 +554,60 @@ class ClosingStockCalculator(APIView):
         """
         # Get query parameters
         item_id = request.query_params.get('item_id')
-        retail_id = request.query_params.get('retail_id')
         from_date = request.query_params.get('from_date')
         to_date = request.query_params.get('to_date')
+        hide_zero = request.query_params.get('hide_zero', 'true').lower() != 'false'
+
+        # Multi-retail: accept `retail_ids` as a repeated param or comma-separated list,
+        # fall back to legacy single `retail_id`. Empty / missing = all retails combined.
+        # Scope/combined access is gated to admin/superadmin; other users are pinned to
+        # their own request.retail regardless of what they pass.
+        from accounting.views import _can_view_combined  # lazy import to avoid circular
+        is_admin = _can_view_combined(request.user)
+        combined_flag = request.query_params.get('combined', '').lower() in ('true', '1')
+        retail_ids_raw = request.query_params.getlist('retail_ids') or request.query_params.getlist('retail_ids[]')
+        if not retail_ids_raw:
+            single = request.query_params.get('retail_ids') or request.query_params.get('retail_id')
+            if single:
+                retail_ids_raw = [s for s in str(single).split(',') if s]
+        parsed = []
+        if retail_ids_raw:
+            try:
+                parsed = [int(x) for x in retail_ids_raw if str(x).strip() != '']
+            except (TypeError, ValueError):
+                return Response({'error': 'retail_ids must be integers'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not is_admin:
+            # Non-admin cannot request combined view or multiple retails.
+            if combined_flag or len(set(parsed)) > 1:
+                return Response(
+                    {'error': 'You do not have permission to view combined / multi-retail reports.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            r = getattr(request, 'retail', None)
+            retail_ids = [r.id] if r else None
+        else:
+            if combined_flag:
+                retail_ids = None
+            elif parsed:
+                retail_ids = sorted(set(parsed))
+            else:
+                r = getattr(request, 'retail', None)
+                retail_ids = [r.id] if r else None
 
         # Calculate closing stock
         try:
-            closing_stock = ClosingStockCal().calculate_closing_stock(item_id, retail_id, from_date, to_date)
+            closing_stock = ClosingStockCal().calculate_closing_stock(
+                item_id=item_id, retail_ids=retail_ids, from_date=from_date, to_date=to_date
+            )
+            details = closing_stock['details']
+            if hide_zero:
+                details = [
+                    d for d in details
+                    if not (float(d.get('closing_gw') or 0) == 0
+                            and float(d.get('closing_ct') or 0) == 0
+                            and float(d.get('closing_amt') or 0) == 0)
+                ]
             return Response({
                 'closing_stock_value': closing_stock['total_value'],
                 'opening_value': closing_stock['opening_value'],
@@ -568,7 +615,8 @@ class ClosingStockCalculator(APIView):
                 'total_purc_ret': closing_stock['total_purc_ret'],
                 'total_sale_ret': closing_stock['total_sale_ret'],
                 'total_sale': closing_stock['total_sale'],
-                'details': closing_stock['details']
+                'retail_ids': retail_ids,
+                'details': details,
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({
@@ -885,31 +933,226 @@ class ClosingStockCal:
     def _zero():
         return {'gw': Decimal('0.00'), 'ct': Decimal('0.00'), 'amt': Decimal('0.00')}
 
-    def calculate_closing_stock(self, item_id=None, retail_id=None, from_date=None, to_date=None):
+    @staticmethod
+    def _normalize_retail_ids(retail_id=None, retail_ids=None):
+        """Accept either retail_id (int) or retail_ids (list) and return a normalized list or None."""
+        if retail_ids is not None:
+            if not retail_ids:
+                return None
+            return list(retail_ids)
+        if retail_id is None:
+            return None
+        if isinstance(retail_id, (list, tuple, set)):
+            return list(retail_id) if retail_id else None
+        return [retail_id]
+
+    def calculate_closing_stock(self, item_id=None, retail_id=None, retail_ids=None, from_date=None, to_date=None):
+        """Batched implementation: one GROUP BY item_id query per movement type
+        instead of ~9 queries per item. Per-item Python glue preserves the
+        item_type branches from the original logic."""
+        retail_ids = self._normalize_retail_ids(retail_id, retail_ids)
+        zero = Decimal('0.00')
+
         items_query = Item.objects.exclude(item_type__in=['M', 'O'])
         if item_id:
             items_query = items_query.filter(id=item_id)
-        if retail_id:
-            items_query = items_query.filter(retail_id=retail_id)
+        items = list(items_query)
+        item_ids = [i.id for i in items]
+
+        # Early exit: nothing to report.
+        if not item_ids:
+            return {
+                'total_value': zero, 'opening_value': zero, 'total_purc': zero,
+                'total_purc_ret': zero, 'total_sale_ret': zero, 'total_sale': zero,
+                'details': [],
+            }
+
+        def _retail_q(field='retail_id'):
+            if retail_ids:
+                return Q(**{f'{field}__in': retail_ids}) | Q(**{f'{field}__isnull': True})
+            return Q()
+
+        def _date_filter(qs, field='billno__date1'):
+            if from_date:
+                qs = qs.filter(**{f'{field}__gte': from_date})
+            if to_date:
+                qs = qs.filter(**{f'{field}__lte': to_date})
+            return qs
+
+        def _batch(qs, key, annotations):
+            out = {}
+            for row in qs.values(key).annotate(**annotations):
+                iid = row[key]
+                if iid is None:
+                    continue
+                out[iid] = {k: row[k] for k in annotations}
+            return out
+
+        def _get(d, iid, key):
+            return d.get(iid, {}).get(key, zero)
+
+        # ── Opening stock (3 source tables) ──────────────────────────────────
+        op_b_qs = BarcodeDetails.objects.filter(item_id__in=item_ids, barcode__op_stk=True)
+        op_u_qs = UnBarcodedDetails.objects.filter(item_id__in=item_ids, main_item__op_stk=True)
+        op_r_qs = OpeningInventory.objects.filter(item_id__in=item_ids)
+        if retail_ids:
+            op_b_qs = op_b_qs.filter(Q(barcode__retail_id__in=retail_ids) | Q(barcode__retail_id__isnull=True))
+            op_u_qs = op_u_qs.filter(Q(main_item__retail_id__in=retail_ids) | Q(main_item__retail_id__isnull=True))
+            op_r_qs = op_r_qs.filter(_retail_q())
+
+        gwct_ann = {
+            'total_gw': Coalesce(Sum('gw'), zero),
+            'total_ct': Coalesce(Sum('ct'), zero),
+        }
+        op_b = _batch(op_b_qs, 'item_id', gwct_ann)
+        op_u = _batch(op_u_qs, 'item_id', gwct_ann)
+        op_r = _batch(op_r_qs, 'item_id', gwct_ann)
+
+        # ── Purchases (main + sub-item details) ──────────────────────────────
+        pu_main_qs = PurchaseVoucherItems.objects.filter(
+            item_id__in=item_ids, is_return=False, is_finished=False,
+        ).filter(_retail_q())
+        pu_main_qs = _date_filter(pu_main_qs)
+        pu_main = _batch(pu_main_qs, 'item_id', {
+            'total_gw': Coalesce(Sum('gw'), zero),
+            'total_amt': Coalesce(Sum('item_value'), zero),
+        })
+        pu_det_qs = PurchaseVoucherDetails.objects.filter(
+            sub_item_id__in=item_ids,
+            main_item__is_finished=False, main_item__is_return=False,
+        ).filter(_retail_q())
+        pu_det_qs = _date_filter(pu_det_qs)
+        pu_det = _batch(pu_det_qs, 'sub_item_id', {
+            'total_gw': Coalesce(Sum('sub_gw'), zero),
+            'total_ct': Coalesce(Sum('sub_ct'), zero),
+            'total_amt': Coalesce(Sum('value'), zero),
+        })
+
+        # ── Purchase returns ─────────────────────────────────────────────────
+        pr_main_qs = PurchaseReturnItems.objects.filter(item_id__in=item_ids).filter(_retail_q())
+        pr_main_qs = _date_filter(pr_main_qs)
+        pr_main = _batch(pr_main_qs, 'item_id', {
+            'total_gw': Coalesce(Sum('gw'), zero),
+            'total_amt': Coalesce(Sum(F('gw') * F('making_value'), output_field=DecimalField()), zero),
+        })
+        pr_det_qs = PurchaseReturnDetails.objects.filter(sub_item_id__in=item_ids).filter(_retail_q())
+        pr_det_qs = _date_filter(pr_det_qs)
+        pr_det = _batch(pr_det_qs, 'sub_item_id', {
+            'total_ct': Coalesce(Sum('sub_ct'), zero),
+            'total_amt': Coalesce(Sum('value'), zero),
+        })
+
+        # ── Sales ────────────────────────────────────────────────────────────
+        sa_main_qs = SalesVouItem.objects.filter(item_id__in=item_ids).filter(_retail_q())
+        sa_main_qs = _date_filter(sa_main_qs)
+        sa_main = _batch(sa_main_qs, 'item_id', {'total_gw': Coalesce(Sum('gw'), zero)})
+        sa_det_qs = SalesVouItemDetails.objects.filter(item_id__in=item_ids).filter(_retail_q())
+        sa_det_qs = _date_filter(sa_det_qs, 'main_item__billno__date1')
+        sa_det = _batch(sa_det_qs, 'item_id', {
+            'total_gw': Coalesce(Sum('gw'), zero),
+            'total_ct': Coalesce(Sum('ct'), zero),
+        })
+
+        # ── Sale returns ─────────────────────────────────────────────────────
+        sr_main_qs = SaleReturnItem.objects.filter(item_id__in=item_ids).filter(_retail_q())
+        sr_main_qs = _date_filter(sr_main_qs)
+        sr_main = _batch(sr_main_qs, 'item_id', {'total_gw': Coalesce(Sum('gw'), zero)})
+        sr_det_qs = SaleReturnDetails.objects.filter(item_id__in=item_ids).filter(_retail_q())
+        sr_det_qs = _date_filter(sr_det_qs, 'main_item__billno__date1')
+        sr_det = _batch(sr_det_qs, 'item_id', {
+            'total_gw': Coalesce(Sum('gw'), zero),
+            'total_ct': Coalesce(Sum('ct'), zero),
+        })
+
+        # ── Refinery issues / receives ───────────────────────────────────────
+        ri_qs = _date_filter(RefinaryIssueDetail.objects.filter(item_id__in=item_ids).filter(_retail_q()))
+        rr_qs = _date_filter(RefinaryReceiveDetail.objects.filter(item_id__in=item_ids).filter(_retail_q()))
+        ri = _batch(ri_qs, 'item_id', gwct_ann)
+        rr = _batch(rr_qs, 'item_id', gwct_ann)
+
+        # ── Inter-retail transfers (received status only) ────────────────────
+        trn_base = InterRetailTransferItem.objects.filter(
+            item_id__in=item_ids,
+            voucher__status=InterRetailTransferVoucher.STATUS_RECEIVED,
+        )
+        if from_date:
+            trn_base = trn_base.filter(voucher__transfer_date__gte=from_date)
+        if to_date:
+            trn_base = trn_base.filter(voucher__transfer_date__lte=to_date)
+        trn_anns = {
+            'total_gw': Coalesce(Sum('qty_gw'), zero),
+            'total_ct': Coalesce(Sum('qty_ct'), zero),
+            'total_amt': Coalesce(Sum('transfer_value'), zero),
+        }
+        trn_iss_qs = trn_base.filter(voucher__from_retail_id__in=retail_ids) if retail_ids else trn_base
+        trn_rec_qs = trn_base.filter(voucher__to_retail_id__in=retail_ids) if retail_ids else trn_base
+        trn_iss_d = _batch(trn_iss_qs, 'item_id', trn_anns)
+        trn_rec_d = _batch(trn_rec_qs, 'item_id', trn_anns)
+
+        # Mfg adjustment is a single global aggregate — hoist out of the loop.
+        mfg_adj_total = self.get_mfg_adj() or zero
 
         results = {
-            'total_value': Decimal('0.00'),
-            'opening_value': Decimal('0.00'),
-            'total_purc': Decimal('0.00'),
-            'total_purc_ret': Decimal('0.00'),
-            'total_sale_ret': Decimal('0.00'),
-            'total_sale': Decimal('0.00'),
-            'details': []
+            'total_value': zero, 'opening_value': zero, 'total_purc': zero,
+            'total_purc_ret': zero, 'total_sale_ret': zero, 'total_sale': zero,
+            'details': [],
         }
 
-        for item in items_query:
-            opening = self.get_opening_stock(item, retail_id)
-            purchase = self.get_purchases(item, retail_id, from_date, to_date)
-            purc_ret = self.get_purchase_returns(item, retail_id, from_date, to_date)
-            sales = self.get_sales(item, retail_id, from_date, to_date)
-            sale_ret = self.get_sale_returns(item, retail_id, from_date, to_date)
-            ref_iss = self.get_refinery_issues(item, retail_id, from_date, to_date)
-            ref_rec = self.get_refinery_receives(item, retail_id, from_date, to_date)
+        for item in items:
+            iid = item.id
+
+            # Opening — sum across the 3 tables; value uses item.op_wtd_avg_rate × primary qty
+            op_gw = _get(op_b, iid, 'total_gw') + _get(op_u, iid, 'total_gw') + _get(op_r, iid, 'total_gw')
+            op_ct = _get(op_b, iid, 'total_ct') + _get(op_u, iid, 'total_ct') + _get(op_r, iid, 'total_ct')
+            op_pq = op_ct if item.item_type == 'S' else op_gw
+            opening = {'gw': op_gw, 'ct': op_ct, 'amt': op_pq * item.op_wtd_avg_rate}
+
+            # Purchases
+            pu_gw = _get(pu_main, iid, 'total_gw')
+            pu_amt = _get(pu_main, iid, 'total_amt')
+            pu_ct = _get(pu_det, iid, 'total_ct')
+            if item.item_type == 'S':
+                pu_gw = _get(pu_det, iid, 'total_gw')
+                pu_amt = _get(pu_det, iid, 'total_amt')
+            elif item.item_type == 'R':
+                pu_gw += _get(pu_det, iid, 'total_gw')
+                pu_amt += _get(pu_det, iid, 'total_amt')
+            purchase = {'gw': pu_gw, 'ct': pu_ct, 'amt': pu_amt}
+
+            # Purchase returns
+            pr_gw = _get(pr_main, iid, 'total_gw')
+            pr_amt = _get(pr_main, iid, 'total_amt')
+            pr_ct = zero
+            if item.item_type == 'S':
+                pr_ct = _get(pr_det, iid, 'total_ct')
+                pr_amt = _get(pr_det, iid, 'total_amt')
+            purc_ret = {'gw': pr_gw, 'ct': pr_ct, 'amt': pr_amt}
+
+            # Sales
+            sa_gw = _get(sa_main, iid, 'total_gw')
+            sa_ct = zero
+            if item.item_type == 'S':
+                sa_gw = _get(sa_det, iid, 'total_gw')
+                sa_ct = _get(sa_det, iid, 'total_ct')
+            elif item.item_type == 'R':
+                sa_gw += _get(sa_det, iid, 'total_gw')
+            sales = {'gw': sa_gw, 'ct': sa_ct, 'amt': zero}
+
+            # Sale returns
+            sr_gw = _get(sr_main, iid, 'total_gw')
+            sr_ct = zero
+            if item.item_type == 'S':
+                sr_gw = _get(sr_det, iid, 'total_gw')
+                sr_ct = _get(sr_det, iid, 'total_ct')
+            elif item.item_type == 'R':
+                sr_gw += _get(sr_det, iid, 'total_gw')
+            sale_ret = {'gw': sr_gw, 'ct': sr_ct, 'amt': zero}
+
+            # Refinery + transfers
+            ref_iss = {'gw': _get(ri, iid, 'total_gw'), 'ct': _get(ri, iid, 'total_ct'), 'amt': zero}
+            ref_rec = {'gw': _get(rr, iid, 'total_gw'), 'ct': _get(rr, iid, 'total_ct'), 'amt': zero}
+            trn_iss = {'gw': _get(trn_iss_d, iid, 'total_gw'), 'ct': _get(trn_iss_d, iid, 'total_ct'), 'amt': _get(trn_iss_d, iid, 'total_amt')}
+            trn_rec = {'gw': _get(trn_rec_d, iid, 'total_gw'), 'ct': _get(trn_rec_d, iid, 'total_ct'), 'amt': _get(trn_rec_d, iid, 'total_amt')}
 
             # Determine primary quantity for weighted average based on item type
             if item.item_type in ['M', 'R']:
@@ -922,9 +1165,11 @@ class ClosingStockCal:
             op_qty = opening[pq]
             pu_qty = purchase[pq]
             pr_qty = purc_ret[pq]
+            tr_in_qty = trn_rec[pq]
+            tr_out_qty = trn_iss[pq]
 
-            total_in_qty = op_qty + pu_qty - pr_qty
-            total_in_value = opening['amt'] + purchase['amt'] - purc_ret['amt']
+            total_in_qty = op_qty + pu_qty - pr_qty + tr_in_qty
+            total_in_value = opening['amt'] + purchase['amt'] - purc_ret['amt'] + trn_rec['amt']
 
             weighted_avg_rate = Decimal('0.00')
             if total_in_qty > 0:
@@ -939,17 +1184,20 @@ class ClosingStockCal:
             ri_qty = ref_iss[pq]
             rr_qty = ref_rec[pq]
 
-            adjustment = Decimal('0.00')
-            if item.item_name == "GOLD":
-                adj = self.get_mfg_adj()
-                adjustment = adj if adj else Decimal('0.00')
+            adjustment = mfg_adj_total if item.item_name == "GOLD" else zero
 
-            closing_qty = total_in_qty - sa_qty + sr_qty - ri_qty + rr_qty - adjustment
+            closing_qty = total_in_qty - sa_qty + sr_qty - ri_qty + rr_qty - tr_out_qty - adjustment
             closing_value = closing_qty * weighted_avg_rate
 
             # Closing gw and ct
-            closing_gw = opening['gw'] + purchase['gw'] - purc_ret['gw'] - sales['gw'] + sale_ret['gw'] - ref_iss['gw'] + ref_rec['gw']
-            closing_ct = opening['ct'] + purchase['ct'] - purc_ret['ct'] - sales['ct'] + sale_ret['ct'] - ref_iss['ct'] + ref_rec['ct']
+            closing_gw = (opening['gw'] + purchase['gw'] - purc_ret['gw']
+                          - sales['gw'] + sale_ret['gw']
+                          - ref_iss['gw'] + ref_rec['gw']
+                          - trn_iss['gw'] + trn_rec['gw'])
+            closing_ct = (opening['ct'] + purchase['ct'] - purc_ret['ct']
+                          - sales['ct'] + sale_ret['ct']
+                          - ref_iss['ct'] + ref_rec['ct']
+                          - trn_iss['ct'] + trn_rec['ct'])
 
             results['total_value'] += closing_value
             results['opening_value'] += opening['amt']
@@ -987,6 +1235,13 @@ class ClosingStockCal:
                 'ref_iss_ct': float(ref_iss['ct']),
                 'ref_rec_gw': float(ref_rec['gw']),
                 'ref_rec_ct': float(ref_rec['ct']),
+                # Inter-retail transfers
+                'trn_iss_gw': float(trn_iss['gw']),
+                'trn_iss_ct': float(trn_iss['ct']),
+                'trn_iss_amt': float(trn_iss['amt']),
+                'trn_rec_gw': float(trn_rec['gw']),
+                'trn_rec_ct': float(trn_rec['ct']),
+                'trn_rec_amt': float(trn_rec['amt']),
                 # Closing
                 'weighted_avg_rate': float(weighted_avg_rate),
                 'closing_gw': float(closing_gw),
@@ -1010,15 +1265,21 @@ class ClosingStockCal:
         )
         return data['total_gw'], data['total_ct']
 
-    def get_opening_stock(self, item: Item, retail_id=None):
+    def get_opening_stock(self, item: Item, retail_ids=None):
         result = self._zero()
-        filters = {'item': item}
-        if retail_id:
-            filters['retail_id'] = retail_id
-
-        barcoded_q = BarcodeDetails.objects.filter(**filters, barcode__op_stk=True)
-        unbarcoded_q = UnBarcodedDetails.objects.filter(**filters, main_item__op_stk=True)
-        raw_q = OpeningInventory.objects.filter(**filters)
+        retail_ids = self._normalize_retail_ids(retail_ids=retail_ids) if not isinstance(retail_ids, list) else retail_ids
+        # BarcodeDetails/UnBarcodedDetails don't carry retail directly — filter via parent.
+        barcoded_q = BarcodeDetails.objects.filter(item=item, barcode__op_stk=True)
+        unbarcoded_q = UnBarcodedDetails.objects.filter(item=item, main_item__op_stk=True)
+        raw_q = OpeningInventory.objects.filter(item=item)
+        if retail_ids:
+            # Include rows whose retail FK is NULL (legacy/unattributed data) so a
+            # retail-filtered report doesn't silently lose stock that was created
+            # before the row-level retail field was populated. Matches the pattern
+            # in StockReportView (see the "Retail-less rows" comment).
+            barcoded_q = barcoded_q.filter(Q(barcode__retail_id__in=retail_ids) | Q(barcode__retail_id__isnull=True))
+            unbarcoded_q = unbarcoded_q.filter(Q(main_item__retail_id__in=retail_ids) | Q(main_item__retail_id__isnull=True))
+            raw_q = raw_q.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
 
         for q in [barcoded_q, unbarcoded_q, raw_q]:
             gw, ct = self._aggregate_gw_ct(q)
@@ -1035,13 +1296,13 @@ class ClosingStockCal:
 
         return result
 
-    def get_purchases(self, item, retail_id=None, from_date=None, to_date=None):
+    def get_purchases(self, item, retail_ids=None, from_date=None, to_date=None):
         result = self._zero()
 
         # Main item purchases (non-finished, non-return). Date lives on the voucher header.
         query = PurchaseVoucherItems.objects.filter(item=item, is_return=False, is_finished=False)
-        if retail_id:
-            query = query.filter(retail_id=retail_id)
+        if retail_ids:
+            query = query.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             query = query.filter(billno__date1__gte=from_date)
         if to_date:
@@ -1061,8 +1322,8 @@ class ClosingStockCal:
             main_item__is_finished=False,
             main_item__is_return=False,
         )
-        if retail_id:
-            detail_query = detail_query.filter(retail_id=retail_id)
+        if retail_ids:
+            detail_query = detail_query.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             detail_query = detail_query.filter(billno__date1__gte=from_date)
         if to_date:
@@ -1086,11 +1347,11 @@ class ClosingStockCal:
 
         return result
 
-    def get_purchase_returns(self, item, retail_id=None, from_date=None, to_date=None):
+    def get_purchase_returns(self, item, retail_ids=None, from_date=None, to_date=None):
         result = self._zero()
         query = PurchaseReturnItems.objects.filter(item=item)
-        if retail_id:
-            query = query.filter(retail_id=retail_id)
+        if retail_ids:
+            query = query.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             query = query.filter(billno__date1__gte=from_date)
         if to_date:
@@ -1106,8 +1367,8 @@ class ClosingStockCal:
         # ct from details — query directly so stone items (only sub-items) are found.
         if item.item_type == 'S':
             detail_q = PurchaseReturnDetails.objects.filter(sub_item=item)
-            if retail_id:
-                detail_q = detail_q.filter(retail_id=retail_id)
+            if retail_ids:
+                detail_q = detail_q.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
             if from_date:
                 detail_q = detail_q.filter(billno__date1__gte=from_date)
             if to_date:
@@ -1121,13 +1382,13 @@ class ClosingStockCal:
 
         return result
 
-    def get_sales(self, item, retail_id=None, from_date=None, to_date=None):
+    def get_sales(self, item, retail_ids=None, from_date=None, to_date=None):
         result = self._zero()
 
         # Direct sales: raw material item sold as the main line (loose gold, loose diamonds)
         main_q = SalesVouItem.objects.filter(item=item)
-        if retail_id:
-            main_q = main_q.filter(retail_id=retail_id)
+        if retail_ids:
+            main_q = main_q.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             main_q = main_q.filter(billno__date1__gte=from_date)
         if to_date:
@@ -1140,8 +1401,8 @@ class ClosingStockCal:
 
         # Sub-item sales: raw material sold as a component of a finished good
         detail_q = SalesVouItemDetails.objects.filter(item=item)
-        if retail_id:
-            detail_q = detail_q.filter(retail_id=retail_id)
+        if retail_ids:
+            detail_q = detail_q.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             detail_q = detail_q.filter(main_item__billno__date1__gte=from_date)
         if to_date:
@@ -1160,13 +1421,13 @@ class ClosingStockCal:
 
         return result
 
-    def get_sale_returns(self, item, retail_id=None, from_date=None, to_date=None):
+    def get_sale_returns(self, item, retail_ids=None, from_date=None, to_date=None):
         result = self._zero()
 
         # Direct returns: raw material item returned as the main line
         main_q = SaleReturnItem.objects.filter(item=item)
-        if retail_id:
-            main_q = main_q.filter(retail_id=retail_id)
+        if retail_ids:
+            main_q = main_q.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             main_q = main_q.filter(billno__date1__gte=from_date)
         if to_date:
@@ -1179,8 +1440,8 @@ class ClosingStockCal:
 
         # Sub-item returns: raw material returned as a component of a finished good
         detail_q = SaleReturnDetails.objects.filter(item=item)
-        if retail_id:
-            detail_q = detail_q.filter(retail_id=retail_id)
+        if retail_ids:
+            detail_q = detail_q.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             detail_q = detail_q.filter(main_item__billno__date1__gte=from_date)
         if to_date:
@@ -1199,11 +1460,11 @@ class ClosingStockCal:
 
         return result
 
-    def get_refinery_issues(self, item, retail_id=None, from_date=None, to_date=None):
+    def get_refinery_issues(self, item, retail_ids=None, from_date=None, to_date=None):
         result = self._zero()
         query = RefinaryIssueDetail.objects.filter(item=item)
-        if retail_id:
-            query = query.filter(retail_id=retail_id)
+        if retail_ids:
+            query = query.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             query = query.filter(billno__date1__gte=from_date)
         if to_date:
@@ -1217,11 +1478,11 @@ class ClosingStockCal:
         result['ct'] = agg['total_ct']
         return result
 
-    def get_refinery_receives(self, item, retail_id=None, from_date=None, to_date=None):
+    def get_refinery_receives(self, item, retail_ids=None, from_date=None, to_date=None):
         result = self._zero()
         query = RefinaryReceiveDetail.objects.filter(item=item)
-        if retail_id:
-            query = query.filter(retail_id=retail_id)
+        if retail_ids:
+            query = query.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
             query = query.filter(billno__date1__gte=from_date)
         if to_date:
@@ -1234,6 +1495,100 @@ class ClosingStockCal:
         result['gw'] = agg['total_gw']
         result['ct'] = agg['total_ct']
         return result
+
+    # ── Inter-retail transfer movement methods ───────────────────────────────
+    # Mirror the refinery issue/receive shape. Only status='received' lines affect
+    # valuation — in-transit stock remains attributed to the source (transferring)
+    # retail per product requirement.
+
+    def get_transfer_issues(self, item, retail_ids=None, from_date=None, to_date=None):
+        """Sum transfer-out lines where the source retail is in scope."""
+        result = self._zero()
+        query = InterRetailTransferItem.objects.filter(
+            item=item,
+            voucher__status=InterRetailTransferVoucher.STATUS_RECEIVED,
+        )
+        if retail_ids:
+            query = query.filter(voucher__from_retail_id__in=retail_ids)
+        if from_date:
+            query = query.filter(voucher__transfer_date__gte=from_date)
+        if to_date:
+            query = query.filter(voucher__transfer_date__lte=to_date)
+
+        agg = query.aggregate(
+            total_gw=Coalesce(Sum('qty_gw'), Decimal('0.00')),
+            total_ct=Coalesce(Sum('qty_ct'), Decimal('0.00')),
+            total_amt=Coalesce(Sum('transfer_value'), Decimal('0.00')),
+        )
+        result['gw'] = agg['total_gw']
+        result['ct'] = agg['total_ct']
+        result['amt'] = agg['total_amt']
+        return result
+
+    def get_transfer_receives(self, item, retail_ids=None, from_date=None, to_date=None):
+        """Sum transfer-in lines where the destination retail is in scope.
+
+        Value uses the snapshotted source_avg_rate on each line — never recomputed.
+        When combined/multi-retail queries include both sides of a transfer, the
+        transfer-in and transfer-out cancel (same qty, same value) so consolidated
+        totals remain invariant.
+        """
+        result = self._zero()
+        query = InterRetailTransferItem.objects.filter(
+            item=item,
+            voucher__status=InterRetailTransferVoucher.STATUS_RECEIVED,
+        )
+        if retail_ids:
+            query = query.filter(voucher__to_retail_id__in=retail_ids)
+        if from_date:
+            query = query.filter(voucher__transfer_date__gte=from_date)
+        if to_date:
+            query = query.filter(voucher__transfer_date__lte=to_date)
+
+        agg = query.aggregate(
+            total_gw=Coalesce(Sum('qty_gw'), Decimal('0.00')),
+            total_ct=Coalesce(Sum('qty_ct'), Decimal('0.00')),
+            total_amt=Coalesce(Sum('transfer_value'), Decimal('0.00')),
+        )
+        result['gw'] = agg['total_gw']
+        result['ct'] = agg['total_ct']
+        result['amt'] = agg['total_amt']
+        return result
+
+    def get_weighted_avg_rate(self, item, retail_id, as_of_date):
+        """Compute the weighted-average rate for an item in a single retail, as of a given date.
+
+        Used at StockTransferVoucher save time to snapshot source_avg_rate. Mirrors the
+        in-flow portion of calculate_closing_stock: opening + purchases − purchase returns
+        + transfer receives (all up to and including as_of_date), divided by the matching
+        quantity pool. Raises ValueError if the retail has no inbound quantity for the item
+        (can't snapshot a rate from nothing).
+        """
+        if retail_id is None:
+            raise ValueError("retail_id is required for get_weighted_avg_rate")
+
+        retail_ids = [retail_id]
+        opening = self.get_opening_stock(item, retail_ids)
+        purchase = self.get_purchases(item, retail_ids, None, as_of_date)
+        purc_ret = self.get_purchase_returns(item, retail_ids, None, as_of_date)
+        trn_rec = self.get_transfer_receives(item, retail_ids, None, as_of_date)
+
+        if item.item_type in ['M', 'R']:
+            pq = 'gw'
+        elif item.item_type == 'S':
+            pq = 'ct'
+        else:
+            pq = 'gw'
+
+        total_in_qty = opening[pq] + purchase[pq] - purc_ret[pq] + trn_rec[pq]
+        total_in_value = opening['amt'] + purchase['amt'] - purc_ret['amt'] + trn_rec['amt']
+
+        if total_in_qty <= 0:
+            raise ValueError(
+                f"Cannot compute weighted average for item {item.item_name} at retail "
+                f"{retail_id} as of {as_of_date}: no inbound stock found."
+            )
+        return total_in_value / total_in_qty
 
 
 class DesignMainViewSet(RetailBaseViewset):
@@ -2187,3 +2542,118 @@ class ClosingStockTxnView(APIView):
         })
 
 
+
+
+# ---------------------------------------------------------------------------
+# Inter-Retail Transfer Voucher
+# ---------------------------------------------------------------------------
+
+class InterRetailTransferVoucherViewSet(ModelViewSet):
+    """Inter-retail (inter-branch) stock transfer vouchers.
+
+    Visibility: a voucher is visible to users whose active retail is either
+    the source or the destination. Listing is scoped accordingly.
+
+    Status machine: draft -> in_transit -> received (or cancelled from draft/in_transit).
+    Edits are only allowed while in draft.
+    """
+    serializer_class = InterRetailTransferVoucherSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    filterset_fields = ['status', 'from_retail', 'to_retail']
+    search_fields = ['voucher_no', 'narration']
+    ordering_fields = ['transfer_date', 'voucher_no', 'status']
+    ordering = ['-transfer_date', '-id']
+
+    def get_queryset(self):
+        qs = InterRetailTransferVoucher.objects.all().select_related(
+            'from_retail', 'to_retail', 'fiscal_year', 'created_by',
+        ).prefetch_related('items', 'items__item')
+        retail = getattr(self.request, 'retail', None)
+        if retail is not None:
+            qs = qs.filter(Q(from_retail=retail) | Q(to_retail=retail))
+        # Optional transfer_date range
+        q = self.request.query_params
+        d_from, d_to = q.get('date_from'), q.get('date_to')
+        if d_from:
+            qs = qs.filter(transfer_date__gte=d_from)
+        if d_to:
+            qs = qs.filter(transfer_date__lte=d_to)
+        return qs
+
+    def destroy(self, request, *args, **kwargs):
+        voucher = self.get_object()
+        if voucher.status != InterRetailTransferVoucher.STATUS_DRAFT:
+            return Response(
+                {'detail': f"Cannot delete voucher in status '{voucher.status}'. Cancel it instead."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    def _require_status(self, voucher, expected):
+        if isinstance(expected, str):
+            expected = [expected]
+        if voucher.status not in expected:
+            return Response(
+                {'detail': f"Invalid transition: voucher is '{voucher.status}', expected one of {expected}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return None
+
+    @action(detail=True, methods=['post'], url_path='send')
+    def send(self, request, pk=None):
+        """draft -> in_transit. Inventory remains attributed to source until 'receive'."""
+        voucher = self.get_object()
+        err = self._require_status(voucher, InterRetailTransferVoucher.STATUS_DRAFT)
+        if err:
+            return err
+        if not voucher.items.exists():
+            return Response({'detail': 'Cannot send an empty voucher.'}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            voucher.status = InterRetailTransferVoucher.STATUS_IN_TRANSIT
+            voucher.save(update_fields=['status', 'updated_at'])
+        return Response({'detail': 'Voucher marked in_transit.', 'status': voucher.status})
+
+    @action(detail=True, methods=['post'], url_path='receive')
+    def receive(self, request, pk=None):
+        """in_transit -> received. Flips barcode/unbarcoded retail FK and stamps received_at."""
+        from django.utils import timezone
+        voucher = self.get_object()
+        err = self._require_status(voucher, InterRetailTransferVoucher.STATUS_IN_TRANSIT)
+        if err:
+            return err
+        with transaction.atomic():
+            voucher.status = InterRetailTransferVoucher.STATUS_RECEIVED
+            voucher.received_at = timezone.now()
+            voucher.save(update_fields=['status', 'received_at', 'updated_at'])
+            barcode_ids = list(voucher.items.exclude(barcode__isnull=True).values_list('barcode_id', flat=True))
+            if barcode_ids:
+                BarcodeMain.objects.filter(id__in=barcode_ids).update(retail=voucher.to_retail)
+            unbar_ids = list(voucher.items.exclude(unbarcoded_ref__isnull=True).values_list('unbarcoded_ref_id', flat=True))
+            if unbar_ids:
+                UnBarcodedMain.objects.filter(id__in=unbar_ids).update(retail=voucher.to_retail)
+        return Response({'detail': 'Voucher received.', 'status': voucher.status})
+
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def cancel(self, request, pk=None):
+        """{draft, in_transit} -> cancelled. No inventory impact."""
+        voucher = self.get_object()
+        err = self._require_status(
+            voucher,
+            [InterRetailTransferVoucher.STATUS_DRAFT, InterRetailTransferVoucher.STATUS_IN_TRANSIT],
+        )
+        if err:
+            return err
+        with transaction.atomic():
+            voucher.status = InterRetailTransferVoucher.STATUS_CANCELLED
+            voucher.save(update_fields=['status', 'updated_at'])
+        return Response({'detail': 'Voucher cancelled.', 'status': voucher.status})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def inter_retail_transfer_next_no(request):
+    """Read-only preview of the next IRT voucher number for the current retail."""
+    retail = getattr(request, 'retail', None)
+    if retail is None:
+        return Response({'detail': 'No active retail in context.'}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({'next_no': peek_next_bill_number(retail, 'IRT')})

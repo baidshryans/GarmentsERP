@@ -821,14 +821,22 @@ class LedgerCSVUploadView(APIView):
                         if not ac_name:
                             continue
 
-                        # Resolve account group from pre-loaded map
+                        # Resolve account group from pre-loaded map.
+                        # Every ledger MUST have an account group — skip rows that
+                        # don't have one or have an unrecognised group name.
                         ag_name_raw = (row.get('ac_group_name') or '').strip()
                         ac_group = ag_map.get(ag_name_raw.lower()) if ag_name_raw else None
-                        if not ac_group and ag_name_raw:
-                            errors.append(
-                                f"Row {i}: '{ac_name}' — group '{ag_name_raw}' "
-                                f"not found in Chart of Accounts; imported with no group."
-                            )
+                        if not ac_group:
+                            if ag_name_raw:
+                                errors.append(
+                                    f"Row {i}: '{ac_name}' — group '{ag_name_raw}' "
+                                    f"not found in Chart of Accounts; row skipped."
+                                )
+                            else:
+                                errors.append(
+                                    f"Row {i}: '{ac_name}' — ac_group_name is required; row skipped."
+                                )
+                            continue
 
                         # Resolve primary role: use 'primary_role' column if provided, else use ledger_type from query param
                         raw_primary = (row.get('primary_role') or row.get('type') or '').strip()

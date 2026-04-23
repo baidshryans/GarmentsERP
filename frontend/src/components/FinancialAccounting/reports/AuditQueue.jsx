@@ -14,6 +14,7 @@ import {
   ShieldCheck, ShieldOff, Paperclip, X, FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -113,6 +114,10 @@ export default function AuditQueue() {
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchReport = async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
     setError(""); setLoading(true); setSelected(new Set()); setExpanded({});
     try {
       const res = await apiClient.get(
@@ -194,11 +199,11 @@ export default function AuditQueue() {
       <div className="flex flex-wrap items-end gap-3 p-4 bg-muted/30 rounded-lg border border-border">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-36" />
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="h-9 w-36" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Show</Label>

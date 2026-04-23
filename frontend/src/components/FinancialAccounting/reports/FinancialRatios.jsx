@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
 import { TrendingUp, BarChart2, Scale, Activity } from "lucide-react";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 const fy = new Date().getMonth() < 3 ? new Date().getFullYear() - 1 : new Date().getFullYear();
@@ -86,6 +87,10 @@ export default function FinancialRatios() {
   const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   const fetchRatios = () => {
+    if (!isValidDateRange(startDate, endDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
     setLoading(true);
     setError(null);
     const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
@@ -108,11 +113,11 @@ export default function FinancialRatios() {
       <div className="flex flex-wrap items-end gap-4 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From Date</Label>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40 h-8 text-sm" />
+          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} max={endDate || undefined} className="w-40 h-8 text-sm" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To Date</Label>
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40 h-8 text-sm" />
+          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} min={startDate || undefined} className="w-40 h-8 text-sm" />
         </div>
         {canViewCombined && (
           <div className="flex items-center gap-2">

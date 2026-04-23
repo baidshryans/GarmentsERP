@@ -9,6 +9,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import apiClient from "@/services/apiClient";
 import { Gem, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { isValidDateRange } from "@/lib/dateRange";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function fmtDate(d) {
@@ -50,6 +51,10 @@ function KarigarStoneTransactions() {
   }, []);
 
   const load = useCallback(async () => {
+    if (!isValidDateRange(fromDate, toDate)) {
+      toast({ title: "From date cannot be after To date.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const params = new URLSearchParams();
     params.append("date_from", fromDate);
@@ -165,11 +170,11 @@ function KarigarStoneTransactions() {
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div>
             <Label htmlFor="from" className="text-xs">From Date</Label>
-            <Input id="from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <Input id="from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} />
           </div>
           <div>
             <Label htmlFor="to" className="text-xs">To Date</Label>
-            <Input id="to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <Input id="to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} />
           </div>
           <div>
             <Label className="text-xs">Karigar</Label>

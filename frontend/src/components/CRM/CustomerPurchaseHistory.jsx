@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
+import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -96,6 +97,10 @@ export default function CustomerPurchaseHistory() {
 
   const handleFetch = async () => {
     if (!selectedLedger) return;
+    if (!isValidDateRange(fromDate, toDate)) {
+      setError("From date cannot be after To date.");
+      return;
+    }
     setLoading(true);
     setError("");
     setReport(null);
@@ -153,11 +158,11 @@ export default function CustomerPurchaseHistory() {
 
         <div>
           <label className="text-xs text-gray-500 mb-1 block">From</label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-36" />
+          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} className="w-36" />
         </div>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">To</label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-36" />
+          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="w-36" />
         </div>
         <Button onClick={handleFetch} disabled={!selectedLedger || loading}>
           {loading ? "Loading…" : "Fetch History"}

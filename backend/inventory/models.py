@@ -371,3 +371,83 @@ class StockTransferMain(models.Model):
 
     class Meta:
         db_table = "stock_transfer_main"
+
+
+# ── Inter-Retail Raw-Material / Stone Transfer ────────────────────────────────
+# Distinct from the barcode-level StockTransfer above: this voucher transfers
+# raw materials (gold, stones, diamonds) and snapshots the source retail's
+# weighted-average rate at transfer date so historical valuation is reproducible.
+
+class InterRetailTransferVoucher(models.Model):
+    STATUS_DRAFT = "draft"
+    STATUS_IN_TRANSIT = "in_transit"
+    STATUS_RECEIVED = "received"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "Draft"),
+        (STATUS_IN_TRANSIT, "In Transit"),
+        (STATUS_RECEIVED, "Received"),
+        (STATUS_CANCELLED, "Cancelled"),
+    ]
+
+    voucher_no = models.CharField(max_length=20)
+    transfer_date = models.DateField()
+    from_retail = models.ForeignKey(
+        "mastersconfig.RetailMaster",
+        on_delete=models.PROTECT,
+        related_name="inter_retail_transfers_out",
+    )
+    to_retail = models.ForeignKey(
+        "mastersconfig.RetailMaster",
+        on_delete=models.PROTECT,
+        related_name="inter_retail_transfers_in",
+    )
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+    narration = models.TextField(blank=True, default="")
+    fiscal_year = models.ForeignKey(
+        "mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    received_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "inter_retail_transfer_voucher"
+        indexes = [
+            models.Index(fields=["from_retail", "transfer_date"], name="idx_irtv_from_date"),
+            models.Index(fields=["to_retail", "transfer_date"], name="idx_irtv_to_date"),
+            models.Index(fields=["status", "transfer_date"], name="idx_irtv_status_date"),
+        ]
+
+    def __str__(self):
+        return f"{self.voucher_no} ({self.from_retail_id}->{self.to_retail_id})"
+
+
+class InterRetailTransferItem(models.Model):
+    voucher = models.ForeignKey(
+        InterRetailTransferVoucher, on_delete=models.CASCADE, related_name="items"
+    )
+    item = models.ForeignKey(Item, on_delete=models.PROTECT)
+    purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT, null=True, blank=True)
+    qty_pcs = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    qty_gw = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    qty_ct = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    # Primary qty = gw for M/R items, ct for S items. Populated on save.
+    primary_qty = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    # Snapshotted from source retail's weighted-average rate at transfer_date at save.
+    # Never recomputed — preserves historical reproducibility.
+    source_avg_rate = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    transfer_value = models.DecimalField(max_digits=16, decimal_places=4, default=0)
+    # Optional physical-ownership links — when a specific barcode/unbarcoded/packet is transferred,
+    # its retail FK is updated to voucher.to_retail on receive.
+    barcode = models.ForeignKey(BarcodeMain, on_delete=models.PROTECT, null=True, blank=True)
+    unbarcoded_ref = models.ForeignKey(UnBarcodedMain, on_delete=models.PROTECT, null=True, blank=True)
+    packet = models.ForeignKey(Packet, on_delete=models.PROTECT, null=True, blank=True)
+
+    class Meta:
+        db_table = "inter_retail_transfer_item"
+        indexes = [
+            models.Index(fields=["voucher", "item"], name="idx_irti_voucher_item"),
+            models.Index(fields=["item"], name="idx_irti_item"),
+        ]

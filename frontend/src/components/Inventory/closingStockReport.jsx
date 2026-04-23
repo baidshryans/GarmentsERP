@@ -3,8 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getClosingStockValuation, getClosingStockTxns, fetchCompanies } from "../../services/apiService";
-import { Package, Printer, TrendingUp, Weight, Gem, BarChart3, X, Loader2 } from "lucide-react";
+import { getClosingStockValuation, getClosingStockTxns, fetchCompanies, fetchRetails } from "../../services/apiService";
+import { Package, Printer, TrendingUp, Weight, Gem, BarChart3, X, Loader2, Store, ChevronDown, Check } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { printReport } from "@/lib/printReport";
 
 const today = new Date().toISOString().split("T")[0];
@@ -222,6 +226,12 @@ export default function ClosingStockTable() {
   const [category, setCategory] = useState("all");
   const [drill, setDrill]       = useState(null); // { item_id, item_name, txn_type }
   const [companyName, setCompanyName] = useState("");
+  const [retails, setRetails] = useState([]);
+  const [scope, setScope] = useState("all"); // 'all' | 'selected'
+  const [selectedRetailIds, setSelectedRetailIds] = useState([]);
+
+  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+  const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
 
   useEffect(() => {
     fetchCompanies().then((res) => {
@@ -230,13 +240,25 @@ export default function ClosingStockTable() {
         if (results.length > 0) setCompanyName(results[0].company_name || "");
       }
     });
+    fetchRetails().then((res) => {
+      if (res.success) {
+        const results = res.data?.results || res.data || [];
+        setRetails(results);
+      }
+    });
   }, []);
 
   const fetchReport = async () => {
     setError("");
     setLoading(true);
     setData(null);
-    const res = await getClosingStockValuation({ to_date: asOnDate });
+    const retail_ids = scope === "selected" ? selectedRetailIds : undefined;
+    if (scope === "selected" && (!retail_ids || retail_ids.length === 0)) {
+      setError("Select at least one retail, or choose 'All retails combined'.");
+      setLoading(false);
+      return;
+    }
+    const res = await getClosingStockValuation({ to_date: asOnDate, retail_ids });
     if (res.success) setData(res.data);
     else setError(typeof res.error === "string" ? res.error : res.error?.error || "Failed to load report.");
     setLoading(false);
@@ -342,24 +364,102 @@ export default function ClosingStockTable() {
     <div className="flex flex-col gap-5">
 
       {/* ── Filter bar ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3 p-4 rounded-xl border border-border bg-muted/20">
+      <div className="flex flex-wrap items-end gap-3 p-3 rounded-xl border border-border bg-muted/20">
         <div className="flex flex-col gap-1.5">
-          <Label className="text-xs font-medium text-muted-foreground">As on Date</Label>
-          <Input type="date" value={asOnDate} onChange={(e) => setAsOnDate(e.target.value)} className="h-9 w-44" />
+          <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">As on</Label>
+          <Input
+            type="date"
+            value={asOnDate}
+            onChange={(e) => setAsOnDate(e.target.value)}
+            className="h-9 w-40"
+          />
         </div>
-        <Button size="sm" onClick={fetchReport} disabled={loading} className="h-9 px-5">
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Loading…
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Show Report</span>
-          )}
-        </Button>
+
+        {canViewCombined && (
+        <div className="flex flex-col gap-1.5 min-w-[16rem]">
+          <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Retails</Label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-full justify-between gap-2 font-normal px-3 cursor-pointer"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <Store className="size-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
+                  <span className="truncate">
+                    {scope === "all"
+                      ? "All retails (combined)"
+                      : selectedRetailIds.length === 0
+                        ? <span className="text-muted-foreground">Select retails…</span>
+                        : selectedRetailIds.length === 1
+                          ? (retails.find((r) => r.id === selectedRetailIds[0])?.retail_name || `#${selectedRetailIds[0]}`)
+                          : `${selectedRetailIds.length} retails selected`}
+                  </span>
+                </span>
+                <ChevronDown className="size-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Scope
+              </DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={scope === "all"}
+                onCheckedChange={() => { setScope("all"); setSelectedRetailIds([]); }}
+                onSelect={(e) => e.preventDefault()}
+              >
+                All retails (combined)
+              </DropdownMenuCheckboxItem>
+              {retails.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Individual retails
+                  </DropdownMenuLabel>
+                  {retails.map((r) => (
+                    <DropdownMenuCheckboxItem
+                      key={r.id}
+                      checked={scope === "selected" && selectedRetailIds.includes(r.id)}
+                      onCheckedChange={(checked) => {
+                        setScope("selected");
+                        setSelectedRetailIds((prev) =>
+                          checked ? [...new Set([...prev, r.id])] : prev.filter((x) => x !== r.id),
+                        );
+                      }}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {r.retail_name || r.retail_code || `#${r.id}`}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <Button
+            size="sm"
+            onClick={fetchReport}
+            disabled={loading}
+            className="h-9 px-4 gap-1.5 cursor-pointer"
+            aria-label="Show closing stock report"
+          >
+            {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <BarChart3 className="size-3.5" aria-hidden="true" />}
+            {loading ? "Loading…" : "Show Report"}
+          </Button>
+        </div>
         {data && (
-          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto gap-1.5">
-            <Printer className="size-4" /> Print
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePrint}
+            className="h-9 gap-1.5 cursor-pointer ml-auto"
+            aria-label="Print report"
+          >
+            <Printer className="size-3.5" aria-hidden="true" /> Print
           </Button>
         )}
       </div>

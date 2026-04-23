@@ -12,6 +12,7 @@ import {
     fetchGroupDataAPI,
     fetchShapeDataAPI
 } from "@/services/apiService";
+import { isValidDateRange } from "@/lib/dateRange";
 
 function formatDate(dateStr) {
     const date = new Date(dateStr);
@@ -138,6 +139,10 @@ export default function StoneWorkOrderReport() {
 
     // Update the handleSearch function to include karigar filtering
     const handleSearch = async () => {
+        if (!isValidDateRange(filters.fromDate, filters.toDate)) {
+            setError("From date cannot be after To date.");
+            return;
+        }
         setLoading(true);
         setError(null);
         try {
@@ -552,6 +557,7 @@ export default function StoneWorkOrderReport() {
                                         type="date"
                                         value={filters.fromDate}
                                         onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
+                                        max={filters.toDate || undefined}
                                         className="w-full text-sm"
                                     />
                                 </div>
@@ -561,6 +567,7 @@ export default function StoneWorkOrderReport() {
                                         type="date"
                                         value={filters.toDate}
                                         onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
+                                        min={filters.fromDate || undefined}
                                         className="w-full text-sm"
                                     />
                                 </div>

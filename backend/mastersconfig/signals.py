@@ -103,8 +103,15 @@ _MISC_LEDGERS = [
     # Travel & Conveyance
     ('Travel & Conveyance',      'EXP-IND-TRV'),
     # Bank Charges and Commission
-    ('Bank Charges',             'EXP-IND-FIN'),
-    ('Interest Paid',            'EXP-IND-FIN'),
+    ('Bank Charges',                     'EXP-IND-FIN'),
+    ('Interest Paid',                    'EXP-IND-FIN'),
+    ('Cash Pickup Charges',              'EXP-IND-FIN'),
+    ('Cash Deposit Charges',             'EXP-IND-FIN'),
+    ('Settlement Charges',               'EXP-IND-FIN'),
+    ('Low Usage Charges',                'EXP-IND-FIN'),
+    ('POS Machine Installation Charges', 'EXP-IND-FIN'),
+    ('POS Machine Annual Rental Fees',   'EXP-IND-FIN'),
+    ('POS Machine Service Charges',      'EXP-IND-FIN'),
     # Compliance & Regulatory Expenses
     ('Audit Fees',               'EXP-IND-CMP'),
     # Insurance Expenses

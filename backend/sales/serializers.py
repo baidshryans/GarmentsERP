@@ -38,6 +38,12 @@ def _customer_order_item_lock(obj):
     """Return (lock_state, lock_reason) for a CustomerOrderItems row."""
     if obj.sale_status:
         return 'billed', 'Billed in a sales voucher'
+    # Direct CO → PV path: the CO item was billed straight onto a Purchase
+    # Voucher without going through a Purchase Order. This is terminal.
+    pv = obj.purchasevoucheritems_set.select_related('billno').first()
+    if pv:
+        ref = pv.billno.billno if pv.billno else ''
+        return 'billed', f"Billed directly on Purchase Voucher {ref}".rstrip()
     ki = obj.karigarissueitem_set.select_related('issue_slip').first()
     if ki:
         return 'in_production', f"Issued to Karigar job {ki.issue_slip.billno}"
@@ -232,14 +238,27 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
             'order_no': {'required': False, 'allow_blank': True, 'default': ''},
         }
 
+    def validate(self, attrs):
+        # Delivery date must be strictly after today. A same-day delivery is
+        # not a meaningful commitment — the order is effectively due "now".
+        from datetime import date as _date
+        delivery = attrs.get('delivery_date')
+        if delivery is not None:
+            today = _date.today()
+            if delivery <= today:
+                raise serializers.ValidationError({
+                    'delivery_date': f"Delivery date must be after today ({today.isoformat()})."
+                })
+        return attrs
+
     def create(self, validated_data):
         with transaction.atomic():
             items_data = validated_data.pop('items')
             order_instance = CustomerOrder.objects.create(**validated_data)
-            
+
             for item in items_data:
                 CustomerOrderItems.objects.create(order_no=order_instance, **item)
-            
+
             return order_instance
 
     def update(self, instance, validated_data):
@@ -419,6 +438,22 @@ class SalesVouItemSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Barcode '{barcode.barcode}' is not in active stock "
                     "(it may already be sold, in transit, or transferred)."
+                )
+        if barcode.customer_order_id:
+            bill_ldgr_id = self.context.get('sales_vou_ldgr_id')
+            if bill_ldgr_id is None and request is not None and hasattr(request, 'data'):
+                bill_ldgr_id = request.data.get('ldgr')
+            try:
+                bill_ldgr_id = int(bill_ldgr_id) if bill_ldgr_id is not None else None
+            except (TypeError, ValueError):
+                bill_ldgr_id = None
+            reserved_ldgr_id = getattr(barcode.customer_order, 'ldgr_id', None)
+            if bill_ldgr_id is not None and reserved_ldgr_id is not None and bill_ldgr_id != reserved_ldgr_id:
+                reserved_party = getattr(getattr(barcode.customer_order, 'ldgr', None), 'ldgr_name', 'reserved customer')
+                raise serializers.ValidationError(
+                    f"Barcode '{barcode.barcode}' is reserved for customer order "
+                    f"{barcode.customer_order.order_no} ({reserved_party}). "
+                    "Release it from the order before selling to a different party."
                 )
         return barcode
     def create(self, validated_data):
@@ -1535,6 +1570,22 @@ class SalesApprovalItemSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Barcode '{barcode.barcode}' is not in active stock "
                     "(it may already be sold, in transit, or transferred)."
+                )
+        if barcode.customer_order_id:
+            bill_ldgr_id = self.context.get('sales_vou_ldgr_id')
+            if bill_ldgr_id is None and request is not None and hasattr(request, 'data'):
+                bill_ldgr_id = request.data.get('ldgr')
+            try:
+                bill_ldgr_id = int(bill_ldgr_id) if bill_ldgr_id is not None else None
+            except (TypeError, ValueError):
+                bill_ldgr_id = None
+            reserved_ldgr_id = getattr(barcode.customer_order, 'ldgr_id', None)
+            if bill_ldgr_id is not None and reserved_ldgr_id is not None and bill_ldgr_id != reserved_ldgr_id:
+                reserved_party = getattr(getattr(barcode.customer_order, 'ldgr', None), 'ldgr_name', 'reserved customer')
+                raise serializers.ValidationError(
+                    f"Barcode '{barcode.barcode}' is reserved for customer order "
+                    f"{barcode.customer_order.order_no} ({reserved_party}). "
+                    "Release it from the order before selling to a different party."
                 )
         return barcode
 

@@ -290,7 +290,16 @@ const CustomerOrderForm = () => {
             </Field>
 
             <Field label="Delivery Date" required>
-              <Input type="date" {...register("form.delivery_date")} required />
+              <Input
+                type="date"
+                min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+                {...register("form.delivery_date", {
+                  validate: (v) =>
+                    !v || v > new Date().toISOString().split("T")[0] ||
+                    "Delivery date must be after today",
+                })}
+                required
+              />
             </Field>
 
             <Field label="Nature">

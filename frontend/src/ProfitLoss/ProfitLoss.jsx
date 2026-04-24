@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
-import { ChevronDown, ChevronRight, X, Printer } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, X, Printer } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { fetchCompanies } from "@/services/apiService";
 import { RetailScopePicker, applyRetailScopeParams } from "@/components/common/RetailScopePicker";
@@ -182,8 +182,7 @@ function PnlRow({ label, value, indent = false, bold = false, metric, onDrill, n
 /* ═══════════════════════════════════════════════════════════════
    Expense tree — collapsible, each leaf opens drill-down
    ═══════════════════════════════════════════════════════════════ */
-function ExpenseTree({ items, level = 0, onDrill }) {
-  const [collapsed, setCollapsed] = useState({});
+function ExpenseTree({ items, level = 0, onDrill, collapsed, toggleCollapsed }) {
   if (!items?.length) return null;
 
   return items.map((acc) => {
@@ -198,7 +197,7 @@ function ExpenseTree({ items, level = 0, onDrill }) {
           className="border-t border-border/40 hover:bg-accent/40 transition-colors cursor-pointer"
           onClick={() => {
             if (hasChildren) {
-              setCollapsed((p) => ({ ...p, [acc.id]: !p[acc.id] }));
+              toggleCollapsed(acc.id);
             } else {
               onDrill("expenses", acc.name, acc.id);
             }
@@ -221,7 +220,13 @@ function ExpenseTree({ items, level = 0, onDrill }) {
           <td className="py-2 px-4 text-right tabular-nums">{bal ? fmt(bal) : ""}</td>
         </tr>
         {hasChildren && isOpen && (
-          <ExpenseTree items={acc.children} level={level + 1} onDrill={onDrill} />
+          <ExpenseTree
+            items={acc.children}
+            level={level + 1}
+            onDrill={onDrill}
+            collapsed={collapsed}
+            toggleCollapsed={toggleCollapsed}
+          />
         )}
       </tbody>
     );
@@ -241,6 +246,33 @@ export default function ProfitLoss() {
   const [scope, setScope] = useState("all");
   const [selectedRetailIds, setSelectedRetailIds] = useState([]);
   const [companyName, setCompanyName] = useState("");
+  const [collapsed, setCollapsed] = useState({});
+
+  const toggleCollapsed = useCallback(
+    (id) => setCollapsed((p) => ({ ...p, [id]: !p[id] })),
+    []
+  );
+
+  const collectExpandableIds = (items, out = []) => {
+    if (!items) return out;
+    for (const acc of items) {
+      if (acc.children?.length) {
+        out.push(acc.id);
+        collectExpandableIds(acc.children, out);
+      }
+    }
+    return out;
+  };
+
+  const expandableIds = [
+    ...collectExpandableIds(data?.direct_expenses),
+    ...collectExpandableIds(data?.indirect_expenses),
+  ];
+  const anyCollapsed = expandableIds.some((id) => collapsed[id]);
+  const toggleAll = () =>
+    anyCollapsed
+      ? setCollapsed({})
+      : setCollapsed(Object.fromEntries(expandableIds.map((id) => [id, true])));
 
   useEffect(() => {
     fetchCompanies().then((res) => {
@@ -378,9 +410,17 @@ export default function ProfitLoss() {
         )}
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
         {data && (
-          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">
-            <Printer className="size-4 mr-1.5" /> Print
-          </Button>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button size="sm" variant="outline" onClick={toggleAll} className="h-9">
+              {anyCollapsed
+                ? <ChevronsUpDown className="size-4 mr-1.5" />
+                : <ChevronsDownUp className="size-4 mr-1.5" />}
+              {anyCollapsed ? "Expand All" : "Collapse All"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={handlePrint} className="h-9">
+              <Printer className="size-4 mr-1.5" /> Print
+            </Button>
+          </div>
         )}
       </div>
 
@@ -443,7 +483,7 @@ export default function ProfitLoss() {
                 </td>
               </tr>
             </tbody>
-            <ExpenseTree items={data.direct_expenses} onDrill={openDrill} />
+            <ExpenseTree items={data.direct_expenses} onDrill={openDrill} collapsed={collapsed} toggleCollapsed={toggleCollapsed} />
             <tbody>
               <PnlRow label="Total Direct Expenses" value={data.direct_expenses_total} bold border />
             </tbody>
@@ -461,7 +501,7 @@ export default function ProfitLoss() {
                 </td>
               </tr>
             </tbody>
-            <ExpenseTree items={data.indirect_expenses} onDrill={openDrill} />
+            <ExpenseTree items={data.indirect_expenses} onDrill={openDrill} collapsed={collapsed} toggleCollapsed={toggleCollapsed} />
             <tbody>
               <PnlRow label="Total Indirect Expenses" value={data.indirect_expenses_total} bold border />
             </tbody>

@@ -80,6 +80,35 @@ def reverse_raw_material_on_purchase_delete(sender, instance, **kwargs):
     )
 
 
+@receiver(pre_delete, sender=PurchaseVoucherItems)
+def unlock_customer_order_item_on_pv_delete(sender, instance, **kwargs):
+    """
+    When a PV line that was directly linked to a Customer Order item is deleted,
+    flip the CO item's sale_status back to False so it reappears in the pending
+    picker — but only if no other terminal lock path remains (another PV line
+    or a SalesVouItem covering the same barcode).
+    """
+    coi = instance.customer_order_item
+    if not coi:
+        return
+
+    # Is this CO item referenced by any OTHER PurchaseVoucherItems row?
+    other_pv_exists = (
+        PurchaseVoucherItems.objects
+        .filter(customer_order_item=coi)
+        .exclude(pk=instance.pk)
+        .exists()
+    )
+    if other_pv_exists:
+        return
+
+    # Belt-and-braces: also skip unlock if a SalesVouItem terminally billed
+    # this CO item's barcode (shouldn't normally happen before PV delete,
+    # but we keep the CO locked if it has been sold).
+    from sales.models import CustomerOrderItems
+    CustomerOrderItems.objects.filter(pk=coi.pk).update(sale_status=False)
+
+
 @receiver(pre_save, sender=PurchaseVoucherDetails)
 def capture_old_detail_values_before_update(sender, instance, **kwargs):
     """

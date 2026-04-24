@@ -45,7 +45,7 @@ class PurchaseOrderItemsInline(nested_admin.NestedTabularInline):
     model = PurchaseOrderItems
     fk_name = 'po_slip'
     extra = 0
-    fields = ('item', 'purity', 'pcs', 'approx_wt', 'design_code', 'size', 'making_type', 'due_date', 'remarks', 'rec_status', 'po_sl_no')
+    fields = ('item', 'purity', 'pcs', 'approx_wt', 'design_code', 'size', 'due_date', 'remarks', 'rec_status', 'po_sl_no')
 
 
 @admin.register(PurchaseOrder)

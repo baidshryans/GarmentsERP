@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { convertBarcode, fetchBarcodes, fetchKarigarIssueForEdit, fetchUnBarcodedList, updateKarigarIssue } from "../../../services/apiService";
 
 import { default as MulSelect } from "react-select";
-import { SquarePen, Trash2, ShoppingCart } from "lucide-react";
+import { SquarePen, Trash2, ShoppingCart, Link2 } from "lucide-react";
 import { selectRowsFn } from "@tanstack/react-table";
 import { renderErrorTree } from "../../../Utils";
 import Fuse from 'fuse.js';
@@ -52,8 +52,14 @@ const KarigarIssue = () => {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [pickerSearch, setPickerSearch] = useState("");
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const prefillCoId = !id ? searchParams.get("co") : null;
+  // Optional explicit subset of CO item IDs picked via the quick-action modal
+  // on the Customer Order list. When present, only these items are pre-loaded.
+  const prefillItemIdsParam = !id ? searchParams.get("items") : null;
+  const prefillItemIds = prefillItemIdsParam
+    ? new Set(prefillItemIdsParam.split(",").map(s => Number(s.trim())).filter(n => !Number.isNaN(n)))
+    : null;
 
   const tableDefaultValue = {
     design_code: "",
@@ -92,7 +98,10 @@ const KarigarIssue = () => {
         // order's pending items into the grid and remove them from the picker list.
         if (prefillCoId) {
           const coIdNum = Number(prefillCoId);
-          const picked = (pending.data || []).filter(p => Number(p.co_id) === coIdNum);
+          const picked = (pending.data || []).filter(p =>
+            Number(p.co_id) === coIdNum &&
+            (!prefillItemIds || prefillItemIds.has(Number(p.co_item_id)))
+          );
           if (picked.length > 0) {
             setValue("form.issue_slip_type", "Customer Order");
             const newRows = picked.map((p, idx) => ({
@@ -129,7 +138,13 @@ const KarigarIssue = () => {
 
 
     }
-    fetchData();
+    fetchData().then(() => {
+      // Consume-and-clear the ?co= / ?items= prefill params so a refresh won't
+      // re-populate rows the user may have since deleted.
+      if (prefillCoId || prefillItemIdsParam) {
+        setSearchParams({}, { replace: true });
+      }
+    });
 
     if (id) {
       fetchKarigarIssueForEdit(id)
@@ -198,8 +213,14 @@ const KarigarIssue = () => {
 
   useF4Submit(handleSubmit(onSubmit));
 
+  // Preserve CO-linkage fields while the user edits a CO-sourced row.
+  const editingMetaRef = useRef(null);
+
   const handleEdit = (index) => {
     const row = rs[index];
+    editingMetaRef.current = row.customer_order_item
+      ? { customer_order_item: row.customer_order_item, _co_display: row._co_display }
+      : null;
     reset({ form: getValues('form'), table: row });
     setRows((prev) => prev.filter((_, i) => i !== index));
   };
@@ -277,7 +298,10 @@ const KarigarIssue = () => {
   });
 
   const addSelectedPending = () => {
-    const picked = pendingItems.filter((p) => selectedIds.has(p.co_item_id));
+    const existingCoItemIds = new Set(rs.map(r => r.customer_order_item).filter(Boolean));
+    const picked = pendingItems
+      .filter((p) => selectedIds.has(p.co_item_id))
+      .filter((p) => !existingCoItemIds.has(p.co_item_id));
     if (picked.length === 0) { setPickerOpen(false); return; }
     setRows((prev) => {
       const base = prev.length;
@@ -322,15 +346,27 @@ function transformData(jsonData, labelKey) {
     if (e.key === "Tab") {
       e.preventDefault()
       const table = getValues("table");
+      // Re-attach CO-linkage if this is an edit-cycle add-back.
+      const merged = editingMetaRef.current ? { ...table, ...editingMetaRef.current } : table;
+      // Block duplicate CO items — the same customer_order_item must not appear twice.
+      if (merged.customer_order_item && rs.some(r => r.customer_order_item === merged.customer_order_item)) {
+        toast({
+          title: "Item already in this job work",
+          description: "This customer-order item is already on the grid. Edit the existing row instead.",
+          variant: "destructive",
+        });
+        return;
+      }
       const issue_sl_no = rs.length + 1
       const rowVals = {
         issue_sl_no,
-        ...table,
+        ...merged,
       }
       setRows([...rs, rowVals])
+      editingMetaRef.current = null;
       reset({form:{...getValues('form')},table:{...tableDefaultValue}})
       setFocus('table.design_code')
-      
+
 
 
     }
@@ -402,8 +438,16 @@ function transformData(jsonData, labelKey) {
               name="form.issue_slip_type"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger data-id="slip-type">
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  disabled={rs.length > 0}
+                >
+                  <SelectTrigger
+                    data-id="slip-type"
+                    className={rs.length > 0 ? 'opacity-70 cursor-not-allowed' : ''}
+                    title={rs.length > 0 ? 'Slip Type is locked because items have been added. Remove all items to change it.' : undefined}
+                  >
                     <SelectValue placeholder="Select Slip type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -415,6 +459,11 @@ function transformData(jsonData, labelKey) {
                 </Select>
               )}
             />
+            {rs.length > 0 && (
+              <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                Locked — remove all items to change type.
+              </p>
+            )}
 
           </FieldContainer>
 
@@ -503,21 +552,31 @@ function transformData(jsonData, labelKey) {
         <Table className="w-full table-fixed border-collapse">
           <TableBody>
             <TableRow className=" w-full bg-gray-100">
-              <TableCell className="w-20 px-4 py-2 border">Option</TableCell>
-              <TableCell className="w-32 px-4 py-2 border">Design No</TableCell>
-              <TableCell className="w-32 px-4 py-2 border">Main Item</TableCell>
-              <TableCell className="w-20 px-4 py-2 border">Purity</TableCell>
-              <TableCell className="w-16 px-4 py-2 border">Pcs</TableCell>
+              <TableCell className="w-20 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Option</TableCell>
+              <TableCell className="w-16 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sl No</TableCell>
+              <TableCell className="w-40 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Source</TableCell>
+              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Design No</TableCell>
+              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Main Item</TableCell>
+              <TableCell className="w-20 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Purity</TableCell>
+              <TableCell className="w-16 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pcs</TableCell>
 
-              <TableCell className="w-32 px-4 py-2 border">Approx wt</TableCell>
-              <TableCell className="w-16 px-4 py-2 border">Size</TableCell>
-              <TableCell className="w-32 px-4 py-2 border">Due Date</TableCell>
+              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Approx wt</TableCell>
+              <TableCell className="w-16 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Size</TableCell>
+              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Due Date</TableCell>
 
-              <TableCell className="w-32 px-4 py-2 border">Remarks</TableCell>
+              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Remarks</TableCell>
             </TableRow>
 
             <TableRow>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
+              {/* Sl No — auto-assigned on Tab */}
+              <TableCell className="w-16 px-4 py-2 border align-middle text-xs text-muted-foreground italic">
+                auto
+              </TableCell>
+              {/* Source — only auto-set when item comes from a Customer Order */}
+              <TableCell className="w-40 px-4 py-2 border align-middle text-xs text-muted-foreground italic">
+                —
+              </TableCell>
               <TableCell className="w-32 px-4 py-2 border">
                 <Input type="text" {...register("table.design_code")} />
               </TableCell>
@@ -579,17 +638,43 @@ function transformData(jsonData, labelKey) {
                     <Trash2 color="#d45959" className="size-4 mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
                   </div>
                 </TableCell>
-                <TableCell className="w-32 px-4 py-2 border"> {row.design_code}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">
-                  {row.item}
+                {/* Sl No — this job work's own sequence */}
+                <TableCell className="w-16 px-4 py-2 border font-semibold tabular-nums">{row.issue_sl_no ?? index + 1}</TableCell>
+                {/* Source — violet pill when linked to a Customer Order, em-dash otherwise */}
+                <TableCell className="w-40 px-4 py-2 border">
+                  {row._co_display ? (
+                    <div
+                      className="inline-flex flex-col gap-0.5 max-w-full rounded-md border border-violet-200 bg-violet-50 px-2 py-1 leading-tight"
+                      title={`Linked to Customer Order ${row._co_display.co_no}\nCustomer: ${row._co_display.customer_name ?? ''}\nCO Sl No: ${row._co_display.sl_no ?? '—'}${row._co_display.co_date ? `\nCO Date: ${row._co_display.co_date}` : ''}`}
+                    >
+                      <span className="flex items-center gap-1 text-[11px] font-semibold text-violet-800 truncate">
+                        <Link2 className="size-3 shrink-0" />
+                        {row._co_display.co_no}
+                      </span>
+                      <span className="text-[10px] text-violet-700/80 truncate">
+                        {row._co_display.customer_name ?? '—'} · Sl {row._co_display.sl_no ?? '—'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </TableCell>
-                <TableCell className="w-20 px-4 py-2 border">{row.purity}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.pcs}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.approx_wt}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.size}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.due_date}</TableCell>
+                <TableCell className="w-32 px-4 py-2 border">{row.design_code || <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="w-32 px-4 py-2 border">
+                  {row._co_display?.item_name ? (
+                    <div>
+                      <span className="font-medium">{row._co_display.item_name}</span>
+                      {row.item && <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{row.item}</p>}
+                    </div>
+                  ) : (row.item || <span className="text-muted-foreground">—</span>)}
+                </TableCell>
+                <TableCell className="w-20 px-4 py-2 border">{row.purity || <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="w-16 px-4 py-2 border tabular-nums">{row.pcs ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="w-32 px-4 py-2 border tabular-nums">{row.approx_wt ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="w-16 px-4 py-2 border">{row.size || <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="w-32 px-4 py-2 border">{row.due_date || <span className="text-muted-foreground">—</span>}</TableCell>
 
-                <TableCell className="w-32 px-4 py-2 border">{row.remarks}</TableCell>
+                <TableCell className="w-32 px-4 py-2 border">{row.remarks || <span className="text-muted-foreground">—</span>}</TableCell>
               </TableRow>
             ))}
 

@@ -463,6 +463,38 @@ class KarigarIssueForPostSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'items': f"{slip_type} slip cannot contain customer-order items (rows {offending}). Create a separate Customer Order slip."
                 })
+        # Reject duplicate customer_order_item references:
+        #   1) within the same submitted payload (same CO item twice in one slip)
+        #   2) against already-saved KarigarIssueItems elsewhere in the system
+        seen = set()
+        dupes_in_payload = set()
+        for it in items:
+            coi = it.get('customer_order_item')
+            if coi is None:
+                continue
+            coi_id = coi.pk if hasattr(coi, 'pk') else coi
+            if coi_id in seen:
+                dupes_in_payload.add(coi_id)
+            seen.add(coi_id)
+        if dupes_in_payload:
+            raise serializers.ValidationError({
+                'items': (
+                    f"The same customer-order item cannot appear twice in one job work. "
+                    f"Duplicate item id(s): {sorted(dupes_in_payload)}"
+                )
+            })
+        if seen:
+            qs = KarigarIssueItem.objects.filter(customer_order_item_id__in=seen)
+            if self.instance is not None:
+                qs = qs.exclude(issue_slip=self.instance)
+            already = list(qs.values_list('customer_order_item_id', flat=True))
+            if already:
+                raise serializers.ValidationError({
+                    'items': (
+                        f"Customer-order item(s) {sorted(set(already))} are already "
+                        f"allocated to another Karigar Job Work."
+                    )
+                })
         return attrs
 
     def create(self, validated_data):

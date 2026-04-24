@@ -378,6 +378,236 @@ def serve_attachment_file(request, name):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def stock_matching_report(request):
+    """
+    Bill-wise reconciliation of Purchase Voucher sub-items vs Barcode sub-items.
+
+    For every Purchase Voucher in the selected date range, aggregates
+    PurchaseVoucherDetails (sub_ct, sub_gw) per item and compares it against
+    the aggregated BarcodeDetails (ct, gw) of the barcodes that were created
+    from that PV (linked via BarcodeMain.voucher_no == PurchaseVoucher.billno).
+
+    A tolerance (default 0.05) is applied — differences within ±tolerance are
+    treated as zero. Supports ?from=YYYY-MM-DD&to=YYYY-MM-DD&tolerance=0.05
+    &mismatches_only=1.
+    """
+    from decimal import Decimal
+    from datetime import date, datetime, timedelta
+    from collections import defaultdict
+    from django.db.models import Sum
+    from inventory.models import BarcodeDetails
+
+    retail = getattr(request, 'retail', None)
+    if not retail:
+        return Response({'error': 'Retail context missing'}, status=400)
+
+    today = date.today()
+    default_from = today.replace(day=1)
+    try:
+        from_date = datetime.strptime(request.GET.get('from') or default_from.isoformat(), '%Y-%m-%d').date()
+        to_date = datetime.strptime(request.GET.get('to') or today.isoformat(), '%Y-%m-%d').date()
+    except ValueError:
+        return Response({'error': 'Invalid date — expected YYYY-MM-DD'}, status=400)
+
+    try:
+        tolerance = Decimal(str(request.GET.get('tolerance') or '0.05'))
+    except Exception:
+        tolerance = Decimal('0.05')
+
+    mismatches_only = (request.GET.get('mismatches_only') or '').lower() in ('1', 'true', 'yes')
+
+    # --- Stock side: PurchaseVoucherDetails aggregated per (bill, item) ---
+    pv_rows = (
+        PurchaseVoucherDetails.objects
+        .filter(
+            billno__retail=retail,
+            billno__date1__range=[from_date, to_date],
+            billno__is_return=False,
+            sub_item__isnull=False,
+        )
+        .values(
+            'billno_id',
+            'billno__billno',
+            'billno__date1',
+            'billno__ldgr__ac_name',
+            'sub_item_id',
+            'sub_item__item_name',
+        )
+        .annotate(stock_ct=Sum('sub_ct'), stock_gw=Sum('sub_gw'))
+        .order_by('billno__date1', 'billno__billno', 'sub_item__item_name')
+    )
+
+    # Collect the set of bill numbers for the barcode lookup.
+    bill_numbers = {r['billno__billno'] for r in pv_rows}
+    if not bill_numbers:
+        return Response({
+            'tolerance': float(tolerance),
+            'from': from_date.isoformat(),
+            'to': to_date.isoformat(),
+            'bills': [],
+        })
+
+    # --- Barcode side: BarcodeDetails aggregated per (voucher_no, item) ---
+    bc_rows = (
+        BarcodeDetails.objects
+        .filter(
+            barcode__retail=retail,
+            barcode__voucher_no__in=bill_numbers,
+            item__isnull=False,
+        )
+        .values('barcode__voucher_no', 'item_id', 'item__item_name')
+        .annotate(bc_ct=Sum('ct'), bc_gw=Sum('gw'))
+    )
+    bc_lookup = {}
+    for r in bc_rows:
+        bc_lookup[(r['barcode__voucher_no'], r['item_id'])] = {
+            'ct': r['bc_ct'] or Decimal('0'),
+            'gw': r['bc_gw'] or Decimal('0'),
+        }
+
+    # --- Per-bill barcode list (for clickable chips on the frontend) ---
+    from inventory.models import BarcodeMain
+    barcode_rows = (
+        BarcodeMain.objects
+        .filter(retail=retail, voucher_no__in=bill_numbers)
+        .select_related('item')
+        .values('id', 'barcode', 'voucher_no', 'stk_status',
+                'pcs', 'gw', 'item__item_name', 'item__short_code', 'created_date')
+        .order_by('voucher_no', 'created_date', 'id')
+    )
+    barcodes_by_bill = defaultdict(list)
+    for b in barcode_rows:
+        barcodes_by_bill[b['voucher_no']].append({
+            'id': b['id'],
+            'barcode': b['barcode'],
+            'item_name': b['item__item_name'] or '',
+            'item': b['item__short_code'] or '',
+            'pcs': b['pcs'],
+            'gw': float(b['gw']) if b['gw'] is not None else None,
+            'stk_status': bool(b['stk_status']),
+            'created_date': b['created_date'].isoformat() if b['created_date'] else None,
+        })
+
+    # --- Combine + apply tolerance ---
+    bills_map = {}
+    for r in pv_rows:
+        billno = r['billno__billno']
+        item_id = r['sub_item_id']
+        stk_ct = r['stock_ct'] or Decimal('0')
+        stk_gw = r['stock_gw'] or Decimal('0')
+        bc = bc_lookup.get((billno, item_id), {'ct': Decimal('0'), 'gw': Decimal('0')})
+
+        diff_ct = (stk_ct - bc['ct']).quantize(Decimal('0.001'))
+        diff_gw = (stk_gw - bc['gw']).quantize(Decimal('0.001'))
+        if abs(diff_ct) <= tolerance:
+            diff_ct = Decimal('0')
+        if abs(diff_gw) <= tolerance:
+            diff_gw = Decimal('0')
+
+        if billno not in bills_map:
+            bills_map[billno] = {
+                'billno': billno,
+                'date': r['billno__date1'].isoformat() if r['billno__date1'] else None,
+                'vendor': r['billno__ldgr__ac_name'] or '',
+                'items': [],
+                'barcodes': barcodes_by_bill.get(billno, []),
+                'has_issue': False,
+            }
+        bills_map[billno]['items'].append({
+            'item_id': item_id,
+            'item_name': r['sub_item__item_name'] or '',
+            'stock_ct': float(stk_ct),
+            'barcode_ct': float(bc['ct']),
+            'diff_ct': float(diff_ct),
+            'stock_gw': float(stk_gw),
+            'barcode_gw': float(bc['gw']),
+            'diff_gw': float(diff_gw),
+            'row_issue': diff_ct != 0 or diff_gw != 0,
+        })
+        if diff_ct != 0 or diff_gw != 0:
+            bills_map[billno]['has_issue'] = True
+
+    bills = sorted(bills_map.values(), key=lambda b: (b['date'] or '', b['billno']))
+    if mismatches_only:
+        bills = [b for b in bills if b['has_issue']]
+
+    # Overall totals for a summary header
+    summary = {
+        'total_bills': len(bills),
+        'bills_with_issues': sum(1 for b in bills if b['has_issue']),
+    }
+
+    return Response({
+        'tolerance': float(tolerance),
+        'from': from_date.isoformat(),
+        'to': to_date.isoformat(),
+        'mismatches_only': mismatches_only,
+        'summary': summary,
+        'bills': bills,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pending_po_items_by_vendor(request):
+    """
+    Purchase-order line items for a given vendor that have not yet been
+    billed on any Purchase Voucher. Used by the Purchase Voucher screen to
+    auto-open a picker when the vendor is selected.
+    """
+    retail = getattr(request, 'retail', None)
+    if not retail:
+        return Response({'error': 'Retail context missing'}, status=400)
+
+    vendor_id = request.GET.get('vendor')
+    if not vendor_id:
+        return Response({'error': 'vendor param required'}, status=400)
+
+    vouchered = set(
+        PurchaseVoucherItems.objects
+        .filter(retail=retail, po_no__isnull=False)
+        .exclude(po_no='')
+        .values_list('po_no', 'po_sl_no')
+    )
+
+    qs = (
+        PurchaseOrderItems.objects
+        .select_related('po_slip', 'po_slip__ldgr', 'item', 'item__hsn_no', 'purity')
+        .filter(po_slip__retail=retail, po_slip__ldgr_id=vendor_id)
+        .order_by('po_slip__date1', 'po_slip__po_no', 'po_sl_no')
+    )
+
+    data = []
+    for r in qs:
+        po_no = r.po_slip.po_no if r.po_slip else None
+        if (po_no, r.po_sl_no) in vouchered:
+            continue
+        data.append({
+            'po_item_id': r.id,
+            'po_id': r.po_slip_id,
+            'po_no': po_no,
+            'po_date': r.po_slip.date1.isoformat() if r.po_slip and r.po_slip.date1 else None,
+            'po_sl_no': r.po_sl_no,
+            'item_id': r.item.id if r.item else None,
+            'item': r.item.short_code if r.item else None,
+            'item_name': r.item.item_name if r.item else None,
+            'purity_id': r.purity.id if r.purity else None,
+            'purity': r.purity.purity if r.purity else None,
+            'pcs': r.pcs,
+            'approx_wt': float(r.approx_wt) if r.approx_wt is not None else None,
+            'design_code': r.design_code,
+            'size': r.size,
+            'remarks': r.remarks,
+            'due_date': r.due_date.isoformat() if r.due_date else None,
+            'cgst': float(r.item.hsn_no.cgst) if r.item and r.item.hsn_no and r.item.hsn_no.cgst is not None else 0,
+            'sgst': float(r.item.hsn_no.sgst) if r.item and r.item.hsn_no and r.item.hsn_no.sgst is not None else 0,
+            'igst': float(r.item.hsn_no.igst) if r.item and r.item.hsn_no and r.item.hsn_no.igst is not None else 0,
+        })
+    return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def customer_purchases_for_adjustment(request):
     """Return customer-type purchase vouchers for a given ledger that have unadjusted balance."""
     from django.db.models import Sum, F, DecimalField, Value

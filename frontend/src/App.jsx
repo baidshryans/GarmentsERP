@@ -37,6 +37,7 @@ const SalesReturnAdd             = lazy(() => import("./components/Sales/SalesRe
 const SalesApprovalAdd           = lazy(() => import("./components/Sales/SalesApprovalAdd"));
 const CustomerOrderList          = lazy(() => import("./components/Sales/CustomerOrderList"));
 const CustomerOrderKanban        = lazy(() => import("./components/Sales/CustomerOrderKanban"));
+const CustomerOrderTracker       = lazy(() => import("./components/Sales/CustomerOrderTracker"));
 const CustomerOrderForm          = lazy(() => import("./CustomerOrderForm"));
 const SalesVoucherList           = lazy(() => import("./components/Sales/SalesVoucherList"));
 const SalesApprovalList          = lazy(() => import("./components/Sales/SalesApprovalList"));
@@ -65,6 +66,7 @@ const FixedAssetSettingsPage     = lazy(() => import("./components/FixedAssets/F
 const HallmarkReceiveAdd         = lazy(() => import("./components/manufacturing/receive/hallmarkReceiveAdd"));
 const PurchaseReturnadd          = lazy(() => import("./components/manufacturing/purchases/PurchaseReturnAdd"));
 const PurchaseVoucherList        = lazy(() => import("./components/manufacturing/purchases/PurchaseVoucherList"));
+const StockMatchingReport        = lazy(() => import("./components/manufacturing/purchases/StockMatchingReport"));
 const IdGenerationReport         = lazy(() => import("./components/Inventory/BarcodeManagement/IdGenerationReport"));
 const KarigarStoneTransactions   = lazy(() => import("./components/manufacturing/reports/KarigarStoneTransactions.jsx"));
 const FinishedItemRecReport      = lazy(() => import("./finishItemreceiveReport.jsx"));
@@ -356,6 +358,7 @@ const appRoutes = [
   { path: "purchase/purchaseorder/list/:id",      heading: "Edit Purchase Order",    component: <PurchaseOrder /> },
   { path: "purchase/gstr2b-reconcile",            heading: "GSTR-2B Reconciliation", component: <GSTR2BReconcile /> },
   { path: "purchase/customerpurchase/list/",      heading: "Customer Purchase List", component: <PurchaseVoucherList voucherType="Customer" /> },
+  { path: "purchase/stock-matching/",              heading: "Stock Matching Report",  component: <StockMatchingReport /> },
   { path: "purchase/customerpurchase/list/add/",  heading: "Add Customer Purchase",  component: <PurchaseVoucher /> },
   { path: "purchase/customerpurchase/list/:id",   heading: "Edit Customer Purchase", component: <PurchaseVoucher /> },
 
@@ -366,6 +369,7 @@ const appRoutes = [
   { path: "sales/quotation/:id",           heading: "Edit Quotation",       component: <QuotationAdd /> },
   { path: "sales/customerorder/list/",     heading: "Customer Order List",  component: <CustomerOrderList /> },
   { path: "sales/customerorder/kanban/",   heading: "Customer Order Kanban", component: <CustomerOrderKanban /> },
+  { path: "sales/customerorder/tracker/",  heading: "Customer Order Tracker", component: <CustomerOrderTracker /> },
   { path: "sales/customerorder/list/add/", heading: "Add Customer Order",   component: <CustomerOrderForm /> },
   { path: "sales/customerorder/list/:id",  heading: "Edit Customer Order",  component: <CustomerOrderForm /> },
   { path: "sales/list/",                   heading: "Sales Voucher List",   component: <SalesVoucherList /> },

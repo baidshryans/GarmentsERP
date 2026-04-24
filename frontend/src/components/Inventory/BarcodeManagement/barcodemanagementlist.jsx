@@ -209,14 +209,21 @@ const BarcodeManagementList = () => {
           if (response.success || response.data) {
             const d = response.data;
             if (d.stk_status === false) setIsReadOnly(true);
+            // Capture gold/metal sub-item (no packet) into the ref so it can be
+            // re-injected on submit — and filter it out of the editable list
+            // (its weight lives in NW and its purity mirrors the main item).
+            const allDetails = d.barcodedetails_set || [];
+            pvGoldItemRef.current = allDetails.find((r) => !r.packet) || null;
             // Format weight fields to 3 dp strings before setting
             const formData = {
               ...d,
+              // Prefill ORDER NO textbox with the readable CO number
+              order_no: d.customer_order_no || "",
               gw: fmt3(d.gw),
               nw: fmt3(d.nw),
-              barcodedetails_set: (d.barcodedetails_set || []).map((row) => ({
-                ...row, ct: fmt3(row.ct), gw: fmt3(row.gw),
-              })),
+              barcodedetails_set: allDetails
+                .filter((row) => row.packet)
+                .map((row) => ({ ...row, ct: fmt3(row.ct), gw: fmt3(row.gw) })),
             };
             Object.keys(formData).forEach((key) => setValue(`form.${key}`, formData[key]));
           }

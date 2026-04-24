@@ -377,6 +377,9 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode", required=False,allow_null=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
     order_no = serializers.SlugRelatedField(queryset=CustomerOrder.objects.all(), slug_field="order_no", required=False,allow_null=True)
+    customer_order_item = serializers.PrimaryKeyRelatedField(
+        queryset=CustomerOrderItems.objects.all(), required=False, allow_null=True
+    )
 
     # Nested serializer for details
     purchasevoucherdetails_set = PurchaseVoucherDetailsSerializer(many=True,)
@@ -396,6 +399,7 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
             'barcode',
             'barcode_txt',
             'order_no',
+            'customer_order_item',
             'sl_no',
             'pcs',
             'gw',
@@ -428,15 +432,42 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
                 raise ValidationError(
                     f"Sub-item GW total ({total_sub_gw:.3f}g) does not match item GW ({gw:.3f}g). Please reconcile."
                 )
+
+        # Mutual exclusivity: a line is either from a PO (carries po_no/po_sl_no)
+        # or directly from a CO item — never both.
+        coi = data.get('customer_order_item')
+        po_no = data.get('po_no')
+        po_sl_no = data.get('po_sl_no')
+        if coi and (po_no or po_sl_no):
+            raise ValidationError(
+                "A Purchase Voucher line cannot reference both a Purchase Order and a Customer Order item."
+            )
+
+        # Already-billed guard for the direct CO → PV path.
+        if coi:
+            from sales.serializers import _customer_order_item_lock
+            state, reason = _customer_order_item_lock(coi)
+            if state == 'billed' and (self.instance is None or self.instance.customer_order_item_id != coi.id):
+                raise ValidationError(
+                    f"Customer order item is already locked: {reason or state}."
+                )
+
         return data
 
     def create(self, validated_data):
         details_data = validated_data.pop('purchasevoucherdetails_set')
+        coi = validated_data.get('customer_order_item')
         voucher_item_instance = PurchaseVoucherItems.objects.create(**validated_data)
 
         # Create related PurchaseVoucherDetails instances
         for detail_data in details_data:
             PurchaseVoucherDetails.objects.create(main_item=voucher_item_instance, **detail_data)
+
+        # Belt-and-braces: flip sale_status True so the CO item is locked
+        # even if the FK is later nulled by on_delete=SET_NULL.
+        if coi:
+            from sales.models import CustomerOrderItems
+            CustomerOrderItems.objects.filter(pk=coi.pk).update(sale_status=True)
 
         return voucher_item_instance
 
@@ -931,6 +962,90 @@ class PurchaseOrderForPostSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
         }
+
+    def validate(self, attrs):
+        """
+        Reject duplicate customer_order_item references:
+          1) within the same submitted payload (user added the same CO item twice)
+          2) against already-saved PurchaseOrderItems elsewhere in the system
+             (each CO item may live on at most ONE PO line across the system).
+        """
+        items = attrs.get('purchaseorderitems_set') or []
+        po_type = attrs.get('po_type') or (self.instance.po_type if self.instance else None)
+
+        # Required-field guard — each line must have item, purity, pcs, approx_wt.
+        # Mirrors the frontend Tab-add guard so raw API / admin writes can't bypass it.
+        from datetime import date as _date
+        today = _date.today()
+        field_errors = []
+        for idx, it in enumerate(items, start=1):
+            missing = []
+            if not it.get('item'):
+                missing.append('item')
+            if not it.get('purity'):
+                missing.append('purity')
+            pcs = it.get('pcs')
+            if pcs in (None, '') or (isinstance(pcs, (int, float)) and pcs <= 0):
+                missing.append('pcs')
+            wt = it.get('approx_wt')
+            try:
+                wt_val = float(wt) if wt not in (None, '') else 0
+            except (TypeError, ValueError):
+                wt_val = 0
+            if wt_val <= 0:
+                missing.append('approx_wt')
+            if missing:
+                field_errors.append(f"Line {idx}: missing {', '.join(missing)}")
+            # Due-date guard — if supplied, must be strictly after today.
+            due = it.get('due_date')
+            if due is not None and due <= today:
+                field_errors.append(f"Line {idx}: due_date must be after today ({today.isoformat()})")
+        if field_errors:
+            raise serializers.ValidationError({'purchaseorderitems_set': field_errors})
+
+        # For Customer-Order POs, every line must carry a customer_order_item FK.
+        # Stock / manual items are not allowed on a CO-type PO.
+        if po_type == 'Customer Order':
+            unlinked = [idx for idx, it in enumerate(items, start=1) if not it.get('customer_order_item')]
+            if unlinked:
+                raise serializers.ValidationError({
+                    'purchaseorderitems_set': (
+                        f"Customer Order POs must only contain items linked to a customer order. "
+                        f"Line(s) {unlinked} are unlinked — use the 'Pick from Customer Orders' dialog."
+                    )
+                })
+
+        seen = set()
+        dupes_in_payload = set()
+        for it in items:
+            coi = it.get('customer_order_item')
+            if coi is None:
+                continue
+            coi_id = coi.pk if hasattr(coi, 'pk') else coi
+            if coi_id in seen:
+                dupes_in_payload.add(coi_id)
+            seen.add(coi_id)
+        if dupes_in_payload:
+            raise serializers.ValidationError({
+                'purchaseorderitems_set': (
+                    f"The same customer-order item cannot appear twice in one PO. "
+                    f"Duplicate item id(s): {sorted(dupes_in_payload)}"
+                )
+            })
+        # Collision against OTHER saved POs — excludes the current PO on update.
+        if seen:
+            qs = PurchaseOrderItems.objects.filter(customer_order_item_id__in=seen)
+            if self.instance is not None:
+                qs = qs.exclude(po_slip=self.instance)
+            already = list(qs.values_list('customer_order_item_id', flat=True))
+            if already:
+                raise serializers.ValidationError({
+                    'purchaseorderitems_set': (
+                        f"Customer-order item(s) {sorted(set(already))} are already "
+                        f"allocated to another Purchase Order."
+                    )
+                })
+        return attrs
 
     def create(self, validated_data):
         with transaction.atomic():

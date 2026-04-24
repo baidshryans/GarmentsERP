@@ -6,7 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { SquarePen, Trash2, History, Printer } from "lucide-react";
+import { SquarePen, Trash2, History, Printer, Unlink } from "lucide-react";
+import ReleaseFromOrderModal from "./ReleaseFromOrderModal";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {deleteBarcodeManagement}from '../../../services/apiService';
@@ -33,6 +34,8 @@ function BarcodeListView() {
   const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
+  const [releaseTarget, setReleaseTarget] = useState(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
 
   useEffect(() => {
@@ -56,7 +59,7 @@ function BarcodeListView() {
     };
 
     fetchLedgers();
-  }, [search, page, sortby]);
+  }, [search, page, sortby, refreshTick]);
 
 
 
@@ -92,6 +95,15 @@ function BarcodeListView() {
           >
             <Printer className="size-4" />
           </button>
+          {row.original.customer_order ? (
+            <button
+              onClick={() => setReleaseTarget(row.original)}
+              className="p-1.5 rounded text-amber-600 hover:bg-amber-50 transition-colors flex items-center"
+              title="Release from customer order"
+            >
+              <Unlink className="size-4" />
+            </button>
+          ) : null}
         </div>
       ),
     },
@@ -147,14 +159,27 @@ function BarcodeListView() {
     {
       header: "Stock Status",
       accessorKey: "stk_status",
-      cell: ({ getValue }) => {
-        const inStock = getValue();
+      cell: ({ row }) => {
+        const inStock = row.original.stk_status;
+        const orderNo = row.original.customer_order_no;
+        const orderParty = row.original.customer_order_party_name;
+        const orderStatus = row.original.customer_order_status;
         return (
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-            inStock ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-          }`}>
-            {inStock ? "In Stock" : "Not in Stock"}
-          </span>
+          <div className="flex flex-col gap-1">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium w-fit ${
+              inStock ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+            }`}>
+              {inStock ? "In Stock" : "Not in Stock"}
+            </span>
+            {orderNo ? (
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 w-fit"
+                title={`Reserved for ${orderParty || "customer"} — status: ${orderStatus || "pending"}`}
+              >
+                Order #{orderNo}
+              </span>
+            ) : null}
+          </div>
         );
       },
     },
@@ -240,6 +265,12 @@ function BarcodeListView() {
            
     
     </div >
+    <ReleaseFromOrderModal
+      open={!!releaseTarget}
+      barcode={releaseTarget}
+      onClose={() => setReleaseTarget(null)}
+      onReleased={() => setRefreshTick((t) => t + 1)}
+    />
     </>
   )
 }

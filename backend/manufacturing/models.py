@@ -103,6 +103,13 @@ class KarigarIssueItem(models.Model):
 
     class Meta:
         db_table = "issue_to_karigar_main"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer_order_item'],
+                condition=models.Q(customer_order_item__isnull=False),
+                name='uniq_karigarissue_customer_order_item',
+            ),
+        ]
 
 
 class SampleIssue(models.Model):

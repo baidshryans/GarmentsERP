@@ -7,7 +7,8 @@ import apiClient from "@/services/apiClient";
 import { fetchCompanies } from "@/services/apiService";
 import {
   Printer, ChevronRight, ChevronDown, X, Loader2, Scale,
-  TrendingUp, Wallet, Landmark,
+  Wallet, Landmark, ChevronsDownUp, ChevronsUpDown,
+  Droplets, TrendingUp,
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { RetailScopePicker, applyRetailScopeParams } from "@/components/common/RetailScopePicker";
@@ -129,8 +130,8 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
 }
 
 /* ── Subgroup block (header + child rows + subtotal) ──────────────────────── */
-function SubgroupBlock({ group, onOpen, activeId }) {
-  const [expanded, setExpanded] = useState(true);
+function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed }) {
+  const expanded = !collapsed[group.id];
   const visibleAccounts = (group.accounts || []).filter(
     (a) => Number(a.balance || 0) !== 0
   );
@@ -140,7 +141,7 @@ function SubgroupBlock({ group, onOpen, activeId }) {
     <>
       <tr
         className="bg-muted/40 border-t border-border cursor-pointer hover:bg-muted/60 transition-colors"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => toggleCollapsed(group.id)}
       >
         <td className="px-4 py-2 text-sm font-semibold flex items-center gap-1.5">
           {expanded
@@ -184,7 +185,7 @@ function SubgroupBlock({ group, onOpen, activeId }) {
 }
 
 /* ── Side panel (Assets or Liabilities) ───────────────────────────────────── */
-function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId }) {
+function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, collapsed, toggleCollapsed }) {
   const groups = (side?.groups || []).filter(
     (g) => Number(g.total || 0) !== 0 || (g.accounts || []).some((a) => Number(a.balance || 0) !== 0)
   );
@@ -206,7 +207,14 @@ function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId }) {
             </tr>
           )}
           {groups.map((g) => (
-            <SubgroupBlock key={g.id} group={g} onOpen={onOpen} activeId={activeId} />
+            <SubgroupBlock
+              key={g.id}
+              group={g}
+              onOpen={onOpen}
+              activeId={activeId}
+              collapsed={collapsed}
+              toggleCollapsed={toggleCollapsed}
+            />
           ))}
         </tbody>
         <tfoot>
@@ -233,6 +241,25 @@ export default function BalanceSheet() {
   const [modal, setModal]       = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [companyName, setCompanyName] = useState("");
+  const [collapsed, setCollapsed] = useState({});
+
+  const toggleCollapsed = useCallback(
+    (id) => setCollapsed((p) => ({ ...p, [id]: !p[id] })),
+    []
+  );
+
+  const allGroupIds = useMemo(() => {
+    const ids = [];
+    for (const g of data?.assets?.groups || []) ids.push(g.id);
+    for (const g of data?.liabilities?.groups || []) ids.push(g.id);
+    return ids;
+  }, [data]);
+
+  const anyCollapsed = allGroupIds.some((id) => collapsed[id]);
+  const toggleAll = () =>
+    anyCollapsed
+      ? setCollapsed({})
+      : setCollapsed(Object.fromEntries(allGroupIds.map((id) => [id, true])));
 
   useEffect(() => {
     fetchCompanies().then((res) => {
@@ -283,6 +310,61 @@ export default function BalanceSheet() {
 
   const assetsTotal = Number(data?.assets?.total || 0);
   const liabilitiesTotal = Math.abs(Number(data?.liabilities?.total || 0));
+
+  // Ratios derived from the balance sheet tree.
+  // Equity subgroups come from the "Capital Account" root which the backend
+  // merges into liabilities.groups (see BalanceSheetAPIView).
+  const EQUITY_GROUP_NAMES = new Set([
+    "Owner's Capital",
+    "Reserves & Surplus",
+    "Capital Account",
+  ]);
+  // Only formal borrowings count as debt. Trade payables, duties, etc.
+  // sit in Current Liabilities and are not "debt" for D/E purposes.
+  const DEBT_GROUP_NAMES = new Set(["Loans (Liability)"]);
+  const ratios = useMemo(() => {
+    const findGroupTotal = (groups, name) => {
+      const g = (groups || []).find((x) => x.name === name);
+      return g ? Math.abs(Number(g.total || 0)) : 0;
+    };
+    const findAccount = (groups, accId) => {
+      for (const g of groups || []) {
+        for (const a of g.accounts || []) if (a.id === accId) return a;
+      }
+      return null;
+    };
+    const currentAssets = findGroupTotal(data?.assets?.groups, "Current Assets");
+    const currentLiab   = findGroupTotal(data?.liabilities?.groups, "Current Liabilities");
+
+    const equity = (data?.liabilities?.groups || [])
+      .filter((g) => EQUITY_GROUP_NAMES.has(g.name))
+      .reduce((s, g) => s + Math.abs(Number(g.total || 0)), 0);
+    const debt = (data?.liabilities?.groups || [])
+      .filter((g) => DEBT_GROUP_NAMES.has(g.name))
+      .reduce((s, g) => s + Math.abs(Number(g.total || 0)), 0);
+
+    // Net profit is embedded as a synthetic "net_profit" account inside
+    // Reserves & Surplus on the liabilities side. Liabilities are stored
+    // Dr−Cr (credit-normal = negative), so negate for a signed profit.
+    const npAcc = findAccount(data?.liabilities?.groups, "net_profit");
+    const netProfit = npAcc ? -Number(npAcc.balance || 0) : 0;
+
+    const safeDiv = (n, d) => (d > 0 ? n / d : null);
+    return {
+      currentRatio: safeDiv(currentAssets, currentLiab),
+      workingCapital: currentAssets - currentLiab,
+      debtToEquity: safeDiv(debt, equity),
+      roa: assetsTotal > 0 ? (netProfit / assetsTotal) * 100 : null,
+      netProfit,
+      equity,
+      debt,
+      currentAssets,
+      currentLiab,
+    };
+  }, [data, assetsTotal]);
+
+  const fmtRatio = (v, suffix = "") =>
+    v == null ? "—" : `${v.toFixed(2)}${suffix}`;
 
   const handlePrint = () => {
     if (!data) return;
@@ -369,16 +451,32 @@ export default function BalanceSheet() {
         <Button size="sm" onClick={fetchReport} disabled={loading} className="h-9 cursor-pointer">
           {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : "Show Report"}
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handlePrint}
-          disabled={!data}
-          aria-label="Print balance sheet"
-          className="h-9 cursor-pointer ml-auto"
-        >
-          <Printer className="size-4 mr-1.5" aria-hidden="true" /> Print
-        </Button>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={toggleAll}
+            disabled={!data}
+            className="h-9 cursor-pointer"
+          >
+            {anyCollapsed ? (
+              <ChevronsUpDown className="size-4 mr-1.5" aria-hidden="true" />
+            ) : (
+              <ChevronsDownUp className="size-4 mr-1.5" aria-hidden="true" />
+            )}
+            {anyCollapsed ? "Expand All" : "Collapse All"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePrint}
+            disabled={!data}
+            aria-label="Print balance sheet"
+            className="h-9 cursor-pointer"
+          >
+            <Printer className="size-4 mr-1.5" aria-hidden="true" /> Print
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -387,45 +485,78 @@ export default function BalanceSheet() {
         </p>
       )}
 
-      {/* ── Summary tiles ────────────────────────────────────────────────── */}
+      {/* ── Financial ratio tiles (derived from the balance sheet) ────────── */}
       {data && !loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Current Ratio — liquidity */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <Wallet className="size-3.5" aria-hidden="true" /> Total Assets
+              <Droplets className="size-3.5" aria-hidden="true" /> Current Ratio
             </div>
-            <p className="mt-1.5 text-xl font-semibold tabular-nums">
-              ₹ {fmt(assetsTotal)}
+            <p className={`mt-1.5 text-xl font-semibold tabular-nums ${
+              ratios.currentRatio == null ? "" :
+              ratios.currentRatio >= 1.5 ? "text-emerald-600 dark:text-emerald-400" :
+              ratios.currentRatio >= 1   ? "text-amber-600 dark:text-amber-400"   :
+              "text-rose-600 dark:text-rose-400"
+            }`}>
+              {fmtRatio(ratios.currentRatio, "×")}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">₹ {fmtCompact(assetsTotal)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Current Assets ÷ Current Liabilities</p>
           </div>
+
+          {/* Working Capital */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <Landmark className="size-3.5" aria-hidden="true" /> Total Liabilities & Equity
+              <Wallet className="size-3.5" aria-hidden="true" /> Working Capital
             </div>
-            <p className="mt-1.5 text-xl font-semibold tabular-nums">
-              ₹ {fmt(liabilitiesTotal)}
+            <p className={`mt-1.5 text-xl font-semibold tabular-nums ${
+              ratios.workingCapital >= 0 ? "text-emerald-600 dark:text-emerald-400"
+                                         : "text-rose-600 dark:text-rose-400"
+            }`}>
+              ₹ {fmt(Math.abs(ratios.workingCapital))}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">₹ {fmtCompact(liabilitiesTotal)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">₹ {fmtCompact(Math.abs(ratios.workingCapital))} · CA − CL</p>
           </div>
-          <div className={`rounded-lg border p-4 ${isBalanced
-            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-900/10"
-            : "border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10"}`}>
-            <div className={`flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide ${isBalanced
-              ? "text-emerald-800 dark:text-emerald-300"
-              : "text-amber-800 dark:text-amber-300"}`}>
-              <Scale className="size-3.5" aria-hidden="true" /> Status
+
+          {/* Debt-to-Equity — leverage */}
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <Scale className="size-3.5" aria-hidden="true" /> Debt-to-Equity
             </div>
-            <p className={`mt-1.5 text-xl font-semibold tabular-nums ${isBalanced
-              ? "text-emerald-700 dark:text-emerald-300"
-              : "text-amber-700 dark:text-amber-300"}`}>
-              {isBalanced ? "Balanced" : balLabel(netWorth)}
+            <p className={`mt-1.5 text-xl font-semibold tabular-nums ${
+              ratios.debtToEquity == null ? "" :
+              ratios.debtToEquity <= 1 ? "text-emerald-600 dark:text-emerald-400" :
+              ratios.debtToEquity <= 2 ? "text-amber-600 dark:text-amber-400"   :
+              "text-rose-600 dark:text-rose-400"
+            }`}>
+              {fmtRatio(ratios.debtToEquity, "×")}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isBalanced ? "Assets = Liabilities + Equity" : "Difference (Assets − Liabilities)"}
+            <p className="text-xs text-muted-foreground mt-0.5">Debt ÷ Equity</p>
+          </div>
+
+          {/* Return on Assets — profitability */}
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <TrendingUp className="size-3.5" aria-hidden="true" /> Return on Assets
+            </div>
+            <p className={`mt-1.5 text-xl font-semibold tabular-nums ${
+              ratios.roa == null ? "" :
+              ratios.roa >= 0 ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
+            }`}>
+              {ratios.roa == null ? "—" : `${ratios.roa.toFixed(2)}%`}
             </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Net {ratios.netProfit >= 0 ? "Profit" : "Loss"} ÷ Total Assets</p>
           </div>
         </div>
+      )}
+
+      {/* Balanced status strip */}
+      {data && !loading && !isBalanced && (
+        <p className="text-xs px-3 py-2 rounded-md border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300 flex items-center gap-1.5">
+          <Scale className="size-3.5" aria-hidden="true" />
+          Balance sheet is out of balance by {balLabel(netWorth)}.
+        </p>
       )}
 
       {data && !loading && (
@@ -455,6 +586,8 @@ export default function BalanceSheet() {
             totalLabel="Total Assets"
             onOpen={openGroup}
             activeId={activeId}
+            collapsed={collapsed}
+            toggleCollapsed={toggleCollapsed}
           />
           <SidePanel
             title="Liabilities & Equity"
@@ -463,6 +596,8 @@ export default function BalanceSheet() {
             totalLabel="Total Liabilities & Equity"
             onOpen={openGroup}
             activeId={activeId}
+            collapsed={collapsed}
+            toggleCollapsed={toggleCollapsed}
           />
         </div>
       )}

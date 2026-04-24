@@ -34,6 +34,8 @@ urlpatterns = [
     path('api/tds-register/', views.tds_register, name='tds_register'),
     path('api/rcm-register/', views.rcm_register, name='rcm_register'),
     path('api/customer-purchases-for-adjustment/', views.customer_purchases_for_adjustment),
+    path('api/pending-po-items/', views.pending_po_items_by_vendor, name='pending_po_items_by_vendor'),
+    path('api/stock-matching/', views.stock_matching_report, name='stock_matching_report'),
     path('api/gstr2b-reconcile/', views.GSTR2BReconcileView.as_view(), name='gstr2b_reconcile'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

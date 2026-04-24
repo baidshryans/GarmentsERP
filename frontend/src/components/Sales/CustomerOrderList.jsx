@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit, cancelCustomerOrder } from "@/services/apiService";
+import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit, cancelCustomerOrder, fetchPendingCustomerOrderItems } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { DataTable } from "@/table";
-import { SquarePen, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard, Ban, Lock } from "lucide-react";
+import { SquarePen, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard, Ban, Lock, Route } from "lucide-react";
 import { openAndPrint } from '@/services/print/utils';
 import CustomerOrder from '@/services/print/CustomerOrder';
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,8 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
 } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -237,6 +239,7 @@ function DeliveryUpdateSheet({ order, open, onClose, onUpdated }) {
 
 function CustomerOrderList() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [params, setParams]   = useSearchParams();
   const [orders, setOrders]   = useState([]);
   const [overview, setOverview] = useState(null);
@@ -244,6 +247,17 @@ function CustomerOrderList() {
   const [loading, setLoading] = useState(true);
   const [page, setPage]       = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  // Map of co_id -> array of still-pending (un-allocated) items for that CO.
+  // Drives both the visibility of the +PO / +MO quick-action buttons AND
+  // the item-picker modal that opens when either button is clicked.
+  const [pendingByCoId, setPendingByCoId] = useState(() => new Map());
+
+  // Quick-action item picker state (opens when user clicks +PO / +MO).
+  const [quickPickerOpen, setQuickPickerOpen]       = useState(false);
+  const [quickPickerTarget, setQuickPickerTarget]   = useState(null); // 'PO' | 'MO'
+  const [quickPickerCo, setQuickPickerCo]           = useState(null); // { id, order_no, customer }
+  const [quickPickerItems, setQuickPickerItems]     = useState([]);    // pending items for this CO
+  const [quickPickerSelected, setQuickPickerSelected] = useState(() => new Set());
 
   // Quick-update sheet state
   const [sheetOrder, setSheetOrder] = useState(null);
@@ -274,6 +288,59 @@ function CustomerOrderList() {
       if (res.success) setOverview(res.data);
     });
   }, []);
+
+  // Load pending (un-allocated) items grouped by CO id. Drives +PO / +MO button
+  // visibility and powers the quick-action item picker modal.
+  const loadPendingByCoId = useCallback(async () => {
+    const res = await fetchPendingCustomerOrderItems();
+    if (res.success) {
+      const map = new Map();
+      (res.data || []).forEach(p => {
+        if (p.co_id == null) return;
+        const key = Number(p.co_id);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(p);
+      });
+      setPendingByCoId(map);
+    }
+  }, []);
+  useEffect(() => { loadPendingByCoId(); }, [loadPendingByCoId, orders]);
+
+  // Open the quick-action picker modal for a given CO and target (PO or MO).
+  const openQuickPicker = (order, target) => {
+    const items = pendingByCoId.get(Number(order.id)) || [];
+    if (items.length === 0) {
+      toast({ title: "No pending items left on this order." });
+      return;
+    }
+    setQuickPickerTarget(target);
+    setQuickPickerCo({ id: order.id, order_no: order.order_no, customer: order.ldgr_code_name });
+    setQuickPickerItems(items);
+    // Pre-tick everything — the common case is "raise a PO/MO for all pending items".
+    setQuickPickerSelected(new Set(items.map(i => i.co_item_id)));
+    setQuickPickerOpen(true);
+  };
+
+  const toggleQuickItem = (coItemId) => {
+    setQuickPickerSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(coItemId)) next.delete(coItemId); else next.add(coItemId);
+      return next;
+    });
+  };
+
+  const confirmQuickPicker = () => {
+    if (quickPickerSelected.size === 0) {
+      toast({ title: "Select at least one item." });
+      return;
+    }
+    const itemsParam = Array.from(quickPickerSelected).join(",");
+    const basePath = quickPickerTarget === 'PO'
+      ? '/purchase/purchaseorder/list/add'
+      : '/manufacturing/issue/jobwork/add';
+    navigate(`${basePath}?co=${quickPickerCo.id}&items=${itemsParam}`);
+    setQuickPickerOpen(false);
+  };
 
   const handleUpdated = (updatedOrder) => {
     setOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
@@ -311,12 +378,40 @@ function CustomerOrderList() {
         const isDeletable   = o.is_deletable !== false;
         const isCancellable = o.is_cancellable !== false;
         const editHidden    = ['delivered', 'cancelled'].includes(o.delivery_status);
+        const hasPendingItems = (pendingByCoId.get(Number(o.id)) || []).length > 0;
         return (
         <div className="flex gap-2 items-center">
           {!editHidden && (
             <Link to={`/sales/customerorder/list/${o.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors" title="Edit order">
               <SquarePen className="size-4" />
             </Link>
+          )}
+          <Link
+            to={`/sales/customerorder/tracker/?order=${o.id}`}
+            title="View event timeline for this order"
+            className="p-1.5 rounded text-sky-700 hover:bg-sky-50 transition-colors"
+          >
+            <Route className="size-4" />
+          </Link>
+          {hasPendingItems && (
+            <button
+              type="button"
+              title="Create Purchase Order from pending items of this customer order"
+              onClick={() => openQuickPicker(o, 'PO')}
+              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-indigo-700 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+            >
+              +PO
+            </button>
+          )}
+          {hasPendingItems && (
+            <button
+              type="button"
+              title="Create Karigar Job Work from pending items of this customer order"
+              onClick={() => openQuickPicker(o, 'MO')}
+              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors"
+            >
+              +MO
+            </button>
           )}
           {isCancellable && (
             <button
@@ -577,6 +672,73 @@ function CustomerOrderList() {
         onClose={() => setSheetOpen(false)}
         onUpdated={handleUpdated}
       />
+
+      {/* Quick-action item picker for +PO / +MO */}
+      <Dialog open={quickPickerOpen} onOpenChange={setQuickPickerOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {quickPickerTarget === 'PO' ? 'Create Purchase Order' : 'Create Karigar Job Work'}
+              {quickPickerCo && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  — {quickPickerCo.order_no} · {quickPickerCo.customer}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2">
+            <p className="text-xs text-muted-foreground mb-2">
+              Select which pending items to include. You can split a customer order across multiple POs / MOs by unchecking items you want to handle separately.
+            </p>
+            <div className="max-h-80 overflow-y-auto border rounded-md">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/40 sticky top-0">
+                  <tr>
+                    <th className="w-8 p-2"></th>
+                    <th className="p-2 text-left font-medium">Sl</th>
+                    <th className="p-2 text-left font-medium">Item</th>
+                    <th className="p-2 text-right font-medium">Pcs</th>
+                    <th className="p-2 text-right font-medium">Wt</th>
+                    <th className="p-2 text-left font-medium">Purity</th>
+                    <th className="p-2 text-left font-medium">Due</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quickPickerItems.map((p) => {
+                    const checked = quickPickerSelected.has(p.co_item_id);
+                    return (
+                      <tr
+                        key={p.co_item_id}
+                        className={`border-t cursor-pointer hover:bg-muted/30 ${checked ? 'bg-primary/5' : ''}`}
+                        onClick={() => toggleQuickItem(p.co_item_id)}
+                      >
+                        <td className="p-2"><Checkbox checked={checked} onCheckedChange={() => toggleQuickItem(p.co_item_id)} /></td>
+                        <td className="p-2">{p.sl_no ?? '—'}</td>
+                        <td className="p-2">{p.item_name || p.item || '—'}</td>
+                        <td className="p-2 text-right">{p.pcs ?? '—'}</td>
+                        <td className="p-2 text-right">{p.approx_wt ?? '—'}</td>
+                        <td className="p-2">{p.purity ?? '—'}</td>
+                        <td className="p-2">{p.due_date ? fmtDate(p.due_date) : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              {quickPickerSelected.size} of {quickPickerItems.length} selected
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickPickerOpen(false)}>Cancel</Button>
+            <Button onClick={confirmQuickPicker} disabled={quickPickerSelected.size === 0}>
+              Continue to {quickPickerTarget === 'PO' ? 'Purchase Order' : 'Karigar Job Work'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

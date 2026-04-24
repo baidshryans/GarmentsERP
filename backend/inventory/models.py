@@ -468,3 +468,24 @@ class InterRetailTransferItem(models.Model):
             models.Index(fields=["voucher", "item"], name="idx_irti_voucher_item"),
             models.Index(fields=["item"], name="idx_irti_item"),
         ]
+
+
+class BarcodeOrderReleaseLog(models.Model):
+    MODE_CANCEL = "cancel_order"
+    MODE_REASSIGN = "reassign"
+    MODE_CHOICES = [
+        (MODE_CANCEL, "Cancel original order"),
+        (MODE_REASSIGN, "Release - order stays open"),
+    ]
+
+    barcode = models.ForeignKey(BarcodeMain, on_delete=models.CASCADE, related_name="order_release_logs")
+    original_order = models.ForeignKey(CustomerOrder, on_delete=models.SET_NULL, null=True, blank=True)
+    original_order_no = models.CharField(max_length=50, blank=True)
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES)
+    remarks = models.TextField(blank=True)
+    released_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    released_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "barcode_order_release_log"
+        ordering = ["-released_at"]

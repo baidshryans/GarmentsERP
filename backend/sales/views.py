@@ -245,6 +245,7 @@ def pending_customer_order_items(request):
             order_no__retail=retail,
             purchaseorderitems__isnull=True,
             karigarissueitem__isnull=True,
+            purchasevoucheritems__isnull=True,   # exclude direct-PV'd CO items
         )
         .order_by('order_no__date1', 'order_no__order_no', 'sl_no')
     )
@@ -269,6 +270,218 @@ def pending_customer_order_items(request):
         for r in qs
     ]
     return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def customer_order_timeline(request, order_id):
+    """
+    Per-item event timeline for a single customer order.
+
+    Stitches together already-existing FKs across sales, purchase, manufacturing
+    and inventory to produce a precomputed list of events per CO item:
+        placed -> released_po / released_mo -> received_karigar -> barcoded -> delivered
+
+    Pure read - no writes, no schema changes.
+    """
+    from purchase.models import PurchaseOrderItems, PurchaseVoucherItems
+    from manufacturing.models import KarigarIssueItem, KarigarReceiveItem
+    from sales.models import SalesVouItem
+    from sales.serializers import _customer_order_item_lock
+    from inventory.models import BarcodeMain
+
+    def _barcodes_for_pv(pv_item_id):
+        """A single PV line may split into multiple barcodes (1:N).
+        BarcodeMain.pur_voucher is the canonical direction."""
+        return list(BarcodeMain.objects.filter(pur_voucher_id=pv_item_id).order_by('created_date', 'id'))
+
+    def _barcodes_for_rec(rec_item_id):
+        """Same pattern for the MO path — BarcodeMain.rec_item is canonical."""
+        return list(BarcodeMain.objects.filter(rec_item_id=rec_item_id).order_by('created_date', 'id'))
+
+    retail = getattr(request, 'retail', None)
+    if not retail:
+        return Response({'error': 'Retail context missing'}, status=400)
+
+    try:
+        order = (
+            CustomerOrder.objects
+            .select_related('ldgr', 'retail')
+            .prefetch_related('items', 'items__item_id', 'items__purity')
+            .get(id=order_id, retail=retail)
+        )
+    except CustomerOrder.DoesNotExist:
+        return Response({'error': 'Customer order not found'}, status=404)
+
+    items_payload = []
+    for coi in order.items.all().order_by('sl_no'):
+        events = []
+
+        # 1. placed
+        if order.date1:
+            events.append({
+                'kind': 'placed',
+                'date': order.date1.isoformat(),
+                'label': 'Order placed',
+                'ref': order.order_no,
+            })
+
+        po_item = (
+            PurchaseOrderItems.objects
+            .select_related('po_slip', 'po_slip__ldgr')
+            .filter(customer_order_item=coi)
+            .first()
+        )
+        ki_item = (
+            KarigarIssueItem.objects
+            .select_related('issue_slip', 'issue_slip__karigar_ldgr')
+            .filter(customer_order_item=coi)
+            .first()
+        )
+
+        # 2. released_po / received on PV / barcode via PV.
+        # A single PV line can split into multiple barcodes (1:N), so collect a list.
+        barcodes = []
+        if po_item and po_item.po_slip:
+            po = po_item.po_slip
+            events.append({
+                'kind': 'released_po',
+                'date': po.date1.isoformat() if po.date1 else None,
+                'label': 'Released to Purchase Order',
+                'ref': po.po_no,
+                'vendor': po.ldgr.ac_name if po.ldgr else None,
+            })
+            # Any PV line matching this PO's (po_no, po_sl_no) — with or without a barcode yet.
+            pv_item_po = (
+                PurchaseVoucherItems.objects
+                .select_related('billno', 'billno__ldgr')
+                .filter(po_no=po.po_no, po_sl_no=po_item.po_sl_no)
+                .order_by('id')
+                .first()
+            )
+            if pv_item_po and pv_item_po.billno:
+                pv_bill = pv_item_po.billno
+                events.append({
+                    'kind': 'received_pv',
+                    'date': pv_bill.date1.isoformat() if pv_bill.date1 else None,
+                    'label': 'Received on Purchase Voucher',
+                    'ref': pv_bill.billno,
+                    'vendor': pv_bill.ldgr.ac_name if getattr(pv_bill, 'ldgr', None) else None,
+                })
+                # Barcodes are authoritatively linked via BarcodeMain.pur_voucher (1:N).
+                barcodes.extend(_barcodes_for_pv(pv_item_po.id))
+
+        # 2b. direct CO -> PV path (no PO in between). Runs independently of the
+        # PO branch — it's possible for data-entry / historical anomalies to link
+        # a CO item to both; both should surface on the timeline.
+        pv_item_direct = (
+            PurchaseVoucherItems.objects
+            .select_related('billno', 'billno__ldgr')
+            .filter(customer_order_item=coi)
+            .order_by('id')
+            .first()
+        )
+        if pv_item_direct and pv_item_direct.billno:
+            pv_bill = pv_item_direct.billno
+            events.append({
+                'kind': 'received_pv',
+                'date': pv_bill.date1.isoformat() if pv_bill.date1 else None,
+                'label': 'Received directly on Purchase Voucher',
+                'ref': pv_bill.billno,
+                'vendor': pv_bill.ldgr.ac_name if getattr(pv_bill, 'ldgr', None) else None,
+            })
+            barcodes.extend(_barcodes_for_pv(pv_item_direct.id))
+
+        # 3. released_mo + 4. received_karigar + barcode via KR
+        if ki_item and ki_item.issue_slip:
+            ki_slip = ki_item.issue_slip
+            karigar_name = ki_slip.karigar_ldgr.ac_name if getattr(ki_slip, 'karigar_ldgr', None) else None
+            events.append({
+                'kind': 'released_mo',
+                'date': ki_slip.date1.isoformat() if ki_slip.date1 else None,
+                'label': 'Released to Karigar Job Work',
+                # KarigarIssue uses issue_slip_no (CharField) as its human-readable ID.
+                'ref': ki_slip.issue_slip_no,
+                'karigar': karigar_name,
+            })
+            # One karigar issue can be split across multiple receive rows
+            # (partial receives). Emit a `received_karigar` event per receive
+            # and collect barcodes via the canonical BarcodeMain.rec_item FK.
+            kr_items = list(
+                KarigarReceiveItem.objects
+                .select_related('receive_slip_no')
+                .filter(ref_job_sl_no=ki_item)
+                .order_by('date1', 'id')
+            )
+            for kr_item in kr_items:
+                events.append({
+                    'kind': 'received_karigar',
+                    'date': kr_item.date1.isoformat() if kr_item.date1 else None,
+                    'label': 'Received from Karigar',
+                    'ref': kr_item.receive_slip_no.receive_slip_no if kr_item.receive_slip_no else None,
+                })
+                barcodes.extend(_barcodes_for_rec(kr_item.id))
+
+        # 5. barcoded + 6. delivered — one pair of events per barcode (1:N).
+        # De-dupe in case the same barcode got collected via multiple paths.
+        seen_bc = set()
+        unique_barcodes = []
+        for bc in barcodes:
+            if bc and bc.id not in seen_bc:
+                seen_bc.add(bc.id)
+                unique_barcodes.append(bc)
+        for bc in unique_barcodes:
+            events.append({
+                'kind': 'barcoded',
+                'date': bc.created_date.isoformat() if bc.created_date else None,
+                'label': 'Barcode created - ready for delivery',
+                'ref': bc.barcode,
+            })
+            sv_item = (
+                SalesVouItem.objects
+                .select_related('billno')
+                .filter(barcode=bc)
+                .order_by('id')
+                .first()
+            )
+            if sv_item and sv_item.billno:
+                sv = sv_item.billno
+                events.append({
+                    'kind': 'delivered',
+                    'date': sv.date1.isoformat() if sv.date1 else None,
+                    'label': 'Delivered on Sales Voucher',
+                    'ref': sv.billno,
+                    'barcode': bc.barcode,
+                })
+
+        state, _reason = _customer_order_item_lock(coi)
+        items_payload.append({
+            'co_item_id': coi.id,
+            'sl_no': coi.sl_no,
+            'item': coi.item_id.short_code if coi.item_id else None,
+            'item_name': coi.item_id.item_name if coi.item_id else None,
+            'purity': coi.purity.purity if coi.purity else None,
+            'pcs': coi.pcs,
+            'approx_wt': float(coi.gw) if coi.gw is not None else None,
+            'size': coi.size,
+            'remarks': coi.remarks,
+            'state': state,
+            'events': events,
+        })
+
+    return Response({
+        'order': {
+            'id': order.id,
+            'order_no': order.order_no,
+            'date1': order.date1.isoformat() if order.date1 else None,
+            'delivery_date': order.delivery_date.isoformat() if order.delivery_date else None,
+            'customer_name': order.ldgr.ac_name if order.ldgr else None,
+            'nature': order.nature,
+            'status': order.status,
+            'delivery_status': order.delivery_status,
+        },
+        'items': items_payload,
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

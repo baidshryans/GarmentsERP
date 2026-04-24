@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
 import { fetchCompanies } from "@/services/apiService";
-import { Printer, ChevronDown, ChevronRight, X, Loader2 } from "lucide-react";
+import { Printer, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, X, Loader2 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { isValidDateRange } from "@/lib/dateRange";
 
@@ -117,6 +117,16 @@ function GroupRows({ nodes, depth = 0, collapsed, toggle, onLedgerClick }) {
       </Fragment>
     );
   });
+}
+
+/* Collect every group key in the tree (matches key format used in GroupRows) */
+function collectAllGroupKeys(nodes, depth = 0) {
+  const keys = [];
+  for (const n of nodes) {
+    keys.push(`${depth}-${n.group_name}`);
+    if (n.children?.length) keys.push(...collectAllGroupKeys(n.children, depth + 1));
+  }
+  return keys;
 }
 
 /* Flatten nested tree for grand totals */
@@ -280,11 +290,32 @@ export default function TrialBalance() {
           </div>
         )}
         <Button size="sm" onClick={fetchReport} className="h-9">Show</Button>
-        {report && (
-          <Button size="sm" variant="outline" onClick={handlePrint} className="h-9 ml-auto">
-            <Printer className="size-4 mr-1.5" /> Print
-          </Button>
-        )}
+        {report && (() => {
+          const allKeys = collectAllGroupKeys(report.trial_balance);
+          const anyCollapsed = allKeys.some((k) => collapsed[k]);
+          return (
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  anyCollapsed
+                    ? setCollapsed({})
+                    : setCollapsed(Object.fromEntries(allKeys.map((k) => [k, true])))
+                }
+                className="h-9"
+              >
+                {anyCollapsed
+                  ? <ChevronsUpDown className="size-4 mr-1.5" />
+                  : <ChevronsDownUp className="size-4 mr-1.5" />}
+                {anyCollapsed ? "Expand All" : "Collapse All"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={handlePrint} className="h-9">
+                <Printer className="size-4 mr-1.5" /> Print
+              </Button>
+            </div>
+          );
+        })()}
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

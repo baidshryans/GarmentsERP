@@ -96,12 +96,19 @@ class PurchaseAttachment(models.Model):
 class PurchaseVoucherItems(models.Model): #main item
     billno = models.ForeignKey(PurchaseVoucher, on_delete=models.CASCADE, null=True)
     date1 = models.DateField(null=True)
-    po_no = models.CharField(max_length=10, null=True, blank=True)
+    po_no = models.CharField(max_length=50, null=True, blank=True)
     po_sl_no = models.IntegerField(null=True, blank=True)
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     barcode = models.ForeignKey(BarcodeMain, on_delete=models.SET_NULL, null=True)
     barcode_txt = models.CharField(max_length=20, null=True,blank=True)
     order_no = models.ForeignKey(CustomerOrder, on_delete=models.CASCADE, null=True, blank=True)
+    # Line-level link for the direct CO → PV path (skipping the PO step).
+    # Mutually exclusive with po_no/po_sl_no at the serializer level.
+    customer_order_item = models.ForeignKey(
+        'sales.CustomerOrderItems',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+    )
     sl_no = models.IntegerField()
     pcs = models.IntegerField(null=True)
     gw = models.DecimalField(null=True, max_digits=10, decimal_places=3)
@@ -124,6 +131,13 @@ class PurchaseVoucherItems(models.Model): #main item
 
     class Meta:
         db_table="purchase_voucher_main"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer_order_item'],
+                condition=models.Q(customer_order_item__isnull=False),
+                name='uniq_pv_customer_order_item',
+            ),
+        ]
 
 class PurchaseVoucherDetails(models.Model):
     main_item = models.ForeignKey(PurchaseVoucherItems, on_delete=models.CASCADE, null=True)
@@ -188,7 +202,7 @@ class PurchaseOrderItems(models.Model):
     design_code = models.CharField(max_length=10, null=True, blank=True)
     size = models.CharField(max_length=10, null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
-    remarks = models.CharField(max_length=50)
+    remarks = models.CharField(max_length=50, null=True, blank=True)
 
     rec_status = models.BooleanField(default=False)
 
@@ -197,6 +211,13 @@ class PurchaseOrderItems(models.Model):
     
     class Meta:
         db_table = "purchase_order_main"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['customer_order_item'],
+                condition=models.Q(customer_order_item__isnull=False),
+                name='uniq_po_customer_order_item',
+            ),
+        ]
 
 class PurchaseReturn(models.Model):
     billno = models.CharField(max_length=30)

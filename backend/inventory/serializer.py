@@ -295,14 +295,21 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             'created_date',
             'stk_status',
             'voucher_no',
+            'customer_order',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
             'qr_code': {'read_only': True},
             'item_name': {'read_only': True},
             'purity_name': {'read_only': True},
+            'customer_order': {'required': False, 'allow_null': True},
         }
 
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep['customer_order_no'] = instance.customer_order.order_no if instance.customer_order_id and instance.customer_order else None
+        return rep
 
     #TODO : add logic to karigar receive too
     def create(self, validated_data):
@@ -310,6 +317,33 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             pur = validated_data.get('pur_voucher')
             rec_item = validated_data.get('rec_item')
             grandchildren_data = BarcodeDetailsSerializer(validated_data.pop('barcodedetails_set', []),many=True).data
+
+            # Auto-tag the barcode with its Customer Order, if traceable.
+            # Priority: explicit value from the client > direct CO-item FK on the
+            # PV line > PO→CO-item traversal > PV header order_no.
+            if not validated_data.get('customer_order') and pur is not None:
+                co = None
+                # (1) direct CO → PV path (new line-level FK)
+                if getattr(pur, 'customer_order_item_id', None):
+                    coi = pur.customer_order_item
+                    co = coi.order_no if coi else None
+                # (2) CO → PO → PV path (traverse po_no + po_sl_no back to the PO item)
+                if not co and pur.po_no and pur.po_sl_no is not None:
+                    from purchase.models import PurchaseOrderItems
+                    poi = (
+                        PurchaseOrderItems.objects
+                        .select_related('customer_order_item', 'customer_order_item__order_no')
+                        .filter(po_slip__po_no=pur.po_no, po_sl_no=pur.po_sl_no)
+                        .first()
+                    )
+                    if poi and poi.customer_order_item:
+                        co = poi.customer_order_item.order_no
+                # (3) header-level fallback
+                if not co and getattr(pur, 'order_no_id', None):
+                    co = pur.order_no
+                if co is not None:
+                    validated_data['customer_order'] = co
+
             child = BarcodeMain.objects.create(**validated_data)
             create_or_update_nested(
                 serializer_class=BarcodeDetailsSerializer,
@@ -335,6 +369,10 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             if pur:
                 pur.pending_pcs = (pur.pending_pcs or 0) - (child.pcs or 0)
                 pur.pending_gw  = (pur.pending_gw  or 0) - (child.gw  or 0)
+                # NOTE: Do NOT mirror child onto pur.barcode — a single PV line
+                # can split into multiple BarcodeMain rows (1→N). The authoritative
+                # direction is BarcodeMain.pur_voucher. pur.barcode is a legacy FK
+                # and should be treated as unreliable for traversal.
                 pur.save()
 
             if rec_item:
@@ -367,12 +405,20 @@ class BarCodeMainListSerializer(serializers.ModelSerializer):
     purity_name = serializers.SerializerMethodField()
     # dia_ct is annotated on the queryset via Sum('barcodedetails_set__ct')
     dia_ct = serializers.FloatField(read_only=True, default=None)
+    customer_order_no = serializers.CharField(source='customer_order.order_no', read_only=True, default=None)
+    customer_order_status = serializers.CharField(source='customer_order.delivery_status', read_only=True, default=None)
+    customer_order_party_name = serializers.SerializerMethodField()
 
     def get_item_name(self, obj):
         return obj.item.item_name if obj.item else None
 
     def get_purity_name(self, obj):
         return obj.purity.purity if obj.purity else None
+
+    def get_customer_order_party_name(self, obj):
+        if obj.customer_order_id and obj.customer_order and obj.customer_order.ldgr_id:
+            return getattr(obj.customer_order.ldgr, 'ldgr_name', None)
+        return None
 
     class Meta:
         model = BarcodeMain
@@ -382,6 +428,8 @@ class BarCodeMainListSerializer(serializers.ModelSerializer):
             'making_val', 'making_type', 'other_chg', 'design_code',
             'total_amount', 'stk_status', 'created_date', 'voucher_no',
             'dia_ct',
+            'customer_order', 'customer_order_no',
+            'customer_order_status', 'customer_order_party_name',
         ]
 
 

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown to PDF Converter</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Markdown preview styling */
+        .markdown-preview {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+        }
+        .markdown-preview h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin: 1.5rem 0 1rem;
+            color: #0f172a;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+        }
+        .markdown-preview h2 {
+            font-size: 1.875rem;
+            font-weight: 600;
+            margin: 1.25rem 0 0.875rem;
+            color: #1e293b;
+        }
+        .markdown-preview h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 1rem 0 0.75rem;
+            color: #334155;
+        }
+        .markdown-preview p {
+            margin: 0.875rem 0;
+        }
+        .markdown-preview ul, .markdown-preview ol {
+            margin: 0.875rem 0;
+            padding-left: 2rem;
+        }
+        .markdown-preview li {
+            margin: 0.375rem 0;
+        }
+        .markdown-preview code {
+            background: #f1f5f9;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875em;
+        }
+        .markdown-preview pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        .markdown-preview pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+        .markdown-preview blockquote {
+            border-left: 4px solid #3b82f6;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #475569;
+            font-style: italic;
+        }
+        .markdown-preview a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .markdown-preview a:hover {
+            text-decoration: underline;
+        }
+        .markdown-preview table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+        }
+        .markdown-preview th,
+        .markdown-preview td {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        .markdown-preview th {
+            background: #f8fafc;
+            font-weight: 600;
+        }
+        .markdown-preview hr {
+            border: none;
+            border-top: 2px solid #e2e8f0;
+            margin: 2rem 0;
+        }
+
+        /* Drag and drop area */
+        .drop-area {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .drop-area.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        /* Loading animation */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        function MarkdownToPdfConverter() {
+            const [markdownContent, setMarkdownContent] = useState('');
+            const [fileName, setFileName] = useState('');
+            const [isConverting, setIsConverting] = useState(false);
+            const [dragOver, setDragOver] = useState(false);
+            const fileInputRef = useRef(null);
+            const previewRef = useRef(null);
+
+            // Configure marked options
+            useEffect(() => {
+                if (typeof marked !== 'undefined') {
+                    marked.setOptions({
+                        breaks: true,
+                        gfm: true,
+                    });
+                }
+            }, []);
+
+            const handleFileSelect = (file) => {
+                if (file && file.name.endsWith('.md')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        setMarkdownContent(e.target.result);
+                        setFileName(file.name.replace('.md', ''));
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('Please upload a .md (Markdown) file');
+                }
+            };
+
+            const handleFileInput = (e) => {
+                const file = e.target.files[0];
+                handleFileSelect(file);
+            };
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer.files[0];
+                handleFileSelect(file);
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                setDragOver(true);
+            };
+
+            const handleDragLeave = () => {
+                setDragOver(false);
+            };
+
+            const convertToPdf = async () => {
+                if (!markdownContent) {
+                    alert('Please upload a markdown file first');
+                    return;
+                }
+
+                setIsConverting(true);
+
+                try {
+                    console.log('Starting PDF conversion...');
+                    
+                    // Get the jsPDF constructor
+                    const { jsPDF } = window.jspdf;
+                    
+                    if (!jsPDF) {
+                        throw new Error('jsPDF library not loaded');
+                    }
+                    
+                    if (!window.html2canvas) {
+                        throw new Error('html2canvas library not loaded');
+                    }
+
+                    console.log('Libraries loaded successfully');
+
+                    // Create a temporary container with the content
+                    const container = document.createElement('div');
+                    container.style.position = 'absolute';
+                    container.style.left = '-9999px';
+                    container.style.top = '0';
+                    container.style.width = '794px'; // A4 width in pixels at 96 DPI
+                    container.style.padding = '40px';
+                    container.style.background = 'white';
+                    container.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                    container.style.fontSize = '14px';
+                    container.style.lineHeight = '1.6';
+                    container.style.color = '#1e293b';
+                    
+                    container.innerHTML = previewRef.current.innerHTML;
+                    document.body.appendChild(container);
+
+                    console.log('Temporary container created');
+
+                    // Apply inline styles to all elements
+                    const applyStyles = (element) => {
+                        if (element.tagName === 'H1') {
+                            element.style.fontSize = '32px';
+                            element.style.fontWeight = 'bold';
+                            element.style.marginTop = '24px';
+                            element.style.marginBottom = '16px';
+                            element.style.borderBottom = '2px solid #e2e8f0';
+                            element.style.paddingBottom = '8px';
+                        } else if (element.tagName === 'H2') {
+                            element.style.fontSize = '28px';
+                            element.style.fontWeight = 'bold';
+                            element.style.marginTop = '20px';
+                            element.style.marginBottom = '12px';
+                        } else if (element.tagName === 'H3') {
+                            element.style.fontSize = '24px';
+                            element.style.fontWeight = 'bold';
+                            element.style.marginTop = '16px';
+                            element.style.marginBottom = '10px';
+                        } else if (element.tagName === 'P') {
+                            element.style.marginTop = '12px';
+                            element.style.marginBottom = '12px';
+                        } else if (element.tagName === 'UL' || element.tagName === 'OL') {
+                            element.style.marginTop = '12px';
+                            element.style.marginBottom = '12px';
+                            element.style.paddingLeft = '32px';
+                        } else if (element.tagName === 'LI') {
+                            element.style.marginTop = '6px';
+                            element.style.marginBottom = '6px';
+                        } else if (element.tagName === 'CODE' && element.parentElement.tagName !== 'PRE') {
+                            element.style.backgroundColor = '#f1f5f9';
+                            element.style.padding = '2px 6px';
+                            element.style.borderRadius = '4px';
+                            element.style.fontFamily = 'monospace';
+                            element.style.fontSize = '13px';
+                        } else if (element.tagName === 'PRE') {
+                            element.style.backgroundColor = '#1e293b';
+                            element.style.color = '#e2e8f0';
+                            element.style.padding = '16px';
+                            element.style.borderRadius = '8px';
+                            element.style.overflow = 'auto';
+                            element.style.marginTop = '16px';
+                            element.style.marginBottom = '16px';
+                            const code = element.querySelector('code');
+                            if (code) {
+                                code.style.backgroundColor = 'transparent';
+                                code.style.padding = '0';
+                            }
+                        } else if (element.tagName === 'BLOCKQUOTE') {
+                            element.style.borderLeft = '4px solid #3b82f6';
+                            element.style.paddingLeft = '16px';
+                            element.style.marginTop = '16px';
+                            element.style.marginBottom = '16px';
+                            element.style.fontStyle = 'italic';
+                            element.style.color = '#475569';
+                        } else if (element.tagName === 'A') {
+                            element.style.color = '#3b82f6';
+                        } else if (element.tagName === 'TABLE') {
+                            element.style.borderCollapse = 'collapse';
+                            element.style.width = '100%';
+                            element.style.marginTop = '16px';
+                            element.style.marginBottom = '16px';
+                        } else if (element.tagName === 'TH') {
+                            element.style.border = '1px solid #e2e8f0';
+                            element.style.padding = '8px';
+                            element.style.backgroundColor = '#f8fafc';
+                            element.style.fontWeight = 'bold';
+                            element.style.textAlign = 'left';
+                        } else if (element.tagName === 'TD') {
+                            element.style.border = '1px solid #e2e8f0';
+                            element.style.padding = '8px';
+                            element.style.textAlign = 'left';
+                        } else if (element.tagName === 'HR') {
+                            element.style.border = 'none';
+                            element.style.borderTop = '2px solid #e2e8f0';
+                            element.style.marginTop = '32px';
+                            element.style.marginBottom = '32px';
+                        } else if (element.tagName === 'IMG') {
+                            element.style.maxWidth = '100%';
+                            element.style.height = 'auto';
+                        }
+                    };
+
+                    // Apply styles to all elements
+                    const allElements = container.querySelectorAll('*');
+                    allElements.forEach(applyStyles);
+
+                    console.log('Styles applied, generating canvas...');
+
+                    // Wait a moment for rendering
+                    await new Promise(resolve => setTimeout(resolve, 200));
+
+                    // Convert to canvas
+                    const canvas = await html2canvas(container, {
+                        scale: 2,
+                        useCORS: true,
+                        logging: true,
+                        backgroundColor: '#ffffff'
+                    });
+
+                    console.log('Canvas generated:', canvas.width, 'x', canvas.height);
+
+                    // Remove temporary container
+                    document.body.removeChild(container);
+
+                    // Create PDF
+                    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                    const pdf = new jsPDF({
+                        orientation: 'portrait',
+                        unit: 'mm',
+                        format: 'a4'
+                    });
+
+                    // Calculate dimensions
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const imgWidth = pdfWidth;
+                    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                    let heightLeft = imgHeight;
+                    let position = 0;
+
+                    // Add first page
+                    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pdfHeight;
+
+                    // Add additional pages if needed
+                    while (heightLeft > 0) {
+                        position = heightLeft - imgHeight;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pdfHeight;
+                    }
+
+                    console.log('PDF created, downloading...');
+
+                    // Save the PDF
+                    pdf.save(`${fileName || 'document'}.pdf`);
+
+                    console.log('PDF downloaded successfully');
+                } catch (error) {
+                    console.error('Detailed error:', error);
+                    alert(`Error generating PDF: ${error.message}. Check console for details.`);
+                } finally {
+                    setIsConverting(false);
+                }
+            };
+
+            const clearContent = () => {
+                setMarkdownContent('');
+                setFileName('');
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            };
+
+            const htmlContent = markdownContent ? marked.parse(markdownContent) : '';
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+                    {/* Header */}
+                    <div className="bg-white shadow-sm border-b border-slate-200">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-slate-900">
+                                        Markdown to PDF
+                                    </h1>
+                                    <p className="text-slate-600 mt-1">
+                                        Convert your markdown files to beautifully formatted PDFs
+                                    </p>
+                                </div>
+                                <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        {/* Upload Area */}
+                        {!markdownContent ? (
+                            <div
+                                className={`drop-area rounded-xl p-12 text-center ${dragOver ? 'drag-over' : ''}`}
+                                onDrop={handleDrop}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                            >
+                                <svg className="mx-auto h-16 w-16 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                <h3 className="mt-4 text-lg font-semibold text-slate-900">
+                                    Drop your markdown file here
+                                </h3>
+                                <p className="mt-2 text-sm text-slate-600">
+                                    or click to browse
+                                </p>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileInput}
+                                    accept=".md"
+                                    className="hidden"
+                                />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="mt-6 px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                                >
+                                    Choose File
+                                </button>
+                                <p className="mt-4 text-xs text-slate-500">
+                                    Supports .md files
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                {/* File Info & Actions */}
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="p-2 bg-blue-100 rounded-lg">
+                                                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h3 className="font-semibold text-slate-900">
+                                                    {fileName || 'Untitled'}.md
+                                                </h3>
+                                                <p className="text-sm text-slate-600">
+                                                    {markdownContent.length.toLocaleString()} characters
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-3">
+                                            <button
+                                                onClick={convertToPdf}
+                                                disabled={isConverting}
+                                                className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                                            >
+                                                {isConverting ? (
+                                                    <>
+                                                        <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                        </svg>
+                                                        <span>Converting...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                        </svg>
+                                                        <span>Download PDF</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={clearContent}
+                                                className="px-4 py-3 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors"
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Preview */}
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                                    <div className="border-b border-slate-200 px-6 py-4">
+                                        <h2 className="text-lg font-semibold text-slate-900">
+                                            Preview
+                                        </h2>
+                                    </div>
+                                    <div className="p-8">
+                                        <div
+                                            ref={previewRef}
+                                            className="markdown-preview max-w-none"
+                                            dangerouslySetInnerHTML={{ __html: htmlContent }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div className="text-center text-sm text-slate-600">
+                            <p>
+                                Supports standard Markdown syntax including headers, lists, code blocks, tables, and more
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<MarkdownToPdfConverter />, document.getElementById('root'));
+    </script>
+</body>
+</html>

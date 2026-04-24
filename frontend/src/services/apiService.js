@@ -1133,6 +1133,41 @@ export async function fetchPurchaseOrderForEdit(id) {
   }
 }
 
+export async function fetchPendingPOItemsByVendor(vendorId) {
+  try {
+    const response = await apiClient.get(`/purchase/api/pending-po-items/`, { params: { vendor: vendorId } });
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch pending PO items:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchStockMatchingReport({ from, to, tolerance = 0.05, mismatchesOnly = false } = {}) {
+  try {
+    const params = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (tolerance != null) params.tolerance = tolerance;
+    if (mismatchesOnly) params.mismatches_only = 1;
+    const response = await apiClient.get(`/purchase/api/stock-matching/`, { params });
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch stock matching report:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCustomerOrderTimeline(orderId) {
+  try {
+    const response = await apiClient.get(`/sales/api/customer-orders/${orderId}/timeline/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch customer order timeline:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchPendingCustomerOrderItems() {
   try {
     const response = await apiClient.get(`/sales/api/customer-orders/pending-items/`);
@@ -2048,6 +2083,18 @@ export async function fetchBarcodeList({ search = "", page = 1, ordering = "", i
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function releaseBarcodeFromOrder(id, { mode, remarks = "" }) {
+  try {
+    const response = await apiClient.post(
+      `inventory/barcode/${id}/release-from-order/`,
+      { mode, remarks }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
     return { success: false, error: error.response?.data || error.message };
   }
 }

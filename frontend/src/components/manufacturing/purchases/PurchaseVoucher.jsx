@@ -10,11 +10,13 @@ import { useEnterAsTab } from "@/hooks/useEnterAsTab"
 import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
 
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
+import { Table, TableRow, TableCell, TableHead, TableHeader, TableBody } from "@/components/ui/table";
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, getLedger, createCustomerOrder, getStates, fetchPVNoNext, fetchPoNoNext, fetchPackets, fetchPos, fetchStoneIssuesFilterJobs, fetchStoneIssued, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchLedgerTDSInfo } from "@/services/apiService";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { fetchCustomerOrders, fetchOrderItem, fetchPurchaseVoucherForEdit, fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, updatePurchaseVoucherForEdit } from "../../../services/apiService";
+import { fetchCustomerOrders, fetchOrderItem, fetchPurchaseVoucherForEdit, fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, updatePurchaseVoucherForEdit, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { SquarePen, Trash2, Paperclip, X, Upload, FileText } from "lucide-react";
 import InvoiceUpload from "@/components/AI/InvoiceUpload";
 import PurchaseAttachments from "./PurchaseAttachments";
@@ -109,6 +111,10 @@ const PurchaseVoucher = () => {
         "date1": null,
         "po_no": "",
         "po_sl_no": null,
+        "customer_order_item_id": null,
+        "co_no_display": "",
+        "co_sl_no_display": null,
+        "customer_name_display": "",
         "item": null,
         "barcode": null,
         "barcode_txt": "",
@@ -188,6 +194,18 @@ const PurchaseVoucher = () => {
   const [mainItemsM, setMainItemsM] = useState([]);       // type M only (for main item datalist)
   const [customerOrders, setCustomerOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
+  // Pending-PO picker modal (auto-opens on vendor select)
+  const [poPickerOpen, setPoPickerOpen] = useState(false);
+  const [pendingPOItems, setPendingPOItems] = useState([]);
+  const [poPickerSearch, setPoPickerSearch] = useState("");
+  const [selectedPOItemIds, setSelectedPOItemIds] = useState(new Set());
+  const [poPickerLoading, setPoPickerLoading] = useState(false);
+  // Pending-CO picker modal (direct CO → PV; manual-open only, vendor-agnostic)
+  const [coPickerOpen, setCoPickerOpen] = useState(false);
+  const [pendingCOItems, setPendingCOItems] = useState([]);
+  const [coPickerSearch, setCoPickerSearch] = useState("");
+  const [selectedCOItemIds, setSelectedCOItemIds] = useState(new Set());
+  const [coPickerLoading, setCoPickerLoading] = useState(false);
   const [purityData, setPurityData] = useState([]);
   const [packets, setPackets] = useState([]);
   const [hsns, setHSNs] = useState([]);
@@ -364,6 +382,9 @@ const PurchaseVoucher = () => {
             // input form can correctly reference which row it belongs to.
             setRows(data.purchasevoucheritems_set.map(item => ({
               ...item,
+              // Mirror backend FK into the client-side display key used by the row render.
+              customer_order_item_id: item.customer_order_item ?? null,
+              co_no_display: item.order_no || "",
               purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
                 ...d,
                 sl_no: d.sl_no ?? item.sl_no,
@@ -627,6 +648,9 @@ const PurchaseVoucher = () => {
       pcs: toIntOrNull(item.pcs),
       pending_pcs: toIntOrNull(item.pending_pcs),
       making_value: toIntOrNull(item.making_value),
+      // Backend FK: translate client-side `customer_order_item_id` to the
+      // DRF field name. Direct CO → PV path; null for PO-linked or manual rows.
+      customer_order_item: item.customer_order_item_id ?? null,
       purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
         ...d,
         sub_pcs: toIntOrNull(d.sub_pcs),
@@ -915,6 +939,12 @@ const PurchaseVoucher = () => {
         barcode: "",
         item: "",
         order_no: "",
+        po_no: "",
+        po_sl_no: null,
+        customer_order_item_id: null,
+        co_no_display: "",
+        co_sl_no_display: null,
+        customer_name_display: "",
         pcs: 0,
         pending_pcs: 0,
         gw: 0.0,
@@ -1092,6 +1122,16 @@ const PurchaseVoucher = () => {
                   setValue("form.tds_amt", 0);
                   setValue("form.net_vendor_payable", 0);
                 }
+                // Auto-open Purchase-Order picker with pending items for this vendor.
+                if (!isCustomer && !id) {
+                  setPoPickerLoading(true);
+                  setPoPickerOpen(true);
+                  setSelectedPOItemIds(new Set());
+                  setPoPickerSearch("");
+                  const res = await fetchPendingPOItemsByVendor(opt.id);
+                  setPendingPOItems(res.success ? (res.data || []) : []);
+                  setPoPickerLoading(false);
+                }
               }}
               placeholder={isCustomer ? "Search customer / dealer…" : "Search vendor / karigar…"}
             />
@@ -1142,47 +1182,52 @@ const PurchaseVoucher = () => {
             <Label htmlFor="ref_date">Ref.Date</Label>
             <Input type="date" {...register("form.ref_date")} required />
           </FieldContainer>
-          <FieldContainer>
-            <Label htmlFor="party_name_display" className="text-nowrap">Order No</Label>
-            <Input list="customer_order_list"
-              onBlur={handleBlur}
-              onChange={(e) => {
-                const selectedCustomerOrder = customerOrders.find(
-                  (customerOrder) => customerOrder.order_no === e.target.value
-                );
-                selectedCustomerOrder ? setValue("customer_order_id", selectedCustomerOrder.id) : e.target.value;
-
-              }} />
-
-          </FieldContainer>
           <Input type="hidden" {...register("form.ldgr_code")} />
-          <datalist id="customer_order_list" >
-            {customerOrders.map((customerOrders, index) => (
-              <option key={index} value={customerOrders.order_no}></option>
-
-            ))}
-
-          </datalist>
-
-
-          <FieldContainer>
-            <Label htmlFor="serial_no_list" className="text-nowrap">Sl No</Label>
-            <Input list="serial_no_list"
-
-              {...register("sl_no", {
-                onBlur: handleBlur1
-              })}
-              disabled={getValues("form.issue_slip_type") === 'Stock'} readOnly={getValues("form.issue_slip_type") === 'Stock'} />
-
-          </FieldContainer>
           <Input type="hidden" {...register("customer_order_item")} />
-          <datalist id="serial_no_list" >
-            {serialNos.map((serialNo, index) => (
-              <option key={index} value={serialNo.sl_no}></option>
-
-            ))}
-
-          </datalist>
+          {!isCustomer && !id && watch("form.ldgr") && (
+            <FieldContainer>
+              <Label className="text-nowrap">Purchase Orders</Label>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPoPickerOpen(true)}
+                className="cursor-pointer justify-start"
+              >
+                Pick from Purchase Orders
+                {pendingPOItems.length > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 min-w-4 h-4">
+                    {pendingPOItems.length}
+                  </span>
+                )}
+              </Button>
+            </FieldContainer>
+          )}
+          {!isCustomer && !id && (
+            <FieldContainer>
+              <Label className="text-nowrap">Customer Orders</Label>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  setCoPickerLoading(true);
+                  setCoPickerOpen(true);
+                  setSelectedCOItemIds(new Set());
+                  setCoPickerSearch("");
+                  const res = await fetchPendingCustomerOrderItems();
+                  setPendingCOItems(res.success ? (res.data || []) : []);
+                  setCoPickerLoading(false);
+                }}
+                className="cursor-pointer justify-start"
+              >
+                Pick from Customer Orders
+                {pendingCOItems.length > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold px-1.5 min-w-4 h-4">
+                    {pendingCOItems.length}
+                  </span>
+                )}
+              </Button>
+            </FieldContainer>
+          )}
 
 
         </div>
@@ -1469,7 +1514,7 @@ const PurchaseVoucher = () => {
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Packet</TableCell>
                 <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Item</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Order No</TableCell>
+                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">PO No</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Ct</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">GW</TableCell>
@@ -1505,7 +1550,23 @@ const PurchaseVoucher = () => {
 
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
                     <TableCell className="w-48 px-4 py-2 border">{mainItemData.find(m => m.short_code === item.item)?.item_name || item.item}</TableCell>
-                    <TableCell className="w-28 px-4 py-2 border">{item.order_no}</TableCell>
+                    <TableCell className="w-28 px-4 py-2 border text-xs font-mono">
+                      {item.customer_order_item_id ? (
+                        <span
+                          className="inline-flex flex-col gap-0.5 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 leading-tight"
+                          title={`Customer Order ${item.co_no_display || item.order_no || ''} · Sl ${item.co_sl_no_display ?? ''}${item.customer_name_display ? ` · ${item.customer_name_display}` : ''}`}
+                        >
+                          <span className="text-[11px] font-semibold text-violet-800">
+                            {item.co_no_display || item.order_no || '—'}
+                          </span>
+                          {item.co_sl_no_display != null && (
+                            <span className="text-[10px] text-violet-700/80">Sl {item.co_sl_no_display}</span>
+                          )}
+                        </span>
+                      ) : item.po_no ? (
+                        <>{item.po_no}{item.po_sl_no ? ` · ${item.po_sl_no}` : ""}</>
+                      ) : "—"}
+                    </TableCell>
 
                     <TableCell className="w-28 px-4 py-2 border">{item.pcs}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
@@ -1687,6 +1748,371 @@ const PurchaseVoucher = () => {
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>
       </form>
+
+      {/* ── Pending Purchase-Order Picker Modal ── */}
+      <Dialog open={poPickerOpen} onOpenChange={setPoPickerOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Pending Purchase-Order Items</DialogTitle>
+          </DialogHeader>
+
+          <Input
+            placeholder="Search PO #, item, purity…"
+            value={poPickerSearch}
+            onChange={(e) => setPoPickerSearch(e.target.value)}
+            className="mb-1"
+          />
+
+          <div className="max-h-[55vh] overflow-auto rounded-md border border-border">
+            {poPickerLoading ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
+            ) : pendingPOItems.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                No pending purchase-order items for this vendor.
+              </div>
+            ) : (
+              <Table className="w-full text-sm">
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="w-10 px-2 py-2" />
+                    <TableHead className="px-3 py-2">PO Date</TableHead>
+                    <TableHead className="px-3 py-2">PO #</TableHead>
+                    <TableHead className="px-3 py-2 w-12">Sl</TableHead>
+                    <TableHead className="px-3 py-2">Item</TableHead>
+                    <TableHead className="px-3 py-2">Purity</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Pcs</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Approx Wt</TableHead>
+                    <TableHead className="px-3 py-2">Size</TableHead>
+                    <TableHead className="px-3 py-2">Due</TableHead>
+                    <TableHead className="px-3 py-2">Remarks</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingPOItems
+                    .filter((p) => {
+                      const q = poPickerSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        (p.po_no || "").toLowerCase().includes(q) ||
+                        (p.item_name || "").toLowerCase().includes(q) ||
+                        (p.item || "").toLowerCase().includes(q) ||
+                        (p.purity || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .map((p) => {
+                      const alreadyAdded = rs.some(r => r.po_no === p.po_no && r.po_sl_no === p.po_sl_no);
+                      const checked = selectedPOItemIds.has(p.po_item_id);
+                      const toggle = () => {
+                        if (alreadyAdded) return;
+                        setSelectedPOItemIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(p.po_item_id)) next.delete(p.po_item_id);
+                          else next.add(p.po_item_id);
+                          return next;
+                        });
+                      };
+                      return (
+                        <TableRow
+                          key={p.po_item_id}
+                          className={`odd:bg-muted/10 transition-colors duration-100 ${alreadyAdded ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${checked ? "bg-primary/5 hover:bg-primary/10" : !alreadyAdded ? "hover:bg-muted/20" : ""}`}
+                          onClick={toggle}
+                        >
+                          <TableCell className="px-2 py-2">
+                            {alreadyAdded ? (
+                              <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">Added</span>
+                            ) : (
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={toggle}
+                              onClick={(e) => e.stopPropagation()}
+                              className="cursor-pointer"
+                            />
+                            )}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.po_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs font-mono">{p.po_no || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-center">{p.po_sl_no}</TableCell>
+                          <TableCell className="px-3 py-2">
+                            <div className="flex flex-col leading-tight">
+                              <span className="font-medium">{p.item_name || p.item || "—"}</span>
+                              {p.item && p.item_name && p.item !== p.item_name && (
+                                <span className="text-[10px] text-muted-foreground font-mono">{p.item}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-3 py-2">{p.purity || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2">{p.size || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">{p.remarks || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs text-muted-foreground">
+                {selectedPOItemIds.size} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => setPoPickerOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={selectedPOItemIds.size === 0}
+                  onClick={() => {
+                    const picked = pendingPOItems.filter((p) => selectedPOItemIds.has(p.po_item_id));
+                    if (picked.length === 0) return;
+
+                    if (picked.length === 1) {
+                      // Single selection → populate the input row so the user can
+                      // adjust weights and add sub-items before pressing Tab to add.
+                      const p = picked[0];
+                      setValue("table.item", p.item || "");
+                      setValue("table.purity", p.purity || "");  // string e.g. "22K"
+                      setValue("table.pcs", p.pcs ?? "");
+                      setValue("table.gw", p.approx_wt ?? "");
+                      setValue("table.pending_pcs", p.pcs ?? "");
+                      setValue("table.pending_gw", p.approx_wt ?? "");
+                      setValue("table.size", p.size || "");
+                      setValue("table.remarks", p.remarks || "");
+                      setValue("table.po_no", p.po_no || "");
+                      setValue("table.po_sl_no", p.po_sl_no ?? null);
+                      setValue("table.order_no", "");
+                      setTableItemDisplay(p.item_name || p.item || "");
+                    } else {
+                      // Multiple selections → add all to the table directly.
+                      // Use the Edit (pencil) button on each row to adjust
+                      // weights and add sub-items afterwards.
+                      const startSlNo = rs.length > 0 ? Math.max(...rs.map(r => r.sl_no || 0)) : 0;
+                      const newRows = picked.map((p, i) => ({
+                        sl_no: startSlNo + i + 1,
+                        po_no: p.po_no || "",
+                        po_sl_no: p.po_sl_no ?? null,
+                        item: p.item || "",
+                        item_name: p.item_name || "",
+                        purity: p.purity || "",       // string e.g. "22K"
+                        pcs: p.pcs ?? 0,
+                        gw: p.approx_wt ?? 0,
+                        pending_pcs: p.pcs ?? 0,
+                        pending_gw: p.approx_wt ?? 0,
+                        size: p.size || "",
+                        remarks: p.remarks || "",
+                        order_no: "",
+                        barcode: null,
+                        barcode_txt: "",
+                        making: 0,
+                        making_type: "",
+                        making_value: 0,
+                        item_value: 0,
+                        purchasevoucherdetails_set: [],
+                      }));
+                      setRows([...rs, ...newRows]);
+                    }
+
+                    setPoPickerOpen(false);
+                    setSelectedPOItemIds(new Set());
+                  }}
+                >
+                  Add Selected
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Pending Customer-Order Picker Modal (direct CO → PV) ── */}
+      <Dialog open={coPickerOpen} onOpenChange={setCoPickerOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Pending Customer-Order Items</DialogTitle>
+          </DialogHeader>
+
+          <Input
+            placeholder="Search CO #, customer, item, purity…"
+            value={coPickerSearch}
+            onChange={(e) => setCoPickerSearch(e.target.value)}
+            className="mb-1"
+          />
+
+          <div className="max-h-[55vh] overflow-auto rounded-md border border-border">
+            {coPickerLoading ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
+            ) : pendingCOItems.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                No pending customer-order items.
+              </div>
+            ) : (
+              <Table className="w-full text-sm">
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="w-10 px-2 py-2" />
+                    <TableHead className="px-3 py-2">CO Date</TableHead>
+                    <TableHead className="px-3 py-2">CO #</TableHead>
+                    <TableHead className="px-3 py-2">Customer</TableHead>
+                    <TableHead className="px-3 py-2 w-12">Sl</TableHead>
+                    <TableHead className="px-3 py-2">Item</TableHead>
+                    <TableHead className="px-3 py-2">Purity</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Pcs</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Approx Wt</TableHead>
+                    <TableHead className="px-3 py-2">Due</TableHead>
+                    <TableHead className="px-3 py-2">Remarks</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingCOItems
+                    .filter((p) => {
+                      const q = coPickerSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        (p.co_no || "").toLowerCase().includes(q) ||
+                        (p.customer_name || "").toLowerCase().includes(q) ||
+                        (p.item_name || "").toLowerCase().includes(q) ||
+                        (p.item || "").toLowerCase().includes(q) ||
+                        (p.purity || "").toLowerCase().includes(q)
+                      );
+                    })
+                    .map((p) => {
+                      const alreadyAdded = rs.some(r => r.customer_order_item_id === p.co_item_id);
+                      const checked = selectedCOItemIds.has(p.co_item_id);
+                      const toggle = () => {
+                        if (alreadyAdded) return;
+                        setSelectedCOItemIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(p.co_item_id)) next.delete(p.co_item_id);
+                          else next.add(p.co_item_id);
+                          return next;
+                        });
+                      };
+                      return (
+                        <TableRow
+                          key={p.co_item_id}
+                          className={`odd:bg-muted/10 transition-colors duration-100 ${alreadyAdded ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${checked ? "bg-violet-50 hover:bg-violet-100" : !alreadyAdded ? "hover:bg-muted/20" : ""}`}
+                          onClick={toggle}
+                        >
+                          <TableCell className="px-2 py-2">
+                            {alreadyAdded ? (
+                              <span className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">Added</span>
+                            ) : (
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={toggle}
+                                onClick={(e) => e.stopPropagation()}
+                                className="cursor-pointer"
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 font-medium">{p.customer_name || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-center">{p.sl_no}</TableCell>
+                          <TableCell className="px-3 py-2">
+                            <div className="flex flex-col leading-tight">
+                              <span className="font-medium">{p.item_name || p.item || "—"}</span>
+                              {p.item && p.item_name && p.item !== p.item_name && (
+                                <span className="text-[10px] text-muted-foreground font-mono">{p.item}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-3 py-2">{p.purity || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">{p.remarks || "—"}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter>
+            <div className="flex items-center justify-between w-full">
+              <span className="text-xs text-muted-foreground">
+                {selectedCOItemIds.size} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" onClick={() => setCoPickerOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={selectedCOItemIds.size === 0}
+                  onClick={() => {
+                    const picked = pendingCOItems.filter((p) => selectedCOItemIds.has(p.co_item_id));
+                    if (picked.length === 0) return;
+
+                    if (picked.length === 1) {
+                      // Single → populate the input row for weight/sub-item editing.
+                      const p = picked[0];
+                      setValue("table.item", p.item || "");
+                      setValue("table.purity", p.purity || "");
+                      setValue("table.pcs", p.pcs ?? "");
+                      setValue("table.gw", p.approx_wt ?? "");
+                      setValue("table.pending_pcs", p.pcs ?? "");
+                      setValue("table.pending_gw", p.approx_wt ?? "");
+                      setValue("table.size", p.size || "");
+                      setValue("table.remarks", p.remarks || "");
+                      // Mutually exclusive with PO link → clear PO fields.
+                      setValue("table.po_no", "");
+                      setValue("table.po_sl_no", null);
+                      setValue("table.customer_order_item_id", p.co_item_id);
+                      setValue("table.order_no", p.co_no || "");
+                      setValue("table.co_no_display", p.co_no || "");
+                      setValue("table.co_sl_no_display", p.sl_no ?? null);
+                      setValue("table.customer_name_display", p.customer_name || "");
+                      setTableItemDisplay(p.item_name || p.item || "");
+                    } else {
+                      // Multi → push all to the grid.
+                      const startSlNo = rs.length > 0 ? Math.max(...rs.map(r => r.sl_no || 0)) : 0;
+                      const newRows = picked.map((p, i) => ({
+                        sl_no: startSlNo + i + 1,
+                        po_no: "",
+                        po_sl_no: null,
+                        customer_order_item_id: p.co_item_id,
+                        co_no_display: p.co_no || "",
+                        co_sl_no_display: p.sl_no ?? null,
+                        customer_name_display: p.customer_name || "",
+                        order_no: p.co_no || "",
+                        item: p.item || "",
+                        item_name: p.item_name || "",
+                        purity: p.purity || "",
+                        pcs: p.pcs ?? 0,
+                        gw: p.approx_wt ?? 0,
+                        pending_pcs: p.pcs ?? 0,
+                        pending_gw: p.approx_wt ?? 0,
+                        size: p.size || "",
+                        remarks: p.remarks || "",
+                        barcode: null,
+                        barcode_txt: "",
+                        making: 0,
+                        making_type: "",
+                        making_value: 0,
+                        item_value: 0,
+                        purchasevoucherdetails_set: [],
+                      }));
+                      setRows([...rs, ...newRows]);
+                    }
+
+                    setCoPickerOpen(false);
+                    setSelectedCOItemIds(new Set());
+                  }}
+                >
+                  Add Selected
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -389,7 +389,7 @@ class BarCodeView(RetailBaseViewset):
             retail = getattr(self.request, 'retail', None)
             qs = (
                 BarcodeMain.objects
-                .select_related('item', 'purity')
+                .select_related('item', 'purity', 'customer_order', 'customer_order__ldgr')
                 .filter(retail=retail)
                 .annotate(dia_ct=Sum('barcodedetails__ct'))
             )
@@ -434,6 +434,62 @@ class BarCodeView(RetailBaseViewset):
                     "Only RFID tag, HUID, and design code may be updated."
                 )
         super().perform_update(serializer)
+
+    @action(detail=True, methods=['post'], url_path='release-from-order')
+    def release_from_order(self, request, pk=None):
+        from rest_framework.exceptions import ValidationError
+        barcode = self.get_object()
+        mode = (request.data.get('mode') or '').strip()
+        remarks = (request.data.get('remarks') or '').strip()
+
+        if mode not in (BarcodeOrderReleaseLog.MODE_CANCEL, BarcodeOrderReleaseLog.MODE_REASSIGN):
+            raise ValidationError({"mode": "mode must be 'cancel_order' or 'reassign'."})
+        if not barcode.customer_order_id:
+            raise ValidationError(
+                f"Barcode '{barcode.barcode}' is not linked to any customer order."
+            )
+
+        with transaction.atomic():
+            order = barcode.customer_order
+            original_order_no = order.order_no if order else ''
+
+            if mode == BarcodeOrderReleaseLog.MODE_CANCEL:
+                if hasattr(order, 'delivery_status'):
+                    order.delivery_status = 'cancelled'
+                    order.save(update_fields=['delivery_status'])
+            else:  # reassign
+                # Best-effort: reset lifecycle flags on matching order items so the order
+                # still looks "pending fulfillment" and can be re-reserved later.
+                matching_items = order.items.filter(
+                    item_id=barcode.item_id, purity_id=barcode.purity_id,
+                )
+                for coi in matching_items:
+                    updates = {}
+                    if getattr(coi, 'iss_status', False):
+                        updates['iss_status'] = False
+                    if getattr(coi, 'sale_status', False):
+                        updates['sale_status'] = False
+                    if getattr(coi, 'del_status', False):
+                        updates['del_status'] = False
+                    if updates:
+                        for k, v in updates.items():
+                            setattr(coi, k, v)
+                        coi.save(update_fields=list(updates.keys()))
+
+            BarcodeOrderReleaseLog.objects.create(
+                barcode=barcode,
+                original_order=order,
+                original_order_no=original_order_no,
+                mode=mode,
+                remarks=remarks,
+                released_by=request.user if getattr(request, 'user', None) and request.user.is_authenticated else None,
+            )
+            barcode.customer_order = None
+            barcode.save(update_fields=['customer_order'])
+
+        barcode.refresh_from_db()
+        serializer = BarCodeMainListSerializer(barcode, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class BarcodeBulkListView(APIView):
     """

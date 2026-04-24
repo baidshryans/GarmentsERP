@@ -146,6 +146,7 @@ export const navData = {
     { title: "Purchase Approval",      url: "/purchase/purchaseapproval/list/",  icon: PackageCheckIcon },
     { title: "Purchase Order",         url: "/purchase/purchaseorder/list/",     icon: ClipboardList    },
     { title: "Customer Purchase",      url: "/purchase/customerpurchase/list/",  icon: ShoppingCart     },
+    { title: "Stock Matching",         url: "/purchase/stock-matching/",         icon: Scale            },
   ],
 
   // ── Sales ──────────────────────────────────────────────────────────────────
@@ -153,6 +154,7 @@ export const navData = {
     { title: "Estimate",       url: "/sales/estimate",            icon: Calculator       },
     { title: "Quotation",     url: "/sales/quotation/list/",     icon: FileText         },
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList    },
+    { title: "Order Tracker",  url: "/sales/customerorder/tracker/", icon: ClipboardList    },
     { title: "Sales Voucher",  url: "/sales/list/",               icon: ReceiptTextIcon  },
     { title: "Sales Return",   url: "/sales/salesreturn/list/",   icon: PackageXIcon     },
     { title: "Sales Approval", url: "/sales/salesapproval/list/", icon: PackageCheckIcon },

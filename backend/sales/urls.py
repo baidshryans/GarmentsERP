@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/order-no/',views.order_no_view, name='order-no'),
     path('api/customer-item/<int:order_no>/<int:sl_no>/', views.get_customer_item_as_purchase_style),
     path('api/customer-orders/pending-items/', views.pending_customer_order_items, name='pending_customer_order_items'),
+    path('api/customer-orders/<int:order_id>/timeline/', views.customer_order_timeline, name='customer_order_timeline'),
     path('api/get-sale-vou-for-return/', views.get_sale_voucher_for_return),
     path('api/next_sv_no', views.get_next_sv_no),
     path('api/next_sr_no', views.get_next_sr_no),

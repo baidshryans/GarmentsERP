@@ -4,23 +4,142 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
-import { ChevronDown, ChevronRight, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
+const fmt = (v) =>
+  Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const VOUCHER_TYPE_LABELS = {
-  JRNL: "Journal",
-  PMNT: "Payment",
-  RCPT_SALE: "Receipt",
-  "RCPT-SALE": "Receipt",
-  CONTRA: "Contra",
-  SALE: "Sale",
-  "SALE-RET": "Sale Return",
-  "PURC-SC": "Purchase",
-  "PURC-RET": "Purchase Return",
-};
+function BillsPanel({ title, data, showDis = true }) {
+  const rows = data?.rows || [];
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="bg-muted/60 px-3 py-2 text-sm font-semibold border-b">{title}</div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs uppercase tracking-wider text-muted-foreground bg-muted/20">
+            <th className="px-3 py-1.5 text-left w-full">Party</th>
+            <th className="px-3 py-1.5 text-left whitespace-nowrap">Bill No</th>
+            {showDis && <th className="px-3 py-1.5 text-right whitespace-nowrap">Dis</th>}
+            <th className="px-3 py-1.5 text-right whitespace-nowrap">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={showDis ? 4 : 3} className="px-3 py-3 text-center text-muted-foreground text-xs">
+                No entries
+              </td>
+            </tr>
+          )}
+          {rows.map((r, i) => (
+            <tr key={i} className={`border-t border-border/50 ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
+              <td className="px-3 py-1.5 w-full">{r.party}</td>
+              <td className="px-3 py-1.5 font-mono text-xs whitespace-nowrap">{r.billno}</td>
+              {showDis && <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{Number(r.dis) > 0 ? fmt(r.dis) : ""}</td>}
+              <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{fmt(r.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        {rows.length > 0 && (
+          <tfoot>
+            <tr className="border-t bg-muted/30 font-semibold">
+              <td colSpan={showDis ? 3 : 2} className="px-3 py-1.5 text-right">Total</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{fmt(data.grand_total)}</td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  );
+}
+
+function VouchersPanel({ title, data }) {
+  const rows = data?.rows || [];
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="bg-muted/60 px-3 py-2 text-sm font-semibold border-b">{title}</div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs uppercase tracking-wider text-muted-foreground bg-muted/20">
+            <th className="px-3 py-1.5 text-left w-full">Party</th>
+            <th className="px-3 py-1.5 text-left whitespace-nowrap">Voucher No</th>
+            <th className="px-3 py-1.5 text-right whitespace-nowrap">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={3} className="px-3 py-3 text-center text-muted-foreground text-xs">No entries</td>
+            </tr>
+          )}
+          {rows.map((r, i) => (
+            <tr key={i} className={`border-t border-border/50 ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
+              <td className="px-3 py-1.5 w-full">
+                {r.party}
+                {r.narration && (
+                  <div className="text-xs text-muted-foreground italic">{r.narration}</div>
+                )}
+              </td>
+              <td className="px-3 py-1.5 font-mono text-xs whitespace-nowrap">{r.voucher_no}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{fmt(r.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        {rows.length > 0 && (
+          <tfoot>
+            <tr className="border-t bg-muted/30 font-semibold">
+              <td colSpan={2} className="px-3 py-1.5 text-right">Total</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{fmt(data.grand_total)}</td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  );
+}
+
+function ApprovalsPanel({ data }) {
+  const rows = data?.rows || [];
+  return (
+    <div className="rounded-lg border border-border overflow-hidden">
+      <div className="bg-muted/60 px-3 py-2 text-sm font-semibold border-b">Sale Approvals</div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs uppercase tracking-wider text-muted-foreground bg-muted/20">
+            <th className="px-3 py-1.5 text-left w-full">Customer</th>
+            <th className="px-3 py-1.5 text-left whitespace-nowrap">Approval No</th>
+            <th className="px-3 py-1.5 text-right whitespace-nowrap">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={3} className="px-3 py-3 text-center text-muted-foreground text-xs">No entries</td>
+            </tr>
+          )}
+          {rows.map((r, i) => (
+            <tr key={i} className={`border-t border-border/50 ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
+              <td className="px-3 py-1.5 w-full">{r.party}</td>
+              <td className="px-3 py-1.5 font-mono text-xs whitespace-nowrap">{r.billno}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums whitespace-nowrap">{fmt(r.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        {rows.length > 0 && (
+          <tfoot>
+            <tr className="border-t bg-muted/30 font-semibold">
+              <td colSpan={2} className="px-3 py-1.5 text-right">Total</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{fmt(data.grand_total)}</td>
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  );
+}
 
 export default function DayBook() {
   const [fromDate, setFromDate] = useState(today);
@@ -28,7 +147,6 @@ export default function DayBook() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [expanded, setExpanded] = useState({});
 
   const fetchReport = async () => {
     if (!isValidDateRange(fromDate, toDate)) {
@@ -42,67 +160,128 @@ export default function DayBook() {
         `/accounting/api/day-book/?from_date=${fromDate}&to_date=${toDate}`
       );
       setReport(res.data);
-      // expand all by default
-      const exp = {};
-      res.data.vouchers.forEach((v) => { exp[v.voucher_no] = true; });
-      setExpanded(exp);
     } catch (e) {
       setError(e.response?.data?.error || "Failed to load day book.");
     }
     setLoading(false);
   };
 
-  const toggle = (vno) => setExpanded((prev) => ({ ...prev, [vno]: !prev[vno] }));
-  const fmt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-
   const handlePrint = () => {
     if (!report) return;
-    // Build a flat print-friendly table from the data (not from the interactive DOM)
-    const rows = report.vouchers.flatMap((v) => {
-      const lines = v.lines.map(
-        (l, i) =>
-          `<tr>
-            ${i === 0 ? `<td rowspan="${v.lines.length}" style="vertical-align:top;border-bottom:1px solid #cbd5e1">${v.date}</td>
-            <td rowspan="${v.lines.length}" style="vertical-align:top;border-bottom:1px solid #cbd5e1"><span class="badge">${VOUCHER_TYPE_LABELS[v.voucher_type] ?? v.voucher_type}</span></td>
-            <td rowspan="${v.lines.length}" style="vertical-align:top;border-bottom:1px solid #cbd5e1;font-size:9px;font-family:monospace">${v.voucher_no}</td>` : ""}
-            <td>${l.account}</td>
-            <td style="text-align:right" class="tabular-nums">${Number(l.debit) > 0 ? fmt(l.debit) : ""}</td>
-            <td style="text-align:right" class="tabular-nums">${Number(l.credit) > 0 ? fmt(l.credit) : ""}</td>
-          </tr>`
-      );
-      // Add narration row
-      if (v.narration) {
-        lines.push(`<tr><td colspan="3"></td><td colspan="3" style="font-size:9px;color:#64748b;padding-bottom:6px"><em>${v.narration}</em></td></tr>`);
-      }
-      return lines;
-    });
 
-    const html = `
-      <table>
-        <thead>
-          <tr>
-            <th style="width:70px">Date</th>
-            <th style="width:70px">Type</th>
-            <th style="width:100px">Voucher No</th>
-            <th>Account</th>
-            <th style="text-align:right;width:100px">Debit</th>
-            <th style="text-align:right;width:100px">Credit</th>
-          </tr>
-        </thead>
-        <tbody>${rows.join("")}</tbody>
-        <tfoot>
-          <tr class="totals-row">
-            <td colspan="4">Total (${report.vouchers.length} voucher(s))</td>
-            <td style="text-align:right" class="tabular-nums">${fmt(report.total_debit)}</td>
-            <td style="text-align:right" class="tabular-nums">${fmt(report.total_credit)}</td>
-          </tr>
-        </tfoot>
+    const billsTable = (title, data, showDis = true) => {
+      const rows = data?.rows || [];
+      const body = rows.length
+        ? rows.map(r => `
+            <tr>
+              <td>${r.party || ""}</td>
+              <td style="white-space:nowrap">${r.billno || ""}</td>
+              ${showDis ? `<td style="text-align:right">${Number(r.dis) > 0 ? fmt(r.dis) : ""}</td>` : ""}
+              <td style="text-align:right">${fmt(r.amount)}</td>
+            </tr>`).join("")
+        : `<tr><td colspan="${showDis ? 4 : 3}" style="text-align:center;color:#94a3b8">No entries</td></tr>`;
+      const totalCols = showDis ? 3 : 2;
+      return `
+        <h3 style="margin:6px 0 4px;font-size:11px">${title}</h3>
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Party</th>
+              <th style="white-space:nowrap">Bill No</th>
+              ${showDis ? `<th style="width:60px;text-align:right">Dis</th>` : ""}
+              <th style="width:90px;text-align:right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+          ${rows.length ? `<tfoot>
+            <tr class="totals-row">
+              <td colspan="${totalCols}" style="text-align:right">Total</td>
+              <td style="text-align:right">${fmt(data.grand_total)}</td>
+            </tr>
+          </tfoot>` : ""}
+        </table>`;
+    };
+
+    const vouchersTable = (title, data) => {
+      const rows = data?.rows || [];
+      const body = rows.length
+        ? rows.map(r => `
+            <tr>
+              <td>${r.party || ""}${r.narration ? `<br><em style="font-size:9px;color:#64748b">${r.narration}</em>` : ""}</td>
+              <td style="white-space:nowrap">${r.voucher_no || ""}</td>
+              <td style="text-align:right">${fmt(r.amount)}</td>
+            </tr>`).join("")
+        : `<tr><td colspan="3" style="text-align:center;color:#94a3b8">No entries</td></tr>`;
+      return `
+        <h3 style="margin:6px 0 4px;font-size:11px">${title}</h3>
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Party</th>
+              <th style="white-space:nowrap">Voucher No</th>
+              <th style="width:90px;text-align:right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+          ${rows.length ? `<tfoot>
+            <tr class="totals-row">
+              <td colspan="2" style="text-align:right">Total</td>
+              <td style="text-align:right">${fmt(data.grand_total)}</td>
+            </tr>
+          </tfoot>` : ""}
+        </table>`;
+    };
+
+    const approvalsTable = (data) => {
+      const rows = data?.rows || [];
+      const body = rows.length
+        ? rows.map(r => `
+            <tr>
+              <td>${r.party || ""}</td>
+              <td style="white-space:nowrap">${r.billno || ""}</td>
+              <td style="text-align:right">${fmt(r.amount)}</td>
+            </tr>`).join("")
+        : `<tr><td colspan="3" style="text-align:center;color:#94a3b8">No entries</td></tr>`;
+      return `
+        <h3 style="margin:6px 0 4px;font-size:11px">Sale Approvals</h3>
+        <table style="width:100%">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th style="white-space:nowrap">Approval No</th>
+              <th style="width:90px;text-align:right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+          ${rows.length ? `<tfoot>
+            <tr class="totals-row">
+              <td colspan="2" style="text-align:right">Total</td>
+              <td style="text-align:right">${fmt(data.grand_total)}</td>
+            </tr>
+          </tfoot>` : ""}
+        </table>`;
+    };
+
+    const pair = (left, right) => `
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px">
+        <tr>
+          <td style="width:50%;vertical-align:top;padding-right:6px">${left}</td>
+          <td style="width:50%;vertical-align:top;padding-left:6px">${right}</td>
+        </tr>
       </table>`;
+
+    const html = [
+      pair(billsTable("Sale", report.sale), billsTable("Purchase", report.purchase)),
+      pair(billsTable("Purchase Return", report.purchase_return), billsTable("Sale Return", report.sale_return)),
+      pair(vouchersTable("Payment", report.payment), vouchersTable("Receipt", report.receipt)),
+      pair(vouchersTable("Contra", report.contra), vouchersTable("Journal", report.journal)),
+      pair(approvalsTable(report.sale_approvals), ""),
+    ].join("");
 
     printReport({
       title: "Day Book",
       subtitle: `${report.from_date} to ${report.to_date}`,
-      html,
+      html: html || "<p>No entries for this period.</p>",
     });
   };
 
@@ -135,70 +314,23 @@ export default function DayBook() {
       )}
 
       {report && !loading && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
-            <span>{report.vouchers.length} voucher(s) — {report.from_date} to {report.to_date}</span>
-            <span>
-              Total Dr: <strong className="text-foreground">{fmt(report.total_debit)}</strong>
-              {" / "}
-              Total Cr: <strong className="text-foreground">{fmt(report.total_credit)}</strong>
-            </span>
+        <div className="flex flex-col gap-3">
+          <div className="text-sm text-muted-foreground px-1">
+            Day Book — {report.from_date} to {report.to_date}
           </div>
 
-          {report.vouchers.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground border rounded-lg">No transactions for this period.</div>
-          )}
-
-          {report.vouchers.map((v) => (
-            <div key={v.voucher_no} className="rounded-lg border border-border overflow-hidden">
-              {/* Voucher header */}
-              <button
-                className="w-full flex items-center gap-3 px-4 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
-                onClick={() => toggle(v.voucher_no)}
-              >
-                {expanded[v.voucher_no] ? <ChevronDown className="size-4 text-muted-foreground shrink-0" /> : <ChevronRight className="size-4 text-muted-foreground shrink-0" />}
-                <span className="font-mono text-xs text-muted-foreground w-28 shrink-0">{v.voucher_no}</span>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium shrink-0">
-                  {VOUCHER_TYPE_LABELS[v.voucher_type] ?? v.voucher_type}
-                </span>
-                <span className="text-sm font-medium text-foreground">{v.narration}</span>
-                <span className="ml-auto text-sm font-semibold text-foreground shrink-0">
-                  {fmt(v.amount)}
-                </span>
-                <span className="text-xs text-muted-foreground shrink-0 w-24 text-right">{v.date}</span>
-              </button>
-
-              {/* Lines */}
-              {expanded[v.voucher_no] && (
-                <table className="w-full text-sm border-t border-border">
-                  <thead>
-                    <tr className="text-xs uppercase tracking-wider text-muted-foreground bg-muted/20">
-                      <th className="px-4 py-2 text-left font-semibold">Account</th>
-                      <th className="px-4 py-2 text-right font-semibold w-32">Debit</th>
-                      <th className="px-4 py-2 text-right font-semibold w-32">Credit</th>
-                      <th className="px-4 py-2 text-left font-semibold">Ref / Cheque</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {v.lines.map((line, i) => (
-                      <tr key={i} className={`border-t border-border/50 ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
-                        <td className="px-4 py-1.5">{line.account}</td>
-                        <td className="px-4 py-1.5 text-right">
-                          {Number(line.debit) > 0 ? fmt(line.debit) : ""}
-                        </td>
-                        <td className="px-4 py-1.5 text-right">
-                          {Number(line.credit) > 0 ? fmt(line.credit) : ""}
-                        </td>
-                        <td className="px-4 py-1.5 text-muted-foreground text-xs">
-                          {line.ref_bill_no || line.chq_no || line.party_bank_name || ""}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 [&>*]:min-w-0">
+            <BillsPanel title="Sale" data={report.sale} />
+            <BillsPanel title="Purchase" data={report.purchase} />
+            <BillsPanel title="Purchase Return" data={report.purchase_return} />
+            <BillsPanel title="Sale Return" data={report.sale_return} />
+            <VouchersPanel title="Payment" data={report.payment} />
+            <VouchersPanel title="Receipt" data={report.receipt} />
+            <VouchersPanel title="Contra" data={report.contra} />
+            <VouchersPanel title="Journal" data={report.journal} />
+            <ApprovalsPanel data={report.sale_approvals} />
+            <div aria-hidden="true" />
+          </div>
         </div>
       )}
     </div>

@@ -1617,53 +1617,163 @@ class LedgerStatementView(APIView):
 
 
 class DayBookView(APIView):
-    """All vouchers for a date range with their debit/credit lines."""
+    """Sectioned day book: bills + voucher summaries grouped by type."""
+
     def get(self, request):
         from_date_str = request.query_params.get("from_date")
         to_date_str = request.query_params.get("to_date")
 
         if not all([from_date_str, to_date_str]):
-            return Response({"error": "from_date and to_date are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "from_date and to_date are required."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
         to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+        retail = request.retail
 
-        vouchers = VoucherMain.objects.filter(
-            date__range=(from_date, to_date),
-            retail=request.retail
+        from sales.models import SaleReturn, SalesApproval
+        from purchase.models import PurchaseReturn
+
+        def _dec(v):
+            try:
+                return Decimal(str(v or 0))
+            except (InvalidOperation, TypeError):
+                return Decimal('0')
+
+        # ---- Bills: Sale / Purchase / Sale Return / Purchase Return ----
+        def bills_section(qs, party_attr, billno_attr, dis_attr, amount_attr):
+            rows, total = [], Decimal('0')
+            for obj in qs:
+                party = getattr(obj, party_attr, None)
+                party_name = party.ac_name if party else ''
+                amt = _dec(getattr(obj, amount_attr))
+                dis = _dec(getattr(obj, dis_attr, 0))
+                rows.append({
+                    "party": party_name,
+                    "billno": getattr(obj, billno_attr) or '',
+                    "dis": dis,
+                    "amount": amt,
+                })
+                total += amt
+            return {"rows": rows, "grand_total": total}
+
+        sale_qs = SalesVou.objects.filter(
+            retail=retail, date1__range=(from_date, to_date)
+        ).select_related('ldgr').order_by('date1', 'billno')
+
+        purchase_qs = PurchaseVoucher.objects.filter(
+            retail=retail, date1__range=(from_date, to_date), voucher_type='Vendor'
+        ).select_related('ldgr').order_by('date1', 'billno')
+
+        sale_return_qs = SaleReturn.objects.filter(
+            retail=retail, date1__range=(from_date, to_date)
+        ).select_related('ldgr').order_by('date1', 'billno')
+
+        purchase_return_qs = PurchaseReturn.objects.filter(
+            retail=retail, date1__range=(from_date, to_date)
+        ).select_related('ldgr').order_by('date1', 'billno')
+
+        sale_section = {"rows": [], "grand_total": Decimal('0')}
+        for sv in sale_qs:
+            amt = _dec(sv.total_bill_value)
+            sale_section["rows"].append({
+                "party": sv.ldgr.ac_name if sv.ldgr else '',
+                "billno": sv.billno or '',
+                "dis": _dec(getattr(sv, 'discount', 0)),
+                "amount": amt,
+            })
+            sale_section["grand_total"] += amt
+
+        purchase_section = bills_section(
+            purchase_qs, 'ldgr', 'billno', 'discount_amt', 'bill_value'
+        )
+
+        sale_return_section = {"rows": [], "grand_total": Decimal('0')}
+        for sr in sale_return_qs:
+            amt = _dec(sr.total_bill_value)
+            sale_return_section["rows"].append({
+                "party": sr.ldgr.ac_name if sr.ldgr else '',
+                "billno": sr.billno or '',
+                "dis": _dec(getattr(sr, 'discount', 0)),
+                "amount": amt,
+            })
+            sale_return_section["grand_total"] += amt
+
+        purchase_return_section = bills_section(
+            purchase_return_qs, 'ldgr', 'billno', 'discount', 'bill_value'
+        )
+
+        # ---- Voucher summaries: PMNT / RCPT(+RCPT-SALE) / CNTR / JRNL ----
+        vm_qs = VoucherMain.objects.filter(
+            retail=retail, date__range=(from_date, to_date)
         ).prefetch_related('transactions__account').order_by('date', 'voucher_no')
 
-        result = []
-        total_debit = Decimal('0')
-        total_credit = Decimal('0')
-        for v in vouchers:
-            lines = []
-            for t in v.transactions.all():
-                lines.append({
-                    "account": t.account.ac_name,
-                    "debit": t.debit,
-                    "credit": t.credit,
-                    "ref_bill_no": t.ref_bill_no or "",
-                    "party_bank_name": t.party_bank_name or "",
-                    "chq_no": t.chq_no or "",
+        def counter_party(voucher, side):
+            """side='debit' → pick line with max debit; 'credit' → max credit."""
+            best, best_val = None, Decimal('-1')
+            for t in voucher.transactions.all():
+                val = _dec(t.debit if side == 'debit' else t.credit)
+                if val > best_val:
+                    best, best_val = t, val
+            return best.account.ac_name if (best and best.account) else ''
+
+        def both_sides(voucher):
+            dr = counter_party(voucher, 'debit')
+            cr = counter_party(voucher, 'credit')
+            return f"{dr} → {cr}" if (dr or cr) else ''
+
+        def voucher_section(vouchers, party_fn):
+            rows, total = [], Decimal('0')
+            for v in vouchers:
+                amt = _dec(v.amount)
+                rows.append({
+                    "party": party_fn(v),
+                    "voucher_no": v.voucher_no,
+                    "narration": v.narration or '',
+                    "amount": amt,
                 })
-                total_debit += t.debit
-                total_credit += t.credit
-            result.append({
-                "date": v.date,
-                "voucher_no": v.voucher_no,
-                "voucher_type": v.voucher_type,
-                "narration": v.narration,
-                "amount": v.amount,
-                "lines": lines,
+                total += amt
+            return {"rows": rows, "grand_total": total}
+
+        pmnt_v = [v for v in vm_qs if v.voucher_type == VoucherType.pmnt]
+        rcpt_v = [v for v in vm_qs if v.voucher_type in (VoucherType.rcpt, VoucherType.rcpt_sale)]
+        cntr_v = [v for v in vm_qs if v.voucher_type == VoucherType.cntr]
+        jrnl_v = [v for v in vm_qs if v.voucher_type == VoucherType.journal]
+
+        payment_section = voucher_section(pmnt_v, lambda v: counter_party(v, 'debit'))
+        receipt_section = voucher_section(rcpt_v, lambda v: counter_party(v, 'credit'))
+        contra_section = voucher_section(cntr_v, both_sides)
+        journal_section = voucher_section(
+            jrnl_v, lambda v: counter_party(v, 'debit')
+        )
+
+        # ---- Sale Approvals ----
+        approvals_qs = SalesApproval.objects.filter(
+            retail=retail, date1__range=(from_date, to_date)
+        ).select_related('ldgr').order_by('date1', 'billno')
+
+        sale_approvals = {"rows": [], "grand_total": Decimal('0')}
+        for ap in approvals_qs:
+            amt = _dec(ap.total_bill_value)
+            sale_approvals["rows"].append({
+                "party": ap.ldgr.ac_name if ap.ldgr else '',
+                "billno": ap.billno or '',
+                "amount": amt,
             })
+            sale_approvals["grand_total"] += amt
 
         return Response({
             "from_date": from_date,
             "to_date": to_date,
-            "total_debit": total_debit,
-            "total_credit": total_credit,
-            "vouchers": result,
+            "sale": sale_section,
+            "purchase": purchase_section,
+            "sale_return": sale_return_section,
+            "purchase_return": purchase_return_section,
+            "payment": payment_section,
+            "receipt": receipt_section,
+            "contra": contra_section,
+            "journal": journal_section,
+            "sale_approvals": sale_approvals,
         }, status=status.HTTP_200_OK)
 
 

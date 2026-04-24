@@ -286,10 +286,8 @@ function transformData(jsonData, labelKey) {
       e.preventDefault()
       const table = getValues("table");
       const issue_sl_no = rs.length + 1
-      console.log(table.issued_sample_items)
-
-      table.issued_sample_items = table.issued_sample_items?.map(e=>e.value) ?? []
-      console.log(table.issued_sample_items)
+      // Sample items moved to the dedicated Sample Issue form — no longer captured here.
+      table.issued_sample_items = [];
       const rowVals = {
         issue_sl_no,
         ...table,
@@ -335,7 +333,16 @@ function transformData(jsonData, labelKey) {
               try {
                 const response = await convertBarcode(barcode);
                 if (response.success) {
-                  window.location.reload()
+                  toast({ title: "Converted to unbarcoded" });
+                  // Refresh the unbarcoded list inline instead of reloading the page.
+                  const list = await fetchUnBarcodedList({});
+                  if (list.success) {
+                    setUnbarcodedList((list.data.results || list.data || []).map(
+                      (u) => ({ value: u.id, label: `${u.item_desc || ''} — ${u.gw}g` })
+                    ));
+                  }
+                } else {
+                  toast({ title: "Convert failed", description: JSON.stringify(response.error), variant: "destructive" });
                 }
               } catch (error) {
                 console.error("Error fetching barcode data:", error);
@@ -465,7 +472,6 @@ function transformData(jsonData, labelKey) {
               <TableCell className="w-32 px-4 py-2 border">Design No</TableCell>
               <TableCell className="w-32 px-4 py-2 border">Main Item</TableCell>
               <TableCell className="w-20 px-4 py-2 border">Purity</TableCell>
-              <TableCell className="w-20 px-4 py-2 border">Sample Issue</TableCell>
               <TableCell className="w-16 px-4 py-2 border">Pcs</TableCell>
 
               <TableCell className="w-32 px-4 py-2 border">Approx wt</TableCell>
@@ -510,29 +516,7 @@ function transformData(jsonData, labelKey) {
                 />
 
               </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Controller
-                  name="table.issued_sample_items"
-                  control={control}
-                  render={({ field }) => (
-                    <MulSelect
-                      {...field}
-                      isMulti
-                      options={unbarcodedList}
-                      onChange={(selectedOption) => {
-
-                        field.onChange(selectedOption )}
-
-                      }
-                      filterOption={spellCheckEnabled ? (option, inputValue) => {
-                        if (!inputValue) return true;
-                        const fuse = new Fuse([{ label: option.label }], { keys: ['label'], threshold: 0.4 });
-                        return fuse.search(inputValue).length > 0;
-                      } : undefined}
-                    />
-                  )}
-                />
-              </TableCell>
+{/* Sample-issue picker moved to the dedicated Sample Issue form. */}
               <TableCell className="w-16 px-4 py-2 border">
                 <Input type="number" {...register("table.pcs")} />
               </TableCell>
@@ -565,7 +549,6 @@ function transformData(jsonData, labelKey) {
                   {row.item}
                 </TableCell>
                 <TableCell className="w-20 px-4 py-2 border">{row.purity}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.issued_sample_items.map(e => `${e} ,`)}</TableCell>
                 <TableCell className="w-16 px-4 py-2 border">{row.pcs}</TableCell>
                 <TableCell className="w-32 px-4 py-2 border">{row.approx_wt}</TableCell>
                 <TableCell className="w-16 px-4 py-2 border">{row.size}</TableCell>

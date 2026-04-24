@@ -1155,6 +1155,91 @@ export async function fetchSlipNoNext() {
   }
 }
 
+// ─── Sample Issue ───────────────────────────────────────────────────────────
+export async function createSampleIssue(data) {
+  try {
+    const response = await apiClient.post(`/manufacturing/api/sample-issue/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateSampleIssue(id, data) {
+  try {
+    const response = await apiClient.put(`/manufacturing/api/sample-issue/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSampleIssues({ search = "", page = 1 } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (page) params.append("page", page);
+    const response = await apiClient.get(`/manufacturing/api/sample-issue/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSampleIssueForEdit(id) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/sample-issue/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteSampleIssue(id) {
+  try {
+    await apiClient.delete(`/manufacturing/api/sample-issue/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSampleIssueNextBillno({ retail, fiscal_year } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (retail) params.append("retail", retail);
+    if (fiscal_year) params.append("fiscal_year", fiscal_year);
+    const response = await apiClient.get(`/manufacturing/api/sample-issue/next-billno/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchUnbarcodedForPicker({ karigar } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (karigar) params.append("karigar", karigar);
+    const response = await apiClient.get(`/manufacturing/api/unbarcoded-picker/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSubcontractorLedger({ karigar, start, end }) {
+  try {
+    const params = new URLSearchParams();
+    if (karigar) params.append("karigar", karigar);
+    if (start) params.append("start", start);
+    if (end) params.append("end", end);
+    const response = await apiClient.get(`/manufacturing/api/karigar-subcontractor-ledger/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchStockValuationReport() {
   try {
     const response = await apiClient.get(`/inventory/api/stock-valuation-report/`);

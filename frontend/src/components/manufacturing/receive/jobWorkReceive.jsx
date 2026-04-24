@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
-import { fetchMainItem, fetchOrderItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, getLedgers, createCustomerOrder, fetchPackets, getStates, fetchStoneIssuesFilterJobs, fetchMainItemDetails, createKarigarReceive, fetchKarigarReceive, fetchKarigarReceivewithID, updateKarigarReceive } from "@/services/apiService";
+import { fetchMainItem, fetchOrderItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, getLedgers, createCustomerOrder, fetchPackets, getStates, fetchStoneIssuesFilterJobs, fetchMainItemDetails, createKarigarReceive, fetchKarigarReceive, fetchKarigarReceivewithID, updateKarigarReceive, fetchSampleIssues, fetchSampleIssueForEdit } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
@@ -24,6 +24,7 @@ const JobWorkReceive = () => {
       form: {
         date1: new Date().toISOString().split('T')[0],
         place_of_supply: "WB",
+        source_type: "job",
         table: []
       }
     }
@@ -40,6 +41,8 @@ const JobWorkReceive = () => {
   const [karigars, setKarigars] = useState([]);
   const [jobSlNos, setJobSlNos] = useState([]);
   const [packets, setPackets] = useState([]);
+  const [sampleIssues, setSampleIssues] = useState([]);
+  const [sampleItems, setSampleItems] = useState([]);
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -128,7 +131,7 @@ function modifyData(data) {
       data.data.less_gw = 0
       data.data.loss = 0
 
-      data.data.nw = data.data.gw - data.data.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_gw) || 0), 0) - data.data.sample_issued_items.reduce((sum, detail) => sum + (parseFloat(detail.nw) || 0), 0) // - sample issue 
+      data.data.nw = data.data.gw - data.data.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_gw) || 0), 0)
       
 
 
@@ -144,9 +147,52 @@ function modifyData(data) {
     }
   }
 
+  const handleSampleBlur = async () => {
+    const { ref_sample_issue_id } = getValues("form");
+    if (!ref_sample_issue_id) return;
+    const resp = await fetchSampleIssueForEdit(ref_sample_issue_id);
+    if (resp.success) {
+      setSampleItems(resp.data.items || []);
+    } else {
+      toast({ title: "Failed to load sample issue items." });
+    }
+  }
+
+  const handleSampleItemBlur = async () => {
+    const { ref_sample_issue_id, ref_sample_sl_no } = getValues("form");
+    if (!ref_sample_issue_id || !ref_sample_sl_no) return;
+    const itm = sampleItems.find(it => String(it.sl_no) === String(ref_sample_sl_no));
+    if (!itm) return;
+    const sl = getValues("table").length + 1;
+    const row = {
+      sl_no: sl,
+      item: itm.piece_item_name || "",
+      purity: itm.piece_purity || "",
+      finish_status: false,
+      pcs: itm.piece_pcs || 0,
+      gw: itm.piece_gw || 0,
+      nw: itm.piece_gw || 0,
+      less_gw: 0,
+      loss: 0,
+      tunch_per: 0,
+      fine_wt: 0,
+      main_total_wt: 0,
+      wastage: 0,
+      add_field_type: 0,
+      making: 0,
+      rhodium: 0,
+      remarks: "",
+      details: [],
+      ref_sample_issue: ref_sample_issue_id,
+      ref_sample_issue_item: itm.id,
+      sample_piece_gw: itm.piece_gw || 0,
+    };
+    append(row);
+  }
+
   useEffect(() => {
     async function fetchData() {
-      const [packets, states, karigars, customers, salesperson, orderNo, mainItem, purity] = await Promise.all([
+      const [packets, states, karigars, customers, salesperson, orderNo, mainItem, purity, sampleIssueList] = await Promise.all([
         fetchPackets(),
         getStates(),
         fetchKarigarIssues(),
@@ -155,6 +201,7 @@ function modifyData(data) {
         fetchReceiveSlipNo(),
         fetchMainItem(),
         fetchPurity(),
+        fetchSampleIssues(),
       ]);
       if (packets.success) setPackets(packets.data.results);
       if (states.success) setstatesData(states.data);
@@ -164,6 +211,7 @@ function modifyData(data) {
       if (orderNo.success) setValue("form.receive_slip_no", orderNo.data.receive_slip_no);
       if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
       if (purity.success) setPurityData(purity.data.results ?? purity.data);
+      if (sampleIssueList.success) setSampleIssues(sampleIssueList.data.results ?? sampleIssueList.data);
     }
     fetchData().then((d) => {
 
@@ -202,6 +250,11 @@ function modifyData(data) {
   const onSubmit = (data) => {
     const form_data = getValues("form");
     form_data.items = getValues('table')
+    // Per-item ref_* fields drive routing; strip header-level helpers that aren't on the backend model.
+    delete form_data.source_type;
+    delete form_data.ref_sample_issue_billno;
+    delete form_data.ref_sample_issue_id;
+    delete form_data.ref_sample_sl_no;
     let newData = JSON.parse(JSON.stringify(form_data));
     console.log(modifyData)
     modifyData(newData);
@@ -378,54 +431,96 @@ function modifyData(data) {
             <input type="hidden" {...register("form.karigar_ldgr")} />
           </FieldContainer>
           <FieldContainer>
-            <Label htmlFor="serial_no_list" className="text-nowrap">Ref Job No</Label>
-            <Input type="hidden" {...register("form.ref_job_no_id")} />
-            <Input list="ref_no_list"
-
-              {...register("form.ref_job_no", {
-                onBlur: handleBlur,
-                onChange: (e) => {
-                  const selectedSlipNo = e.target.value;
-
-                  // Find the corresponding `serialNo` object from the `karigars` array
-                  const selectedKarigar = karigars.find(
-                    (serialNo) => serialNo.issue_slip_no === selectedSlipNo
-                  );
-                  if (selectedKarigar) {
-                    setValue("form.ref_job_no_id", selectedKarigar.id); // Update ID
-                  }
-                }
-              })}
-            // required
-            />
-
-            <datalist id="ref_no_list" >
-              {karigars.map((serialNo, index) => (
-                <option key={index} value={serialNo.issue_slip_no}></option>
-
-              ))}
-
-            </datalist>
+            <Label className="text-nowrap">Source</Label>
+            <div className="flex gap-4 items-center pt-2">
+              <label className="flex items-center gap-1">
+                <input type="radio" value="job" {...register("form.source_type")} />
+                <span>Against Job</span>
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="radio" value="sample" {...register("form.source_type")} />
+                <span>Against Sample</span>
+              </label>
+            </div>
           </FieldContainer>
+        </div>
 
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          {watch("form.source_type") !== "sample" && (
+            <>
+              <FieldContainer>
+                <Label htmlFor="serial_no_list" className="text-nowrap">Ref Job No</Label>
+                <Input type="hidden" {...register("form.ref_job_no_id")} />
+                <Input list="ref_no_list"
+                  {...register("form.ref_job_no", {
+                    onBlur: handleBlur,
+                    onChange: (e) => {
+                      const selectedSlipNo = e.target.value;
+                      const selectedKarigar = karigars.find(
+                        (serialNo) => serialNo.issue_slip_no === selectedSlipNo
+                      );
+                      if (selectedKarigar) {
+                        setValue("form.ref_job_no_id", selectedKarigar.id);
+                      }
+                    }
+                  })}
+                />
+                <datalist id="ref_no_list" >
+                  {karigars.map((serialNo, index) => (
+                    <option key={index} value={serialNo.issue_slip_no}></option>
+                  ))}
+                </datalist>
+              </FieldContainer>
 
-          <FieldContainer>
-            <Label htmlFor="serial_no_list" className="text-nowrap">Sl No</Label>
-            <Input list="serial_no_list"
+              <FieldContainer>
+                <Label htmlFor="serial_no_list" className="text-nowrap">Sl No</Label>
+                <Input list="serial_no_list"
+                  {...register("form.sl_no", { onBlur: handleBlur1 })}
+                />
+                <datalist id="serial_no_list" >
+                  {serialNos.map((serialNo, index) => (
+                    <option key={index} value={serialNo.job_slip_no}></option>
+                  ))}
+                </datalist>
+              </FieldContainer>
+            </>
+          )}
 
-              {...register("form.sl_no", {
-                onBlur: handleBlur1
-              })}
-            // required
-            />
-            <datalist id="serial_no_list" >
-              {serialNos.map((serialNo, index) => (
-                <option key={index} value={serialNo.job_slip_no}></option>
+          {watch("form.source_type") === "sample" && (
+            <>
+              <FieldContainer>
+                <Label className="text-nowrap">Sample Issue Billno</Label>
+                <Input type="hidden" {...register("form.ref_sample_issue_id")} />
+                <Input list="sample_issue_list"
+                  {...register("form.ref_sample_issue_billno", {
+                    onBlur: handleSampleBlur,
+                    onChange: (e) => {
+                      const billno = e.target.value;
+                      const selected = sampleIssues.find((s) => s.billno === billno);
+                      if (selected) setValue("form.ref_sample_issue_id", selected.id);
+                    }
+                  })}
+                />
+                <datalist id="sample_issue_list">
+                  {sampleIssues.map((s, i) => (
+                    <option key={i} value={s.billno}></option>
+                  ))}
+                </datalist>
+              </FieldContainer>
 
-              ))}
-
-            </datalist>
-          </FieldContainer>
+              <FieldContainer>
+                <Label className="text-nowrap">Sample Sl No</Label>
+                <Input list="sample_sl_no_list"
+                  {...register("form.ref_sample_sl_no", { onBlur: handleSampleItemBlur })}
+                />
+                <datalist id="sample_sl_no_list">
+                  {sampleItems.map((it, i) => (
+                    <option key={i} value={it.sl_no}>{it.piece_label}</option>
+                  ))}
+                </datalist>
+              </FieldContainer>
+            </>
+          )}
         </div>
 
         {/* Item Details */}
@@ -440,6 +535,7 @@ function modifyData(data) {
               <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Nw</TableCell>
+              <TableCell className="w-28 px-4 py-2 border">Incr GW</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Less</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Loss(%)</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Karigar Cr wt</TableCell>
@@ -511,6 +607,13 @@ function modifyData(data) {
 
                   {/* {field.nw} */}
                 </TableCell>
+                <TableCell className="w-28 px-4 py-2 border text-muted-foreground">
+                  {(
+                    Number(watch(`table.${index}.nw`) || 0)
+                    - Number(watch(`table.${index}.supplied_gw`) || 0)
+                    - Number(watch(`table.${index}.sample_piece_gw`) || 0)
+                  ).toFixed(3)}
+                </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
                   <Input type="number" step="0.001" {...register(`table.${index}.less_gw`, { onChange: e => handlelesswtChange(index) })} />
                 </TableCell>
@@ -549,57 +652,6 @@ function modifyData(data) {
 
               </TableRow>
             ))}
-
-          </TableBody>
-        </Table>
-
-        <br></br>
-        <h6 className="text-lg font-semibold my-3">Issued Sample Detail</h6>
-
-        <Table className="w-full table-fixed border-collapse">
-          <TableBody>
-
-
-            <TableRow className=" w-full bg-gray-100">
-              <TableCell className="w-28 px-4 py-2 border">Item</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Nw</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Rate</TableCell>
-
-
-            </TableRow>
-            {fields.map((parentField, parentIndex) =>
-              parentField.
-              sample_issued_items
-              .map((childField, childIndex) => (
-              <TableRow>
-
-                <TableCell className="w-28 px-4 py-2 border">
-                  {childField.item}
-
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                {childField.pcs}
-
-                </TableCell>
-              
-                <TableCell className="w-28 px-4 py-2 border">
-                {childField.gw}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                {childField.nw}
-                </TableCell>
-
-                <TableCell className="w-28 px-4 py-2 border">
-                {childField.rate}
-                </TableCell>
-                
-              </TableRow>)))
-            }
-
-
-
 
           </TableBody>
         </Table>

@@ -60,8 +60,7 @@ def create_karigar_issue(request):
 
     # ── Duplicate-issue warning check ─────────────────────────────────────────
     # For each item in the new issue, check if the same customer_order_item
-    # is already out with another karigar (rec_status=False), or if the
-    # source_receive_item is already linked to another active re-issue.
+    # is already out with another karigar (rec_status=False).
     warnings = []
     for item in instance.items.all():
         if item.customer_order_item_id:
@@ -74,17 +73,6 @@ def create_karigar_issue(request):
                     f"Item sl#{item.issue_sl_no} ({item.item_id}) is already issued to "
                     f"'{c.issue_slip.karigar_ldgr.ac_name}' (slip: {c.issue_slip.issue_slip_no}) "
                     f"and not yet received back."
-                )
-        if item.source_receive_item_id:
-            conflict_ri = KarigarIssueItem.objects.filter(
-                source_receive_item_id=item.source_receive_item_id,
-                rec_status=False,
-            ).exclude(pk=item.pk).select_related('issue_slip__karigar_ldgr')
-            for c in conflict_ri:
-                warnings.append(
-                    f"Semi-finished item (receive ref #{item.source_receive_item_id}) is already "
-                    f"re-issued to '{c.issue_slip.karigar_ldgr.ac_name}' "
-                    f"(slip: {c.issue_slip.issue_slip_no}) and not yet received back."
                 )
 
     response_data = serializer.data
@@ -669,7 +657,6 @@ def fetch_main_details(request):
     data_n = KarigarReceiveItemForGetSerializer({
         "ref_job_no":issued_item.issue_slip.id,
         "ref_job_sl_no":issued_item.id,
-        "sample_issued_items": issued_item.issued_sample_items,
         "item":issued_item.item,
         "purity":issued_item.purity,
         "pcs":issued_item.pcs,
@@ -921,11 +908,9 @@ class JobStatusView(ListAPIView):
             'issue_slip__karigar_ldgr',
             'item', 'purity',
             'customer_order_item__order_no',
-            'source_receive_item',
             'retail',
         ).prefetch_related(
             'karigarreceiveitem_set',   # all receives against this issue item
-            'reissue_items',            # re-issues that used this item as source
         ).filter(retail=self.request.retail)
 
 class RefineryIssueViewset(views.RetailBaseViewset):

@@ -84,7 +84,6 @@ class KarigarIssueItem(models.Model):
     pcs = models.IntegerField()
     approx_wt = models.DecimalField(null=True, max_digits=10, decimal_places =2)
     design_code = models.CharField(max_length=10, null=True, blank=True)
-    issued_sample_items = models.ManyToManyField("inventory.UnBarcodedMain", blank=True)
     size = models.CharField(max_length=10, null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
     remarks = models.CharField(max_length=50)
@@ -93,11 +92,6 @@ class KarigarIssueItem(models.Model):
     stone_receive = GenericRelation("manufacturing.KarigarStoneReceive",content_type_field='job_sl_content_type',  # Updated field name
         object_id_field='job_sl_object_id',  )
     rec_status = models.BooleanField(default=False)
-    source_receive_item = models.ForeignKey(
-        'KarigarReceiveItem', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='reissue_items',
-        help_text="Set when this issue is a re-issue of a semi-finished item received from a previous karigar"
-    )
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
 

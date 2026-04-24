@@ -308,12 +308,6 @@ class KarigarIssueItemForPostSerializer(serializers.ModelSerializer):
         slug_field='purity'
     )
     due_date = serializers.DateField(required=False, allow_null=True)
-    source_receive_item = serializers.PrimaryKeyRelatedField(
-        queryset=KarigarReceiveItem.objects.all(),
-        allow_null=True,
-        required=False,
-        help_text="Set when re-issuing a semi-finished item received from a previous karigar"
-    )
 
     class Meta:
         model = KarigarIssueItem
@@ -321,13 +315,11 @@ class KarigarIssueItemForPostSerializer(serializers.ModelSerializer):
             'id',
             'issue_sl_no',
             'customer_order_item',
-            'source_receive_item',
             'item',
             'purity',
             'pcs',
             'approx_wt',
             'design_code',
-            'issued_sample_items',
             'size',
             'due_date',
             'remarks',
@@ -338,22 +330,13 @@ class KarigarIssueItemForPostSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
-            sample_issues = validated_data.pop("issued_sample_items")
-            inst = KarigarIssueItem.objects.create(
-                **validated_data,
-            )
-            inst.issued_sample_items.set(sample_issues)
-
-            return inst
+            return KarigarIssueItem.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
         with transaction.atomic():
-            sample_issues = validated_data.pop("issued_sample_items")
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
-            instance.issued_sample_items.set(sample_issues)
-
             return instance
             
 
@@ -489,12 +472,10 @@ class KarigarIssueForPostSerializer(serializers.ModelSerializer):
             karigar_issue_instance = KarigarIssue.objects.create(**validated_data,bill_id=int( validated_data['issue_slip_no'].split('/')[-1]))
 
             for item_data in items_data:
-                sample_issues = item_data.pop("issued_sample_items")
-                inst = KarigarIssueItem.objects.create(
+                KarigarIssueItem.objects.create(
                     issue_slip=karigar_issue_instance,
                     **item_data,
                 )
-                inst.issued_sample_items.set(sample_issues)
 
         return karigar_issue_instance
 
@@ -612,7 +593,6 @@ class KarigarReceiveItemForGetSerializer(serializers.ModelSerializer):
     ref_job_no = serializers.IntegerField()
     finish_status = serializers.BooleanField()
     hallmark_status = serializers.BooleanField()
-    sample_issued_items = UnBarcodedMainSerializer(many=True)
 
     # Header context for reports
     receive_date    = serializers.DateField(source='receive_slip_no.date1', read_only=True)
@@ -629,7 +609,6 @@ class KarigarReceiveItemForGetSerializer(serializers.ModelSerializer):
             "id",
             "ref_job_no",
             "ref_job_sl_no",
-            'sample_issued_items',
             'item',
             'purity',
             'pcs',
@@ -658,7 +637,6 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
     receive_slip_no = serializers.PrimaryKeyRelatedField(queryset=KarigarReceive.objects.all(),required=False)
-    sample_issued_items = UnBarcodedMainSerializer(many=True, source="ref_job_sl_no.issued_sample_items", read_only=True)
     # Nested Serializer for KarigarReceiveItemDetails
     details = KarigarReceiveItemDetailsForPostSerializer(many=True,source="karigarreceiveitemdetails_set")
 
@@ -673,7 +651,6 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
             'ref_job_sl_no',
             'ref_sample_issue',
             'ref_sample_issue_item',
-            'sample_issued_items',
             'item',
             'purity',
             'pcs',
@@ -702,7 +679,6 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
-            'sample_issued_items':{'read_only':True,'required':False}
         }
 
     def validate(self, attrs):
@@ -1350,9 +1326,11 @@ class KarigarIssueItemforJobStatusSerializer(serializers.ModelSerializer):
             return 'ISSUED'
         if receive_items.filter(finish_status=True).exists():
             return 'FINISHED'
-        # Check if any of the receive items have been re-issued to another karigar
-        receive_ids = receive_items.values_list('id', flat=True)
-        if KarigarIssueItem.objects.filter(source_receive_item_id__in=receive_ids).exists():
+        # Check if any of the semi-finished pieces has since been re-issued via a Sample Issue.
+        ubm_ids = receive_items.exclude(unbarcoded_item__isnull=True).values_list(
+            'unbarcoded_item_id', flat=True
+        )
+        if ubm_ids and SampleIssueItem.objects.filter(piece_id__in=list(ubm_ids)).exists():
             return 'REISSUED'
         return 'SEMI_FINISHED_RECEIVED'
 
@@ -1368,7 +1346,7 @@ class KarigarIssueItemforJobStatusSerializer(serializers.ModelSerializer):
         depth = 1
         fields = [
             'id', 'issue_slip', 'issue_sl_no', 'customer_order_item',
-            'source_receive_item', 'item', 'purity', 'pcs', 'approx_wt',
+            'item', 'purity', 'pcs', 'approx_wt',
             'design_code', 'size', 'due_date', 'remarks', 'rec_status',
             'retail', 'stage', 'is_late',
         ]

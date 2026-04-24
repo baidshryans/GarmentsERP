@@ -11,7 +11,7 @@ import { Table, TableRow, TableCell, TableHead, TableBody, TableHeader } from "@
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { fetchMainItem, fetchSlipNoNext, fetchSalesperson, fetchPurity, getLedgers, createKarigarIssue, fetchCustomerOrders, fetchSlNosOrders, fetchOrderItem, fetchPos, fetchPendingCustomerOrderItems, } from "@/services/apiService";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils.jsx"
 import { useNavigate } from "react-router-dom";
 import { convertBarcode, fetchBarcodes, fetchKarigarIssueForEdit, fetchUnBarcodedList, updateKarigarIssue } from "../../../services/apiService";
@@ -32,7 +32,6 @@ const KarigarIssue = () => {
       form: {
         issue_slip_type: 'Stock',
         date1: new Date().toISOString().split("T")[0],
-        issued_sample_items:[],
       }
 
     },
@@ -53,12 +52,13 @@ const KarigarIssue = () => {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [pickerSearch, setPickerSearch] = useState("");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const prefillCoId = !id ? searchParams.get("co") : null;
 
   const tableDefaultValue = {
     design_code: "",
     item: "",
     purity: "", // or a default purity value like "916" if needed
-    issued_sample_items: [], // since this is a multi-select
     pcs: "", // or 0 if you prefer numeric defaults
     approx_wt: "", // or 0
     size: "",
@@ -87,9 +87,47 @@ const KarigarIssue = () => {
       if (karigars.success) setKarigars(karigars.data.results);
       if (unb.success) setUnbarcodedList(transformData(unb.data.results,'label'));
       if (barcodes.success) setBarcodes(barcodes.data.results);
-      if (pending.success) setPendingItems(pending.data);
-      
-      
+      if (pending.success) {
+        // If opened via +MO quick-action from a Customer Order row, auto-pull that
+        // order's pending items into the grid and remove them from the picker list.
+        if (prefillCoId) {
+          const coIdNum = Number(prefillCoId);
+          const picked = (pending.data || []).filter(p => Number(p.co_id) === coIdNum);
+          if (picked.length > 0) {
+            setValue("form.issue_slip_type", "Customer Order");
+            const newRows = picked.map((p, idx) => ({
+              issue_sl_no: idx + 1,
+              design_code: "",
+              item: p.item ?? "",
+              purity: p.purity ?? "",
+              pcs: p.pcs ?? "",
+              approx_wt: p.approx_wt ?? "",
+              size: p.size ?? "",
+              due_date: p.due_date ?? "",
+              remarks: p.remarks ?? "",
+              customer_order_item: p.co_item_id,
+              _co_display: {
+                co_id: p.co_id,
+                co_no: p.co_no,
+                co_date: p.co_date,
+                sl_no: p.sl_no,
+                customer_name: p.customer_name,
+                item_name: p.item_name,
+              },
+            }));
+            setRows(newRows);
+            const pickedIds = new Set(picked.map(p => p.co_item_id));
+            setPendingItems((pending.data || []).filter(p => !pickedIds.has(p.co_item_id)));
+          } else {
+            setPendingItems(pending.data);
+            toast({ title: "No pending items", description: "This customer order has no items left to allocate." });
+          }
+        } else {
+          setPendingItems(pending.data);
+        }
+      }
+
+
     }
     fetchData();
 
@@ -248,7 +286,6 @@ const KarigarIssue = () => {
         design_code: "",
         item: p.item ?? "",
         purity: p.purity ?? "",
-        issued_sample_items: [],
         pcs: p.pcs ?? "",
         approx_wt: p.approx_wt ?? "",
         size: p.size ?? "",
@@ -286,8 +323,6 @@ function transformData(jsonData, labelKey) {
       e.preventDefault()
       const table = getValues("table");
       const issue_sl_no = rs.length + 1
-      // Sample items moved to the dedicated Sample Issue form — no longer captured here.
-      table.issued_sample_items = [];
       const rowVals = {
         issue_sl_no,
         ...table,

@@ -67,10 +67,6 @@ def create_unbarcoded_inventory(sender, instance, created, **kwargs):
             "retail": instance.retail,
         }
         ubm = UnBarcodedMain.objects.create(**unbarcoded_data)
-        if instance.ref_job_sl_no_id:
-            for item in instance.ref_job_sl_no.issued_sample_items.all():
-                item.next = ubm
-                item.save()
         if instance.ref_sample_issue_item_id:
             prev = instance.ref_sample_issue_item.piece
             prev.next = ubm

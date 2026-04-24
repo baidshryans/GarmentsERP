@@ -29,13 +29,13 @@ class BarcodeMain(models.Model):
     nw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True,null=True)  # Added blank=True
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)  # Added blank=True
-    value = models.IntegerField(blank=True, null=True)  # Added blank=True
-    making_val = models.IntegerField(blank=True, null=True)  # Added blank=True
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    making_val = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     making_type = models.CharField(max_length=50, blank=True)  # Added blank=True
-    other_chg = models.IntegerField(blank=True, null=True)  # Added blank=True
+    other_chg = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     design_code = models.CharField(max_length=50, blank=True)  # Added blank=True
     kr_code = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
-    total_amount = models.IntegerField(blank=True, null=True, default=0)  # Added blank=True
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, default=0)
     size = models.CharField(max_length=50, blank=True, null=True)
     metal_color = models.CharField(max_length=50, blank=True, null=True)
     customer_order = models.ForeignKey(CustomerOrder,null=True,on_delete=models.SET_NULL)  
@@ -219,6 +219,14 @@ class RfidCountResult(models.Model):
 
 
 class UnBarcodedMain(models.Model):
+    CREATED_FROM_CHOICES = [
+        ('KAR_REC', 'Karigar Receipt'),
+        ('PUR_VOU', 'Purchase Voucher'),
+        ('BAR_CONV', 'Barcode Conversion'),
+        ('MANUAL', 'Manual'),
+        ('OP_STK', 'Opening Stock'),
+    ]
+
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     item_desc = models.CharField(max_length=50)
     label = models.CharField(max_length=255)
@@ -227,19 +235,28 @@ class UnBarcodedMain(models.Model):
     nw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True,null=True)  # Added blank=True
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)  # Added blank=True
-    value = models.IntegerField(blank=True, null=True)  # Added blank=True
-    making_val = models.IntegerField(blank=True, null=True)  # Added blank=True
+    value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    making_val = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     making_type = models.CharField(max_length=50, blank=True, null=True)  # Added blank=True
-    other_chg = models.IntegerField(blank=True, null=True)  # Added blank=True
+    other_chg = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     design_code = models.CharField(max_length=50, blank=True,null=True)  # Added blank=True
     kr_code = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
-    total_amount = models.IntegerField(blank=True, null=True, default=0)  # Added blank=True
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, default=0)
     size = models.CharField(max_length=50, blank=True, null=True)
     metal_color = models.CharField(max_length=50, blank=True, null=True)
-    created_from = models.CharField(max_length=50, blank=True, null=True)  # Added blank=True
-    customer_order = models.ForeignKey(CustomerOrder,null=True,on_delete=models.SET_NULL)  
+    created_from = models.CharField(max_length=50, blank=True, null=True, choices=CREATED_FROM_CHOICES)
+    customer_order = models.ForeignKey(CustomerOrder,null=True,on_delete=models.SET_NULL)
     created_by = models.CharField(max_length=50, blank=True,null=True)  # Added blank=True
     created_date = models.DateField(auto_now_add=True)  # Added auto_now_add=True
+    source_barcode = models.ForeignKey(
+        'BarcodeMain', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='unbarcoded_descendants',
+        help_text="Set when this piece originated from a barcode-to-unbarcoded conversion."
+    )
+    # `next` chains a piece to its successor: when an UnBarcodedMain is issued
+    # as a sample and the karigar returns a reworked piece, the new UnBarcodedMain
+    # created on receive becomes this piece's `.next`. Populated by the
+    # `create_unbarcoded_inventory` signal in manufacturing/signals.py.
     next = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True,related_name="prevs")
     stk_status = models.BooleanField(default=True)
 

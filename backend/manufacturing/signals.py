@@ -58,7 +58,7 @@ def create_unbarcoded_inventory(sender, instance, created, **kwargs):
             "total_amount": 0,
             "size": None,
             "metal_color": None,
-            "created_from": "KarigarReceiveItem",
+            "created_from": "KAR_REC",
             "customer_order": None,
             "created_by": "System",
             "stk_status": True,

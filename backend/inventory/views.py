@@ -239,68 +239,81 @@ class ConvertBarcodeToUnbarcodedView(APIView):
         barcode_value = request.data.get("barcode")
         if not barcode_value:
             return Response({"error": "Barcode is required"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        barcode_main = get_object_or_404(BarcodeMain, barcode=barcode_value)
-        
-        # Create UnBarcodedMain entry with optimized field assignments
-        unbarcoded_main = UnBarcodedMain.objects.create(
-            item=barcode_main.item,
-            item_desc=barcode_main.item.item_name if barcode_main.item else None,
-            label=barcode_main.barcode,
-            pcs=barcode_main.pcs,
-            gw=barcode_main.gw,
-            nw=barcode_main.nw,
-            huid=barcode_main.huid,
-            purity=barcode_main.purity,
-            value=barcode_main.value,
-            making_val=barcode_main.making_val,
-            making_type=barcode_main.making_type,
-            other_chg=barcode_main.other_chg,
-            design_code=barcode_main.design_code,
-            kr_code=barcode_main.kr_code,
-            total_amount=barcode_main.total_amount,
-            size=barcode_main.size,
-            metal_color=barcode_main.metal_color,
-            created_from='KAR_REC' if barcode_main.rec_item_id else ('PUR_VOU' if barcode_main.pur_voucher_id else 'MANUAL'),
-            customer_order=barcode_main.customer_order,
-            created_by=barcode_main.created_by,
-            created_date=barcode_main.created_date,
-            stk_status=True,
-            op_stk=False,
-            voucher_no=barcode_main.voucher_no,
-            retail=barcode_main.retail
-        )
-        
-        # Bulk create UnBarcodedDetails
-        barcode_details = BarcodeDetails.objects.filter(barcode=barcode_main)
-        UnBarcodedDetails.objects.bulk_create([
-            UnBarcodedDetails(
-                main_item=unbarcoded_main,
-                packet=detail.packet,
-                pcs=detail.pcs,
-                ct=detail.ct,
-                gw=detail.gw,
-                item=detail.item,
-                rate=detail.rate,
-                amt=detail.amt
-            ) for detail in barcode_details
-        ])
-        
-        # Mark BarcodeMain as inactive instead of deleting
-        barcode_main.stk_status = False
-        barcode_main.save()
-       
-        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
 
-        BarcodeTransaction.objects.create(
-                    barcode=barcode_main,
-                    billno="",
-                    trans_type="BAR-TRF-UNB",
-                    user=request.user,
-                    ip_address=ip,
-                    retail=request.retail
-                ) 
-        
+        with transaction.atomic():
+            barcode_main = get_object_or_404(
+                BarcodeMain.objects.select_for_update(), barcode=barcode_value
+            )
+
+            if not barcode_main.stk_status:
+                return Response(
+                    {"error": "Barcode has already been converted or is out of stock."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            if barcode_main.rec_item_id:
+                origin = 'KAR_REC'
+            elif barcode_main.pur_voucher_id:
+                origin = 'PUR_VOU'
+            else:
+                origin = 'BAR_CONV'
+
+            unbarcoded_main = UnBarcodedMain.objects.create(
+                item=barcode_main.item,
+                item_desc=barcode_main.item.item_name if barcode_main.item else None,
+                label=barcode_main.barcode,
+                pcs=barcode_main.pcs,
+                gw=barcode_main.gw,
+                nw=barcode_main.nw,
+                huid=barcode_main.huid,
+                purity=barcode_main.purity,
+                value=barcode_main.value,
+                making_val=barcode_main.making_val,
+                making_type=barcode_main.making_type,
+                other_chg=barcode_main.other_chg,
+                design_code=barcode_main.design_code,
+                kr_code=barcode_main.kr_code,
+                total_amount=barcode_main.total_amount,
+                size=barcode_main.size,
+                metal_color=barcode_main.metal_color,
+                created_from=origin,
+                source_barcode=barcode_main,
+                customer_order=barcode_main.customer_order,
+                created_by=barcode_main.created_by,
+                created_date=barcode_main.created_date,
+                stk_status=True,
+                op_stk=False,
+                voucher_no=barcode_main.voucher_no,
+                retail=barcode_main.retail,
+            )
+
+            barcode_details = BarcodeDetails.objects.filter(barcode=barcode_main)
+            UnBarcodedDetails.objects.bulk_create([
+                UnBarcodedDetails(
+                    main_item=unbarcoded_main,
+                    packet=detail.packet,
+                    pcs=detail.pcs,
+                    ct=detail.ct,
+                    gw=detail.gw,
+                    item=detail.item,
+                    rate=detail.rate,
+                    amt=detail.amt,
+                ) for detail in barcode_details
+            ])
+
+            barcode_main.stk_status = False
+            barcode_main.save(update_fields=['stk_status'])
+
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
+            BarcodeTransaction.objects.create(
+                barcode=barcode_main,
+                billno="",
+                trans_type="BAR-TRF-UNB",
+                user=request.user,
+                ip_address=ip,
+                retail=request.retail,
+            )
+
         return Response({"message": "Barcode converted to Unbarcoded successfully"}, status=status.HTTP_201_CREATED)
 
     

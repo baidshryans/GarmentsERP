@@ -362,6 +362,85 @@ class KarigarIssueItemForUpdateSerializer(serializers.ModelSerializer):
         model = KarigarIssueItem
         exclude = ["sketch"]
 
+
+class SampleIssueItemSerializer(serializers.ModelSerializer):
+    piece = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('inventory.models', fromlist=['UnBarcodedMain']).UnBarcodedMain.objects.all()
+    )
+    piece_label = serializers.SerializerMethodField()
+    piece_gw = serializers.SerializerMethodField()
+    piece_pcs = serializers.SerializerMethodField()
+    piece_purity = serializers.SerializerMethodField()
+    piece_item_name = serializers.SerializerMethodField()
+    piece_design_code = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SampleIssueItem
+        fields = [
+            'id', 'sl_no', 'piece', 'instructions', 'due_date', 'remarks',
+            'rec_status', 'retail',
+            'piece_label', 'piece_gw', 'piece_pcs', 'piece_purity',
+            'piece_item_name', 'piece_design_code',
+        ]
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'rec_status': {'read_only': True},
+        }
+
+    def get_piece_label(self, obj):
+        p = obj.piece
+        return f"{p.item.item_name if p.item else ''} — {p.gw}g" if p else ''
+
+    def get_piece_gw(self, obj):
+        return float(obj.piece.gw or 0) if obj.piece_id else 0
+
+    def get_piece_pcs(self, obj):
+        return obj.piece.pcs if obj.piece_id else 0
+
+    def get_piece_purity(self, obj):
+        return obj.piece.purity.purity if (obj.piece_id and obj.piece.purity_id) else ''
+
+    def get_piece_item_name(self, obj):
+        return obj.piece.item.item_name if (obj.piece_id and obj.piece.item_id) else ''
+
+    def get_piece_design_code(self, obj):
+        return obj.piece.design_code if obj.piece_id else ''
+
+
+class SampleIssueSerializer(serializers.ModelSerializer):
+    items = SampleIssueItemSerializer(many=True)
+    karigar_ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
+    karigar_ldgr_name = serializers.CharField(source='karigar_ldgr.ac_name', read_only=True)
+
+    class Meta:
+        model = SampleIssue
+        fields = [
+            'id', 'billno', 'date1', 'karigar_ldgr', 'karigar_ldgr_name',
+            'retail', 'fiscal_year', 'remarks', 'items',
+        ]
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+    def create(self, validated_data):
+        items_data = validated_data.pop('items', [])
+        with transaction.atomic():
+            inst = SampleIssue.objects.create(**validated_data)
+            for idx, item_data in enumerate(items_data, start=1):
+                item_data.setdefault('sl_no', idx)
+                SampleIssueItem.objects.create(issue=inst, **item_data)
+            return inst
+
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop('items', [])
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(
+                SampleIssueItemSerializer, instance, 'items', 'issue',
+                SampleIssueItemSerializer(items_data, many=True).data,
+            )
+            return instance
+
 class KarigarIssueForPostSerializer(serializers.ModelSerializer):
     items = KarigarIssueItemForPostSerializer(many=True,)
     karigar_ldgr = serializers.PrimaryKeyRelatedField(

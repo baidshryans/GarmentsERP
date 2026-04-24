@@ -93,6 +93,71 @@ def create_karigar_issue(request):
         response_data['warnings'] = warnings
     return Response(data=response_data, status=status.HTTP_201_CREATED)
 
+class SampleIssueViewSet(views.RetailBaseViewset):
+    from .serializer import SampleIssueSerializer as _SIS
+    from .models import SampleIssue as _SI
+    serializer_class = _SIS
+    queryset = _SI.objects.select_related('karigar_ldgr').prefetch_related(
+        'items__piece__item', 'items__piece__purity',
+    ).all()
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['billno', 'karigar_ldgr__ac_name']
+    ordering = ['-date1', '-id']
+
+
+def sample_issue_next_billno(request):
+    """Return next billno for Sample Issue: SI/<FY>/<n>."""
+    from django.http import JsonResponse
+    from .models import SampleIssue
+    retail_id = request.GET.get('retail')
+    fy_id = request.GET.get('fiscal_year')
+    qs = SampleIssue.objects.all()
+    if retail_id:
+        qs = qs.filter(retail_id=retail_id)
+    if fy_id:
+        qs = qs.filter(fiscal_year_id=fy_id)
+    last = qs.order_by('-id').first()
+    n = 1
+    if last and last.billno:
+        try:
+            n = int(last.billno.split('/')[-1]) + 1
+        except (ValueError, AttributeError):
+            n = qs.count() + 1
+    prefix = f"SI/{fy_id or 'X'}/"
+    return JsonResponse({'next_billno': f"{prefix}{n}"})
+
+
+class UnbarcodedForPickerView(APIView):
+    """
+    List UnBarcodedMain rows eligible for Sample Issue:
+      stk_status=True AND (kr_code IS NULL OR kr_code=<karigar>)
+    Query: ?karigar=<ledger_id>  (optional filter)
+    """
+    def get(self, request):
+        from inventory.models import UnBarcodedMain
+        from django.db.models import Q
+        karigar = request.query_params.get('karigar')
+        qs = UnBarcodedMain.objects.filter(stk_status=True).select_related('item', 'purity', 'kr_code')
+        if karigar:
+            qs = qs.filter(Q(kr_code__isnull=True) | Q(kr_code_id=karigar))
+        else:
+            qs = qs.filter(kr_code__isnull=True)
+        data = [{
+            'id': p.id,
+            'label': f"{p.item.item_name if p.item else ''} — {p.gw}g — {p.design_code or ''}",
+            'item': p.item.item_name if p.item else '',
+            'item_id': p.item_id,
+            'purity': p.purity.purity if p.purity else '',
+            'purity_id': p.purity_id,
+            'pcs': p.pcs,
+            'gw': float(p.gw or 0),
+            'design_code': p.design_code or '',
+            'huid': getattr(p, 'huid', '') or '',
+            'with_karigar': p.kr_code.ac_name if p.kr_code else None,
+        } for p in qs.order_by('-id')[:500]]
+        return Response(data)
+
+
 class KarigarIssueViewSet(views.RetailBaseViewset):
     serializer_class = KarigarIssueForPostSerializer
     queryset = KarigarIssue.objects.select_related('karigar_ldgr').prefetch_related(
@@ -2158,86 +2223,203 @@ class KarigarSubcontractorLedgerView(APIView):
         &start=YYYY-MM-DD      (optional)
         &end=YYYY-MM-DD        (optional)
 
-    Returns the karigar's transactions in two clearly separated sections:
-      - raw_gold: gold issued via KarigarGoldIssue (raw material issues)
-      - semi_finished: items re-issued via KarigarIssueItem.source_receive_item
-    Both sections include running totals.
+    Returns three sections:
+      - finished_account:  pieces out (Sample Issue) vs receives IN (weight-based)
+      - raw_gold_account:  raw gold issues vs incremental gold returned on receive
+      - labour_summary:    making charges by receive slip
+    Also keeps legacy `raw_gold`/`semi_finished` keys for older FE callers.
     """
 
     def get(self, request):
+        from manufacturing.models import SampleIssueItem
         karigar_id = request.query_params.get('karigar')
         if not karigar_id:
             return Response({'error': 'karigar query param is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        start_str = request.query_params.get('start')
-        end_str = request.query_params.get('end')
+        start_str = request.query_params.get('start') or None
+        end_str = request.query_params.get('end') or None
+
+        def _in_range(date_val):
+            if start_str and str(date_val) < start_str:
+                return False
+            if end_str and str(date_val) > end_str:
+                return False
+            return True
+
+        def _before_range(date_val):
+            return bool(start_str and str(date_val) < start_str)
 
         # ── Raw Gold Issues ────────────────────────────────────────────────────
-        gold_qs = KarigarGoldIssue.objects.filter(
+        gold_all = KarigarGoldIssue.objects.filter(
             header__karigar_ldgr_id=karigar_id
-        ).select_related('header', 'metal_purity', 'conv_purity', 'item')
+        ).select_related('header', 'metal_purity', 'conv_purity', 'item').order_by(
+            'header__date1', 'header__billno'
+        )
 
-        if start_str:
-            gold_qs = gold_qs.filter(header__date1__gte=start_str)
-        if end_str:
-            gold_qs = gold_qs.filter(header__date1__lte=end_str)
+        raw_gold_rows = []
+        raw_gold_opening = Decimal('0')
+        raw_gold_issued_pure = Decimal('0')
 
-        raw_gold = []
-        raw_gold_total = Decimal('0.000')
-        for gi in gold_qs.order_by('header__date1', 'header__billno'):
+        for gi in gold_all:
+            if _before_range(gi.header.date1):
+                raw_gold_opening += gi.conv_wt or 0
+                continue
+            if not _in_range(gi.header.date1):
+                continue
             purity_label = (
                 gi.metal_purity.purity if gi.metal_purity
                 else f"{gi.custom_purity_per}%" if gi.custom_purity_per
                 else '—'
             )
-            raw_gold.append({
-                'date':        gi.header.date1,
-                'billno':      gi.header.billno,
-                'item':        gi.item.item_name if gi.item else '—',
-                'issue_gw':    float(gi.item_gw),
-                'alloy_wt':    float(gi.alloy_wt or 0),
+            raw_gold_rows.append({
+                'date':         gi.header.date1,
+                'slip':         gi.header.billno,
+                'kind':         'GOLD_ISSUE',
+                'item':         gi.item.item_name if gi.item else '—',
+                'issued_gw':    float(gi.item_gw or 0),
                 'metal_purity': purity_label,
-                'conv_purity': gi.conv_purity.purity if gi.conv_purity else '—',
-                'conv_wt':     float(gi.conv_wt),
+                'conv_purity':  gi.conv_purity.purity if gi.conv_purity else '—',
+                'conv_wt':      float(gi.conv_wt or 0),
+                'received_gw':  0.0,
             })
-            raw_gold_total += gi.conv_wt
+            raw_gold_issued_pure += gi.conv_wt or 0
 
-        # ── Semi-Finished Re-Issues ───────────────────────────────────────────
-        semi_qs = KarigarIssueItem.objects.filter(
-            issue_slip__karigar_ldgr_id=karigar_id,
-            source_receive_item__isnull=False,
-        ).select_related(
-            'issue_slip', 'item', 'purity', 'source_receive_item__receive_slip_no'
+        # ── Receives: incremental gold returned + labour ───────────────────────
+        receive_all = KarigarReceiveItem.objects.filter(
+            receive_slip_no__karigar_ldgr_id=karigar_id
+        ).select_related('receive_slip_no', 'item', 'purity', 'ref_sample_issue_item__piece').order_by(
+            'date1', 'id'
         )
 
-        if start_str:
-            semi_qs = semi_qs.filter(issue_slip__date1__gte=start_str)
-        if end_str:
-            semi_qs = semi_qs.filter(issue_slip__date1__lte=end_str)
+        finished_rows = []
+        finished_opening_pcs = 0
+        finished_opening_gw = Decimal('0')
+        finished_in_gw = Decimal('0')
 
-        semi_finished = []
-        semi_finished_total = Decimal('0.000')
-        for ii in semi_qs.order_by('issue_slip__date1', 'issue_slip__issue_slip_no'):
-            semi_finished.append({
-                'date':            ii.issue_slip.date1,
-                'billno':          ii.issue_slip.issue_slip_no,
-                'item':            ii.item.item_name if ii.item else '—',
-                'purity':          ii.purity.purity if ii.purity else '—',
-                'pcs':             ii.pcs,
-                'approx_wt':       float(ii.approx_wt or 0),
-                'source_receive_slip': (
-                    ii.source_receive_item.receive_slip_no.receive_slip_no
-                    if ii.source_receive_item else '—'
-                ),
+        raw_gold_received_pure = Decimal('0')
+
+        labour_rows = []
+        labour_total = Decimal('0')
+
+        for r in receive_all:
+            is_semi = not r.finish_status
+            kind = 'RECEIVE_SEMI' if is_semi else 'RECEIVE_FINISHED'
+            # Finished account: every receive is a piece IN
+            if _before_range(r.date1):
+                finished_opening_pcs += r.pcs or 0
+                finished_opening_gw += r.gw or 0
+            elif _in_range(r.date1):
+                finished_rows.append({
+                    'date':    r.date1,
+                    'slip':    r.receive_slip_no.receive_slip_no,
+                    'kind':    kind,
+                    'item':    r.item.item_name if r.item else '—',
+                    'pcs':     r.pcs or 0,
+                    'in_gw':   float(r.gw or 0),
+                    'out_gw':  0.0,
+                    'ref':    (r.ref_sample_issue.billno if r.ref_sample_issue_id
+                               else (r.ref_job_no.issue_slip_no if r.ref_job_no_id else '—')),
+                })
+                finished_in_gw += r.gw or 0
+
+            # Raw gold account: incremental pure returned
+            try:
+                inc = r.incremental_gw or 0
+            except Exception:
+                inc = 0
+            if inc and _in_range(r.date1):
+                raw_gold_rows.append({
+                    'date':         r.date1,
+                    'slip':         r.receive_slip_no.receive_slip_no,
+                    'kind':         'GOLD_RECEIVE_INCREMENTAL',
+                    'item':         r.item.item_name if r.item else '—',
+                    'issued_gw':    0.0,
+                    'metal_purity': r.purity.purity if r.purity else '—',
+                    'conv_purity':  '—',
+                    'conv_wt':      0.0,
+                    'received_gw':  float(inc),
+                })
+                raw_gold_received_pure += Decimal(str(inc))
+
+            # Labour summary
+            if _in_range(r.date1):
+                labour_rows.append({
+                    'receive_slip':   r.receive_slip_no.receive_slip_no,
+                    'date':           r.date1,
+                    'incremental_gw': float(inc or 0),
+                    'making_rate':    float(r.making_rate_applied or 0),
+                    'making_amount':  int(r.making or 0),
+                    'auto':           bool(r.making_auto),
+                    'loss_gw':        float((r.less_gw or 0) + (r.loss or 0)),
+                })
+                labour_total += Decimal(r.making or 0)
+
+        # ── Sample Issue: pieces OUT (finished account) ────────────────────────
+        sample_all = SampleIssueItem.objects.filter(
+            issue__karigar_ldgr_id=karigar_id
+        ).select_related('issue', 'piece', 'piece__item').order_by('issue__date1', 'issue__billno')
+
+        finished_out_gw = Decimal('0')
+        for si in sample_all:
+            gw = si.piece.gw or 0 if si.piece_id else 0
+            if _before_range(si.issue.date1):
+                finished_opening_pcs -= si.piece.pcs or 0 if si.piece_id else 0
+                finished_opening_gw -= gw
+                continue
+            if not _in_range(si.issue.date1):
+                continue
+            finished_rows.append({
+                'date':   si.issue.date1,
+                'slip':   si.issue.billno,
+                'kind':   'SAMPLE_OUT',
+                'item':   si.piece.item.item_name if (si.piece_id and si.piece.item_id) else '—',
+                'pcs':    -(si.piece.pcs or 0) if si.piece_id else 0,
+                'in_gw':  0.0,
+                'out_gw': float(gw),
+                'ref':    si.issue.billno,
             })
-            semi_finished_total += ii.approx_wt or Decimal('0')
+            finished_out_gw += gw
+
+        finished_rows.sort(key=lambda r: (str(r['date']), r['slip']))
+        raw_gold_rows.sort(key=lambda r: (str(r['date']), r['slip']))
 
         return Response({
-            'karigar_id':          karigar_id,
-            'raw_gold':            raw_gold,
-            'raw_gold_total':      float(raw_gold_total),
-            'semi_finished':       semi_finished,
-            'semi_finished_total': float(semi_finished_total),
+            'karigar_id': karigar_id,
+            'period': {'start': start_str, 'end': end_str},
+            'finished_account': {
+                'opening':  {'pcs': finished_opening_pcs, 'gw': float(finished_opening_gw)},
+                'rows':     finished_rows,
+                'totals':   {
+                    'in_gw':      float(finished_in_gw),
+                    'out_gw':     float(finished_out_gw),
+                    'closing_gw': float(finished_opening_gw + finished_in_gw - finished_out_gw),
+                },
+            },
+            'raw_gold_account': {
+                'opening': {'gw_pure': float(raw_gold_opening)},
+                'rows':    raw_gold_rows,
+                'totals':  {
+                    'issued_pure':   float(raw_gold_issued_pure),
+                    'received_pure': float(raw_gold_received_pure),
+                    'closing_pure':  float(raw_gold_opening + raw_gold_issued_pure - raw_gold_received_pure),
+                },
+            },
+            'labour_summary': {
+                'rows':   labour_rows,
+                'totals': {'making_amount': int(labour_total)},
+            },
+            # Legacy keys (back-compat for existing callers, if any):
+            'raw_gold': [r for r in raw_gold_rows if r['kind'] == 'GOLD_ISSUE'],
+            'raw_gold_total': float(raw_gold_issued_pure),
+            'semi_finished': [
+                {
+                    'date': r['date'], 'billno': r['slip'], 'item': r['item'],
+                    'purity': '—', 'pcs': abs(r['pcs']), 'approx_wt': r['out_gw'],
+                    'source_receive_slip': r['ref'],
+                }
+                for r in finished_rows if r['kind'] == 'SAMPLE_OUT'
+            ],
+            'semi_finished_total': float(finished_out_gw),
         })
 
 

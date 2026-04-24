@@ -21,6 +21,9 @@ from .views import (
     RepairJobCardViewSet,
     KarigarSubcontractorLedgerView,
     AvailableMeltingReceivesView,
+    SampleIssueViewSet,
+    UnbarcodedForPickerView,
+    sample_issue_next_billno,
 )
 
 
@@ -41,6 +44,7 @@ router.register(r'melting-receive', MeltingReceiveViewset)
 router.register(r'assay-issue', AssayIssueViewset)
 router.register(r'assay-receive', AssayReceiveViewset)
 router.register(r'repair-job-card', RepairJobCardViewSet, basename='repair-job-card')
+router.register(r'sample-issue', SampleIssueViewSet, basename='sample-issue')
 app_name = "manufacturing"
 urlpatterns = [   
     path('gold-transactions/', CombinedGoldTransactionView.as_view(), name='gold-transactions'),
@@ -106,6 +110,8 @@ urlpatterns = [
     path('api/refinery-report/', views.refinery_report, name='refinery_report'),
     path('api/repair-job-card-no/', views.repair_job_card_billno_view, name='rjc_billno'),
     path('api/karigar-subcontractor-ledger/', KarigarSubcontractorLedgerView.as_view(), name='karigar_subcontractor_ledger'),
+    path('api/unbarcoded-picker/', UnbarcodedForPickerView.as_view(), name='unbarcoded_picker'),
+    path('api/sample-issue/next-billno/', sample_issue_next_billno, name='sample_issue_next_billno'),
     path('api/available-melting-receives/', AvailableMeltingReceivesView.as_view(), name='available_melting_receives'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

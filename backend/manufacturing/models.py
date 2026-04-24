@@ -110,6 +110,58 @@ class KarigarIssueItem(models.Model):
     class Meta:
         db_table = "issue_to_karigar_main"
 
+
+class SampleIssue(models.Model):
+    billno = models.CharField(max_length=30)
+    date1 = models.DateField()
+    karigar_ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT, related_name="sample_issues")
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    remarks = models.CharField(max_length=200, blank=True, null=True)
+    gold_issue = GenericRelation(
+        KarigarGoldIssue,
+        content_type_field='ref_job_content_type',
+        object_id_field='ref_job_object_id',
+    )
+
+    @property
+    def karigar_ldgr_name(self):
+        return self.karigar_ldgr.ac_name
+
+    class Meta:
+        db_table = "sample_issue_main"
+
+
+class SampleIssueItem(models.Model):
+    issue = models.ForeignKey(SampleIssue, on_delete=models.CASCADE, related_name="items")
+    sl_no = models.IntegerField()
+    piece = models.ForeignKey(
+        "inventory.UnBarcodedMain",
+        on_delete=models.PROTECT,
+        related_name="sample_issue_items",
+        help_text="The semi-finished / finished piece being issued out.",
+    )
+    instructions = models.TextField(blank=True, null=True)
+    due_date = models.DateField(null=True, blank=True)
+    remarks = models.CharField(max_length=100, blank=True, null=True)
+    rec_status = models.BooleanField(default=False)
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
+
+    stone_issue = GenericRelation(
+        "manufacturing.KarigarStoneIssue",
+        content_type_field='job_sl_content_type',
+        object_id_field='job_sl_object_id',
+    )
+    stone_receive = GenericRelation(
+        "manufacturing.KarigarStoneReceive",
+        content_type_field='job_sl_content_type',
+        object_id_field='job_sl_object_id',
+    )
+
+    class Meta:
+        db_table = "sample_issue_item"
+
+
 class KarigarStoneIssueHeader(models.Model):
     SLIP_TYPE_CHOICES = [('JO', 'Job Order'), ('PO', 'Purchase Order')]
     
@@ -258,9 +310,18 @@ class KarigarReceiveItem(models.Model):
     receive_slip_no = models.ForeignKey(KarigarReceive, on_delete=models.CASCADE) 
     date1 = models.DateField()
     sl_no = models.IntegerField()
-    ref_job_no = models.ForeignKey(KarigarIssue, on_delete=models.CASCADE)
-    ref_job_sl_no = models.ForeignKey(KarigarIssueItem,on_delete=models.CASCADE)
-    
+    ref_job_no = models.ForeignKey(KarigarIssue, on_delete=models.CASCADE, null=True, blank=True)
+    ref_job_sl_no = models.ForeignKey(KarigarIssueItem,on_delete=models.CASCADE, null=True, blank=True)
+    ref_sample_issue = models.ForeignKey(
+        SampleIssue, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="receives",
+        help_text="Set when this receive lands against a Sample Issue (reworked / reissued piece).",
+    )
+    ref_sample_issue_item = models.ForeignKey(
+        SampleIssueItem, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="receives",
+    )
+
     item = models.ForeignKey(Item, on_delete=models.SET_NULL,  null=True)
     purity = models.ForeignKey(PurityMaster, on_delete = models.SET_NULL , null=True)
     pcs = models.IntegerField()
@@ -298,6 +359,14 @@ class KarigarReceiveItem(models.Model):
     rhodium = models.IntegerField() 
     
     making = models.IntegerField()
+    making_auto = models.BooleanField(
+        default=False,
+        help_text="True when `making` was auto-computed from karigar rate × incremental_gw and not user-edited.",
+    )
+    making_rate_applied = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, blank=True, null=True,
+        help_text="The per-gram labour rate used when `making_auto` was computed.",
+    )
 
     unbarcoded_item = models.OneToOneField("inventory.UnBarcodedMain",null=True,blank=True,on_delete=models.SET_NULL)
 
@@ -309,7 +378,40 @@ class KarigarReceiveItem(models.Model):
 
     @property
     def item_name(self):
-        return self.item.item_name 
+        return self.item.item_name
+
+    @property
+    def incremental_gw(self):
+        """
+        Net new gold the karigar added this cycle.
+
+        Formula:
+            incremental = received_nw
+                          - raw_gold_supplied_to_this_job (sum of KarigarGoldIssue.conv_wt
+                            linked to the parent issue slip, which is either KarigarIssue
+                            or SampleIssue)
+                          - sample_piece_gw (when receive lands against a SampleIssueItem,
+                            the reworked piece started with this weight already)
+        Negative values mean the karigar returned less gold than they received —
+        the difference is captured separately on `less_gw` / `loss`.
+        """
+        nw = self.nw or 0
+        supplied = 0
+        parent = None
+        if self.ref_sample_issue_id:
+            parent = self.ref_sample_issue
+        elif self.ref_job_no_id:
+            parent = self.ref_job_no
+        if parent is not None:
+            supplied = sum(
+                (gi.conv_wt or 0) for gi in parent.gold_issue.all()
+            )
+        sample_piece_gw = 0
+        if self.ref_sample_issue_item_id:
+            piece = self.ref_sample_issue_item.piece
+            sample_piece_gw = piece.gw or 0
+        return nw - supplied - sample_piece_gw
+
     class Meta:
         db_table = "receive_from_karigar_main"
 

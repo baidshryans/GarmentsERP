@@ -7,16 +7,17 @@ import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
+import { Table, TableRow, TableCell, TableHead, TableBody, TableHeader } from "@/components/ui/table";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
-import { fetchMainItem, fetchSlipNoNext, fetchSalesperson, fetchPurity, getLedgers, createKarigarIssue, fetchCustomerOrders, fetchSlNosOrders, fetchOrderItem, fetchPos, } from "@/services/apiService";
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { fetchMainItem, fetchSlipNoNext, fetchSalesperson, fetchPurity, getLedgers, createKarigarIssue, fetchCustomerOrders, fetchSlNosOrders, fetchOrderItem, fetchPos, fetchPendingCustomerOrderItems, } from "@/services/apiService";
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils.jsx"
 import { useNavigate } from "react-router-dom";
 import { convertBarcode, fetchBarcodes, fetchKarigarIssueForEdit, fetchUnBarcodedList, updateKarigarIssue } from "../../../services/apiService";
 
 import { default as MulSelect } from "react-select";
-import { SquarePen, Trash2 } from "lucide-react";
+import { SquarePen, Trash2, ShoppingCart } from "lucide-react";
 import { selectRowsFn } from "@tanstack/react-table";
 import { renderErrorTree } from "../../../Utils";
 import Fuse from 'fuse.js';
@@ -47,6 +48,10 @@ const KarigarIssue = () => {
   const [change, setChange] = useState('')
   const [unbarcodedList , setUnbarcodedList] = useState([]);
   const [barCodes, setBarcodes] = useState([]);
+  const [pendingItems, setPendingItems] = useState([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [pickerSearch, setPickerSearch] = useState("");
   const navigate = useNavigate();
 
   const tableDefaultValue = {
@@ -63,15 +68,16 @@ const KarigarIssue = () => {
 
   useEffect(() => {
     async function fetchData() {
-      const [customers, orderNo, mainItem, purity, customerOrders, karigars, unb,barcodes] = await Promise.all([
-        getLedgers(),
+      const [customers, orderNo, mainItem, purity, customerOrders, karigars, unb, barcodes, pending] = await Promise.all([
+        getLedgers({ type: "KR" }),
         fetchSlipNoNext(),
         fetchMainItem(),
         fetchPurity(),
         fetchCustomerOrders(),
         fetchPos("Job Order"),
         fetchUnBarcodedList(),
-        fetchBarcodes (),
+        fetchBarcodes(),
+        fetchPendingCustomerOrderItems(),
       ]);
       if (customers.success) setCustomers(customers.data.results);
       if (orderNo.success) setValue("form.issue_slip_no", orderNo.data.next_slip_no);
@@ -81,6 +87,7 @@ const KarigarIssue = () => {
       if (karigars.success) setKarigars(karigars.data.results);
       if (unb.success) setUnbarcodedList(transformData(unb.data.results,'label'));
       if (barcodes.success) setBarcodes(barcodes.data.results);
+      if (pending.success) setPendingItems(pending.data);
       
       
     }
@@ -121,7 +128,7 @@ const KarigarIssue = () => {
   const onSubmit = (formdata) => {
     const data = getValues("form")
     console.log(data);
-    data.items = rs;
+    data.items = rs.map(({ _co_display, ...rest }) => rest);
     if (rs.length === 0) {
       toast({ title: "Table is empty " })
       return;
@@ -185,7 +192,84 @@ const KarigarIssue = () => {
   }
 
   const handleDelete = (index) => {
-    setRows((prev) => prev.filter((_, i) => i !== index));
+    setRows((prev) => {
+      const removed = prev[index];
+      if (removed && removed.customer_order_item && removed._co_display) {
+        setPendingItems((pi) => [
+          ...pi,
+          {
+            co_item_id: removed.customer_order_item,
+            co_id: removed._co_display.co_id ?? null,
+            co_no: removed._co_display.co_no,
+            co_date: removed._co_display.co_date ?? null,
+            customer_name: removed._co_display.customer_name,
+            sl_no: removed._co_display.sl_no,
+            item: removed.item ?? null,
+            item_name: removed._co_display.item_name ?? null,
+            purity: removed.purity ?? null,
+            pcs: removed.pcs ?? null,
+            approx_wt: removed.approx_wt ?? null,
+            size: removed.size ?? null,
+            due_date: removed.due_date ?? null,
+            remarks: removed.remarks ?? null,
+          },
+        ]);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const toggleSelect = (pid) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pid)) next.delete(pid); else next.add(pid);
+      return next;
+    });
+  };
+
+  const filteredPending = pendingItems.filter((p) => {
+    if (!pickerSearch) return true;
+    const q = pickerSearch.toLowerCase();
+    return (
+      (p.customer_name || "").toLowerCase().includes(q) ||
+      (p.co_no || "").toLowerCase().includes(q) ||
+      (p.item || "").toLowerCase().includes(q) ||
+      (p.item_name || "").toLowerCase().includes(q)
+    );
+  });
+
+  const addSelectedPending = () => {
+    const picked = pendingItems.filter((p) => selectedIds.has(p.co_item_id));
+    if (picked.length === 0) { setPickerOpen(false); return; }
+    setRows((prev) => {
+      const base = prev.length;
+      const newRows = picked.map((p, idx) => ({
+        issue_sl_no: base + idx + 1,
+        design_code: "",
+        item: p.item ?? "",
+        purity: p.purity ?? "",
+        issued_sample_items: [],
+        pcs: p.pcs ?? "",
+        approx_wt: p.approx_wt ?? "",
+        size: p.size ?? "",
+        due_date: p.due_date ?? "",
+        remarks: p.remarks ?? "",
+        customer_order_item: p.co_item_id,
+        _co_display: {
+          co_id: p.co_id,
+          co_no: p.co_no,
+          co_date: p.co_date,
+          sl_no: p.sl_no,
+          customer_name: p.customer_name,
+          item_name: p.item_name,
+        },
+      }));
+      return [...prev, ...newRows];
+    });
+    setPendingItems((prev) => prev.filter((p) => !selectedIds.has(p.co_item_id)));
+    setSelectedIds(new Set());
+    setPickerSearch("");
+    setPickerOpen(false);
   };
 
 function transformData(jsonData, labelKey) {
@@ -354,7 +438,26 @@ function transformData(jsonData, labelKey) {
         </div>
 
         {/* Item Details */}
-        <h6 className="text-lg font-semibold my-3">Order Item Detail</h6>
+        <div className="flex items-center justify-between my-3">
+          <h6 className="text-lg font-semibold">Order Item Detail</h6>
+          {slip_type === "Customer Order" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPickerOpen(true)}
+              className="cursor-pointer h-8 px-3 text-xs gap-1.5"
+            >
+              <ShoppingCart className="size-3.5" />
+              Pick from Customer Orders
+              {pendingItems.length > 0 && (
+                <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 min-w-4 h-4">
+                  {pendingItems.length}
+                </span>
+              )}
+            </Button>
+          )}
+        </div>
         <Table className="w-full table-fixed border-collapse">
           <TableBody>
             <TableRow className=" w-full bg-gray-100">
@@ -486,6 +589,104 @@ function transformData(jsonData, labelKey) {
           </Button>
         </div>
       </form>
+
+      {/* Customer Order Picker Modal */}
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Pending Customer Order Items</DialogTitle>
+          </DialogHeader>
+
+          <Input
+            placeholder="Search customer, CO #, item…"
+            value={pickerSearch}
+            onChange={(e) => setPickerSearch(e.target.value)}
+            className="mb-1"
+          />
+
+          <div className="max-h-[55vh] overflow-auto rounded-md border border-border">
+            {filteredPending.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">
+                No pending customer-order items.
+              </div>
+            ) : (
+              <Table className="w-full text-sm">
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                    <TableHead className="w-10 px-2 py-2" />
+                    <TableHead className="px-3 py-2">CO Date</TableHead>
+                    <TableHead className="px-3 py-2">Customer</TableHead>
+                    <TableHead className="px-3 py-2">CO #</TableHead>
+                    <TableHead className="px-3 py-2 w-12">Sl</TableHead>
+                    <TableHead className="px-3 py-2">Item</TableHead>
+                    <TableHead className="px-3 py-2">Purity</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Pcs</TableHead>
+                    <TableHead className="px-3 py-2 text-right">Approx Wt</TableHead>
+                    <TableHead className="px-3 py-2">Size</TableHead>
+                    <TableHead className="px-3 py-2">Due</TableHead>
+                    <TableHead className="px-3 py-2">Remarks</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPending.map((p) => (
+                    <TableRow
+                      key={p.co_item_id}
+                      className={`odd:bg-muted/10 cursor-pointer transition-colors duration-100 ${selectedIds.has(p.co_item_id) ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/20"}`}
+                      onClick={() => toggleSelect(p.co_item_id)}
+                    >
+                      <TableCell className="px-2 py-2">
+                        <Checkbox
+                          checked={selectedIds.has(p.co_item_id)}
+                          onCheckedChange={() => toggleSelect(p.co_item_id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="cursor-pointer"
+                        />
+                      </TableCell>
+                      <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 font-medium">{p.customer_name || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-center">{p.sl_no}</TableCell>
+                      <TableCell className="px-3 py-2 font-medium">{p.item_name || p.item || "—"}</TableCell>
+                      <TableCell className="px-3 py-2">{p.purity || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "—"}</TableCell>
+                      <TableCell className="px-3 py-2">{p.size || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-muted-foreground">{p.remarks || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between mt-1">
+            <span className="text-sm text-muted-foreground">
+              {selectedIds.size > 0
+                ? `${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} selected`
+                : "Click rows to select"}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="cursor-pointer"
+                onClick={() => { setPickerOpen(false); setSelectedIds(new Set()); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={addSelectedPending}
+                disabled={selectedIds.size === 0}
+                className="cursor-pointer"
+              >
+                Add Selected
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

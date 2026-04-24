@@ -10,6 +10,7 @@ from manufacturing.models import (
     RefinaryIssueDetail, RefinaryReceiveDetail,
     MeltingIssueDetail, MeltingReceiveDetail,
     AssayIssueDetail, AssayReceiveDetail,
+    SampleIssueItem,
 )
 
 
@@ -66,11 +67,25 @@ def create_unbarcoded_inventory(sender, instance, created, **kwargs):
             "retail": instance.retail,
         }
         ubm = UnBarcodedMain.objects.create(**unbarcoded_data)
-        for item in instance.ref_job_sl_no.issued_sample_items.all():
-            item.next = ubm
-            item.save()
+        if instance.ref_job_sl_no_id:
+            for item in instance.ref_job_sl_no.issued_sample_items.all():
+                item.next = ubm
+                item.save()
+        if instance.ref_sample_issue_item_id:
+            prev = instance.ref_sample_issue_item.piece
+            prev.next = ubm
+            prev.save(update_fields=['next'])
         instance.unbarcoded_item = ubm
         instance.save()
+
+
+@receiver(post_save, sender=SampleIssueItem)
+def mark_piece_with_karigar(sender, instance, created, **kwargs):
+    """When a piece is issued on a Sample Issue, mark it as currently with that karigar."""
+    if created and instance.piece_id and instance.issue.karigar_ldgr_id:
+        piece = instance.piece
+        piece.kr_code = instance.issue.karigar_ldgr
+        piece.save(update_fields=['kr_code'])
 
 
 @receiver(post_save, sender=KarigarReceiveItemDetails)

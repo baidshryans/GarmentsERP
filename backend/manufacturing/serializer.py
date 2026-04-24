@@ -19,7 +19,7 @@ from .models import HallmarkIssue, HallmarkIssueDetails, HallmarkIssueItem, Hall
 
 from rest_framework import serializers
 from django.utils.dateparse import parse_date
-from .models import KarigarIssue, KarigarIssueItem ,KarigarGoldIssue
+from .models import KarigarIssue, KarigarIssueItem ,KarigarGoldIssue, SampleIssue, SampleIssueItem
 from  sales.models import  CustomerOrderItems
 from mastersconfig.models import  Item, Packet, RetailMaster
 from contacts.models import Ledger
@@ -384,8 +384,24 @@ class KarigarIssueForPostSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
             'karigar_ldgr_name' :{'read_only':True}
-        }     
-   
+        }
+
+    def validate(self, attrs):
+        slip_type = attrs.get('issue_slip_type') or getattr(self.instance, 'issue_slip_type', None)
+        items = attrs.get('items', [])
+        if slip_type == 'Customer Order':
+            missing = [i for i, it in enumerate(items) if not it.get('customer_order_item')]
+            if missing:
+                raise serializers.ValidationError({
+                    'items': f"Customer Order slip requires every line to reference a customer order item (rows {missing})."
+                })
+        elif slip_type in ('Stock', 'Repair'):
+            offending = [i for i, it in enumerate(items) if it.get('customer_order_item')]
+            if offending:
+                raise serializers.ValidationError({
+                    'items': f"{slip_type} slip cannot contain customer-order items (rows {offending}). Create a separate Customer Order slip."
+                })
+        return attrs
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
@@ -556,8 +572,10 @@ class KarigarReceiveItemForGetSerializer(serializers.ModelSerializer):
 
 class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
     # Fields related to KarigarReceiveItem model
-    ref_job_no = serializers.PrimaryKeyRelatedField(queryset=KarigarIssue.objects.all())
-    ref_job_sl_no = serializers.PrimaryKeyRelatedField(queryset=KarigarIssueItem.objects.all())
+    ref_job_no = serializers.PrimaryKeyRelatedField(queryset=KarigarIssue.objects.all(), required=False, allow_null=True)
+    ref_job_sl_no = serializers.PrimaryKeyRelatedField(queryset=KarigarIssueItem.objects.all(), required=False, allow_null=True)
+    ref_sample_issue = serializers.PrimaryKeyRelatedField(queryset=SampleIssue.objects.all(), required=False, allow_null=True)
+    ref_sample_issue_item = serializers.PrimaryKeyRelatedField(queryset=SampleIssueItem.objects.all(), required=False, allow_null=True)
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
     receive_slip_no = serializers.PrimaryKeyRelatedField(queryset=KarigarReceive.objects.all(),required=False)
@@ -574,6 +592,8 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
             'sl_no',
             'ref_job_no',
             'ref_job_sl_no',
+            'ref_sample_issue',
+            'ref_sample_issue_item',
             'sample_issued_items',
             'item',
             'purity',
@@ -594,6 +614,8 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
             'hallmark_status',
             'rhodium',
             'making',
+            'making_auto',
+            'making_rate_applied',
             'remarks',
             'pending_pcs',
             'pending_gw',
@@ -604,10 +626,69 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
             'sample_issued_items':{'read_only':True,'required':False}
         }
 
+    def validate(self, attrs):
+        has_job = bool(attrs.get('ref_job_no') or attrs.get('ref_job_sl_no'))
+        has_sample = bool(attrs.get('ref_sample_issue') or attrs.get('ref_sample_issue_item'))
+        if has_job and has_sample:
+            raise serializers.ValidationError(
+                "A receive line can reference either a Job Issue or a Sample Issue, not both."
+            )
+        if not (has_job or has_sample) and not self.partial:
+            raise serializers.ValidationError(
+                "A receive line must reference either a Job Issue or a Sample Issue."
+            )
+        item = attrs.get('ref_job_sl_no')
+        parent = attrs.get('ref_job_no')
+        if item and parent and item.issue_slip_id != parent.id:
+            raise serializers.ValidationError({'ref_job_sl_no': "Item does not belong to the selected Job Issue."})
+        s_item = attrs.get('ref_sample_issue_item')
+        s_parent = attrs.get('ref_sample_issue')
+        if s_item and s_parent and s_item.issue_id != s_parent.id:
+            raise serializers.ValidationError({'ref_sample_issue_item': "Item does not belong to the selected Sample Issue."})
+        return attrs
+
+    def _apply_auto_making(self, validated_data):
+        """Pre-fill making from karigar.making_per_gm × incremental_gw when user left it blank."""
+        from manufacturing.models import KarigarMaster
+        making = validated_data.get('making')
+        if making not in (None, 0, ''):
+            return
+        parent = validated_data.get('ref_sample_issue') or validated_data.get('ref_job_no')
+        if parent is None:
+            return
+        karigar = getattr(parent, 'karigar_ldgr', None)
+        if karigar is None:
+            return
+        item = validated_data.get('item')
+        km = KarigarMaster.objects.filter(karigar=karigar, item=item).first() if item else None
+        rate = (km.making_per_gm if km and km.making_per_gm else 0) or 0
+        if rate <= 0:
+            return
+        nw = validated_data.get('nw') or 0
+        supplied = sum((gi.conv_wt or 0) for gi in parent.gold_issue.all())
+        sample_piece_gw = 0
+        s_item = validated_data.get('ref_sample_issue_item')
+        if s_item is not None:
+            sample_piece_gw = s_item.piece.gw or 0
+        incremental = max(0, float(nw) - float(supplied) - float(sample_piece_gw))
+        validated_data['making'] = int(round(float(rate) * incremental))
+        validated_data['making_auto'] = True
+        validated_data['making_rate_applied'] = rate
+
     def create(self, validated_data):
         with transaction.atomic():
             details_data = validated_data.pop('karigarreceiveitemdetails_set')
+            self._apply_auto_making(validated_data)
             karigar_receive_item_instance = KarigarReceiveItem.objects.create(**validated_data)
+            s_item = validated_data.get('ref_sample_issue_item')
+            if s_item is not None:
+                # Mark sample issue item as received and clear piece holder
+                s_item.rec_status = True
+                s_item.save(update_fields=['rec_status'])
+                piece = s_item.piece
+                if piece.kr_code_id:
+                    piece.kr_code = None
+                    piece.save(update_fields=['kr_code'])
             
             # Create related KarigarReceiveItemDetails instances
             for detail_data in details_data:

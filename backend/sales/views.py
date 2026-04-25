@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter,SearchFilter
-from sales.serializers import CustomerOrderSerializer
+from sales.serializers import CustomerOrderSerializer, PortalCustomerOrderSerializer
 from .models import *
 from django.contrib.auth.decorators import login_required
 from userauth import views
@@ -2669,3 +2669,30 @@ def quotation_finalize(request, pk):
     qt.status = 'finalized'
     qt.save(update_fields=['status'])
     return Response({"status": "finalized"})
+
+
+@api_view(['GET'])
+@permission_classes([])
+def portal_customer_orders(request):
+    """
+    Portal endpoint: Customer sees their orders with status tracking.
+    Only includes customer-relevant fields (order_no, delivery_status, item_count, etc.)
+    Excludes vendor/karigar names for privacy.
+    """
+    from goldscheme.portal_auth import PortalTokenAuthentication, IsPortalAuthenticated
+
+    auth = PortalTokenAuthentication()
+    try:
+        result = auth.authenticate(request)
+        if result is None:
+            return Response({'error': 'Portal authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+    customer = getattr(request, 'portal_customer', None)
+    if not customer:
+        return Response({'error': 'Portal authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    orders = CustomerOrder.objects.filter(ldgr=customer).order_by('-date1')
+    serializer = PortalCustomerOrderSerializer(orders, many=True)
+    return Response(serializer.data)

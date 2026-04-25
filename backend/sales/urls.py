@@ -53,5 +53,7 @@ urlpatterns = [
     path('api/quotation/<int:pk>/print-data/', views.quotation_print_data),
     path('api/quotation/<int:pk>/duplicate/', views.quotation_duplicate),
     path('api/quotation/<int:pk>/finalize/', views.quotation_finalize),
+    # Portal
+    path('api/portal/customer-orders/', views.portal_customer_orders),
 ]
 urlpatterns+= staticfiles_urlpatterns()

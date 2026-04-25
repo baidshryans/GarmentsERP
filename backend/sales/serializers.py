@@ -1826,3 +1826,36 @@ class QuotationListSerializer(serializers.ModelSerializer):
             'total_items', 'grand_total', 'net_total',
             'status', 'valid_until', 'created_at',
         ]
+
+
+class PortalCustomerOrderSerializer(serializers.ModelSerializer):
+    item_count = serializers.SerializerMethodField(read_only=True)
+    is_overdue = serializers.SerializerMethodField(read_only=True)
+    days_overdue = serializers.SerializerMethodField(read_only=True)
+
+    def get_item_count(self, obj):
+        return obj.items.count()
+
+    def get_is_overdue(self, obj):
+        from datetime import date
+        if not obj.delivery_date:
+            return False
+        if obj.delivery_status in ('delivered', 'cancelled'):
+            return False
+        if obj.status == 'Billed':
+            return False
+        return obj.delivery_date < date.today()
+
+    def get_days_overdue(self, obj):
+        from datetime import date
+        if not self.get_is_overdue(obj):
+            return 0
+        return (date.today() - obj.delivery_date).days
+
+    class Meta:
+        model = CustomerOrder
+        fields = [
+            'id', 'order_no', 'delivery_status', 'delivery_date',
+            'est_amount', 'item_count', 'is_overdue', 'days_overdue'
+        ]
+        read_only_fields = fields

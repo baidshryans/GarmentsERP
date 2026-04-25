@@ -1202,12 +1202,19 @@ const PurchaseVoucher = () => {
               </Button>
             </FieldContainer>
           )}
-          {!isCustomer && !id && (
-            <FieldContainer>
-              <Label className="text-nowrap">Customer Orders</Label>
+        </div>
+        {hsn_current || id ? <>
+
+          {/* Item Details */}
+          <div className="flex items-center gap-3 my-5">
+            <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">2</span>
+            <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Main and Sub Item Details</span>
+            <div className="flex-1 h-px bg-violet-100" />
+            {!isCustomer && !id && (
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 onClick={async () => {
                   setCoPickerLoading(true);
                   setCoPickerOpen(true);
@@ -1217,27 +1224,16 @@ const PurchaseVoucher = () => {
                   setPendingCOItems(res.success ? (res.data || []) : []);
                   setCoPickerLoading(false);
                 }}
-                className="cursor-pointer justify-start"
+                className="cursor-pointer h-7 px-2.5 text-xs gap-1.5 shrink-0"
               >
                 Pick from Customer Orders
                 {pendingCOItems.length > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center rounded-full bg-violet-100 text-violet-700 text-[10px] font-semibold px-1.5 min-w-4 h-4">
+                  <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 min-w-4 h-4">
                     {pendingCOItems.length}
                   </span>
                 )}
               </Button>
-            </FieldContainer>
-          )}
-
-
-        </div>
-        {hsn_current || id ? <>
-
-          {/* Item Details */}
-          <div className="flex items-center gap-3 my-5">
-            <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">2</span>
-            <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Main and Sub Item Details</span>
-            <div className="flex-1 h-px bg-violet-100" />
+            )}
           </div>
           <br></br>
           <div className="overflow-x-auto">

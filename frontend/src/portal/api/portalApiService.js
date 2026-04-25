@@ -34,6 +34,10 @@ export function portalPayInstallment({ enrollment_no, amount, upi_reference }) {
   return wrap(portalApiClient.post("/goldscheme/api/portal/pay/", { enrollment_no, amount, upi_reference }));
 }
 
+export function portalFetchOrders() {
+  return wrap(portalApiClient.get("/sales/api/portal/customer-orders/"));
+}
+
 export function portalLogout() {
   return wrap(portalApiClient.post("/goldscheme/api/portal/logout/"));
 }

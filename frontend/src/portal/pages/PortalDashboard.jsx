@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Gem, IndianRupee, Clock } from "lucide-react";
 import { portalFetchDashboard } from "../api/portalApiService";
 import EnrollmentCard from "../components/EnrollmentCard";
+import OrderTracker from "../components/OrderTracker";
 
 const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
 
@@ -43,6 +44,12 @@ export default function PortalDashboard() {
   return (
     <div className="space-y-5">
       <h1 className="text-lg font-semibold">Hello, {customerName}</h1>
+
+      {/* Order Tracking */}
+      <div>
+        <h2 className="text-sm font-semibold text-foreground mb-3">Order Status</h2>
+        <OrderTracker />
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3">

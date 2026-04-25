@@ -67,6 +67,23 @@ function daysFromToday(dateStr) {
   return diff;
 }
 
+function calculateOrderDeliveryStatus(order) {
+  if (!order.items || order.items.length === 0) return order.delivery_status;
+
+  const itemStates = order.items.map(item => item._state || 'unlocked');
+  const hasAll = (state) => itemStates.every(s => s === state);
+  const hasAny = (state) => itemStates.some(s => s === state);
+
+  // All items billed → delivered
+  if (hasAll('billed')) return 'delivered';
+
+  // Any item in production → ready
+  if (hasAny('in_production')) return 'ready';
+
+  // All unlocked or pending → pending
+  return 'pending';
+}
+
 function DeliveryDateBadge({ dateStr, isOverdue, daysOverdue }) {
   if (!dateStr) return null;
   const days = daysFromToday(dateStr);
@@ -195,40 +212,22 @@ export default function CustomerOrderKanban() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const autoMovedRef = React.useRef(new Set()); // Track which orders have been auto-moved
 
   useEffect(() => {
     setLoading(true);
     fetchCustomerOrdersKanban().then((res) => {
-      if (res.success) setOrders(res.data);
+      if (res.success) {
+        setOrders(res.data);
+        autoMovedRef.current.clear(); // Reset tracking on new load
+      }
       else toast({ title: "Failed to load orders", description: String(res.error) });
       setLoading(false);
     });
   }, []);
 
-  /* Client-side filter across all columns */
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    if (!q) return orders;
-    return orders.filter(
-      (o) =>
-        o.order_no?.toLowerCase().includes(q) ||
-        (o.ldgr_name || "").toLowerCase().includes(q)
-    );
-  }, [orders, search]);
-
-  const grouped = useMemo(
-    () =>
-      Object.fromEntries(
-        COLUMNS.map((col) => [
-          col.key,
-          filtered.filter((o) => o.delivery_status === col.key),
-        ])
-      ),
-    [filtered]
-  );
-
   /* Optimistic status move */
-  const handleMove = async (orderId, newStatus) => {
+  const handleMove = React.useCallback(async (orderId, newStatus) => {
     // Optimistically update local state
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, delivery_status: newStatus } : o))
@@ -243,7 +242,44 @@ export default function CustomerOrderKanban() {
         )
       );
     }
-  };
+  }, [toast]);
+
+  /* Client-side filter across all columns */
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return orders;
+    return orders.filter(
+      (o) =>
+        o.order_no?.toLowerCase().includes(q) ||
+        (o.ldgr_name || "").toLowerCase().includes(q)
+    );
+  }, [orders, search]);
+
+  /* Auto-move orders to correct column based on item states — only once per order */
+  useEffect(() => {
+    if (loading) return;
+    orders.forEach((order) => {
+      const calculatedStatus = calculateOrderDeliveryStatus(order);
+      if (calculatedStatus !== order.delivery_status && !autoMovedRef.current.has(order.id)) {
+        autoMovedRef.current.add(order.id);
+        handleMove(order.id, calculatedStatus);
+      }
+    });
+  }, [orders, loading, handleMove]);
+
+  const grouped = useMemo(
+    () =>
+      Object.fromEntries(
+        COLUMNS.map((col) => [
+          col.key,
+          filtered.filter((o) => {
+            const status = calculateOrderDeliveryStatus(o);
+            return status === col.key;
+          }),
+        ])
+      ),
+    [filtered]
+  );
 
   return (
     <div className="p-4 flex flex-col gap-4 h-full">

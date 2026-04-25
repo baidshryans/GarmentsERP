@@ -29,6 +29,33 @@ const EVENT_STYLES = {
   delivered:         { Icon: CheckCircle2,  dot: "bg-emerald-600", ring: "ring-emerald-100" },
 };
 
+// Pipeline stages — every CO item passes through these 5 milestones.
+// `kinds` lists the event types that satisfy each stage.
+const PIPELINE_STAGES = [
+  { id: "placed",    label: "Order Placed",        Icon: ClipboardList, kinds: ["placed"] },
+  { id: "released",  label: "Released to Production", Icon: Package,    kinds: ["released_po", "released_mo"] },
+  { id: "received",  label: "Received in Stock",   Icon: Truck,         kinds: ["received_pv", "received_karigar"] },
+  { id: "barcoded",  label: "Barcoded",            Icon: Tag,           kinds: ["barcoded"] },
+  { id: "delivered", label: "Delivered",           Icon: CheckCircle2,  kinds: ["delivered"] },
+];
+
+// Build a 5-stage timeline view from the raw event list.
+// Each stage carries the matching event (if any) plus a `status` flag.
+function buildStageTimeline(events) {
+  const matchedEvents = PIPELINE_STAGES.map((stage) => {
+    const ev = events.find((e) => stage.kinds.includes(e.kind)) || null;
+    return { stage, ev };
+  });
+  const lastDoneIdx = matchedEvents.reduce(
+    (acc, m, i) => (m.ev ? i : acc),
+    -1,
+  );
+  return matchedEvents.map((m, i) => ({
+    ...m,
+    status: m.ev ? "done" : i === lastDoneIdx + 1 ? "next" : "future",
+  }));
+}
+
 function StateChip({ state }) {
   const map = {
     unlocked:      "bg-slate-100 text-slate-700 border-slate-200",
@@ -88,35 +115,62 @@ function ItemTimeline({ item }) {
         </div>
       </div>
 
-      {/* Timeline */}
+      {/* Timeline — fixed 5-stage pipeline, future stages greyed out */}
       <div className="px-5 py-4">
-        {events.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No events recorded for this item.</p>
-        ) : (
-          <ol className="relative">
-            {events.map((ev, i) => {
-              const cfg = EVENT_STYLES[ev.kind] || EVENT_STYLES.placed;
-              const { Icon, dot, ring } = cfg;
-              const isLast = i === events.length - 1;
-              return (
-                <li key={i} className="relative pl-10 pb-5 last:pb-0">
-                  {/* connecting line */}
-                  {!isLast && (
-                    <span
-                      aria-hidden
-                      className="absolute left-[15px] top-7 bottom-0 w-px bg-border"
-                    />
-                  )}
-                  {/* dot with icon */}
+        <ol className="relative">
+          {buildStageTimeline(events).map((row, i, arr) => {
+            const { stage, ev, status } = row;
+            const isLast = i === arr.length - 1;
+            const isDone = status === "done";
+            const isNext = status === "next";
+
+            const cfg = ev ? (EVENT_STYLES[ev.kind] || EVENT_STYLES.placed) : null;
+            const Icon = cfg?.Icon || stage.Icon;
+
+            // Visual treatment per status.
+            const dotClass = isDone
+              ? `${cfg.dot} text-white shadow-sm`
+              : isNext
+              ? "bg-white text-slate-400 border-2 border-dashed border-slate-300"
+              : "bg-slate-50 text-slate-300 border border-slate-200";
+
+            const ringClass = isDone ? `ring-4 ${cfg.ring}` : "";
+            const lineClass = isDone ? "bg-border" : "bg-slate-200/70 border-l border-dashed border-slate-200";
+            const labelClass = isDone
+              ? "text-foreground font-medium"
+              : isNext
+              ? "text-slate-500 font-medium"
+              : "text-slate-400";
+
+            return (
+              <li key={stage.id} className="relative pl-10 pb-5 last:pb-0">
+                {!isLast && (
                   <span
-                    className={`absolute left-0 top-0.5 inline-flex items-center justify-center size-8 rounded-full ${dot} ring-4 ${ring} text-white shadow-sm`}
-                  >
-                    <Icon className="size-4" />
+                    aria-hidden
+                    className={`absolute left-[15px] top-7 bottom-0 w-px ${lineClass}`}
+                  />
+                )}
+                <span
+                  className={`absolute left-0 top-0.5 inline-flex items-center justify-center size-8 rounded-full ${dotClass} ${ringClass}`}
+                >
+                  <Icon className="size-4" />
+                </span>
+
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className={`text-sm ${labelClass}`}>
+                    {ev?.label || stage.label}
                   </span>
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                    <span className="text-sm font-medium text-foreground">{ev.label}</span>
+                  {isDone && (
                     <span className="text-xs text-muted-foreground">{formatDate(ev.date)}</span>
-                  </div>
+                  )}
+                  {!isDone && (
+                    <span className={`text-[10px] uppercase tracking-wider ${isNext ? "text-amber-600" : "text-slate-300"}`}>
+                      {isNext ? "Pending" : "Upcoming"}
+                    </span>
+                  )}
+                </div>
+
+                {isDone && (
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
                     {ev.ref && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-muted text-foreground font-mono">
@@ -129,12 +183,15 @@ function ItemTimeline({ item }) {
                     {ev.karigar && (
                       <span className="text-muted-foreground">Karigar: <span className="text-foreground">{ev.karigar}</span></span>
                     )}
+                    {ev.barcode && (
+                      <span className="text-muted-foreground">Barcode: <span className="text-foreground font-mono">{ev.barcode}</span></span>
+                    )}
                   </div>
-                </li>
-              );
-            })}
-          </ol>
-        )}
+                )}
+              </li>
+            );
+          })}
+        </ol>
       </div>
     </div>
   );

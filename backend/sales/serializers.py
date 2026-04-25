@@ -36,6 +36,12 @@ class CustomerOrderItemSerializer(ModelSerializer):
 
 def _customer_order_item_lock(obj):
     """Return (lock_state, lock_reason) for a CustomerOrderItems row."""
+    # Truly delivered: a Sales Voucher exists for a barcode tied to this CO item.
+    # Walk: CO item → PO/PV/KR items → BarcodeMain → SalesVouItem
+    sv_billno = _sv_billno_for_co_item(obj)
+    if sv_billno:
+        return 'billed', f"Sold via Sales Voucher {sv_billno}"
+
     if obj.sale_status:
         return 'billed', 'Billed in a sales voucher'
     # Direct CO → PV path: the CO item was billed straight onto a Purchase
@@ -51,6 +57,61 @@ def _customer_order_item_lock(obj):
     if po:
         return 'in_production', f"Issued to Purchase Order {po.po_slip.po_no}"
     return 'unlocked', ''
+
+
+def _sv_billno_for_co_item(coi):
+    """Return the SalesVou billno of the first Sales Voucher whose barcode
+    traces back to this CustomerOrderItems row, or None if not yet sold.
+
+    Walks three barcode-sourcing chains:
+      A) CO → PO line → PV line (po_no/po_sl_no match) → BarcodeMain.pur_voucher
+      B) CO → KarigarIssueItem → KarigarReceiveItem (ref_job_sl_no) → BarcodeMain.rec_item
+      C) Direct CO → PV line (customer_order_item FK) → BarcodeMain.pur_voucher
+    """
+    from inventory.models import BarcodeMain
+    from purchase.models import PurchaseVoucherItems
+    from manufacturing.models import KarigarReceiveItem
+    from sales.models import SalesVouItem
+
+    barcode_ids = set()
+
+    # Chain A: PO → PV
+    po_items = coi.purchaseorderitems_set.select_related('po_slip').all()
+    for po_item in po_items:
+        if not po_item.po_slip:
+            continue
+        pv_items = PurchaseVoucherItems.objects.filter(
+            po_no=po_item.po_slip.po_no,
+            po_sl_no=po_item.po_sl_no,
+        ).values_list('id', flat=True)
+        for bc_id in BarcodeMain.objects.filter(pur_voucher_id__in=list(pv_items)).values_list('id', flat=True):
+            barcode_ids.add(bc_id)
+
+    # Chain B: KI → KR
+    ki_ids = list(coi.karigarissueitem_set.values_list('id', flat=True))
+    if ki_ids:
+        kr_ids = list(KarigarReceiveItem.objects.filter(ref_job_sl_no_id__in=ki_ids).values_list('id', flat=True))
+        if kr_ids:
+            for bc_id in BarcodeMain.objects.filter(rec_item_id__in=kr_ids).values_list('id', flat=True):
+                barcode_ids.add(bc_id)
+
+    # Chain C: direct CO → PV
+    pv_ids = list(coi.purchasevoucheritems_set.values_list('id', flat=True))
+    if pv_ids:
+        for bc_id in BarcodeMain.objects.filter(pur_voucher_id__in=pv_ids).values_list('id', flat=True):
+            barcode_ids.add(bc_id)
+
+    if not barcode_ids:
+        return None
+
+    sv_item = (
+        SalesVouItem.objects
+        .filter(barcode_id__in=barcode_ids, billno__isnull=False)
+        .select_related('billno')
+        .order_by('billno__date1', 'id')
+        .first()
+    )
+    return sv_item.billno.billno if sv_item and sv_item.billno else None
 
 
 class CustomerOrderItemsSerializer(serializers.ModelSerializer):

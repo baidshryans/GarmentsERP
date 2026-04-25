@@ -70,17 +70,17 @@ function daysFromToday(dateStr) {
 function calculateOrderDeliveryStatus(order) {
   if (!order.items || order.items.length === 0) return order.delivery_status;
 
-  const itemStates = order.items.map(item => item._state || 'unlocked');
+  const itemStates = order.items.map(item => item.lock_state || 'unlocked');
   const hasAll = (state) => itemStates.every(s => s === state);
   const hasAny = (state) => itemStates.some(s => s === state);
 
   // All items billed → delivered
   if (hasAll('billed')) return 'delivered';
 
-  // Any item in production → ready
-  if (hasAny('in_production')) return 'ready';
+  // Any item in production or billed → ready
+  if (hasAny('in_production') || hasAny('billed')) return 'ready';
 
-  // All unlocked or pending → pending
+  // All unlocked → pending
   return 'pending';
 }
 

@@ -124,6 +124,8 @@ const ClosingStockTable          = lazy(() => import("./components/Inventory/clo
 const InterRetailTransferList    = lazy(() => import("./components/inventory/transfers/InterRetailTransferList.jsx"));
 const InterRetailTransferAdd     = lazy(() => import("./components/inventory/transfers/InterRetailTransferAdd.jsx"));
 const InterRetailTransferDetail  = lazy(() => import("./components/inventory/transfers/InterRetailTransferDetail.jsx"));
+const OpeningStockList           = lazy(() => import("./components/Inventory/OpeningStock/OpeningStockList.jsx"));
+const OpeningStockForm           = lazy(() => import("./components/Inventory/OpeningStock/OpeningStockForm.jsx"));
 const HallmarkIssueReport        = lazy(() => import("./hallmarkissuereport.jsx"));
 const HallmarkReceiveReport      = lazy(() => import("./hallmarkreceivereport.jsx"));
 const Metalreport                = lazy(() => import("./Metalreport.jsx"));
@@ -412,6 +414,9 @@ const appRoutes = [
   { path: "inventory/inter-retail-transfer/new",        heading: "New Inter-Retail Transfer", component: <InterRetailTransferAdd /> },
   { path: "inventory/inter-retail-transfer/:id/edit",   heading: "Edit Inter-Retail Transfer", component: <InterRetailTransferAdd /> },
   { path: "inventory/inter-retail-transfer/:id",        heading: "Inter-Retail Transfer",     component: <InterRetailTransferDetail /> },
+  { path: "inventory/opening-stock",                    heading: "Opening Stock",             component: <OpeningStockList /> },
+  { path: "inventory/opening-stock/add",                heading: "Add Opening Stock",         component: <OpeningStockForm /> },
+  { path: "inventory/opening-stock/:id/edit",           heading: "Edit Opening Stock",        component: <OpeningStockForm /> },
   { path: "inventory/stockjournal/",                heading: "Stock Journal List",     component: <StockJournalList /> },
   { path: "inventory/stockjournal/add",             heading: "Add Stock Journal",      component: <StockJournal /> },
   { path: "inventory/stockjournal/:id",             heading: "Edit Stock Journal",     component: <StockJournal /> },

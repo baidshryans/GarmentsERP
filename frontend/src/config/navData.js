@@ -38,14 +38,6 @@ import {
 export const navData = {
   // ── Setup ──────────────────────────────────────────────────────────────────
   navMain0: [
-    { title: "Sales Person",      url: "/setup/salesperson",       icon: Users        },
-    { title: "Karigar Making",    url: "/setup/karigar-making",    icon: Hammer       },
-    { title: "B2B Sale Pricelist",     url: "/setup/b2b-pricelist",     icon: Tag          },
-    { title: "Retail Discount Pricelist", url: "/setup/retail-discount-pricelist", icon: Tag },
-    { title: "Sales Offers",             url: "/setup/sales-offer",               icon: Tag },
-    { title: "Chart of Accounts", url: "/accounting/account-tree", icon: BookOpen     },
-    { title: "TDS Sections",      url: "/setup/tds-section",       icon: Percent      },
-    { title: "TCS Sections",      url: "/setup/tcs-section",       icon: Percent      },
     {
       title: "Organisation",
       url: "#",
@@ -74,6 +66,14 @@ export const navData = {
         { title: "Color Master",  url: "/setup/color"        },
       ],
     },
+    { title: "Sales Person",      url: "/setup/salesperson",       icon: Users        },
+    { title: "Karigar Making",    url: "/setup/karigar-making",    icon: Hammer       },
+    { title: "B2B Sale Pricelist",     url: "/setup/b2b-pricelist",     icon: Tag          },
+    { title: "Retail Discount Pricelist", url: "/setup/retail-discount-pricelist", icon: Tag },
+    { title: "Sales Offers",             url: "/setup/sales-offer",               icon: Tag },
+    { title: "Chart of Accounts", url: "/accounting/account-tree", icon: BookOpen     },
+    { title: "TDS Sections",      url: "/setup/tds-section",       icon: Percent      },
+    { title: "TCS Sections",      url: "/setup/tcs-section",       icon: Percent      },
   ],
 
   // ── CRM (core) ─────────────────────────────────────────────────────────────
@@ -191,6 +191,7 @@ export const navData = {
     { title: "Stock Journal",   url: "/inventory/stockjournal/",                         icon: FileText   },
     { title: "Barcode History", url: "/inventory/barcodemanagement/barcodehistory/",     icon: History    },
     { title: "Design",          url: "/inventory/design/list/",                          icon: Palette    },
+    { title: "Opening Stock",   url: "/inventory/opening-stock",                         icon: Package    },
     {
       title: "Reports",
       url: "#",

@@ -44,6 +44,7 @@ def create_or_update_nested(serializer_class, parent_instance, related_name,pare
     for obj in existing_objects.values():
         obj.delete()
 
+
 class OpeningInventorySerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.item_name', read_only=True)
     item_short_code = serializers.CharField(source='item.short_code', read_only=True)

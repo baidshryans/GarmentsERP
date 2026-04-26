@@ -2,7 +2,7 @@
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction
 from inventory.filters import StockValuationReportFilter
-from inventory.serializer import BarCodeDetailSerializer, BarCodeMainListSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, InterRetailTransferVoucherSerializer, ItemStockReportSerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
+from inventory.serializer import BarCodeDetailSerializer, BarCodeMainListSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, InterRetailTransferVoucherSerializer, ItemStockReportSerializer, OpeningInventorySerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
 from manufacturing.models import *
 from manufacturing.serializer import HallmarkReceiveItemForPostSerializer
 from userauth.views import RetailBaseViewset
@@ -453,6 +453,37 @@ class BarCodeView(RetailBaseViewset):
                     "Only RFID tag, HUID, and design code may be updated."
                 )
         super().perform_update(serializer)
+
+    @action(detail=True, methods=['post'], url_path='transfer-to-order')
+    def transfer_to_order(self, request, pk=None):
+        """Assign a barcode to a customer order. Rejects if barcode is already
+        attached to another order or if the target order is closed/cancelled."""
+        from rest_framework.exceptions import ValidationError
+        from sales.models import CustomerOrder
+        barcode = self.get_object()
+        order_id = request.data.get('order_id')
+        if not order_id:
+            raise ValidationError({"order_id": "order_id is required."})
+        if barcode.customer_order_id:
+            raise ValidationError(
+                f"Barcode '{barcode.barcode}' is already assigned to order "
+                f"'{barcode.customer_order.order_no}'. Release it first."
+            )
+        try:
+            order = CustomerOrder.objects.get(pk=order_id)
+        except CustomerOrder.DoesNotExist:
+            raise ValidationError({"order_id": "Customer order not found."})
+        closed_status = (getattr(order, 'delivery_status', '') or '').lower()
+        if closed_status in ('delivered', 'cancelled'):
+            raise ValidationError(
+                f"Order '{order.order_no}' is {closed_status} and cannot accept new barcodes."
+            )
+        with transaction.atomic():
+            barcode.customer_order = order
+            barcode.save(update_fields=['customer_order'])
+        barcode.refresh_from_db()
+        serializer = BarCodeMainListSerializer(barcode, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='release-from-order')
     def release_from_order(self, request, pk=None):
@@ -2745,3 +2776,23 @@ def inter_retail_transfer_next_no(request):
     if retail is None:
         return Response({'detail': 'No active retail in context.'}, status=status.HTTP_400_BAD_REQUEST)
     return Response({'next_no': peek_next_bill_number(retail, 'IRT')})
+
+
+class OpeningInventoryViewSet(RetailBaseViewset):
+    serializer_class = OpeningInventorySerializer
+    queryset = OpeningInventory.objects.select_related(
+        'item', 'ldgr', 'purity', 'packet'
+    ).all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['type']
+
+    def get_queryset(self):
+        retail = getattr(self.request, 'retail', None)
+        return (
+            OpeningInventory.objects
+            .select_related('item', 'ldgr', 'purity', 'packet')
+            .filter(retail=retail)
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(retail=self.request.retail)

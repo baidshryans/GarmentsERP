@@ -20,6 +20,7 @@ router.register(r'raw-material', views.RawMaterialInventoryViewSet, basename='ra
 router.register(r'raw-material-txn', views.RawMaterialTransactionListView, basename='raw-material-txn')
 router.register(r'rfid-sessions', views.RfidCountSessionViewSet, basename='rfid-sessions')
 router.register(r'inter-retail-transfers', views.InterRetailTransferVoucherViewSet, basename='inter-retail-transfers')
+router.register(r'opening-inventory', views.OpeningInventoryViewSet, basename='opening-inventory')
 
 
 urlpatterns = [

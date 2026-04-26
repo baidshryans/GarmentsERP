@@ -4,7 +4,7 @@ from rest_framework import serializers
 from mastersconfig.models import Packet
 from goldrates.models import GoldRates, PurityMaster
 from sales.models import CustomerOrder
-from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, InterRetailTransferItem, InterRetailTransferVoucher, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
+from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, InterRetailTransferItem, InterRetailTransferVoucher, OpeningInventory, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
 from django.db import transaction
 from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
 
@@ -34,7 +34,7 @@ def create_or_update_nested(serializer_class, parent_instance, related_name,pare
             serializer_instance.save()
         else:
             # Create a new object and link it
-            
+
             serializer_instance = serializer_class(data=item_data)
             serializer_instance.is_valid(raise_exception=True)
             # serializer_instance.validated_data[parent_name] = parent_instance
@@ -43,6 +43,26 @@ def create_or_update_nested(serializer_class, parent_instance, related_name,pare
     # Delete any remaining objects not in the new data
     for obj in existing_objects.values():
         obj.delete()
+
+class OpeningInventorySerializer(serializers.ModelSerializer):
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
+    item_short_code = serializers.CharField(source='item.short_code', read_only=True)
+    ldgr_name = serializers.CharField(source='ldgr.ac_name', read_only=True, allow_null=True, default=None)
+    purity_label = serializers.CharField(source='purity.purity', read_only=True, allow_null=True, default=None)
+    packet_label = serializers.CharField(source='packet.pckt_no', read_only=True, allow_null=True, default=None)
+
+    class Meta:
+        model = OpeningInventory
+        fields = [
+            'id', 'item', 'item_name', 'item_short_code',
+            'ldgr', 'ldgr_name',
+            'pcs', 'ct', 'gw',
+            'type',
+            'packet', 'packet_label',
+            'purity', 'purity_label',
+            'retail',
+        ]
+        read_only_fields = ['retail']
 
 class ItemStockReportSerializer(serializers.ModelSerializer):
     opening = serializers.IntegerField()

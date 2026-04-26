@@ -118,6 +118,7 @@ class SampleIssue(models.Model):
     karigar_ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT, related_name="sample_issues")
     retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
+    slip_type = models.CharField(max_length=20, blank=True, null=True)
     remarks = models.CharField(max_length=200, blank=True, null=True)
     gold_issue = GenericRelation(
         KarigarGoldIssue,
@@ -138,9 +139,17 @@ class SampleIssueItem(models.Model):
     sl_no = models.IntegerField()
     piece = models.ForeignKey(
         "inventory.UnBarcodedMain",
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
         related_name="sample_issue_items",
-        help_text="The semi-finished / finished piece being issued out.",
+        help_text="UnBarcodedMain piece being issued (null when source is a barcode).",
+    )
+    barcode = models.ForeignKey(
+        "inventory.BarcodeMain",
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="sample_issue_items",
+        help_text="BarcodeMain piece being issued (null when source is an unbarcoded item).",
     )
     instructions = models.TextField(blank=True, null=True)
     due_date = models.DateField(null=True, blank=True)
@@ -409,8 +418,9 @@ class KarigarReceiveItem(models.Model):
             )
         sample_piece_gw = 0
         if self.ref_sample_issue_item_id:
-            piece = self.ref_sample_issue_item.piece
-            sample_piece_gw = piece.gw or 0
+            si_item = self.ref_sample_issue_item
+            if si_item.piece_id:
+                sample_piece_gw = si_item.piece.gw or 0
         return nw - supplied - sample_piece_gw
 
     class Meta:

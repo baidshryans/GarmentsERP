@@ -37,7 +37,7 @@ def gen_barcode(request):
 @permission_classes([IsAuthenticated])
 def get_barcode(request, barcode, hsn):
     try:
-        obj = BarcodeMain.objects.get(
+        obj = BarcodeMain.objects.select_related('customer_order', 'customer_order__ldgr').get(
             barcode=barcode,
             item__hsn_no__hsn_no=hsn,
             retail=request.retail,
@@ -48,6 +48,25 @@ def get_barcode(request, barcode, hsn):
             {"detail": f"Barcode '{barcode}' is not available in the current retail's active stock."},
             status=404,
         )
+    # Reservation guard: if barcode is reserved against a customer order, reject when
+    # the sales-voucher's selected customer (ldgr) does not match the reserved party.
+    ldgr_param = request.query_params.get('ldgr') if hasattr(request, 'query_params') else request.GET.get('ldgr')
+    if obj.customer_order_id and ldgr_param not in (None, '', 'null', 'undefined'):
+        try:
+            bill_ldgr_id = int(ldgr_param)
+        except (TypeError, ValueError):
+            bill_ldgr_id = None
+        reserved_ldgr_id = getattr(obj.customer_order, 'ldgr_id', None)
+        if bill_ldgr_id is not None and reserved_ldgr_id is not None and bill_ldgr_id != reserved_ldgr_id:
+            reserved_party = getattr(getattr(obj.customer_order, 'ldgr', None), 'ldgr_name', 'reserved customer')
+            return Response(
+                {"detail": (
+                    f"Barcode '{barcode}' is reserved for customer order "
+                    f"{obj.customer_order.order_no} ({reserved_party}). "
+                    "Release it from the order before selling to a different party."
+                )},
+                status=400,
+            )
     data = BarcodeMainToSaleVouSerializer(obj).data
     return Response(data)
 
@@ -55,7 +74,7 @@ def get_barcode(request, barcode, hsn):
 @permission_classes([IsAuthenticated])
 def get_barcode_only(request, barcode):
     try:
-        obj = BarcodeMain.objects.get(
+        obj = BarcodeMain.objects.select_related('customer_order', 'customer_order__ldgr').get(
             barcode=barcode,
             retail=request.retail,
             stk_status=True,
@@ -1845,7 +1864,7 @@ class StockTransferViewset(RetailBaseViewset):
     serializer_class = StockTransferSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     search_fields = ['billno']
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
     @property
     def ordering_fields(self):

@@ -1,7 +1,7 @@
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 
-from .models import SalesVou, SaleReturn
+from .models import SalesVou, SaleReturn, SalesApprovalItem
 
 
 @receiver(pre_delete, sender=SalesVou)
@@ -61,3 +61,17 @@ def on_sale_return_delete(sender, instance, **kwargs):
     if instance.ac_voucher_id:
         from accounting.models import VoucherMain
         VoucherMain.objects.filter(id=instance.ac_voucher_id).delete()
+
+
+@receiver(pre_delete, sender=SalesApprovalItem)
+def on_sales_approval_item_delete(sender, instance, **kwargs):
+    """
+    When a SalesApprovalItem is deleted (item removed by an edit, or the
+    parent SalesApproval is being deleted and items cascade), restore the
+    barcode's stk_status to True. Items with ret_status=True already had
+    their barcode put back in stock when the return was recorded, so
+    setting True again is idempotent and safe.
+    """
+    if instance.barcode_id:
+        from inventory.models import BarcodeMain
+        BarcodeMain.objects.filter(id=instance.barcode_id).update(stk_status=True)

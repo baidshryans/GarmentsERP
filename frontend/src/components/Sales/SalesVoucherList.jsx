@@ -138,34 +138,47 @@ function SalesVoucherList() {
           >
             <Printer className="size-4" />
           </button>
-          <button
-            title="Download e-Invoice JSON"
-            onClick={async () => {
-              try {
-                const res = await apiClient.get('/sales/api/generate-json', {
-                  params: { bill: row.original.billno },
-                  responseType: 'blob',
-                });
-                const url = URL.createObjectURL(res.data);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `JSON_${row.original.billno}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                toast({ title: 'e-Invoice JSON downloaded', description: row.original.billno });
-              } catch (e) {
-                const errText = e.response?.data ? await e.response.data.text() : e.message;
-                let detail = errText;
-                try { detail = JSON.parse(errText)?.error || errText; } catch {}
-                toast({ title: 'JSON generation failed', description: detail, variant: 'destructive' });
-              }
-            }}
-            className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors"
-          >
-            <FileJson className="size-4" />
-          </button>
+          {(() => {
+            const hasGst = !!(row.original.ldgr_gst && String(row.original.ldgr_gst).trim());
+            return (
+              <button
+                title={hasGst
+                  ? "Download e-Invoice JSON"
+                  : "e-Invoice unavailable: party ledger has no GSTIN"}
+                disabled={!hasGst}
+                onClick={async () => {
+                  if (!hasGst) return;
+                  try {
+                    const res = await apiClient.get('/sales/api/generate-json', {
+                      params: { bill: row.original.billno },
+                      responseType: 'blob',
+                    });
+                    const url = URL.createObjectURL(res.data);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `JSON_${row.original.billno}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    toast({ title: 'e-Invoice JSON downloaded', description: row.original.billno });
+                  } catch (e) {
+                    const errText = e.response?.data ? await e.response.data.text() : e.message;
+                    let detail = errText;
+                    try { detail = JSON.parse(errText)?.error || errText; } catch {}
+                    toast({ title: 'JSON generation failed', description: detail, variant: 'destructive' });
+                  }
+                }}
+                className={`p-1.5 rounded transition-colors ${
+                  hasGst
+                    ? "text-primary hover:bg-primary/10"
+                    : "text-muted-foreground/40 cursor-not-allowed"
+                }`}
+              >
+                <FileJson className="size-4" />
+              </button>
+            );
+          })()}
           {row.original.has_eway_bill ? (
             <span
               title="E-Way Bill already generated for this voucher"

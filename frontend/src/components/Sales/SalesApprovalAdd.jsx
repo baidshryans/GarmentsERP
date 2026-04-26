@@ -183,8 +183,12 @@ const SalesApprovalAdd = () => {
   const handleBarcodeBlur = async () => {
     const { barcode, hsn } = getValues();
     try {
-      const data = await fetchBarcodeDetail(barcode, hsn);
+      const data = await fetchBarcodeDetail(barcode, hsn, getValues("form.ldgr"));
       if (data.success) append(data.data);
+      else {
+        const detail = data.error?.detail || (typeof data.error === "string" ? data.error : null);
+        if (detail) console.warn("Barcode rejected:", detail);
+      }
     } catch (e) {
       console.error(e);
     }

@@ -24,6 +24,8 @@ const JobWorkReceive             = lazy(() => import("./components/manufacturing
 const StoneReturn                = lazy(() => import("./components/manufacturing/receive/StoneReturn"));
 const KarigarStoneIssue          = lazy(() => import("./components/manufacturing/issue/stoneIssue"));
 const GoldIssue                  = lazy(() => import("./components/manufacturing/issue/goldIssue"));
+const SampleIssue                = lazy(() => import("./components/manufacturing/issue/SampleIssue"));
+const SampleIssueList            = lazy(() => import("./components/manufacturing/issue/SampleIssueList"));
 const HallmarkIssue              = lazy(() => import("./components/manufacturing/issue/hallmarkIssue"));
 const HallmarkReceive            = lazy(() => import("./components/manufacturing/receive/HallmarkReceive"));
 const BarcodeManagementList      = lazy(() => import("./components/Inventory/BarcodeManagement/barcodemanagementlist"));
@@ -154,6 +156,8 @@ const ColorMasterPage            = lazy(() => import("./components/Masters/Color
 const TDSRegister                = lazy(() => import("./components/reports/TDSRegister.jsx"));
 const TCSRegister                = lazy(() => import("./components/reports/TCSRegister.jsx"));
 const CommissionReport           = lazy(() => import("./components/reports/CommissionReport.jsx"));
+const SalesRegister              = lazy(() => import("./components/reports/SalesRegister.jsx"));
+const SaleApprovalRegister       = lazy(() => import("./components/reports/SaleApprovalRegister.jsx"));
 const B2BPricelistPage           = lazy(() => import("./components/Masters/B2BPricelistPage.jsx"));
 const RetailDiscountPricelistPage = lazy(() => import("./components/Masters/RetailDiscountPricelistPage.jsx"));
 const SalesOfferPage             = lazy(() => import("./components/Masters/SalesOfferPage.jsx"));
@@ -248,7 +252,7 @@ const appRoutes = [
   { path: "setup/color",         heading: "Color Master",          component: <ColorMasterPage /> },
   { path: "setup/tds-section",   heading: "TDS Section Master",    component: <TDSSectionMasterPage /> },
   { path: "setup/tcs-section",   heading: "TCS Section Master",    component: <TCSSectionMasterPage /> },
-  { path: "setup/b2b-pricelist",              heading: "B2B Pricelist",                component: <B2BPricelistPage /> },
+  { path: "setup/b2b-pricelist",              heading: "B2B Sale Pricelist",                component: <B2BPricelistPage /> },
   { path: "setup/retail-discount-pricelist", heading: "Retail Discount Pricelist",     component: <RetailDiscountPricelistPage /> },
   { path: "setup/sales-offer",              heading: "Sales Offers",                   component: <SalesOfferPage /> },
 
@@ -291,6 +295,9 @@ const appRoutes = [
   { path: "manufacturing/issue/jobwork/add",  heading: "Add Karigar Issue",   component: <KarigarIssue /> },
   { path: "manufacturing/issue/jobwork/:id",  heading: "Edit Karigar Issue",  component: <KarigarIssue /> },
   { path: "manufacturing/issue/jobwork",      heading: "Karigar Issue List",  component: <KarigarJobs /> },
+  { path: "manufacturing/issue/sample-issue/new", heading: "New Sample Issue",  component: <SampleIssue /> },
+  { path: "manufacturing/issue/sample-issue/:id", heading: "Edit Sample Issue", component: <SampleIssue /> },
+  { path: "manufacturing/issue/sample-issue",     heading: "Sample Issue List", component: <SampleIssueList /> },
   { path: "manufacturing/issue/stoneissue/add", heading: "Stone Issue to Karigar",  component: <KarigarStoneIssue /> },
   { path: "manufacturing/issue/stoneissue/:id", heading: "Edit Stone Issue",        component: <KarigarStoneIssue /> },
   { path: "manufacturing/issue/stoneissue/",  heading: "Stone Issue List",          component: <KarigarStoneIssueList /> },
@@ -358,7 +365,7 @@ const appRoutes = [
   { path: "purchase/purchaseorder/list/:id",      heading: "Edit Purchase Order",    component: <PurchaseOrder /> },
   { path: "purchase/gstr2b-reconcile",            heading: "GSTR-2B Reconciliation", component: <GSTR2BReconcile /> },
   { path: "purchase/customerpurchase/list/",      heading: "Customer Purchase List", component: <PurchaseVoucherList voucherType="Customer" /> },
-  { path: "purchase/stock-matching/",              heading: "Stock Matching Report",  component: <StockMatchingReport /> },
+  { path: "inventory/reports/stock-matching",      heading: "Stock Matching Report",  component: <StockMatchingReport /> },
   { path: "purchase/customerpurchase/list/add/",  heading: "Add Customer Purchase",  component: <PurchaseVoucher /> },
   { path: "purchase/customerpurchase/list/:id",   heading: "Edit Customer Purchase", component: <PurchaseVoucher /> },
 
@@ -384,6 +391,8 @@ const appRoutes = [
   { path: "sales/salesapproval/add/",      heading: "Add Sales Approval",   component: <SalesApprovalAdd /> },
   { path: "sales/salesapproval/:id",       heading: "Edit Sales Approval",  component: <SalesApprovalAdd /> },
   { path: "sales/reports/commission",      heading: "Salesperson Commission Report", component: <CommissionReport /> },
+  { path: "sales/reports/sales-register",  heading: "Sales Register",                 component: <SalesRegister /> },
+  { path: "sales/reports/sale-approval-register", heading: "Sale Approval Register",  component: <SaleApprovalRegister /> },
   { path: "sales/eway-bills",              heading: "E-Way Bills",          component: <EWayBillList /> },
   { path: "sales/pending-cheques",         heading: "Pending Cheques",      component: <ChequePendingPage /> },
 

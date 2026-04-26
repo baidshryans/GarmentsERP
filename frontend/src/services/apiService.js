@@ -1262,6 +1262,35 @@ export async function fetchUnbarcodedForPicker({ karigar } = {}) {
   }
 }
 
+export async function fetchKarigarReceiveSlipForSample(slipNo) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/karigar-receive-slip-for-sample/?slip_no=${encodeURIComponent(slipNo)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchBarcodeForSample(barcodeNo) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/barcode-for-sample/?barcode=${encodeURIComponent(barcodeNo)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchKarigarReceiveForSamplePicker({ search } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    const response = await apiClient.get(`/manufacturing/api/karigar-receive-picker/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchSubcontractorLedger({ karigar, start, end }) {
   try {
     const params = new URLSearchParams();
@@ -1409,11 +1438,12 @@ export async function fetchSlNosOrders(id) {
 }
 
 
-export async function fetchBarcodeDetail(barcode, hsn) {
+export async function fetchBarcodeDetail(barcode, hsn, ldgr) {
   try {
     if ((barcode === "")) return { success: false, error: "Barcode should not be blank" }
 
-    const response = await apiClient.get(`/inventory/api/get-barcode-detail/${barcode}/${hsn}/`);
+    const qs = (ldgr !== undefined && ldgr !== null && ldgr !== "") ? `?ldgr=${encodeURIComponent(ldgr)}` : "";
+    const response = await apiClient.get(`/inventory/api/get-barcode-detail/${barcode}/${hsn}/${qs}`);
     console.log(barcode)
     return { success: true, data: response.data };
   } catch (error) {
@@ -1434,11 +1464,12 @@ export async function fetchBarcodeForEdit(id) {
   }
 }
 
-export async function fetchBarcodeDetailOnly(barcode) {
+export async function fetchBarcodeDetailOnly(barcode, ldgr) {
   try {
     if ((barcode === "")) return { success: false, error: "Barcode should not be blank" }
 
-    const response = await apiClient.get(`/inventory/api/get-barcode-detail/${barcode}/`);
+    const qs = (ldgr !== undefined && ldgr !== null && ldgr !== "") ? `?ldgr=${encodeURIComponent(ldgr)}` : "";
+    const response = await apiClient.get(`/inventory/api/get-barcode-detail/${barcode}/${qs}`);
     console.log(barcode)
     return { success: true, data: response.data };
   } catch (error) {
@@ -4841,6 +4872,24 @@ export async function fetchCommissionLedgerConfig() {
 export async function setCommissionLedger(commission_ldgr_id) {
   try {
     const response = await apiClient.patch('/mastersconfig/api/commission/ledger-set/', { commission_ldgr_id });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSalesRegister(params) {
+  try {
+    const response = await apiClient.get('/sales/api/reports/sales-register/', { params });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSaleApprovalRegister(params) {
+  try {
+    const response = await apiClient.get('/sales/api/reports/sale-approval-register/', { params });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

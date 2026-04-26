@@ -690,12 +690,19 @@ const SalesVoucherAdd = () => {
 
     barcodeFetchingRef.current = true;
     try {
-      const data = await fetchBarcodeDetail(barcode, hsn);
+      const selectedLdgr = getValues("form.ldgr");
+      const data = await fetchBarcodeDetail(barcode, hsn, selectedLdgr);
       if (data.success) {
         const item = b2bPricelist ? applyB2bOverrides(data.data) : data.data;
         append(item);
       } else {
-        toast({ title: "Barcode not found", description: JSON.stringify(data.error) || "Server error" });
+        // Surface backend reservation/validation message verbatim when present.
+        const detail = data.error?.detail || (typeof data.error === "string" ? data.error : null);
+        toast({
+          title: detail ? "Barcode reserved" : "Barcode not found",
+          description: detail || JSON.stringify(data.error) || "Server error",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error fetching data:", error);

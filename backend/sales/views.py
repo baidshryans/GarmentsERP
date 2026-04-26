@@ -60,14 +60,14 @@ class CustomerOrderViewset(views.RetailBaseViewset):
     serializer_class = CustomerOrderSerializer
     filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
     filterset_fields = ['ldgr', 'status']
-    search_fields = ['order_no', 'ldgr__ac_name']
+    search_fields = ['order_no', 'ldgr__ac_name', 'ldgr__mobile1', 'ldgr__mobile2', 'ldgr__mobile3']
 
     @property
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['order_no']
+    ordering = ['-date1', '-order_no']
 
     def perform_create(self, serializer):
         from accounting.utils import get_next_bill_number
@@ -612,7 +612,7 @@ class SalesVoucherViewset(views.RetailBaseViewset):
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
     def _resolve_fiscal_year(self, retail, voucher_date):
         """Return the FiscalYearMaster whose date range covers voucher_date.
@@ -1344,7 +1344,7 @@ class SalesApprovalViewset(views.RetailBaseViewset):
     @property
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
-    ordering=['billno']
+    ordering = ['-date1', '-id']
 
     def perform_destroy(self, instance):
         from accounting.utils import release_last_bill_number
@@ -1367,7 +1367,7 @@ class SalesReturnViewset(views.RetailBaseViewset):
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -2696,3 +2696,175 @@ def portal_customer_orders(request):
     orders = CustomerOrder.objects.filter(ldgr=customer).order_by('-date1')
     serializer = PortalCustomerOrderSerializer(orders, many=True)
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def sales_register(request):
+    """
+    Sales Register — flat date-ranged listing of every Sales Voucher.
+    Query params: from_date, to_date (YYYY-MM-DD, required), ldgr (optional FK), sales_person (optional FK).
+    """
+    try:
+        retail = request.retail
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        ldgr_id = request.GET.get('ldgr')
+        sp_id = request.GET.get('sales_person')
+
+        if not from_date or not to_date:
+            return Response({'success': False, 'data': None, 'error': 'from_date and to_date are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = (SalesVou.objects
+              .filter(retail=retail, date1__range=[from_date, to_date])
+              .select_related('ldgr', 'sales_person', 'sales_person2')
+              .order_by('date1', 'billno'))
+
+        if ldgr_id:
+            qs = qs.filter(ldgr_id=ldgr_id)
+        if sp_id:
+            qs = qs.filter(sales_person_id=sp_id)
+
+        rows = []
+        totals = {
+            'taxable_value': 0.0,
+            'sgst_amt': 0.0,
+            'cgst_amt': 0.0,
+            'igst_amt': 0.0,
+            'round_off': 0.0,
+            'total_bill_value': 0.0,
+        }
+        for sv in qs:
+            taxable = float(sv.taxable_value or 0)
+            sgst = float(sv.sgst_amt or 0)
+            cgst = float(sv.cgst_amt or 0)
+            igst = float(sv.igst_amt or 0)
+            round_off = float(sv.round_off or 0)
+            total = float(sv.total_bill_value or 0)
+            rows.append({
+                'id': sv.id,
+                'date': sv.date1,
+                'billno': sv.billno,
+                'gst_billno': sv.gst_billno or '',
+                'party_name': sv.ldgr.ac_name if sv.ldgr else '',
+                'gstin': (sv.ldgr.gst or '') if sv.ldgr else '',
+                'place_of_supply': sv.place_of_supply or '',
+                'salesperson': sv.sales_person.salesperson_name if sv.sales_person else '',
+                'mrp': float(sv.mrp or 0),
+                'discount': float(sv.discount or 0),
+                'taxable_value': taxable,
+                'sgst_per': float(sv.sgst_per or 0),
+                'cgst_per': float(sv.cgst_per or 0),
+                'igst_per': float(sv.igst_per or 0),
+                'sgst_amt': sgst,
+                'cgst_amt': cgst,
+                'igst_amt': igst,
+                'round_off': round_off,
+                'total_bill_value': total,
+                'is_return': bool(sv.ret_status),
+            })
+            totals['taxable_value'] += taxable
+            totals['sgst_amt'] += sgst
+            totals['cgst_amt'] += cgst
+            totals['igst_amt'] += igst
+            totals['round_off'] += round_off
+            totals['total_bill_value'] += total
+
+        for k in totals:
+            totals[k] = round(totals[k], 2)
+
+        return Response({'success': True, 'data': {'rows': rows, 'totals': totals, 'count': len(rows)}, 'error': None})
+    except Exception as e:
+        logging.exception("sales_register failed")
+        return Response({'success': False, 'data': None, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def sale_approval_register(request):
+    """
+    Sale Approval Register — flat date-ranged listing of every Sales Approval.
+    Query params: from_date, to_date (YYYY-MM-DD, required), ldgr (optional FK), sales_person (optional FK).
+    """
+    try:
+        retail = request.retail
+        from_date = request.GET.get('from_date')
+        to_date = request.GET.get('to_date')
+        ldgr_id = request.GET.get('ldgr')
+        sp_id = request.GET.get('sales_person')
+        status_filter = (request.GET.get('status') or 'all').lower()
+
+        if not from_date or not to_date:
+            return Response({'success': False, 'data': None, 'error': 'from_date and to_date are required (YYYY-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = (SalesApproval.objects
+              .filter(retail=retail, date1__range=[from_date, to_date])
+              .select_related('ldgr', 'sales_person', 'sales_person2', 'place_of_supply')
+              .prefetch_related('items')
+              .order_by('date1', 'billno'))
+
+        if ldgr_id:
+            qs = qs.filter(ldgr_id=ldgr_id)
+        if sp_id:
+            qs = qs.filter(sales_person_id=sp_id)
+        if status_filter == 'pending':
+            qs = qs.filter(items__ret_status=False).distinct()
+
+        rows = []
+        totals = {
+            'taxable_value': 0.0,
+            'net_taxable': 0.0,
+            'sgst_amt': 0.0,
+            'cgst_amt': 0.0,
+            'igst_amt': 0.0,
+            'total_bill_value': 0.0,
+        }
+        for sa in qs:
+            taxable = float(sa.taxable_value or 0)
+            net_taxable = float(sa.net_taxable or 0)
+            sgst = float(sa.sgst_amt or 0)
+            cgst = float(sa.cgst_amt or 0)
+            igst = float(sa.igst_amt or 0)
+            total = float(sa.total_bill_value or 0)
+            pos = sa.place_of_supply.name if sa.place_of_supply else ''
+            items_list = list(sa.items.all())
+            items_total = len(items_list)
+            items_pending = sum(1 for it in items_list if not it.ret_status)
+            is_pending = items_pending > 0
+            rows.append({
+                'id': sa.id,
+                'date': sa.date1,
+                'billno': sa.billno,
+                'party_name': sa.ldgr.ac_name if sa.ldgr else '',
+                'gstin': (sa.ldgr.gst or '') if sa.ldgr else '',
+                'place_of_supply': pos,
+                'salesperson': sa.sales_person.salesperson_name if sa.sales_person else '',
+                'taxable_value': taxable,
+                'discount': float(sa.discount or 0),
+                'net_taxable': net_taxable,
+                'sgst_per': float(sa.sgst_per or 0),
+                'cgst_per': float(sa.cgst_per or 0),
+                'igst_per': float(sa.igst_per or 0),
+                'sgst_amt': sgst,
+                'cgst_amt': cgst,
+                'igst_amt': igst,
+                'total_bill_value': total,
+                'narration': getattr(sa, 'narration', '') or '',
+                'items_total': items_total,
+                'items_pending': items_pending,
+                'is_pending': is_pending,
+            })
+            totals['taxable_value'] += taxable
+            totals['net_taxable'] += net_taxable
+            totals['sgst_amt'] += sgst
+            totals['cgst_amt'] += cgst
+            totals['igst_amt'] += igst
+            totals['total_bill_value'] += total
+
+        for k in totals:
+            totals[k] = round(totals[k], 2)
+
+        return Response({'success': True, 'data': {'rows': rows, 'totals': totals, 'count': len(rows)}, 'error': None})
+    except Exception as e:
+        logging.exception("sale_approval_register failed")
+        return Response({'success': False, 'data': None, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

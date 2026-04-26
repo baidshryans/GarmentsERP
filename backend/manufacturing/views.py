@@ -94,25 +94,24 @@ class SampleIssueViewSet(views.RetailBaseViewset):
 
 
 def sample_issue_next_billno(request):
-    """Return next billno for Sample Issue: SI/<FY>/<n>."""
+    """Return next billno for Sample Issue: IS/<retail_code>/<fy_code>/<seq:05d>."""
     from django.http import JsonResponse
-    from .models import SampleIssue
+    from mastersconfig.models import RetailMaster, FiscalYearMaster
+    from accounting.utils import peek_next_bill_number
     retail_id = request.GET.get('retail')
     fy_id = request.GET.get('fiscal_year')
-    qs = SampleIssue.objects.all()
-    if retail_id:
-        qs = qs.filter(retail_id=retail_id)
+    try:
+        retail = RetailMaster.objects.get(id=retail_id)
+    except (RetailMaster.DoesNotExist, TypeError, ValueError):
+        return JsonResponse({'next_billno': 'IS/---/---/00001'})
+    fy = None
     if fy_id:
-        qs = qs.filter(fiscal_year_id=fy_id)
-    last = qs.order_by('-id').first()
-    n = 1
-    if last and last.billno:
         try:
-            n = int(last.billno.split('/')[-1]) + 1
-        except (ValueError, AttributeError):
-            n = qs.count() + 1
-    prefix = f"SI/{fy_id or 'X'}/"
-    return JsonResponse({'next_billno': f"{prefix}{n}"})
+            fy = FiscalYearMaster.objects.get(id=fy_id)
+        except FiscalYearMaster.DoesNotExist:
+            pass
+    bill_no = peek_next_bill_number(retail, 'IS', fy)
+    return JsonResponse({'next_billno': bill_no})
 
 
 class UnbarcodedForPickerView(APIView):
@@ -146,6 +145,149 @@ class UnbarcodedForPickerView(APIView):
         return Response(data)
 
 
+class KarigarReceiveSlipForSampleView(APIView):
+    """
+    GET /manufacturing/api/karigar-receive-slip-for-sample/?slip_no=<exact_slip_no>
+    Returns the full slip with items and sub-items for the Sample Issue form.
+    """
+    def get(self, request):
+        from manufacturing.models import KarigarReceive
+        slip_no = request.query_params.get('slip_no', '').strip()
+        if not slip_no:
+            return Response({'error': 'slip_no required'}, status=400)
+        try:
+            slip = KarigarReceive.objects.select_related('karigar_ldgr').get(receive_slip_no=slip_no)
+        except KarigarReceive.DoesNotExist:
+            return Response({'error': 'Slip not found'}, status=404)
+        items = []
+        for ri in slip.karigarreceiveitem_set.select_related(
+            'item', 'purity', 'unbarcoded_item__item', 'unbarcoded_item__purity'
+        ).order_by('sl_no'):
+            details = []
+            for d in ri.karigarreceiveitemdetails_set.select_related('item', 'packet').all():
+                details.append({
+                    'sl_no': d.sl_no,
+                    'packet': d.packet.short_code if d.packet else '',
+                    'sub_item': d.item.item_name if d.item else '',
+                    'sub_item_id': d.item_id,
+                    'description': d.item.item_name if d.item else '',
+                    'pcs': d.balance_pcs,
+                    'ct': float(d.balance_ct or 0),
+                    'gw': float(d.balance_gw or 0),
+                    'rate': float(d.rate or 0),
+                    'amt': float(d.amt or 0),
+                })
+            ubm = ri.unbarcoded_item
+            items.append({
+                'sl_no': ri.sl_no,
+                'receive_item_id': ri.id,
+                'unbarcoded_item_id': ubm.id if ubm else None,
+                'item': ri.item.item_name if ri.item else '',
+                'item_id': ri.item_id,
+                'purity': ri.purity.purity if ri.purity else '',
+                'purity_id': ri.purity_id,
+                'pcs': ri.pcs,
+                'gw': float(ri.gw or 0),
+                'design_code': ubm.design_code if ubm else '',
+                'size': ubm.size if ubm else '',
+                'huid': ubm.huid if ubm else '',
+                'details': details,
+            })
+        return Response({
+            'id': slip.id,
+            'receive_slip_no': slip.receive_slip_no,
+            'karigar_ldgr': slip.karigar_ldgr_id,
+            'karigar_name': slip.karigar_ldgr.ac_name if slip.karigar_ldgr else '',
+            'date1': str(slip.date1),
+            'items': items,
+        })
+
+
+class BarcodeForSamplePickerView(APIView):
+    """
+    GET /manufacturing/api/barcode-for-sample/?barcode=<barcode_no>
+    Returns barcode + its details for the Sample Issue form.
+    """
+    def get(self, request):
+        from inventory.models import BarcodeMain, BarcodeDetails
+        barcode_no = request.query_params.get('barcode', '').strip()
+        if not barcode_no:
+            return Response({'error': 'barcode required'}, status=400)
+        try:
+            bm = BarcodeMain.objects.select_related('item', 'purity').get(barcode=barcode_no)
+        except BarcodeMain.DoesNotExist:
+            return Response({'error': 'Barcode not found'}, status=404)
+        details = []
+        for d in BarcodeDetails.objects.filter(barcode=bm).select_related('item', 'packet'):
+            details.append({
+                'packet': d.packet.short_code if d.packet else '',
+                'sub_item': d.item.item_name if d.item else '',
+                'sub_item_id': d.item_id,
+                'description': d.item.item_name if d.item else '',
+                'pcs': d.pcs or 0,
+                'ct': float(d.ct or 0),
+                'gw': float(d.gw or 0),
+                'rate': float(d.rate or 0),
+                'amt': float(d.amt or 0),
+            })
+        return Response({
+            'barcode_id': bm.id,
+            'barcode': bm.barcode,
+            'item': bm.item.item_name if bm.item else '',
+            'item_id': bm.item_id,
+            'purity': bm.purity.purity if bm.purity else '',
+            'purity_id': bm.purity_id,
+            'pcs': bm.pcs or 1,
+            'gw': float(bm.gw or 0),
+            'design_code': bm.design_code or '',
+            'size': bm.size or '',
+            'huid': bm.huid or '',
+            'details': details,
+        })
+
+
+class KarigarReceiveForSamplePickerView(APIView):
+    """
+    Return KarigarReceiveItems whose unbarcoded_item is in stock,
+    optionally filtered by receive slip number search.
+    Query: ?search=<slip_no_fragment>
+    Returns same shape as UnbarcodedForPickerView so the frontend can
+    reuse the same piece-population logic.
+    """
+    def get(self, request):
+        from manufacturing.models import KarigarReceiveItem
+        search = request.query_params.get('search', '').strip()
+        qs = KarigarReceiveItem.objects.filter(
+            unbarcoded_item__isnull=False,
+            unbarcoded_item__stk_status=True,
+        ).select_related(
+            'receive_slip_no',
+            'unbarcoded_item__item',
+            'unbarcoded_item__purity',
+        )
+        if search:
+            qs = qs.filter(receive_slip_no__receive_slip_no__icontains=search)
+        data = []
+        for ri in qs.order_by('-id')[:300]:
+            ubm = ri.unbarcoded_item
+            slip = ri.receive_slip_no.receive_slip_no if ri.receive_slip_no else ''
+            data.append({
+                'id': ubm.id,
+                'label': f"{ubm.item.item_name if ubm.item else ''} — {ubm.gw}g — {ubm.design_code or ''}",
+                'item': ubm.item.item_name if ubm.item else '',
+                'item_id': ubm.item_id,
+                'purity': ubm.purity.purity if ubm.purity else '',
+                'purity_id': ubm.purity_id,
+                'pcs': ubm.pcs,
+                'gw': float(ubm.gw or 0),
+                'design_code': ubm.design_code or '',
+                'huid': getattr(ubm, 'huid', '') or '',
+                'receive_slip_no': slip,
+                'receive_item_sl_no': ri.sl_no,
+            })
+        return Response(data)
+
+
 class KarigarIssueViewSet(views.RetailBaseViewset):
     serializer_class = KarigarIssueForPostSerializer
     queryset = KarigarIssue.objects.select_related('karigar_ldgr').prefetch_related(
@@ -161,7 +303,7 @@ class KarigarIssueViewSet(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['issue_slip_no'] 
+    ordering = ['-date1', '-id']
 
 
 class ListKarigarIssueView(ListAPIView):
@@ -698,7 +840,7 @@ class KarigarReceiveViewSet(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['receive_slip_no'] 
+    ordering = ['-date1', '-id']
 
 
 
@@ -852,7 +994,7 @@ class HallMarkReceiveViewSet(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['receive_slip_no'] 
+    ordering = ['-date1', '-id']
 
 
 class HallMarkIssueViewSet(views.RetailBaseViewset):
@@ -868,7 +1010,7 @@ class HallMarkIssueViewSet(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['issue_slip_no'] 
+    ordering = ['-date1', '-id']
 
 
 class KarigarReceiveforNoView(APIView):
@@ -901,7 +1043,7 @@ class JobStatusView(ListAPIView):
     filterset_class = JobCompletedFilter
     search_fields = ['issue_slip__issue_slip_no', 'item__item_name', 'item__short_code']
     ordering_fields = ['due_date', 'issue_slip__date1']
-    ordering = ['due_date']
+    ordering = ['-due_date']
 
     def get_queryset(self):
         return KarigarIssueItem.objects.select_related(
@@ -924,7 +1066,7 @@ class RefineryIssueViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['billno'] 
+    ordering = ['-date1', '-id']
 
 class RefineryReceiveViewset(views.RetailBaseViewset):
     queryset = RefinaryReceive.objects.all()
@@ -938,7 +1080,7 @@ class RefineryReceiveViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
 
 class MeltingIssueViewset(views.RetailBaseViewset):
@@ -951,7 +1093,7 @@ class MeltingIssueViewset(views.RetailBaseViewset):
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
 
 class MeltingReceiveViewset(views.RetailBaseViewset):
@@ -964,7 +1106,7 @@ class MeltingReceiveViewset(views.RetailBaseViewset):
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
 
 class AssayIssueViewset(views.RetailBaseViewset):
@@ -977,7 +1119,7 @@ class AssayIssueViewset(views.RetailBaseViewset):
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
 
 class AssayReceiveViewset(views.RetailBaseViewset):
@@ -990,7 +1132,7 @@ class AssayReceiveViewset(views.RetailBaseViewset):
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
 
 class AvailableMeltingReceivesView(APIView):
@@ -1217,7 +1359,7 @@ class KarigarGoldIssueViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['billno'] 
+    ordering = ['-date1', '-id']
 
 class KarigarReceiveItemView(ListAPIView):
     serializer_class = KarigarReceiveItemForGetSerializer

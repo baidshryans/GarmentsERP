@@ -23,6 +23,9 @@ from .views import (
     AvailableMeltingReceivesView,
     SampleIssueViewSet,
     UnbarcodedForPickerView,
+    KarigarReceiveForSamplePickerView,
+    KarigarReceiveSlipForSampleView,
+    BarcodeForSamplePickerView,
     sample_issue_next_billno,
 )
 
@@ -111,6 +114,9 @@ urlpatterns = [
     path('api/repair-job-card-no/', views.repair_job_card_billno_view, name='rjc_billno'),
     path('api/karigar-subcontractor-ledger/', KarigarSubcontractorLedgerView.as_view(), name='karigar_subcontractor_ledger'),
     path('api/unbarcoded-picker/', UnbarcodedForPickerView.as_view(), name='unbarcoded_picker'),
+    path('api/karigar-receive-picker/', KarigarReceiveForSamplePickerView.as_view(), name='karigar_receive_picker'),
+    path('api/karigar-receive-slip-for-sample/', KarigarReceiveSlipForSampleView.as_view(), name='karigar_receive_slip_for_sample'),
+    path('api/barcode-for-sample/', BarcodeForSamplePickerView.as_view(), name='barcode_for_sample'),
     path('api/sample-issue/next-billno/', sample_issue_next_billno, name='sample_issue_next_billno'),
     path('api/available-melting-receives/', AvailableMeltingReceivesView.as_view(), name='available_melting_receives'),
 ]

@@ -1127,6 +1127,7 @@ class JournalEntryViewSet(RetailBaseViewset):
     filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
     filterset_fields = ['voucher_no', 'voucher_type']
     search_fields=['voucher_no','voucher_type']
+    ordering = ['-date', '-id']
 
     def get_queryset(self):
         qs = super().get_queryset()

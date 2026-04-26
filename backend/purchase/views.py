@@ -70,7 +70,7 @@ class PurchaseReturnViewset(RetailBaseViewset):
     serializer_class = PurchaseReturnSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     search_fields = ["billno", "ldgr__ac_name"]
-    ordering = ['billno']
+    ordering = ['-date1', '-id']
 
     @property
     def ordering_fields(self):
@@ -145,7 +145,7 @@ class PurchaseVoucherViewset(RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['date1','ldgr__ac_name','billno',]
+    ordering = ['-date1', 'ldgr__ac_name', '-billno']
 
     def _resolve_fiscal_year(self, retail, voucher_date):
         """Return the FiscalYearMaster whose date range covers voucher_date.
@@ -216,7 +216,7 @@ class PurchaseOrderViewset(RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     # Optionally set default ordering
-    ordering = ['po_no'] 
+    ordering = ['-date1', '-po_no']
 
 
 
@@ -563,11 +563,22 @@ def pending_po_items_by_vendor(request):
     if not vendor_id:
         return Response({'error': 'vendor param required'}, status=400)
 
+    # Filter via the parent voucher's retail FK — `PurchaseVoucherItems.retail`
+    # is not populated by the create path, so a direct `retail=retail` filter
+    # would silently match nothing and let already-billed PO lines reappear.
     vouchered = set(
         PurchaseVoucherItems.objects
-        .filter(retail=retail, po_no__isnull=False)
+        .filter(billno__retail=retail, po_no__isnull=False)
         .exclude(po_no='')
         .values_list('po_no', 'po_sl_no')
+    )
+
+    # Also exclude PO lines whose linked customer-order item has already been
+    # consumed via the direct CO → PV path (which doesn't set po_no/po_sl_no).
+    co_items_consumed = set(
+        PurchaseVoucherItems.objects
+        .filter(billno__retail=retail, customer_order_item__isnull=False)
+        .values_list('customer_order_item_id', flat=True)
     )
 
     qs = (
@@ -581,6 +592,8 @@ def pending_po_items_by_vendor(request):
     for r in qs:
         po_no = r.po_slip.po_no if r.po_slip else None
         if (po_no, r.po_sl_no) in vouchered:
+            continue
+        if r.customer_order_item_id and r.customer_order_item_id in co_items_consumed:
             continue
         data.append({
             'po_item_id': r.id,

@@ -32,6 +32,8 @@ urlpatterns = [
     path('api/sale-return/<int:pk>/print-data/', views.sale_return_print_data),
     path('api/customer-cash-received/', views.customer_cash_received_view),
     path('api/tcs-register/', views.tcs_register),
+    path('api/reports/sales-register/', views.sales_register, name='sales_register'),
+    path('api/reports/sale-approval-register/', views.sale_approval_register, name='sale_approval_register'),
     path('api/gstr1/', views.gstr1_report),
     path('api/gstr3b/', views.gstr3b_report),
     path('api/sale-voucher/<int:pk>/eway-transport/', views.eway_transport_update),

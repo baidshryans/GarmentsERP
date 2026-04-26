@@ -34,7 +34,7 @@ export default function SampleIssueList() {
         <h2 className="text-xl font-semibold flex-1">Sample Issues</h2>
         <Input placeholder="Search billno / karigar" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
         <Button onClick={load} variant="secondary">Search</Button>
-        <Button asChild><Link to="/manufacturing/sample-issue/new">+ New</Link></Button>
+        <Button asChild><Link to="/manufacturing/issue/sample-issue/new">+ New</Link></Button>
       </div>
 
       <Table>
@@ -57,7 +57,7 @@ export default function SampleIssueList() {
               <TableCell>{r.items?.length || 0}</TableCell>
               <TableCell>{r.remarks}</TableCell>
               <TableCell className="flex gap-2">
-                <Link to={`/manufacturing/sample-issue/${r.id}`}><SquarePen size={16} /></Link>
+                <Link to={`/manufacturing/issue/sample-issue/${r.id}`}><SquarePen size={16} /></Link>
                 <button onClick={() => onDelete(r.id)}><Trash2 size={16} /></button>
               </TableCell>
             </TableRow>

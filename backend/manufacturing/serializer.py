@@ -348,46 +348,57 @@ class KarigarIssueItemForUpdateSerializer(serializers.ModelSerializer):
 
 class SampleIssueItemSerializer(serializers.ModelSerializer):
     piece = serializers.PrimaryKeyRelatedField(
-        queryset=__import__('inventory.models', fromlist=['UnBarcodedMain']).UnBarcodedMain.objects.all()
+        queryset=__import__('inventory.models', fromlist=['UnBarcodedMain']).UnBarcodedMain.objects.all(),
+        allow_null=True, required=False,
     )
-    piece_label = serializers.SerializerMethodField()
-    piece_gw = serializers.SerializerMethodField()
-    piece_pcs = serializers.SerializerMethodField()
-    piece_purity = serializers.SerializerMethodField()
-    piece_item_name = serializers.SerializerMethodField()
-    piece_design_code = serializers.SerializerMethodField()
+    barcode = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('inventory.models', fromlist=['BarcodeMain']).BarcodeMain.objects.all(),
+        allow_null=True, required=False,
+    )
+    item_name = serializers.SerializerMethodField()
+    purity_name = serializers.SerializerMethodField()
+    gw = serializers.SerializerMethodField()
+    pcs = serializers.SerializerMethodField()
+    design_code = serializers.SerializerMethodField()
+    barcode_no = serializers.SerializerMethodField()
 
     class Meta:
         model = SampleIssueItem
         fields = [
-            'id', 'sl_no', 'piece', 'instructions', 'due_date', 'remarks',
+            'id', 'sl_no', 'piece', 'barcode', 'instructions', 'due_date', 'remarks',
             'rec_status', 'retail',
-            'piece_label', 'piece_gw', 'piece_pcs', 'piece_purity',
-            'piece_item_name', 'piece_design_code',
+            'item_name', 'purity_name', 'gw', 'pcs', 'design_code', 'barcode_no',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
             'rec_status': {'read_only': True},
         }
 
-    def get_piece_label(self, obj):
-        p = obj.piece
-        return f"{p.item.item_name if p.item else ''} — {p.gw}g" if p else ''
+    def _source(self, obj):
+        return obj.piece if obj.piece_id else obj.barcode
 
-    def get_piece_gw(self, obj):
-        return float(obj.piece.gw or 0) if obj.piece_id else 0
+    def get_item_name(self, obj):
+        s = self._source(obj)
+        return s.item.item_name if (s and s.item_id) else ''
 
-    def get_piece_pcs(self, obj):
-        return obj.piece.pcs if obj.piece_id else 0
+    def get_purity_name(self, obj):
+        s = self._source(obj)
+        return s.purity.purity if (s and s.purity_id) else ''
 
-    def get_piece_purity(self, obj):
-        return obj.piece.purity.purity if (obj.piece_id and obj.piece.purity_id) else ''
+    def get_gw(self, obj):
+        s = self._source(obj)
+        return float(s.gw or 0) if s else 0
 
-    def get_piece_item_name(self, obj):
-        return obj.piece.item.item_name if (obj.piece_id and obj.piece.item_id) else ''
+    def get_pcs(self, obj):
+        s = self._source(obj)
+        return s.pcs if s else 0
 
-    def get_piece_design_code(self, obj):
-        return obj.piece.design_code if obj.piece_id else ''
+    def get_design_code(self, obj):
+        s = self._source(obj)
+        return (s.design_code or '') if s else ''
+
+    def get_barcode_no(self, obj):
+        return obj.barcode.barcode if obj.barcode_id else ''
 
 
 class SampleIssueSerializer(serializers.ModelSerializer):
@@ -399,7 +410,7 @@ class SampleIssueSerializer(serializers.ModelSerializer):
         model = SampleIssue
         fields = [
             'id', 'billno', 'date1', 'karigar_ldgr', 'karigar_ldgr_name',
-            'retail', 'fiscal_year', 'remarks', 'items',
+            'retail', 'fiscal_year', 'slip_type', 'remarks', 'items',
         ]
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
 

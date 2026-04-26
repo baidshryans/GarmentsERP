@@ -40,7 +40,7 @@ export const navData = {
   navMain0: [
     { title: "Sales Person",      url: "/setup/salesperson",       icon: Users        },
     { title: "Karigar Making",    url: "/setup/karigar-making",    icon: Hammer       },
-    { title: "B2B Pricelist",     url: "/setup/b2b-pricelist",     icon: Tag          },
+    { title: "B2B Sale Pricelist",     url: "/setup/b2b-pricelist",     icon: Tag          },
     { title: "Retail Discount Pricelist", url: "/setup/retail-discount-pricelist", icon: Tag },
     { title: "Sales Offers",             url: "/setup/sales-offer",               icon: Tag },
     { title: "Chart of Accounts", url: "/accounting/account-tree", icon: BookOpen     },
@@ -95,6 +95,7 @@ export const navData = {
       icon: ArrowUpFromLine,
       items: [
         { title: "Job Work",        url: "/manufacturing/issue/jobwork/"       },
+        { title: "Sample Issue",    url: "/manufacturing/issue/sample-issue"   },
         { title: "Gold Issue",      url: "/manufacturing/issue/goldissue/"     },
         { title: "Stone Issue",     url: "/manufacturing/issue/stoneissue/"    },
         { title: "Hallmark Issue",  url: "/manufacturing/issue/hallmarkissue/" },
@@ -146,7 +147,6 @@ export const navData = {
     { title: "Purchase Approval",      url: "/purchase/purchaseapproval/list/",  icon: PackageCheckIcon },
     { title: "Purchase Order",         url: "/purchase/purchaseorder/list/",     icon: ClipboardList    },
     { title: "Customer Purchase",      url: "/purchase/customerpurchase/list/",  icon: ShoppingCart     },
-    { title: "Stock Matching",         url: "/purchase/stock-matching/",         icon: Scale            },
   ],
 
   // ── Sales ──────────────────────────────────────────────────────────────────
@@ -154,7 +154,6 @@ export const navData = {
     { title: "Estimate",       url: "/sales/estimate",            icon: Calculator       },
     { title: "Quotation",     url: "/sales/quotation/list/",     icon: FileText         },
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList    },
-    { title: "Order Tracker",  url: "/sales/customerorder/tracker/", icon: ClipboardList    },
     { title: "Sales Voucher",  url: "/sales/list/",               icon: ReceiptTextIcon  },
     { title: "Sales Return",   url: "/sales/salesreturn/list/",   icon: PackageXIcon     },
     { title: "Sales Approval", url: "/sales/salesapproval/list/", icon: PackageCheckIcon },
@@ -165,6 +164,9 @@ export const navData = {
       url: "#",
       icon: FileBarChartIcon,
       items: [
+        { title: "Order Tracker",          url: "/sales/customerorder/tracker/" },
+        { title: "Sales Register",         url: "/sales/reports/sales-register" },
+        { title: "Sale Approval Register", url: "/sales/reports/sale-approval-register" },
         { title: "Salesperson Commission", url: "/sales/reports/commission" },
       ],
     },
@@ -201,6 +203,7 @@ export const navData = {
         { title: "Barcode Split",           url: "/inventory/reports/barcodesplit"         },
         { title: "Barcode Merge",           url: "/inventory/reports/barcodemerge"         },
         { title: "ItemWise Barcode",        url: "/inventory/reports/itemwisebarcode"      },
+        { title: "Stock Matching",          url: "/inventory/reports/stock-matching"        },
         { title: "Stock Value",             url: "#"                                       },
         { title: "Raw Material Balance",    url: "/inventory/reports/raw-material"          },
         { title: "Raw Material Ledger",     url: "/inventory/reports/raw-material-ledger"   },

@@ -565,6 +565,10 @@ class SalesVouSerializer(serializers.ModelSerializer):
     salesvouitemdetails_set = SalesVouItemDetailsSerializer(many=True)
     bank_details =  BankDetails(many=True)
     mobile1 = serializers.CharField(source='ldgr.mobile1', read_only=True, default='')
+    ldgr_gst = serializers.SerializerMethodField()
+
+    def get_ldgr_gst(self, obj):
+        return (getattr(obj.ldgr, 'gst', '') or '') if obj.ldgr_id else ''
     mobile2 = serializers.CharField(source='ldgr.mobile2', read_only=True, default='')
     mobile3 = serializers.CharField(source='ldgr.mobile3', read_only=True, default='')
 
@@ -624,6 +628,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'old_gold_adjusted',
             'ldgr',
             'ldgr_name',
+            'ldgr_gst',
             'mobile1',
             'mobile2',
             'mobile3',
@@ -673,6 +678,20 @@ class SalesVouSerializer(serializers.ModelSerializer):
         if value is None:
             return 0
         return value
+
+    def to_internal_value(self, data):
+        # Propagate selected customer (ldgr) into context BEFORE nested item
+        # validators run, so SalesVouItemSerializer.validate_barcode() can enforce
+        # the customer-order reservation guard reliably (incl. for nested calls
+        # where request.data fallback may not see top-level ldgr).
+        if hasattr(data, 'get'):
+            ldgr_val = data.get('ldgr')
+            if ldgr_val not in (None, '', 'null'):
+                try:
+                    self.context['sales_vou_ldgr_id'] = int(ldgr_val)
+                except (TypeError, ValueError):
+                    pass
+        return super().to_internal_value(data)
 
     def create(self, validated_data):
         from sales.utils import generate_next_sale_voucher_no
@@ -1614,8 +1633,26 @@ class SalesApprovalItemSerializer(serializers.ModelSerializer):
             'gw',
             'purity',
             'amount',
+            'ret_status',
             'main_item_set',  # Nested details
         ]
+
+    def validate(self, attrs):
+        barcode = attrs.get('barcode')
+        request = self.context.get("request") if hasattr(self, 'context') else None
+        if barcode is not None and self.instance is None and not attrs.get('ret_status'):
+            # New item being added on approval: barcode must currently be in stock
+            if request is not None and getattr(request, 'retail', None) is not None:
+                if barcode.retail_id != request.retail.id:
+                    raise serializers.ValidationError(
+                        f"Barcode '{barcode.barcode}' does not belong to the current retail location."
+                    )
+            if not barcode.stk_status:
+                raise serializers.ValidationError(
+                    f"Barcode '{barcode.barcode}' is not in active stock "
+                    "(it may already be sold, on another approval, or transferred)."
+                )
+        return attrs
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
         }
@@ -1692,6 +1729,18 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
         }
+    def to_internal_value(self, data):
+        # Propagate selected customer (ldgr) into context BEFORE nested item
+        # validators run — same reservation guard as SalesVouSerializer.
+        if hasattr(data, 'get'):
+            ldgr_val = data.get('ldgr')
+            if ldgr_val not in (None, '', 'null'):
+                try:
+                    self.context['sales_vou_ldgr_id'] = int(ldgr_val)
+                except (TypeError, ValueError):
+                    pass
+        return super().to_internal_value(data)
+
     def create(self, validated_data):
         from sales.utils import generate_next_sale_app_no
         with transaction.atomic():
@@ -1712,6 +1761,7 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
                     item_detail_instances.append(det)
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
 
+            barcode_ids_out = []
             for item_br in item_instances:
                 BarcodeTransaction.objects.create(
                     barcode=item_br.barcode,
@@ -1721,8 +1771,11 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
                     ip_address=ip,
                     retail=request.retail
                 )
+                if item_br.barcode_id and not item_br.ret_status:
+                    barcode_ids_out.append(item_br.barcode_id)
 
-
+            if barcode_ids_out:
+                BarcodeMain.objects.filter(id__in=barcode_ids_out).update(stk_status=False)
 
             return sale_return_instance
 
@@ -1736,11 +1789,27 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
 
+            # Snapshot pre-update item state for ret_status flip detection.
+            before = {it.id: it.ret_status for it in instance.items.all()}
+
             create_or_update_nested(SalesApprovalItemSerializer, instance, 'items', 'billno',SalesApprovalItemSerializer(detail_data,many=True).data)
-            for item_br in detail_data:
-                if item_br["ret_status"]:
+
+            # Reconcile barcode stock against the canonical post-update item set.
+            # Items removed by create_or_update_nested are restored via the
+            # SalesApprovalItem pre_delete signal in sales/signals.py.
+            after_items = list(instance.items.all().select_related('barcode'))
+            out_of_stock_ids = [it.barcode_id for it in after_items if not it.ret_status and it.barcode_id]
+            restored_ids    = [it.barcode_id for it in after_items if it.ret_status     and it.barcode_id]
+            if out_of_stock_ids:
+                BarcodeMain.objects.filter(id__in=out_of_stock_ids).update(stk_status=False)
+            if restored_ids:
+                BarcodeMain.objects.filter(id__in=restored_ids).update(stk_status=True)
+
+            # Audit-log returns for items whose ret_status flipped False -> True this update.
+            for it in after_items:
+                if it.ret_status and not before.get(it.id, False) and it.barcode_id:
                     BarcodeTransaction.objects.create(
-                        barcode=item_br["barcode"],
+                        barcode=it.barcode,
                         billno=instance.billno,
                         trans_type="SALE-APP-RET",
                         user=request.user,

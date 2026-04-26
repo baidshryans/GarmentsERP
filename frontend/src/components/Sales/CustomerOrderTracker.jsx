@@ -272,7 +272,7 @@ const CustomerOrderTracker = () => {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search CO #, customer…"
+                placeholder="Search CO #, customer, phone…"
                 className="h-8 pl-8 text-sm"
               />
             </div>

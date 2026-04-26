@@ -118,7 +118,6 @@ class SampleIssue(models.Model):
     karigar_ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT, related_name="sample_issues")
     retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
-    slip_type = models.CharField(max_length=20, blank=True, null=True)
     remarks = models.CharField(max_length=200, blank=True, null=True)
     gold_issue = GenericRelation(
         KarigarGoldIssue,
@@ -135,22 +134,46 @@ class SampleIssue(models.Model):
 
 
 class SampleIssueItem(models.Model):
+    SOURCE_KR = 'KR'
+    SOURCE_PV = 'PV'
+    SOURCE_BC = 'BC'
+    SOURCE_CHOICES = [(SOURCE_KR, 'Karigar Receive'), (SOURCE_PV, 'Purchase Voucher'), (SOURCE_BC, 'Barcode')]
+
     issue = models.ForeignKey(SampleIssue, on_delete=models.CASCADE, related_name="items")
     sl_no = models.IntegerField()
+
+    # Source traceability (one will be set depending on source_type)
     piece = models.ForeignKey(
         "inventory.UnBarcodedMain",
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
+        on_delete=models.SET_NULL, null=True, blank=True,
         related_name="sample_issue_items",
-        help_text="UnBarcodedMain piece being issued (null when source is a barcode).",
     )
     barcode = models.ForeignKey(
         "inventory.BarcodeMain",
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
+        on_delete=models.SET_NULL, null=True, blank=True,
         related_name="sample_issue_items",
-        help_text="BarcodeMain piece being issued (null when source is an unbarcoded item).",
     )
+    kr_receive_item = models.ForeignKey(
+        'manufacturing.KarigarReceiveItem',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="sample_issue_items",
+    )
+    pv_item = models.ForeignKey(
+        'purchase.PurchaseVoucherItems',
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="sample_issue_items",
+    )
+    source_type = models.CharField(max_length=2, choices=SOURCE_CHOICES, blank=True, null=True)
+
+    # Stored item details
+    item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True)
+    purity = models.ForeignKey(PurityMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    pcs = models.IntegerField(null=True, blank=True)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    design_code = models.CharField(max_length=50, blank=True, null=True)
+    size = models.CharField(max_length=20, blank=True, null=True)
+    huid = models.CharField(max_length=30, blank=True, null=True)
+
     instructions = models.TextField(blank=True, null=True)
     due_date = models.DateField(null=True, blank=True)
     remarks = models.CharField(max_length=100, blank=True, null=True)
@@ -170,6 +193,21 @@ class SampleIssueItem(models.Model):
 
     class Meta:
         db_table = "sample_issue_item"
+
+
+class SampleIssueItemDetails(models.Model):
+    main_item = models.ForeignKey(SampleIssueItem, on_delete=models.CASCADE, related_name="details")
+    sl_no = models.IntegerField(default=1)
+    sub_item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    packet = models.ForeignKey(Packet, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    pcs = models.IntegerField(null=True, blank=True, default=0)
+    ct = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
+    rate = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+    value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, default=0)
+
+    class Meta:
+        db_table = "sample_issue_item_details"
 
 
 class KarigarStoneIssueHeader(models.Model):

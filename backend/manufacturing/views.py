@@ -86,7 +86,8 @@ class SampleIssueViewSet(views.RetailBaseViewset):
     from .models import SampleIssue as _SI
     serializer_class = _SIS
     queryset = _SI.objects.select_related('karigar_ldgr').prefetch_related(
-        'items__piece__item', 'items__piece__purity',
+        'items__item', 'items__purity', 'items__details__sub_item', 'items__details__packet',
+        'items__piece__item', 'items__piece__purity', 'items__barcode',
     ).all()
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
     search_fields = ['billno', 'karigar_ldgr__ac_name']
@@ -94,24 +95,27 @@ class SampleIssueViewSet(views.RetailBaseViewset):
 
 
 def sample_issue_next_billno(request):
-    """Return next billno for Sample Issue: IS/<retail_code>/<fy_code>/<seq:05d>."""
+    """Kept for backward compat. Prefer sample_issue_initial_data."""
     from django.http import JsonResponse
-    from mastersconfig.models import RetailMaster, FiscalYearMaster
     from accounting.utils import peek_next_bill_number
-    retail_id = request.GET.get('retail')
-    fy_id = request.GET.get('fiscal_year')
-    try:
-        retail = RetailMaster.objects.get(id=retail_id)
-    except (RetailMaster.DoesNotExist, TypeError, ValueError):
+    if not request.retail:
         return JsonResponse({'next_billno': 'IS/---/---/00001'})
-    fy = None
-    if fy_id:
-        try:
-            fy = FiscalYearMaster.objects.get(id=fy_id)
-        except FiscalYearMaster.DoesNotExist:
-            pass
-    bill_no = peek_next_bill_number(retail, 'IS', fy)
+    bill_no = peek_next_bill_number(request.retail, 'IS', request.retail.active_fy)
     return JsonResponse({'next_billno': bill_no})
+
+
+@api_view(['GET'])
+def sample_issue_initial_data(request):
+    """Combined mount data for Sample Issue form: bill number + retail/fy context."""
+    from accounting.utils import peek_next_bill_number
+    if not request.retail:
+        return Response({'error': 'Missing X-RETAIL-ID header'}, status=400)
+    bill_no = peek_next_bill_number(request.retail, 'IS', request.retail.active_fy)
+    return Response({
+        'billno': bill_no,
+        'retail': request.retail.id,
+        'fiscal_year': request.retail.active_fy.id if request.retail.active_fy else None,
+    })
 
 
 class UnbarcodedForPickerView(APIView):
@@ -286,6 +290,63 @@ class KarigarReceiveForSamplePickerView(APIView):
                 'receive_item_sl_no': ri.sl_no,
             })
         return Response(data)
+
+
+class PurchaseVoucherForSampleView(APIView):
+    """
+    GET /manufacturing/api/purchase-voucher-for-sample/?bill_no=<bill_no>
+    Returns PV header + all items with sub-item details for the Sample Issue form.
+    """
+    def get(self, request):
+        from purchase.models import PurchaseVoucher
+        bill_no = request.query_params.get('bill_no', '').strip()
+        if not bill_no:
+            return Response({'error': 'bill_no required'}, status=400)
+        if not request.retail:
+            return Response({'error': 'Missing X-RETAIL-ID header'}, status=400)
+        try:
+            pv = PurchaseVoucher.objects.select_related('ldgr').get(
+                billno=bill_no, retail=request.retail
+            )
+        except PurchaseVoucher.DoesNotExist:
+            return Response({'error': 'Purchase Voucher not found'}, status=404)
+        items = []
+        for pvi in pv.purchasevoucheritems_set.select_related('item', 'purity', 'barcode').order_by('sl_no'):
+            details = []
+            for d in pvi.purchasevoucherdetails_set.select_related('sub_item', 'packet').all():
+                details.append({
+                    'packet': d.packet.short_code if d.packet else '',
+                    'sub_item': d.sub_item.item_name if d.sub_item else '',
+                    'sub_item_id': d.sub_item_id,
+                    'description': d.sub_item.item_name if d.sub_item else '',
+                    'pcs': d.sub_pcs or 0,
+                    'ct': float(d.sub_ct or 0),
+                    'gw': float(d.sub_gw or 0),
+                    'rate': float(d.rate or 0),
+                    'amt': float(d.value or 0),
+                })
+            items.append({
+                'sl_no': pvi.sl_no,
+                'pv_item_id': pvi.id,
+                'barcode_id': pvi.barcode_id,
+                'barcode_no': pvi.barcode.barcode if pvi.barcode else (pvi.barcode_txt or ''),
+                'item': pvi.item.item_name if pvi.item else '',
+                'item_id': pvi.item_id,
+                'purity': pvi.purity.purity if pvi.purity else '',
+                'purity_id': pvi.purity_id,
+                'pcs': pvi.pcs or 0,
+                'gw': float(pvi.gw or 0),
+                'size': pvi.size or '',
+                'details': details,
+            })
+        return Response({
+            'id': pv.id,
+            'billno': pv.billno,
+            'date1': str(pv.date1),
+            'ldgr_id': pv.ldgr_id,
+            'ldgr_name': pv.ldgr.ac_name if pv.ldgr else '',
+            'items': items,
+        })
 
 
 class KarigarIssueViewSet(views.RetailBaseViewset):

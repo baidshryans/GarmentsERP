@@ -1291,6 +1291,24 @@ export async function fetchKarigarReceiveForSamplePicker({ search } = {}) {
   }
 }
 
+export async function fetchSampleIssueInitialData() {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/sample-issue-initial-data/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchPurchaseVoucherForSample(billNo) {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/purchase-voucher-for-sample/?bill_no=${encodeURIComponent(billNo)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchSubcontractorLedger({ karigar, start, end }) {
   try {
     const params = new URLSearchParams();

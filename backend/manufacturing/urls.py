@@ -26,7 +26,9 @@ from .views import (
     KarigarReceiveForSamplePickerView,
     KarigarReceiveSlipForSampleView,
     BarcodeForSamplePickerView,
+    PurchaseVoucherForSampleView,
     sample_issue_next_billno,
+    sample_issue_initial_data,
 )
 
 
@@ -118,6 +120,8 @@ urlpatterns = [
     path('api/karigar-receive-slip-for-sample/', KarigarReceiveSlipForSampleView.as_view(), name='karigar_receive_slip_for_sample'),
     path('api/barcode-for-sample/', BarcodeForSamplePickerView.as_view(), name='barcode_for_sample'),
     path('api/sample-issue/next-billno/', sample_issue_next_billno, name='sample_issue_next_billno'),
+    path('api/sample-issue-initial-data/', sample_issue_initial_data, name='sample_issue_initial_data'),
+    path('api/purchase-voucher-for-sample/', PurchaseVoucherForSampleView.as_view(), name='purchase_voucher_for_sample'),
     path('api/available-melting-receives/', AvailableMeltingReceivesView.as_view(), name='available_melting_receives'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

@@ -19,7 +19,7 @@ from .models import HallmarkIssue, HallmarkIssueDetails, HallmarkIssueItem, Hall
 
 from rest_framework import serializers
 from django.utils.dateparse import parse_date
-from .models import KarigarIssue, KarigarIssueItem ,KarigarGoldIssue, SampleIssue, SampleIssueItem
+from .models import KarigarIssue, KarigarIssueItem, KarigarGoldIssue, SampleIssue, SampleIssueItem, SampleIssueItemDetails
 from  sales.models import  CustomerOrderItems
 from mastersconfig.models import  Item, Packet, RetailMaster
 from contacts.models import Ledger
@@ -346,6 +346,16 @@ class KarigarIssueItemForUpdateSerializer(serializers.ModelSerializer):
         exclude = ["sketch"]
 
 
+class SampleIssueItemDetailsSerializer(serializers.ModelSerializer):
+    sub_item_name = serializers.CharField(source='sub_item.item_name', read_only=True, default='')
+    packet_code = serializers.CharField(source='packet.short_code', read_only=True, default='')
+
+    class Meta:
+        model = SampleIssueItemDetails
+        fields = ['id', 'sl_no', 'sub_item', 'sub_item_name', 'packet', 'packet_code', 'pcs', 'ct', 'gw', 'rate', 'value']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}, 'sub_item': {'allow_null': True, 'required': False}, 'packet': {'allow_null': True, 'required': False}}
+
+
 class SampleIssueItemSerializer(serializers.ModelSerializer):
     piece = serializers.PrimaryKeyRelatedField(
         queryset=__import__('inventory.models', fromlist=['UnBarcodedMain']).UnBarcodedMain.objects.all(),
@@ -355,50 +365,41 @@ class SampleIssueItemSerializer(serializers.ModelSerializer):
         queryset=__import__('inventory.models', fromlist=['BarcodeMain']).BarcodeMain.objects.all(),
         allow_null=True, required=False,
     )
-    item_name = serializers.SerializerMethodField()
-    purity_name = serializers.SerializerMethodField()
-    gw = serializers.SerializerMethodField()
-    pcs = serializers.SerializerMethodField()
-    design_code = serializers.SerializerMethodField()
-    barcode_no = serializers.SerializerMethodField()
+    kr_receive_item = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('manufacturing.models', fromlist=['KarigarReceiveItem']).KarigarReceiveItem.objects.all(),
+        allow_null=True, required=False,
+    )
+    pv_item = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('purchase.models', fromlist=['PurchaseVoucherItems']).PurchaseVoucherItems.objects.all(),
+        allow_null=True, required=False,
+    )
+    item = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('mastersconfig.models', fromlist=['Item']).Item.objects.all(),
+        allow_null=True, required=False,
+    )
+    purity = serializers.PrimaryKeyRelatedField(
+        queryset=__import__('goldrates.models', fromlist=['PurityMaster']).PurityMaster.objects.all(),
+        allow_null=True, required=False,
+    )
+    item_name = serializers.CharField(source='item.item_name', read_only=True, default='')
+    purity_name = serializers.CharField(source='purity.purity', read_only=True, default='')
+    barcode_no = serializers.CharField(source='barcode.barcode', read_only=True, default='')
+    details = SampleIssueItemDetailsSerializer(many=True, required=False, default=list)
 
     class Meta:
         model = SampleIssueItem
         fields = [
-            'id', 'sl_no', 'piece', 'barcode', 'instructions', 'due_date', 'remarks',
-            'rec_status', 'retail',
-            'item_name', 'purity_name', 'gw', 'pcs', 'design_code', 'barcode_no',
+            'id', 'sl_no', 'source_type',
+            'piece', 'barcode', 'kr_receive_item', 'pv_item',
+            'item', 'item_name', 'purity', 'purity_name', 'pcs', 'gw',
+            'design_code', 'size', 'huid', 'barcode_no',
+            'instructions', 'due_date', 'remarks', 'rec_status', 'retail',
+            'details',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
             'rec_status': {'read_only': True},
         }
-
-    def _source(self, obj):
-        return obj.piece if obj.piece_id else obj.barcode
-
-    def get_item_name(self, obj):
-        s = self._source(obj)
-        return s.item.item_name if (s and s.item_id) else ''
-
-    def get_purity_name(self, obj):
-        s = self._source(obj)
-        return s.purity.purity if (s and s.purity_id) else ''
-
-    def get_gw(self, obj):
-        s = self._source(obj)
-        return float(s.gw or 0) if s else 0
-
-    def get_pcs(self, obj):
-        s = self._source(obj)
-        return s.pcs if s else 0
-
-    def get_design_code(self, obj):
-        s = self._source(obj)
-        return (s.design_code or '') if s else ''
-
-    def get_barcode_no(self, obj):
-        return obj.barcode.barcode if obj.barcode_id else ''
 
 
 class SampleIssueSerializer(serializers.ModelSerializer):
@@ -410,17 +411,25 @@ class SampleIssueSerializer(serializers.ModelSerializer):
         model = SampleIssue
         fields = [
             'id', 'billno', 'date1', 'karigar_ldgr', 'karigar_ldgr_name',
-            'retail', 'fiscal_year', 'slip_type', 'remarks', 'items',
+            'retail', 'fiscal_year', 'remarks', 'items',
         ]
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
+
+    def _save_item(self, item_data, issue, sl_no):
+        details_data = item_data.pop('details', [])
+        item_data['sl_no'] = sl_no
+        item_obj = SampleIssueItem.objects.create(issue=issue, **item_data)
+        for d_idx, d in enumerate(details_data, start=1):
+            d.setdefault('sl_no', d_idx)
+            SampleIssueItemDetails.objects.create(main_item=item_obj, **d)
+        return item_obj
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
         with transaction.atomic():
             inst = SampleIssue.objects.create(**validated_data)
             for idx, item_data in enumerate(items_data, start=1):
-                item_data.setdefault('sl_no', idx)
-                SampleIssueItem.objects.create(issue=inst, **item_data)
+                self._save_item(item_data, inst, idx)
             return inst
 
     def update(self, instance, validated_data):
@@ -429,10 +438,10 @@ class SampleIssueSerializer(serializers.ModelSerializer):
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
-            create_or_update_nested(
-                SampleIssueItemSerializer, instance, 'items', 'issue',
-                SampleIssueItemSerializer(items_data, many=True).data,
-            )
+            # Full replace: delete existing items and recreate
+            instance.items.all().delete()
+            for idx, item_data in enumerate(items_data, start=1):
+                self._save_item(item_data, instance, idx)
             return instance
 
 class KarigarIssueForPostSerializer(serializers.ModelSerializer):

@@ -328,10 +328,10 @@ class OpeningInventory(models.Model):
     item = models.ForeignKey(Item,on_delete=models.CASCADE)
     ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True, blank=True)
     pcs = models.PositiveBigIntegerField(default=0)
-    ct = models.DecimalField(decimal_places=3,max_digits=10)
-    gw = models.DecimalField(decimal_places=3,max_digits=10)
+    ct = models.DecimalField(decimal_places=3,max_digits=10,default=0)
+    gw = models.DecimalField(decimal_places=3,max_digits=10,default=0)
     type = models.CharField(max_length=10, choices=[('SH', 'Showroom'), ('KR', 'Karigar'), ('CO', 'Customer')])
-    packet = models.ForeignKey(Packet,on_delete=models.SET_NULL,null=True)
+    packet = models.ForeignKey(Packet,on_delete=models.SET_NULL,null=True,blank=True)
     retail = models.ForeignKey(RetailMaster,on_delete=models.CASCADE,null=True)
     purity = models.ForeignKey(PurityMaster,on_delete=models.SET_NULL,null=True) 
 

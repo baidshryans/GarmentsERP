@@ -65,6 +65,16 @@ class OpeningInventorySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['retail']
 
+    def validate(self, attrs):
+        entry_type = attrs.get('type', getattr(self.instance, 'type', None))
+        ldgr = attrs.get('ldgr', getattr(self.instance, 'ldgr', None))
+        if entry_type in ('KR', 'CO') and not ldgr:
+            raise serializers.ValidationError(
+                {'ldgr': 'A party (karigar/customer) is required for KR and CO type entries.'}
+            )
+        return attrs
+
+
 class ItemStockReportSerializer(serializers.ModelSerializer):
     opening = serializers.IntegerField()
     # Inflows

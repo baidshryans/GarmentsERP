@@ -1271,6 +1271,15 @@ export async function fetchKarigarReceiveSlipForSample(slipNo) {
   }
 }
 
+export async function fetchKarigarReceiveSlipsForSample(query = "") {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/karigar-receive-slips-for-sample/?q=${encodeURIComponent(query)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchBarcodeForSample(barcodeNo) {
   try {
     const response = await apiClient.get(`/manufacturing/api/barcode-for-sample/?barcode=${encodeURIComponent(barcodeNo)}`);
@@ -1303,6 +1312,15 @@ export async function fetchSampleIssueInitialData() {
 export async function fetchPurchaseVoucherForSample(billNo) {
   try {
     const response = await apiClient.get(`/manufacturing/api/purchase-voucher-for-sample/?bill_no=${encodeURIComponent(billNo)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchPurchaseVouchersForSample(query = "") {
+  try {
+    const response = await apiClient.get(`/manufacturing/api/purchase-vouchers-for-sample/?q=${encodeURIComponent(query)}`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -2148,6 +2166,18 @@ export async function releaseBarcodeFromOrder(id, { mode, remarks = "" }) {
   }
 }
 
+export async function transferBarcodeToOrder(id, { order_id }) {
+  try {
+    const response = await apiClient.post(
+      `inventory/barcode/${id}/transfer-to-order/`,
+      { order_id }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchBarcodeBulk({ item, packet, purity, stk_status, search } = {}) {
   try {
     const params = new URLSearchParams();
@@ -2324,6 +2354,16 @@ export async function fetchStoneIssuesFilterJobs(jobId, slipType) {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchPacketBalance(pcktNo) {
+  try {
+    const response = await apiClient.get(`manufacturing/packet-balance/?pckt_no=${encodeURIComponent(pcktNo)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch packet balance:", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }
@@ -5867,6 +5907,53 @@ export async function getCarryForwardLog() {
   try {
     const r = await apiClient.get("/carryforward/api/carry-forward/log/");
     return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Opening Inventory ──────────────────────────────────────────────────────
+export async function getOpeningInventory(type = null) {
+  try {
+    const params = type ? { type } : {};
+    const response = await apiClient.get('/inventory/api/opening-inventory/', { params });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createOpeningInventory(data) {
+  try {
+    const response = await apiClient.post('/inventory/api/opening-inventory/', data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateOpeningInventory(id, data) {
+  try {
+    const response = await apiClient.patch(`/inventory/api/opening-inventory/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteOpeningInventory(id) {
+  try {
+    await apiClient.delete(`/inventory/api/opening-inventory/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getOpeningInventoryById(id) {
+  try {
+    const response = await apiClient.get(`/inventory/api/opening-inventory/${id}/`);
+    return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
   }

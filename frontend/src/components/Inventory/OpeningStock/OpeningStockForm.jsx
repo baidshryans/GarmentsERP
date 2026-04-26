@@ -56,8 +56,12 @@ export default function OpeningStockForm() {
   // Load reference data
   useEffect(() => {
     fetchItems().then((r) => r.success && setItems(r.data || []));
-    fetchPurity().then((r) => r.success && setPurities(r.data || []));
-    fetchPackets().then((r) => r.success && setPackets(r.data || []));
+    fetchPurity().then((r) => r.success && setPurities(
+      Array.isArray(r.data) ? r.data : r.data?.results ?? []
+    ));
+    fetchPackets().then((r) => r.success && setPackets(
+      Array.isArray(r.data) ? r.data : r.data?.results ?? []
+    ));
   }, []);
 
   // Load ledgers when type changes or user types in ledger search
@@ -75,7 +79,10 @@ export default function OpeningStockForm() {
   useEffect(() => {
     if (!isEdit) return;
     getOpeningInventoryById(id).then((r) => {
-      if (!r.success) return;
+      if (!r.success) {
+        setError("Failed to load entry. Please refresh and try again.");
+        return;
+      }
       const entry = r.data;
       setForm({
         type: entry.type,
@@ -124,20 +131,21 @@ export default function OpeningStockForm() {
       ct: parseFloat(form.ct) || 0,
     };
 
-    const res = isEdit
-      ? await updateOpeningInventory(id, payload)
-      : await createOpeningInventory(payload);
-
-    setSaving(false);
-
-    if (res.success) {
-      toast({ title: isEdit ? "Entry updated" : "Entry created" });
-      navigate("/inventory/opening-stock");
-    } else {
-      const msg = typeof res.error === "object"
-        ? Object.values(res.error).flat().join(", ")
-        : String(res.error);
-      setError(msg);
+    try {
+      const res = isEdit
+        ? await updateOpeningInventory(id, payload)
+        : await createOpeningInventory(payload);
+      if (res.success) {
+        toast({ title: isEdit ? "Entry updated" : "Entry created" });
+        navigate("/inventory/opening-stock");
+      } else {
+        const msg = typeof res.error === "object"
+          ? Object.values(res.error).flat().join(", ")
+          : String(res.error);
+        setError(msg);
+      }
+    } finally {
+      setSaving(false);
     }
   };
 

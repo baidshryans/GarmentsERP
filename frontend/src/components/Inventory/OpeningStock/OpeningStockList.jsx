@@ -17,27 +17,33 @@ export default function OpeningStockList() {
   const [activeTab, setActiveTab] = useState("SH");
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
 
-  const load = async (type) => {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    const res = await getOpeningInventory(type);
-    setLoading(false);
-    if (res.success) {
-      const data = res.data;
-      setEntries(Array.isArray(data) ? data : data.results ?? []);
-    } else {
-      toast({ title: "Error loading entries", variant: "destructive" });
-    }
-  };
-
-  useEffect(() => { load(activeTab); }, [activeTab]);
+    setEntries([]);
+    getOpeningInventory(activeTab).then((res) => {
+      if (cancelled) return;
+      setLoading(false);
+      if (res.success) {
+        const data = res.data;
+        setEntries(Array.isArray(data) ? data : data.results ?? []);
+      } else {
+        toast({ title: "Error loading entries", variant: "destructive" });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [activeTab, toast]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this opening stock entry?")) return;
+    setDeleting(id);
     const res = await deleteOpeningInventory(id);
+    setDeleting(null);
     if (res.success) {
       toast({ title: "Entry deleted" });
-      load(activeTab);
+      setEntries((prev) => prev.filter((e) => e.id !== id));
     } else {
       toast({ title: "Delete failed", variant: "destructive" });
     }
@@ -116,8 +122,9 @@ export default function OpeningStockList() {
                       </button>
                       <button
                         onClick={() => handleDelete(row.id)}
-                        className="text-red-500 hover:text-red-700"
+                        className="text-red-500 hover:text-red-700 disabled:opacity-40"
                         title="Delete"
+                        disabled={deleting === row.id}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -130,9 +137,9 @@ export default function OpeningStockList() {
                     )}
                     <td className="px-3 py-2 border border-gray-200">{row.item_name}</td>
                     <td className="px-3 py-2 border border-gray-200">{row.purity_label || "—"}</td>
-                    <td className="px-3 py-2 border border-gray-200 text-right">{row.pcs}</td>
-                    <td className="px-3 py-2 border border-gray-200 text-right">{Number(row.gw).toFixed(3)}</td>
-                    <td className="px-3 py-2 border border-gray-200 text-right">{Number(row.ct).toFixed(3)}</td>
+                    <td className="px-3 py-2 border border-gray-200 text-right">{row.pcs ?? "—"}</td>
+                    <td className="px-3 py-2 border border-gray-200 text-right">{row.gw != null ? Number(row.gw).toFixed(3) : "—"}</td>
+                    <td className="px-3 py-2 border border-gray-200 text-right">{row.ct != null ? Number(row.ct).toFixed(3) : "—"}</td>
                   </tr>
                 ))
               )}

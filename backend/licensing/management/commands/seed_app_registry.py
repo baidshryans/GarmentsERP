@@ -116,6 +116,15 @@ APPS = [
         "Gold saving scheme management — scheme master, customer enrollments, payments, and statements.",
         ["navGoldScheme"],
     ),
+    (
+        "vendor_analytics",
+        "Vendor Analytics",
+        "vendor_analytics",
+        "BarChart2",
+        False, 299, 130,
+        "Vendor performance dashboard — stock ageing, design performance, inventory turnover, and item-level margin reports.",
+        ["navVendorAnalytics"],
+    ),
 ]
 
 

@@ -1,5 +1,6 @@
 import {
   ArrowUpFromLine,
+  BarChart2,
   Landmark,
   BookOpen,
   Building2,
@@ -306,6 +307,15 @@ export const navData = {
     },
   ],
 
+  // ── Vendor Analytics ───────────────────────────────────────────────────────
+  navVendorAnalytics: [
+    { title: "Dashboard",          url: "/vendor-analytics/dashboard",          icon: BarChart2 },
+    { title: "Stock Ageing",       url: "/vendor-analytics/stock-ageing",       icon: BarChart2 },
+    { title: "Design Performance", url: "/vendor-analytics/design-performance", icon: BarChart2 },
+    { title: "Inventory Turnover", url: "/vendor-analytics/inventory-turnover", icon: BarChart2 },
+    { title: "Item Performance",   url: "/vendor-analytics/item-performance",   icon: BarChart2 },
+  ],
+
   // ── System ─────────────────────────────────────────────────────────────────
   navSettings: [
     {
@@ -339,5 +349,6 @@ export const navSections = [
   { label: "HR",                   parts: [{ key: "navHR",             items: navData.navHR }] },
   { label: "Gold Schemes",         parts: [{ key: "navGoldScheme",     items: navData.navGoldScheme }] },
   { label: "AI",                   parts: [{ key: "navMainAI",         items: navData.navMainAI }] },
+  { label: "Vendor Analytics",     parts: [{ key: "navVendorAnalytics", items: navData.navVendorAnalytics }] },
   { label: "System",               parts: [{ key: "navSettings",       items: navData.navSettings }] },
 ]

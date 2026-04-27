@@ -190,6 +190,11 @@ const GSTR2BReconcile            = lazy(() => import("./components/purchase/GSTR
 const RfidTagAssign              = lazy(() => import("./components/Inventory/RFID/RfidTagAssign.jsx"));
 const RfidInventoryCount         = lazy(() => import("./components/Inventory/RFID/RfidInventoryCount.jsx"));
 const CarryForwardPage           = lazy(() => import("./components/Settings/CarryForwardPage.jsx"));
+const VendorDashboard            = lazy(() => import("./components/VendorAnalytics/VendorDashboard.jsx"));
+const StockAgeingReport          = lazy(() => import("./components/VendorAnalytics/reports/StockAgeingReport.jsx"));
+const DesignPerformanceReport    = lazy(() => import("./components/VendorAnalytics/reports/DesignPerformanceReport.jsx"));
+const InventoryTurnoverReport    = lazy(() => import("./components/VendorAnalytics/reports/InventoryTurnoverReport.jsx"));
+const ItemPerformanceReport      = lazy(() => import("./components/VendorAnalytics/reports/ItemPerformanceReport.jsx"));
 
 
 // ── Lightweight route-transition spinner ──────────────────────────────────────
@@ -500,6 +505,14 @@ const appRoutes = [
   { path: "manufacturing/repair",      heading: null, component: <Navigate to="/manufacturing/repair/list/" replace /> },
   { path: "purchase/purchasevoucher",  heading: null, component: <Navigate to="/purchase/list/" replace /> },
   { path: "inventory/rfid",            heading: null, component: <Navigate to="/inventory/rfid/tag-assign" replace /> },
+
+  // ── Vendor Analytics ─────────────────────────────────────────────────────
+  { path: "vendor-analytics",                  heading: "Vendor Analytics",          component: <SectionIndexPage /> },
+  { path: "vendor-analytics/dashboard",        heading: "Vendor Dashboard",          component: <VendorDashboard /> },
+  { path: "vendor-analytics/stock-ageing",     heading: "Stock Ageing Report",       component: <StockAgeingReport /> },
+  { path: "vendor-analytics/design-performance", heading: "Design Performance",      component: <DesignPerformanceReport /> },
+  { path: "vendor-analytics/inventory-turnover", heading: "Inventory Turnover",      component: <InventoryTurnoverReport /> },
+  { path: "vendor-analytics/item-performance", heading: "Item Performance",          component: <ItemPerformanceReport /> },
 ];
 
 

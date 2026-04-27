@@ -358,10 +358,12 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
             'packet',
             'rate',
             'value',
+            'main_item',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False, 'allow_null': True},
             'sub_pcs': {'required': False, 'allow_null': True},
+            'main_item': {'required': False, 'allow_null': True},
         }
 
     def create(self, validated_data):
@@ -588,23 +590,31 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             # Create related PurchaseVoucherItems and their sub-details
             item_detail_instances = []
             item_instances = []
+            _retail = purchase_voucher_instance.retail
             for item_data in items_data:
                 details_data = item_data.pop('purchasevoucherdetails_set')
-                voucher_item_instance = PurchaseVoucherItems.objects.create(billno=purchase_voucher_instance, **item_data)
+                voucher_item_instance = PurchaseVoucherItems.objects.create(
+                    billno=purchase_voucher_instance,
+                    retail=_retail,
+                    **item_data,
+                )
                 item_instances.append(voucher_item_instance)
                 for detail_data in details_data:
                     det = PurchaseVoucherDetails.objects.create(
                         main_item=voucher_item_instance,
                         billno=purchase_voucher_instance,
+                        retail=_retail,
                         **detail_data,
                     )
                     item_detail_instances.append(det)
 
             # Create direct raw/material details (no parent main item)
             for detail_data in direct_details_data:
+                detail_data.pop('main_item', None)
                 det = PurchaseVoucherDetails.objects.create(
                     billno=purchase_voucher_instance,
                     main_item=None,
+                    retail=_retail,
                     **detail_data,
                 )
                 item_detail_instances.append(det)
@@ -780,6 +790,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                 PurchaseVoucherDetails.objects.create(
                     billno=instance,
                     main_item=None,
+                    retail=instance.retail,
                     **detail_data,
                 )
 

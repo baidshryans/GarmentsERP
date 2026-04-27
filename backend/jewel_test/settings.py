@@ -84,6 +84,7 @@ EXTERNAL_APPS = [
     'ai_layer',
     'licensing',
     'goldscheme',
+    'vendor_analytics',
     'hr',
     'carryforward',
 ]

@@ -38,6 +38,7 @@ urlpatterns = [
     path('goldscheme/', include('goldscheme.urls')),
     path('hr/', include('hr.urls')),
     path('carryforward/', include('carryforward.urls')),
+    path('vendor-analytics/', include('vendor_analytics.urls')),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root = settings.STATIC_ROOT)

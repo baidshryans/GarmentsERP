@@ -26,6 +26,7 @@ from sales.serializers import SalesVouSerializer
 from userauth.views import RetailBaseViewset
 from purchase.models import PurchaseVoucher
 
+from .fine_gold_service import FineGoldRateService
 from .models import *
 from .models import Account, VoucherDetail
 from .serializers import (
@@ -556,6 +557,51 @@ class TrialBalanceReportView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _to_gold_grams(amount, rate):
+    """Convert a rupee amount to fine-gold grams. Returns None if no rate."""
+    if rate is None or amount is None:
+        return None
+    try:
+        return Decimal(str(amount)) / rate
+    except (InvalidOperation, ZeroDivisionError):
+        return None
+
+
+def _attach_gold_grams(payload, rate):
+    """Walk the BS payload and attach `gold_grams` to every monetary node."""
+    side_keys = ("assets", "liabilities")
+    for key in side_keys:
+        side = payload.get(key)
+        if not isinstance(side, dict):
+            continue
+        side["gold_grams"] = _to_gold_grams(side.get("total"), rate)
+        for grp in side.get("groups", []) or []:
+            grp["gold_grams"] = _to_gold_grams(grp.get("total"), rate)
+            for acc in grp.get("accounts", []) or []:
+                acc["gold_grams"] = _to_gold_grams(acc.get("balance"), rate)
+    if "net_worth" in payload:
+        payload["net_worth_gold_grams"] = _to_gold_grams(payload["net_worth"], rate)
+
+
+class FineGoldRateBreakdownView(APIView):
+    """Expose the per-source rows that feed the fine-gold rate.
+
+    Used by the frontend to let the user audit how the weighted-average rate
+    was derived: which purchase lines, which opening-stock rows, which transfers
+    contributed how many fine grams and how many rupees.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        retail_ids = _get_retail_ids_for_report(request)
+        if retail_ids == 'FORBIDDEN':
+            return Response({"error": "You do not have permission to view combined reports."},
+                            status=status.HTTP_403_FORBIDDEN)
+        end_date = request.query_params.get("end_date", str(date.today()))
+        data = FineGoldRateService(retail_ids, end_date).breakdown()
+        return Response(data, status=status.HTTP_200_OK)
+
+
 class BalanceSheetAPIView(APIView):
     def get(self, request: Response):
         retail_ids = _get_retail_ids_for_report(request)
@@ -724,6 +770,16 @@ class BalanceSheetAPIView(APIView):
             "liabilities": liabilities,
             "net_worth": assets["total"] + liabilities["total"]
         }
+
+        unit = (request.query_params.get("unit") or "inr").lower()
+        if unit == "gold":
+            rate = FineGoldRateService(retail_ids, end_date).compute()
+            data["unit"] = "gold"
+            data["fine_gold_rate"] = rate
+            _attach_gold_grams(data, rate)
+        else:
+            data["unit"] = "inr"
+
         return Response(data, status=status.HTTP_200_OK)
 
 class BsGroupLedgersView(APIView):
@@ -781,7 +837,18 @@ class BsGroupLedgersView(APIView):
             if balance:
                 result.append({'id': ldgr.id, 'ac_name': ldgr.ac_name, 'balance': balance})
 
-        return Response({'group_name': group.name, 'ledgers': result})
+        unit = (request.query_params.get("unit") or "inr").lower()
+        response = {'group_name': group.name, 'ledgers': result}
+        if unit == "gold":
+            retail_ids = [retail.id] if retail else None
+            rate = FineGoldRateService(retail_ids, end_date).compute()
+            response["unit"] = "gold"
+            response["fine_gold_rate"] = rate
+            for row in result:
+                row["gold_grams"] = _to_gold_grams(row["balance"], rate)
+        else:
+            response["unit"] = "inr"
+        return Response(response)
 
 
 class ProfitLossAPIView(APIView):

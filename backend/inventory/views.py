@@ -1138,7 +1138,9 @@ class ClosingStockCal:
         })
         pu_det_qs = PurchaseVoucherDetails.objects.filter(
             sub_item_id__in=item_ids,
-            main_item__is_finished=False, main_item__is_return=False,
+        ).filter(
+            Q(main_item__isnull=True) |
+            Q(main_item__is_finished=False, main_item__is_return=False)
         ).filter(_retail_q())
         pu_det_qs = _date_filter(pu_det_qs)
         pu_det = _batch(pu_det_qs, 'sub_item_id', {
@@ -1438,8 +1440,9 @@ class ClosingStockCal:
         # that are only sub-components (never main items) are still captured.
         detail_query = PurchaseVoucherDetails.objects.filter(
             sub_item=item,
-            main_item__is_finished=False,
-            main_item__is_return=False,
+        ).filter(
+            Q(main_item__isnull=True) |
+            Q(main_item__is_finished=False, main_item__is_return=False)
         )
         if retail_ids:
             detail_query = detail_query.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
@@ -2518,9 +2521,10 @@ class ClosingStockTxnView(APIView):
             if item.item_type in ['S', 'R']:
                 dq = PurchaseVoucherDetails.objects.filter(
                     sub_item=item,
-                    main_item__is_finished=False,
-                    main_item__is_return=False,
                     billno__date1__lte=to_date,
+                ).filter(
+                    Q(main_item__isnull=True) |
+                    Q(main_item__is_finished=False, main_item__is_return=False)
                 ).select_related('billno', 'billno__ldgr')
                 if retail_id:
                     dq = dq.filter(retail_id=retail_id)

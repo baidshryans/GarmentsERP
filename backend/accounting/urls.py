@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/pnl',views.ProfitLossAPIView.as_view()),
     path('api/bal-sheet',views.BalanceSheetAPIView.as_view()),
     path('api/bs-group-ledgers/', views.BsGroupLedgersView.as_view(), name='bs-group-ledgers'),
+    path('api/fine-gold-rate-breakdown', views.FineGoldRateBreakdownView.as_view(), name='fine-gold-rate-breakdown'),
     path('api/cash-book',views.CashbookReportView.as_view()),
     path('api/bank-book',views.BankbookReportView.as_view()),
     path('api/trial',views.TrialBalanceReportView.as_view()),

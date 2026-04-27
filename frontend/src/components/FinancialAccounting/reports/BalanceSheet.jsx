@@ -8,7 +8,7 @@ import { fetchCompanies } from "@/services/apiService";
 import {
   Printer, ChevronRight, ChevronDown, X, Loader2, Scale,
   Wallet, Landmark, ChevronsDownUp, ChevronsUpDown,
-  Droplets, TrendingUp,
+  Droplets, TrendingUp, IndianRupee, Coins,
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { RetailScopePicker, applyRetailScopeParams } from "@/components/common/RetailScopePicker";
@@ -21,11 +21,27 @@ const fmt = (v) => {
   return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// Fine-gold gram formatter — 3 decimals, no Indian-lakh grouping (gold weights
+// are typically shown 0.001g precision). "—" when null/zero/no rate available.
+const fmtGrams = (v) => {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (!n) return "—";
+  return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+};
+
 // Positive = debit balance, negative = credit balance (our Dr-Cr convention)
 const balLabel = (v) => {
   const n = Number(v);
   if (n === 0) return "—";
   return `${fmt(n)} ${n >= 0 ? "Dr" : "Cr"}`;
+};
+
+const gramsLabel = (v) => {
+  if (v === null || v === undefined) return "—";
+  const n = Number(v);
+  if (!n) return "—";
+  return `${fmtGrams(n)} g ${n >= 0 ? "Dr" : "Cr"}`;
 };
 
 // Indian-lakh compact formatter for the summary tiles (e.g. ₹ 16.99 L)
@@ -37,22 +53,161 @@ const fmtCompact = (v) => {
   return n.toFixed(0);
 };
 
+/* ── Fine-gold rate breakdown modal ───────────────────────────────────────── */
+function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) {
+  const [data, setData]     = useState(null);
+  const [loading, setLoad]  = useState(true);
+  const [error, setError]   = useState("");
+  const [openSrc, setOpenSrc] = useState({ purchases: true });
+
+  useEffect(() => {
+    setLoad(true);
+    const params = new URLSearchParams({ end_date: endDate });
+    applyRetailScopeParams(params, scope, selectedRetailIds);
+    apiClient
+      .get(`/accounting/api/fine-gold-rate-breakdown?${params}`)
+      .then((res) => setData(res.data))
+      .catch(() => setError("Failed to load breakdown."))
+      .finally(() => setLoad(false));
+  }, [endDate, scope, selectedRetailIds]);
+
+  const num = (v, dp = 2) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card rounded-xl shadow-2xl w-[96vw] max-w-4xl max-h-[88vh] flex flex-col border border-border" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+          <div>
+            <p className="font-semibold text-foreground text-sm">How the fine-gold rate was calculated</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Σ value (₹) ÷ Σ fine grams · Window: {data?.fy_start} → {data?.end_date}
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 hover:bg-accent rounded-lg cursor-pointer">
+            <X className="size-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="overflow-auto flex-1 p-4 space-y-4">
+          {loading && (
+            <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
+              <Loader2 className="size-4 animate-spin" /> Loading breakdown…
+            </div>
+          )}
+          {error && <p className="text-center py-16 text-destructive text-sm">{error}</p>}
+
+          {!loading && data && (
+            <>
+              {/* Totals card */}
+              <div className="rounded-lg border border-border bg-muted/30 p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Σ Value (₹)</p>
+                  <p className="text-base font-semibold tabular-nums">₹ {num(data.total_value)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Σ Fine Grams (24K)</p>
+                  <p className="text-base font-semibold tabular-nums">{num(data.total_fine_grams, 3)} g</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Fine-Gold Rate</p>
+                  <p className="text-base font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                    {data.fine_gold_rate ? `₹ ${num(data.fine_gold_rate)} / g` : "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Per-source sections */}
+              {data.sources.map((src) => {
+                const expanded = openSrc[src.key];
+                const Chev = expanded ? ChevronDown : ChevronRight;
+                return (
+                  <div key={src.key} className="rounded-lg border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setOpenSrc((p) => ({ ...p, [src.key]: !p[src.key] }))}
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-muted/40 hover:bg-muted/60 cursor-pointer text-left"
+                    >
+                      <span className="flex items-center gap-1.5 font-semibold text-sm">
+                        <Chev className="size-3.5 text-muted-foreground" /> {src.label}
+                        <span className="text-xs text-muted-foreground font-normal ml-1">({src.rows.length} rows)</span>
+                      </span>
+                      <span className="flex gap-4 text-xs tabular-nums">
+                        <span>₹ {num(src.total_value)}</span>
+                        <span>{num(src.total_fine_grams, 3)} g</span>
+                      </span>
+                    </button>
+                    {expanded && (
+                      src.rows.length === 0 ? (
+                        <p className="px-4 py-6 text-center text-xs text-muted-foreground">No rows.</p>
+                      ) : (
+                        <div className="overflow-auto max-h-72">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted/30 sticky top-0">
+                              <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                <th className="px-3 py-1.5 text-left">Item</th>
+                                <th className="px-3 py-1.5 text-left">Ref / Date</th>
+                                <th className="px-3 py-1.5 text-left">Purity</th>
+                                <th className="px-3 py-1.5 text-right">GW (g)</th>
+                                <th className="px-3 py-1.5 text-right">Rate (₹/g)</th>
+                                <th className="px-3 py-1.5 text-right">Value (₹)</th>
+                                <th className="px-3 py-1.5 text-right">Fine (g)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/40">
+                              {src.rows.map((r, i) => (
+                                <tr key={i} className={i % 2 ? "bg-muted/10" : ""}>
+                                  <td className="px-3 py-1.5">{r.label}</td>
+                                  <td className="px-3 py-1.5 text-muted-foreground">
+                                    {r.ref || "—"}{r.date ? ` · ${r.date}` : ""}
+                                  </td>
+                                  <td className="px-3 py-1.5">{r.purity} <span className="text-muted-foreground">({num(r.gw_per, 2)}%)</span></td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{num(r.gw, 3)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{num(r.rate)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{num(r.value)}</td>
+                                  <td className="px-3 py-1.5 text-right tabular-nums">{num(r.fine_grams, 3)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+
+              <p className="text-[11px] text-muted-foreground italic">
+                Formula: fine-gold rate = Σ(value) / Σ(gw × purity% / 100). Each row contributes
+                its value to the numerator and gw × purity% / 100 fine grams to the denominator.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Ledger drill-down modal ──────────────────────────────────────────────── */
-function LedgerModal({ groupId, groupName, endDate, onClose }) {
+function LedgerModal({ groupId, groupName, endDate, unit, onClose }) {
   const [ledgers, setLedgers] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
+  const isGold = unit === "gold";
 
   useEffect(() => {
     setLoading(true);
+    const url = `/accounting/api/bs-group-ledgers/?group_id=${groupId}&end_date=${endDate}&unit=${unit || "inr"}`;
     apiClient
-      .get(`/accounting/api/bs-group-ledgers/?group_id=${groupId}&end_date=${endDate}`)
+      .get(url)
       .then((res) => setLedgers(res.data.ledgers || []))
       .catch(() => setError("Failed to load ledgers."))
       .finally(() => setLoading(false));
-  }, [groupId, endDate]);
+  }, [groupId, endDate, unit]);
 
-  const total = ledgers?.reduce((s, l) => s + Number(l.balance || 0), 0) ?? 0;
+  const totalKey = isGold ? "gold_grams" : "balance";
+  const total = ledgers?.reduce((s, l) => s + Number(l[totalKey] || 0), 0) ?? 0;
+  const formatBal = isGold ? gramsLabel : balLabel;
 
   return (
     <div
@@ -106,7 +261,7 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
                   <tr key={l.id} className={`hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
                     <td className="px-4 py-2 text-foreground">{l.ac_name}</td>
                     <td className="px-4 py-2 text-right tabular-nums text-sm">
-                      {balLabel(l.balance)}
+                      {formatBal(isGold ? l.gold_grams : l.balance)}
                     </td>
                   </tr>
                 ))}
@@ -117,7 +272,7 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
                     Total
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-bold text-foreground">
-                    {balLabel(total)}
+                    {formatBal(total)}
                   </td>
                 </tr>
               </tfoot>
@@ -130,8 +285,9 @@ function LedgerModal({ groupId, groupName, endDate, onClose }) {
 }
 
 /* ── Subgroup block (header + child rows + subtotal) ──────────────────────── */
-function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed }) {
+function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed, unit }) {
   const expanded = !collapsed[group.id];
+  const isGold = unit === "gold";
   const visibleAccounts = (group.accounts || []).filter(
     (a) => Number(a.balance || 0) !== 0
   );
@@ -150,7 +306,7 @@ function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed }) 
           {group.name}
         </td>
         <td className="px-4 py-2 text-right tabular-nums text-sm font-semibold">
-          {fmt(group.total)}
+          {isGold ? fmtGrams(group.gold_grams) : fmt(group.total)}
         </td>
       </tr>
       {expanded && visibleAccounts.map((acc) => {
@@ -175,7 +331,7 @@ function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed }) 
                 : <span className="text-muted-foreground">{acc.name}</span>}
             </td>
             <td className="px-4 py-1.5 text-right tabular-nums text-sm text-muted-foreground">
-              {balLabel(acc.balance)}
+              {isGold ? gramsLabel(acc.gold_grams) : balLabel(acc.balance)}
             </td>
           </tr>
         );
@@ -185,7 +341,8 @@ function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed }) 
 }
 
 /* ── Side panel (Assets or Liabilities) ───────────────────────────────────── */
-function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, collapsed, toggleCollapsed }) {
+function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, collapsed, toggleCollapsed, unit }) {
+  const isGold = unit === "gold";
   const groups = (side?.groups || []).filter(
     (g) => Number(g.total || 0) !== 0 || (g.accounts || []).some((a) => Number(a.balance || 0) !== 0)
   );
@@ -214,6 +371,7 @@ function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, coll
               activeId={activeId}
               collapsed={collapsed}
               toggleCollapsed={toggleCollapsed}
+              unit={unit}
             />
           ))}
         </tbody>
@@ -221,7 +379,7 @@ function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, coll
           <tr className="border-t-2 border-border bg-muted/60">
             <td className="px-4 py-2.5 font-semibold text-sm">{totalLabel}</td>
             <td className="px-4 py-2.5 text-right tabular-nums font-bold text-sm">
-              {fmt(side?.total)}
+              {isGold ? fmtGrams(side?.gold_grams) : fmt(side?.total)}
             </td>
           </tr>
         </tfoot>
@@ -233,12 +391,14 @@ function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, coll
 /* ── Main component ───────────────────────────────────────────────────────── */
 export default function BalanceSheet() {
   const [endDate, setEndDate]   = useState(today);
+  const [unit, setUnit]         = useState("inr");
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [scope, setScope]             = useState("all");
   const [selectedRetailIds, setSelectedRetailIds] = useState([]);
   const [modal, setModal]       = useState(null);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [companyName, setCompanyName] = useState("");
   const [collapsed, setCollapsed] = useState({});
@@ -283,7 +443,7 @@ export default function BalanceSheet() {
     setModal(null);
     setActiveId(null);
     try {
-      const params = new URLSearchParams({ end_date: endDate });
+      const params = new URLSearchParams({ end_date: endDate, unit });
       applyRetailScopeParams(params, scope, selectedRetailIds);
       const res = await apiClient.get(`/accounting/api/bal-sheet?${params}`);
       setData(res.data);
@@ -448,6 +608,33 @@ export default function BalanceSheet() {
             }}
           />
         )}
+        <div className="flex flex-col gap-1">
+          <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Unit
+          </Label>
+          <div className="inline-flex h-9 rounded-md border border-border overflow-hidden bg-background">
+            <button
+              type="button"
+              onClick={() => setUnit("inr")}
+              className={`px-3 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                unit === "inr" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+              }`}
+              aria-pressed={unit === "inr"}
+            >
+              <IndianRupee className="size-3.5" aria-hidden="true" /> Rupees
+            </button>
+            <button
+              type="button"
+              onClick={() => setUnit("gold")}
+              className={`px-3 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                unit === "gold" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+              }`}
+              aria-pressed={unit === "gold"}
+            >
+              <Coins className="size-3.5" aria-hidden="true" /> Fine Gold (g)
+            </button>
+          </div>
+        </div>
         <Button size="sm" onClick={fetchReport} disabled={loading} className="h-9 cursor-pointer">
           {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : "Show Report"}
         </Button>
@@ -565,6 +752,29 @@ export default function BalanceSheet() {
         </p>
       )}
 
+      {data?.unit === "gold" && !loading && (
+        data.fine_gold_rate ? (
+          <div className="text-xs px-3 py-2 rounded-md border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300 flex items-center gap-2 print:hidden">
+            <Coins className="size-3.5 flex-shrink-0" aria-hidden="true" />
+            <span className="flex-1">
+              Showing balances in fine gold (24K). Conversion rate: <strong>₹ {fmt(data.fine_gold_rate)} / g</strong> — derived from gold flows since FY start.
+            </span>
+            <button
+              type="button"
+              onClick={() => setBreakdownOpen(true)}
+              className="px-2 py-1 text-[11px] font-semibold rounded border border-amber-400/60 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-900 dark:text-amber-200 cursor-pointer transition-colors"
+            >
+              How was this calculated?
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300 flex items-center gap-1.5 print:hidden">
+            <Coins className="size-3.5" aria-hidden="true" />
+            No gold flows in this fiscal year — fine-gold rate cannot be derived.
+          </p>
+        )
+      )}
+
       {loading && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
@@ -588,6 +798,7 @@ export default function BalanceSheet() {
             activeId={activeId}
             collapsed={collapsed}
             toggleCollapsed={toggleCollapsed}
+            unit={data.unit}
           />
           <SidePanel
             title="Liabilities & Equity"
@@ -598,8 +809,18 @@ export default function BalanceSheet() {
             activeId={activeId}
             collapsed={collapsed}
             toggleCollapsed={toggleCollapsed}
+            unit={data.unit}
           />
         </div>
+      )}
+
+      {breakdownOpen && (
+        <FineGoldBreakdownModal
+          endDate={endDate}
+          scope={scope}
+          selectedRetailIds={selectedRetailIds}
+          onClose={() => setBreakdownOpen(false)}
+        />
       )}
 
       {modal && (
@@ -607,6 +828,7 @@ export default function BalanceSheet() {
           groupId={modal.id}
           groupName={modal.name}
           endDate={endDate}
+          unit={data?.unit || "inr"}
           onClose={() => { setModal(null); setActiveId(null); }}
         />
       )}

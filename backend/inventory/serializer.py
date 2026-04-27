@@ -681,10 +681,15 @@ class StockJournalSerializer(serializers.ModelSerializer):
             return instance
     
 class BarcodeTransactionSerializer(serializers.ModelSerializer):
-    barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(),slug_field="barcode")
+    barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode")
+    item_name = serializers.CharField(source='barcode.item.item_name', read_only=True, default=None)
+    item_short_code = serializers.CharField(source='barcode.item.short_code', read_only=True, default=None)
+    gw = serializers.DecimalField(source='barcode.gw', max_digits=10, decimal_places=3, read_only=True, default=None)
+    pcs = serializers.IntegerField(source='barcode.pcs', read_only=True, default=None)
+
     class Meta:
         model = BarcodeTransaction
-        fields = ['barcode','date','billno','trans_type']
+        fields = ['id', 'barcode', 'date', 'billno', 'trans_type', 'item_name', 'item_short_code', 'gw', 'pcs']
 
 class BarcodeCreationReportSerializer(serializers.ModelSerializer):
     stone_details = BarcodeDetailsSerializer(many=True)

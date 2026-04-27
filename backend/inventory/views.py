@@ -1819,9 +1819,11 @@ class StockJournalViewSet(RetailBaseViewset):
 
 class BarcodeTransactionView(RetailBaseViewset):
     serializer_class = BarcodeTransactionSerializer
-    queryset = BarcodeTransaction.objects.all()
-    filter_backends = [DjangoFilterBackend,SearchFilter,OrderingFilter]
-    search_fields = ['barcode__barcode']
+    queryset = BarcodeTransaction.objects.select_related('barcode__item').order_by('-date')
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['trans_type']
+    search_fields = ['barcode__barcode', 'billno', 'barcode__item__item_name']
+    ordering_fields = ['date', 'trans_type']
 
 
 class BarcodeCreationReportView(APIView):
@@ -2104,6 +2106,16 @@ class RawMaterialTransactionListView(RetailBaseViewset):
     filterset_fields = ['item', 'packet', 'trans_type']
     search_fields = ['item__item_name', 'item__short_code', 'billno']
     ordering_fields = ['date', 'item__item_name']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        from_date = self.request.query_params.get('from_date')
+        to_date = self.request.query_params.get('to_date')
+        if from_date:
+            qs = qs.filter(date__date__gte=from_date)
+        if to_date:
+            qs = qs.filter(date__date__lte=to_date)
+        return qs
 
 
 class RawMaterialBalanceReportView(APIView):

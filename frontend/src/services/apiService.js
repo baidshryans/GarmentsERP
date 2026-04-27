@@ -5044,6 +5044,16 @@ export async function getRawMaterialLedger(params = {}) {
   }
 }
 
+export async function getRawMaterialTransactions(params = {}) {
+  try {
+    const query = new URLSearchParams(params).toString();
+    const response = await apiClient.get(`inventory/raw-material-txn/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function getSemiFinishedStock() {
   try {
     const response = await apiClient.get("/inventory/api/semi-finished-stock/");

@@ -177,6 +177,7 @@ const Dashboard                  = lazy(() => import("./components/Dashboard/Das
 const BarcodeBulkOps             = lazy(() => import("./components/Inventory/BarcodeManagement/BarcodeBulkOps.jsx"));
 const RawMaterialBalanceReport   = lazy(() => import("./components/Inventory/RawMaterialBalanceReport.jsx"));
 const RawMaterialLedger          = lazy(() => import("./components/Inventory/RawMaterialLedger.jsx"));
+const RawMaterialTransactionsList = lazy(() => import("./components/Inventory/RawMaterialTransactionsList.jsx"));
 const SemiFinishedStockReport    = lazy(() => import("./components/Inventory/SemiFinishedStockReport.jsx"));
 const SetupWizard                = lazy(() => import("./components/Settings/SetupWizard.jsx"));
 const SettingsPage               = lazy(() => import("./components/Settings/SettingsPage.jsx"));
@@ -431,8 +432,9 @@ const appRoutes = [
   { path: "inventory/reports/itemwisebarcode",      heading: "Item Wise Barcode Report", component: <ItemWiseBarcodeReport /> },
   { path: "inventory/reports/barcodestockreport",   heading: "Barcode Stock Report",   component: <BarcodeStockReport /> },
   { path: "inventory/reports/stockvalue",           heading: "Stock Value Report",     component: <StockValueReport /> },
-  { path: "inventory/reports/raw-material",         heading: "Raw Material Balance",   component: <RawMaterialBalanceReport /> },
-  { path: "inventory/reports/raw-material-ledger",  heading: "Raw Material Ledger",    component: <RawMaterialLedger /> },
+  { path: "inventory/reports/raw-material",              heading: "Raw Material Balance",       component: <RawMaterialBalanceReport /> },
+  { path: "inventory/reports/raw-material-ledger",      heading: "Raw Material Ledger",        component: <RawMaterialLedger /> },
+  { path: "inventory/reports/raw-material-transactions", heading: "Raw Material Transactions",  component: <RawMaterialTransactionsList /> },
   { path: "inventory/reports/semi-finished",        heading: "Semi-Finished Stock",    component: <SemiFinishedStockReport /> },
   { path: "inventory/rfid/tag-assign",              heading: "RFID Tag Assignment",    component: <RfidTagAssign /> },
   { path: "inventory/rfid/count",                   heading: "RFID Inventory Count",   component: <RfidInventoryCount /> },

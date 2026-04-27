@@ -871,10 +871,7 @@ class RawMaterialTransactionSerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.item_name', read_only=True)
     item_short_code = serializers.CharField(source='item.short_code', read_only=True)
     packet_no = serializers.CharField(source='packet.pckt_no', read_only=True, default=None)
-    purity_name = serializers.SerializerMethodField()
-
-    def get_purity_name(self, obj):
-        return str(obj.purity) if obj.purity else None
+    purity_name = serializers.CharField(source='purity.purity', read_only=True, default=None)
 
     class Meta:
         model = RawMaterialTransaction

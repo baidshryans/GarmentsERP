@@ -32,7 +32,7 @@ function exportCSV(data, itemName) {
   const headers = ["Date", "Trans Type", "Bill No", "Packet", "Purity", "Pcs", "Ct", "Gw", "Rate", "Amount", "Running Pcs", "Running Ct", "Running Gw"];
   const rows = data.map((r) => [
     new Date(r.date).toLocaleDateString("en-GB"),
-    r.trans_type, r.billno || "", r.packet || "", r.purity || "",
+    r.trans_type, r.billno || "", r.packet || "", r.purity || "-",
     r.pcs, r.ct, r.gw, r.rate, r.amt,
     r.running_pcs, r.running_ct, r.running_gw,
   ]);
@@ -152,6 +152,7 @@ export default function RawMaterialLedger() {
                   <th className="px-3 py-2.5 text-left font-semibold">Type</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Bill No</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Packet</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Purity</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Pcs</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Ct</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Gw (g)</th>
@@ -176,6 +177,7 @@ export default function RawMaterialLedger() {
                       </td>
                       <td className="px-3 py-2 text-xs font-mono">{r.billno || "-"}</td>
                       <td className="px-3 py-2 text-xs">{r.packet || "-"}</td>
+                      <td className="px-3 py-2 text-xs">{r.purity || "-"}</td>
                       <td className={`px-3 py-2 text-right tabular-nums text-xs ${rowColor}`}>
                         {r.pcs !== 0 ? (r.pcs > 0 ? `+${r.pcs}` : r.pcs) : "-"}
                       </td>

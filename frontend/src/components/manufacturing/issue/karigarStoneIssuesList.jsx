@@ -91,65 +91,45 @@ const KarigarStoneIssueList = () => {
     //   ),
     // },
     {
-      header: "Job No",
+      header: "Job/PO No",
       accessorKey: "job_no",
-      cell: ({ row }) => (
-        <div>
-          {row.original.slip_type === "Purchase Order" ? row.original.ref_job_no?.po_no : row.original.ref_job_no?.issue_slip_no}
-
-        </div>
-      ),
-
+      cell: ({ row }) => {
+        const dets = row.original.karigarstoneissue_set || [];
+        const slips = [...new Set(dets.map(d => d.ref_slip_no).filter(Boolean))];
+        return <div>{slips.join(", ")}</div>;
+      },
     },
     {
       header: "Design code",
       accessorKey: "design_code",
-      cell: ({ row }) => (
-        <div>
-          {row.original.slip_type !== "Purchase Order" ? row.original?.ref_job_no?.items.map(item => (<div>
-            {String(item.design_code)}
-          </div>)) : ""}
-
-
-        </div>
-      ),
-
+      cell: ({ row }) => {
+        const dets = row.original.karigarstoneissue_set || [];
+        const codes = [...new Set(dets.map(d => d.ref_design_code).filter(Boolean))];
+        return <div>{codes.join(", ")}</div>;
+      },
     },
     {
       header: "Main Item",
       accessorKey: "main_item",
-      cell: ({ row }) => (
-        <div>
-          {row.original.slip_type !== "Purchase Order" ? row.original?.ref_job_no?.items.map(item => (<div>
-            {String(item.customer_order_item)}
-          </div>)) : ""}
-
-
-        </div>
-      ),
-
+      cell: ({ row }) => {
+        const dets = row.original.karigarstoneissue_set || [];
+        const items = [...new Set(dets.map(d => d.ref_main_item).filter(Boolean))];
+        return <div>{items.join(", ")}</div>;
+      },
     },
     {
       header: "Karigar Name",
       accessorKey: "karigar_name",
-      cell: ({ row }) => (
-        <div>
-          {row.original?.ref_job_no?.karigar_ldgr?.display_name}
-
-        </div>
-      ),
-
+      cell: ({ row }) => <div>{row.original.karigar_ldgr_name || ""}</div>,
     },
     {
       header: "Job Sl no",
       accessorKey: "job_sl_no",
-      cell: ({ row }) => (
-        <div>
-          {row.original?.sl_no}
-
-        </div>
-      ),
-
+      cell: ({ row }) => {
+        const dets = row.original.karigarstoneissue_set || [];
+        const slNos = [...new Set(dets.map(d => d.sl_no).filter(v => v != null))];
+        return <div>{slNos.join(", ")}</div>;
+      },
     },
     // {
     //   header: "Customer",

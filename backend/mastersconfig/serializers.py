@@ -132,8 +132,21 @@ class PacketSerializer(ModelSerializer):
     def get_color_name(self, obj):
         return obj.color.color_name if obj.color else None
 
+    stone_item_hsn_cgst  = serializers.SerializerMethodField(read_only=True)
+    stone_item_hsn_sgst  = serializers.SerializerMethodField(read_only=True)
+    stone_item_hsn_igst  = serializers.SerializerMethodField(read_only=True)
+
     def get_shape_name(self, obj):
         return obj.shape.shape_name if obj.shape else None
+
+    def get_stone_item_hsn_cgst(self, obj):
+        return float(obj.stone_item_id.hsn_no.cgst) if obj.stone_item_id and obj.stone_item_id.hsn_no else 0
+
+    def get_stone_item_hsn_sgst(self, obj):
+        return float(obj.stone_item_id.hsn_no.sgst) if obj.stone_item_id and obj.stone_item_id.hsn_no else 0
+
+    def get_stone_item_hsn_igst(self, obj):
+        return float(obj.stone_item_id.hsn_no.igst) if obj.stone_item_id and obj.stone_item_id.hsn_no else 0
 
     class Meta:
         model  = Packet
@@ -556,6 +569,34 @@ class SalesOfferSerializer(ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
+
+    def validate(self, data):
+        from django.db.models import Q
+        is_active  = data.get('is_active',  getattr(self.instance, 'is_active',  False))
+        start_date = data.get('start_date', getattr(self.instance, 'start_date', None))
+        end_date   = data.get('end_date',   getattr(self.instance, 'end_date',   None))
+
+        if not is_active:
+            return data
+
+        qs = SalesOffer.objects.filter(is_active=True)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+
+        overlap_q = Q()
+        if end_date is not None:
+            overlap_q &= Q(start_date__lte=end_date) | Q(start_date__isnull=True)
+        if start_date is not None:
+            overlap_q &= Q(end_date__gte=start_date) | Q(end_date__isnull=True)
+
+        conflict = qs.filter(overlap_q).first()
+        if conflict:
+            raise serializers.ValidationError(
+                f"Active offer '{conflict.name}' already covers overlapping dates "
+                f"({conflict.start_date} – {conflict.end_date}). "
+                "Deactivate it first or adjust the date range."
+            )
+        return data
 
     def create(self, validated_data):
         from manufacturing.utils import create_or_update_nested

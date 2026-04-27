@@ -31,6 +31,7 @@ const JobWorkReceive = () => {
   });
   const navigate=useNavigate();
   const [change, setChange] = useState(0);
+  const [saving, setSaving] = useState(false);
   const [serialNos, setSerialNos] = useState([]);
   const [rs, setRows] = useState([]);
   const [statesData, setstatesData] = useState([]);
@@ -259,6 +260,7 @@ function modifyData(data) {
     console.log(modifyData)
     modifyData(newData);
 
+    setSaving(true);
     (id ? updateKarigarReceive(id, newData) : createKarigarReceive(newData))
       .then((response) => {
 
@@ -270,16 +272,18 @@ function modifyData(data) {
           setTimeout(()=>{
             navigate("/manufacturing/receive/jobworkreceive/");
           },2000);
-            
+
         }else {
+                  setSaving(false);
                   toast({
                     title: "Form submission failed. Please try again.",
                     description: renderErrorTree(response.error),
                   });  // Error toast
-                } 
+                }
 
       })
       .catch((error) => {
+        setSaving(false);
         console.error("Error submitting form:", error);
         toast({ title: "An error occurred. Please try again later." });
       });
@@ -1130,7 +1134,7 @@ function modifyData(data) {
         {/* Submit */}
         <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white">
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
             Save
           </Button>
         </div>

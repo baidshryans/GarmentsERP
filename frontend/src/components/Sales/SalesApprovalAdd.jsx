@@ -96,6 +96,7 @@ const SalesApprovalAdd = () => {
   });
 
   /* ── state ── */
+  const [saving, setSaving] = useState(false);
   const [statesData, setStatesData]       = useState([]);
   const [customers, setCustomers]         = useState([]);
   const [salespersonData, setSalesperson] = useState([]);
@@ -205,6 +206,7 @@ const SalesApprovalAdd = () => {
       items: getValues("salesvouitem_set"),
     };
 
+    setSaving(true);
     const response = id
       ? await updateSalesApproval(data, id)
       : await createSalesApproval(data);
@@ -213,6 +215,7 @@ const SalesApprovalAdd = () => {
       toast({ title: "Saved successfully!" });
       setTimeout(() => navigate("/sales/salesapproval/list/"), 1500);
     } else {
+      setSaving(false);
       toast({
         title: "Submission failed",
         description: renderErrorTree(response.error),
@@ -544,7 +547,7 @@ const SalesApprovalAdd = () => {
 
         {/* ── Actions ──────────────────────────────────────── */}
         <div className="flex justify-center gap-4 pt-2">
-          <Button type="submit">Save</Button>
+          <Button type="submit" disabled={saving}>Save</Button>
           <Button variant="outline" type="button" onClick={() => window.history.back()}>
             Cancel
           </Button>

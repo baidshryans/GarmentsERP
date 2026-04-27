@@ -80,6 +80,7 @@ const MergeBarcode = () => {
   const [showPreview, setShowPreview]     = useState(false);
   const [mainItemData, setMainItemData]   = useState([]);
   const [barcodeLoading, setBarcodeLoading] = useState(false);
+  const [saving, setSaving]               = useState(false);
 
   // ── On mount: load lookups + auto-barcode ──────────────────────────────────
   useEffect(() => {
@@ -212,21 +213,24 @@ const MergeBarcode = () => {
       .flatMap((r) => r.barcodedetails_set || [])
       .map(({ id, ...rest }) => rest);
 
+    setSaving(true);
     mergeBarcode(sub_data)
       .then((response) => {
         if (response.success) {
           toast({ title: "Barcodes merged successfully!" });
           setTimeout(() => navigate(""), 2000);
         } else if (response.status < 500) {
+          setSaving(false);
           toast({
             title: "Merge failed. Please check the details.",
             description: renderErrorTree(response.error),
           });
         } else {
+          setSaving(false);
           toast({ title: "An error occurred. Please try again later." });
         }
       })
-      .catch(() => toast({ title: "An error occurred. Please try again later." }));
+      .catch(() => { setSaving(false); toast({ title: "An error occurred. Please try again later." }); });
   };
 
   useF4Submit(handleSubmit(onSubmit));
@@ -573,7 +577,7 @@ const MergeBarcode = () => {
           <Link to="">
             <Button variant="outline" type="button">Cancel</Button>
           </Link>
-          <Button type="submit" disabled={rs.length < 2}>
+          <Button type="submit" disabled={saving || rs.length < 2}>
             Save Merge
           </Button>
         </div>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 /**
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils"
  * Props:
  *   options        {Array}    — array of objects to search through
  *   labelKey       {string}   — property to display as text (default "ac_name")
+ *   searchKeys     {Array}    — additional keys to search across (default [])
  *   value          {string}   — controlled display value (sync from watch())
  *   onSelect       {fn(opt)}  — called when user selects an option
  *   onInputChange  {fn(val)}  — optional: called on every keystroke (for server-side search)
@@ -24,6 +26,7 @@ import { cn } from "@/lib/utils"
 export function SearchableComboBox({
   options = [],
   labelKey = "ac_name",
+  searchKeys = [],
   value = "",
   onSelect,
   onInputChange,
@@ -36,6 +39,7 @@ export function SearchableComboBox({
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [inputVal, setInputVal] = useState(value ?? "")
+  const [dropdownStyle, setDropdownStyle] = useState({})
   const inputRef = useRef(null)
   const listRef = useRef(null)
 
@@ -44,9 +48,12 @@ export function SearchableComboBox({
     setInputVal(value ?? "")
   }, [value])
 
-  const filtered = (options ?? []).filter((opt) =>
-    String(opt[labelKey] ?? "").toLowerCase().includes((inputVal ?? "").toLowerCase())
-  )
+  const filtered = (options ?? []).filter((opt) => {
+    const q = (inputVal ?? "").toLowerCase()
+    if (!q) return true
+    const keys = [labelKey, ...searchKeys]
+    return keys.some((k) => String(opt[k] ?? "").toLowerCase().includes(q))
+  })
 
   const select = useCallback(
     (opt) => {
@@ -99,6 +106,27 @@ export function SearchableComboBox({
     }
   }, [activeIndex])
 
+  // Recompute dropdown position whenever it opens or window scrolls/resizes
+  useEffect(() => {
+    if (!open || !inputRef.current) return
+    const update = () => {
+      const rect = inputRef.current.getBoundingClientRect()
+      setDropdownStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      })
+    }
+    update()
+    window.addEventListener("scroll", update, true)
+    window.addEventListener("resize", update)
+    return () => {
+      window.removeEventListener("scroll", update, true)
+      window.removeEventListener("resize", update)
+    }
+  }, [open])
+
   return (
     <div className={cn("relative", className)}>
       <input
@@ -125,10 +153,11 @@ export function SearchableComboBox({
           "disabled:cursor-not-allowed disabled:opacity-50"
         )}
       />
-      {open && filtered.length > 0 && (
+      {open && filtered.length > 0 && createPortal(
         <div
           ref={listRef}
-          className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-60 overflow-y-auto"
+          style={dropdownStyle}
+          className="z-[9999] bg-popover border border-border rounded-md shadow-md max-h-60 overflow-y-auto"
         >
           {filtered.map((opt, i) => (
             <div
@@ -145,7 +174,8 @@ export function SearchableComboBox({
               {opt[labelKey]}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

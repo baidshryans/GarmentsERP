@@ -58,6 +58,7 @@ const StoneReturn = () => {
   
   const navigate=useNavigate();
   const [rs, setRows] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [packetData, setPacketData] = useState([]);
   const [statesData, setstatesData] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
@@ -165,6 +166,7 @@ const StoneReturn = () => {
     const da = getValues('form')
     da.karigarstonereceive_set = [...rs];
     //  (id ? updateKarigarStoneIssue(formdata,id) : createKarigarStoneIssue(formdata))
+    setSaving(true);
     (id ? updateKarigarStoneReceiveforEdit(da, id) : createKarigarStoneReceive(da))
       .then((response) => {
 
@@ -177,6 +179,7 @@ const StoneReturn = () => {
             navigate("/manufacturing/receive/stonereturn/");
           },2000);
         } else {
+          setSaving(false);
           toast({
             title: "Form submission failed. Please try again.",
             description: renderErrorTree(response.error),
@@ -184,6 +187,7 @@ const StoneReturn = () => {
         }
       })
       .catch((error) => {
+        setSaving(false);
         console.error("Error submitting form:", error);
         toast({ title: "An error occurred. Please try again later." });  // Error toast on catch
       });
@@ -771,7 +775,7 @@ const StoneReturn = () => {
         {/* Submit */}
         <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white">
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
             Save
           </Button>
         </div>

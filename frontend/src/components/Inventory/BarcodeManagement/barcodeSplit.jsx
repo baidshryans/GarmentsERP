@@ -136,6 +136,7 @@ const BarcodeSplit = () => {
 
     const navigate=useNavigate();
     const [rs, setRows] = useState([]);
+    const [saving, setSaving] = useState(false);
     const[toprs,setTopRows] = useState([]);
     const [statesData, setstatesData] = useState([]);
     const [salespersonData, setSalespersonData] = useState([]);
@@ -312,6 +313,7 @@ const BarcodeSplit = () => {
             return;
         }
 
+        setSaving(true);
         splitBarcode (rs,getValues("form.old_barcode"))
             .then((response) => {
             if (response.success) {
@@ -324,15 +326,18 @@ const BarcodeSplit = () => {
               },2000);
 
             } else if (response.status < 500) {
+                    setSaving(false);
                     toast({
                         title: "Form submission failed. Please try again.",
                         description: renderErrorTree(response.error),
                     });  // Error toast
                 } else {
+                    setSaving(false);
                     toast({ title: "An error occurred. Please try again later." });
                 }
             })
             .catch((error) => {
+            setSaving(false);
             console.error("Error submitting form:", error);
             toast({ title: "An error occurred. Please try again later." });  // Error toast on catch
             });
@@ -846,6 +851,7 @@ const BarcodeSplit = () => {
                     <Button
                         type="submit"
                         className="bg-primary hover:bg-primary text-white font-semibold tracking-wide px-6"
+                        disabled={saving}
                     >
                         <Scissors size={15} className="mr-2" /> Save Split
                     </Button>

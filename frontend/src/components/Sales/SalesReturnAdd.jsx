@@ -107,6 +107,7 @@ const SalesReturnAdd = () => {
     });
 
   // ── State ──────────────────────────────────────────────────────────────────
+  const [saving, setSaving] = useState(false);
   const [rs, setRows]                             = useState([]);
   const [fetchedBillItems, setFetchedBillItems]   = useState([]);
   const [selectedIndices, setSelectedIndices]     = useState(new Set());
@@ -446,6 +447,7 @@ const SalesReturnAdd = () => {
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSalesReturnSubmit = async () => {
     if (rs.length === 0) { toast({ title: "Table is empty", description: "Add at least one item." }); return; }
+    setSaving(true);
     try {
       const formVals = getValues("form");
       const payload  = { ...formVals, salereturnitem_set: rs };
@@ -463,9 +465,11 @@ const SalesReturnAdd = () => {
         setRows([]);
         setTimeout(() => navigate("/sales/salesreturn/list/"), 2000);
       } else {
+        setSaving(false);
         toast({ title: "Form submission failed.", description: renderErrorTree(response.error) });
       }
     } catch (error) {
+      setSaving(false);
       toast({ title: "An error occurred. Please try again later." });
     }
   };
@@ -905,7 +909,7 @@ const SalesReturnAdd = () => {
         {/* ══ Action Buttons ════════════════════════════════════════════════ */}
         <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white">Save</Button>
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>Save</Button>
         </div>
       </form>
     </div>

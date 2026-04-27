@@ -50,6 +50,7 @@ const IssueToRefinary = () => {
     });
 
     const [rs, setRows] = useState([]);
+    const [saving, setSaving] = useState(false);
     const [refineries, setRefineries] = useState([]);
     const [mainItemData, setMainItemData] = useState([]);
     const [purityData, setPurityData] = useState([]);
@@ -178,19 +179,21 @@ const IssueToRefinary = () => {
         delete form.ldgr_name;
         form.refinaryissuedetail_set = rs;
 
+        setSaving(true);
         (id ? updateRefinaryIssueForEdit(form, id) : createRefinaryIssue(form))
             .then((response) => {
                 if (response.success) {
                     toast({ title: "Saved successfully!" });
                     setTimeout(() => navigate("/manufacturing/issue/refinary/"), 1500);
                 } else {
+                    setSaving(false);
                     toast({
                         title: "Submission failed.",
                         description: renderErrorTree(response.error),
                     });
                 }
             })
-            .catch(() => toast({ title: "An error occurred. Please try again." }));
+            .catch(() => { setSaving(false); toast({ title: "An error occurred. Please try again." }); });
     };
 
     useF4Submit(handleSubmit(onSubmit));
@@ -487,7 +490,7 @@ const IssueToRefinary = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary text-white">
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
                         Save
                     </Button>
                 </div>

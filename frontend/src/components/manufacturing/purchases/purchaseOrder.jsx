@@ -74,6 +74,7 @@ const PurchaseOrder = () => {
   const prefillItemIds = prefillItemIdsParam
     ? new Set(prefillItemIdsParam.split(",").map(s => Number(s.trim())).filter(n => !Number.isNaN(n)))
     : null;
+  const [saving, setSaving] = useState(false);
   const [rs, setRows] = useState([]);
 const [mainItemData, setMainItemData] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -176,12 +177,14 @@ useEffect(() => {
       toast({ title: "Add at least one item." });
       return;
     }
+    setSaving(true);
     (id ? updatePurchaseOrderForEdit(dat, id) : createPurchaseOrder(dat))
       .then((response) => {
         if (response.success) {
           toast({ title: "Purchase order saved!" });
           setTimeout(() => navigate("/purchase/purchaseorder/list/"), 2000);
         } else {
+          setSaving(false);
           toast({
             title: "Save failed",
             description: renderErrorTree(response.error),
@@ -189,7 +192,7 @@ useEffect(() => {
           });
         }
       })
-      .catch(() => toast({ title: "An error occurred. Please try again later.", variant: "destructive" }));
+      .catch(() => { setSaving(false); toast({ title: "An error occurred. Please try again later.", variant: "destructive" }); });
   };
 
   useF4Submit(handleSubmit(onSubmit));
@@ -435,6 +438,7 @@ useEffect(() => {
             size="sm"
             onClick={handleSubmit(onSubmit)}
             className="min-w-24 cursor-pointer"
+            disabled={saving}
           >
             Save Order
           </Button>
@@ -735,7 +739,7 @@ useEffect(() => {
           >
             Cancel
           </Button>
-          <Button type="submit" className="min-w-28 cursor-pointer">
+          <Button type="submit" className="min-w-28 cursor-pointer" disabled={saving}>
             Save Order
           </Button>
         </div>

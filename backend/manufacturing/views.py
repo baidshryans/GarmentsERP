@@ -93,6 +93,23 @@ class SampleIssueViewSet(views.RetailBaseViewset):
     search_fields = ['billno', 'karigar_ldgr__ac_name']
     ordering = ['-date1', '-id']
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        blocking = list(
+            KarigarReceiveItem.objects.filter(
+                ref_sample_issue=instance
+            ).values_list('receive_slip__receive_slip_no', flat=True).distinct()
+        )
+        if blocking:
+            slips = ", ".join(str(s) for s in blocking if s)
+            return Response(
+                {'error': f'Cannot delete: piece(s) already received back via slip(s): {slips}. '
+                          f'Delete the receive slip first.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        with transaction.atomic():
+            return super().destroy(request, *args, **kwargs)
+
 
 def sample_issue_next_billno(request):
     """Kept for backward compat. Prefer sample_issue_initial_data."""
@@ -149,19 +166,59 @@ class UnbarcodedForPickerView(APIView):
         return Response(data)
 
 
+class KarigarReceiveSlipListForSampleView(APIView):
+    """
+    GET /manufacturing/api/karigar-receive-slips-for-sample/?q=<search>&limit=100
+    Returns a light list of recent receive slips for combo-box selection on the
+    Sample Issue form. Scoped to the active retail when present.
+    """
+    def get(self, request):
+        from manufacturing.models import KarigarReceive
+        q = request.query_params.get('q', '').strip()
+        limit = min(int(request.query_params.get('limit', 100) or 100), 500)
+        qs = KarigarReceive.objects.select_related('karigar_ldgr')
+        if request.retail:
+            qs = qs.filter(retail=request.retail)
+        if q:
+            qs = qs.filter(Q(receive_slip_no__icontains=q) | Q(karigar_ldgr__ac_name__icontains=q))
+        qs = qs.order_by('-date1', '-id')[:limit]
+        return Response([
+            {
+                'id': r.id,
+                'receive_slip_no': r.receive_slip_no,
+                'date1': r.date1.isoformat() if r.date1 else None,
+                'karigar_ldgr_name': r.karigar_ldgr.ac_name if r.karigar_ldgr else '',
+            }
+            for r in qs
+        ])
+
+
 class KarigarReceiveSlipForSampleView(APIView):
     """
     GET /manufacturing/api/karigar-receive-slip-for-sample/?slip_no=<exact_slip_no>
     Returns the full slip with items and sub-items for the Sample Issue form.
+    Suffix match: if no exact hit, try `endswith` so users can type just the
+    running number (e.g. "00003").
     """
     def get(self, request):
         from manufacturing.models import KarigarReceive
         slip_no = request.query_params.get('slip_no', '').strip()
         if not slip_no:
             return Response({'error': 'slip_no required'}, status=400)
-        try:
-            slip = KarigarReceive.objects.select_related('karigar_ldgr').get(receive_slip_no=slip_no)
-        except KarigarReceive.DoesNotExist:
+        base_qs = KarigarReceive.objects.select_related('karigar_ldgr')
+        if request.retail:
+            base_qs = base_qs.filter(retail=request.retail)
+        slip = base_qs.filter(receive_slip_no=slip_no).first()
+        if not slip:
+            matches = list(base_qs.filter(receive_slip_no__endswith=slip_no).order_by('-date1', '-id')[:2])
+            if len(matches) == 1:
+                slip = matches[0]
+            elif len(matches) > 1:
+                return Response(
+                    {'error': f'Multiple slips end with "{slip_no}". Please type the full number.'},
+                    status=404,
+                )
+        if not slip:
             return Response({'error': 'Slip not found'}, status=404)
         items = []
         for ri in slip.karigarreceiveitem_set.select_related(
@@ -171,7 +228,7 @@ class KarigarReceiveSlipForSampleView(APIView):
             for d in ri.karigarreceiveitemdetails_set.select_related('item', 'packet').all():
                 details.append({
                     'sl_no': d.sl_no,
-                    'packet': d.packet.short_code if d.packet else '',
+                    'packet': d.packet.pckt_no if d.packet else '',
                     'sub_item': d.item.item_name if d.item else '',
                     'sub_item_id': d.item_id,
                     'description': d.item.item_name if d.item else '',
@@ -224,7 +281,7 @@ class BarcodeForSamplePickerView(APIView):
         details = []
         for d in BarcodeDetails.objects.filter(barcode=bm).select_related('item', 'packet'):
             details.append({
-                'packet': d.packet.short_code if d.packet else '',
+                'packet': d.packet.pckt_no if d.packet else '',
                 'sub_item': d.item.item_name if d.item else '',
                 'sub_item_id': d.item_id,
                 'description': d.item.item_name if d.item else '',
@@ -292,30 +349,71 @@ class KarigarReceiveForSamplePickerView(APIView):
         return Response(data)
 
 
+class PurchaseVoucherListForSampleView(APIView):
+    """
+    GET /manufacturing/api/purchase-vouchers-for-sample/?q=<search>&limit=100
+    Returns a light list of recent purchase vouchers for combo-box selection on
+    the Sample Issue form. Scoped to the active retail when present.
+    """
+    def get(self, request):
+        from purchase.models import PurchaseVoucher
+        q = request.query_params.get('q', '').strip()
+        limit = min(int(request.query_params.get('limit', 100) or 100), 500)
+        qs = PurchaseVoucher.objects.select_related('ldgr')
+        if request.retail:
+            qs = qs.filter(retail=request.retail)
+        if q:
+            qs = qs.filter(Q(billno__icontains=q) | Q(ldgr__ac_name__icontains=q))
+        qs = qs.order_by('-date1', '-id')[:limit]
+        return Response([
+            {
+                'id': pv.id,
+                'billno': pv.billno,
+                'date1': pv.date1.isoformat() if pv.date1 else None,
+                'ldgr_name': pv.ldgr.ac_name if pv.ldgr else '',
+            }
+            for pv in qs
+        ])
+
+
 class PurchaseVoucherForSampleView(APIView):
     """
     GET /manufacturing/api/purchase-voucher-for-sample/?bill_no=<bill_no>
     Returns PV header + all items with sub-item details for the Sample Issue form.
+    Suffix match: if no exact hit, try `endswith` so users can type just the
+    running number (e.g. "00003").
     """
     def get(self, request):
         from purchase.models import PurchaseVoucher
         bill_no = request.query_params.get('bill_no', '').strip()
         if not bill_no:
             return Response({'error': 'bill_no required'}, status=400)
-        if not request.retail:
-            return Response({'error': 'Missing X-RETAIL-ID header'}, status=400)
-        try:
-            pv = PurchaseVoucher.objects.select_related('ldgr').get(
-                billno=bill_no, retail=request.retail
-            )
-        except PurchaseVoucher.DoesNotExist:
-            return Response({'error': 'Purchase Voucher not found'}, status=404)
+        qs = PurchaseVoucher.objects.select_related('ldgr').filter(billno=bill_no)
+        if request.retail:
+            scoped = qs.filter(retail=request.retail)
+            pv = scoped.first() or qs.first()
+        else:
+            pv = qs.first()
+        if not pv:
+            suffix_qs = PurchaseVoucher.objects.select_related('ldgr').filter(billno__endswith=bill_no)
+            if request.retail:
+                suffix_qs = suffix_qs.filter(retail=request.retail)
+            matches = list(suffix_qs.order_by('-date1', '-id')[:2])
+            if len(matches) == 1:
+                pv = matches[0]
+            elif len(matches) > 1:
+                return Response(
+                    {'error': f'Multiple vouchers end with "{bill_no}". Please type the full number.'},
+                    status=404,
+                )
+        if not pv:
+            return Response({'error': f'Purchase Voucher {bill_no} not found'}, status=404)
         items = []
         for pvi in pv.purchasevoucheritems_set.select_related('item', 'purity', 'barcode').order_by('sl_no'):
             details = []
             for d in pvi.purchasevoucherdetails_set.select_related('sub_item', 'packet').all():
                 details.append({
-                    'packet': d.packet.short_code if d.packet else '',
+                    'packet': d.packet.pckt_no if d.packet else '',
                     'sub_item': d.sub_item.item_name if d.sub_item else '',
                     'sub_item_id': d.sub_item_id,
                     'description': d.sub_item.item_name if d.sub_item else '',
@@ -563,14 +661,145 @@ def filter_job_items(request):
     job_id = request.GET.get('job_id')  # Match this with the key used in the JS fetch call
     slip_type = request.GET.get('slip_type')
     if slip_type == 'Job Order' or slip_type == None:
-        job_item_list = KarigarIssueItem.objects.filter(issue_slip_id=job_id)
-        job_items = [{ 'job_id':item.issue_slip.id,'id':item.id,'item_id': item.item_id, 'job_sl_no': item.issue_sl_no} for item in job_item_list]  # Assuming sl_no is the correct field
+        job_item_list = KarigarIssueItem.objects.filter(issue_slip_id=job_id).select_related('item', 'purity')
+        job_items = [{
+            'job_id': item.issue_slip.id,
+            'id': item.id,
+            'item_id': item.item_id,
+            'item_name': item.item.item_name if item.item else "",
+            'purity': item.purity.purity if item.purity else "",
+            'pcs': item.pcs,
+            'approx_wt': float(item.approx_wt) if item.approx_wt is not None else 0,
+            'design_code': item.design_code or "",
+            'size': item.size or "",
+            'remarks': item.remarks or "",
+            'job_sl_no': item.issue_sl_no,
+        } for item in job_item_list]
     else:
-        job_item_list = PurchaseOrderItems.objects.filter(po_slip_id=job_id)
-        job_items = [{'job_id':item.po_slip.id,'id':item.id,'item_id': item.item_id, 'job_sl_no': item.po_sl_no} for item in job_item_list]  # Assuming sl_no is the correct field
+        job_item_list = PurchaseOrderItems.objects.filter(po_slip_id=job_id).select_related('item', 'purity')
+        job_items = [{
+            'job_id': item.po_slip.id,
+            'id': item.id,
+            'item_id': item.item_id,
+            'item_name': item.item.item_name if item.item else "",
+            'purity': item.purity.purity if item.purity else "",
+            'pcs': item.pcs,
+            'approx_wt': float(item.approx_wt) if item.approx_wt is not None else 0,
+            'design_code': item.design_code or "",
+            'size': item.size or "",
+            'remarks': item.remarks or "",
+            'job_sl_no': item.po_sl_no,
+        } for item in job_item_list]
     
     #print(job_items)
     return JsonResponse({'job_items': job_items})
+
+
+@api_view()
+@permission_classes([IsAuthenticated])
+def fetch_packet_balance(request):
+    """Compute live stone-packet balance (pcs/ct/gw) for a given pckt_no.
+    Mirrors the legacy PHP balance formula:
+        opening - sales - stkjrnl_issue + stkjrnl_receive
+                - karigar_issue + karigar_receive
+                + purchase + sales_approval - purchase_return
+    """
+    from inventory.models import OpeningInventory, StockJournalDetail
+    from sales.models import SalesVouItemDetails, SalesApprovalItemDetails
+    from purchase.models import PurchaseVoucherDetails, PurchaseReturnDetails
+    from mastersconfig.models import Packet
+
+    pckt_no = request.GET.get('pckt_no')
+    if not pckt_no:
+        return JsonResponse({'error': 'pckt_no required'}, status=400)
+
+    try:
+        packet = Packet.objects.select_related('stone_item_id').get(pckt_no=pckt_no)
+    except Packet.DoesNotExist:
+        return JsonResponse({'error': 'Packet not found'}, status=404)
+
+    retail = request.retail
+
+    def _agg(qs, fields):
+        agg = qs.aggregate(**{f: Coalesce(Sum(f), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)) for f in fields})
+        return {f: float(agg.get(f) or 0) for f in fields}
+
+    opening = _agg(
+        OpeningInventory.objects.filter(packet=packet, type='SH', retail=retail),
+        ['pcs', 'ct', 'gw'],
+    )
+    sales = _agg(
+        SalesVouItemDetails.objects.filter(
+            packet=packet, retail=retail, main_item__isnull=True
+        ),
+        ['pcs', 'ct', 'gw'],
+    )
+    sj_issue = _agg(
+        StockJournalDetail.objects.filter(packet=packet, doc_type='Issue', retail=retail),
+        ['pcs', 'ct', 'gw'],
+    )
+    sj_recv = _agg(
+        StockJournalDetail.objects.filter(packet=packet, doc_type='Receive', retail=retail),
+        ['pcs', 'ct', 'gw'],
+    )
+    kar_iss = _agg(
+        KarigarStoneIssue.objects.filter(packet=packet, header__retail=retail),
+        ['pcs', 'ct', 'gw'],
+    )
+    kar_rec_qs = KarigarStoneReceive.objects.filter(packet=packet, header__retail=retail)
+    kar_rec_agg = kar_rec_qs.aggregate(
+        pcs=Coalesce(Sum('return_pcs'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+        ct=Coalesce(Sum('return_ct'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+        gw=Coalesce(Sum('return_gw'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+    )
+    kar_rec = {k: float(v or 0) for k, v in kar_rec_agg.items()}
+
+    pur_qs = PurchaseVoucherDetails.objects.filter(
+        packet=packet, retail=retail, main_item__isnull=True
+    )
+    pur_agg = pur_qs.aggregate(
+        pcs=Coalesce(Sum('sub_pcs'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+        ct=Coalesce(Sum('sub_ct'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+        gw=Coalesce(Sum('sub_gw'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+    )
+    pur = {k: float(v or 0) for k, v in pur_agg.items()}
+
+    sapp = _agg(
+        SalesApprovalItemDetails.objects.filter(
+            packet=packet, retail=retail, main_item__isnull=True
+        ),
+        ['pcs', 'ct', 'gw'],
+    )
+
+    pret_qs = PurchaseReturnDetails.objects.filter(
+        packet=packet, retail=retail, main_item__isnull=True
+    )
+    pret_agg = pret_qs.aggregate(
+        pcs=Coalesce(Sum('sub_pcs'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+        ct=Coalesce(Sum('sub_ct'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+        gw=Coalesce(Sum('sub_gw'), Value(0), output_field=DecimalField(max_digits=20, decimal_places=3)),
+    )
+    pret = {k: float(v or 0) for k, v in pret_agg.items()}
+
+    bal = {
+        f: (opening[f] - sales[f] - sj_issue[f] + sj_recv[f]
+            - kar_iss[f] + kar_rec[f] + pur[f] + sapp[f] - pret[f])
+        for f in ('pcs', 'ct', 'gw')
+    }
+
+    uom = ""
+    if packet.stone_item_id and getattr(packet.stone_item_id, 'uom', None):
+        uom = packet.stone_item_id.uom
+
+    return JsonResponse({
+        'packet_id': packet.id,
+        'pckt_no': packet.pckt_no,
+        'item_name': packet.stone_item_id.item_name if packet.stone_item_id else "",
+        'uom': uom,
+        'balance_pcs': round(bal['pcs'], 3),
+        'balance_ct': round(bal['ct'], 3),
+        'balance_gw': round(bal['gw'], 3),
+    })
 
 
 #--------------------------Stone receive--------------------------------------------------------

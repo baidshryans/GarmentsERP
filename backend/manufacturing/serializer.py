@@ -45,6 +45,10 @@ class KarigarStoneIssueDetailSerializer(serializers.ModelSerializer):
     packet = serializers.SlugRelatedField(
         queryset=Packet.objects.all(), slug_field='pckt_no'
     )
+    ref_slip_no   = serializers.SerializerMethodField(read_only=True)
+    ref_design_code = serializers.SerializerMethodField(read_only=True)
+    ref_main_item = serializers.SerializerMethodField(read_only=True)
+    ref_karigar_name = serializers.SerializerMethodField(read_only=True)
 
 
     class Meta:
@@ -54,11 +58,64 @@ class KarigarStoneIssueDetailSerializer(serializers.ModelSerializer):
             "ref_job_content_type", "ref_job_object_id", "sl_no",
             "item", "pcs", "ct", "gw", "cgst", "sgst", "igst",
             "rate", "taxable_value", "tot_val", "packet",
-            "remarks", "place_of_supply"
+            "remarks", "place_of_supply",
+            "ref_slip_no", "ref_design_code", "ref_main_item", "ref_karigar_name",
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
         }
+
+    def _resolve(self, obj):
+        ct = obj.ref_job_content_type
+        if not ct:
+            return None
+        try:
+            return ct.model_class().objects.filter(id=obj.ref_job_object_id).first()
+        except Exception:
+            return None
+
+    def _resolve_sl(self, obj):
+        ct = obj.job_sl_content_type
+        if not ct:
+            return None
+        try:
+            return ct.model_class().objects.filter(id=obj.job_sl_object_id).first()
+        except Exception:
+            return None
+
+    def get_ref_slip_no(self, obj):
+        ref = self._resolve(obj)
+        if ref is None:
+            return None
+        return (
+            getattr(ref, 'issue_slip_no', None)
+            or getattr(ref, 'po_no', None)
+            or getattr(ref, 'billno', None)
+        )
+
+    def get_ref_design_code(self, obj):
+        sl = self._resolve_sl(obj)
+        if sl is None:
+            return None
+        return getattr(sl, 'design_code', None)
+
+    def get_ref_main_item(self, obj):
+        sl = self._resolve_sl(obj)
+        if sl is None:
+            return None
+        item = getattr(sl, 'item', None)
+        if item is not None:
+            return getattr(item, 'item_name', None) or str(item)
+        return None
+
+    def get_ref_karigar_name(self, obj):
+        ref = self._resolve(obj)
+        if ref is None:
+            return None
+        kar = getattr(ref, 'karigar_ldgr', None)
+        if kar is None:
+            return None
+        return getattr(kar, 'display_name', None) or getattr(kar, 'ac_name', None)
 
 class KarigarStoneIssueSerializer(serializers.ModelSerializer):
     karigar_ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
@@ -348,7 +405,7 @@ class KarigarIssueItemForUpdateSerializer(serializers.ModelSerializer):
 
 class SampleIssueItemDetailsSerializer(serializers.ModelSerializer):
     sub_item_name = serializers.CharField(source='sub_item.item_name', read_only=True, default='')
-    packet_code = serializers.CharField(source='packet.short_code', read_only=True, default='')
+    packet_code = serializers.CharField(source='packet.pckt_no', read_only=True, default='')
 
     class Meta:
         model = SampleIssueItemDetails
@@ -393,7 +450,7 @@ class SampleIssueItemSerializer(serializers.ModelSerializer):
             'piece', 'barcode', 'kr_receive_item', 'pv_item',
             'item', 'item_name', 'purity', 'purity_name', 'pcs', 'gw',
             'design_code', 'size', 'huid', 'barcode_no',
-            'instructions', 'due_date', 'remarks', 'rec_status', 'retail',
+            'remarks', 'rec_status', 'retail',
             'details',
         ]
         extra_kwargs = {
@@ -411,7 +468,7 @@ class SampleIssueSerializer(serializers.ModelSerializer):
         model = SampleIssue
         fields = [
             'id', 'billno', 'date1', 'karigar_ldgr', 'karigar_ldgr_name',
-            'retail', 'fiscal_year', 'remarks', 'items',
+            'retail', 'fiscal_year', 'remarks', 'due_date', 'items',
         ]
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
 

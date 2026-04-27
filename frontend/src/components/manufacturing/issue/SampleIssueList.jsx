@@ -22,10 +22,15 @@ export default function SampleIssueList() {
   useEffect(() => { load(); }, []);
 
   const onDelete = async (id) => {
-    if (!window.confirm("Delete this Sample Issue?")) return;
+    if (!window.confirm("Delete this Sample Issue? This cannot be undone.")) return;
     const res = await deleteSampleIssue(id);
-    if (res.success) { toast({ title: "Deleted" }); load(); }
-    else toast({ title: "Delete failed", variant: "destructive" });
+    if (res.success) {
+      toast({ title: "Sample Issue deleted" });
+      load();
+    } else {
+      const msg = res.error?.error || res.error?.detail || (typeof res.error === "string" ? res.error : "Delete failed");
+      toast({ title: "Cannot delete", description: msg, variant: "destructive" });
+    }
   };
 
   return (

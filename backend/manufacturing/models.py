@@ -86,7 +86,7 @@ class KarigarIssueItem(models.Model):
     design_code = models.CharField(max_length=10, null=True, blank=True)
     size = models.CharField(max_length=10, null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
-    remarks = models.CharField(max_length=50)
+    remarks = models.CharField(max_length=50, blank=True, default="")
     stone_issue = GenericRelation("manufacturing.KarigarStoneIssue",content_type_field='job_sl_content_type',  # Updated field name
         object_id_field='job_sl_object_id',  )
     stone_receive = GenericRelation("manufacturing.KarigarStoneReceive",content_type_field='job_sl_content_type',  # Updated field name
@@ -119,6 +119,7 @@ class SampleIssue(models.Model):
     retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
     remarks = models.CharField(max_length=200, blank=True, null=True)
+    due_date = models.DateField(null=True, blank=True)
     gold_issue = GenericRelation(
         KarigarGoldIssue,
         content_type_field='ref_job_content_type',
@@ -174,8 +175,6 @@ class SampleIssueItem(models.Model):
     size = models.CharField(max_length=20, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True, null=True)
 
-    instructions = models.TextField(blank=True, null=True)
-    due_date = models.DateField(null=True, blank=True)
     remarks = models.CharField(max_length=100, blank=True, null=True)
     rec_status = models.BooleanField(default=False)
     retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)

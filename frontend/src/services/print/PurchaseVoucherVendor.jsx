@@ -157,6 +157,7 @@ const PurchaseVoucher = ({ data = {} }) => {
   };
 
   const items = voucherData.purchasevoucheritems_set || [];
+  const directSubItems = (voucherData.purchasevoucherdetails_set || []).filter(d => !d.main_item);
 
   return (
     <div style={s.page}>
@@ -258,8 +259,23 @@ const PurchaseVoucher = ({ data = {} }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.length > 0 ? (
-                    items.map((item, idx) => {
+                  {(items.length > 0 || directSubItems.length > 0) ? (
+                    <>
+                    {directSubItems.map((sub, dIdx) => (
+                      <tr key={`direct-${dIdx}`}>
+                        <td style={{ ...s.itemCell, textAlign: 'center', fontWeight: 'bold' }}>{dIdx + 1}.</td>
+                        <td style={{ ...s.itemCell }}>{sub.sub_item || ''}{sub.packet ? ` (${sub.packet})` : ''}</td>
+                        <td style={{ ...s.itemCell, textAlign: 'center' }}>{sub.sub_pcs != null ? sub.sub_pcs : ''}</td>
+                        <td style={{ ...s.itemCell, textAlign: 'center' }}>{sub.sub_ct || ''}</td>
+                        <td style={{ ...s.itemCell, textAlign: 'right' }}>{sub.sub_gw || ''}</td>
+                        <td style={{ ...s.itemCell, textAlign: 'right' }}>{sub.fine_wt || ''}</td>
+                        <td style={{ ...s.itemCell, textAlign: 'right' }}>{formatCurrency(sub.rate)}</td>
+                        <td style={{ ...s.itemCell, textAlign: 'right' }}>{formatCurrency(sub.value)}</td>
+                        <td style={{ ...s.itemCell, textAlign: 'right' }}></td>
+                        <td style={{ ...s.itemCell, textAlign: 'right' }}>{formatCurrency(sub.value)}</td>
+                      </tr>
+                    ))}
+                    {items.map((item, idx) => {
                       const subItems = item.purchasevoucherdetails_set || [];
                       const amount = (item.item_value || 0) + (item.making_value || 0);
                       return (
@@ -319,7 +335,8 @@ const PurchaseVoucher = ({ data = {} }) => {
                           ))}
                         </React.Fragment>
                       );
-                    })
+                    })}
+                    </>
                   ) : (
                     <>
                       <tr><td colSpan="10" style={{ ...s.itemCell, padding: '20px' }}>&nbsp;</td></tr>

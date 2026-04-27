@@ -91,7 +91,6 @@ function KarigarStoneTransactions() {
     }
   }, [fromDate, toDate, karigarId, txnType, toast]);
 
-  useEffect(() => { load(); }, [load]);
 
   // Flatten header → items for table rendering
   const issueRows = useMemo(() => {
@@ -103,6 +102,7 @@ function KarigarStoneTransactions() {
           date: h.date1,
           billno: h.billno,
           karigar: h.karigar_ldgr_name,
+          slip_no: it.ref_slip_no || "—",
           item: it.item_name || it.item || "—",
           pcs: it.pcs,
           ct: it.ct,
@@ -265,6 +265,7 @@ function KarigarStoneTransactions() {
                 <tr>
                   <th className="px-3 py-2 text-left">Date</th>
                   <th className="px-3 py-2 text-left">Bill No</th>
+                  <th className="px-3 py-2 text-left">Slip No</th>
                   <th className="px-3 py-2 text-left">Karigar</th>
                   <th className="px-3 py-2 text-left">Item</th>
                   <th className="px-3 py-2 text-right">Pcs</th>
@@ -277,11 +278,12 @@ function KarigarStoneTransactions() {
               </thead>
               <tbody>
                 {issueRows.length === 0 ? (
-                  <tr><td colSpan={10} className="px-3 py-6 text-center text-gray-400">No stone issues in this range.</td></tr>
+                  <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400">No stone issues in this range.</td></tr>
                 ) : issueRows.map((r) => (
                   <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2">{fmtDate(r.date)}</td>
                     <td className="px-3 py-2 font-medium">{r.billno}</td>
+                    <td className="px-3 py-2">{r.slip_no}</td>
                     <td className="px-3 py-2">{r.karigar}</td>
                     <td className="px-3 py-2">{r.item}</td>
                     <td className="px-3 py-2 text-right">{r.pcs}</td>

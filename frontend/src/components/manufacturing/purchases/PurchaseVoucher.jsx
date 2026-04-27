@@ -55,6 +55,7 @@ const PurchaseVoucher = () => {
   const [searchParams] = useSearchParams(); // React Router hook
   const vou_type = searchParams.get('vou_type');
   let navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]); // files to upload after create
   const [detailItemDisplay, setDetailItemDisplay] = useState(""); // display label for item field
   const [tableItemDisplay, setTableItemDisplay] = useState(""); // display label for main item field
@@ -623,7 +624,7 @@ const PurchaseVoucher = () => {
 
   const onSubmit = async (data) => {
     const form = getValues("form");
-    if (rs.length === 0) {
+    if (rs.length === 0 && rsRaw.length === 0) {
       toast({ title: "Table is empty" })
       return;
     }
@@ -680,6 +681,7 @@ const PurchaseVoucher = () => {
         + parseFloat(form.round_off || 0)
       ).toFixed(2)
     );
+    setSaving(true);
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })
@@ -697,6 +699,7 @@ const PurchaseVoucher = () => {
         toast({ title: "Form submitted successfully!" });
         setTimeout(() => navigate("/purchase/list/"), 500);
       } else {
+        setSaving(false);
         toast({
           title: "Form submission failed.",
           description: renderErrorTree(response.error),
@@ -704,6 +707,7 @@ const PurchaseVoucher = () => {
         });
       }
     } catch {
+      setSaving(false);
       toast({ title: "An error occurred. Please try again later." });
     }
   };
@@ -826,8 +830,31 @@ const PurchaseVoucher = () => {
       console.log(vals)
       if (!vals.sub_item) { toast({ title: "No item added" }); return; }
 
+      // No main item entered → save as standalone sub-item (e.g. raw stones / gold).
       if (rs.length === 0) {
-        toast({ title: "Add a main item first", description: "Enter the main item (Section 2) before adding sub-items." });
+        setRsRaw(prev => [...prev, { ...vals }]);
+        reset({
+          form: getValues('form'),
+          hsn: getValues('hsn'),
+          table: getValues('table'),
+          details: {
+            id: null,
+            sl_no: "",
+            billno: "",
+            packet: "",
+            sub_item: "",
+            sub_pcs: 0,
+            sub_ct: 0.0,
+            sub_gw: 0.0,
+            metal_purity: "",
+            loss: 0,
+            tunch: 0.0,
+            fine_wt: 0.0,
+            rate: 0.0,
+            value: 0.0,
+          },
+        });
+        setDetailItemDisplay("");
         return;
       }
       const idx = rs.findIndex(r => r.sl_no === Number(vals.sl_no));
@@ -1122,15 +1149,16 @@ const PurchaseVoucher = () => {
                   setValue("form.tds_amt", 0);
                   setValue("form.net_vendor_payable", 0);
                 }
-                // Auto-open Purchase-Order picker with pending items for this vendor.
+                // Auto-open Purchase-Order picker only if vendor has pending items.
                 if (!isCustomer && !id) {
-                  setPoPickerLoading(true);
-                  setPoPickerOpen(true);
                   setSelectedPOItemIds(new Set());
                   setPoPickerSearch("");
+                  setPoPickerLoading(true);
                   const res = await fetchPendingPOItemsByVendor(opt.id);
-                  setPendingPOItems(res.success ? (res.data || []) : []);
+                  const items = res.success ? (res.data || []) : [];
+                  setPendingPOItems(items);
                   setPoPickerLoading(false);
+                  if (items.length > 0) setPoPickerOpen(true);
                 }
               }}
               placeholder={isCustomer ? "Search customer / dealer…" : "Search vendor / karigar…"}
@@ -1184,24 +1212,6 @@ const PurchaseVoucher = () => {
           </FieldContainer>
           <Input type="hidden" {...register("form.ldgr_code")} />
           <Input type="hidden" {...register("customer_order_item")} />
-          {!isCustomer && !id && watch("form.ldgr") && (
-            <FieldContainer>
-              <Label className="text-nowrap">Purchase Orders</Label>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setPoPickerOpen(true)}
-                className="cursor-pointer justify-start"
-              >
-                Pick from Purchase Orders
-                {pendingPOItems.length > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 min-w-4 h-4">
-                    {pendingPOItems.length}
-                  </span>
-                )}
-              </Button>
-            </FieldContainer>
-          )}
         </div>
         {hsn_current || id ? <>
 
@@ -1210,6 +1220,22 @@ const PurchaseVoucher = () => {
             <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">2</span>
             <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Main and Sub Item Details</span>
             <div className="flex-1 h-px bg-violet-100" />
+            {!isCustomer && !id && watch("form.ldgr") && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPoPickerOpen(true)}
+                className="cursor-pointer h-7 px-2.5 text-xs gap-1.5 shrink-0"
+              >
+                Pick from Purchase Orders
+                {pendingPOItems.length > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 min-w-4 h-4">
+                    {pendingPOItems.length}
+                  </span>
+                )}
+              </Button>
+            )}
             {!isCustomer && !id && (
               <Button
                 type="button"
@@ -1738,7 +1764,7 @@ const PurchaseVoucher = () => {
 
         {/* Submit */}
         <div className="flex justify-center items-center gap-3 mt-2 pt-4 border-t border-gray-100">
-          <Button type="submit" className="bg-primary hover:bg-primary text-white px-8">
+          <Button type="submit" className="bg-primary hover:bg-primary text-white px-8" disabled={saving}>
             Save
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>

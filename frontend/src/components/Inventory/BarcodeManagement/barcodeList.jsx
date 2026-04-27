@@ -6,8 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { SquarePen, Trash2, History, Printer, Unlink } from "lucide-react";
+import { SquarePen, Trash2, History, Printer, ArrowLeftRight } from "lucide-react";
 import ReleaseFromOrderModal from "./ReleaseFromOrderModal";
+import BarcodeTransferDialog from "./BarcodeTransferDialog";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import {deleteBarcodeManagement}from '../../../services/apiService';
@@ -35,6 +36,7 @@ function BarcodeListView() {
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
   const [releaseTarget, setReleaseTarget] = useState(null);
+  const [transferTarget, setTransferTarget] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
 
@@ -95,13 +97,13 @@ function BarcodeListView() {
           >
             <Printer className="size-4" />
           </button>
-          {row.original.customer_order ? (
+          {row.original.stk_status !== false ? (
             <button
-              onClick={() => setReleaseTarget(row.original)}
-              className="p-1.5 rounded text-amber-600 hover:bg-amber-50 transition-colors flex items-center"
-              title="Release from customer order"
+              onClick={() => setTransferTarget(row.original)}
+              className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center"
+              title="Transfer (to Unbarcoded / to Order / Release from Order)"
             >
-              <Unlink className="size-4" />
+              <ArrowLeftRight className="size-4" />
             </button>
           ) : null}
         </div>
@@ -265,6 +267,13 @@ function BarcodeListView() {
            
     
     </div >
+    <BarcodeTransferDialog
+      open={!!transferTarget}
+      barcode={transferTarget}
+      onClose={() => setTransferTarget(null)}
+      onDone={() => setRefreshTick((t) => t + 1)}
+      onRequestRelease={(b) => setReleaseTarget(b)}
+    />
     <ReleaseFromOrderModal
       open={!!releaseTarget}
       barcode={releaseTarget}

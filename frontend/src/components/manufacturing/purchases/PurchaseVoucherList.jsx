@@ -289,6 +289,25 @@ const totalPages = data?.data?.total_pages ?? 1;
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    {(details.purchasevoucherdetails_set || []).filter(d => !d.main_item).map((detail, dIdx) => (
+                      <TableRow key={`direct-${dIdx}`} className={`hover:bg-accent/40 transition-colors ${dIdx % 2 === 1 ? "bg-muted/20" : ""}`}>
+                        <TableCell className="px-3 py-2 text-xs font-medium text-center">{(details.purchasevoucheritems_set?.length || 0) + dIdx + 1}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{detail.date || details.date1 || "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs">{detail.packet || "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs font-semibold text-foreground">{detail.sub_item || "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.sub_pcs ?? "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center font-medium">{detail.sub_gw || "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.metal_purity || "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.fine_wt || "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.rate || "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center font-medium text-foreground">
+                          {detail.value != null ? Number(detail.value).toLocaleString("en-IN") : "—"}
+                        </TableCell>
+                        <TableCell className="px-2 py-2 text-muted-foreground text-center">—</TableCell>
+                      </TableRow>
+                    ))}
                     {details.purchasevoucheritems_set.map((item, idx) => (
                       <React.Fragment key={idx}>
                         {/* Main item row */}

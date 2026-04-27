@@ -10,18 +10,40 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody, TableHeader } from "@/components/ui/table";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { fetchMainItem, fetchSlipNoNext, fetchSalesperson, fetchPurity, getLedgers, createKarigarIssue, fetchCustomerOrders, fetchSlNosOrders, fetchOrderItem, fetchPos, fetchPendingCustomerOrderItems, } from "@/services/apiService";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { fetchMainItem, fetchSlipNoNext, fetchPurity, getLedgers, createKarigarIssue, fetchPos, fetchPendingCustomerOrderItems, } from "@/services/apiService";
+import { useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils.jsx"
 import { useNavigate } from "react-router-dom";
-import { convertBarcode, fetchBarcodes, fetchKarigarIssueForEdit, fetchUnBarcodedList, updateKarigarIssue } from "../../../services/apiService";
-
-import { default as MulSelect } from "react-select";
-import { SquarePen, Trash2, ShoppingCart, Link2 } from "lucide-react";
-import { selectRowsFn } from "@tanstack/react-table";
+import { fetchKarigarIssueForEdit, updateKarigarIssue } from "../../../services/apiService";
+import { SquarePen, Trash2, ShoppingCart, ChevronRight } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
-import Fuse from 'fuse.js';
-import { useSpellCheck } from '@/hooks/useSpellCheck';
+
+/* ─── helpers ──────────────────────────────────────────────── */
+function SectionCard({ title, children, className = "", action }) {
+  return (
+    <div className={`bg-white border border-border rounded-xl shadow-sm ${className}`}>
+      <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center justify-between rounded-t-xl">
+        <div className="flex items-center gap-2">
+          <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h3>
+        </div>
+        {action}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+function Field({ label, required, children, className = "" }) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className}`}>
+      <Label className="text-xs font-medium text-muted-foreground">
+        {label}{required && <span className="text-destructive ml-0.5">*</span>}
+      </Label>
+      {children}
+    </div>
+  );
+}
 
 
 const KarigarIssue = () => {
@@ -36,18 +58,15 @@ const KarigarIssue = () => {
 
     },
   });
-  const spellCheckEnabled = useSpellCheck();
   const [karigars, setKarigars] = useState([]);
   const [rs, setRows] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
-  const [customerOrders, setCustomerOrders] = useState([]);
+  const [tableItemLabel, setTableItemLabel] = useState("");
+  const itemComboRef = useRef(null);
   const [customers, setCustomers] = useState([]);
   const [purityData, setPurityData] = useState([]);
-  const [serialNos, setSerialNos] = useState([]);
-  const [change, setChange] = useState('')
-  const [unbarcodedList , setUnbarcodedList] = useState([]);
-  const [barCodes, setBarcodes] = useState([]);
   const [pendingItems, setPendingItems] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [pickerSearch, setPickerSearch] = useState("");
@@ -74,25 +93,19 @@ const KarigarIssue = () => {
 
   useEffect(() => {
     async function fetchData() {
-      const [customers, orderNo, mainItem, purity, customerOrders, karigars, unb, barcodes, pending] = await Promise.all([
+      const [customers, orderNo, mainItem, purity, karigars, pending] = await Promise.all([
         getLedgers({ type: "KR" }),
         fetchSlipNoNext(),
-        fetchMainItem(),
+        fetchMainItem({ type: "M" }),
         fetchPurity(),
-        fetchCustomerOrders(),
         fetchPos("Job Order"),
-        fetchUnBarcodedList(),
-        fetchBarcodes(),
         fetchPendingCustomerOrderItems(),
       ]);
       if (customers.success) setCustomers(customers.data.results);
       if (orderNo.success) setValue("form.issue_slip_no", orderNo.data.next_slip_no);
       if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
       if (purity.success) setPurityData(purity.data.results ?? purity.data);
-      if (customerOrders.success) setCustomerOrders(customerOrders.data.results);
       if (karigars.success) setKarigars(karigars.data.results);
-      if (unb.success) setUnbarcodedList(transformData(unb.data.results,'label'));
-      if (barcodes.success) setBarcodes(barcodes.data.results);
       if (pending.success) {
         // If opened via +MO quick-action from a Customer Order row, auto-pull that
         // order's pending items into the grid and remove them from the picker list.
@@ -188,6 +201,7 @@ const KarigarIssue = () => {
     }
 
 
+    setSaving(true);
     (!id ? createKarigarIssue(data) : updateKarigarIssue(id, data))
       .then((response) => {
 
@@ -199,6 +213,7 @@ const KarigarIssue = () => {
             navigate("/manufacturing/issue/jobwork")
           }, 2000);
         } else {
+          setSaving(false);
           toast({
             title: "Form submission failed. Please try again.",
             description: renderErrorTree(response.error),
@@ -206,6 +221,7 @@ const KarigarIssue = () => {
         }
       })
       .catch((error) => {
+        setSaving(false);
         console.error("Error submitting form:", error);
         toast({ title: "An error occurred. Please try again later." });
       });
@@ -222,33 +238,11 @@ const KarigarIssue = () => {
       ? { customer_order_item: row.customer_order_item, _co_display: row._co_display }
       : null;
     reset({ form: getValues('form'), table: row });
+    const match = mainItemData.find(i => i.short_code === row.item);
+    setTableItemLabel(match ? match.item_name : (row.item ?? ""));
     setRows((prev) => prev.filter((_, i) => i !== index));
+    setTimeout(() => itemComboRef.current?.querySelector('input')?.focus(), 0);
   };
-
-  const handleBlur = async (e) => {
-    const { customer_order_id } = getValues();
-    try {
-      const data = await fetchSlNosOrders(customer_order_id);
-      setSerialNos(data.data.sl_no_list);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  }
-
-  const handleBlur1 = async (e) => {
-
-    const { customer_order_id, sl_no } = getValues();
-    try {
-      const data = await fetchOrderItem(customer_order_id, sl_no);
-      console.log(data)
-      Object.keys(data.data.item_data).forEach((key) => {
-        setValue(`table.${key}`, data.data.item_data[key]);
-      });
-
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  }
 
   const handleDelete = (index) => {
     setRows((prev) => {
@@ -333,13 +327,6 @@ const KarigarIssue = () => {
     setPickerOpen(false);
   };
 
-function transformData(jsonData, labelKey) {
-    return jsonData.map(item => ({
-        value: item.id,
-        label: item[labelKey] || "N/A"  // Fallback to "N/A" if the labelKey doesn't exist
-    }));
-}
-
   const handleKeyDown = (e) => {
 
 
@@ -348,6 +335,21 @@ function transformData(jsonData, labelKey) {
       const table = getValues("table");
       // Re-attach CO-linkage if this is an edit-cycle add-back.
       const merged = editingMetaRef.current ? { ...table, ...editingMetaRef.current } : table;
+
+      // Require item, purity, and pcs — remarks is optional
+      if (!merged.item) {
+        toast({ title: "Main Item is required", variant: "destructive" });
+        return;
+      }
+      if (!merged.purity) {
+        toast({ title: "Purity is required", variant: "destructive" });
+        return;
+      }
+      if (!merged.pcs && merged.pcs !== 0) {
+        toast({ title: "Pcs is required", variant: "destructive" });
+        return;
+      }
+
       // Block duplicate CO items — the same customer_order_item must not appear twice.
       if (merged.customer_order_item && rs.some(r => r.customer_order_item === merged.customer_order_item)) {
         toast({
@@ -364,6 +366,7 @@ function transformData(jsonData, labelKey) {
       }
       setRows([...rs, rowVals])
       editingMetaRef.current = null;
+      setTableItemLabel("");
       reset({form:{...getValues('form')},table:{...tableDefaultValue}})
       setFocus('table.design_code')
 
@@ -373,324 +376,232 @@ function transformData(jsonData, labelKey) {
   };
 
   return (
-    <div className="mt-5">
-      <form
-        className="p-4 shadow-lg rounded-lg bg-white"
-        id="orderForm"
-        onSubmit={handleSubmit(onSubmit)}
-      >
-        <h6 className="text-lg font-semibold">Karigar Issue</h6>
-        <hr className="my-3" />
+    <div className="w-[96%] max-w-[1500px] mx-auto px-4 py-6 space-y-4">
 
-        <div className="grid grid-cols-3 gap-12 mb-4">
-        <FieldContainer>
-            <Label htmlFor="party_name_display" className="text-nowrap">Barcode </Label>
-            
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => navigate("/manufacturing/issue/jobwork")}
+          className="hover:text-foreground transition-colors cursor-pointer"
+        >
+          Karigar Job Work
+        </button>
+        <ChevronRight className="size-3" />
+        <span className="text-foreground font-medium">
+          {id ? watch("form.issue_slip_no") || "Edit Job Work" : "New Job Work"}
+        </span>
+      </div>
 
-            <Input list="barcode_list" type="text" {...register("table.barcode")}/>
-                <datalist id="barcode_list">
-                  {barCodes.map((itm, idx) => (
-                    <option key={idx} value={itm.barcode}>
-                      {itm.barcode}
-                    </option>
-                  ))}
-                </datalist>
-            
-          </FieldContainer>
-          <FieldContainer>
-            <Button onClick={async (e) => {
-              e.preventDefault()
-              const barcode = getValues("table.barcode");
-              try {
-                const response = await convertBarcode(barcode);
-                if (response.success) {
-                  toast({ title: "Converted to unbarcoded" });
-                  // Refresh the unbarcoded list inline instead of reloading the page.
-                  const list = await fetchUnBarcodedList({});
-                  if (list.success) {
-                    setUnbarcodedList((list.data.results || list.data || []).map(
-                      (u) => ({ value: u.id, label: `${u.item_desc || ''} — ${u.gw}g` })
-                    ));
-                  }
-                } else {
-                  toast({ title: "Convert failed", description: JSON.stringify(response.error), variant: "destructive" });
-                }
-              } catch (error) {
-                console.error("Error fetching barcode data:", error);
-              }
-            }}>
-              Convert to unbarcoded
-            </Button>
-            
-          </FieldContainer>
-
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">
+            {id ? "Edit Karigar Job Work" : "New Karigar Job Work"}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {id ? "Update job work details and items below" : "Fill in the details to raise a new karigar job work"}
+          </p>
         </div>
-        <div className="grid grid-cols-3 gap-12 mb-4">
-          <FieldContainer><Label htmlFor="date">Date</Label>
-            <Input type="date" {...register("form.date1")} required /></FieldContainer>
-          <FieldContainer>
-            <Label htmlFor="issue_slip_no" className="text-nowrap">Slip No</Label>
-            <Input type="text" {...register("form.issue_slip_no")} readOnly disabled />
-          </FieldContainer>
-          <FieldContainer>
-            <Label htmlFor="salesperson1" className="text-nowrap">Slip Type</Label>
-            <Controller
-              name="form.issue_slip_type"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  disabled={rs.length > 0}
-                >
-                  <SelectTrigger
-                    data-id="slip-type"
-                    className={rs.length > 0 ? 'opacity-70 cursor-not-allowed' : ''}
-                    title={rs.length > 0 ? 'Slip Type is locked because items have been added. Remove all items to change it.' : undefined}
-                  >
-                    <SelectValue placeholder="Select Slip type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem key={0} value={`Customer Order`}>Customer Order</SelectItem>
-                    <SelectItem key={1} value={`Stock`}>Stock</SelectItem>
-                    <SelectItem key={2} value={`Repair`}>Repair</SelectItem>
-
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {rs.length > 0 && (
-              <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                Locked — remove all items to change type.
-              </p>
-            )}
-
-          </FieldContainer>
-
-
-        </div>
-
-
-        {/* Party Details */}
-        <div className="grid grid-cols-3 gap-12 mb-4">
-          <FieldContainer>
-            <Label htmlFor="party_name_display" className="text-nowrap">Karigar Name </Label>
-            <SearchableComboBox
-              options={customers}
-              value={watch("form.karigar_ldgr_name") ?? ""}
-              onSelect={(opt) => {
-                setValue("form.karigar_ldgr_name", opt.ac_name)
-                setValue("form.karigar_ldgr", opt.id)
-              }}
-              placeholder="Search karigar…"
-            />
-            <input type="hidden" {...register("form.karigar_ldgr")} />
-          </FieldContainer>
-
-          <FieldContainer>
-            <Label htmlFor="party_name_display" className="text-nowrap">Order No</Label>
-            <Input list="customer_order_list"
-              onBlur={handleBlur}
-              onChange={(e) => {
-                const selectedCustomerOrder = customerOrders.find(
-                  (customerOrder) => customerOrder.order_no === e.target.value
-                );
-                selectedCustomerOrder ? setValue("customer_order_id", selectedCustomerOrder.id) : e.target.value;
-
-              }} disabled={slip_type === 'Stock'} readOnly={slip_type === 'Stock'} />
-            <Input type="hidden" {...register("form.ldgr_code")} />
-            <datalist id="customer_order_list" >
-              {customerOrders.map((customerOrders, index) => (
-                <option key={index} value={customerOrders.order_no}></option>
-
-              ))}
-
-            </datalist>
-          </FieldContainer>
-
-
-          <FieldContainer>
-            <Label htmlFor="serial_no_list" className="text-nowrap">Sl No</Label>
-            <Input list="serial_no_list"
-
-              {...register("sl_no", {
-                onBlur: handleBlur1
-              })}
-              disabled={getValues("form.issue_slip_type") === 'Stock'} readOnly={getValues("form.issue_slip_type") === 'Stock'} />
-            <Input type="hidden" {...register("customer_order_item")} />
-            <datalist id="serial_no_list" >
-              {serialNos.map((serialNo, index) => (
-                <option key={index} value={serialNo.sl_no}></option>
-
-              ))}
-
-            </datalist>
-          </FieldContainer>
-        </div>
-
-        {/* Item Details */}
-        <div className="flex items-center justify-between my-3">
-          <h6 className="text-lg font-semibold">Order Item Detail</h6>
-          {slip_type === "Customer Order" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPickerOpen(true)}
-              className="cursor-pointer h-8 px-3 text-xs gap-1.5"
-            >
-              <ShoppingCart className="size-3.5" />
-              Pick from Customer Orders
-              {pendingItems.length > 0 && (
-                <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 min-w-4 h-4">
-                  {pendingItems.length}
-                </span>
-              )}
-            </Button>
-          )}
-        </div>
-        <Table className="w-full table-fixed border-collapse">
-          <TableBody>
-            <TableRow className=" w-full bg-gray-100">
-              <TableCell className="w-20 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Option</TableCell>
-              <TableCell className="w-16 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sl No</TableCell>
-              <TableCell className="w-40 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Source</TableCell>
-              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Design No</TableCell>
-              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Main Item</TableCell>
-              <TableCell className="w-20 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Purity</TableCell>
-              <TableCell className="w-16 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pcs</TableCell>
-
-              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Approx wt</TableCell>
-              <TableCell className="w-16 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Size</TableCell>
-              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Due Date</TableCell>
-
-              <TableCell className="w-32 px-4 py-2 border text-xs font-semibold uppercase tracking-wide text-muted-foreground">Remarks</TableCell>
-            </TableRow>
-
-            <TableRow>
-              <TableCell className="w-32 px-4 py-2 border"></TableCell>
-              {/* Sl No — auto-assigned on Tab */}
-              <TableCell className="w-16 px-4 py-2 border align-middle text-xs text-muted-foreground italic">
-                auto
-              </TableCell>
-              {/* Source — only auto-set when item comes from a Customer Order */}
-              <TableCell className="w-40 px-4 py-2 border align-middle text-xs text-muted-foreground italic">
-                —
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input type="text" {...register("table.design_code")} />
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input list="item_list" {...register("table.item")} />
-                <datalist id="item_list">
-                  {mainItemData.map((item, index) => (
-                    <option key={index} value={item.short_code}  > {item.item_name}</option>
-                  ))}
-
-                </datalist>
-              </TableCell>
-              <TableCell className="w-20 px-4 py-2 border">
-                <Controller
-                  name="table.purity"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger data-id="purity">
-                        <SelectValue placeholder="Select Purity" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {purityData.map((item, index) => (
-                          <SelectItem key={index} value={`${item.purity}`}  > {item.purity}</SelectItem>
-                        ))}
-
-
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-
-              </TableCell>
-{/* Sample-issue picker moved to the dedicated Sample Issue form. */}
-              <TableCell className="w-16 px-4 py-2 border">
-                <Input type="number" {...register("table.pcs")} />
-              </TableCell>
-
-
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input type="number" {...register("table.approx_wt")} />
-              </TableCell>
-              <TableCell className="w-16 px-4 py-2 border">
-                <Input type="text" {...register("table.size")} />
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input type="date" {...register("table.due_date")} />
-              </TableCell>
-              <TableCell className="w-32 px-4 py-2 border">
-                <Input onKeyDown={(e) => handleKeyDown(e)} type="text" {...register("table.remarks")} />
-              </TableCell>
-            </TableRow>
-            {rs.map((row, index) => (
-              <TableRow key={index} className="w-full bg-white">
-                <TableCell className="w-32 px-4 py-2 border">
-                  <div className="flex gap-4">
-                    <SquarePen className="size-4 mr-1 cursor-pointer" onClick={() => handleEdit(index)} />
-
-                    <Trash2 color="#d45959" className="size-4 mr-1 cursor-pointer" onClick={() => handleDelete(index)} />
-                  </div>
-                </TableCell>
-                {/* Sl No — this job work's own sequence */}
-                <TableCell className="w-16 px-4 py-2 border font-semibold tabular-nums">{row.issue_sl_no ?? index + 1}</TableCell>
-                {/* Source — violet pill when linked to a Customer Order, em-dash otherwise */}
-                <TableCell className="w-40 px-4 py-2 border">
-                  {row._co_display ? (
-                    <div
-                      className="inline-flex flex-col gap-0.5 max-w-full rounded-md border border-violet-200 bg-violet-50 px-2 py-1 leading-tight"
-                      title={`Linked to Customer Order ${row._co_display.co_no}\nCustomer: ${row._co_display.customer_name ?? ''}\nCO Sl No: ${row._co_display.sl_no ?? '—'}${row._co_display.co_date ? `\nCO Date: ${row._co_display.co_date}` : ''}`}
-                    >
-                      <span className="flex items-center gap-1 text-[11px] font-semibold text-violet-800 truncate">
-                        <Link2 className="size-3 shrink-0" />
-                        {row._co_display.co_no}
-                      </span>
-                      <span className="text-[10px] text-violet-700/80 truncate">
-                        {row._co_display.customer_name ?? '—'} · Sl {row._co_display.sl_no ?? '—'}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.design_code || <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">
-                  {row._co_display?.item_name ? (
-                    <div>
-                      <span className="font-medium">{row._co_display.item_name}</span>
-                      {row.item && <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{row.item}</p>}
-                    </div>
-                  ) : (row.item || <span className="text-muted-foreground">—</span>)}
-                </TableCell>
-                <TableCell className="w-20 px-4 py-2 border">{row.purity || <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border tabular-nums">{row.pcs ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border tabular-nums">{row.approx_wt ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell className="w-16 px-4 py-2 border">{row.size || <span className="text-muted-foreground">—</span>}</TableCell>
-                <TableCell className="w-32 px-4 py-2 border">{row.due_date || <span className="text-muted-foreground">—</span>}</TableCell>
-
-                <TableCell className="w-32 px-4 py-2 border">{row.remarks || <span className="text-muted-foreground">—</span>}</TableCell>
-              </TableRow>
-            ))}
-
-
-
-          </TableBody>
-        </Table>
-
-
-        {/* Submit */}
-        <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
-          <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white">
-            Save
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => window.history.back()} className="cursor-pointer">
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSubmit(onSubmit)} className="min-w-24 cursor-pointer" disabled={saving}>
+            Save Job Work
           </Button>
         </div>
+      </div>
+
+      <form id="orderForm" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+        {/* Card 1: Job Work Reference */}
+        <SectionCard title="Job Work Reference">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+
+            <Field label="Date" required>
+              <Input type="date" {...register("form.date1")} required />
+            </Field>
+
+            <Field label="Slip No">
+              <span className="inline-flex items-center px-3 h-9 rounded-md bg-primary/5 border border-primary/20 text-primary text-sm font-semibold truncate">
+                {watch("form.issue_slip_no") || <span className="text-primary/50 text-xs font-normal">Auto-generating…</span>}
+              </span>
+              <input type="hidden" {...register("form.issue_slip_no")} />
+            </Field>
+
+            <Field label="Slip Type">
+              <Controller
+                name="form.issue_slip_type"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value} disabled={rs.length > 0}>
+                    <SelectTrigger
+                      className={`cursor-pointer ${rs.length > 0 ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      title={rs.length > 0 ? 'Slip Type is locked because items have been added. Remove all items to change it.' : undefined}
+                    >
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Customer Order">Customer Order</SelectItem>
+                      <SelectItem value="Stock">Stock</SelectItem>
+                      <SelectItem value="Repair">Repair</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {rs.length > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Locked — remove all items to change type.</p>
+              )}
+            </Field>
+
+            <Field label="Karigar Name" required>
+              <SearchableComboBox
+                options={customers}
+                value={watch("form.karigar_ldgr_name") ?? ""}
+                onSelect={(opt) => {
+                  setValue("form.karigar_ldgr_name", opt.ac_name);
+                  setValue("form.karigar_ldgr", opt.id);
+                }}
+                placeholder="Search karigar…"
+                autoFocus={!id}
+              />
+              <input type="hidden" {...register("form.karigar_ldgr")} />
+            </Field>
+
+          </div>
+        </SectionCard>
+
+        {/* Card 2: Item Details */}
+        <SectionCard
+          title="Item Details"
+          action={
+            <div className="flex items-center gap-3">
+              {rs.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {rs.length} item{rs.length !== 1 ? "s" : ""}
+                </span>
+              )}
+              {slip_type === "Customer Order" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPickerOpen(true)}
+                  className="cursor-pointer h-7 px-2.5 text-xs gap-1.5"
+                >
+                  <ShoppingCart className="size-3.5" />
+                  Pick from Customer Orders
+                  {pendingItems.length > 0 && (
+                    <span className="inline-flex items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold px-1.5 min-w-4 h-4">
+                      {pendingItems.length}
+                    </span>
+                  )}
+                </Button>
+              )}
+            </div>
+          }
+        >
+          <div className="overflow-x-auto rounded-md border border-border">
+            <Table className="w-full text-sm min-w-[1100px]">
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  {["", "Sl No", "Design No", "Main Item", "Purity", "Pcs", "Approx Wt", "Size", "Due Date", "Remarks"].map((h, i) => (
+                    <TableHead key={i} className="px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap first:w-16">
+                      {h}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* Input row */}
+                <TableRow className="bg-primary/[0.03] border-b-2 border-primary/10 align-top">
+                  <TableCell className="px-3 py-2 w-16" />
+                  <TableCell className="px-2 py-2 w-16 align-middle text-xs text-muted-foreground italic">auto</TableCell>
+                  <TableCell className="px-2 py-2 w-28">
+                    <Input type="text" className="h-8 text-sm" {...register("table.design_code")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 min-w-[200px]">
+                    <input type="hidden" {...register("table.item")} />
+                    <div ref={itemComboRef}>
+                      <SearchableComboBox
+                        options={mainItemData}
+                        labelKey="item_name"
+                        searchKeys={["short_code"]}
+                        value={tableItemLabel}
+                        onSelect={(opt) => {
+                          setValue("table.item", opt.short_code);
+                          setTableItemLabel(opt.item_name);
+                        }}
+                        placeholder="Search item…"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-2 py-2 w-28">
+                    <Controller
+                      name="table.purity"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className="h-8 text-sm cursor-pointer">
+                            <SelectValue placeholder="Purity" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {purityData.map((item, i) => (
+                              <SelectItem key={i} value={`${item.purity}`}>{item.purity}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 w-20">
+                    <Input type="number" className="h-8 text-sm" {...register("table.pcs")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 w-28">
+                    <Input type="number" className="h-8 text-sm" {...register("table.approx_wt")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 w-20">
+                    <Input type="text" className="h-8 text-sm" {...register("table.size")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 w-32">
+                    <Input type="date" className="h-8 text-sm" {...register("table.due_date")} />
+                  </TableCell>
+                  <TableCell className="px-2 py-2 w-32">
+                    <Input type="text" className="h-8 text-sm" onKeyDown={(e) => handleKeyDown(e)} {...register("table.remarks")} />
+                  </TableCell>
+                </TableRow>
+
+                {/* Data rows */}
+                {rs.map((row, index) => (
+                  <TableRow key={index} className="odd:bg-muted/10 hover:bg-muted/20 transition-colors">
+                    <TableCell className="px-3 py-2">
+                      <div className="flex gap-2">
+                        <SquarePen className="size-4 cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => handleEdit(index)} />
+                        <Trash2 className="size-4 cursor-pointer text-destructive/70 hover:text-destructive" onClick={() => handleDelete(index)} />
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-3 py-2 font-semibold tabular-nums">{row.issue_sl_no ?? index + 1}</TableCell>
+                    <TableCell className="px-3 py-2">{row.design_code || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2">
+                      {row.item
+                        ? (mainItemData.find(i => i.short_code === row.item)?.item_name ?? row.item)
+                        : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="px-3 py-2">{row.purity || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2 tabular-nums">{row.pcs ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2 tabular-nums">{row.approx_wt ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2">{row.size || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2">{row.due_date || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2 text-muted-foreground">{row.remarks || "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </SectionCard>
+
       </form>
 
       {/* Customer Order Picker Modal */}

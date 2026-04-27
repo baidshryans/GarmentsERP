@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
+import { Link } from 'react-router-dom';
 import { getFiscalYears, setActiveFiscalYear } from '@/services/apiService';
 import { useToast } from '@/hooks/use-toast';
 
@@ -99,9 +100,9 @@ export function FiscalYearSwitcher() {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <a href="/masters/fiscal-years" className="gap-2 cursor-pointer text-xs text-muted-foreground">
+                <Link to="/setup/fiscal-years" className="gap-2 cursor-pointer text-xs text-muted-foreground">
                   Manage fiscal years
-                </a>
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

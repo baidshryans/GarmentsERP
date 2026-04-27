@@ -46,6 +46,7 @@ const AddJournal = () => {
   const [mainItemData, setMainItemData] = useState([]);
   const [allocations, setAllocations] = useState([]);  // bill-wise allocations for current party row
   const [narrationForSuggestion, setNarrationForSuggestion] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [savedVoucherId, setSavedVoucherId] = useState(id || null);
   const [savedAttachments, setSavedAttachments] = useState([]);   // already uploaded (edit mode)
   const [pendingFiles, setPendingFiles]         = useState([]);   // queued (add mode, uploaded on save)
@@ -146,6 +147,7 @@ const AddJournal = () => {
       return;
     }
 
+    setSaving(true);
     (id ? updateJournalEntryForEdit(form,id) : createJournalEntry(form))
       .then(async (response) => {
 
@@ -172,6 +174,7 @@ const AddJournal = () => {
           toast({ title: "Voucher saved successfully!" });
           navigate(`/accounting/AddJournal/${journal_type}`);
         } else {
+          setSaving(false);
           // Surface the actual server-side error message (covers 269ST / 40A(3) limit errors)
           const err = response.error;
           let description = "There was a problem with your request.";
@@ -191,6 +194,7 @@ const AddJournal = () => {
         }
       })
       .catch((error) => {
+        setSaving(false);
         console.error("Error submitting form:", error);
         toast({ title: "An error occurred. Please try again later.", variant: "destructive" });
       });
@@ -689,7 +693,7 @@ const AddJournal = () => {
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={uploadingFiles}>
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || uploadingFiles}>
             {uploadingFiles ? "Uploading files…" : "Save"}
           </Button>
         </div>

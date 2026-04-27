@@ -44,6 +44,7 @@ const GoldIssue = () => {
   });
   const navigate = useNavigate();
   const [rs, setRows] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [salespersonData, setSalespersonData] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -152,6 +153,7 @@ const GoldIssue = () => {
     }
     const da = getValues('form')
     da.karigargoldissue_set = [...rs];
+    setSaving(true);
     (!id ? createKarigarGoldIssue(da) : updateGoldIssue(id, da))
       .then((response) => {
 
@@ -163,6 +165,7 @@ const GoldIssue = () => {
             navigate("/manufacturing/issue/goldissue/")
           }, 2000);
         } else {
+          setSaving(false);
           toast({
             title: "Form submission failed. Please try again.",
             description: renderErrorTree(response.error),
@@ -170,6 +173,7 @@ const GoldIssue = () => {
         }
       })
       .catch((error) => {
+        setSaving(false);
         console.error("Error submitting form:", error);
         toast({ title: "An error occurred. Please try again later." });  // Error toast on catch
       });
@@ -396,10 +400,10 @@ const GoldIssue = () => {
               </TableCell>
               
               <TableCell className="w-16 px-4 py-2 border">
-                <Input type="text" {...register("table.alloy_wt")} />
+                <Input type="text" {...register("table.alloy_wt")} readOnly className="bg-muted cursor-not-allowed" />
               </TableCell>
               <TableCell className="w-16 px-4 py-2 border">
-                <Input type="text" {...register("table.conv_wt")} />
+                <Input type="text" {...register("table.conv_wt")} readOnly className="bg-muted cursor-not-allowed" />
               </TableCell>
               <TableCell className="w-32 px-4 py-2 border">
                 <Input onKeyDown={(e) => handleKeyDown(e)} type="text" {...register("table.remarks")} />
@@ -436,7 +440,7 @@ const GoldIssue = () => {
         {/* Submit */}
         <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white">
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
             Save
           </Button>
         </div>

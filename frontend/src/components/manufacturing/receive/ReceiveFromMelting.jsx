@@ -44,6 +44,7 @@ const ReceiveFromMelting = () => {
 
     const { fields, append, remove, replace } = useFieldArray({ control, name: "table" });
 
+    const [saving, setSaving] = useState(false);
     const [meltingHouses, setMeltingHouses] = useState([]);
     const [purityData, setPurityData] = useState([]);
     const [issueNumbers, setIssueNumbers] = useState([]);
@@ -107,19 +108,21 @@ const ReceiveFromMelting = () => {
         delete form.ldgr_name;
         form.meltingreceivedetail_set = tableRows;
 
+        setSaving(true);
         (id ? updateMeltingReceiveForEdit(form, id) : createMeltingReceive(form))
             .then((response) => {
                 if (response.success) {
                     toast({ title: "Saved successfully!" });
                     setTimeout(() => navigate("/manufacturing/receive/melting/"), 1500);
                 } else {
+                    setSaving(false);
                     toast({
                         title: "Submission failed.",
                         description: renderErrorTree(response.error),
                     });
                 }
             })
-            .catch(() => toast({ title: "An error occurred. Please try again." }));
+            .catch(() => { setSaving(false); toast({ title: "An error occurred. Please try again." }); });
     };
 
     useF4Submit(handleSubmit(onSubmit));
@@ -302,7 +305,7 @@ const ReceiveFromMelting = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary text-white">
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
                         Save
                     </Button>
                 </div>

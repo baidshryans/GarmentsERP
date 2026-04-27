@@ -261,7 +261,14 @@ export default function OpeningStockForm() {
           labelKey="pckt_no"
           value={form.packet_label}
           placeholder="Select packet…"
-          onSelect={(opt) => set({ packet: String(opt.id), packet_label: opt.pckt_no })}
+          onSelect={(opt) => {
+              const patch = { packet: String(opt.id), packet_label: opt.pckt_no };
+              if (opt.stone_item_id && opt.stone_item_name) {
+                patch.item = String(opt.stone_item_id);
+                patch.item_name = opt.stone_item_name;
+              }
+              set(patch);
+            }}
         />
       </div>
 

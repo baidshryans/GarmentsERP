@@ -816,6 +816,10 @@ class SalesVouSerializer(serializers.ModelSerializer):
             create_or_update_nested(BankDetails,sales_vou_instance,'bank_details','sales_vou',BankDetails(bank_details,many=True).data)
 
             for detail_data in item_Details:
+                # Drop FE-echoed FK fields so **detail_data doesn't collide
+                # with the explicit billno kwarg.
+                detail_data = {k: v for k, v in detail_data.items()
+                               if k not in {"billno", "main_item", "id"}}
                 detail_instance = SalesVouItemDetails.objects.create(billno=sales_vou_instance, **detail_data)
                 item_detail_instances.append(detail_instance)
 
@@ -1079,8 +1083,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
             # These were previously dropped on update — now they are properly saved.
             instance.salesvouitemdetails_set.filter(main_item=None).delete()
             for raw in item_details_data:
-                raw.pop('id', None)
-                raw.pop('billno', None)
+                raw = {k: v for k, v in raw.items()
+                       if k not in {"id", "billno", "main_item", "retail"}}
                 SalesVouItemDetails.objects.create(billno=instance, main_item=None, **raw)
 
             sales_vou_instance = instance

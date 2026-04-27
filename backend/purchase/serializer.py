@@ -787,6 +787,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             # Rebuild direct details (those without a main item)
             instance.purchasevoucherdetails_set.filter(main_item=None).delete()
             for detail_data in direct_details_data:
+                # FE may echo back fields we set explicitly below — drop them so
+                # **detail_data doesn't double-pass billno/main_item/retail.
+                detail_data = {k: v for k, v in detail_data.items()
+                               if k not in {"billno", "main_item", "retail", "id"}}
                 PurchaseVoucherDetails.objects.create(
                     billno=instance,
                     main_item=None,

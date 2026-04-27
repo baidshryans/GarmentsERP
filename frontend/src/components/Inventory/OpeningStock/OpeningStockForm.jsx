@@ -167,7 +167,7 @@ export default function OpeningStockForm() {
               onClick={() => handleTypeChange(t.key)}
               className={`px-4 py-1.5 rounded text-sm font-medium transition-colors ${
                 form.type === t.key
-                  ? "bg-blue-500 text-white"
+                  ? "bg-primary text-primary-foreground"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >

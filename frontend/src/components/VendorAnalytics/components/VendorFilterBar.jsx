@@ -41,7 +41,10 @@ export default function VendorFilterBar({ onApply, loading = false }) {
     });
 
     fetchRetails().then((res) => {
-      if (res?.success) setRetails(res.data ?? []);
+      if (res?.success) {
+        const data = res.data;
+        setRetails(Array.isArray(data) ? data : (data?.results ?? []));
+      }
     });
   }, []);
 

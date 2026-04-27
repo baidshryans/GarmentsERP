@@ -168,15 +168,15 @@ class DesignPerformanceService:
 
     def get_data(self):
         barcodes = list(self._base_qs())
-        barcode_pks = [b.barcode for b in barcodes]
+        barcode_pks = [b.id for b in barcodes]
 
-        # Build sold map: barcode_id -> sale_date
+        # Build sold map: BarcodeMain.id -> sale_date
         sold_map = {}
         for svi in SalesVouItem.objects.filter(
             barcode_id__in=barcode_pks
-        ).select_related('bill'):
-            if svi.bill_id and svi.bill.date1:
-                sold_map[svi.barcode_id] = svi.bill.date1
+        ).select_related('billno'):
+            if svi.billno_id and svi.billno.date1:
+                sold_map[svi.barcode_id] = svi.billno.date1
 
         by_design = {}
         for b in barcodes:
@@ -194,8 +194,8 @@ class DesignPerformanceService:
             entry['pcs_purchased'] += 1
             entry['total_value'] += float(b.total_amount or 0)
 
-            if b.barcode in sold_map:
-                sale_date = sold_map[b.barcode]
+            if b.id in sold_map:
+                sale_date = sold_map[b.id]
                 purchase_date = b.pur_voucher.billno.date1
                 days = max(0, (sale_date - purchase_date).days)
                 entry['pcs_sold'] += 1
@@ -272,12 +272,13 @@ class InventoryTurnoverService:
         return float(qs.aggregate(Sum('item_value'))['item_value__sum'] or 0)
 
     def _returns_in_range(self, from_date, to_date):
-        qs = PurchaseReturnItems.objects.filter(
-            billno__ldgr_id=self.vendor_id,
-            billno__retail_id=self.retail_id,
-            billno__date1__range=[from_date, to_date],
+        from purchase.models import PurchaseReturn
+        qs = PurchaseReturn.objects.filter(
+            ldgr_id=self.vendor_id,
+            retail_id=self.retail_id,
+            date1__range=[from_date, to_date],
         )
-        return float(qs.aggregate(Sum('item_value'))['item_value__sum'] or 0)
+        return float(qs.aggregate(Sum('bill_value'))['bill_value__sum'] or 0)
 
     def _period_metrics(self, from_date, to_date):
         opening = self._inv_value_before(from_date)
@@ -338,10 +339,10 @@ class InventoryTurnoverService:
 
         # YoY comparison
         yoy = []
-        for fy in FiscalYearMaster.objects.filter(retail_id=self.retail_id).order_by('from_date'):
-            m = self._period_metrics(fy.from_date, fy.to_date)
+        for fy in FiscalYearMaster.objects.filter(retail_id=self.retail_id).order_by('fy_start'):
+            m = self._period_metrics(fy.fy_start, fy.fy_end)
             yoy.append({
-                'fy': fy.fy_name,
+                'fy': fy.fy_code,
                 'turnover_ratio': m['turnover_ratio'],
                 'days_inventory': m['days_inventory'],
             })
@@ -375,7 +376,7 @@ class ItemPerformanceService:
             pur_voucher__isnull=False,
             pur_voucher__billno__ldgr_id=self.vendor_id,
             retail_id=self.retail_id,
-        ).select_related('item', 'pur_voucher')
+        ).select_related('item', 'pur_voucher', 'pur_voucher__billno')
         if self.from_date:
             qs = qs.filter(pur_voucher__billno__date1__gte=self.from_date)
         if self.to_date:
@@ -390,23 +391,24 @@ class ItemPerformanceService:
 
     def get_data(self):
         barcodes = list(self._base_qs())
-        barcode_pks = [b.barcode for b in barcodes]
+        barcode_pks = [b.id for b in barcodes]
 
-        # Sales map: barcode_id -> {gw, item_value}
+        # Sales map: BarcodeMain.id -> {gw, sale_value}
         sales_map = {}
         for svi in SalesVouItem.objects.filter(
             barcode_id__in=barcode_pks
         ).select_related():
             sales_map[svi.barcode_id] = {
                 'gw': float(svi.gw or 0),
-                'item_value': float(svi.item_value or 0),
+                'sale_value': float(svi.amount or 0),
             }
 
-        # Returns map: set of pur_voucher_ids that have a PurchaseReturnItem
-        pv_item_ids = [b.pur_voucher_id for b in barcodes if b.pur_voucher_id]
+        # Returns map: set of PurchaseVoucher IDs that have a purchase return
+        from purchase.models import PurchaseReturn
+        pv_ids = set(b.pur_voucher.billno_id for b in barcodes if b.pur_voucher_id)
         returned_pv_ids = set(
-            PurchaseReturnItems.objects.filter(pvitem_id__in=pv_item_ids)
-            .values_list('pvitem_id', flat=True)
+            PurchaseReturn.objects.filter(purchase_voucher_ref_id__in=pv_ids)
+            .values_list('purchase_voucher_ref_id', flat=True)
         )
 
         by_item = {}
@@ -429,14 +431,14 @@ class ItemPerformanceService:
             entry['pcs_purchased'] += 1
             entry['gw_purchased'] += float(b.gw or 0)
 
-            if b.pur_voucher_id in returned_pv_ids:
+            if b.pur_voucher_id and b.pur_voucher.billno_id in returned_pv_ids:
                 entry['pcs_returned'] += 1
 
-            if b.barcode in sales_map:
-                s = sales_map[b.barcode]
+            if b.id in sales_map:
+                s = sales_map[b.id]
                 entry['pcs_sold'] += 1
                 entry['gw_sold'] += s['gw']
-                entry['sale_value'] += s['item_value']
+                entry['sale_value'] += s['sale_value']
                 entry['purchase_cost'] += float(b.total_amount or 0)
 
         items = []
@@ -478,13 +480,8 @@ class VendorDashboardService:
 
     def _vendor_name(self):
         try:
-            from mastersconfig.models import Ledger
-            return Ledger.objects.get(pk=self.vendor_id).name
-        except Exception:
-            pass
-        try:
-            from mastersconfig.models import LedgerMaster
-            return LedgerMaster.objects.get(pk=self.vendor_id).name
+            from contacts.models import Ledger
+            return Ledger.objects.get(pk=self.vendor_id).ac_name
         except Exception:
             return f"Vendor {self.vendor_id}"
 

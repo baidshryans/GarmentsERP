@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import VendorFilterBar from '../components/VendorFilterBar';
-import KPICard from '../components/KPICard';
+import VendorFilterBar from './components/VendorFilterBar';
+import KPICard from './components/KPICard';
 import { fetchVendorDashboard } from '@/services/apiService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

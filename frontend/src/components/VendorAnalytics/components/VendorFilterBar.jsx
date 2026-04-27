@@ -14,11 +14,23 @@ const ITEM_TYPE_OPTIONS = [
   { value: 'C', label: 'Casting' },
 ];
 
+/** Returns YYYY-MM-DD string for the start of the current Indian fiscal year (April 1). */
+function fyStartDate() {
+  const today = new Date();
+  const year = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  return `${year}-04-01`;
+}
+
+/** Returns YYYY-MM-DD string for today. */
+function todayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function VendorFilterBar({ onApply, loading = false }) {
   const [filters, setFilters] = useState({
     vendor_id: '',
-    from_date: '',
-    to_date: '',
+    from_date: fyStartDate(),
+    to_date: todayDate(),
     item_type: '',
     purity_id: '',
     design_code: '',
@@ -53,7 +65,7 @@ export default function VendorFilterBar({ onApply, loading = false }) {
   };
 
   const handleApply = () => {
-    if (!filters.vendor_id || filters.vendor_id === '__all__') {
+    if (!filters.vendor_id) {
       alert('Please select a vendor');
       return;
     }
@@ -69,14 +81,13 @@ export default function VendorFilterBar({ onApply, loading = false }) {
       <div className="flex flex-col gap-1">
         <Label>Vendor</Label>
         <Select
-          value={filters.vendor_id || '__all__'}
+          value={filters.vendor_id}
           onValueChange={(val) => handleChange('vendor_id', val)}
         >
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="All Vendors" />
+            <SelectValue placeholder="Select vendor…" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Vendors</SelectItem>
             {vendors.map((v) => (
               <SelectItem key={v.id} value={String(v.id)}>
                 {v.ac_name}

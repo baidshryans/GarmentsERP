@@ -1,0 +1,27 @@
+import { useNavigate } from 'react-router-dom';
+
+const variantClasses = {
+  default: 'border-gray-200',
+  success: 'border-green-300 bg-green-50',
+  warning: 'border-amber-300 bg-amber-50',
+  danger: 'border-red-300 bg-red-50',
+};
+
+export default function KPICard({ title, value, subtitle, icon, navigateTo, variant = 'default' }) {
+  const navigate = useNavigate();
+
+  return (
+    <div
+      className={`rounded-lg border p-4 flex flex-col gap-1 ${variantClasses[variant]} ${navigateTo ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      onClick={navigateTo ? () => navigate(navigateTo) : undefined}
+      role={navigateTo ? 'button' : undefined}
+    >
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>{title}</span>
+        {icon && <span className="text-muted-foreground">{icon}</span>}
+      </div>
+      <div className="text-2xl font-bold">{value}</div>
+      {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
+    </div>
+  );
+}

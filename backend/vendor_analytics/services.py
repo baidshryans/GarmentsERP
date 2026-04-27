@@ -44,10 +44,11 @@ class StockAgeingService:
 
     def _base_qs(self):
         qs = BarcodeMain.objects.filter(
+            pur_voucher__isnull=False,
             pur_voucher__billno__ldgr_id=self.vendor_id,
             stk_status=True,
             retail_id=self.retail_id,
-        ).select_related('item', 'purity', 'pur_voucher__billno')
+        ).select_related('item', 'pur_voucher__billno')
         if self.from_date:
             qs = qs.filter(pur_voucher__billno__date1__gte=self.from_date)
         if self.to_date:
@@ -80,7 +81,7 @@ class StockAgeingService:
 
         for b in self._base_qs():
             purchase_date = b.pur_voucher.billno.date1
-            age_days = (self.today - purchase_date).days
+            age_days = max(0, (self.today - purchase_date).days)
             bucket = self._bucket(age_days)
             value = float(b.total_amount or 0)
 

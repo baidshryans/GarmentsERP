@@ -2137,7 +2137,7 @@ class RawMaterialBalanceReportView(APIView):
                 'item_name': rm.item.item_name,
                 'item_type': rm.item.item_type,
                 'packet': rm.packet.pckt_no if rm.packet else None,
-                'purity': str(rm.purity) if rm.purity else None,
+                'purity': rm.purity.purity if rm.purity else None,
                 'pcs': rm.pcs,
                 'ct': float(rm.ct),
                 'gw': float(rm.gw),
@@ -2193,7 +2193,7 @@ class RawMaterialMovementLedgerView(APIView):
                 'trans_type': txn.trans_type,
                 'billno': txn.billno,
                 'packet': txn.packet.pckt_no if txn.packet else None,
-                'purity': str(txn.purity) if txn.purity else None,
+                'purity': txn.purity.purity if txn.purity else None,
                 'pcs': txn.pcs,
                 'ct': float(txn.ct),
                 'gw': float(txn.gw),
@@ -2778,6 +2778,19 @@ def inter_retail_transfer_next_no(request):
     return Response({'next_no': peek_next_bill_number(retail, 'IRT')})
 
 
+def _sync_opening_to_raw_material(item, purity, packet, retail, pcs, ct, gw):
+    from decimal import Decimal
+    rm, created = RawMaterialInventory.objects.get_or_create(
+        item=item, packet=packet, purity=purity, retail=retail,
+        defaults={'pcs': pcs, 'ct': Decimal(str(ct)), 'gw': Decimal(str(gw))},
+    )
+    if not created:
+        rm.pcs += pcs
+        rm.ct += Decimal(str(ct))
+        rm.gw += Decimal(str(gw))
+        rm.save(update_fields=['pcs', 'ct', 'gw'])
+
+
 class OpeningInventoryViewSet(RetailBaseViewset):
     serializer_class = OpeningInventorySerializer
     queryset = OpeningInventory.objects.select_related(
@@ -2795,4 +2808,27 @@ class OpeningInventoryViewSet(RetailBaseViewset):
         )
 
     def perform_create(self, serializer):
-        serializer.save(retail=self.request.retail)
+        instance = serializer.save(retail=self.request.retail)
+        _sync_opening_to_raw_material(
+            instance.item, instance.purity, instance.packet, instance.retail,
+            instance.pcs, instance.ct, instance.gw,
+        )
+
+    def perform_update(self, serializer):
+        old = serializer.instance
+        _sync_opening_to_raw_material(
+            old.item, old.purity, old.packet, old.retail,
+            -old.pcs, -old.ct, -old.gw,
+        )
+        instance = serializer.save()
+        _sync_opening_to_raw_material(
+            instance.item, instance.purity, instance.packet, instance.retail,
+            instance.pcs, instance.ct, instance.gw,
+        )
+
+    def perform_destroy(self, instance):
+        _sync_opening_to_raw_material(
+            instance.item, instance.purity, instance.packet, instance.retail,
+            -instance.pcs, -instance.ct, -instance.gw,
+        )
+        instance.delete()

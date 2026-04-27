@@ -175,7 +175,8 @@ class DesignPerformanceService:
         for svi in SalesVouItem.objects.filter(
             barcode_id__in=barcode_pks
         ).select_related('bill'):
-            sold_map[svi.barcode_id] = svi.bill.date1
+            if svi.bill_id and svi.bill.date1:
+                sold_map[svi.barcode_id] = svi.bill.date1
 
         by_design = {}
         for b in barcodes:
@@ -252,18 +253,20 @@ class InventoryTurnoverService:
         return float(val)
 
     def _inv_value_in_stock_at(self, cutoff_date):
-        """Sum of total_amount for vendor barcodes still in stock (stk_status=True)."""
+        """Sum of total_amount for vendor barcodes purchased on or before cutoff_date still in stock."""
         val = BarcodeMain.objects.filter(
             pur_voucher__isnull=False,
             pur_voucher__billno__ldgr_id=self.vendor_id,
             retail_id=self.retail_id,
             stk_status=True,
+            pur_voucher__billno__date1__lte=cutoff_date,
         ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
         return float(val)
 
     def _purchases_in_range(self, from_date, to_date):
         qs = PurchaseVoucherItems.objects.filter(
             billno__ldgr_id=self.vendor_id,
+            billno__retail_id=self.retail_id,
             billno__date1__range=[from_date, to_date],
         )
         return float(qs.aggregate(Sum('item_value'))['item_value__sum'] or 0)
@@ -271,6 +274,7 @@ class InventoryTurnoverService:
     def _returns_in_range(self, from_date, to_date):
         qs = PurchaseReturnItems.objects.filter(
             billno__ldgr_id=self.vendor_id,
+            billno__retail_id=self.retail_id,
             billno__date1__range=[from_date, to_date],
         )
         return float(qs.aggregate(Sum('item_value'))['item_value__sum'] or 0)
@@ -334,7 +338,7 @@ class InventoryTurnoverService:
 
         # YoY comparison
         yoy = []
-        for fy in FiscalYearMaster.objects.all().order_by('from_date'):
+        for fy in FiscalYearMaster.objects.filter(retail_id=self.retail_id).order_by('from_date'):
             m = self._period_metrics(fy.from_date, fy.to_date)
             yoy.append({
                 'fy': fy.fy_name,
@@ -462,11 +466,15 @@ class VendorDashboardService:
     Delegates sub-computations to the other vendor analytics services.
     """
 
-    def __init__(self, retail_id, vendor_id, from_date=None, to_date=None):
+    def __init__(self, retail_id, vendor_id, from_date=None, to_date=None,
+                 item_type=None, purity_id=None, design_code=None):
         self.retail_id = retail_id
         self.vendor_id = vendor_id
         self.from_date = _parse_date(from_date)
         self.to_date = _parse_date(to_date)
+        self.item_type = item_type or None
+        self.purity_id = int(purity_id) if purity_id else None
+        self.design_code = design_code or None
 
     def _vendor_name(self):
         try:
@@ -542,13 +550,16 @@ class VendorDashboardService:
 
         # Delegate to sub-services
         ageing_data = StockAgeingService(
-            self.retail_id, self.vendor_id, self.from_date, self.to_date
+            self.retail_id, self.vendor_id, self.from_date, self.to_date,
+            item_type=self.item_type, purity_id=self.purity_id, design_code=self.design_code,
         ).get_data()
         turnover_data = InventoryTurnoverService(
-            self.retail_id, self.vendor_id, self.from_date, self.to_date
+            self.retail_id, self.vendor_id, self.from_date, self.to_date,
+            item_type=self.item_type, purity_id=self.purity_id, design_code=self.design_code,
         ).get_data()
         design_data = DesignPerformanceService(
-            self.retail_id, self.vendor_id, self.from_date, self.to_date
+            self.retail_id, self.vendor_id, self.from_date, self.to_date,
+            item_type=self.item_type, purity_id=self.purity_id, design_code=self.design_code,
         ).get_data()
 
         designs = design_data['designs']

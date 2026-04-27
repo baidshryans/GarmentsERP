@@ -82,7 +82,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('inventory', '0010_backfill_opening_inventory_to_raw_material'),
-        ('purchase', '__first__'),
+        ('purchase', '0002_initial'),
     ]
 
     operations = [

@@ -5916,7 +5916,7 @@ export async function getCarryForwardLog() {
 export async function getOpeningInventory(type = null) {
   try {
     const params = type ? { type } : {};
-    const response = await apiClient.get('/inventory/api/opening-inventory/', { params });
+    const response = await apiClient.get('/inventory/opening-inventory/', { params });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -5925,7 +5925,7 @@ export async function getOpeningInventory(type = null) {
 
 export async function createOpeningInventory(data) {
   try {
-    const response = await apiClient.post('/inventory/api/opening-inventory/', data);
+    const response = await apiClient.post('/inventory/opening-inventory/', data);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -5934,7 +5934,7 @@ export async function createOpeningInventory(data) {
 
 export async function updateOpeningInventory(id, data) {
   try {
-    const response = await apiClient.patch(`/inventory/api/opening-inventory/${id}/`, data);
+    const response = await apiClient.patch(`/inventory/opening-inventory/${id}/`, data);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -5943,7 +5943,7 @@ export async function updateOpeningInventory(id, data) {
 
 export async function deleteOpeningInventory(id) {
   try {
-    await apiClient.delete(`/inventory/api/opening-inventory/${id}/`);
+    await apiClient.delete(`/inventory/opening-inventory/${id}/`);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -5952,7 +5952,7 @@ export async function deleteOpeningInventory(id) {
 
 export async function getOpeningInventoryById(id) {
   try {
-    const response = await apiClient.get(`/inventory/api/opening-inventory/${id}/`);
+    const response = await apiClient.get(`/inventory/opening-inventory/${id}/`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

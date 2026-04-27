@@ -7,13 +7,25 @@ const variantClasses = {
   danger: 'border-red-300 bg-red-50',
 };
 
-export default function KPICard({ title, value, subtitle, icon, navigateTo, variant = 'default' }) {
+export default function KPICard({ title, value, subtitle, icon, navigateTo, navParams = {}, variant = 'default', color }) {
   const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (!navigateTo) return;
+    const params = new URLSearchParams();
+    Object.entries(navParams).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') params.set(k, v);
+    });
+    const qs = params.toString();
+    navigate(`${navigateTo}${qs ? '?' + qs : ''}`);
+  };
+
+  const borderAccent = color ? `border-l-4 ${color}` : '';
 
   return (
     <div
-      className={`rounded-lg border p-4 flex flex-col gap-1 ${variantClasses[variant]} ${navigateTo ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
-      onClick={navigateTo ? () => navigate(navigateTo) : undefined}
+      className={`rounded-lg border p-4 flex flex-col gap-1 ${variantClasses[variant]} ${borderAccent} ${navigateTo ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      onClick={navigateTo ? handleClick : undefined}
       role={navigateTo ? 'button' : undefined}
     >
       <div className="flex items-center justify-between text-sm text-muted-foreground">

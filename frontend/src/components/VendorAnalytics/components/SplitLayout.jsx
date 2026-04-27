@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function SplitLayout({ title, filterBar, chart, table, loading, empty }) {
+export default function SplitLayout({ title, filterBar, chart, table, loading, empty, chartHeight = 'h-72' }) {
   return (
     <div className="flex flex-col gap-4 p-4">
       {/* Page header */}
@@ -23,7 +23,7 @@ export default function SplitLayout({ title, filterBar, chart, table, loading, e
         <>
           {/* Chart panel */}
           {chart && (
-            <div className="rounded-lg border bg-white p-4 shadow-sm">
+            <div className={`rounded-lg border bg-white p-4 shadow-sm ${chartHeight}`}>
               {chart}
             </div>
           )}

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { getLedgers, fetchPurity } from '@/services/apiService';
+import { getLedgers, fetchPurity, fetchRetails } from '@/services/apiService';
 
 const ITEM_TYPE_OPTIONS = [
   { value: '__all__', label: 'All' },
@@ -14,9 +14,20 @@ const ITEM_TYPE_OPTIONS = [
   { value: 'C', label: 'Casting' },
 ];
 
-export default function VendorFilterBar({ filters, onChange, onApply, loading }) {
+export default function VendorFilterBar({ onApply, loading = false }) {
+  const [filters, setFilters] = useState({
+    vendor_id: '',
+    from_date: '',
+    to_date: '',
+    item_type: '',
+    purity_id: '',
+    design_code: '',
+    retail_id: '',
+  });
+
   const [vendors, setVendors] = useState([]);
   const [purities, setPurities] = useState([]);
+  const [retails, setRetails] = useState([]);
 
   useEffect(() => {
     getLedgers({ type: 'VD', page_size: 200 }).then((res) => {
@@ -26,14 +37,27 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
     });
 
     fetchPurity().then((res) => {
-      if (res) {
-        setPurities(Array.isArray(res) ? res : res?.data ?? []);
-      }
+      if (res?.success) setPurities(res.data?.results ?? res.data ?? []);
+    });
+
+    fetchRetails().then((res) => {
+      if (res?.success) setRetails(res.data ?? []);
     });
   }, []);
 
   const handleChange = (field, value) => {
-    onChange({ ...filters, [field]: value });
+    setFilters((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleApply = () => {
+    if (!filters.vendor_id || filters.vendor_id === '__all__') {
+      alert('Please select a vendor');
+      return;
+    }
+    const clean = Object.fromEntries(
+      Object.entries(filters).map(([k, v]) => [k, v === '__all__' ? '' : v])
+    );
+    onApply(clean);
   };
 
   return (
@@ -42,8 +66,8 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
       <div className="flex flex-col gap-1">
         <Label>Vendor</Label>
         <Select
-          value={filters.vendor_id ?? '__all__'}
-          onValueChange={(val) => handleChange('vendor_id', val === '__all__' ? '' : val)}
+          value={filters.vendor_id || '__all__'}
+          onValueChange={(val) => handleChange('vendor_id', val)}
         >
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All Vendors" />
@@ -52,7 +76,7 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
             <SelectItem value="__all__">All Vendors</SelectItem>
             {vendors.map((v) => (
               <SelectItem key={v.id} value={String(v.id)}>
-                {v.name}
+                {v.ac_name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -65,7 +89,7 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
         <Input
           type="date"
           className="w-36"
-          value={filters.from_date ?? ''}
+          value={filters.from_date}
           onChange={(e) => handleChange('from_date', e.target.value)}
         />
       </div>
@@ -76,7 +100,7 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
         <Input
           type="date"
           className="w-36"
-          value={filters.to_date ?? ''}
+          value={filters.to_date}
           onChange={(e) => handleChange('to_date', e.target.value)}
         />
       </div>
@@ -86,7 +110,7 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
         <Label>Item Type</Label>
         <Select
           value={filters.item_type || '__all__'}
-          onValueChange={(val) => handleChange('item_type', val === '__all__' ? '' : val)}
+          onValueChange={(val) => handleChange('item_type', val)}
         >
           <SelectTrigger className="w-36">
             <SelectValue placeholder="All" />
@@ -105,8 +129,8 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
       <div className="flex flex-col gap-1">
         <Label>Purity</Label>
         <Select
-          value={filters.purity_id ?? '__all__'}
-          onValueChange={(val) => handleChange('purity_id', val === '__all__' ? '' : val)}
+          value={filters.purity_id || '__all__'}
+          onValueChange={(val) => handleChange('purity_id', val)}
         >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="All" />
@@ -115,7 +139,7 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
             <SelectItem value="__all__">All</SelectItem>
             {purities.map((p) => (
               <SelectItem key={p.id} value={String(p.id)}>
-                {p.purity_name ?? p.name}
+                {p.purity_name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -129,13 +153,34 @@ export default function VendorFilterBar({ filters, onChange, onApply, loading })
           type="text"
           placeholder="Design Code"
           className="w-36"
-          value={filters.design_code ?? ''}
+          value={filters.design_code}
           onChange={(e) => handleChange('design_code', e.target.value)}
         />
       </div>
 
+      {/* Branch */}
+      <div className="flex flex-col gap-1">
+        <Label>Branch</Label>
+        <Select
+          value={filters.retail_id || '__all__'}
+          onValueChange={(val) => handleChange('retail_id', val)}
+        >
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="All Branches" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All Branches</SelectItem>
+            {retails.map((r) => (
+              <SelectItem key={r.id} value={String(r.id)}>
+                {r.retail_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Apply */}
-      <Button onClick={onApply} disabled={loading}>
+      <Button onClick={handleApply} disabled={loading}>
         {loading ? 'Loading...' : 'Apply'}
       </Button>
     </div>

@@ -454,7 +454,8 @@ def on_assay_receive_detail_delete(sender, instance, **kwargs):
 
 # ── Raw material purchases (sub-item details with no main item) ────────────────
 
-@receiver(post_save, sender=PurchaseVoucherDetails)
+@receiver(post_save, sender=PurchaseVoucherDetails,
+          dispatch_uid='mfg_signals.add_raw_material_on_purchase_detail_save')
 def add_raw_material_on_purchase_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
@@ -480,7 +481,8 @@ def add_raw_material_on_purchase_detail_save(sender, instance, created, **kwargs
     )
 
 
-@receiver(post_delete, sender=PurchaseVoucherDetails)
+@receiver(post_delete, sender=PurchaseVoucherDetails,
+          dispatch_uid='mfg_signals.reverse_raw_material_on_purchase_detail_delete')
 def reverse_raw_material_on_purchase_detail_delete(sender, instance, **kwargs):
     if instance.main_item_id is not None:
         return

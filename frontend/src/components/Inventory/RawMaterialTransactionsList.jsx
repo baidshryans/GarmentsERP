@@ -50,7 +50,7 @@ export default function RawMaterialTransactionsList() {
   const [fromDate, setFromDate] = useState("")
   const [toDate, setToDate] = useState(today)
   const [search, setSearch] = useState("")
-  const [transType, setTransType] = useState("")
+  const [transType, setTransType] = useState("__all__")
   const [data, setData] = useState([])
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -78,7 +78,7 @@ export default function RawMaterialTransactionsList() {
     setFetched(true)
     const params = { page: pg, ordering: "-date" }
     if (search) params.search = search
-    if (transType) params.trans_type = transType
+    if (transType && transType !== "__all__") params.trans_type = transType
     if (fromDate) params.from_date = fromDate
     if (toDate) params.to_date = toDate
     const res = await getRawMaterialTransactions(params)
@@ -119,7 +119,7 @@ export default function RawMaterialTransactionsList() {
             <Select value={transType} onValueChange={setTransType}>
               <SelectTrigger className="h-9"><SelectValue placeholder="All types" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All types</SelectItem>
+                <SelectItem value="__all__">All types</SelectItem>
                 {Object.entries(TRANS_LABELS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}

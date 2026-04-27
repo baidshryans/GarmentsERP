@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { useNavigate } from "react-router-dom"
 import { Search } from "lucide-react"
 import { navSections } from "@/config/navData"
@@ -102,8 +103,8 @@ export function NavSearch({ className = "" }) {
         </kbd>
       </button>
 
-      {/* Modal overlay */}
-      {open && (
+      {/* Modal overlay — portalled to body to escape TopMenuBar's stacking context */}
+      {open && createPortal(
         <div
           className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] bg-black/40 backdrop-blur-sm"
           onClick={() => setOpen(false)}
@@ -161,7 +162,8 @@ export function NavSearch({ className = "" }) {
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

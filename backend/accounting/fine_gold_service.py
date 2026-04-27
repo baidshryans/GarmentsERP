@@ -19,7 +19,7 @@ from inventory.models import (
     InterRetailTransferVoucher,
     OpeningInventory,
 )
-from purchase.models import PurchaseVoucherItems
+from purchase.models import PurchaseVoucherItems, PurchaseVoucherDetails
 from mastersconfig.models import FiscalYearMaster
 
 
@@ -92,8 +92,41 @@ class FineGoldRateService:
         return total_value, total_fine
 
     def _purchases_contribution(self, collect_rows=False):
-        """PurchaseVoucherItems within [fy_start, end_date]: value=item_value, fine=gw×gw_per/100."""
-        qs = PurchaseVoucherItems.objects.select_related("purity", "billno", "item").filter(
+        """Purchase metal content within [fy_start, end_date].
+
+        Two layers, deduplicated to avoid double-counting:
+
+        1. **Metal sub-rows** (PurchaseVoucherDetails) — authoritative when
+           present. Each sub-row carries its own ``metal_purity`` and
+           ``value``, so a single purchase voucher containing 22K + 18K +
+           24K bullion contributes three rows with three different purity
+           percentages. This also covers raw-gold / old-gold buy-back
+           vouchers where the metal breakdown lives only in sub-rows.
+
+        2. **Main rows** (PurchaseVoucherItems) — used as fallback ONLY
+           for main items that have no metal sub-rows (typical finished-goods
+           purchases where main row already carries gw + purity + item_value).
+        """
+        # --- 1. Metal sub-rows
+        sub_qs = PurchaseVoucherDetails.objects.select_related(
+            "metal_purity", "billno", "main_item", "main_item__item", "sub_item",
+        ).filter(
+            billno__date1__gte=self.fy_start,
+            billno__date1__lte=self.end_date,
+            sub_gw__gt=0,
+            metal_purity__isnull=False,
+            value__isnull=False,
+        )
+        if self.retail_ids:
+            sub_qs = sub_qs.filter(retail_id__in=self.retail_ids)
+
+        # Track which main items already covered by sub-rows so we don't double-count.
+        mains_with_metal_subs = set(
+            sub_qs.values_list("main_item_id", flat=True).exclude(main_item_id__isnull=True)
+        )
+
+        # --- 2. Main rows excluding the ones above
+        main_qs = PurchaseVoucherItems.objects.select_related("purity", "billno", "item").filter(
             billno__date1__gte=self.fy_start,
             billno__date1__lte=self.end_date,
             gw__gt=0,
@@ -101,24 +134,54 @@ class FineGoldRateService:
             item_value__isnull=False,
         )
         if self.retail_ids:
-            qs = qs.filter(retail_id__in=self.retail_ids)
+            main_qs = main_qs.filter(retail_id__in=self.retail_ids)
+        if mains_with_metal_subs:
+            main_qs = main_qs.exclude(id__in=mains_with_metal_subs)
 
         total_value = Decimal("0")
         total_fine = Decimal("0")
         rows = []
-        if collect_rows:
-            for r in qs.values(
-                "gw", "item_value", "purity__gw_per", "purity__purity",
-                "item__item_name", "billno__billno", "billno__date1",
-            ):
-                gw_per = Decimal(str(r["purity__gw_per"] or 0))
-                if gw_per <= 0:
-                    continue
-                gw = Decimal(str(r["gw"] or 0))
-                value = Decimal(str(r["item_value"] or 0))
-                fine = gw * gw_per / Decimal("100")
-                total_value += value
-                total_fine += fine
+
+        for r in sub_qs.values(
+            "sub_gw", "value", "metal_purity__gw_per", "metal_purity__purity",
+            "main_item__item__item_name", "sub_item__item_name",
+            "billno__billno", "billno__date1",
+        ):
+            gw_per = Decimal(str(r["metal_purity__gw_per"] or 0))
+            if gw_per <= 0:
+                continue
+            gw = Decimal(str(r["sub_gw"] or 0))
+            value = Decimal(str(r["value"] or 0))
+            fine = gw * gw_per / Decimal("100")
+            total_value += value
+            total_fine += fine
+            if collect_rows:
+                label = r["main_item__item__item_name"] or r["sub_item__item_name"] or "—"
+                rows.append({
+                    "label": f"{label} (sub)",
+                    "ref": str(r["billno__billno"] or "") or None,
+                    "date": r["billno__date1"].isoformat() if r["billno__date1"] else None,
+                    "purity": r["metal_purity__purity"],
+                    "gw_per": gw_per,
+                    "gw": gw,
+                    "rate": (value / gw) if gw else Decimal("0"),
+                    "value": value,
+                    "fine_grams": fine,
+                })
+
+        for r in main_qs.values(
+            "gw", "item_value", "purity__gw_per", "purity__purity",
+            "item__item_name", "billno__billno", "billno__date1",
+        ):
+            gw_per = Decimal(str(r["purity__gw_per"] or 0))
+            if gw_per <= 0:
+                continue
+            gw = Decimal(str(r["gw"] or 0))
+            value = Decimal(str(r["item_value"] or 0))
+            fine = gw * gw_per / Decimal("100")
+            total_value += value
+            total_fine += fine
+            if collect_rows:
                 rows.append({
                     "label": r["item__item_name"] or "—",
                     "ref": str(r["billno__billno"] or "") or None,
@@ -130,16 +193,9 @@ class FineGoldRateService:
                     "value": value,
                     "fine_grams": fine,
                 })
-            return total_value, total_fine, rows
 
-        for row in qs.values("gw", "item_value", "purity__gw_per"):
-            gw_per = Decimal(str(row["purity__gw_per"] or 0))
-            if gw_per <= 0:
-                continue
-            gw = Decimal(str(row["gw"] or 0))
-            value = Decimal(str(row["item_value"] or 0))
-            total_value += value
-            total_fine += gw * gw_per / Decimal("100")
+        if collect_rows:
+            return total_value, total_fine, rows
         return total_value, total_fine
 
     def _transfers_in_contribution(self, collect_rows=False):

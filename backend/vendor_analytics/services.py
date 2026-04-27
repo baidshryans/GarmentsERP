@@ -118,3 +118,489 @@ class StockAgeingService:
             'by_item': list(by_item.values()),
             'by_barcode': sorted(by_barcode, key=lambda x: -x['age_days']),
         }
+
+
+# ─── Design Performance ───────────────────────────────────────────────────────
+
+class DesignPerformanceService:
+    """
+    Analyses sell-through velocity per design code for a vendor.
+    Returns purchase vs sold counts, average days to sell, and velocity status.
+    """
+
+    def __init__(self, retail_id, vendor_id, from_date=None, to_date=None,
+                 item_type=None, purity_id=None, design_code=None):
+        self.retail_id = retail_id
+        self.vendor_id = vendor_id
+        self.from_date = _parse_date(from_date)
+        self.to_date = _parse_date(to_date)
+        self.item_type = item_type or None
+        self.purity_id = int(purity_id) if purity_id else None
+        self.design_code = design_code or None
+
+    @staticmethod
+    def _velocity_status(avg_days, pcs_sold):
+        if pcs_sold == 0:
+            return 'dead'
+        if avg_days < 30:
+            return 'fast'
+        if avg_days <= 60:
+            return 'slow'
+        return 'dead'
+
+    def _base_qs(self):
+        qs = BarcodeMain.objects.filter(
+            pur_voucher__isnull=False,
+            pur_voucher__billno__ldgr_id=self.vendor_id,
+            retail_id=self.retail_id,
+        ).select_related('item', 'pur_voucher__billno')
+        if self.from_date:
+            qs = qs.filter(pur_voucher__billno__date1__gte=self.from_date)
+        if self.to_date:
+            qs = qs.filter(pur_voucher__billno__date1__lte=self.to_date)
+        if self.item_type:
+            qs = qs.filter(item__item_type=self.item_type)
+        if self.purity_id:
+            qs = qs.filter(purity_id=self.purity_id)
+        if self.design_code:
+            qs = qs.filter(design_code=self.design_code)
+        return qs
+
+    def get_data(self):
+        barcodes = list(self._base_qs())
+        barcode_pks = [b.barcode for b in barcodes]
+
+        # Build sold map: barcode_id -> sale_date
+        sold_map = {}
+        for svi in SalesVouItem.objects.filter(
+            barcode_id__in=barcode_pks
+        ).select_related('bill'):
+            sold_map[svi.barcode_id] = svi.bill.date1
+
+        by_design = {}
+        for b in barcodes:
+            dc = b.design_code or ''
+            if dc not in by_design:
+                by_design[dc] = {
+                    'design_code': dc,
+                    'item_name': b.item.item_name,
+                    'pcs_purchased': 0,
+                    'pcs_sold': 0,
+                    'total_value': 0.0,
+                    '_days_list': [],
+                }
+            entry = by_design[dc]
+            entry['pcs_purchased'] += 1
+            entry['total_value'] += float(b.total_amount or 0)
+
+            if b.barcode in sold_map:
+                sale_date = sold_map[b.barcode]
+                purchase_date = b.pur_voucher.billno.date1
+                days = max(0, (sale_date - purchase_date).days)
+                entry['pcs_sold'] += 1
+                entry['_days_list'].append(days)
+
+        designs = []
+        for entry in by_design.values():
+            days_list = entry.pop('_days_list')
+            pcs_sold = entry['pcs_sold']
+            avg_days = (sum(days_list) / len(days_list)) if days_list else 0.0
+            entry['pcs_unsold'] = entry['pcs_purchased'] - pcs_sold
+            entry['avg_days_to_sell'] = round(avg_days, 2)
+            entry['velocity_status'] = self._velocity_status(avg_days, pcs_sold)
+            designs.append(entry)
+
+        return {'designs': designs}
+
+
+# ─── Inventory Turnover ───────────────────────────────────────────────────────
+
+class InventoryTurnoverService:
+    """
+    Computes inventory turnover ratio and days-inventory-outstanding for a vendor.
+    Provides current-period metrics, 12-month trend, and year-over-year comparison.
+    """
+
+    def __init__(self, retail_id, vendor_id, from_date=None, to_date=None,
+                 item_type=None, purity_id=None, design_code=None):
+        self.retail_id = retail_id
+        self.vendor_id = vendor_id
+        self.from_date = _parse_date(from_date)
+        self.to_date = _parse_date(to_date)
+        self.item_type = item_type or None
+        self.purity_id = int(purity_id) if purity_id else None
+        self.design_code = design_code or None
+
+    @staticmethod
+    def _compute_ratio(cogs, avg_inventory):
+        if avg_inventory <= 0:
+            return 0.0, 0.0
+        ratio = cogs / avg_inventory
+        days = (365.0 / ratio) if ratio > 0 else 0.0
+        return round(ratio, 4), round(days, 2)
+
+    def _inv_value_before(self, cutoff_date):
+        """Sum of total_amount for vendor barcodes purchased before cutoff_date."""
+        if not cutoff_date:
+            return 0.0
+        val = BarcodeMain.objects.filter(
+            pur_voucher__isnull=False,
+            pur_voucher__billno__ldgr_id=self.vendor_id,
+            retail_id=self.retail_id,
+            pur_voucher__billno__date1__lt=cutoff_date,
+        ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        return float(val)
+
+    def _inv_value_in_stock_at(self, cutoff_date):
+        """Sum of total_amount for vendor barcodes still in stock (stk_status=True)."""
+        val = BarcodeMain.objects.filter(
+            pur_voucher__isnull=False,
+            pur_voucher__billno__ldgr_id=self.vendor_id,
+            retail_id=self.retail_id,
+            stk_status=True,
+        ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        return float(val)
+
+    def _purchases_in_range(self, from_date, to_date):
+        qs = PurchaseVoucherItems.objects.filter(
+            billno__ldgr_id=self.vendor_id,
+            billno__date1__range=[from_date, to_date],
+        )
+        return float(qs.aggregate(Sum('item_value'))['item_value__sum'] or 0)
+
+    def _returns_in_range(self, from_date, to_date):
+        qs = PurchaseReturnItems.objects.filter(
+            billno__ldgr_id=self.vendor_id,
+            billno__date1__range=[from_date, to_date],
+        )
+        return float(qs.aggregate(Sum('item_value'))['item_value__sum'] or 0)
+
+    def _period_metrics(self, from_date, to_date):
+        opening = self._inv_value_before(from_date)
+        closing = self._inv_value_in_stock_at(to_date)
+        purchases = self._purchases_in_range(from_date, to_date)
+        returns = self._returns_in_range(from_date, to_date)
+        cogs = max(0.0, opening + purchases - returns - closing)
+        avg_inv = (opening + closing) / 2.0
+        ratio, days = self._compute_ratio(cogs, avg_inv)
+        return {
+            'turnover_ratio': ratio,
+            'days_inventory': days,
+            'cogs': round(cogs, 2),
+            'avg_inventory': round(avg_inv, 2),
+        }
+
+    def _last_12_months(self):
+        import calendar
+        from datetime import date as _date
+        today = _date.today()
+        months = []
+        year, month = today.year, today.month
+        for _ in range(12):
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+            months.append((year, month))
+        months.reverse()
+        return months
+
+    def get_data(self):
+        # Current period
+        from_date = self.from_date
+        to_date = self.to_date
+        if from_date and to_date:
+            current = self._period_metrics(from_date, to_date)
+        else:
+            # Default: current calendar year to today
+            today = date.today()
+            current = self._period_metrics(
+                date(today.year, 1, 1), today
+            )
+
+        # Monthly trend — last 12 months
+        import calendar
+        monthly_trend = []
+        for year, month in self._last_12_months():
+            last_day = calendar.monthrange(year, month)[1]
+            m_from = date(year, month, 1)
+            m_to = date(year, month, last_day)
+            m = self._period_metrics(m_from, m_to)
+            monthly_trend.append({
+                'month': f'{year:04d}-{month:02d}',
+                'turnover_ratio': m['turnover_ratio'],
+                'days_inventory': m['days_inventory'],
+            })
+
+        # YoY comparison
+        yoy = []
+        for fy in FiscalYearMaster.objects.all().order_by('from_date'):
+            m = self._period_metrics(fy.from_date, fy.to_date)
+            yoy.append({
+                'fy': fy.fy_name,
+                'turnover_ratio': m['turnover_ratio'],
+                'days_inventory': m['days_inventory'],
+            })
+
+        return {
+            'current_period': current,
+            'monthly_trend': monthly_trend,
+            'yoy_comparison': yoy,
+        }
+
+
+# ─── Item Performance ─────────────────────────────────────────────────────────
+
+class ItemPerformanceService:
+    """
+    Per-item breakdown of weight loss, gross margin, and sell-through for a vendor.
+    """
+
+    def __init__(self, retail_id, vendor_id, from_date=None, to_date=None,
+                 item_type=None, purity_id=None, design_code=None):
+        self.retail_id = retail_id
+        self.vendor_id = vendor_id
+        self.from_date = _parse_date(from_date)
+        self.to_date = _parse_date(to_date)
+        self.item_type = item_type or None
+        self.purity_id = int(purity_id) if purity_id else None
+        self.design_code = design_code or None
+
+    def _base_qs(self):
+        qs = BarcodeMain.objects.filter(
+            pur_voucher__isnull=False,
+            pur_voucher__billno__ldgr_id=self.vendor_id,
+            retail_id=self.retail_id,
+        ).select_related('item', 'pur_voucher')
+        if self.from_date:
+            qs = qs.filter(pur_voucher__billno__date1__gte=self.from_date)
+        if self.to_date:
+            qs = qs.filter(pur_voucher__billno__date1__lte=self.to_date)
+        if self.item_type:
+            qs = qs.filter(item__item_type=self.item_type)
+        if self.purity_id:
+            qs = qs.filter(purity_id=self.purity_id)
+        if self.design_code:
+            qs = qs.filter(design_code=self.design_code)
+        return qs
+
+    def get_data(self):
+        barcodes = list(self._base_qs())
+        barcode_pks = [b.barcode for b in barcodes]
+
+        # Sales map: barcode_id -> {gw, item_value}
+        sales_map = {}
+        for svi in SalesVouItem.objects.filter(
+            barcode_id__in=barcode_pks
+        ).select_related():
+            sales_map[svi.barcode_id] = {
+                'gw': float(svi.gw or 0),
+                'item_value': float(svi.item_value or 0),
+            }
+
+        # Returns map: set of pur_voucher_ids that have a PurchaseReturnItem
+        pv_item_ids = [b.pur_voucher_id for b in barcodes if b.pur_voucher_id]
+        returned_pv_ids = set(
+            PurchaseReturnItems.objects.filter(pvitem_id__in=pv_item_ids)
+            .values_list('pvitem_id', flat=True)
+        )
+
+        by_item = {}
+        for b in barcodes:
+            iid = b.item_id
+            if iid not in by_item:
+                by_item[iid] = {
+                    'item_id': iid,
+                    'item_name': b.item.item_name,
+                    'item_type': b.item.item_type,
+                    'gw_purchased': 0.0,
+                    'gw_sold': 0.0,
+                    'purchase_cost': 0.0,   # cost of sold items
+                    'sale_value': 0.0,
+                    'pcs_purchased': 0,
+                    'pcs_returned': 0,
+                    'pcs_sold': 0,
+                }
+            entry = by_item[iid]
+            entry['pcs_purchased'] += 1
+            entry['gw_purchased'] += float(b.gw or 0)
+
+            if b.pur_voucher_id in returned_pv_ids:
+                entry['pcs_returned'] += 1
+
+            if b.barcode in sales_map:
+                s = sales_map[b.barcode]
+                entry['pcs_sold'] += 1
+                entry['gw_sold'] += s['gw']
+                entry['sale_value'] += s['item_value']
+                entry['purchase_cost'] += float(b.total_amount or 0)
+
+        items = []
+        for entry in by_item.values():
+            gw_p = entry['gw_purchased']
+            gw_s = entry['gw_sold']
+            sv = entry['sale_value']
+            pc = entry['purchase_cost']
+            entry['weight_loss_gm'] = round(gw_p - gw_s, 4)
+            entry['weight_loss_pct'] = round((gw_p - gw_s) / gw_p * 100, 2) if gw_p else 0.0
+            entry['gross_margin'] = round(sv - pc, 2)
+            entry['margin_pct'] = round((sv - pc) / sv * 100, 2) if sv else 0.0
+            entry['gw_purchased'] = round(gw_p, 4)
+            entry['gw_sold'] = round(gw_s, 4)
+            entry['purchase_cost'] = round(pc, 2)
+            entry['sale_value'] = round(sv, 2)
+            items.append(entry)
+
+        return {'items': items}
+
+
+# ─── Vendor Dashboard ─────────────────────────────────────────────────────────
+
+class VendorDashboardService:
+    """
+    Aggregated vendor dashboard combining financial, inventory, and performance KPIs.
+    Delegates sub-computations to the other vendor analytics services.
+    """
+
+    def __init__(self, retail_id, vendor_id, from_date=None, to_date=None):
+        self.retail_id = retail_id
+        self.vendor_id = vendor_id
+        self.from_date = _parse_date(from_date)
+        self.to_date = _parse_date(to_date)
+
+    def _vendor_name(self):
+        try:
+            from mastersconfig.models import Ledger
+            return Ledger.objects.get(pk=self.vendor_id).name
+        except Exception:
+            pass
+        try:
+            from mastersconfig.models import LedgerMaster
+            return LedgerMaster.objects.get(pk=self.vendor_id).name
+        except Exception:
+            return f"Vendor {self.vendor_id}"
+
+    def _monthly_purchase_trend(self):
+        import calendar
+        today = date.today()
+        months = []
+        year, month = today.year, today.month
+        for _ in range(12):
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+            months.append((year, month))
+        months.reverse()
+
+        trend = []
+        for yr, mo in months:
+            last_day = calendar.monthrange(yr, mo)[1]
+            m_from = date(yr, mo, 1)
+            m_to = date(yr, mo, last_day)
+            val = PurchaseVoucherItems.objects.filter(
+                billno__ldgr_id=self.vendor_id,
+                billno__date1__range=[m_from, m_to],
+            ).aggregate(Sum('item_value'))['item_value__sum'] or 0
+            trend.append({'month': f'{yr:04d}-{mo:02d}', 'value': float(val)})
+        return trend
+
+    def get_data(self):
+        # Financial
+        pv_qs = PurchaseVoucherItems.objects.filter(
+            billno__ldgr_id=self.vendor_id,
+        )
+        if self.from_date:
+            pv_qs = pv_qs.filter(billno__date1__gte=self.from_date)
+        if self.to_date:
+            pv_qs = pv_qs.filter(billno__date1__lte=self.to_date)
+        total_purchases = float(
+            pv_qs.aggregate(Sum('item_value'))['item_value__sum'] or 0
+        )
+
+        # Inventory
+        total_stock_value = float(
+            BarcodeMain.objects.filter(
+                pur_voucher__isnull=False,
+                pur_voucher__billno__ldgr_id=self.vendor_id,
+                stk_status=True,
+                retail_id=self.retail_id,
+            ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        )
+
+        # Sell-through
+        bm_base = BarcodeMain.objects.filter(
+            pur_voucher__isnull=False,
+            pur_voucher__billno__ldgr_id=self.vendor_id,
+            retail_id=self.retail_id,
+        )
+        total_barcodes = bm_base.count()
+        sold_barcodes = bm_base.filter(stk_status=False).count()
+        sell_through_pct = (
+            round(sold_barcodes / total_barcodes * 100, 2) if total_barcodes else 0.0
+        )
+
+        # Delegate to sub-services
+        ageing_data = StockAgeingService(
+            self.retail_id, self.vendor_id, self.from_date, self.to_date
+        ).get_data()
+        turnover_data = InventoryTurnoverService(
+            self.retail_id, self.vendor_id, self.from_date, self.to_date
+        ).get_data()
+        design_data = DesignPerformanceService(
+            self.retail_id, self.vendor_id, self.from_date, self.to_date
+        ).get_data()
+
+        designs = design_data['designs']
+
+        # Best design: lowest avg_days_to_sell where pcs_sold > 0
+        sold_designs = [d for d in designs if d['pcs_sold'] > 0]
+        best_design = (
+            min(sold_designs, key=lambda d: d['avg_days_to_sell'])['design_code']
+            if sold_designs else ''
+        )
+
+        # Overall avg_days_to_sell — weighted mean across all sold designs
+        total_sold = sum(d['pcs_sold'] for d in designs)
+        if total_sold:
+            weighted_days = sum(
+                d['avg_days_to_sell'] * d['pcs_sold'] for d in designs
+            )
+            avg_days_to_sell = round(weighted_days / total_sold, 2)
+        else:
+            avg_days_to_sell = 0.0
+
+        # Top 5 designs by pcs_sold
+        top_designs = sorted(designs, key=lambda d: -d['pcs_sold'])[:5]
+        top_designs_out = [
+            {
+                'design_code': d['design_code'],
+                'sold_pcs': d['pcs_sold'],
+                'avg_days': d['avg_days_to_sell'],
+            }
+            for d in top_designs
+        ]
+
+        return {
+            'vendor': {
+                'id': self.vendor_id,
+                'name': self._vendor_name(),
+            },
+            'financial': {
+                'total_purchases': round(total_purchases, 2),
+                'outstanding_payable': 0.0,
+                'avg_payment_days': 0.0,
+            },
+            'inventory': {
+                'total_stock_value': round(total_stock_value, 2),
+                'ageing_score': ageing_data['summary'].get('ageing_score', 0.0),
+                'turnover_ratio': turnover_data['current_period']['turnover_ratio'],
+            },
+            'performance': {
+                'best_design': best_design,
+                'sell_through_pct': sell_through_pct,
+                'avg_days_to_sell': avg_days_to_sell,
+            },
+            'monthly_purchase_trend': self._monthly_purchase_trend(),
+            'top_designs': top_designs_out,
+        }

@@ -12,6 +12,7 @@ from manufacturing.models import (
     AssayIssueDetail, AssayReceiveDetail,
     SampleIssueItem,
 )
+from purchase.models import PurchaseVoucherDetails
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -81,6 +82,27 @@ def mark_piece_with_karigar(sender, instance, created, **kwargs):
     if created and instance.piece_id and instance.issue.karigar_ldgr_id:
         piece = instance.piece
         piece.kr_code = instance.issue.karigar_ldgr
+        piece.save(update_fields=['kr_code'])
+
+
+@receiver(post_delete, sender=SampleIssueItem)
+def unmark_piece_from_karigar(sender, instance, **kwargs):
+    """When a SampleIssueItem is removed (via update or SampleIssue delete), clear
+    the piece's kr_code unless another live SampleIssueItem still references it."""
+    if not instance.piece_id:
+        return
+    still_referenced = SampleIssueItem.objects.filter(
+        piece_id=instance.piece_id
+    ).exclude(pk=instance.pk).exists()
+    if still_referenced:
+        return
+    try:
+        piece = UnBarcodedMain.objects.get(pk=instance.piece_id)
+    except UnBarcodedMain.DoesNotExist:
+        return
+    issue_karigar_id = getattr(instance.issue, 'karigar_ldgr_id', None) if instance.issue_id else None
+    if issue_karigar_id is None or piece.kr_code_id == issue_karigar_id:
+        piece.kr_code = None
         piece.save(update_fields=['kr_code'])
 
 
@@ -427,4 +449,56 @@ def on_assay_receive_detail_delete(sender, instance, **kwargs):
         trans_type=trans_type,
         gw=-instance.conv_nw,
         billno=instance.billno.billno,
+    )
+
+
+# ── Raw material purchases (sub-item details with no main item) ────────────────
+
+@receiver(post_save, sender=PurchaseVoucherDetails)
+def add_raw_material_on_purchase_detail_save(sender, instance, created, **kwargs):
+    if not created:
+        return
+    if instance.main_item_id is not None:
+        return  # detail belongs to a finished-goods purchase, not raw material
+    if not instance.sub_item:
+        return
+    pcs = instance.sub_pcs or 0
+    ct = Decimal(str(instance.sub_ct or 0))
+    gw = Decimal(str(instance.sub_gw or 0))
+    _update_raw_material(
+        item=instance.sub_item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=pcs, ct=ct, gw=gw,
+    )
+    _log_raw_txn(
+        item=instance.sub_item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='PURCHASE', pcs=pcs, ct=ct, gw=gw,
+        rate=Decimal(str(instance.rate or 0)),
+        amt=Decimal(str(instance.value or 0)),
+        billno=instance.billno.billno if instance.billno else '',
+    )
+
+
+@receiver(post_delete, sender=PurchaseVoucherDetails)
+def reverse_raw_material_on_purchase_detail_delete(sender, instance, **kwargs):
+    if instance.main_item_id is not None:
+        return
+    if not instance.sub_item:
+        return
+    pcs = instance.sub_pcs or 0
+    ct = Decimal(str(instance.sub_ct or 0))
+    gw = Decimal(str(instance.sub_gw or 0))
+    _update_raw_material(
+        item=instance.sub_item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        pcs=-pcs, ct=-ct, gw=-gw,
+    )
+    _log_raw_txn(
+        item=instance.sub_item, packet=instance.packet,
+        purity=instance.metal_purity, retail=instance.retail,
+        trans_type='PURCHASE_RETURN', pcs=-pcs, ct=-ct, gw=-gw,
+        rate=Decimal(str(instance.rate or 0)),
+        amt=Decimal(str(instance.value or 0)),
+        billno=instance.billno.billno if instance.billno else '',
     )

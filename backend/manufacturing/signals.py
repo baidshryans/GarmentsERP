@@ -41,7 +41,8 @@ def _log_raw_txn(*, item, packet, purity, retail, trans_type, pcs=0, ct=Decimal(
 
 # ── Unbarcoded inventory from karigar receive (existing, kept as-is) ──────────
 
-@receiver(post_save, sender=KarigarReceiveItem)
+@receiver(post_save, sender=KarigarReceiveItem,
+          dispatch_uid='mfg_signals.create_unbarcoded_inventory')
 def create_unbarcoded_inventory(sender, instance, created, **kwargs):
     if created:
         unbarcoded_data = {
@@ -76,7 +77,8 @@ def create_unbarcoded_inventory(sender, instance, created, **kwargs):
         instance.save()
 
 
-@receiver(post_save, sender=SampleIssueItem)
+@receiver(post_save, sender=SampleIssueItem,
+          dispatch_uid='mfg_signals.mark_piece_with_karigar')
 def mark_piece_with_karigar(sender, instance, created, **kwargs):
     """When a piece is issued on a Sample Issue, mark it as currently with that karigar."""
     if created and instance.piece_id and instance.issue.karigar_ldgr_id:
@@ -85,7 +87,8 @@ def mark_piece_with_karigar(sender, instance, created, **kwargs):
         piece.save(update_fields=['kr_code'])
 
 
-@receiver(post_delete, sender=SampleIssueItem)
+@receiver(post_delete, sender=SampleIssueItem,
+          dispatch_uid='mfg_signals.unmark_piece_from_karigar')
 def unmark_piece_from_karigar(sender, instance, **kwargs):
     """When a SampleIssueItem is removed (via update or SampleIssue delete), clear
     the piece's kr_code unless another live SampleIssueItem still references it."""
@@ -106,7 +109,8 @@ def unmark_piece_from_karigar(sender, instance, **kwargs):
         piece.save(update_fields=['kr_code'])
 
 
-@receiver(post_save, sender=KarigarReceiveItemDetails)
+@receiver(post_save, sender=KarigarReceiveItemDetails,
+          dispatch_uid='mfg_signals.create_unbarcoded_inventory_details')
 def create_unbarcoded_inventory_details(sender, instance, created, **kwargs):
     if created:
         UnBarcodedDetails.objects.create(
@@ -123,7 +127,8 @@ def create_unbarcoded_inventory_details(sender, instance, created, **kwargs):
 
 # ── Karigar gold issue → decrease raw material ────────────────────────────────
 
-@receiver(post_save, sender=KarigarGoldIssue)
+@receiver(post_save, sender=KarigarGoldIssue,
+          dispatch_uid='mfg_signals.reduce_raw_material_on_gold_issue')
 def reduce_raw_material_on_gold_issue(sender, instance, created, **kwargs):
     if not created:
         return
@@ -143,7 +148,8 @@ def reduce_raw_material_on_gold_issue(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=KarigarGoldIssue)
+@receiver(post_delete, sender=KarigarGoldIssue,
+          dispatch_uid='mfg_signals.reverse_raw_material_on_gold_issue_delete')
 def reverse_raw_material_on_gold_issue_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=None,
@@ -163,7 +169,8 @@ def reverse_raw_material_on_gold_issue_delete(sender, instance, **kwargs):
 
 # ── Karigar stone issue → decrease raw material ──────────────────────────────
 
-@receiver(post_save, sender=KarigarStoneIssue)
+@receiver(post_save, sender=KarigarStoneIssue,
+          dispatch_uid='mfg_signals.reduce_raw_material_on_stone_issue')
 def reduce_raw_material_on_stone_issue(sender, instance, created, **kwargs):
     if not created:
         return
@@ -182,7 +189,8 @@ def reduce_raw_material_on_stone_issue(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=KarigarStoneIssue)
+@receiver(post_delete, sender=KarigarStoneIssue,
+          dispatch_uid='mfg_signals.reverse_raw_material_on_stone_issue_delete')
 def reverse_raw_material_on_stone_issue_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=instance.packet,
@@ -200,7 +208,8 @@ def reverse_raw_material_on_stone_issue_delete(sender, instance, **kwargs):
 
 # ── Karigar stone receive → increase raw material ────────────────────────────
 
-@receiver(post_save, sender=KarigarStoneReceive)
+@receiver(post_save, sender=KarigarStoneReceive,
+          dispatch_uid='mfg_signals.increase_raw_material_on_stone_receive')
 def increase_raw_material_on_stone_receive(sender, instance, created, **kwargs):
     if not created:
         return
@@ -219,7 +228,8 @@ def increase_raw_material_on_stone_receive(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=KarigarStoneReceive)
+@receiver(post_delete, sender=KarigarStoneReceive,
+          dispatch_uid='mfg_signals.reverse_raw_material_on_stone_receive_delete')
 def reverse_raw_material_on_stone_receive_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=instance.packet,
@@ -238,7 +248,8 @@ def reverse_raw_material_on_stone_receive_delete(sender, instance, **kwargs):
 # ── Refinery Issue/Receive detail → raw material ─────────────────────────────
 # (Closes a pre-existing gap: refinery operations did not update stock.)
 
-@receiver(post_save, sender=RefinaryIssueDetail)
+@receiver(post_save, sender=RefinaryIssueDetail,
+          dispatch_uid='mfg_signals.on_refinary_issue_detail_save')
 def on_refinary_issue_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
@@ -256,7 +267,8 @@ def on_refinary_issue_detail_save(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=RefinaryIssueDetail)
+@receiver(post_delete, sender=RefinaryIssueDetail,
+          dispatch_uid='mfg_signals.on_refinary_issue_detail_delete')
 def on_refinary_issue_detail_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=instance.packet,
@@ -272,7 +284,8 @@ def on_refinary_issue_detail_delete(sender, instance, **kwargs):
     )
 
 
-@receiver(post_save, sender=RefinaryReceiveDetail)
+@receiver(post_save, sender=RefinaryReceiveDetail,
+          dispatch_uid='mfg_signals.on_refinary_receive_detail_save')
 def on_refinary_receive_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
@@ -290,7 +303,8 @@ def on_refinary_receive_detail_save(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=RefinaryReceiveDetail)
+@receiver(post_delete, sender=RefinaryReceiveDetail,
+          dispatch_uid='mfg_signals.on_refinary_receive_detail_delete')
 def on_refinary_receive_detail_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=instance.packet,
@@ -308,7 +322,8 @@ def on_refinary_receive_detail_delete(sender, instance, **kwargs):
 
 # ── Melting Issue/Receive detail → raw material ──────────────────────────────
 
-@receiver(post_save, sender=MeltingIssueDetail)
+@receiver(post_save, sender=MeltingIssueDetail,
+          dispatch_uid='mfg_signals.on_melting_issue_detail_save')
 def on_melting_issue_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
@@ -326,7 +341,8 @@ def on_melting_issue_detail_save(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=MeltingIssueDetail)
+@receiver(post_delete, sender=MeltingIssueDetail,
+          dispatch_uid='mfg_signals.on_melting_issue_detail_delete')
 def on_melting_issue_detail_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=instance.packet,
@@ -342,7 +358,8 @@ def on_melting_issue_detail_delete(sender, instance, **kwargs):
     )
 
 
-@receiver(post_save, sender=MeltingReceiveDetail)
+@receiver(post_save, sender=MeltingReceiveDetail,
+          dispatch_uid='mfg_signals.on_melting_receive_detail_save')
 def on_melting_receive_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
@@ -360,7 +377,8 @@ def on_melting_receive_detail_save(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=MeltingReceiveDetail)
+@receiver(post_delete, sender=MeltingReceiveDetail,
+          dispatch_uid='mfg_signals.on_melting_receive_detail_delete')
 def on_melting_receive_detail_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=instance.packet,
@@ -380,7 +398,8 @@ def on_melting_receive_detail_delete(sender, instance, **kwargs):
 # Assay Receive branches on is_cornet: cornet goes to (item, packet=None, conv_purity)
 # so that the refined cornet lands in fine-gold stock, bypassing packet-level tracking.
 
-@receiver(post_save, sender=AssayIssueDetail)
+@receiver(post_save, sender=AssayIssueDetail,
+          dispatch_uid='mfg_signals.on_assay_issue_detail_save')
 def on_assay_issue_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
@@ -398,7 +417,8 @@ def on_assay_issue_detail_save(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=AssayIssueDetail)
+@receiver(post_delete, sender=AssayIssueDetail,
+          dispatch_uid='mfg_signals.on_assay_issue_detail_delete')
 def on_assay_issue_detail_delete(sender, instance, **kwargs):
     _update_raw_material(
         item=instance.item, packet=instance.packet,
@@ -414,7 +434,8 @@ def on_assay_issue_detail_delete(sender, instance, **kwargs):
     )
 
 
-@receiver(post_save, sender=AssayReceiveDetail)
+@receiver(post_save, sender=AssayReceiveDetail,
+          dispatch_uid='mfg_signals.on_assay_receive_detail_save')
 def on_assay_receive_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
@@ -434,7 +455,8 @@ def on_assay_receive_detail_save(sender, instance, created, **kwargs):
     )
 
 
-@receiver(post_delete, sender=AssayReceiveDetail)
+@receiver(post_delete, sender=AssayReceiveDetail,
+          dispatch_uid='mfg_signals.on_assay_receive_detail_delete')
 def on_assay_receive_detail_delete(sender, instance, **kwargs):
     packet = None if instance.is_cornet else instance.packet
     trans_type = 'ASSAY_REC_CORNET_DEL' if instance.is_cornet else 'ASSAY_REC_DEL'

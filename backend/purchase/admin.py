@@ -13,10 +13,24 @@ from purchase.models import (
 # ---------------------------------------------------------------------------
 
 class PurchaseVoucherDetailsInline(nested_admin.NestedTabularInline):
+    """Sub-item details nested under a main finished-goods item."""
     model = PurchaseVoucherDetails
     fk_name = 'main_item'
     extra = 0
     fields = ('sub_item', 'sub_pcs', 'sub_gw', 'sub_ct', 'metal_purity', 'tunch', 'packet', 'rate', 'value')
+
+
+class RawMaterialDetailsInline(admin.TabularInline):
+    """Direct raw-material detail lines (no parent main item) on the voucher."""
+    model = PurchaseVoucherDetails
+    fk_name = 'billno'
+    verbose_name = 'Raw Material Detail'
+    verbose_name_plural = 'Raw Material Details'
+    extra = 0
+    fields = ('sub_item', 'sub_pcs', 'sub_gw', 'sub_ct', 'metal_purity', 'packet', 'rate', 'value')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(main_item__isnull=True)
 
 
 class PurchaseVoucherItemsInline(nested_admin.NestedTabularInline):
@@ -33,7 +47,7 @@ class PurchaseVoucherAdmin(nested_admin.NestedModelAdmin):
     list_select_related = ('ldgr', 'retail')
     search_fields = ('billno', 'ldgr__ac_name')
     list_filter = ('date1', 'voucher_type', 'retail')
-    inlines = [PurchaseVoucherItemsInline]
+    inlines = [PurchaseVoucherItemsInline, RawMaterialDetailsInline]
 
 
 

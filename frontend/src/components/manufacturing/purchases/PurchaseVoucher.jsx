@@ -1034,6 +1034,39 @@ const PurchaseVoucher = () => {
     setRsRaw((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleEditRawRow = (index) => {
+    // Prevent editing multiple sub-items at once.
+    const currentDetails = getValues('details');
+    if (currentDetails.sub_item) {
+      toast({ title: "Finish editing the current sub-item first", description: "Press Tab to save the current sub-item before editing another.", variant: "destructive" });
+      return;
+    }
+    const subItem = rsRaw[index];
+    if (!subItem) return;
+
+    editingSubItemRef.current = true;
+
+    setValue('details.id', subItem.id ?? null);
+    setValue('details.sl_no', subItem.sl_no ?? null);
+    setValue('details.packet', subItem.packet || "");
+    setValue('details.sub_item', subItem.sub_item || "");
+    setValue('details.sub_pcs', subItem.sub_pcs || 0);
+    setValue('details.sub_ct', subItem.sub_ct || 0);
+    setValue('details.sub_gw', subItem.sub_gw || 0);
+    setValue('details.metal_purity', subItem.metal_purity || "");
+    setValue('details.loss', subItem.loss || 0);
+    setValue('details.tunch', subItem.tunch || 0);
+    setValue('details.fine_wt', subItem.fine_wt || 0);
+    setValue('details.rate', subItem.rate || 0);
+    setValue('details.value', subItem.value || 0);
+    const subItemData = mainItemData.find(m => m.short_code === subItem.sub_item);
+    setDetailItemDisplay(subItemData ? subItemData.item_name : (subItem.sub_item || ""));
+    setCalculate(prev => prev + 1);
+
+    // Remove from rsRaw so the user can re-add after editing.
+    setRsRaw((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const billSummaryRows = [
     { label: 'Hallmark Charge',    field: 'form.hallmark_charge', editable: true },
     { label: 'Freight Charge',     field: 'form.freight_amt',     editable: true },
@@ -1669,7 +1702,10 @@ const PurchaseVoucher = () => {
               {rsRaw.map((detail, idx) => (
                 <TableRow key={idx}>
                   <TableCell className="px-4 py-2 border text-center">
-                    <Trash2 color="#d45959" className="size-4 cursor-pointer mx-auto" onClick={() => handleDeleteRawRow(idx)} />
+                    <div className="flex flex-row justify-center items-center gap-1">
+                      <SquarePen color="#6d6d6d" className="size-4 cursor-pointer" onClick={() => handleEditRawRow(idx)} />
+                      <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteRawRow(idx)} />
+                    </div>
                   </TableCell>
                   <TableCell className="w-24 px-4 py-2 border">{detail.packet}</TableCell>
                   <TableCell className="w-24 px-4 py-2 border">{detail.sub_item}</TableCell>

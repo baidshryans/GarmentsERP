@@ -241,25 +241,25 @@ class InventoryTurnoverService:
         return round(ratio, 4), round(days, 2)
 
     def _inv_value_before(self, cutoff_date):
-        """Sum of total_amount for vendor barcodes purchased before cutoff_date."""
+        """Sum of total_amount for vendor barcodes created before cutoff_date (opening stock proxy)."""
         if not cutoff_date:
             return 0.0
         val = BarcodeMain.objects.filter(
             pur_voucher__isnull=False,
             pur_voucher__billno__ldgr_id=self.vendor_id,
             retail_id=self.retail_id,
-            pur_voucher__billno__date1__lt=cutoff_date,
+            created_date__lt=cutoff_date,
         ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
         return float(val)
 
     def _inv_value_in_stock_at(self, cutoff_date):
-        """Sum of total_amount for vendor barcodes purchased on or before cutoff_date still in stock."""
+        """Sum of total_amount for vendor barcodes created on or before cutoff_date still in stock."""
         val = BarcodeMain.objects.filter(
             pur_voucher__isnull=False,
             pur_voucher__billno__ldgr_id=self.vendor_id,
             retail_id=self.retail_id,
             stk_status=True,
-            pur_voucher__billno__date1__lte=cutoff_date,
+            created_date__lte=cutoff_date,
         ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
         return float(val)
 
@@ -295,6 +295,17 @@ class InventoryTurnoverService:
             'avg_inventory': round(avg_inv, 2),
         }
 
+    def _months_in_range(self, from_date, to_date):
+        """Yield (year, month) for every month that starts within [from_date, to_date]."""
+        year, month = from_date.year, from_date.month
+        end_year, end_month = to_date.year, to_date.month
+        while (year, month) <= (end_year, end_month):
+            yield year, month
+            month += 1
+            if month > 12:
+                month = 1
+                year += 1
+
     def _last_12_months(self):
         import calendar
         from datetime import date as _date
@@ -317,16 +328,17 @@ class InventoryTurnoverService:
         if from_date and to_date:
             current = self._period_metrics(from_date, to_date)
         else:
-            # Default: current calendar year to today
+            # Default: current financial year (April 1) to today
             today = date.today()
-            current = self._period_metrics(
-                date(today.year, 1, 1), today
-            )
+            fy_year = today.year if today.month >= 4 else today.year - 1
+            from_date = date(fy_year, 4, 1)
+            to_date = today
+            current = self._period_metrics(from_date, to_date)
 
-        # Monthly trend — last 12 months
+        # Monthly trend — months within the selected date range
         import calendar
         monthly_trend = []
-        for year, month in self._last_12_months():
+        for year, month in self._months_in_range(from_date, to_date):
             last_day = calendar.monthrange(year, month)[1]
             m_from = date(year, month, 1)
             m_to = date(year, month, last_day)

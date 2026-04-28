@@ -272,7 +272,6 @@ class InventoryTurnoverService:
         return float(qs.aggregate(Sum('item_value'))['item_value__sum'] or 0)
 
     def _returns_in_range(self, from_date, to_date):
-        from purchase.models import PurchaseReturn
         qs = PurchaseReturn.objects.filter(
             ldgr_id=self.vendor_id,
             retail_id=self.retail_id,
@@ -416,7 +415,6 @@ class ItemPerformanceService:
             }
 
         # Returns map: set of PurchaseVoucher IDs that have a purchase return
-        from purchase.models import PurchaseReturn
         pv_ids = set(b.pur_voucher.billno_id for b in barcodes if b.pur_voucher_id)
         returned_pv_ids = set(
             PurchaseReturn.objects.filter(purchase_voucher_ref_id__in=pv_ids)

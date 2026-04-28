@@ -78,6 +78,7 @@ class TestDesignPerformanceService(TestCase):
     def test_get_data_sold_barcode_counted(self, MockBarcodeMain, MockSalesVouItem):
         """A barcode with a matching SalesVouItem is counted as sold."""
         b = MagicMock()
+        b.id = 1
         b.barcode = 'B001'
         b.design_code = 'DX'
         b.item.item_name = 'Bangle'
@@ -86,8 +87,9 @@ class TestDesignPerformanceService(TestCase):
         b.pur_voucher.billno.date1 = date(2025, 1, 1)
 
         svi = MagicMock()
-        svi.barcode_id = 'B001'
-        svi.bill.date1 = date(2025, 1, 15)  # 14 days → fast
+        svi.barcode_id = 1  # matches b.id
+        svi.billno_id = 1
+        svi.billno.date1 = date(2025, 1, 15)  # 14 days → fast
 
         MockBarcodeMain.objects.filter.return_value.select_related.return_value = [b]
         MockSalesVouItem.objects.filter.return_value.select_related.return_value = [svi]
@@ -110,13 +112,13 @@ class TestInventoryTurnoverService(TestCase):
                                        from_date='2025-04-01', to_date='2025-03-31')
         with patch('vendor_analytics.services.BarcodeMain') as MB, \
              patch('vendor_analytics.services.PurchaseVoucherItems') as MPV, \
-             patch('vendor_analytics.services.PurchaseReturnItems') as MPR, \
+             patch('vendor_analytics.services.PurchaseReturn') as MPR, \
              patch('vendor_analytics.services.FiscalYearMaster') as MFY:
             # make aggregate calls return 0
             MB.objects.filter.return_value.aggregate.return_value = {'total_amount__sum': None}
             MPV.objects.filter.return_value.aggregate.return_value = {'item_value__sum': None}
-            MPR.objects.filter.return_value.aggregate.return_value = {'item_value__sum': None}
-            MFY.objects.all.return_value.order_by.return_value = []
+            MPR.objects.filter.return_value.aggregate.return_value = {'bill_value__sum': None}
+            MFY.objects.filter.return_value.order_by.return_value = []
             result = svc.get_data()
 
         self.assertIn('current_period', result)
@@ -150,16 +152,17 @@ class TestInventoryTurnoverService(TestCase):
         self.assertEqual(days, 0.0)
 
     def test_monthly_trend_length(self):
-        """monthly_trend should return 12 entries when no from_date given."""
-        svc = InventoryTurnoverService(retail_id=1, vendor_id=1)
+        """monthly_trend covers exactly the months in the requested date range."""
+        svc = InventoryTurnoverService(retail_id=1, vendor_id=1,
+                                       from_date='2025-04-01', to_date='2026-03-31')
         with patch('vendor_analytics.services.BarcodeMain') as MB, \
              patch('vendor_analytics.services.PurchaseVoucherItems') as MPV, \
-             patch('vendor_analytics.services.PurchaseReturnItems') as MPR, \
+             patch('vendor_analytics.services.PurchaseReturn') as MPR, \
              patch('vendor_analytics.services.FiscalYearMaster') as MFY:
             MB.objects.filter.return_value.aggregate.return_value = {'total_amount__sum': None}
             MPV.objects.filter.return_value.aggregate.return_value = {'item_value__sum': None}
-            MPR.objects.filter.return_value.aggregate.return_value = {'item_value__sum': None}
-            MFY.objects.all.return_value.order_by.return_value = []
+            MPR.objects.filter.return_value.aggregate.return_value = {'bill_value__sum': None}
+            MFY.objects.filter.return_value.order_by.return_value = []
             result = svc.get_data()
 
         self.assertEqual(len(result['monthly_trend']), 12)
@@ -172,50 +175,52 @@ class TestInventoryTurnoverService(TestCase):
 
 class TestItemPerformanceService(TestCase):
 
-    @patch('vendor_analytics.services.PurchaseReturnItems')
+    @patch('vendor_analytics.services.PurchaseReturn')
     @patch('vendor_analytics.services.SalesVouItem')
     @patch('vendor_analytics.services.BarcodeMain')
-    def test_get_data_returns_correct_keys(self, MockBM, MockSVI, MockPRI):
+    def test_get_data_returns_correct_keys(self, MockBM, MockSVI, MockPR):
         MockBM.objects.filter.return_value.select_related.return_value = []
         MockSVI.objects.filter.return_value.select_related.return_value = []
-        MockPRI.objects.filter.return_value.values_list.return_value = []
+        MockPR.objects.filter.return_value.values_list.return_value = []
         svc = ItemPerformanceService(retail_id=1, vendor_id=1)
         result = svc.get_data()
         self.assertIn('items', result)
         self.assertIsInstance(result['items'], list)
 
-    @patch('vendor_analytics.services.PurchaseReturnItems')
+    @patch('vendor_analytics.services.PurchaseReturn')
     @patch('vendor_analytics.services.SalesVouItem')
     @patch('vendor_analytics.services.BarcodeMain')
-    def test_get_data_groups_by_item(self, MockBM, MockSVI, MockPRI):
+    def test_get_data_groups_by_item(self, MockBM, MockSVI, MockPR):
         """Two barcodes for same item_id → one item entry."""
         def make_barcode(bc_id):
             b = MagicMock()
-            b.barcode = bc_id
+            b.id = bc_id
+            b.barcode = str(bc_id)
             b.item_id = 5
             b.item.item_name = 'Chain'
             b.item.item_type = 'GOLD'
             b.gw = 10.0
             b.total_amount = 2000
-            b.pur_voucher_id = bc_id + '_pv'
+            b.pur_voucher_id = None  # no returns to look up
             return b
 
-        barcodes = [make_barcode('B1'), make_barcode('B2')]
+        barcodes = [make_barcode(1), make_barcode(2)]
         MockBM.objects.filter.return_value.select_related.return_value = barcodes
         MockSVI.objects.filter.return_value.select_related.return_value = []
-        MockPRI.objects.filter.return_value.values_list.return_value = []
+        MockPR.objects.filter.return_value.values_list.return_value = []
 
         svc = ItemPerformanceService(retail_id=1, vendor_id=1)
         result = svc.get_data()
         self.assertEqual(len(result['items']), 1)
         self.assertEqual(result['items'][0]['pcs_purchased'], 2)
 
-    @patch('vendor_analytics.services.PurchaseReturnItems')
+    @patch('vendor_analytics.services.PurchaseReturn')
     @patch('vendor_analytics.services.SalesVouItem')
     @patch('vendor_analytics.services.BarcodeMain')
-    def test_margin_calculated_correctly(self, MockBM, MockSVI, MockPRI):
+    def test_margin_calculated_correctly(self, MockBM, MockSVI, MockPR):
         """gross_margin = sale_value - purchase_cost (of sold items)."""
         b = MagicMock()
+        b.id = 1
         b.barcode = 'X1'
         b.item_id = 7
         b.item.item_name = 'Earring'
@@ -223,15 +228,16 @@ class TestItemPerformanceService(TestCase):
         b.gw = 5.0
         b.total_amount = 3000
         b.pur_voucher_id = 'PV1'
+        b.pur_voucher.billno_id = 1  # real int for ORM filter
 
         svi = MagicMock()
-        svi.barcode_id = 'X1'
+        svi.barcode_id = 1  # matches b.id
         svi.gw = 4.8
-        svi.item_value = 4000
+        svi.amount = 4000
 
         MockBM.objects.filter.return_value.select_related.return_value = [b]
         MockSVI.objects.filter.return_value.select_related.return_value = [svi]
-        MockPRI.objects.filter.return_value.values_list.return_value = []
+        MockPR.objects.filter.return_value.values_list.return_value = []
 
         svc = ItemPerformanceService(retail_id=1, vendor_id=1)
         result = svc.get_data()
@@ -242,12 +248,13 @@ class TestItemPerformanceService(TestCase):
         self.assertAlmostEqual(item['gross_margin'], 1000.0)
         self.assertAlmostEqual(item['margin_pct'], 25.0)
 
-    @patch('vendor_analytics.services.PurchaseReturnItems')
+    @patch('vendor_analytics.services.PurchaseReturn')
     @patch('vendor_analytics.services.SalesVouItem')
     @patch('vendor_analytics.services.BarcodeMain')
-    def test_returned_barcode_counted(self, MockBM, MockSVI, MockPRI):
-        """A barcode whose pur_voucher_id appears in returned set → pcs_returned=1."""
+    def test_returned_barcode_counted(self, MockBM, MockSVI, MockPR):
+        """A barcode whose purchase voucher has a return → pcs_returned=1."""
         b = MagicMock()
+        b.id = 1
         b.barcode = 'Y1'
         b.item_id = 9
         b.item.item_name = 'Necklace'
@@ -256,9 +263,11 @@ class TestItemPerformanceService(TestCase):
         b.total_amount = 8000
         b.pur_voucher_id = 'PV_RET'
 
+        b.pur_voucher.billno_id = 99  # real int so ORM filter doesn't choke
+
         MockBM.objects.filter.return_value.select_related.return_value = [b]
         MockSVI.objects.filter.return_value.select_related.return_value = []
-        MockPRI.objects.filter.return_value.values_list.return_value = ['PV_RET']
+        MockPR.objects.filter.return_value.values_list.return_value = [99]
 
         svc = ItemPerformanceService(retail_id=1, vendor_id=1)
         result = svc.get_data()

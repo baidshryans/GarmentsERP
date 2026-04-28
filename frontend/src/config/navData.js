@@ -314,6 +314,7 @@ export const navData = {
     { title: "Design Performance", url: "/vendor-analytics/design-performance", icon: BarChart2 },
     { title: "Inventory Turnover", url: "/vendor-analytics/inventory-turnover", icon: BarChart2 },
     { title: "Item Performance",   url: "/vendor-analytics/item-performance",   icon: BarChart2 },
+    { title: "Vendor Comparison",  url: "/vendor-analytics/vendor-comparison",  icon: BarChart2 },
   ],
 
   // ── System ─────────────────────────────────────────────────────────────────

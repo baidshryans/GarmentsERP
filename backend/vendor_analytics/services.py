@@ -622,3 +622,177 @@ class VendorDashboardService:
             'monthly_purchase_trend': self._monthly_purchase_trend(),
             'top_designs': top_designs_out,
         }
+
+
+# ─── Vendor Comparison ────────────────────────────────────────────────────────
+
+class VendorComparisonService:
+    """
+    Compare multiple vendors (or all vendors) across the same KPIs used in
+    the Vendor Dashboard: purchases, stock value, sell-through, avg days to sell.
+
+    vendor_ids: list[int] | None — None means all vendors with any purchases.
+    """
+
+    def __init__(self, retail_id, vendor_ids=None, from_date=None, to_date=None,
+                 item_type=None, purity_id=None, design_code=None):
+        self.retail_id   = int(retail_id)
+        self.vendor_ids  = [int(v) for v in vendor_ids] if vendor_ids else None
+        self.from_date   = _parse_date(from_date)
+        self.to_date     = _parse_date(to_date)
+        self.item_type   = item_type or None
+        self.purity_id   = int(purity_id) if purity_id else None
+        self.design_code = design_code or None
+
+    # ── shared filter builders ────────────────────────────────────────────────
+
+    def _pv_filters(self):
+        """Filters for PurchaseVoucherItems."""
+        f = {'billno__retail_id': self.retail_id}
+        if self.vendor_ids:
+            f['billno__ldgr_id__in'] = self.vendor_ids
+        if self.from_date:
+            f['billno__date1__gte'] = self.from_date
+        if self.to_date:
+            f['billno__date1__lte'] = self.to_date
+        return f
+
+    def _bm_filters(self, **extra):
+        """Filters for BarcodeMain (vendor scope, no date filter on barcode side)."""
+        f = {'pur_voucher__isnull': False, 'retail_id': self.retail_id}
+        if self.vendor_ids:
+            f['pur_voucher__billno__ldgr_id__in'] = self.vendor_ids
+        if self.item_type:
+            f['item__item_type'] = self.item_type
+        if self.purity_id:
+            f['purity_id'] = self.purity_id
+        if self.design_code:
+            f['design_code'] = self.design_code
+        f.update(extra)
+        return f
+
+    # ── metrics ──────────────────────────────────────────────────────────────
+
+    def _purchase_totals(self):
+        """total_purchases per vendor, respecting date filter."""
+        from django.db.models import Sum
+        rows = (
+            PurchaseVoucherItems.objects
+            .filter(**self._pv_filters())
+            .values('billno__ldgr_id')
+            .annotate(total=Sum('item_value'))
+        )
+        return {r['billno__ldgr_id']: float(r['total'] or 0) for r in rows}
+
+    def _stock_totals(self):
+        """Current stock value per vendor (no date filter on barcodes)."""
+        from django.db.models import Sum
+        rows = (
+            BarcodeMain.objects
+            .filter(**self._bm_filters(stk_status=True))
+            .values('pur_voucher__billno__ldgr_id')
+            .annotate(val=Sum('total_amount'))
+        )
+        return {r['pur_voucher__billno__ldgr_id']: float(r['val'] or 0) for r in rows}
+
+    def _sell_through(self):
+        """total_pcs and sell_through_pct per vendor."""
+        from django.db.models import Count, Q
+        rows = (
+            BarcodeMain.objects
+            .filter(**self._bm_filters())
+            .values('pur_voucher__billno__ldgr_id')
+            .annotate(
+                total_pcs=Count('id'),
+                sold_pcs=Count('id', filter=Q(stk_status=False)),
+            )
+        )
+        result = {}
+        for r in rows:
+            ldgr = r['pur_voucher__billno__ldgr_id']
+            total = r['total_pcs']
+            sold  = r['sold_pcs']
+            result[ldgr] = {
+                'total_pcs':       total,
+                'sold_pcs':        sold,
+                'sell_through_pct': round(sold / total * 100, 1) if total else 0.0,
+            }
+        return result
+
+    def _avg_days_to_sell(self, sold_barcode_ids):
+        """
+        avg_days_to_sell per vendor.
+        sold_barcode_ids: dict[bm_id -> {ldgr_id, created_date}]
+        """
+        if not sold_barcode_ids:
+            return {}
+        vendor_days = {}
+        for svi in (
+            SalesVouItem.objects
+            .filter(barcode_id__in=list(sold_barcode_ids.keys()))
+            .select_related('billno')
+            .values('barcode_id', 'billno__date1')
+        ):
+            bc = sold_barcode_ids.get(svi['barcode_id'])
+            sale_date = svi['billno__date1']
+            if bc and sale_date and bc['created_date']:
+                days = max(0, (sale_date - bc['created_date']).days)
+                vendor_days.setdefault(bc['ldgr_id'], []).append(days)
+        return {
+            ldgr: round(sum(dl) / len(dl), 1)
+            for ldgr, dl in vendor_days.items()
+        }
+
+    # ── main ─────────────────────────────────────────────────────────────────
+
+    def get_data(self):
+        from contacts.models import Ledger
+
+        purchase_map  = self._purchase_totals()
+        stock_map     = self._stock_totals()
+        sell_map      = self._sell_through()
+
+        # Collect sold barcode metadata for avg-days calculation
+        sold_bm = (
+            BarcodeMain.objects
+            .filter(**self._bm_filters(stk_status=False))
+            .values('id', 'pur_voucher__billno__ldgr_id', 'created_date')
+        )
+        sold_barcode_ids = {
+            r['id']: {
+                'ldgr_id':      r['pur_voucher__billno__ldgr_id'],
+                'created_date': r['created_date'],
+            }
+            for r in sold_bm
+        }
+        avg_days_map = self._avg_days_to_sell(sold_barcode_ids)
+
+        # Union of all vendor IDs that appear in any metric
+        all_ldgr_ids = (
+            set(purchase_map) | set(stock_map) | set(sell_map)
+        )
+        if self.vendor_ids:
+            all_ldgr_ids &= set(self.vendor_ids)
+
+        # Fetch names in one query
+        name_map = {
+            l.id: l.ac_name
+            for l in Ledger.objects.filter(id__in=all_ldgr_ids)
+        }
+
+        vendors = []
+        for ldgr_id in all_ldgr_ids:
+            st = sell_map.get(ldgr_id, {})
+            vendors.append({
+                'vendor_id':        ldgr_id,
+                'vendor_name':      name_map.get(ldgr_id, f'Vendor {ldgr_id}'),
+                'total_purchases':  purchase_map.get(ldgr_id, 0.0),
+                'total_stock_value': stock_map.get(ldgr_id, 0.0),
+                'total_pcs':        st.get('total_pcs', 0),
+                'sold_pcs':         st.get('sold_pcs', 0),
+                'sell_through_pct': st.get('sell_through_pct', 0.0),
+                'avg_days_to_sell': avg_days_map.get(ldgr_id, 0.0),
+            })
+
+        vendors.sort(key=lambda v: -v['total_purchases'])
+        return {'vendors': vendors}

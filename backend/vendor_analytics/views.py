@@ -10,6 +10,7 @@ from .services import (
     DesignPerformanceService,
     InventoryTurnoverService,
     ItemPerformanceService,
+    VendorComparisonService,
 )
 
 
@@ -152,6 +153,33 @@ class ItemPerformanceView(APIView):
 
         try:
             data = ItemPerformanceService(retail_id, vendor_id, **params).get_data()
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VendorComparisonView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            retail_id = _get_retail_id(request)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # vendor_ids is comma-separated list; empty/absent = all vendors
+        vendor_ids_raw = request.query_params.get('vendor_ids', '')
+        vendor_ids = [v.strip() for v in vendor_ids_raw.split(',') if v.strip()] or None
+
+        params = _parse_params(request)
+        params.pop('vendor_id', None)  # comparison view has no single vendor_id
+
+        try:
+            data = VendorComparisonService(
+                retail_id,
+                vendor_ids=vendor_ids,
+                **params,
+            ).get_data()
             return Response(data, status=status.HTTP_200_OK)
         except Exception as exc:
             return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

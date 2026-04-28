@@ -195,6 +195,7 @@ const StockAgeingReport          = lazy(() => import("./components/VendorAnalyti
 const DesignPerformanceReport    = lazy(() => import("./components/VendorAnalytics/reports/DesignPerformanceReport.jsx"));
 const InventoryTurnoverReport    = lazy(() => import("./components/VendorAnalytics/reports/InventoryTurnoverReport.jsx"));
 const ItemPerformanceReport      = lazy(() => import("./components/VendorAnalytics/reports/ItemPerformanceReport.jsx"));
+const VendorComparisonReport     = lazy(() => import("./components/VendorAnalytics/reports/VendorComparisonReport.jsx"));
 
 
 // ── Lightweight route-transition spinner ──────────────────────────────────────
@@ -513,6 +514,7 @@ const appRoutes = [
   { path: "vendor-analytics/design-performance", heading: "Design Performance",      component: <DesignPerformanceReport /> },
   { path: "vendor-analytics/inventory-turnover", heading: "Inventory Turnover",      component: <InventoryTurnoverReport /> },
   { path: "vendor-analytics/item-performance", heading: "Item Performance",          component: <ItemPerformanceReport /> },
+  { path: "vendor-analytics/vendor-comparison", heading: "Vendor Comparison",        component: <VendorComparisonReport /> },
 ];
 
 

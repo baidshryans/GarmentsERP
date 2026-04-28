@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { SquarePen, Trash2, FileText } from "lucide-react";
+import { SquarePen, Trash2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deleteSalesReturn, fetchSaleReturnPrintData } from '../../services/apiService';
 import { openAndPrint } from "@/services/print/utils";
@@ -66,21 +66,22 @@ function SalesReturnList() {
              accessorKey: "id",
              cell: ({ row }) => (
                <div className="flex space-x-4">
-                 <Link to={`/sales/salesreturn/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-                   <SquarePen className="mr-1" />
+                 <Link to={`/sales/salesreturn/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center" title="Edit">
+                   <SquarePen className="size-4" />
                  </Link>
                  <button
                    onClick={() => handlePrintCN(row.original)}
                    className="p-1.5 rounded text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center"
                    title="Print Credit Note"
                  >
-                   <FileText className="mr-1" />
+                   <Printer className="size-4" />
                  </button>
                  <button
                            onClick={() => deleteSalesReturn(row.original.id,toast)}
                            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
+                           title="Delete"
                          >
-                           <Trash2 className="mr-1" />
+                           <Trash2 className="size-4" />
                          </button>
                </div>
              ),

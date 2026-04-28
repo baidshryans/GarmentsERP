@@ -34,11 +34,12 @@ const addDays = (dateStr, days) => {
 };
 
 // Derive gold rate per gram for a purity string like "22" from the 3 rates
-const goldRateForPurity = (purity, r18, r22, r24) => {
+const goldRateForPurity = (purity, r18, r22, r24, r14) => {
   const p = parseInt(purity);
   if (p === 24 || p === 995) return r24;
   if (p === 22 || p === 916) return r22;
   if (p === 18 || p === 750) return r18;
+  if (p === 14 || p === 585) return r14;
   // Fallback: interpolate based on 24K
   if (r24 && p) return Math.round((r24 * p) / 24);
   return 0;
@@ -111,6 +112,7 @@ export default function QuotationAdd() {
 
   // Gold rates
   const [goldRateDate, setGoldRateDate] = useState(today());
+  const [rate14kt, setRate14kt] = useState(0);
   const [rate18kt, setRate18kt] = useState(0);
   const [rate22kt, setRate22kt] = useState(0);
   const [rate24kt, setRate24kt] = useState(0);
@@ -186,20 +188,21 @@ export default function QuotationAdd() {
   // ── Gold rates ─────────────────────────────────────────────────────────
   const fetchRates = useCallback(async (dateVal) => {
     const res = await getGoldRate(dateVal);
-    if (res.success && res.data) {
-      const rates = Array.isArray(res.data) ? res.data : res.data.results || [];
-      for (const r of rates) {
-        const p = r.purity || r.purity_name || "";
-        if (p.includes("18")) setRate18kt(r.rate || 0);
-        if (p.includes("22")) setRate22kt(r.rate || 0);
-        if (p.includes("24")) setRate24kt(r.rate || 0);
-      }
+    if (!res.success || !res.data) return;
+    const rates = Array.isArray(res.data) ? res.data : res.data.results || [];
+    for (const r of rates) {
+      const p = String(r.purity_name || "");
+      const val = Number(r.selling_rate ?? r.rate) || 0;
+      if (p.includes("14")) setRate14kt(val);
+      else if (p.includes("18")) setRate18kt(val);
+      else if (p.includes("22")) setRate22kt(val);
+      else if (p.includes("24")) setRate24kt(val);
     }
   }, []);
 
   useEffect(() => {
     if (!id) fetchRates(goldRateDate);
-  }, [goldRateDate]);
+  }, [goldRateDate, fetchRates, id]);
 
   // ── Barcode scan ───────────────────────────────────────────────────────
   const handleScan = async (e) => {
@@ -227,7 +230,7 @@ export default function QuotationAdd() {
       const metalItem = (d.main_item_set || []).find((i) => i.item === "GOLD");
 
       const purityVal = d.purity ? String(d.purity).replace("K", "") : "";
-      const gRate = goldRateForPurity(purityVal, rate18kt, rate22kt, rate24kt);
+      const gRate = goldRateForPurity(purityVal, rate18kt, rate22kt, rate24kt, rate14kt);
 
       // B2B tunch: compute fine weight; gold_amount derives from fine_wt × 24K rate
       const tunchResult = b2bPricelist
@@ -534,9 +537,9 @@ export default function QuotationAdd() {
         {/* Gold rates display */}
         <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
           <span>Gold Rates:</span>
+          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">14K: {rate14kt || "—"}</span>
           <span className="font-mono bg-muted px-1.5 py-0.5 rounded">18K: {rate18kt || "—"}</span>
           <span className="font-mono bg-muted px-1.5 py-0.5 rounded">22K: {rate22kt || "—"}</span>
-          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">24K: {rate24kt || "—"}</span>
           {b2bPricelist && (
             <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
               B2B Pricelist: {b2bPricelist.name}

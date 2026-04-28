@@ -941,9 +941,12 @@ def fetch_main_details(request):
     job_sl_no = request.GET.get('job_sl_no')
     ref_job_no = request.GET.get('ref_job_no')
 
+    if not job_sl_no or not ref_job_no:
+        return JsonResponse({'error': 'job_sl_no and ref_job_no are required'}, status=400)
+
     # Fetch the issue slip instance
     karigar_issue_instance = KarigarIssue.objects.get(issue_slip_no=ref_job_no)
-    
+
     # Fetch the issued item
     issued_item = KarigarIssueItem.objects.get(issue_sl_no=job_sl_no, issue_slip=karigar_issue_instance)
 

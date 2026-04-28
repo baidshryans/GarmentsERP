@@ -112,7 +112,7 @@ const totalPages = data?.data?.total_pages ?? 1;
       cell: ({ row }) => (
         <div className="flex space-x-4">
           <Link to={voucherType ? `/purchase/customerpurchase/list/${row.original.id}` : `/purchase/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" />
+            <SquarePen className="size-4" />
           </Link>
 
           <button

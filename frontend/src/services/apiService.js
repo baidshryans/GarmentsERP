@@ -1685,7 +1685,7 @@ export async function fetchNextSaleAppNo() {
     return { success: false, error: error.response?.data || error.message };
   }
 }
-export async function fetchKarigarIssues({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchKarigarIssues({ search = "", page = 1, ordering = "", page_size = "" } = {}) {
   try {
     const params = new URLSearchParams();
 
@@ -1693,6 +1693,7 @@ export async function fetchKarigarIssues({ search = "", page = 1, ordering = "" 
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
     params.append("page", page);
+    if (page_size) params.append("page_size", page_size);
 
     const response = await apiClient.get(`/manufacturing/api/karigar-issue-vs/?${params.toString()}`);
 
@@ -3438,6 +3439,15 @@ export async function deleteBranch(id) {
 export async function fetchBranchAnalytics(id) {
   try {
     const response = await apiClient.get(`/mastersconfig/api/branch/${id}/analytics/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchRetailAnalytics(id) {
+  try {
+    const response = await apiClient.get(`/mastersconfig/api/retail/${id}/analytics/`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

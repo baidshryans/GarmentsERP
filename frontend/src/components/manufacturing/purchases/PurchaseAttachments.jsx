@@ -58,8 +58,8 @@ export default function PurchaseAttachments({ purchaseId, billNo }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button title="Attachments" className="text-muted-foreground hover:text-foreground relative">
-          <Paperclip className="size-5" />
+        <button title="Attachments" className="p-1.5 rounded text-slate-600 hover:bg-slate-100 transition-colors flex items-center relative">
+          <Paperclip className="size-4" />
           {attachments.length > 0 && (
             <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full size-4 flex items-center justify-center">
               {attachments.length}

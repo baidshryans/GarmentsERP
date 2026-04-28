@@ -16,6 +16,22 @@ import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router-dom";
 
 
+function SectionCard({ title, children, className = "", action, subtitle }) {
+  return (
+    <div className={`bg-white border border-border rounded-xl shadow-sm ${className}`}>
+      <div className="px-5 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">{title}</h3>
+          {subtitle ? <span className="text-xs text-muted-foreground">· {subtitle}</span> : null}
+        </div>
+        {action ? <div>{action}</div> : null}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
 const JobWorkReceive = () => {
   const { id } = useParams()
   const { toast } = useToast()
@@ -51,6 +67,15 @@ const JobWorkReceive = () => {
   });
 
   const watchFields = watch("table") || [];
+  const watchedRefJobNoId = watch("form.ref_job_no_id");
+
+  useEffect(() => {
+    if (watchedRefJobNoId) {
+      loadSerialNos(watchedRefJobNoId);
+    } else {
+      setSerialNos([]);
+    }
+  }, [watchedRefJobNoId]);
 function modifyData(data) {
   data.items.forEach(item => {
     // Calculate pending values
@@ -62,7 +87,7 @@ function modifyData(data) {
       issue_pcs: 0,
       return_pcs: 0,
       rate: 0,
-      item: "GOLD",
+      item: "Gold",
       metal_purity: item.purity,
       balance_ct: "0",
       balance_gw: item.nw,
@@ -77,28 +102,66 @@ function modifyData(data) {
   return data;
 }
 
-  const handleBlur = async (e) => {
-    const { ref_job_no_id } = getValues("form");
-    const response = await fetchStoneIssuesFilterJobs(ref_job_no_id, "Job Order");
+  const loadSerialNos = async (refJobNoId) => {
+    console.log("[JobWorkReceive] loadSerialNos called with refJobNoId =", refJobNoId);
+    if (!refJobNoId) {
+      setSerialNos([]);
+      return;
+    }
+    const response = await fetchStoneIssuesFilterJobs(refJobNoId, "Job Order");
+    console.log("[JobWorkReceive] filter-job-items response:", response);
     if (response.success) {
-      const data = response.data.job_items;
-      setSerialNos(data);
+      const items = response.data.job_items || [];
+      console.log("[JobWorkReceive] setting serialNos to", items.length, "items:", items);
+      setSerialNos(items);
     } else {
       toast({ title: "An error occurred. Please try again later." });
     }
-
   }
+
+  const handleBlur = async (e) => {
+    const { ref_job_no_id } = getValues("form");
+    await loadSerialNos(ref_job_no_id);
+  }
+
+  const round3 = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? Number(n.toFixed(3)) : v;
+  };
+  const WEIGHT_FIELDS = [
+    "gw", "nw", "less_gw", "supplied_gw", "sample_piece_gw",
+    "main_total_wt", "wastage", "fine_wt",
+    "issue_gw", "return_gw", "broken_gw", "balance_gw",
+    "issue_ct", "return_ct", "broken_ct", "balance_ct",
+  ];
+  const round3WeightFields = (obj) => {
+    if (!obj) return obj;
+    WEIGHT_FIELDS.forEach((k) => {
+      if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") {
+        obj[k] = round3(obj[k]);
+      }
+    });
+    return obj;
+  };
 
   const handleBlur1 = async (e) => {
 
-    const { ref_job_no, sl_no } = getValues("form");
+    const { ref_job_no, ref_job_no_id, sl_no } = getValues("form");
+    if (!ref_job_no || !sl_no) {
+      return;
+    }
     try {
       const data = await fetchMainItemDetails(ref_job_no, sl_no);
       const sl = getValues("table").length + 1
-      console.log(sl)
+      const matchingSerial = serialNos.find(
+        (s) => String(s.job_sl_no) === String(sl_no)
+      );
       const stone_details = [...data.data.details]
       data.data.date1 = getValues("form.date1")
       data.data.sl_no = sl
+      data.data.ref_job_no = ref_job_no_id || matchingSerial?.job_id || null;
+      data.data.ref_job_sl_no = matchingSerial?.id || null;
+      data.data._source_label = `Job · ${ref_job_no} · Sl ${sl_no}`;
       data.data.details = stone_details
         .map(detail => {
           // Calculate amount based on UOM
@@ -132,16 +195,20 @@ function modifyData(data) {
       data.data.less_gw = 0
       data.data.loss = 0
 
-      data.data.nw = data.data.gw - data.data.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_gw) || 0), 0)
-      
-
+      data.data.nw = round3(data.data.gw - data.data.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_gw) || 0), 0))
+      round3WeightFields(data.data);
+      data.data.details = (data.data.details || []).map(round3WeightFields);
 
       append(data.data)
       setTimeout(() => {
         handletunchChange(getValues("table").length - 1);
         handlelossChange(getValues("table").length - 1);
-
       }, 500)
+
+      setValue("form.ref_job_no", "");
+      setValue("form.ref_job_no_id", "");
+      setValue("form.sl_no", "");
+      setSerialNos([]);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -171,8 +238,8 @@ function modifyData(data) {
       purity: itm.piece_purity || "",
       finish_status: false,
       pcs: itm.piece_pcs || 0,
-      gw: itm.piece_gw || 0,
-      nw: itm.piece_gw || 0,
+      gw: round3(itm.piece_gw || 0),
+      nw: round3(itm.piece_gw || 0),
       less_gw: 0,
       loss: 0,
       tunch_per: 0,
@@ -187,8 +254,14 @@ function modifyData(data) {
       ref_sample_issue: ref_sample_issue_id,
       ref_sample_issue_item: itm.id,
       sample_piece_gw: itm.piece_gw || 0,
+      _source_label: `Sample · ${getValues("form.ref_sample_issue_billno") || ""} · Sl ${ref_sample_sl_no}`,
     };
     append(row);
+
+    setValue("form.ref_sample_issue_billno", "");
+    setValue("form.ref_sample_issue_id", "");
+    setValue("form.ref_sample_sl_no", "");
+    setSampleItems([]);
   }
 
   useEffect(() => {
@@ -196,7 +269,7 @@ function modifyData(data) {
       const [packets, states, karigars, customers, salesperson, orderNo, mainItem, purity, sampleIssueList] = await Promise.all([
         fetchPackets(),
         getStates(),
-        fetchKarigarIssues(),
+        fetchKarigarIssues({ page_size: 500 }),
         getLedgers(),
         getStates(),
         fetchReceiveSlipNo(),
@@ -223,10 +296,15 @@ function modifyData(data) {
             const formData = {
               form: {
               ...data.data,
-              table: JSON.parse(JSON.stringify(data.data.items)).map(item => ({
-                ...item,
-                details: item.details.filter(detail => detail.item !== 'GOLD')
-              }))
+              table: JSON.parse(JSON.stringify(data.data.items)).map(item => {
+                const cleaned = round3WeightFields({
+                  ...item,
+                  details: item.details
+                    .filter(detail => String(detail.item || '').toLowerCase() !== 'gold')
+                    .map(round3WeightFields)
+                });
+                return cleaned;
+              })
               }
             };
             setValue("form.place_of_supply", "TN")
@@ -250,12 +328,21 @@ function modifyData(data) {
 
   const onSubmit = (data) => {
     const form_data = getValues("form");
-    form_data.items = getValues('table')
+    form_data.items = (getValues('table') || []).map((row) => {
+      const { _source_label, ...rest } = row || {};
+      ['rhodium', 'making', 'wastage'].forEach((k) => {
+        if (rest[k] === '' || rest[k] === undefined) rest[k] = null;
+      });
+      return rest;
+    });
     // Per-item ref_* fields drive routing; strip header-level helpers that aren't on the backend model.
     delete form_data.source_type;
     delete form_data.ref_sample_issue_billno;
     delete form_data.ref_sample_issue_id;
     delete form_data.ref_sample_sl_no;
+    delete form_data.ref_job_no;
+    delete form_data.ref_job_no_id;
+    delete form_data.sl_no;
     let newData = JSON.parse(JSON.stringify(form_data));
     console.log(modifyData)
     modifyData(newData);
@@ -301,29 +388,39 @@ function modifyData(data) {
     setRows((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const recalcNw = (index) => {
+    const gw = parseFloat(getValues(`table.${index}.gw`)) || 0;
+    const details = getValues(`table.${index}.details`) || [];
+    const stoneGw = details.reduce(
+      (sum, d) => sum + (parseFloat(d?.balance_gw) || 0),
+      0
+    );
+    const nw = gw - stoneGw;
+    setValue(`table.${index}.nw`, Number(nw.toFixed(3)));
+    handlelossChange(index);
+    handletunchChange(index);
+  }
+
   const handletunchChange = (index) => {
-    const value = parseFloat(getValues(`table.${index}.tunch_per`)) * parseFloat(getValues(`table.${index}.nw`)) // tunch% * nw
-    console.log(index)
-    setValue(`table.${index}.fine_wt`, `${value}`)
+    const tunch = parseFloat(getValues(`table.${index}.tunch_per`)) || 0;
+    const nw = parseFloat(getValues(`table.${index}.nw`)) || 0;
+    const value = (tunch / 100) * nw;
+    setValue(`table.${index}.fine_wt`, Number(value.toFixed(3)))
   }
 
   const handlelossChange = (index) => {
+    const lossPct = parseFloat(getValues(`table.${index}.loss`)) || 0;
+    const nw = parseFloat(getValues(`table.${index}.nw`)) || 0;
+    const less = parseFloat(getValues(`table.${index}.less_gw`)) || 0;
+    const lossFrac = lossPct / 100;
+    const base = nw - less;
 
-    const loss = parseFloat(getValues(`table.${index}.loss`))
-    const nw = parseFloat(getValues(`table.${index}.nw`))
-    const less = parseFloat(getValues(`table.${index}.less_gw`))
-
-    setValue(`table.${index}.main_total_wt`, `${(nw - less) * (1 + loss)}`)
-    setValue(`table.${index}.wastage`, `${(nw - less) * loss}`)
+    setValue(`table.${index}.main_total_wt`, Number((base * (1 + lossFrac)).toFixed(3)))
+    setValue(`table.${index}.wastage`, Number((base * lossFrac).toFixed(3)))
   }
 
   const handlelesswtChange = (index) => {
-    const loss = parseFloat(getValues(`table.${index}.loss`))
-    const nw = parseFloat(getValues(`table.${index}.nw`))
-    const less = parseFloat(getValues(`table.${index}.less_gw`))
-
-    setValue(`table.${index}.main_total_wt`, `${(nw - less) * (1 + loss)}`)
-    setValue(`table.${index}.wastage`, `${(nw - less) * loss}`)
+    handlelossChange(index);
   }
 
   const handleaddwtChange = (index) => {
@@ -373,769 +470,534 @@ function modifyData(data) {
   };
 
   return (
-    <div className="container mt-5" >
+    <div className="w-[96%] max-w-[1500px] mx-auto px-4 py-6 space-y-4">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <button type="button" onClick={() => navigate("/")} className="hover:text-foreground">Home</button>
+        <span>/</span>
+        <button type="button" onClick={() => navigate("/manufacturing/receive/jobworkreceive/")} className="hover:text-foreground">Job Work Receive</button>
+        <span>/</span>
+        <span className="text-foreground">{id ? "Edit" : "New"}</span>
+      </div>
+
+      <div className="flex items-center justify-between sticky top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70 -mx-4 px-4 py-2 border-b border-border">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">
+            {id ? "Edit Job Work Receive" : "New Job Work Receive"}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Receive finished pieces from karigars against job orders or samples.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => window.history.back()}>Cancel</Button>
+          <Button
+            type="submit"
+            form="orderForm"
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            disabled={saving}
+          >
+            {saving ? "Saving..." : (id ? "Update" : "Save Receive")}
+          </Button>
+        </div>
+      </div>
+
       <form
-        className="p-4 shadow-lg rounded-lg bg-white"
         id="orderForm"
         onSubmit={handleSubmit(onSubmit)}
+        className="space-y-4"
       >
+        <SectionCard title="Receive Reference">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
+            <FieldContainer>
+              <Label htmlFor="date">Date</Label>
+              <Input type="date" {...register("form.date1")} required />
+            </FieldContainer>
+            <FieldContainer>
+              <Label htmlFor="receive_slip_no" className="text-nowrap">Receive Slip No</Label>
+              <Input type="text" {...register("form.receive_slip_no")} readOnly disabled className="bg-muted/40" />
+            </FieldContainer>
+            <FieldContainer>
+              <Label htmlFor="place_of_supply" className="text-nowrap">Place of Supply</Label>
+              <Controller
+                name="form.place_of_supply"
+                control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statesData.map((sp, index) => (
+                        <SelectItem key={index} value={`${sp.code}`}>{sp.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FieldContainer>
+            <FieldContainer>
+              <Label htmlFor="party_name_display" className="text-nowrap">Karigar Name</Label>
+              <SearchableComboBox
+                options={customers}
+                value={watch("form.karigar_ldgr_name") ?? ""}
+                onSelect={(opt) => {
+                  setValue("form.karigar_ldgr_name", opt.ac_name)
+                  setValue("form.karigar_ldgr", opt.id)
+                }}
+                placeholder="Search karigar…"
+              />
+              <input type="hidden" {...register("form.karigar_ldgr")} />
+            </FieldContainer>
+          </div>
+        </SectionCard>
 
-        <hr className="my-3" />
-
-        {/* Date, Order No, Fixed Gold Rate */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <FieldContainer>
-            <Label htmlFor="date">Date</Label>
-            <Input type="date" {...register("form.date1")} required />
-          </FieldContainer>
-          <FieldContainer>
-            <Label htmlFor="receive_slip_no " className="text-nowrap">Receive Slip No</Label>
-            <Input type="text" {...register("form.receive_slip_no")} readOnly disabled />
-          </FieldContainer>
-          <FieldContainer>
-            <Label htmlFor="place_of_supply" className="text-nowrap">Place of Supply</Label>
-            <Controller
-              name="form.place_of_supply"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger >
-                    <SelectValue placeholder="Select State" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {statesData.map((sp, index) => (
-                      <SelectItem key={index} value={`${sp.code}`}>{sp.name}</SelectItem>
-                    ))}
-
-                  </SelectContent>
-                </Select>
-              )}
-            />
-
-          </FieldContainer>
-        </div>
-
-
-        {/* Party Details */}
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <FieldContainer>
-            <Label htmlFor="party_name_display" className="text-nowrap">
-              Karigar Name
-            </Label>
-            <SearchableComboBox
-              options={customers}
-              value={watch("form.karigar_ldgr_name") ?? ""}
-              onSelect={(opt) => {
-                setValue("form.karigar_ldgr_name", opt.ac_name)
-                setValue("form.karigar_ldgr", opt.id)
-              }}
-              placeholder="Search karigar…"
-            />
-            <input type="hidden" {...register("form.karigar_ldgr")} />
-          </FieldContainer>
-          <FieldContainer>
-            <Label className="text-nowrap">Source</Label>
-            <div className="flex gap-4 items-center pt-2">
-              <label className="flex items-center gap-1">
-                <input type="radio" value="job" {...register("form.source_type")} />
-                <span>Against Job</span>
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="radio" value="sample" {...register("form.source_type")} />
-                <span>Against Sample</span>
-              </label>
-            </div>
-          </FieldContainer>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          {watch("form.source_type") !== "sample" && (
-            <>
-              <FieldContainer>
-                <Label htmlFor="serial_no_list" className="text-nowrap">Ref Job No</Label>
-                <Input type="hidden" {...register("form.ref_job_no_id")} />
-                <Input list="ref_no_list"
-                  {...register("form.ref_job_no", {
-                    onBlur: handleBlur,
-                    onChange: (e) => {
-                      const selectedSlipNo = e.target.value;
-                      const selectedKarigar = karigars.find(
-                        (serialNo) => serialNo.issue_slip_no === selectedSlipNo
-                      );
-                      if (selectedKarigar) {
-                        setValue("form.ref_job_no_id", selectedKarigar.id);
+        <SectionCard
+          title="Add Item"
+          subtitle="Pick from a job order or a sample issue. The picker clears after each row added."
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border bg-muted/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">JW</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-foreground">From Job Work</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FieldContainer>
+              <Label htmlFor="ref_no_list" className="text-nowrap">Ref Job No</Label>
+              <Input type="hidden" {...register("form.ref_job_no_id")} />
+              <Input list="ref_no_list"
+                {...register("form.ref_job_no", {
+                  onBlur: handleBlur,
+                  onChange: async (e) => {
+                    const selectedSlipNo = e.target.value;
+                    setValue("form.sl_no", "");
+                    let selectedKarigar = karigars.find(
+                      (serialNo) => serialNo.issue_slip_no === selectedSlipNo
+                    );
+                    if (!selectedKarigar && selectedSlipNo) {
+                      const search = await fetchKarigarIssues({ search: selectedSlipNo, page_size: 50 });
+                      if (search.success) {
+                        const list = search.data.results || search.data || [];
+                        selectedKarigar = list.find(
+                          (k) => k.issue_slip_no === selectedSlipNo
+                        );
+                        if (selectedKarigar) {
+                          setKarigars((prev) => {
+                            const existingIds = new Set(prev.map((p) => p.id));
+                            return existingIds.has(selectedKarigar.id) ? prev : [...prev, selectedKarigar];
+                          });
+                        }
                       }
                     }
-                  })}
-                />
-                <datalist id="ref_no_list" >
-                  {karigars.map((serialNo, index) => (
-                    <option key={index} value={serialNo.issue_slip_no}></option>
-                  ))}
-                </datalist>
-              </FieldContainer>
-
-              <FieldContainer>
-                <Label htmlFor="serial_no_list" className="text-nowrap">Sl No</Label>
-                <Input list="serial_no_list"
-                  {...register("form.sl_no", { onBlur: handleBlur1 })}
-                />
-                <datalist id="serial_no_list" >
-                  {serialNos.map((serialNo, index) => (
-                    <option key={index} value={serialNo.job_slip_no}></option>
-                  ))}
-                </datalist>
-              </FieldContainer>
-            </>
-          )}
-
-          {watch("form.source_type") === "sample" && (
-            <>
-              <FieldContainer>
-                <Label className="text-nowrap">Sample Issue Billno</Label>
-                <Input type="hidden" {...register("form.ref_sample_issue_id")} />
-                <Input list="sample_issue_list"
-                  {...register("form.ref_sample_issue_billno", {
-                    onBlur: handleSampleBlur,
-                    onChange: (e) => {
-                      const billno = e.target.value;
-                      const selected = sampleIssues.find((s) => s.billno === billno);
-                      if (selected) setValue("form.ref_sample_issue_id", selected.id);
+                    if (selectedKarigar) {
+                      setValue("form.ref_job_no_id", selectedKarigar.id);
+                      loadSerialNos(selectedKarigar.id);
+                    } else {
+                      setValue("form.ref_job_no_id", "");
+                      setSerialNos([]);
                     }
-                  })}
-                />
-                <datalist id="sample_issue_list">
-                  {sampleIssues.map((s, i) => (
-                    <option key={i} value={s.billno}></option>
-                  ))}
-                </datalist>
-              </FieldContainer>
+                  }
+                })}
+              />
+              <datalist id="ref_no_list" >
+                {karigars.map((serialNo, index) => (
+                  <option key={index} value={serialNo.issue_slip_no}></option>
+                ))}
+              </datalist>
+            </FieldContainer>
 
-              <FieldContainer>
-                <Label className="text-nowrap">Sample Sl No</Label>
-                <Input list="sample_sl_no_list"
-                  {...register("form.ref_sample_sl_no", { onBlur: handleSampleItemBlur })}
-                />
-                <datalist id="sample_sl_no_list">
-                  {sampleItems.map((it, i) => (
-                    <option key={i} value={it.sl_no}>{it.piece_label}</option>
-                  ))}
-                </datalist>
-              </FieldContainer>
-            </>
-          )}
-        </div>
-
-        {/* Item Details */}
-        <h6 className="text-lg font-semibold my-3 text-start">Item Detail</h6>
-        <Table className="w-full table-fixed border-collapse">
-          <TableBody>
-            <TableRow className="w-full bg-gray-100">
-              <TableCell className="w-28 px-4 py-2 border">Sl.No</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Item</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Purity</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Finish Status</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Nw</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Incr GW</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Less</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Loss(%)</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Karigar Cr wt</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Tunch</TableCell>
-
-              <TableCell className="w-28 px-4 py-2 border">Fine Wt</TableCell>
-
-              <TableCell className="w-28 px-4 py-2 border">Wastage</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Add</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Making Chg</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Rhodium Chg</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Remarks</TableCell>
-            </TableRow>
-            {watchFields.map((field, index) => (
-              <TableRow>
-                <TableCell className="w-28 px-4 py-2 border">
-                  {/* <Input type="number" {...register(`table.${index}.sl_no`)} /> */}
-                  {field.sl_no}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  {/* <Input list="item_list" {...register(`table.${index}.item`)} />
-                  <datalist id="item_list">
-                    {mainItemData.map((item, index) => (
-                      <option key={index} value={item.short_code}>{item.item_name}</option>
+                <FieldContainer>
+                  <Label htmlFor="serial_no_list" className="text-nowrap">Sl No</Label>
+                  <Input list="serial_no_list"
+                    {...register("form.sl_no", { onBlur: handleBlur1 })}
+                  />
+                  <datalist id="serial_no_list">
+                    {serialNos.map((serialNo, index) => (
+                      <option key={index} value={serialNo.job_sl_no}></option>
                     ))}
-                  </datalist> */}
-                  {field.item}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  {/* {<Controller
-                    name={`table.${index}.purity`}
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Purity" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {purityData.map((item, index) => (
-                            <SelectItem key={index} value={`${item.purity}`}>{item.purity}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />} */}
-                  {field.purity}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Controller
-                    name={`table.${index}.finish_status`}
-                    control={control}
-                    render={({ field }) => (
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    )}
-                  />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  {/* <Input type="number" {...register(`table.${index}.pcs`)} /> */}
-                  {field.pcs}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" step="0.001" {...register(`table.${index}.gw`)} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" step="0.001" {...register(`table.${index}.nw`)} defaultValue={0.000} />
-
-                  {/* {field.nw} */}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border text-muted-foreground">
-                  {(
-                    Number(watch(`table.${index}.nw`) || 0)
-                    - Number(watch(`table.${index}.supplied_gw`) || 0)
-                    - Number(watch(`table.${index}.sample_piece_gw`) || 0)
-                  ).toFixed(3)}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" step="0.001" {...register(`table.${index}.less_gw`, { onChange: e => handlelesswtChange(index) })} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" step="0.01" {...register(`table.${index}.loss`, { onChange: e => handlelossChange(index) })} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  {/* <Input type="text" {...register(`table.${index}.main_total_wt`)} /> */}
-                  {field.main_total_wt}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="text" {...register(`table.${index}.tunch_per`, { onChange: e => handletunchChange(index) })} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  {/* <Input type="number" {...register(`table.${index}.fine_wt`)} /> */}
-                  {field.fine_wt}
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" {...register(`table.${index}.wastage`)} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" {...register(`table.${index}.add_field_type`)} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" {...register(`table.${index}.making`)} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="number" {...register(`table.${index}.rhodium`)} />
-                </TableCell>
-                <TableCell className="w-28 px-4 py-2 border">
-                  <Input type="text" {...register(`table.${index}.remarks`)} />
-                </TableCell>
-
-
-
-
-              </TableRow>
-            ))}
-
-          </TableBody>
-        </Table>
-
-        <br></br>
-
-        {/* Stone Details*/}
-        <h6 className="text-lg font-semibold my-3">Stone Detail</h6>
-        <Table className="w-full table-fixed border-collapse">
-          <TableBody>
-
-            <TableRow className=" w-full bg-gray-100">
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-
-              <TableCell className="w-28 px-10 py-2   "></TableCell>
-              <TableCell className="w-28 px-4 py-2 text-nowrap">Goods Issued</TableCell>
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-
-              <TableCell className="w-28 px-4 py-2  "></TableCell>
-              <TableCell className="w-28 px-1 py-2 text-nowrap">Goods Returned</TableCell>
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-
-              <TableCell className="w-28 px-4 py-2  "></TableCell>
-              <TableCell className="w-28 px-0 py-2 text-nowrap">Broken and Loss Items</TableCell>
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-
-              <TableCell className="w-28 px-4 py-2  "></TableCell>
-              <TableCell className="w-28 px-0  py-2 text-nowrap">Items used in Jewellery</TableCell>
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-              <TableCell className="w-28 px-4 py-2 "></TableCell>
-
-
-
-            </TableRow>
-
-            <TableRow className=" w-full bg-gray-100">
-              <TableCell className="w-28 px-4 py-2 border">Sno</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Packet</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Item</TableCell>
-              {/* issue */}
-              <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Ct</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
-              {/* ?returne */}
-              <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Ct</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
-
-              {/* broken */}
-              <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Ct</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
-
-              <TableCell className="w-28 px-4 py-2 border">Pcs</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Ct</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Gw</TableCell>
-
-
-              <TableCell className="w-28 px-4 py-2 border">Rate</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Value</TableCell>
-            </TableRow>
-
-            <TableRow >
-              <TableCell>
-                <Input
-                  type="text"
-                  {...register(
-                    `details.sl_no`,
-
-                  )}
-                  placeholder="Serial No"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="text"
-                  {...register(
-                    `details.packet`
-                  )}
-                  placeholder="Pckt No"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="text"
-                  {...register(
-                    `details.item`
-                  )}
-                  placeholder="Item Name"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.issue_pcs`
-
-                  )}
-                  placeholder="Issue Pcs"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  step="0.001"
-
-                  {...register(
-                    `details.issue_ct`
-                  )}
-                  placeholder="Issue Ct"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-
-                  step="0.001"
-                  {...register(
-                    `details.issue_gw`,
-                    { valueAsNumber: true, }
-                  )}
-                  placeholder="Issue Gw"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.return_pcs`
-                  )}
-                  placeholder="Broken Pcs"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  step="0.001"
-
-                  {...register(
-                    `details.return_ct`
-                  )}
-                  placeholder="Broken Ct"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  step="0.001"
-
-                  {...register(
-                    `details.return_gw`, { valueAsNumber: true, }
-                  )}
-                  placeholder="Broken Gw"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.broken_pcs`
-                  )}
-                  placeholder="Return Pcs"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.broken_ct`
-                  )}
-                  placeholder="Return Ct"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.broken_gw`, { valueAsNumber: true, }
-                  )}
-                  placeholder="Return Gw"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.balance_pcs`
-                  )}
-                  placeholder="Balance Pcs"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.balance_ct`
-                  )}
-                  placeholder="Balance Ct"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  step="0.001"
-                  {...register(
-                    `details.balance_gw`, { valueAsNumber: true, }
-                  )}
-                  placeholder="Balance Gw"
-                />
-              </TableCell>
-
-
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.rate`
-                  )}
-                  placeholder="Rate"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  type="number"
-                  {...register(
-                    `details.amt`
-                  )}
-
-                  onKeyDown={handleKeyDown}
-                  placeholder="Amount"
-                />
-              </TableCell>
-            </TableRow>
-        
-            {fields.map((parentField, parentIndex) =>
-              parentField.details.map((childField, childIndex) => (
-                <TableRow key={childField.id}>
-                  <TableCell>
-                    <Input
-                      type="text"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.sl_no`,
-
-                      )}
-                      placeholder="Serial No"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="text"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.packet`
-                      )}
-                      placeholder="Pckt No"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="text"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.item`
-                      )}
-                      placeholder="Item Name"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.issue_pcs`
-
-                      )}
-                      placeholder="Issue Pcs"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.issue_ct`
-                      )}
-                      placeholder="Issue Ct"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-
-                      step="0.01"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.issue_gw`,
-                        { valueAsNumber: true, }
-                      )}
-                      placeholder="Issue Gw"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.return_pcs`
-                      )}
-                      placeholder="Broken Pcs"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.return_ct`
-                      )}
-                      placeholder="Broken Ct"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.return_gw`, { valueAsNumber: true, }
-                      )}
-                      placeholder="Broken Gw"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.broken_pcs`
-                      )}
-                      placeholder="Return Pcs"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.broken_ct`
-                      )}
-                      placeholder="Return Ct"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.broken_gw`, { valueAsNumber: true, }
-                      )}
-                      placeholder="Return Gw"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.balance_pcs`
-                      )}
-                      placeholder="Balance Pcs"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.balance_ct`
-                      )}
-                      placeholder="Balance Ct"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      step="0.001"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.balance_gw`, { valueAsNumber: true, }
-                      )}
-                      placeholder="Balance Gw"
-                    />
-                  </TableCell>
-
-
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.rate`
-                      )}
-                      placeholder="Rate"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      {...register(
-                        `table.${parentIndex}.details.${childIndex}.amt`
-                      )}
-                      placeholder="Amount"
-                    />
-                  </TableCell>
-                </TableRow>
-              )))}
-          </TableBody>
-        </Table>
-
-        <br></br>
-        <br></br>
-        <h6 className="text-lg font-semibold text-right pr-48 mb-10">Bill Summary</h6>
-        <div className="flex justify-end">
-          <div className="grid grid-cols-1 gap-4 w-full max-w-md">
-            <div className="grid grid-cols-4 gap-4 mb-4 text-left">
-              <div className="flex justify-end col-span-3">
-                <FieldContainer>
-                  <Label htmlFor="advance_amt" className="text-nowrap">Taxable Value</Label>
-                  <Input type="number" {...register("advance_amt")} />
+                  </datalist>
                 </FieldContainer>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-4 mb-4 text-left">
-              <div className="flex justify-end col-span-3">
-                <FieldContainer>
-                  <Label htmlFor="sgst_per" className="text-nowrap">SGST</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...register("sgst_per")}
-                  />
-                </FieldContainer>
+
+            <div className="rounded-lg border border-border bg-muted/10 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">SM</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-foreground">From Sample</span>
               </div>
-            </div>
-            <div className="grid grid-cols-4 gap-4 mb-4 text-left">
-              <div className="flex justify-end col-span-3">
+              <div className="grid grid-cols-2 gap-3">
                 <FieldContainer>
-                  <Label htmlFor="cgst_per" className="text-nowrap">CGST</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...register("cgst_per")}
+                  <Label className="text-nowrap">Sample Issue Billno</Label>
+                  <Input type="hidden" {...register("form.ref_sample_issue_id")} />
+                  <Input list="sample_issue_list"
+                    {...register("form.ref_sample_issue_billno", {
+                      onBlur: handleSampleBlur,
+                      onChange: (e) => {
+                        const billno = e.target.value;
+                        const selected = sampleIssues.find((s) => s.billno === billno);
+                        if (selected) setValue("form.ref_sample_issue_id", selected.id);
+                      }
+                    })}
                   />
+                  <datalist id="sample_issue_list">
+                    {sampleIssues.map((s, i) => (
+                      <option key={i} value={s.billno}></option>
+                    ))}
+                  </datalist>
                 </FieldContainer>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-4 mb-4 text-left">
-              <div className="flex justify-end col-span-3">
+
                 <FieldContainer>
-                  <Label htmlFor="igst_per" className="text-nowrap">IGST</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...register("igst_per")}
+                  <Label className="text-nowrap">Sample Sl No</Label>
+                  <Input list="sample_sl_no_list"
+                    {...register("form.ref_sample_sl_no", { onBlur: handleSampleItemBlur })}
                   />
-                </FieldContainer>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-4 mb-4 text-left">
-              <div className="flex justify-end col-span-3">
-                <FieldContainer>
-                  <Label htmlFor="advance_amt" className="text-nowrap">Total Amount</Label>
-                  <Input type="number" {...register("advance_amt")} />
+                  <datalist id="sample_sl_no_list">
+                    {sampleItems.map((it, i) => (
+                      <option key={i} value={it.sl_no}>{it.piece_label}</option>
+                    ))}
+                  </datalist>
                 </FieldContainer>
               </div>
             </div>
           </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Item Details"
+          subtitle={`${(watchFields || []).length} item(s)`}
+        >
+        <div className="overflow-x-auto -mx-2">
+        <Table className="w-full text-sm border-collapse">
+          <TableBody>
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sl.No</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider">Source</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider">Item</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider">Purity</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center">Finish</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Pcs</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Gw</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Nw</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Incr GW</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Less</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Loss %</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Wastage</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Karigar Cr</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Tunch</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Fine Wt</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Add</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Making</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Rhodium</TableCell>
+              <TableCell className="px-2 py-2 border text-xs font-semibold text-muted-foreground uppercase tracking-wider">Remarks</TableCell>
+            </TableRow>
+            {(watchFields || []).length === 0 && (
+              <TableRow>
+                <TableCell colSpan={19} className="px-4 py-8 text-center text-sm text-muted-foreground border">
+                  No items added yet. Use the pickers above to add items from a Job Work or Sample.
+                </TableCell>
+              </TableRow>
+            )}
+            {watchFields.map((field, index) => {
+              const tightInput = "h-8 text-right text-xs border border-input/60 focus-visible:ring-1 bg-white";
+              return (
+                <TableRow key={field.id ?? index} className="odd:bg-muted/10 hover:bg-muted/20 transition-colors">
+                  <TableCell className="px-2 py-1.5 border text-xs">{field.sl_no}</TableCell>
+                  <TableCell className="px-2 py-1.5 border text-[11px] text-muted-foreground">
+                    {field._source_label
+                      || (field.ref_job_sl_no ? "Job" : (field.ref_sample_issue_item ? "Sample" : "—"))}
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs">{field.item}</TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs">
+                    <span className="inline-block px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{field.purity}</span>
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 border text-center">
+                    <Controller
+                      name={`table.${index}.finish_status`}
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums">{field.pcs}</TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" step="0.001" className={tightInput}
+                      {...register(`table.${index}.gw`, { onChange: () => recalcNw(index) })} />
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" step="0.001" className={tightInput}
+                      {...register(`table.${index}.nw`)} defaultValue={0.000} />
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums text-muted-foreground bg-muted/20">
+                    {(
+                      Number(watch(`table.${index}.nw`) || 0)
+                      - Number(watch(`table.${index}.supplied_gw`) || 0)
+                      - Number(watch(`table.${index}.sample_piece_gw`) || 0)
+                    ).toFixed(3)}
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" step="0.001" className={tightInput}
+                      {...register(`table.${index}.less_gw`, { onChange: e => handlelesswtChange(index) })} />
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" step="0.01" className={tightInput}
+                      {...register(`table.${index}.loss`, { onChange: e => handlelossChange(index) })} />
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums text-muted-foreground bg-muted/20">
+                    {Number(watch(`table.${index}.wastage`) || 0).toFixed(3)}
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums font-medium text-foreground bg-primary/5">
+                    {Number(watch(`table.${index}.main_total_wt`) || 0).toFixed(3)}
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" step="0.01" className={tightInput}
+                      {...register(`table.${index}.tunch_per`, { onChange: e => handletunchChange(index) })} />
+                  </TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums text-muted-foreground bg-muted/20">
+                    {Number(watch(`table.${index}.fine_wt`) || 0).toFixed(3)}
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" className={tightInput}
+                      {...register(`table.${index}.add_field_type`)} />
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" className={tightInput}
+                      {...register(`table.${index}.making`)} />
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="number" className={tightInput}
+                      {...register(`table.${index}.rhodium`)} />
+                  </TableCell>
+                  <TableCell className="px-1 py-1 border">
+                    <Input type="text" className="h-8 text-xs border border-input/60 focus-visible:ring-1 bg-white"
+                      {...register(`table.${index}.remarks`)} />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
         </div>
+        </SectionCard>
 
+        <SectionCard
+          title="Stone Detail"
+          subtitle="Read-only — populated from the linked job order"
+        >
+        <div className="overflow-x-auto -mx-2">
+        <Table className="w-full text-[12.5px] border-collapse stone-detail-table">
+          <TableBody>
+            {/* Group header row — stage names with subtle alternating violet bands */}
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={3} className="px-3 py-2.5 border bg-slate-100"></TableCell>
+              <TableCell colSpan={3} className="px-3 py-2.5 border text-center text-[11px] font-semibold uppercase tracking-wider bg-[hsl(242_64%_95%)] text-[hsl(242_64%_38%)]">Issued</TableCell>
+              <TableCell colSpan={3} className="px-3 py-2.5 border text-center text-[11px] font-semibold uppercase tracking-wider bg-[hsl(242_64%_97.5%)] text-[hsl(242_64%_38%)]">Returned</TableCell>
+              <TableCell colSpan={3} className="px-3 py-2.5 border text-center text-[11px] font-semibold uppercase tracking-wider bg-[hsl(242_64%_95%)] text-[hsl(242_64%_38%)]">Broken &amp; Loss</TableCell>
+              <TableCell colSpan={3} className="px-3 py-2.5 border text-center text-[11px] font-semibold uppercase tracking-wider bg-[hsl(242_64%_97.5%)] text-[hsl(242_64%_38%)]">Used</TableCell>
+              <TableCell colSpan={2} className="px-3 py-2.5 border bg-slate-100"></TableCell>
+            </TableRow>
 
+            {/* Sub-header row — Pcs / Ct / Gw with the same alternating bands */}
+            <TableRow className="hover:bg-transparent bg-slate-50">
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sno</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Packet</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Item</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Pcs</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Ct</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Gw</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Pcs</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Ct</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Gw</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Pcs</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Ct</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Gw</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Pcs</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Ct</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Gw</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Rate</TableCell>
+              <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Value</TableCell>
+            </TableRow>
 
-        {/* Submit */}
-        <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
-          <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
-            Save
+            {(() => {
+              const stageA = "bg-[hsl(220_30%_97.5%)]";
+              const stageB = "bg-[hsl(242_30%_97.5%)]";
+              const lossText = "text-[hsl(0_65%_47%)] font-semibold";
+              const muted = "text-slate-400";
+              const totals = {
+                issue_pcs: 0, issue_ct: 0, issue_gw: 0,
+                return_pcs: 0, return_ct: 0, return_gw: 0,
+                broken_pcs: 0, broken_ct: 0, broken_gw: 0,
+                balance_pcs: 0, balance_ct: 0, balance_gw: 0,
+                amt: 0,
+              };
+              let stoneCount = 0;
+              const rendered = [];
+
+              fields.forEach((parentField, parentIndex) => {
+                if (!parentField.details || parentField.details.length === 0) return;
+
+                const headerGw = Number(watch(`table.${parentIndex}.gw`)) || parentField.gw || 0;
+                rendered.push(
+                  <TableRow key={`group-${parentField.id ?? parentIndex}`} className="hover:bg-transparent">
+                    <TableCell colSpan={17} className="px-4 py-2.5 border-y-2 border-y-[hsl(242_30%_86%)] bg-[hsl(242_40%_96%)] text-[hsl(242_64%_38%)] text-[12.5px]">
+                      <span className="text-[11px] uppercase tracking-wider font-semibold mr-2">Received piece #{parentIndex + 1}</span>
+                      <span className="font-semibold">{parentField.item || "—"}</span>
+                      {parentField.purity ? <span className="mx-1.5 text-slate-400">·</span> : null}
+                      {parentField.purity ? <span>{parentField.purity}</span> : null}
+                      {headerGw ? <span className="mx-1.5 text-slate-400">·</span> : null}
+                      {headerGw ? <span className="tabular-nums">{Number(headerGw).toFixed(3)} g</span> : null}
+                    </TableCell>
+                  </TableRow>
+                );
+
+                parentField.details.forEach((childField, childIndex) => {
+                  const numAt = (name) => {
+                    const raw = watch(`table.${parentIndex}.details.${childIndex}.${name}`);
+                    const num = parseFloat(raw);
+                    return Number.isFinite(num) ? num : 0;
+                  };
+                  const v = (name, dp) => {
+                    const raw = watch(`table.${parentIndex}.details.${childIndex}.${name}`);
+                    const num = parseFloat(raw);
+                    if (!Number.isFinite(num)) return "—";
+                    return dp === 0 ? String(Math.round(num)) : num.toFixed(dp);
+                  };
+                  const issuePcs = numAt("issue_pcs"), issueCt = numAt("issue_ct"), issueGw = numAt("issue_gw");
+                  const returnPcs = numAt("return_pcs"), returnCt = numAt("return_ct"), returnGw = numAt("return_gw");
+                  const brokenPcs = numAt("broken_pcs"), brokenCt = numAt("broken_ct"), brokenGw = numAt("broken_gw");
+                  const balPcs = numAt("balance_pcs"), balCt = numAt("balance_ct"), balGw = numAt("balance_gw");
+                  const amtVal = numAt("amt");
+                  totals.issue_pcs += issuePcs; totals.issue_ct += issueCt; totals.issue_gw += issueGw;
+                  totals.return_pcs += returnPcs; totals.return_ct += returnCt; totals.return_gw += returnGw;
+                  totals.broken_pcs += brokenPcs; totals.broken_ct += brokenCt; totals.broken_gw += brokenGw;
+                  totals.balance_pcs += balPcs; totals.balance_ct += balCt; totals.balance_gw += balGw;
+                  totals.amt += amtVal;
+                  stoneCount += 1;
+
+                  const cls = (val, base) => `px-3 py-2.5 border text-right tabular-nums ${base} ${val > 0 ? "" : muted}`;
+                  const lossCls = (val, base) => `px-3 py-2.5 border text-right tabular-nums ${base} ${val > 0 ? lossText : muted}`;
+
+                  rendered.push(
+                    <TableRow key={childField.id} className="hover:bg-slate-50/60">
+                      <TableCell className="px-3 py-2.5 border">{childField.sl_no}</TableCell>
+                      <TableCell className="px-3 py-2.5 border">{childField.packet || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 border">{childField.item || "—"}</TableCell>
+                      <TableCell className={cls(issuePcs, stageA)}>{v("issue_pcs", 0)}</TableCell>
+                      <TableCell className={cls(issueCt, stageA)}>{v("issue_ct", 3)}</TableCell>
+                      <TableCell className={cls(issueGw, stageA)}>{v("issue_gw", 3)}</TableCell>
+                      <TableCell className={cls(returnPcs, stageB)}>{v("return_pcs", 0)}</TableCell>
+                      <TableCell className={cls(returnCt, stageB)}>{v("return_ct", 3)}</TableCell>
+                      <TableCell className={cls(returnGw, stageB)}>{v("return_gw", 3)}</TableCell>
+                      <TableCell className={lossCls(brokenPcs, stageA)}>{v("broken_pcs", 0)}</TableCell>
+                      <TableCell className={lossCls(brokenCt, stageA)}>{v("broken_ct", 3)}</TableCell>
+                      <TableCell className={lossCls(brokenGw, stageA)}>{v("broken_gw", 3)}</TableCell>
+                      <TableCell className={cls(balPcs, stageB)}>{v("balance_pcs", 0)}</TableCell>
+                      <TableCell className={cls(balCt, stageB)}>{v("balance_ct", 3)}</TableCell>
+                      <TableCell className={cls(balGw, stageB)}>{v("balance_gw", 3)}</TableCell>
+                      <TableCell className="px-3 py-2.5 border text-right tabular-nums">{v("rate", 2)}</TableCell>
+                      <TableCell className="px-3 py-2.5 border text-right tabular-nums font-semibold">{v("amt", 2)}</TableCell>
+                    </TableRow>
+                  );
+                });
+              });
+
+              if (stoneCount > 0) {
+                const fmt = (n, dp) => (dp === 0 ? String(Math.round(n)) : n.toFixed(dp));
+                rendered.push(
+                  <TableRow key="stone-totals" className="hover:bg-transparent">
+                    <TableCell colSpan={3} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] font-semibold text-slate-900">Total · {stoneCount} stone{stoneCount === 1 ? "" : "s"}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.issue_pcs, 0)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.issue_ct, 3)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.issue_gw, 3)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.return_pcs, 0)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.return_ct, 3)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.return_gw, 3)}</TableCell>
+                    <TableCell className={`px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold ${totals.broken_pcs > 0 ? lossText : ""}`}>{fmt(totals.broken_pcs, 0)}</TableCell>
+                    <TableCell className={`px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold ${totals.broken_ct > 0 ? lossText : ""}`}>{fmt(totals.broken_ct, 3)}</TableCell>
+                    <TableCell className={`px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold ${totals.broken_gw > 0 ? lossText : ""}`}>{fmt(totals.broken_gw, 3)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.balance_pcs, 0)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.balance_ct, 3)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.balance_gw, 3)}</TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)]"></TableCell>
+                    <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.amt, 2)}</TableCell>
+                  </TableRow>
+                );
+              }
+              return rendered;
+            })()}
+          </TableBody>
+        </Table>
+        </div>
+        </SectionCard>
+
+        {(() => {
+          const taxable = Number(watch("taxable_value")) || 0;
+          const sgst = Number(watch("sgst_per")) || 0;
+          const cgst = Number(watch("cgst_per")) || 0;
+          const igst = Number(watch("igst_per")) || 0;
+          const sgstAmt = (taxable * sgst) / 100;
+          const cgstAmt = (taxable * cgst) / 100;
+          const igstAmt = (taxable * igst) / 100;
+          const total = taxable + sgstAmt + cgstAmt + igstAmt;
+          const fmt = (n) => (Number.isFinite(n) ? n.toFixed(2) : "0.00");
+
+          const SummaryRow = ({ label, children }) => (
+            <div className="flex items-center justify-between gap-4 py-1.5 border-b border-slate-100 last:border-b-0">
+              <Label className="text-sm text-slate-600 mb-0">{label}</Label>
+              <div className="w-40">{children}</div>
+            </div>
+          );
+
+          return (
+            <SectionCard title="Bill Summary">
+              <div className="flex justify-end">
+                <div className="w-full max-w-sm">
+                  <SummaryRow label="Taxable Value">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="h-8 text-right text-sm"
+                      {...register("taxable_value")}
+                    />
+                  </SummaryRow>
+
+                  <SummaryRow label="SGST %">
+                    <div className="flex items-center gap-2">
+                      <Input type="number" step="0.01" className="h-8 w-20 text-right text-sm"
+                        {...register("sgst_per")} />
+                      <span className="text-xs text-muted-foreground w-20 text-right tabular-nums">{fmt(sgstAmt)}</span>
+                    </div>
+                  </SummaryRow>
+
+                  <SummaryRow label="CGST %">
+                    <div className="flex items-center gap-2">
+                      <Input type="number" step="0.01" className="h-8 w-20 text-right text-sm"
+                        {...register("cgst_per")} />
+                      <span className="text-xs text-muted-foreground w-20 text-right tabular-nums">{fmt(cgstAmt)}</span>
+                    </div>
+                  </SummaryRow>
+
+                  <SummaryRow label="IGST %">
+                    <div className="flex items-center gap-2">
+                      <Input type="number" step="0.01" className="h-8 w-20 text-right text-sm"
+                        {...register("igst_per")} />
+                      <span className="text-xs text-muted-foreground w-20 text-right tabular-nums">{fmt(igstAmt)}</span>
+                    </div>
+                  </SummaryRow>
+
+                  <div className="flex items-center justify-between gap-4 pt-3 mt-2 border-t-2 border-border">
+                    <Label className="text-sm font-semibold mb-0">Total Amount</Label>
+                    <span className="w-40 text-right text-base font-semibold text-primary tabular-nums">{fmt(total)}</span>
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+          );
+        })()}
+
+        <div className="flex justify-end items-center gap-2 pt-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => window.history.back()}>Cancel</Button>
+          <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving}>
+            {saving ? "Saving..." : (id ? "Update Receive" : "Save Receive")}
           </Button>
         </div>
       </form>

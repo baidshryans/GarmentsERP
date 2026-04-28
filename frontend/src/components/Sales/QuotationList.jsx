@@ -183,28 +183,28 @@ export default function QuotationList() {
         const q = row.original;
         const isLoading = actionLoading === q.id;
         return (
-          <div className="flex items-center gap-1">
-            {isLoading && <Loader2 className="size-3.5 animate-spin" />}
-            <Link to={`/sales/quotation/${q.id}`} title="Edit">
-              <Button variant="ghost" size="icon" className="size-7"><SquarePen className="size-3.5" /></Button>
+          <div className="flex space-x-4">
+            {isLoading && <Loader2 className="size-4 animate-spin" />}
+            <Link to={`/sales/quotation/${q.id}`} title="Edit" className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
+              <SquarePen className="size-4" />
             </Link>
-            <Button variant="ghost" size="icon" className="size-7" title="Print" onClick={() => handlePrint(q.id)}>
-              <Printer className="size-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="size-7" title="Duplicate" onClick={() => handleDuplicate(q.id)}>
-              <Copy className="size-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="size-7 text-blue-600" title="Extend Expiry" onClick={() => openExtendDialog(q)}>
-              <CalendarDays className="size-3.5" />
-            </Button>
+            <button type="button" title="Print" onClick={() => handlePrint(q.id)} className="p-1.5 rounded text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center">
+              <Printer className="size-4" />
+            </button>
+            <button type="button" title="Duplicate" onClick={() => handleDuplicate(q.id)} className="p-1.5 rounded text-slate-600 hover:bg-slate-100 transition-colors flex items-center">
+              <Copy className="size-4" />
+            </button>
+            <button type="button" title="Extend Expiry" onClick={() => openExtendDialog(q)} className="p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors flex items-center">
+              <CalendarDays className="size-4" />
+            </button>
             {q.status === "draft" && (
               <>
-                <Button variant="ghost" size="icon" className="size-7 text-green-600" title="Finalize" onClick={() => handleFinalize(q.id)}>
-                  <CheckCircle2 className="size-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="size-7 text-destructive" title="Delete" onClick={() => handleDelete(q.id)}>
-                  <Trash2 className="size-3.5" />
-                </Button>
+                <button type="button" title="Finalize" onClick={() => handleFinalize(q.id)} className="p-1.5 rounded text-green-600 hover:bg-green-50 transition-colors flex items-center">
+                  <CheckCircle2 className="size-4" />
+                </button>
+                <button type="button" title="Delete" onClick={() => handleDelete(q.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center">
+                  <Trash2 className="size-4" />
+                </button>
               </>
             )}
           </div>

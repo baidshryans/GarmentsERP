@@ -403,9 +403,9 @@ class KarigarReceiveItem(models.Model):
     finish_status = models.BooleanField()
     
     hallmark_status = models.BooleanField()
-    rhodium = models.IntegerField() 
+    rhodium = models.IntegerField(null=True, blank=True)
     
-    making = models.IntegerField()
+    making = models.IntegerField(null=True, blank=True)
     making_auto = models.BooleanField(
         default=False,
         help_text="True when `making` was auto-computed from karigar rate × incremental_gw and not user-edited.",

@@ -132,11 +132,9 @@ class KarigarStoneIssueSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             detail_data = validated_data.pop('karigarstoneissue_set', [])
             parent_instance = KarigarStoneIssueHeader.objects.create(**validated_data)
-            create_or_update_nested(
-                KarigarStoneIssueDetailSerializer, parent_instance, 
-                'karigarstoneissue_set', 'header',
-                KarigarStoneIssueDetailSerializer(detail_data, many=True).data
-            )
+            for item_data in detail_data:
+                item_data.pop('id', None)
+                KarigarStoneIssue.objects.create(header=parent_instance, **item_data)
             return parent_instance
 
     def update(self, instance, validated_data):
@@ -145,10 +143,22 @@ class KarigarStoneIssueSerializer(serializers.ModelSerializer):
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
-            create_or_update_nested(
-                KarigarStoneIssueDetailSerializer, instance, 
-                'karigarstoneissue_set',  'billno',KarigarStoneIssueDetailSerializer(detail_data,many=True).data
-            )
+
+            existing = {obj.id: obj for obj in instance.karigarstoneissue_set.all()}
+            seen_ids = set()
+            for item_data in detail_data:
+                obj_id = item_data.pop('id', None)
+                if obj_id and obj_id in existing:
+                    obj = existing[obj_id]
+                    for attr, value in item_data.items():
+                        setattr(obj, attr, value)
+                    obj.save()
+                    seen_ids.add(obj_id)
+                else:
+                    KarigarStoneIssue.objects.create(header=instance, **item_data)
+            for obj_id, obj in existing.items():
+                if obj_id not in seen_ids:
+                    obj.delete()
             return instance
 
 
@@ -387,6 +397,8 @@ class KarigarIssueItemForPostSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
+            if not validated_data.get('retail') and validated_data.get('issue_slip'):
+                validated_data['retail'] = validated_data['issue_slip'].retail
             return KarigarIssueItem.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
@@ -583,6 +595,7 @@ class KarigarIssueForPostSerializer(serializers.ModelSerializer):
             for item_data in items_data:
                 KarigarIssueItem.objects.create(
                     issue_slip=karigar_issue_instance,
+                    retail=karigar_issue_instance.retail,
                     **item_data,
                 )
 

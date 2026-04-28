@@ -22,7 +22,7 @@ function fmt(v) {
   return Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
-function KpiTile({ label, value, icon: Icon, color }) {
+function KpiTile({ label, value, icon: Icon, color, prefix = "₹" }) {
   const colors = {
     violet: "bg-violet-50 text-primary border-violet-200",
     emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -37,7 +37,7 @@ function KpiTile({ label, value, icon: Icon, color }) {
       </div>
       <div className="min-w-0">
         <p className="text-[11px] font-medium opacity-70 truncate">{label}</p>
-        <p className="text-base font-bold leading-tight">₹{fmt(value)}</p>
+        <p className="text-base font-bold leading-tight">{prefix}{fmt(value)}</p>
       </div>
     </div>
   );
@@ -84,7 +84,7 @@ function RetailRow({ stat, maxMonth }) {
         ₹{fmt(stat.outstanding)}
       </td>
       <td className="px-4 py-3 text-right text-sm text-sky-700">
-        ₹{fmt(stat.purchase_orders)}
+        {fmt(stat.purchase_orders)}
       </td>
     </tr>
   );
@@ -180,7 +180,7 @@ export default function BranchAnalytics() {
         <KpiTile label="Month Sales (Net)"     value={totals.month_sales}     icon={TrendingUp}    color="violet"  />
         <KpiTile label="Today's Purchases"     value={totals.today_purchases} icon={TrendingDown}  color="rose"    />
         <KpiTile label="Outstanding"           value={totals.outstanding}     icon={Wallet}        color="amber"   />
-        <KpiTile label="Open Purchase Orders"  value={totals.purchase_orders} icon={ClipboardList} color="sky"     />
+        <KpiTile label="Open Purchase Orders"  value={totals.purchase_orders} icon={ClipboardList} color="sky" prefix="" />
       </div>
 
       {/* Per-retail breakdown */}
@@ -228,7 +228,7 @@ export default function BranchAnalytics() {
                   <td className="px-4 py-2.5 text-right text-sm text-rose-600">₹{fmt(totals.today_purchases)}</td>
                   <td className="px-4 py-2.5 text-right text-sm">₹{fmt(totals.month_purchases)}</td>
                   <td className="px-4 py-2.5 text-right text-sm text-amber-700">₹{fmt(totals.outstanding)}</td>
-                  <td className="px-4 py-2.5 text-right text-sm text-sky-700">₹{fmt(totals.purchase_orders)}</td>
+                  <td className="px-4 py-2.5 text-right text-sm text-sky-700">{fmt(totals.purchase_orders)}</td>
                 </tr>
               </tfoot>
             </table>

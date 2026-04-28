@@ -148,6 +148,7 @@ const RetailMasterPage           = lazy(() => import("./components/Masters/Retai
 const BranchMasterPage           = lazy(() => import("./components/Masters/BranchMasterPage.jsx"));
 const CompanyMasterPage          = lazy(() => import("./components/Masters/CompanyMasterPage.jsx"));
 const BranchAnalytics            = lazy(() => import("./components/Masters/BranchAnalytics.jsx"));
+const RetailAnalytics            = lazy(() => import("./components/Masters/RetailAnalytics.jsx"));
 const KarigarMakingPage          = lazy(() => import("./components/Masters/KarigarMakingPage.jsx"));
 const ExhibitionMaster           = lazy(() => import("./components/Masters/ExhibitionMaster.jsx"));
 const TDSSectionMasterPage       = lazy(() => import("./components/Masters/TDSSectionMaster.jsx"));
@@ -248,6 +249,7 @@ const appRoutes = [
   { path: "setup/company",       heading: "Company Master",        component: <CompanyMasterPage /> },
   { path: "setup/branch",        heading: "Branch Master",         component: <BranchMasterPage /> },
   { path: "setup/branch/:id/analytics", heading: "Branch Analytics", component: <BranchAnalytics /> },
+  { path: "setup/retail/:id/analytics", heading: "Retail Analytics", component: <RetailAnalytics /> },
   { path: "setup/retail",        heading: "Retail Master",         component: <RetailMasterPage /> },
   { path: "setup/exhibitions",   heading: "Exhibition Profiles",   component: <ExhibitionMaster /> },
   { path: "setup/fiscal-years",  heading: "Fiscal Year Management", component: <FiscalYearManager /> },

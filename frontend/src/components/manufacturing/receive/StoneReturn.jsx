@@ -93,10 +93,14 @@ const StoneReturn = () => {
     const { job_sl_object_id, ref_job_object_id } = getValues("table");
     console.log(job_sl_object_id)
     console.log(`Slip type : ${slip_type}`);
+    if (!ref_job_object_id || !job_sl_object_id || !slip_type) {
+      return;
+    }
     const response = await fetchStoneIssued(ref_job_object_id, job_sl_object_id, slip_type,);
     if (response.success) {
       const data = response.data;
-      setPackets(data)
+      const list = Array.isArray(data) ? data : (data?.packets ?? []);
+      setPackets(list)
     } else {
       toast({ title: "An error occurred. Please try again later." });
     }
@@ -535,7 +539,7 @@ const StoneReturn = () => {
                   onChange: handlePacketChange
                 })} />
                 <datalist id="item_list">
-                  {packets.map((item, index) => (
+                  {(Array.isArray(packets) ? packets : []).map((item, index) => (
                     <option key={index} value={item.pckt_no}  ></option>
                   ))}
                 </datalist>

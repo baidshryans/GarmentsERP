@@ -1,8 +1,8 @@
 import logging
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import DatabaseError
-from django.db.models.signals import post_save
+from django.db import DatabaseError, models as dj_models
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from .models import RetailMaster, BranchMaster, GSTINMaster, CompanyMaster
 from contacts.models import Ledger, LedgerRole
@@ -377,3 +377,55 @@ def create_retail_ledgers(sender, instance, created, **kwargs):
     except (ImportError, DatabaseError, ObjectDoesNotExist):
         # Never let this break retail creation; superuser access can be assigned manually
         pass
+
+
+# ── Auto-fill retail FK from a parent FK when missing ────────────────────────
+# Many nested-write serializers forget to propagate `retail` to child rows,
+# which silently breaks retail-scoped reports. This pre_save handler infers
+# `retail` from any parent FK whose target also carries a `retail` field.
+def _model_has_retail_fk(model):
+    for f in model._meta.get_fields():
+        if (
+            isinstance(f, dj_models.ForeignKey)
+            and f.name == 'retail'
+            and f.related_model is RetailMaster
+        ):
+            return True
+    return False
+
+
+@receiver(pre_save)
+def auto_fill_retail(sender, instance, **kwargs):
+    # Skip models without a retail FK to RetailMaster
+    if not _model_has_retail_fk(sender):
+        return
+    if getattr(instance, 'retail_id', None) is not None:
+        return
+
+    # Walk this instance's FKs; copy retail_id from the first parent that has one
+    for field in sender._meta.get_fields():
+        if not isinstance(field, dj_models.ForeignKey):
+            continue
+        if field.name == 'retail':
+            continue
+        target = field.related_model
+        if target is None or not _model_has_retail_fk(target):
+            continue
+        parent_id = getattr(instance, field.attname, None)
+        if not parent_id:
+            continue
+        parent_retail_id = (
+            target._default_manager.filter(pk=parent_id)
+            .values_list('retail_id', flat=True)
+            .first()
+        )
+        if parent_retail_id:
+            instance.retail_id = parent_retail_id
+            return
+
+    logger.warning(
+        "auto_fill_retail: could not infer retail for %s.%s (pk=%s)",
+        sender._meta.app_label,
+        sender._meta.model_name,
+        getattr(instance, 'pk', None),
+    )

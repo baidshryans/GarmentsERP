@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DataTable } from "@/table";
-import { SquarePen, Plus, X, Check, Store, Zap } from "lucide-react";
+import { SquarePen, Plus, X, Check, Store, Zap, BarChart2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import {
@@ -45,6 +46,7 @@ const emptyForm = {
 
 export default function RetailMasterPage() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [rows, setRows]         = useState([]);
   const [states, setStates]     = useState([]);
   const [branches, setBranches] = useState([]);
@@ -155,9 +157,22 @@ export default function RetailMasterPage() {
     {
       header: "Action",
       cell: ({ row }) => (
-        <button onClick={() => handleEdit(row.original)} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
-          <SquarePen className="size-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleEdit(row.original)}
+            className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors"
+            title="Edit"
+          >
+            <SquarePen className="size-4" />
+          </button>
+          <button
+            onClick={() => navigate(`/setup/retail/${row.original.id}/analytics`)}
+            className="text-sky-500 hover:text-sky-700"
+            title="Analytics"
+          >
+            <BarChart2 className="size-4" />
+          </button>
+        </div>
       ),
     },
     { header: "#", cell: ({ row }) => row.index + 1, size: 40 },

@@ -99,10 +99,11 @@ function KarigarJobWorkReport() {
   useEffect(() => { load(); }, [load]);
 
   // ── Summary counts ────────────────────────────────────────────────────────
+  const isFinished = (r) => r.stage === 'FINISHED';
   const total     = rows.length;
-  const pending   = rows.filter(r => !r.rec_status).length;
-  const completed = rows.filter(r => r.rec_status).length;
-  const overdue   = rows.filter(r => !r.rec_status && isOverdue(r.due_date)).length;
+  const pending   = rows.filter(r => !isFinished(r)).length;
+  const completed = rows.filter(r => isFinished(r)).length;
+  const overdue   = rows.filter(r => !isFinished(r) && isOverdue(r.due_date)).length;
 
   // ── Columns ───────────────────────────────────────────────────────────────
   const columns = [
@@ -180,13 +181,14 @@ function KarigarJobWorkReport() {
         const r = row.original;
         const due = r.due_date;
         if (!due) return <span className="text-muted-foreground text-xs">—</span>;
-        const over = !r.rec_status && isOverdue(due);
+        const finished = r.stage === 'FINISHED';
+        const over = !finished && isOverdue(due);
         return (
           <div className="flex flex-col gap-0.5">
             <span className={`text-xs font-medium ${over ? "text-red-600" : ""}`}>
               {fmtDate(due)}
             </span>
-            <DaysChip dueDate={due} completed={r.rec_status} />
+            <DaysChip dueDate={due} completed={finished} />
           </div>
         );
       },
@@ -195,10 +197,25 @@ function KarigarJobWorkReport() {
       header: "Status",
       cell: ({ row }) => {
         const r = row.original;
-        if (r.rec_status) {
+        const stage = r.stage || (r.rec_status ? 'FINISHED' : 'ISSUED');
+        if (stage === 'FINISHED') {
           return (
             <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 rounded-full px-2 py-0.5 font-medium">
               <CheckCircle2 className="size-3" />Completed
+            </span>
+          );
+        }
+        if (stage === 'SEMI_FINISHED_RECEIVED') {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium">
+              <CheckCircle2 className="size-3" />Semi-Finished
+            </span>
+          );
+        }
+        if (stage === 'REISSUED') {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs bg-violet-100 text-violet-700 rounded-full px-2 py-0.5 font-medium">
+              <Hammer className="size-3" />Re-Issued
             </span>
           );
         }

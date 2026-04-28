@@ -43,6 +43,7 @@ urlpatterns = [
 
     path('api/retail/',views.RetailMasterView.as_view(), name='retail_master_view'),
     path('api/retail/<int:pk>/',views.RetailMasterDetailView.as_view(), name='retail_master_detail'),
+    path('api/retail/<int:pk>/analytics/', views.RetailAnalyticsView.as_view(), name='retail_analytics'),
     path('api/state/',views.StateListView.as_view(), name='state_list_view'),
     path('api/tds-section/', views.ListCreateTDSSection.as_view(), name='tds_section_list_create'),
     path('api/tds-section/<int:pk>/', views.RetrieveUpdateDestroyTDSSection.as_view(), name='tds_section_detail'),

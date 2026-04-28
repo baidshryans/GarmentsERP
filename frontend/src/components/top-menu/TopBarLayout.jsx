@@ -14,7 +14,7 @@ export function TopBarLayout() {
         <TopMenuBar />
         {/* mt-12 offsets content below the 48 px fixed topbar */}
         <main className="mt-12 min-h-screen bg-background">
-          <div className="min-w-0 overflow-x-auto">
+          <div className="mx-auto w-full max-w-screen-2xl min-w-0 overflow-x-auto">
             <Outlet />
           </div>
         </main>

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Karigar Receive — Stone Detail mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --primary:        hsl(242 64% 63%);  /* ERP violet */
+    --primary-soft:   hsl(242 64% 95%);  /* very pale violet — header band */
+    --primary-softer: hsl(242 64% 97.5%);/* even paler — row tint */
+    --accent-text:    hsl(242 64% 38%);  /* deep violet for emphasis text */
+    --slate-tint-a:   hsl(220 30% 97.5%);/* alternating very-light slate */
+    --slate-tint-b:   hsl(242 30% 97.5%);/* alternating very-light violet-slate */
+    --row-border:     hsl(220 14% 92%);
+    --group-bg:       hsl(242 40% 96%);
+    --group-bg-2:     hsl(242 35% 94%);
+    --loss:           hsl(0 65% 47%);
+  }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .stage-a { background: var(--slate-tint-a); }
+  .stage-b { background: var(--slate-tint-b); }
+  .stage-h-a { background: var(--primary-soft); color: var(--accent-text); }
+  .stage-h-b { background: var(--primary-softer); color: var(--accent-text); }
+  .pcg { font-size: 12px; line-height: 1.35; }
+  .pcg .pc  { font-weight: 600; color: #0f172a; }
+  .pcg .ct  { color: #475569; }
+  .pcg .gw  { color: #94a3b8; font-size: 11px; }
+  .group-row td {
+    background: var(--group-bg);
+    border-top: 2px solid hsl(242 30% 86%) !important;
+    border-bottom: 1px solid var(--row-border) !important;
+    padding: 0.65rem 1rem;
+    font-size: 12.5px;
+    color: var(--accent-text);
+    letter-spacing: 0.01em;
+  }
+  .totals td {
+    background: var(--group-bg-2);
+    border-top: 2px solid hsl(242 30% 86%) !important;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .stage-divider { border-left: 1px solid hsl(220 14% 86%); }
+  .loss-text { color: var(--loss); font-weight: 600; }
+  .muted { color: #94a3b8; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-6">
+<div class="max-w-7xl mx-auto space-y-12">
+
+  <header class="space-y-1">
+    <h1 class="text-2xl font-semibold">Karigar Receive — Stone Detail (subtle violet)</h1>
+    <p class="text-sm text-slate-500">Subtle violet tints matching the ERP palette, more padding, and quiet alternating bands to separate the four lifecycle stages instead of distinct colours.</p>
+  </header>
+
+  <!-- ── A: CURRENT (reference) ───────────────────────────────────────── -->
+  <section class="space-y-2">
+    <h2 class="text-base font-semibold text-slate-700">A — Current (for reference)</h2>
+    <div class="bg-white rounded-lg shadow-sm border overflow-x-auto">
+      <table class="w-full text-xs border-collapse">
+        <thead>
+          <tr class="bg-slate-100 text-slate-600 uppercase tracking-wider">
+            <th class="px-2 py-1.5 border" colspan="3"></th>
+            <th class="px-2 py-1.5 border text-center" colspan="3">Goods Issued</th>
+            <th class="px-2 py-1.5 border text-center" colspan="3">Goods Returned</th>
+            <th class="px-2 py-1.5 border text-center" colspan="3">Broken &amp; Loss</th>
+            <th class="px-2 py-1.5 border text-center" colspan="3">Used in Jewellery</th>
+            <th class="px-2 py-1.5 border" colspan="2"></th>
+          </tr>
+          <tr class="bg-slate-50 text-slate-500 text-[11px]">
+            <th class="px-2 py-1 border">Sno</th><th class="px-2 py-1 border">Packet</th><th class="px-2 py-1 border">Item</th>
+            <th class="px-2 py-1 border text-right">Pcs</th><th class="px-2 py-1 border text-right">Ct</th><th class="px-2 py-1 border text-right">Gw</th>
+            <th class="px-2 py-1 border text-right">Pcs</th><th class="px-2 py-1 border text-right">Ct</th><th class="px-2 py-1 border text-right">Gw</th>
+            <th class="px-2 py-1 border text-right">Pcs</th><th class="px-2 py-1 border text-right">Ct</th><th class="px-2 py-1 border text-right">Gw</th>
+            <th class="px-2 py-1 border text-right">Pcs</th><th class="px-2 py-1 border text-right">Ct</th><th class="px-2 py-1 border text-right">Gw</th>
+            <th class="px-2 py-1 border text-right">Rate</th><th class="px-2 py-1 border text-right">Value</th>
+          </tr>
+        </thead>
+        <tbody class="tabular">
+          <tr><td class="px-2 py-1 border">1</td><td class="px-2 py-1 border">LGMAIN</td><td class="px-2 py-1 border">Lab Diamond</td>
+            <td class="px-2 py-1 border text-right">25</td><td class="px-2 py-1 border text-right">2.000</td><td class="px-2 py-1 border text-right">0.400</td>
+            <td class="px-2 py-1 border text-right">25</td><td class="px-2 py-1 border text-right">2.000</td><td class="px-2 py-1 border text-right">0.400</td>
+            <td class="px-2 py-1 border text-right">0</td><td class="px-2 py-1 border text-right">0.000</td><td class="px-2 py-1 border text-right">0.000</td>
+            <td class="px-2 py-1 border text-right">25</td><td class="px-2 py-1 border text-right">2.000</td><td class="px-2 py-1 border text-right">0.400</td>
+            <td class="px-2 py-1 border text-right">3,000</td><td class="px-2 py-1 border text-right">6,000</td></tr>
+          <tr><td class="px-2 py-1 border">2</td><td class="px-2 py-1 border">EMR-04</td><td class="px-2 py-1 border">Emerald</td>
+            <td class="px-2 py-1 border text-right">2</td><td class="px-2 py-1 border text-right">0.450</td><td class="px-2 py-1 border text-right">0.090</td>
+            <td class="px-2 py-1 border text-right">2</td><td class="px-2 py-1 border text-right">0.420</td><td class="px-2 py-1 border text-right">0.080</td>
+            <td class="px-2 py-1 border text-right">0</td><td class="px-2 py-1 border text-right">0.030</td><td class="px-2 py-1 border text-right">0.010</td>
+            <td class="px-2 py-1 border text-right">2</td><td class="px-2 py-1 border text-right">0.420</td><td class="px-2 py-1 border text-right">0.080</td>
+            <td class="px-2 py-1 border text-right">12,000</td><td class="px-2 py-1 border text-right">5,040</td></tr>
+          <tr><td class="px-2 py-1 border">3</td><td class="px-2 py-1 border">RBY-11</td><td class="px-2 py-1 border">Ruby</td>
+            <td class="px-2 py-1 border text-right">1</td><td class="px-2 py-1 border text-right">0.300</td><td class="px-2 py-1 border text-right">0.060</td>
+            <td class="px-2 py-1 border text-right">0</td><td class="px-2 py-1 border text-right">0.000</td><td class="px-2 py-1 border text-right">0.000</td>
+            <td class="px-2 py-1 border text-right">1</td><td class="px-2 py-1 border text-right">0.300</td><td class="px-2 py-1 border text-right">0.060</td>
+            <td class="px-2 py-1 border text-right">0</td><td class="px-2 py-1 border text-right">0.000</td><td class="px-2 py-1 border text-right">0.000</td>
+            <td class="px-2 py-1 border text-right">8,000</td><td class="px-2 py-1 border text-right">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── B1: Same 17 cols, alternating violet/slate bands per stage ──── -->
+  <section class="space-y-2">
+    <h2 class="text-base font-semibold text-slate-700">B1 — Same 17 columns, subtle alternating bands</h2>
+    <p class="text-xs text-slate-500">Same column count. Each lifecycle group has a barely-there alternating tint (slate / violet-slate). Group headers use the ERP pale violet. Loss values turn red only when non-zero. Padding increased so rows breathe; group separator rows highlighted in violet to mark each received main piece.</p>
+    <div class="bg-white rounded-lg shadow-sm border overflow-x-auto">
+      <table class="w-full text-[12.5px] border-collapse">
+        <thead>
+          <tr class="text-[11px] uppercase tracking-wider">
+            <th class="px-3 py-2.5 border bg-slate-100 text-slate-600" colspan="3"></th>
+            <th class="px-3 py-2.5 border text-center stage-h-a font-semibold" colspan="3">Issued</th>
+            <th class="px-3 py-2.5 border text-center stage-h-b font-semibold" colspan="3">Returned</th>
+            <th class="px-3 py-2.5 border text-center stage-h-a font-semibold" colspan="3">Broken &amp; Loss</th>
+            <th class="px-3 py-2.5 border text-center stage-h-b font-semibold" colspan="3">Used</th>
+            <th class="px-3 py-2.5 border bg-slate-100 text-slate-600" colspan="2"></th>
+          </tr>
+          <tr class="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+            <th class="px-3 py-2 border">Sno</th><th class="px-3 py-2 border">Packet</th><th class="px-3 py-2 border">Item</th>
+            <th class="px-3 py-2 border text-right stage-a">Pcs</th><th class="px-3 py-2 border text-right stage-a">Ct</th><th class="px-3 py-2 border text-right stage-a">Gw</th>
+            <th class="px-3 py-2 border text-right stage-b">Pcs</th><th class="px-3 py-2 border text-right stage-b">Ct</th><th class="px-3 py-2 border text-right stage-b">Gw</th>
+            <th class="px-3 py-2 border text-right stage-a">Pcs</th><th class="px-3 py-2 border text-right stage-a">Ct</th><th class="px-3 py-2 border text-right stage-a">Gw</th>
+            <th class="px-3 py-2 border text-right stage-b">Pcs</th><th class="px-3 py-2 border text-right stage-b">Ct</th><th class="px-3 py-2 border text-right stage-b">Gw</th>
+            <th class="px-3 py-2 border text-right">Rate</th><th class="px-3 py-2 border text-right">Value</th>
+          </tr>
+        </thead>
+        <tbody class="tabular">
+          <tr class="group-row"><td colspan="17">▸ <span class="font-semibold">Received piece #1</span> &nbsp; Lab Diamond Ladies Ring · 14K · 3.000 g</td></tr>
+          <tr>
+            <td class="px-3 py-2.5 border">1</td><td class="px-3 py-2.5 border">LGMAIN</td><td class="px-3 py-2.5 border">Lab Diamond</td>
+            <td class="px-3 py-2.5 border text-right stage-a">25</td><td class="px-3 py-2.5 border text-right stage-a">2.000</td><td class="px-3 py-2.5 border text-right stage-a">0.400</td>
+            <td class="px-3 py-2.5 border text-right stage-b">25</td><td class="px-3 py-2.5 border text-right stage-b">2.000</td><td class="px-3 py-2.5 border text-right stage-b">0.400</td>
+            <td class="px-3 py-2.5 border text-right stage-a muted">0</td><td class="px-3 py-2.5 border text-right stage-a muted">0.000</td><td class="px-3 py-2.5 border text-right stage-a muted">0.000</td>
+            <td class="px-3 py-2.5 border text-right stage-b">25</td><td class="px-3 py-2.5 border text-right stage-b">2.000</td><td class="px-3 py-2.5 border text-right stage-b">0.400</td>
+            <td class="px-3 py-2.5 border text-right">3,000</td><td class="px-3 py-2.5 border text-right font-semibold">6,000</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2.5 border">2</td><td class="px-3 py-2.5 border">EMR-04</td><td class="px-3 py-2.5 border">Emerald</td>
+            <td class="px-3 py-2.5 border text-right stage-a">2</td><td class="px-3 py-2.5 border text-right stage-a">0.450</td><td class="px-3 py-2.5 border text-right stage-a">0.090</td>
+            <td class="px-3 py-2.5 border text-right stage-b">2</td><td class="px-3 py-2.5 border text-right stage-b">0.420</td><td class="px-3 py-2.5 border text-right stage-b">0.080</td>
+            <td class="px-3 py-2.5 border text-right stage-a muted">0</td><td class="px-3 py-2.5 border text-right stage-a loss-text">0.030</td><td class="px-3 py-2.5 border text-right stage-a loss-text">0.010</td>
+            <td class="px-3 py-2.5 border text-right stage-b">2</td><td class="px-3 py-2.5 border text-right stage-b">0.420</td><td class="px-3 py-2.5 border text-right stage-b">0.080</td>
+            <td class="px-3 py-2.5 border text-right">12,000</td><td class="px-3 py-2.5 border text-right font-semibold">5,040</td>
+          </tr>
+
+          <tr class="group-row"><td colspan="17">▸ <span class="font-semibold">Received piece #2</span> &nbsp; Gents Bracelet · 22K · 18.500 g</td></tr>
+          <tr>
+            <td class="px-3 py-2.5 border">3</td><td class="px-3 py-2.5 border">RBY-11</td><td class="px-3 py-2.5 border">Ruby</td>
+            <td class="px-3 py-2.5 border text-right stage-a">1</td><td class="px-3 py-2.5 border text-right stage-a">0.300</td><td class="px-3 py-2.5 border text-right stage-a">0.060</td>
+            <td class="px-3 py-2.5 border text-right stage-b muted">0</td><td class="px-3 py-2.5 border text-right stage-b muted">0.000</td><td class="px-3 py-2.5 border text-right stage-b muted">0.000</td>
+            <td class="px-3 py-2.5 border text-right stage-a loss-text">1</td><td class="px-3 py-2.5 border text-right stage-a loss-text">0.300</td><td class="px-3 py-2.5 border text-right stage-a loss-text">0.060</td>
+            <td class="px-3 py-2.5 border text-right stage-b muted">0</td><td class="px-3 py-2.5 border text-right stage-b muted">0.000</td><td class="px-3 py-2.5 border text-right stage-b muted">0.000</td>
+            <td class="px-3 py-2.5 border text-right">8,000</td><td class="px-3 py-2.5 border text-right font-semibold muted">0</td>
+          </tr>
+
+          <tr class="totals">
+            <td class="px-3 py-2.5 border" colspan="3">Total · 3 stones</td>
+            <td class="px-3 py-2.5 border text-right">28</td><td class="px-3 py-2.5 border text-right">2.750</td><td class="px-3 py-2.5 border text-right">0.550</td>
+            <td class="px-3 py-2.5 border text-right">27</td><td class="px-3 py-2.5 border text-right">2.420</td><td class="px-3 py-2.5 border text-right">0.480</td>
+            <td class="px-3 py-2.5 border text-right">1</td><td class="px-3 py-2.5 border text-right">0.330</td><td class="px-3 py-2.5 border text-right">0.070</td>
+            <td class="px-3 py-2.5 border text-right">27</td><td class="px-3 py-2.5 border text-right">2.420</td><td class="px-3 py-2.5 border text-right">0.480</td>
+            <td class="px-3 py-2.5 border"></td><td class="px-3 py-2.5 border text-right">11,040</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── B2: Compact 8-col, subtle violet ──────────────────────────────── -->
+  <section class="space-y-2">
+    <h2 class="text-base font-semibold text-slate-700">B2 — Compact stage cells (8 columns)</h2>
+    <p class="text-xs text-slate-500">Each lifecycle stage collapses into one cell with three numbers — pieces bold, carats regular, gold-weight light. Drops 17 columns to 8 so it fits without horizontal scroll. Same subtle violet/slate band rotation, more padding.</p>
+    <div class="bg-white rounded-lg shadow-sm border overflow-x-auto">
+      <table class="w-full text-[12.5px] border-collapse">
+        <thead>
+          <tr class="text-[11px] uppercase tracking-wider bg-slate-50 text-slate-500">
+            <th class="px-3 py-2.5 border w-10">Sno</th>
+            <th class="px-3 py-2.5 border">Packet</th>
+            <th class="px-3 py-2.5 border">Item</th>
+            <th class="px-3 py-2.5 border text-center stage-h-a font-semibold">Issued <span class="font-normal opacity-70 normal-case">(pc · ct · g)</span></th>
+            <th class="px-3 py-2.5 border text-center stage-h-b font-semibold">Returned</th>
+            <th class="px-3 py-2.5 border text-center stage-h-a font-semibold">Broken &amp; Loss</th>
+            <th class="px-3 py-2.5 border text-center stage-h-b font-semibold">Used</th>
+            <th class="px-3 py-2.5 border text-right">Rate</th>
+            <th class="px-3 py-2.5 border text-right">Value</th>
+          </tr>
+        </thead>
+        <tbody class="tabular">
+          <tr class="group-row"><td colspan="9">▸ <span class="font-semibold">Received piece #1</span> &nbsp; Lab Diamond Ladies Ring · 14K · 3.000 g</td></tr>
+          <tr>
+            <td class="px-3 py-3 border text-center">1</td>
+            <td class="px-3 py-3 border">LGMAIN</td>
+            <td class="px-3 py-3 border">Lab Diamond</td>
+            <td class="px-3 py-3 border stage-a pcg">
+              <div class="flex justify-between"><span class="pc">25 pc</span><span class="ct">2.000 ct</span></div>
+              <div class="text-right gw">0.400 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg">
+              <div class="flex justify-between"><span class="pc">25 pc</span><span class="ct">2.000 ct</span></div>
+              <div class="text-right gw">0.400 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-a pcg muted">
+              <div class="flex justify-between"><span>—</span><span>—</span></div>
+              <div class="text-right">—</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg">
+              <div class="flex justify-between"><span class="pc">25 pc</span><span class="ct">2.000 ct</span></div>
+              <div class="text-right gw">0.400 g</div>
+            </td>
+            <td class="px-3 py-3 border text-right">3,000</td>
+            <td class="px-3 py-3 border text-right font-semibold">6,000</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-3 border text-center">2</td>
+            <td class="px-3 py-3 border">EMR-04</td>
+            <td class="px-3 py-3 border">Emerald</td>
+            <td class="px-3 py-3 border stage-a pcg">
+              <div class="flex justify-between"><span class="pc">2 pc</span><span class="ct">0.450 ct</span></div>
+              <div class="text-right gw">0.090 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg">
+              <div class="flex justify-between"><span class="pc">2 pc</span><span class="ct">0.420 ct</span></div>
+              <div class="text-right gw">0.080 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-a pcg">
+              <div class="flex justify-between"><span class="muted">0 pc</span><span class="loss-text">0.030 ct</span></div>
+              <div class="text-right loss-text">0.010 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg">
+              <div class="flex justify-between"><span class="pc">2 pc</span><span class="ct">0.420 ct</span></div>
+              <div class="text-right gw">0.080 g</div>
+            </td>
+            <td class="px-3 py-3 border text-right">12,000</td>
+            <td class="px-3 py-3 border text-right font-semibold">5,040</td>
+          </tr>
+
+          <tr class="group-row"><td colspan="9">▸ <span class="font-semibold">Received piece #2</span> &nbsp; Gents Bracelet · 22K · 18.500 g</td></tr>
+          <tr>
+            <td class="px-3 py-3 border text-center">3</td>
+            <td class="px-3 py-3 border">RBY-11</td>
+            <td class="px-3 py-3 border">Ruby</td>
+            <td class="px-3 py-3 border stage-a pcg">
+              <div class="flex justify-between"><span class="pc">1 pc</span><span class="ct">0.300 ct</span></div>
+              <div class="text-right gw">0.060 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg muted">
+              <div class="flex justify-between"><span>—</span><span>—</span></div>
+              <div class="text-right">—</div>
+            </td>
+            <td class="px-3 py-3 border stage-a pcg">
+              <div class="flex justify-between"><span class="loss-text">1 pc</span><span class="loss-text">0.300 ct</span></div>
+              <div class="text-right loss-text">0.060 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg muted">
+              <div class="flex justify-between"><span>—</span><span>—</span></div>
+              <div class="text-right">—</div>
+            </td>
+            <td class="px-3 py-3 border text-right">8,000</td>
+            <td class="px-3 py-3 border text-right font-semibold muted">0</td>
+          </tr>
+
+          <tr class="totals">
+            <td class="px-3 py-3 border" colspan="3">Total · 3 stones</td>
+            <td class="px-3 py-3 border stage-a pcg">
+              <div class="flex justify-between"><span class="pc">28 pc</span><span class="ct">2.750 ct</span></div>
+              <div class="text-right gw">0.550 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg">
+              <div class="flex justify-between"><span class="pc">27 pc</span><span class="ct">2.420 ct</span></div>
+              <div class="text-right gw">0.480 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-a pcg">
+              <div class="flex justify-between"><span class="pc">1 pc</span><span class="ct">0.330 ct</span></div>
+              <div class="text-right gw">0.070 g</div>
+            </td>
+            <td class="px-3 py-3 border stage-b pcg">
+              <div class="flex justify-between"><span class="pc">27 pc</span><span class="ct">2.420 ct</span></div>
+              <div class="text-right gw">0.480 g</div>
+            </td>
+            <td class="px-3 py-3 border"></td>
+            <td class="px-3 py-3 border text-right">11,040</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="text-xs text-slate-400 pt-4 border-t">
+    Mockup only · static HTML · uses ERP violet HSL(242 64% 63%)
+  </footer>
+
+</div>
+</body>
+</html>

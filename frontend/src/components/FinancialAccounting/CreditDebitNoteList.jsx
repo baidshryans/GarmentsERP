@@ -170,17 +170,17 @@ export default function CreditDebitNoteList() {
                     ₹{fmt(n.amount)}
                   </td>
                   <td className="px-4 py-2 text-center">
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex space-x-4 justify-center">
                       <button
                         onClick={() => handlePrint(n.id)}
-                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary"
+                        className="p-1.5 rounded text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center"
                         title="Print"
                       >
                         <Printer className="size-4" />
                       </button>
                       <button
                         onClick={() => handleCancel(n.id)}
-                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive"
+                        className="p-1.5 rounded text-amber-600 hover:bg-amber-50 transition-colors flex items-center"
                         title="Cancel Note"
                       >
                         <XCircle className="size-4" />

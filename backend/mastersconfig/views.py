@@ -387,7 +387,8 @@ class BranchAnalyticsView(APIView):
         retails = RetailMaster.objects.filter(branch=branch).select_related('active_fy')
 
         from decimal import Decimal
-        from django.db.models import Sum, Q
+        from django.db.models import Sum, F, DecimalField
+        from django.db.models.functions import Coalesce
         import datetime
 
         today = datetime.date.today()
@@ -396,61 +397,64 @@ class BranchAnalyticsView(APIView):
         # Import transaction models lazily to avoid circular imports
         from sales.models import SalesVou, SaleReturn
         from purchase.models import PurchaseVoucher, PurchaseOrder
-        from contacts.models import Ledger
+
+        # Sales / sale-return totals are derived as (mrp - discount) — no
+        # stored grand_total column on these models. We compute via annotated
+        # aggregation so the work happens in the database.
+        zero = Decimal('0')
+        net_expr = Coalesce(F('mrp'), zero) - Coalesce(F('discount'), zero)
+
+        def _sales_total(qs):
+            return qs.aggregate(
+                s=Sum(net_expr, output_field=DecimalField(max_digits=14, decimal_places=2))
+            )['s'] or zero
 
         retail_stats = []
         totals = {
-            'today_sales': Decimal('0'),
-            'month_sales': Decimal('0'),
-            'today_purchases': Decimal('0'),
-            'month_purchases': Decimal('0'),
-            'outstanding': Decimal('0'),
-            'purchase_orders': Decimal('0'),
+            'today_sales': zero,
+            'month_sales': zero,
+            'today_purchases': zero,
+            'month_purchases': zero,
+            'outstanding': zero,
+            'purchase_orders': 0,
         }
 
         for retail in retails:
-            # Sales
-            today_sales = SalesVou.objects.filter(
-                retail=retail, voucher_date=today
-            ).aggregate(s=Sum('grand_total'))['s'] or Decimal('0')
+            # Sales (excluding fully-returned vouchers)
+            today_sales = _sales_total(
+                SalesVou.objects.filter(retail=retail, date1=today, ret_status=False)
+            )
+            month_sales = _sales_total(
+                SalesVou.objects.filter(retail=retail, date1__gte=month_start, ret_status=False)
+            )
 
-            month_sales = SalesVou.objects.filter(
-                retail=retail, voucher_date__gte=month_start
-            ).aggregate(s=Sum('grand_total'))['s'] or Decimal('0')
+            # Sales-return adjustment
+            today_sr = _sales_total(
+                SaleReturn.objects.filter(retail=retail, date1=today)
+            )
+            month_sr = _sales_total(
+                SaleReturn.objects.filter(retail=retail, date1__gte=month_start)
+            )
 
-            # Sales returns adjustment
-            today_sr = SaleReturn.objects.filter(
-                retail=retail, voucher_date=today
-            ).aggregate(s=Sum('grand_total'))['s'] or Decimal('0')
+            today_sales_net = today_sales - today_sr
+            month_sales_net = month_sales - month_sr
 
-            month_sr = SaleReturn.objects.filter(
-                retail=retail, voucher_date__gte=month_start
-            ).aggregate(s=Sum('grand_total'))['s'] or Decimal('0')
-
-            today_sales_net  = today_sales - today_sr
-            month_sales_net  = month_sales - month_sr
-
-            # Purchases
+            # Purchases — use item_total (matches dashboard_summary)
             today_purchases = PurchaseVoucher.objects.filter(
-                retail=retail, voucher_date=today
-            ).aggregate(s=Sum('grand_total'))['s'] or Decimal('0')
+                retail=retail, date1=today, is_return=False
+            ).aggregate(s=Sum('item_total'))['s'] or zero
 
             month_purchases = PurchaseVoucher.objects.filter(
-                retail=retail, voucher_date__gte=month_start
-            ).aggregate(s=Sum('grand_total'))['s'] or Decimal('0')
+                retail=retail, date1__gte=month_start, is_return=False
+            ).aggregate(s=Sum('item_total'))['s'] or zero
 
-            # Purchase Orders (open)
-            po_value = PurchaseOrder.objects.filter(
-                retail=retail, status='open'
-            ).aggregate(s=Sum('grand_total'))['s'] or Decimal('0')
+            # Open purchase orders — count (PO model has no monetary total)
+            po_count = PurchaseOrder.objects.filter(retail=retail).count()
 
-            # Outstanding (receivables) — sum of closing balances for debtor ledgers
-            try:
-                outstanding = Ledger.objects.filter(
-                    retail=retail, ac_type='D'
-                ).aggregate(s=Sum('closing_balance'))['s'] or Decimal('0')
-            except Exception:
-                outstanding = Decimal('0')
+            # Outstanding receivable — sum of due_amt on open sales vouchers
+            outstanding = SalesVou.objects.filter(
+                retail=retail, ret_status=False
+            ).aggregate(s=Sum('due_amt'))['s'] or zero
 
             stat = {
                 'retail_id':        retail.id,
@@ -462,7 +466,7 @@ class BranchAnalyticsView(APIView):
                 'today_purchases':  float(today_purchases),
                 'month_purchases':  float(month_purchases),
                 'outstanding':      float(outstanding),
-                'purchase_orders':  float(po_value),
+                'purchase_orders':  po_count,
             }
             retail_stats.append(stat)
 
@@ -471,7 +475,7 @@ class BranchAnalyticsView(APIView):
             totals['today_purchases']  += today_purchases
             totals['month_purchases']  += month_purchases
             totals['outstanding']      += outstanding
-            totals['purchase_orders']  += po_value
+            totals['purchase_orders']  += po_count
 
         return Response({
             'branch': {
@@ -482,7 +486,134 @@ class BranchAnalyticsView(APIView):
                 'retail_count': retails.count(),
             },
             'retails':  retail_stats,
-            'totals':   {k: float(v) for k, v in totals.items()},
+            'totals':   {
+                'today_sales':     float(totals['today_sales']),
+                'month_sales':     float(totals['month_sales']),
+                'today_purchases': float(totals['today_purchases']),
+                'month_purchases': float(totals['month_purchases']),
+                'outstanding':     float(totals['outstanding']),
+                'purchase_orders': int(totals['purchase_orders']),
+            },
+        })
+
+
+class RetailAnalyticsView(APIView):
+    """
+    GET /mastersconfig/api/retail/<pk>/analytics/
+    Returns KPI aggregates for a single retail, plus top-customer and
+    top-vendor breakdowns for the current month. Mirrors the field
+    semantics used in BranchAnalyticsView and userauth.dashboard_summary.
+    """
+
+    def get(self, request, pk):
+        retail = get_object_or_404(
+            RetailMaster.objects.select_related('active_fy', 'branch'), pk=pk
+        )
+
+        from decimal import Decimal
+        from django.db.models import Sum, F, DecimalField
+        from django.db.models.functions import Coalesce
+        import datetime
+
+        today = datetime.date.today()
+        month_start = today.replace(day=1)
+
+        from sales.models import SalesVou, SaleReturn
+        from purchase.models import PurchaseVoucher, PurchaseOrder
+
+        zero = Decimal('0')
+        net_expr = Coalesce(F('mrp'), zero) - Coalesce(F('discount'), zero)
+
+        def _sales_total(qs):
+            return qs.aggregate(
+                s=Sum(net_expr, output_field=DecimalField(max_digits=14, decimal_places=2))
+            )['s'] or zero
+
+        # Sales (excluding fully-returned vouchers)
+        today_sales = _sales_total(
+            SalesVou.objects.filter(retail=retail, date1=today, ret_status=False)
+        )
+        month_sales = _sales_total(
+            SalesVou.objects.filter(retail=retail, date1__gte=month_start, ret_status=False)
+        )
+
+        # Sales-return adjustment
+        today_sr = _sales_total(SaleReturn.objects.filter(retail=retail, date1=today))
+        month_sr = _sales_total(SaleReturn.objects.filter(retail=retail, date1__gte=month_start))
+
+        today_sales_net = today_sales - today_sr
+        month_sales_net = month_sales - month_sr
+
+        # Purchases — use item_total (matches dashboard_summary)
+        today_purchases = PurchaseVoucher.objects.filter(
+            retail=retail, date1=today, is_return=False
+        ).aggregate(s=Sum('item_total'))['s'] or zero
+
+        month_purchases = PurchaseVoucher.objects.filter(
+            retail=retail, date1__gte=month_start, is_return=False
+        ).aggregate(s=Sum('item_total'))['s'] or zero
+
+        po_count = PurchaseOrder.objects.filter(retail=retail).count()
+
+        outstanding = SalesVou.objects.filter(
+            retail=retail, ret_status=False
+        ).aggregate(s=Sum('due_amt'))['s'] or zero
+
+        # Top customers — by month sales (mrp - discount)
+        top_customers_qs = (
+            SalesVou.objects
+            .filter(retail=retail, date1__gte=month_start, ret_status=False)
+            .values('ldgr_id', 'ldgr__ac_name')
+            .annotate(
+                total=Sum(net_expr, output_field=DecimalField(max_digits=14, decimal_places=2))
+            )
+            .order_by('-total')[:5]
+        )
+        top_customers = [
+            {
+                'ledger_id':   row['ldgr_id'],
+                'ledger_name': row['ldgr__ac_name'] or '',
+                'total':       float(row['total'] or 0),
+            }
+            for row in top_customers_qs
+        ]
+
+        # Top vendors — by month purchases (item_total)
+        top_vendors_qs = (
+            PurchaseVoucher.objects
+            .filter(retail=retail, date1__gte=month_start, is_return=False)
+            .values('ldgr_id', 'ldgr__ac_name')
+            .annotate(total=Sum('item_total'))
+            .order_by('-total')[:5]
+        )
+        top_vendors = [
+            {
+                'ledger_id':   row['ldgr_id'],
+                'ledger_name': row['ldgr__ac_name'] or '',
+                'total':       float(row['total'] or 0),
+            }
+            for row in top_vendors_qs
+        ]
+
+        return Response({
+            'retail': {
+                'id':            retail.id,
+                'retail_code':   retail.retail_code,
+                'retail_name':   retail.retail_name,
+                'branch_name':   retail.branch.branch_name if retail.branch else '',
+                'active_fy_code': retail.active_fy.fy_code if retail.active_fy else '',
+                'is_exhibition': bool(getattr(retail, 'is_exhibition', False)),
+            },
+            'totals': {
+                'today_sales':     float(today_sales_net),
+                'month_sales':     float(month_sales_net),
+                'today_purchases': float(today_purchases),
+                'month_purchases': float(month_purchases),
+                'outstanding':     float(outstanding),
+                'purchase_orders': int(po_count),
+            },
+            'top_customers': top_customers,
+            'top_vendors':   top_vendors,
         })
 
 

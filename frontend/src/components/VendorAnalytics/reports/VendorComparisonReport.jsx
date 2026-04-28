@@ -8,9 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Popover, PopoverTrigger, PopoverContent,
-} from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from '@/components/ui/select';
@@ -85,7 +88,6 @@ function ChartTooltip({ active, payload, label, fmt }) {
 // ─── multi-vendor selector ────────────────────────────────────────────────────
 
 function VendorMultiSelect({ vendors, selected, onChange }) {
-  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
 
   const filtered = vendors.filter((v) =>
@@ -113,8 +115,8 @@ function VendorMultiSelect({ vendors, selected, onChange }) {
       : `${selected.length} vendors selected`;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <button
           className="flex items-center gap-2 h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-left shadow-sm hover:bg-accent transition-colors"
           type="button"
@@ -122,42 +124,44 @@ function VendorMultiSelect({ vendors, selected, onChange }) {
           <span className="flex-1 truncate text-slate-700">{label}</span>
           <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
         </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-72 p-2" align="start">
-        <Input
-          placeholder="Search vendors…"
-          className="mb-2 h-8 text-sm"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="max-h-56 overflow-y-auto space-y-1">
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-72" align="start">
+        {/* Search box — stop dropdown from closing on click */}
+        <div className="px-2 py-1.5" onPointerDown={(e) => e.stopPropagation()}>
+          <Input
+            placeholder="Search vendors…"
+            className="h-8 text-sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+        <DropdownMenuSeparator />
+        <div className="max-h-56 overflow-y-auto">
           {/* All vendors toggle */}
-          <label className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-slate-50 text-sm font-medium">
-            <Checkbox
-              checked={selected.length === vendors.length && vendors.length > 0}
-              onCheckedChange={toggleAll}
-            />
-            <span className="text-slate-600">All Vendors</span>
-          </label>
-          <div className="border-t border-slate-100 my-1" />
+          <DropdownMenuCheckboxItem
+            checked={selected.length === vendors.length && vendors.length > 0}
+            onCheckedChange={toggleAll}
+            className="font-medium"
+          >
+            All Vendors
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
           {filtered.map((v) => (
-            <label
+            <DropdownMenuCheckboxItem
               key={v.id}
-              className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-slate-50 text-sm"
+              checked={selected.includes(v.id)}
+              onCheckedChange={() => toggle(v.id)}
             >
-              <Checkbox
-                checked={selected.includes(v.id)}
-                onCheckedChange={() => toggle(v.id)}
-              />
-              <span className="text-slate-700 truncate">{v.ac_name}</span>
-            </label>
+              <span className="truncate">{v.ac_name}</span>
+            </DropdownMenuCheckboxItem>
           ))}
           {filtered.length === 0 && (
             <p className="text-xs text-slate-400 px-2 py-2">No vendors found</p>
           )}
         </div>
-      </PopoverContent>
-    </Popover>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

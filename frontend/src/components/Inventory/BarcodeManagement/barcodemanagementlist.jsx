@@ -614,6 +614,7 @@ const BarcodeManagementList = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 text-xs">
+                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead className="w-[120px]">Packet</TableHead>
                   <TableHead className="w-[130px]">Item *</TableHead>
                   <TableHead className="w-[110px]">Description</TableHead>
@@ -622,7 +623,6 @@ const BarcodeManagementList = () => {
                   <TableHead className="w-[80px] text-right">GW</TableHead>
                   <TableHead className="w-[80px] text-right">Rate</TableHead>
                   <TableHead className="w-[90px] text-right">Value</TableHead>
-                  <TableHead className="w-[40px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -725,6 +725,12 @@ const BarcodeManagementList = () => {
                 {fields.map((field, index) => (
                   <TableRow key={field.id} className="hover:bg-muted/20">
                     <TableCell className="p-1.5">
+                      <Button type="button" variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteDetail(index)}>
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </TableCell>
+                    <TableCell className="p-1.5">
                       <Input type="text" list={`saved_pckt_${index}`} className="h-8 text-sm"
                         {...register(`form.barcodedetails_set.${index}.packet`, {
                           onChange: (e) => {
@@ -807,12 +813,6 @@ const BarcodeManagementList = () => {
                       <Input type="number" step="1" placeholder="0" className="h-8 text-sm text-right"
                         {...register(`form.barcodedetails_set.${index}.amt`)}
                       />
-                    </TableCell>
-                    <TableCell className="p-1.5">
-                      <Button type="button" variant="ghost" size="icon" className="size-7 text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteDetail(index)}>
-                        <Trash2 className="size-4" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -129,6 +129,10 @@ def create_barcode_from_receive_api(request):
         # original karigar receive that was hallmarked. See manufacturing/utils.py.
         from manufacturing.utils import resolve_huid_for_receive_item
         huid = resolve_huid_for_receive_item(rec_item)
+        # Calculate net weight: gw minus all stone/sub-item weights
+        stone_gw = sum(float(detail.balance_gw or 0) for detail in rec_details)
+        nw = float(rec_item.gw or 0) - stone_gw
+
         # Prepare the response data
         response_data = {
 
@@ -141,10 +145,10 @@ def create_barcode_from_receive_api(request):
             'kr_code':rec.karigar_ldgr.id,
             'item':rec_item.item.short_code,
             'item_name':rec_item.item.item_name,
-            'pcs':rec_item.pending_pcs,
+            'pcs':rec_item.pcs,
             'rec_item':rec_item.id,
-            'gw':rec_item.pending_gw,
-            'nw':rec_item.nw,
+            'gw':rec_item.gw,
+            'nw':nw,
             'making':rec_item.making,
             'barcodedetails_set': [{
                 'packet': detail.packet.pckt_no if detail.packet else None,

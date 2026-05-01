@@ -110,13 +110,15 @@ def create_barcode_from_receive_api(request):
 
         # Resolve the originating issue item — either a Karigar job-work item or
         # a Sample-issue item, depending on what the receive references. Either
-        # may carry a design_code we want to prefill into the barcode form.
+        # may carry a design_code, size, or order_no we want to prefill into the barcode form.
         order_no = None
         design_code = None
+        size = None
         if rec_item.ref_job_sl_no_id:
             iss_item = KarigarIssueItem.objects.filter(id=rec_item.ref_job_sl_no_id).first()
             if iss_item:
                 design_code = iss_item.design_code or None
+                size = iss_item.size or None
                 if iss_item.customer_order_item and iss_item.customer_order_item.order_no:
                     order_no = iss_item.customer_order_item.order_no.order_no
         elif rec_item.ref_sample_issue_item_id:
@@ -124,6 +126,7 @@ def create_barcode_from_receive_api(request):
             sample_item = SampleIssueItem.objects.filter(id=rec_item.ref_sample_issue_item_id).first()
             if sample_item:
                 design_code = sample_item.design_code or None
+                size = sample_item.size or None if hasattr(sample_item, 'size') else None
 
         # Resolve the HUID by walking back through any sample re-issue chain to the
         # original karigar receive that was hallmarked. See manufacturing/utils.py.
@@ -139,6 +142,7 @@ def create_barcode_from_receive_api(request):
 
             'order_no': order_no,
             'design_code': design_code,
+            'size': size,
             'huid':huid,
             'voucher_no':rec.receive_slip_no,
             'purity':rec_item.purity.purity,

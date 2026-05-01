@@ -158,7 +158,7 @@ def create_barcode_from_receive_api(request):
                 'gw': detail.balance_gw,
                 'rate': detail.rate,
                 'uom': detail.packet.stone_item_id.uom if detail.packet else None
-            } for detail in rec_details]
+            } for detail in rec_details if detail.packet]
         }
         
         return Response(response_data, status=status.HTTP_200_OK)

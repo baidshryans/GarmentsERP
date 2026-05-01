@@ -17,6 +17,7 @@ import { fetchPRNoNext, fetchPurchaseReturnForEdit, updatePurchaseReturnForEdit 
 import { SquarePen, Trash2 } from "lucide-react";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 const PurchaseReturnadd = () => {
 
@@ -30,6 +31,7 @@ const PurchaseReturnadd = () => {
     watch,
     setValue,
     getValues,
+    formState: { isDirty },
   } = useForm({
     defaultValues: {
       form: {
@@ -88,6 +90,8 @@ const PurchaseReturnadd = () => {
 
   // Data-lists from your APIs
   const [rs, setRows] = useState([]); // array of items to be submitted
+  const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [mainItemData, setMainItemData] = useState([]);
   const [customerOrders, setCustomerOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -166,6 +170,8 @@ const PurchaseReturnadd = () => {
                               if (response.data.purchasereturnitems_set) {
                                 setRows(response.data.purchasereturnitems_set);
                               }
+                              reset(getValues(), { keepValues: true, keepDirty: false });
+                              resetTableDirty();
                             })
                             .catch((error) => {
                               console.error('Error fetching manufacturing issue:', error);
@@ -223,10 +229,12 @@ const PurchaseReturnadd = () => {
         table: itemToEdit,
       });
       setRows((prev) => prev.filter((_, i) => i !== index));
+      markTableDirty();
     };
 
   const handleDelete = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDeleteSubItem = (rowIndex, subIndex, key) => {
@@ -305,17 +313,19 @@ const PurchaseReturnadd = () => {
         toast({title:"Table is empty"})
       }
 
+      setSaving(true);
       const response = await (id ? updatePurchaseReturnForEdit(data,id) : createPurchaseReturn(data));
       if (response.success) {
-        toast({ title: "Form submitted successfully!" });
+        toast({ title: id ? "Updated successfully!" : "Form submitted successfully!" });
         reset(); // Clear entire form
         setRows([]); // Clear item array
-       
+
         setTimeout(() => {
           navigate("/purchase/purchasereturn/list/");
         }, 2000);
 
       } else {
+        setSaving(false);
         toast({
           title: "Form submission failed. Please try again.",
           description: renderErrorTree(response.error),
@@ -323,6 +333,7 @@ const PurchaseReturnadd = () => {
       }
 
     } catch (error) {
+      setSaving(false);
       console.error("Error creating Sales Voucher:", error);
       toast({ title: "An error occurred. Please try again later." });
     }
@@ -338,6 +349,7 @@ const PurchaseReturnadd = () => {
     const itemData = getValues("@table");
     // Add to array
     setRows((prev) => [...prev, itemData]);
+    markTableDirty();
     // Reset the single "@/table" input fields to blank
     reset({
       ...getValues(),
@@ -394,6 +406,7 @@ const PurchaseReturnadd = () => {
     billno: billNo || detail.billno || "",
   }));
     setRows([...rs, {...newItem}]);
+    markTableDirty();
     // optionally reset the single "@/table" fields after adding
     reset({
       ...getValues(),
@@ -1005,8 +1018,8 @@ const PurchaseReturnadd = () => {
        
         {/* FINAL SUBMIT BUTTONS */}
         <div className="flex justify-center mt-5">
-          <Button type="submit" className="mr-4">
-            Save
+          <Button type="submit" disabled={saving || !canSave} className="mr-4">
+            {saveLabel(saving)}
           </Button>
           <Button
             variant="outline" onClick={() => window.history.back()}

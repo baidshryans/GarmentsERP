@@ -25,6 +25,7 @@ import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { useNavigate } from "react-router";
 import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 const PurchaseVoucher = () => {
   const { toast } = useToast()
@@ -59,7 +60,7 @@ const PurchaseVoucher = () => {
   const [pendingFiles, setPendingFiles] = useState([]); // files to upload after create
   const [detailItemDisplay, setDetailItemDisplay] = useState(""); // display label for item field
   const [tableItemDisplay, setTableItemDisplay] = useState(""); // display label for main item field
-  const { register: originalRegister, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+  const { register: originalRegister, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
     defaultValues: {
       hsn: "",
       rate_18kt: 0,
@@ -189,6 +190,7 @@ const PurchaseVoucher = () => {
   const formRef = useRef(null);
   useEnterAsTab(formRef);
   const [rsRaw, setRsRaw] = useState([]);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [serialNos, setSerialNos] = useState([]);
   const [statesData, setstatesData] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);   // all items (for sub-item lookup & name resolution)
@@ -409,6 +411,8 @@ const PurchaseVoucher = () => {
           if (data.vendor_state_code) {
             setVendorStateCode(data.vendor_state_code);
           }
+          reset(getValues(), { keepValues: true, keepDirty: false });
+          resetTableDirty();
         }
       }
 
@@ -748,10 +752,12 @@ const PurchaseVoucher = () => {
     setTableItemDisplay(itemData ? itemData.item_name : (row.item || ""));
     // Mark row as being-edited instead of removing it — sub-items stay visible
     setRows(prev => prev.map((r, i) => i === index ? { ...r, _editing: true } : r));
+    markTableDirty();
   };
 
   const handleDelete = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDeleteSubItem = (rowIndex, subIndex, key) => {
@@ -832,6 +838,7 @@ const PurchaseVoucher = () => {
 
       // No main item entered → save as standalone sub-item (e.g. raw stones / gold).
       if (rs.length === 0) {
+        markTableDirty();
         setRsRaw(prev => [...prev, { ...vals }]);
         reset({
           form: getValues('form'),
@@ -887,6 +894,7 @@ const PurchaseVoucher = () => {
         const makingAmt = tablevalues.making_type === 'val' ? parseFloat(tablevalues.making_value || 0) : 0;
         tablevalues.item_value = parseFloat((subTotal + makingAmt).toFixed(2));
 
+        markTableDirty();
         setRows((prevData) =>
           prevData.map((row, i) => (i === idx ? { ...tablevalues } : row))
         );
@@ -949,6 +957,7 @@ const PurchaseVoucher = () => {
       delete newItem._editing;
       editingRowRef.current = null;
       setRows(prev => prev.map((r, i) => i === index ? { ...newItem } : r));
+      markTableDirty();
     } else {
       // New row: assign next sl_no
       newItem.sl_no = rs.length > 0 ? Math.max(...rs.filter(r => !r._editing).map(r => r.sl_no || 0)) + 1 : 1;
@@ -956,6 +965,7 @@ const PurchaseVoucher = () => {
         newItem.purchasevoucherdetails_set = [];
       }
       setRows([...rs, { ...newItem }]);
+      markTableDirty();
     }
     setTableItemDisplay("");
     reset({
@@ -1009,6 +1019,7 @@ const PurchaseVoucher = () => {
     const newItem = getValues("rawDetails");
     if (!newItem.sub_item) { toast({ title: "No item added" }); return; }
     setRsRaw([...rsRaw, { ...newItem }]);
+    markTableDirty();
     reset({
       form: getValues('form'),
       hsn: getValues('hsn'),
@@ -1032,6 +1043,7 @@ const PurchaseVoucher = () => {
 
   const handleDeleteRawRow = (index) => {
     setRsRaw((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleEditRawRow = (index) => {
@@ -1065,6 +1077,7 @@ const PurchaseVoucher = () => {
 
     // Remove from rsRaw so the user can re-add after editing.
     setRsRaw((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const billSummaryRows = [
@@ -1140,6 +1153,7 @@ const PurchaseVoucher = () => {
                   onValueChange={(val) => {
                     field.onChange(val);
                     setRows([]);
+                    markTableDirty();
                     setTableItemDisplay("");
                     setDetailItemDisplay("");
                     setValue("hsn", "");
@@ -1800,8 +1814,8 @@ const PurchaseVoucher = () => {
 
         {/* Submit */}
         <div className="flex justify-center items-center gap-3 mt-2 pt-4 border-t border-gray-100">
-          <Button type="submit" className="bg-primary hover:bg-primary text-white px-8" disabled={saving}>
-            Save
+          <Button type="submit" className="bg-primary hover:bg-primary text-white px-8" disabled={saving || !canSave}>
+            {saveLabel(saving)}
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>
@@ -1971,7 +1985,7 @@ const PurchaseVoucher = () => {
                         item_value: 0,
                         purchasevoucherdetails_set: [],
                       }));
-                      setRows([...rs, ...newRows]);
+                      setRows([...rs, ...newRows]); markTableDirty();
                     }
 
                     setPoPickerOpen(false);
@@ -2157,7 +2171,7 @@ const PurchaseVoucher = () => {
                         item_value: 0,
                         purchasevoucherdetails_set: [],
                       }));
-                      setRows([...rs, ...newRows]);
+                      setRows([...rs, ...newRows]); markTableDirty();
                     }
 
                     setCoPickerOpen(false);

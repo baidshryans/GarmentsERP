@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Karigar Receive List — bottom panel mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --primary:        hsl(242 64% 63%);
+    --primary-soft:   hsl(242 64% 95%);
+    --primary-softer: hsl(242 64% 97.5%);
+    --accent-text:    hsl(242 64% 38%);
+    --slate-tint-a:   hsl(220 30% 97.5%);
+    --slate-tint-b:   hsl(242 30% 97.5%);
+    --row-border:     hsl(220 14% 92%);
+    --group-bg:       hsl(242 40% 96%);
+    --group-bg-2:     hsl(242 35% 94%);
+    --loss:           hsl(0 65% 47%);
+  }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .stage-a   { background: var(--slate-tint-a); }
+  .stage-b   { background: var(--slate-tint-b); }
+  .stage-h-a { background: var(--primary-soft); color: var(--accent-text); }
+  .stage-h-b { background: var(--primary-softer); color: var(--accent-text); }
+  .pcg .pc { font-weight: 600; color: #0f172a; font-size: 12.5px; }
+  .pcg .ct { color: #475569; font-size: 12px; }
+  .pcg .gw { color: #94a3b8; font-size: 11px; }
+  .group-row td {
+    background: var(--group-bg);
+    border-top: 2px solid hsl(242 30% 86%) !important;
+    border-bottom: 1px solid var(--row-border) !important;
+    padding: 0.5rem 1rem;
+    font-size: 12.5px;
+    color: var(--accent-text);
+  }
+  .totals td {
+    background: var(--group-bg-2);
+    border-top: 2px solid hsl(242 30% 86%) !important;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .loss-text { color: var(--loss); font-weight: 600; }
+  .muted { color: #94a3b8; }
+  .panel-shell {
+    border: 1px solid var(--row-border);
+    border-radius: 0.5rem;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  }
+  .panel-head {
+    background: linear-gradient(180deg, hsl(242 40% 97%) 0%, white 100%);
+    border-bottom: 1px solid var(--row-border);
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-6">
+<div class="max-w-[1400px] mx-auto space-y-12">
+
+  <header class="space-y-1">
+    <h1 class="text-2xl font-semibold">Karigar Receive — bottom panel redesign</h1>
+    <p class="text-sm text-slate-500">The drawer that slides up when you click a receive row. Today it stacks 22 columns flat. Below: the current layout for reference, then two tabular redesigns using the same violet palette as the rest of the ERP.</p>
+  </header>
+
+  <!-- ── A: CURRENT (reference) ───────────────────────────────────────── -->
+  <section class="space-y-2">
+    <h2 class="text-base font-semibold text-slate-700">A — Current (for reference)</h2>
+    <div class="panel-shell">
+      <div class="panel-head"><span class="text-xs uppercase tracking-wider font-semibold text-slate-500">Receive details</span><span class="text-xs text-slate-400">RS/R001/26-27/00001 · 28-04-2026 · Test Karigar</span></div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead>
+            <tr class="bg-violet-100 text-slate-700">
+              <th class="px-2 py-2 border">Main SL No</th>
+              <th class="px-2 py-2 border">pcs</th>
+              <th class="px-2 py-2 border">gw</th>
+              <th class="px-2 py-2 border">SL No</th>
+              <th class="px-2 py-2 border">Item</th>
+              <th class="px-2 py-2 border">Metal Purity</th>
+              <th class="px-2 py-2 border">Packet</th>
+              <th class="px-2 py-2 border">Issue Pcs</th><th class="px-2 py-2 border">Issue Ct</th><th class="px-2 py-2 border">Issue GW</th>
+              <th class="px-2 py-2 border">Broken Pcs</th><th class="px-2 py-2 border">Broken Ct</th><th class="px-2 py-2 border">Broken GW</th>
+              <th class="px-2 py-2 border">Return Pcs</th><th class="px-2 py-2 border">Return Ct</th><th class="px-2 py-2 border">Return GW</th>
+              <th class="px-2 py-2 border">Balance Pcs</th><th class="px-2 py-2 border">Balance Ct</th><th class="px-2 py-2 border">Balance GW</th>
+              <th class="px-2 py-2 border">Rate</th>
+              <th class="px-2 py-2 border">Amount</th>
+              <th class="px-2 py-2 border">Create Barcode</th>
+            </tr>
+          </thead>
+          <tbody class="tabular">
+            <tr class="bg-gray-100">
+              <td class="border px-2 py-2">1</td><td class="border px-2 py-2">1</td><td class="border px-2 py-2">4</td>
+              <td class="border px-2 py-2">1</td><td class="border px-2 py-2">LG</td><td class="border px-2 py-2">14K</td>
+              <td class="border px-2 py-2">LGMAIN</td>
+              <td class="border px-2 py-2">25</td><td class="border px-2 py-2">1.5</td><td class="border px-2 py-2">0.3</td>
+              <td class="border px-2 py-2">0</td><td class="border px-2 py-2">0</td><td class="border px-2 py-2">0</td>
+              <td class="border px-2 py-2">2</td><td class="border px-2 py-2">0.5</td><td class="border px-2 py-2">0.1</td>
+              <td class="border px-2 py-2">23</td><td class="border px-2 py-2">1.0</td><td class="border px-2 py-2">0.2</td>
+              <td class="border px-2 py-2">3,000</td><td class="border px-2 py-2">3,000</td>
+              <td class="border px-2 py-2" rowspan="2"><button class="px-3 py-1 rounded bg-[hsl(242_64%_63%)] text-white text-xs">Create Barcode</button></td>
+            </tr>
+            <tr class="bg-gray-100">
+              <td class="border px-2 py-2">1</td><td class="border px-2 py-2">1</td><td class="border px-2 py-2">4</td>
+              <td class="border px-2 py-2">1</td><td class="border px-2 py-2">Gold</td><td class="border px-2 py-2"></td>
+              <td class="border px-2 py-2"></td>
+              <td class="border px-2 py-2">0</td><td class="border px-2 py-2">—</td><td class="border px-2 py-2">—</td>
+              <td class="border px-2 py-2">0</td><td class="border px-2 py-2">—</td><td class="border px-2 py-2">—</td>
+              <td class="border px-2 py-2">0</td><td class="border px-2 py-2">—</td><td class="border px-2 py-2">—</td>
+              <td class="border px-2 py-2">0</td><td class="border px-2 py-2">—</td><td class="border px-2 py-2">—</td>
+              <td class="border px-2 py-2">—</td><td class="border px-2 py-2">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── B1: Grouped headers, rowSpan main piece, subtle banding ─────── -->
+  <section class="space-y-2">
+    <h2 class="text-base font-semibold text-slate-700">B1 — Grouped headers + rowSpan (recommended)</h2>
+    <p class="text-xs text-slate-500">Same 22 fields, reorganised. The four lifecycle groups (Issue / Broken / Return / Balance) get merged headers in subtle violet bands. Main piece columns (Main SL · Pcs · GW) collapse to one cell that spans every sub-row of that piece via <code>rowSpan</code>, so they don't repeat. Loss values (Broken &gt; 0) flag in red. Totals row at the bottom. Same palette as the Stone Detail redesign.</p>
+    <div class="panel-shell">
+      <div class="panel-head">
+        <div class="flex items-center gap-3">
+          <span class="text-xs uppercase tracking-wider font-semibold text-slate-500">Receive details</span>
+          <span class="text-sm font-medium text-slate-800">RS/R001/26-27/00001</span>
+          <span class="text-xs text-slate-400">·</span>
+          <span class="text-xs text-slate-500">28-04-2026 · Test Karigar</span>
+        </div>
+        <button class="text-xs text-slate-400 hover:text-slate-600">✕</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[12.5px] border-collapse">
+          <thead>
+            <tr class="text-[11px] uppercase tracking-wider">
+              <th class="px-3 py-2.5 border bg-slate-100 text-slate-600" colspan="3">Received piece</th>
+              <th class="px-3 py-2.5 border bg-slate-100 text-slate-600" colspan="4">Stone / Sub-item</th>
+              <th class="px-3 py-2.5 border text-center stage-h-a font-semibold" colspan="3">Issued</th>
+              <th class="px-3 py-2.5 border text-center stage-h-b font-semibold" colspan="3">Broken</th>
+              <th class="px-3 py-2.5 border text-center stage-h-a font-semibold" colspan="3">Returned</th>
+              <th class="px-3 py-2.5 border text-center stage-h-b font-semibold" colspan="3">Balance</th>
+              <th class="px-3 py-2.5 border bg-slate-100 text-slate-600" colspan="2">Value</th>
+              <th class="px-3 py-2.5 border bg-slate-100 text-slate-600 w-32">Action</th>
+            </tr>
+            <tr class="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+              <th class="px-3 py-2 border">Sl</th>
+              <th class="px-3 py-2 border text-right">Pcs</th>
+              <th class="px-3 py-2 border text-right">GW</th>
+              <th class="px-3 py-2 border">#</th>
+              <th class="px-3 py-2 border">Item</th>
+              <th class="px-3 py-2 border">Purity</th>
+              <th class="px-3 py-2 border">Packet</th>
+              <th class="px-3 py-2 border text-right stage-a">Pcs</th>
+              <th class="px-3 py-2 border text-right stage-a">Ct</th>
+              <th class="px-3 py-2 border text-right stage-a">GW</th>
+              <th class="px-3 py-2 border text-right stage-b">Pcs</th>
+              <th class="px-3 py-2 border text-right stage-b">Ct</th>
+              <th class="px-3 py-2 border text-right stage-b">GW</th>
+              <th class="px-3 py-2 border text-right stage-a">Pcs</th>
+              <th class="px-3 py-2 border text-right stage-a">Ct</th>
+              <th class="px-3 py-2 border text-right stage-a">GW</th>
+              <th class="px-3 py-2 border text-right stage-b">Pcs</th>
+              <th class="px-3 py-2 border text-right stage-b">Ct</th>
+              <th class="px-3 py-2 border text-right stage-b">GW</th>
+              <th class="px-3 py-2 border text-right">Rate</th>
+              <th class="px-3 py-2 border text-right">Amount</th>
+              <th class="px-3 py-2 border text-center"></th>
+            </tr>
+          </thead>
+          <tbody class="tabular">
+            <!-- Main piece 1: 2 sub-rows (LG, Gold) -->
+            <tr>
+              <td class="px-3 py-2.5 border text-center font-semibold align-middle" rowspan="2">1</td>
+              <td class="px-3 py-2.5 border text-right align-middle" rowspan="2">1</td>
+              <td class="px-3 py-2.5 border text-right tabular align-middle" rowspan="2">4.000</td>
+
+              <td class="px-3 py-2.5 border text-center">1</td>
+              <td class="px-3 py-2.5 border">LG</td>
+              <td class="px-3 py-2.5 border">14K</td>
+              <td class="px-3 py-2.5 border">LGMAIN</td>
+
+              <td class="px-3 py-2.5 border text-right stage-a">25</td>
+              <td class="px-3 py-2.5 border text-right stage-a">1.500</td>
+              <td class="px-3 py-2.5 border text-right stage-a">0.300</td>
+
+              <td class="px-3 py-2.5 border text-right stage-b muted">0</td>
+              <td class="px-3 py-2.5 border text-right stage-b muted">0.000</td>
+              <td class="px-3 py-2.5 border text-right stage-b muted">0.000</td>
+
+              <td class="px-3 py-2.5 border text-right stage-a">2</td>
+              <td class="px-3 py-2.5 border text-right stage-a">0.500</td>
+              <td class="px-3 py-2.5 border text-right stage-a">0.100</td>
+
+              <td class="px-3 py-2.5 border text-right stage-b">23</td>
+              <td class="px-3 py-2.5 border text-right stage-b">1.000</td>
+              <td class="px-3 py-2.5 border text-right stage-b">0.200</td>
+
+              <td class="px-3 py-2.5 border text-right">3,000</td>
+              <td class="px-3 py-2.5 border text-right font-semibold">3,000</td>
+
+              <td class="px-3 py-2.5 border text-center align-middle" rowspan="2">
+                <button class="px-3 py-1.5 rounded bg-[hsl(242_64%_63%)] hover:bg-[hsl(242_64%_56%)] text-white text-xs font-medium">Create Barcode</button>
+              </td>
+            </tr>
+            <tr>
+              <td class="px-3 py-2.5 border text-center">1</td>
+              <td class="px-3 py-2.5 border">Gold</td>
+              <td class="px-3 py-2.5 border muted">—</td>
+              <td class="px-3 py-2.5 border muted">—</td>
+
+              <td class="px-3 py-2.5 border text-right stage-a muted">0</td>
+              <td class="px-3 py-2.5 border text-right stage-a muted">—</td>
+              <td class="px-3 py-2.5 border text-right stage-a muted">—</td>
+
+              <td class="px-3 py-2.5 border text-right stage-b muted">0</td>
+              <td class="px-3 py-2.5 border text-right stage-b muted">—</td>
+              <td class="px-3 py-2.5 border text-right stage-b muted">—</td>
+
+              <td class="px-3 py-2.5 border text-right stage-a muted">0</td>
+              <td class="px-3 py-2.5 border text-right stage-a muted">—</td>
+              <td class="px-3 py-2.5 border text-right stage-a muted">—</td>
+
+              <td class="px-3 py-2.5 border text-right stage-b muted">0</td>
+              <td class="px-3 py-2.5 border text-right stage-b muted">—</td>
+              <td class="px-3 py-2.5 border text-right stage-b muted">—</td>
+
+              <td class="px-3 py-2.5 border text-right muted">—</td>
+              <td class="px-3 py-2.5 border text-right muted">—</td>
+            </tr>
+
+            <!-- Totals row -->
+            <tr class="totals">
+              <td class="px-3 py-2.5 border text-center" colspan="7">Total · 1 piece · 2 sub-items</td>
+              <td class="px-3 py-2.5 border text-right">25</td>
+              <td class="px-3 py-2.5 border text-right">1.500</td>
+              <td class="px-3 py-2.5 border text-right">0.300</td>
+              <td class="px-3 py-2.5 border text-right">0</td>
+              <td class="px-3 py-2.5 border text-right">0.000</td>
+              <td class="px-3 py-2.5 border text-right">0.000</td>
+              <td class="px-3 py-2.5 border text-right">2</td>
+              <td class="px-3 py-2.5 border text-right">0.500</td>
+              <td class="px-3 py-2.5 border text-right">0.100</td>
+              <td class="px-3 py-2.5 border text-right">23</td>
+              <td class="px-3 py-2.5 border text-right">1.000</td>
+              <td class="px-3 py-2.5 border text-right">0.200</td>
+              <td class="px-3 py-2.5 border"></td>
+              <td class="px-3 py-2.5 border text-right">3,000</td>
+              <td class="px-3 py-2.5 border"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── B2: Compact stage cells (8-ish columns) ─────────────────────── -->
+  <section class="space-y-2">
+    <h2 class="text-base font-semibold text-slate-700">B2 — Compact stage cells (no horizontal scroll)</h2>
+    <p class="text-xs text-slate-500">Same idea as B1 but each lifecycle stage collapses to one cell with three stacked numbers — pieces bold, carats regular, weight light. Drops the table from 22 columns to 11 so it fits the panel without horizontal scroll on most screens. Pick this if you want the panel to be readable at a glance without scrolling sideways.</p>
+    <div class="panel-shell">
+      <div class="panel-head">
+        <div class="flex items-center gap-3">
+          <span class="text-xs uppercase tracking-wider font-semibold text-slate-500">Receive details</span>
+          <span class="text-sm font-medium text-slate-800">RS/R001/26-27/00001</span>
+          <span class="text-xs text-slate-400">·</span>
+          <span class="text-xs text-slate-500">28-04-2026 · Test Karigar</span>
+        </div>
+        <button class="text-xs text-slate-400 hover:text-slate-600">✕</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-[12.5px] border-collapse">
+          <thead>
+            <tr class="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+              <th class="px-3 py-2.5 border">Sl</th>
+              <th class="px-3 py-2.5 border text-right">Pcs</th>
+              <th class="px-3 py-2.5 border text-right">GW</th>
+              <th class="px-3 py-2.5 border">Item</th>
+              <th class="px-3 py-2.5 border">Purity</th>
+              <th class="px-3 py-2.5 border">Packet</th>
+              <th class="px-3 py-2.5 border text-center stage-h-a font-semibold">Issued <span class="font-normal opacity-70 normal-case">(pc · ct · g)</span></th>
+              <th class="px-3 py-2.5 border text-center stage-h-b font-semibold">Broken</th>
+              <th class="px-3 py-2.5 border text-center stage-h-a font-semibold">Returned</th>
+              <th class="px-3 py-2.5 border text-center stage-h-b font-semibold">Balance</th>
+              <th class="px-3 py-2.5 border text-right">Rate</th>
+              <th class="px-3 py-2.5 border text-right">Amount</th>
+              <th class="px-3 py-2.5 border text-center w-32">Action</th>
+            </tr>
+          </thead>
+          <tbody class="tabular">
+            <tr>
+              <td class="px-3 py-3 border text-center font-semibold align-middle" rowspan="2">1</td>
+              <td class="px-3 py-3 border text-right align-middle" rowspan="2">1</td>
+              <td class="px-3 py-3 border text-right align-middle" rowspan="2">4.000</td>
+              <td class="px-3 py-3 border">LG</td>
+              <td class="px-3 py-3 border">14K</td>
+              <td class="px-3 py-3 border">LGMAIN</td>
+
+              <td class="px-3 py-3 border stage-a pcg">
+                <div class="flex justify-between"><span class="pc">25 pc</span><span class="ct">1.500 ct</span></div>
+                <div class="text-right gw">0.300 g</div>
+              </td>
+              <td class="px-3 py-3 border stage-b pcg muted">
+                <div class="flex justify-between"><span>—</span><span>—</span></div>
+                <div class="text-right">—</div>
+              </td>
+              <td class="px-3 py-3 border stage-a pcg">
+                <div class="flex justify-between"><span class="pc">2 pc</span><span class="ct">0.500 ct</span></div>
+                <div class="text-right gw">0.100 g</div>
+              </td>
+              <td class="px-3 py-3 border stage-b pcg">
+                <div class="flex justify-between"><span class="pc">23 pc</span><span class="ct">1.000 ct</span></div>
+                <div class="text-right gw">0.200 g</div>
+              </td>
+
+              <td class="px-3 py-3 border text-right">3,000</td>
+              <td class="px-3 py-3 border text-right font-semibold">3,000</td>
+
+              <td class="px-3 py-3 border text-center align-middle" rowspan="2">
+                <button class="px-3 py-1.5 rounded bg-[hsl(242_64%_63%)] hover:bg-[hsl(242_64%_56%)] text-white text-xs font-medium">Create Barcode</button>
+              </td>
+            </tr>
+            <tr>
+              <td class="px-3 py-3 border">Gold</td>
+              <td class="px-3 py-3 border muted">—</td>
+              <td class="px-3 py-3 border muted">—</td>
+
+              <td class="px-3 py-3 border stage-a pcg muted">
+                <div class="flex justify-between"><span>—</span><span>—</span></div>
+                <div class="text-right">—</div>
+              </td>
+              <td class="px-3 py-3 border stage-b pcg muted">
+                <div class="flex justify-between"><span>—</span><span>—</span></div>
+                <div class="text-right">—</div>
+              </td>
+              <td class="px-3 py-3 border stage-a pcg muted">
+                <div class="flex justify-between"><span>—</span><span>—</span></div>
+                <div class="text-right">—</div>
+              </td>
+              <td class="px-3 py-3 border stage-b pcg muted">
+                <div class="flex justify-between"><span>—</span><span>—</span></div>
+                <div class="text-right">—</div>
+              </td>
+
+              <td class="px-3 py-3 border text-right muted">—</td>
+              <td class="px-3 py-3 border text-right muted">—</td>
+            </tr>
+
+            <tr class="totals">
+              <td class="px-3 py-2.5 border text-center" colspan="6">Total · 1 piece · 2 sub-items</td>
+              <td class="px-3 py-2.5 border stage-a pcg">
+                <div class="flex justify-between"><span class="pc">25 pc</span><span class="ct">1.500 ct</span></div>
+                <div class="text-right gw">0.300 g</div>
+              </td>
+              <td class="px-3 py-2.5 border stage-b pcg muted">
+                <div class="flex justify-between"><span>0</span><span>0.000</span></div>
+                <div class="text-right">0.000</div>
+              </td>
+              <td class="px-3 py-2.5 border stage-a pcg">
+                <div class="flex justify-between"><span class="pc">2 pc</span><span class="ct">0.500 ct</span></div>
+                <div class="text-right gw">0.100 g</div>
+              </td>
+              <td class="px-3 py-2.5 border stage-b pcg">
+                <div class="flex justify-between"><span class="pc">23 pc</span><span class="ct">1.000 ct</span></div>
+                <div class="text-right gw">0.200 g</div>
+              </td>
+              <td class="px-3 py-2.5 border"></td>
+              <td class="px-3 py-2.5 border text-right">3,000</td>
+              <td class="px-3 py-2.5 border"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <footer class="text-xs text-slate-400 pt-4 border-t">
+    Mockup only · static HTML · ERP violet HSL(242 64% 63%)
+  </footer>
+
+</div>
+</body>
+</html>

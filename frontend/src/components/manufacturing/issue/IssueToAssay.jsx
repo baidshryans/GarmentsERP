@@ -10,6 +10,7 @@ import { Table, TableRow, TableCell, TableBody, TableHeader, TableHead } from "@
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchMainItem, fetchPurity, getLedgers, fetchPackets, fetchAvailableMeltingReceives } from "@/services/apiService";
 import { createAssayIssue, fetchNextAssayIssueNo, fetchAssayIssueForEdit, updateAssayIssueForEdit } from "../../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { useParams, useNavigate } from "react-router-dom";
 import { SquarePen, Trash2 } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
@@ -36,7 +37,7 @@ const IssueToAssay = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus } = useForm({
+    const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus, formState: { isDirty } } = useForm({
         defaultValues: {
             form: {
                 date1: new Date().toISOString().split("T")[0],
@@ -50,6 +51,8 @@ const IssueToAssay = () => {
     });
 
     const [rs, setRows] = useState([]);
+    const [saving, setSaving] = useState(false);
+    const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
     const [meltingHouses, setMeltingHouses] = useState([]);
     const [mainItemData, setMainItemData] = useState([]);
     const [purityData, setPurityData] = useState([]);
@@ -85,6 +88,8 @@ const IssueToAssay = () => {
                             if (response.data.assayissuedetail_set) {
                                 setRows(response.data.assayissuedetail_set);
                             }
+                            reset(getValues(), { keepValues: true, keepDirty: false });
+                            resetTableDirty();
                         }
                     })
                     .catch(console.error);
@@ -117,6 +122,7 @@ const IssueToAssay = () => {
         }));
 
         setRows(newRows);
+        markTableDirty();
         toast({ title: `Loaded ${newRows.length} row(s) from ${recv.billno}. Set the sample GW for each row.` });
     };
 
@@ -128,6 +134,7 @@ const IssueToAssay = () => {
             return;
         }
         setRows((prev) => [...prev, { ...row }]);
+        markTableDirty();
         reset({ form: { ...getValues("form") }, table: { ...tableDefault } });
         setFocus("table.packet");
     };
@@ -135,10 +142,12 @@ const IssueToAssay = () => {
     const handleEdit = (index) => {
         reset({ form: { ...getValues("form") }, table: { ...rs[index] } });
         setRows((prev) => prev.filter((_, i) => i !== index));
+        markTableDirty();
     };
 
     const handleDelete = (index) => {
         setRows((prev) => prev.filter((_, i) => i !== index));
+        markTableDirty();
     };
 
     const handleKeyDown = (e) => {
@@ -158,19 +167,21 @@ const IssueToAssay = () => {
         if (!form.melt_recv) delete form.melt_recv;
         form.assayissuedetail_set = rs;
 
+        setSaving(true);
         (id ? updateAssayIssueForEdit(form, id) : createAssayIssue(form))
             .then((response) => {
                 if (response.success) {
-                    toast({ title: "Saved successfully!" });
+                    toast({ title: id ? "Updated successfully!" : "Saved successfully!" });
                     setTimeout(() => navigate("/manufacturing/issue/assay/"), 1500);
                 } else {
+                    setSaving(false);
                     toast({
                         title: "Submission failed.",
                         description: renderErrorTree(response.error),
                     });
                 }
             })
-            .catch(() => toast({ title: "An error occurred. Please try again." }));
+            .catch(() => { setSaving(false); toast({ title: "An error occurred. Please try again." }); });
     };
 
     useF4Submit(handleSubmit(onSubmit));
@@ -462,8 +473,8 @@ const IssueToAssay = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary text-white">
-                        Save
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || !canSave}>
+                        {saveLabel(saving)}
                     </Button>
                 </div>
             </form>

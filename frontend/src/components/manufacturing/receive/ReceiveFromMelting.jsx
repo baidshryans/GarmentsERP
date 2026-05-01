@@ -17,6 +17,7 @@ import {
 } from "../../../services/apiService";
 import { renderErrorTree } from "../../../Utils";
 import { Trash2 } from "lucide-react";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 const Field = ({ label, children }) => (
     <div className="flex flex-col gap-1.5">
@@ -30,7 +31,7 @@ const ReceiveFromMelting = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const { register, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+    const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
         defaultValues: {
             form: {
                 date1: new Date().toISOString().split("T")[0],
@@ -45,6 +46,7 @@ const ReceiveFromMelting = () => {
     const { fields, append, remove, replace } = useFieldArray({ control, name: "table" });
 
     const [saving, setSaving] = useState(false);
+    const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
     const [meltingHouses, setMeltingHouses] = useState([]);
     const [purityData, setPurityData] = useState([]);
     const [issueNumbers, setIssueNumbers] = useState([]);
@@ -73,6 +75,8 @@ const ReceiveFromMelting = () => {
                         setValue("form.ldgr", d.ldgr);
                         setValue("form.ldgr_name", d.ldgr_name || "");
                         replace(d.meltingreceivedetail_set || []);
+                        reset(getValues(), { keepValues: true, keepDirty: false });
+                        resetTableDirty();
                     }
                 });
             }
@@ -99,6 +103,7 @@ const ReceiveFromMelting = () => {
                 }))
             );
         replace(rows);
+        markTableDirty();
     };
 
     const onSubmit = () => {
@@ -305,8 +310,8 @@ const ReceiveFromMelting = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
-                        Save
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || !canSave}>
+                        {saveLabel(saving)}
                     </Button>
                 </div>
             </form>

@@ -152,6 +152,8 @@ const BarcodeManagementList = () => {
       fetchReceiveItemsForBarcode(sl_no, rec_slip_no)
         .then((r) => {
           if (r.success) {
+            // Purity Select races with purityData load — stash for re-apply effect
+            pvPurityRef.current = r.data.purity || null;
             const formData = {
               ...r.data,
               gw: fmt3(r.data.gw),

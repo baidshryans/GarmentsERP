@@ -16,6 +16,7 @@ import { fetchAccountingVoucher, fetchJournalEntryForEdit, fetchVoucherNoNext, u
 import { SquarePen, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
 import AccountSuggestion from "@/components/AI/AccountSuggestion";
 import BillAllocationTable from "./BillAllocationTable";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 const AddJournal = () => {
   const { toast } = useToast()
@@ -28,7 +29,7 @@ const AddJournal = () => {
   const preCustomerOrderId = searchParams.get("customer_order") || "";
   const preOrderNo         = searchParams.get("order_no")       || "";
   const preLedgerName      = searchParams.get("ldgr_name")      || "";
-  const { register, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+  const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
     defaultValues: {
 
       form: {
@@ -47,6 +48,7 @@ const AddJournal = () => {
   const [allocations, setAllocations] = useState([]);  // bill-wise allocations for current party row
   const [narrationForSuggestion, setNarrationForSuggestion] = useState(null);
   const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [savedVoucherId, setSavedVoucherId] = useState(id || null);
   const [savedAttachments, setSavedAttachments] = useState([]);   // already uploaded (edit mode)
   const [pendingFiles, setPendingFiles]         = useState([]);   // queued (add mode, uploaded on save)
@@ -83,6 +85,8 @@ const AddJournal = () => {
         if (response.data.voucher_details) {
           setRows(response.data.voucher_details);
         }
+        reset(getValues(), { keepValues: true, keepDirty: false });
+        resetTableDirty();
       })
       .catch((error) => {
         console.error('Error fetching manufacturing issue:', error);
@@ -208,10 +212,12 @@ const AddJournal = () => {
     const value=getValues();
     reset({...value,table:row})
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDelete = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   // const fix_gold_rate = watch("fix_gold_rate")
@@ -231,6 +237,7 @@ const AddJournal = () => {
         credit: journal_type === "RECEIPT" ? amt : 0,
       }]);
     });
+    markTableDirty();
   }
 
   const handleKeyDown = (e) => {
@@ -279,6 +286,7 @@ const AddJournal = () => {
         }
 
         setRows(prev => [...prev, ...expanded]);
+        markTableDirty();
         setAllocations([]);
         reset({ ...getValues(), table: { account: "", status: "", ref_bill_no: "", debit: "", credit: "" } });
         e.preventDefault();
@@ -324,6 +332,7 @@ const AddJournal = () => {
 
       // Default: single-row add
       setRows(prev => [...prev, { ...row }])
+      markTableDirty();
       reset({...getValues(),
         table:{
           account:"",
@@ -693,8 +702,8 @@ const AddJournal = () => {
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || uploadingFiles}>
-            {uploadingFiles ? "Uploading files…" : "Save"}
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || uploadingFiles || !canSave}>
+            {uploadingFiles ? "Uploading files…" : saveLabel(saving)}
           </Button>
         </div>
       </form>

@@ -1209,11 +1209,12 @@ export async function updateSampleIssue(id, data) {
   }
 }
 
-export async function fetchSampleIssues({ search = "", page = 1 } = {}) {
+export async function fetchSampleIssues({ search = "", page = 1, ordering = "" } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (page) params.append("page", page);
+    if (ordering) params.append("ordering", ordering);
     const response = await apiClient.get(`/manufacturing/api/sample-issue/?${params.toString()}`);
     return { success: true, data: response.data };
   } catch (error) {
@@ -5058,6 +5059,19 @@ export async function getRawMaterialTransactions(params = {}) {
   try {
     const query = new URLSearchParams(params).toString();
     const response = await apiClient.get(`inventory/raw-material-txn/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getUnbarcodedStockReport(params = {}) {
+  try {
+    const cleaned = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== "" && v !== null && v !== undefined)
+    );
+    const query = new URLSearchParams(cleaned).toString();
+    const response = await apiClient.get(`inventory/api/unbarcoded-stock-report/?${query}`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

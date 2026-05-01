@@ -67,14 +67,13 @@ const KarigarReceive = () => {
       cell: ({ row }) => (
         <div className="flex space-x-4">
           <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" /> 
+            <SquarePen className="size-4" />
           </Link>
-          {/* <Button onClick={(e)=>setDetails(row.original)}>Details </Button> */}
           <button
             onClick={() => deleteJobWorkReceive(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
-            <Trash2 className="mr-1" />
+            <Trash2 className="size-4" />
           </button>
           <button onClick={() => openAndPrint(<ReceiveFromKarigar data={row.original} />)}>
             <Printer className="size-4" />
@@ -127,24 +126,6 @@ const KarigarReceive = () => {
     //   ),
     // },
   ];
-
-  const itemFields = [
-  "packet",
-  "issue_pcs",
-  "issue_ct",
-  "issue_gw",
-  "broken_pcs",
-  "broken_ct",
-  "broken_gw",
-  "return_pcs",
-  "return_ct",
-  "return_gw",
-  "balance_pcs",
-  "balance_ct",
-  "balance_gw",
-  "rate",
-  "amt"
-];
 
   return (
     <ResizablePanelGroup className="min-h-screen h-full" direction="vertical">
@@ -228,65 +209,153 @@ const KarigarReceive = () => {
               </button>
             </div>
             <div className="overflow-auto h-full">
-              <Table className="w-full table-fixed border-collapse text-sm text-center">
+              <Table className="w-full border-collapse text-[12.5px]">
                 <TableBody>
-                  <TableRow className="bg-violet-100 font-semibold">
-                    <TableCell className="w-24 px-2 py-2 border">Main SL No</TableCell>
-                    <TableCell className="w-28 px-2 py-2 border">pcs</TableCell>
-                    <TableCell className="w-16 px-2 py-2 border">gw</TableCell>
-                    <TableCell className="w-16 px-2 py-2 border">SL No</TableCell>
-                    <TableCell className="w-28 px-2 py-2 border">Item</TableCell>
-                    <TableCell className="w-28 px-2 py-2 border">Metal Purity</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Packet</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Issue Pcs</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Issue Ct</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Issue GW</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Broken Pcs</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Broken Ct</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Broken GW</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Return Pcs</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Return Ct</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Return GW</TableCell>
-                    <TableCell className="w-28 px-2 py-2 border">Balance Pcs</TableCell>
-                    <TableCell className="w-28 px-2 py-2 border">Balance Ct</TableCell>
-                    <TableCell className="w-28 px-2 py-2 border">Balance GW</TableCell>
-                    <TableCell className="w-24 px-2 py-2 border">Rate</TableCell>
-                    <TableCell className="w-28 px-2 py-2 border">Amount</TableCell>
-                    <TableCell className="w-32 px-2 py-2 border">Create Barcode</TableCell>
+                  {/* Group header row */}
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={5} className="px-3 py-2.5 border bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase tracking-wider text-center">Received piece</TableCell>
+                    <TableCell colSpan={3} className="px-3 py-2.5 border bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase tracking-wider text-center">Stone / Sub-item</TableCell>
+                    <TableCell colSpan={3} className="px-3 py-2.5 border bg-[hsl(242_64%_95%)] text-[hsl(242_64%_38%)] text-[11px] font-semibold uppercase tracking-wider text-center">Issued</TableCell>
+                    <TableCell colSpan={3} className="px-3 py-2.5 border bg-[hsl(242_64%_97.5%)] text-[hsl(242_64%_38%)] text-[11px] font-semibold uppercase tracking-wider text-center">Broken</TableCell>
+                    <TableCell colSpan={3} className="px-3 py-2.5 border bg-[hsl(242_64%_95%)] text-[hsl(242_64%_38%)] text-[11px] font-semibold uppercase tracking-wider text-center">Returned</TableCell>
+                    <TableCell colSpan={3} className="px-3 py-2.5 border bg-[hsl(242_64%_97.5%)] text-[hsl(242_64%_38%)] text-[11px] font-semibold uppercase tracking-wider text-center">Balance</TableCell>
+                    <TableCell colSpan={2} className="px-3 py-2.5 border bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase tracking-wider text-center">Value</TableCell>
+                    <TableCell className="px-3 py-2.5 border bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase tracking-wider text-center w-32">Action</TableCell>
                   </TableRow>
 
-                  {details.items.map((detail, idx) =>
-                    detail.details.map((item, subIdx) => (
-                      <TableRow key={`${idx}-${subIdx}`} className="bg-gray-100">
-                        <TableCell className="w-24 px-2 py-2 border">{idx + 1}</TableCell>
-                        <TableCell className="w-28 px-2 py-2 border">{detail.pcs || ''}</TableCell>
-                        <TableCell className="w-16 px-2 py-2 border">{detail.gw || ''}</TableCell>
-                        <TableCell className="w-16 px-2 py-2 border">{item.sl_no || ''}</TableCell>
-                        <TableCell className="w-28 px-2 py-2 border">{item.item || ''}</TableCell>
-                        <TableCell className="w-28 px-2 py-2 border">{item.purity || ''}</TableCell>
+                  {/* Sub-header row */}
+                  <TableRow className="hover:bg-transparent bg-slate-50">
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-center">Sl</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Item</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Purity</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Pcs</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">GW</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-center">#</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Item</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Packet</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Pcs</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Ct</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">GW</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Pcs</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Ct</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">GW</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Pcs</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">Ct</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(220_30%_97.5%)]">GW</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Pcs</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">Ct</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right bg-[hsl(242_30%_97.5%)]">GW</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Rate</TableCell>
+                    <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground text-right">Amount</TableCell>
+                    <TableCell className="px-3 py-2 border" />
+                  </TableRow>
 
-                        {itemFields.map((key, i) => (
-                          <TableCell key={i} className="w-24 px-2 py-2 border text-center">
-                            {item[key] ?? ""}
-                          </TableCell>
-                        ))}
-                       
-                        {subIdx === 0 && (
-                          <TableCell
-                            className="w-32 px-2 py-2 border"
-                            rowSpan={detail.details.length}
-                          >
-                            <Button 
-                              onClick={() => navigate(`/inventory/barcodemanagement/list/add/?rec_sl_no=${encodeURIComponent(details.receive_slip_no)}&sl_no=${item.sl_no}`)} 
-                              disabled={!(item.pending_pcs && item.pending_gw)} 
-                            >
-                              Create Barcode
-                            </Button>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
-                  )}
+                  {(() => {
+                    const stageA = "bg-[hsl(220_30%_97.5%)]";
+                    const stageB = "bg-[hsl(242_30%_97.5%)]";
+                    const lossText = "text-[hsl(0_65%_47%)] font-semibold";
+                    const muted = "text-slate-400";
+                    const fmt = (n, dp) => {
+                      const num = parseFloat(n);
+                      if (!Number.isFinite(num)) return "—";
+                      return dp === 0 ? String(Math.round(num)) : num.toFixed(dp);
+                    };
+                    const totals = {
+                      issue_pcs: 0, issue_ct: 0, issue_gw: 0,
+                      broken_pcs: 0, broken_ct: 0, broken_gw: 0,
+                      return_pcs: 0, return_ct: 0, return_gw: 0,
+                      balance_pcs: 0, balance_ct: 0, balance_gw: 0,
+                      amt: 0,
+                    };
+                    let subItemCount = 0;
+                    const rendered = [];
+
+                    (details.items || []).forEach((detail, idx) => {
+                      const subRows = detail.details || [];
+                      subRows.forEach((item, subIdx) => {
+                        const num = (k) => {
+                          const v = parseFloat(item[k]);
+                          return Number.isFinite(v) ? v : 0;
+                        };
+                        Object.keys(totals).forEach((k) => { totals[k] += num(k); });
+                        subItemCount += 1;
+                        const brokenPcs = num('broken_pcs'), brokenCt = num('broken_ct'), brokenGw = num('broken_gw');
+                        const lossCls = (val, base) => `px-3 py-2.5 border text-right tabular-nums ${base} ${val > 0 ? lossText : muted}`;
+                        const cls = (val, base) => `px-3 py-2.5 border text-right tabular-nums ${base} ${val > 0 ? "" : muted}`;
+
+                        rendered.push(
+                          <TableRow key={`${idx}-${subIdx}`} className="hover:bg-slate-50/60">
+                            {subIdx === 0 && (
+                              <>
+                                <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-center font-semibold align-middle">{idx + 1}</TableCell>
+                                <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border align-middle font-medium">{detail.item || '—'}</TableCell>
+                                <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border align-middle">
+                                  {detail.purity ? <span className="inline-block px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{detail.purity}</span> : '—'}
+                                </TableCell>
+                                <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-right tabular-nums align-middle">{fmt(detail.pcs, 0)}</TableCell>
+                                <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-right tabular-nums align-middle">{fmt(detail.gw, 3)}</TableCell>
+                              </>
+                            )}
+                            <TableCell className="px-3 py-2.5 border text-center">{item.sl_no ?? ''}</TableCell>
+                            <TableCell className="px-3 py-2.5 border">{item.item || '—'}</TableCell>
+                            <TableCell className="px-3 py-2.5 border">{item.packet || '—'}</TableCell>
+                            <TableCell className={cls(num('issue_pcs'), stageA)}>{fmt(item.issue_pcs, 0)}</TableCell>
+                            <TableCell className={cls(num('issue_ct'), stageA)}>{fmt(item.issue_ct, 3)}</TableCell>
+                            <TableCell className={cls(num('issue_gw'), stageA)}>{fmt(item.issue_gw, 3)}</TableCell>
+                            <TableCell className={lossCls(brokenPcs, stageB)}>{fmt(item.broken_pcs, 0)}</TableCell>
+                            <TableCell className={lossCls(brokenCt, stageB)}>{fmt(item.broken_ct, 3)}</TableCell>
+                            <TableCell className={lossCls(brokenGw, stageB)}>{fmt(item.broken_gw, 3)}</TableCell>
+                            <TableCell className={cls(num('return_pcs'), stageA)}>{fmt(item.return_pcs, 0)}</TableCell>
+                            <TableCell className={cls(num('return_ct'), stageA)}>{fmt(item.return_ct, 3)}</TableCell>
+                            <TableCell className={cls(num('return_gw'), stageA)}>{fmt(item.return_gw, 3)}</TableCell>
+                            <TableCell className={cls(num('balance_pcs'), stageB)}>{fmt(item.balance_pcs, 0)}</TableCell>
+                            <TableCell className={cls(num('balance_ct'), stageB)}>{fmt(item.balance_ct, 3)}</TableCell>
+                            <TableCell className={cls(num('balance_gw'), stageB)}>{fmt(item.balance_gw, 3)}</TableCell>
+                            <TableCell className="px-3 py-2.5 border text-right tabular-nums">{fmt(item.rate, 2)}</TableCell>
+                            <TableCell className="px-3 py-2.5 border text-right tabular-nums font-semibold">{fmt(item.amt, 2)}</TableCell>
+                            {subIdx === 0 && (
+                              <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-center align-middle">
+                                <Button
+                                  size="sm"
+                                  className="bg-[hsl(242_64%_63%)] hover:bg-[hsl(242_64%_56%)] text-white text-xs"
+                                  onClick={() => navigate(`/inventory/barcodemanagement/list/add/?rec_sl_no=${encodeURIComponent(details.receive_slip_no)}&sl_no=${item.sl_no}`)}
+                                  disabled={detail.item_id === 31 ? !detail.pending_gw : !(detail.pending_pcs && (detail.pending_gw || detail.pending_ct))}
+                                >
+                                  Create Barcode
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      });
+                    });
+
+                    if (subItemCount > 0) {
+                      const tCell = "px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold";
+                      const lossT = (val, base) => `${tCell} ${base} ${val > 0 ? lossText : ""}`;
+                      rendered.push(
+                        <TableRow key="totals" className="hover:bg-transparent">
+                          <TableCell colSpan={8} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-center font-semibold">Total · {subItemCount} sub-item{subItemCount === 1 ? '' : 's'}</TableCell>
+                          <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.issue_pcs, 0)}</TableCell>
+                          <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.issue_ct, 3)}</TableCell>
+                          <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.issue_gw, 3)}</TableCell>
+                          <TableCell className={lossT(totals.broken_pcs, stageB)}>{fmt(totals.broken_pcs, 0)}</TableCell>
+                          <TableCell className={lossT(totals.broken_ct, stageB)}>{fmt(totals.broken_ct, 3)}</TableCell>
+                          <TableCell className={lossT(totals.broken_gw, stageB)}>{fmt(totals.broken_gw, 3)}</TableCell>
+                          <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.return_pcs, 0)}</TableCell>
+                          <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.return_ct, 3)}</TableCell>
+                          <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.return_gw, 3)}</TableCell>
+                          <TableCell className={`${tCell} ${stageB}`}>{fmt(totals.balance_pcs, 0)}</TableCell>
+                          <TableCell className={`${tCell} ${stageB}`}>{fmt(totals.balance_ct, 3)}</TableCell>
+                          <TableCell className={`${tCell} ${stageB}`}>{fmt(totals.balance_gw, 3)}</TableCell>
+                          <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)]"></TableCell>
+                          <TableCell className={tCell}>{fmt(totals.amt, 2)}</TableCell>
+                          <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)]"></TableCell>
+                        </TableRow>
+                      );
+                    }
+                    return rendered;
+                  })()}
                 </TableBody>
               </Table>
             </div>

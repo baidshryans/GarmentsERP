@@ -160,3 +160,70 @@ def create_or_update_nested(serializer_class, parent_instance, related_name,pare
     for obj in existing_objects.values():
         obj.delete()
     return instances
+
+
+def resolve_huid_for_receive_item(rec_item, max_hops=10):
+    """Resolve the HUID for a KarigarReceiveItem, walking back through sample
+    re-issues when the piece had been hallmarked on an earlier receive cycle.
+
+    Per hop, in order:
+      1. Direct: HallmarkReceiveItem.receive_sl == current.
+      2. Legacy fallback: HallmarkIssueItem.receive_sl == current, then look up
+         a HallmarkReceiveItem under the same HallmarkIssue (covers rows where
+         HallmarkReceiveItem.receive_sl was never populated).
+      3. Sample fast path: current.ref_sample_issue_item.huid (if non-empty).
+      4. Walk back: follow current.ref_sample_issue_item.kr_receive_item to the
+         prior KarigarReceiveItem and recurse.
+
+    Returns the HUID string or None. Cycle-safe and capped at max_hops.
+    """
+    if rec_item is None:
+        return None
+    visited = set()
+    current = rec_item
+    for _ in range(max_hops):
+        if current is None or current.pk in visited:
+            return None
+        visited.add(current.pk)
+
+        # 1. Direct hallmark receive FK
+        hri = (
+            HallmarkReceiveItem.objects
+            .filter(receive_sl=current, huid__isnull=False)
+            .exclude(huid='')
+            .order_by('-id')
+            .first()
+        )
+        if hri:
+            return hri.huid
+
+        # 2. Legacy fallback via HallmarkIssueItem
+        issue_ids = list(
+            HallmarkIssueItem.objects
+            .filter(receive_sl=current)
+            .values_list('issue_slip_no_id', flat=True)
+        )
+        if issue_ids:
+            hri = (
+                HallmarkReceiveItem.objects
+                .filter(issue_slip_no_id__in=issue_ids, huid__isnull=False)
+                .exclude(huid='')
+                .order_by('-id')
+                .first()
+            )
+            if hri:
+                return hri.huid
+
+        # 3. Sample re-issue fast path
+        sii = getattr(current, 'ref_sample_issue_item', None)
+        if sii is None:
+            return None
+        if sii.huid:
+            return sii.huid
+
+        # 4. Walk back to the prior KarigarReceiveItem via the sample's source FK
+        if not sii.kr_receive_item_id:
+            return None
+        current = sii.kr_receive_item
+
+    return None

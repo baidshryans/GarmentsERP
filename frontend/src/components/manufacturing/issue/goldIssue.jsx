@@ -13,6 +13,7 @@ import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedg
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { createKarigarGoldIssue, fetchGoldIssueForEdit, fetchGoldIssuewithID, FetchKarigarGoldIssueBill, fetchPos, fetchStoneIssuesFilterJobs, updateGoldIssue } from "../../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { SquarePen, Trash2 } from "lucide-react";
 import { evaluateFormula,renderErrorTree} from "../../../Utils";
 import { useWatch } from "react-hook-form";
@@ -33,7 +34,7 @@ const GoldIssue = () => {
     remarks: "",              // text input
   };
 
-  const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus } = useForm({
+  const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus, formState: { isDirty } } = useForm({
     defaultValues: {
 
       form: {
@@ -43,6 +44,7 @@ const GoldIssue = () => {
     },
   });
   const navigate = useNavigate();
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [rs, setRows] = useState([]);
   const [saving, setSaving] = useState(false);
   const [salespersonData, setSalespersonData] = useState([]);
@@ -95,6 +97,8 @@ const GoldIssue = () => {
             if (response.data.karigargoldissue_set) {
               setRows(response.data.karigargoldissue_set);
             }
+            reset(getValues(), { keepValues: true, keepDirty: false });
+            resetTableDirty();
           })
           .catch((error) => {
             console.error('Error fetching manufacturing issue:', error);
@@ -185,10 +189,12 @@ const GoldIssue = () => {
     const row = rs[index];
     reset({ form: getValues("form"), table: row });
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDelete = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
 
@@ -202,6 +208,7 @@ const GoldIssue = () => {
     }
     if (e.key === "Tab") {
       setRows([...rs, rowVals])
+      markTableDirty();
       setFocus("table.item")
 
       reset({ form: getValues("form"), table: { ...defaultTableValues } })
@@ -439,10 +446,10 @@ const GoldIssue = () => {
 
         {/* Submit */}
         <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
-          <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
-            Save
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || !canSave}>
+            {saveLabel(saving)}
           </Button>
+          <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>
       </form>
     </div>

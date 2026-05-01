@@ -68,7 +68,7 @@ function PurchaseVoucherList({ voucherType = "" }) {
   }, []);
 
   const search=params.get('search')||"";
-  const sortby=params.get('sortby')||"";
+  const sortby=params.get('sortby')||"-date1";
 
   const {
     data,            // this will be the normalized result.data (see queryFn below)

@@ -17,6 +17,7 @@ import {
 } from "../../../services/apiService";
 import { renderErrorTree } from "../../../Utils";
 import { Trash2, Plus } from "lucide-react";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 const Field = ({ label, children }) => (
     <div className="flex flex-col gap-1.5">
@@ -30,7 +31,7 @@ const ReceiveFromAssay = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const { register, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+    const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
         defaultValues: {
             form: {
                 date1: new Date().toISOString().split("T")[0],
@@ -45,6 +46,7 @@ const ReceiveFromAssay = () => {
     const { fields, append, remove, replace } = useFieldArray({ control, name: "table" });
 
     const [saving, setSaving] = useState(false);
+    const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
     const [meltingHouses, setMeltingHouses] = useState([]);
     const [purityData, setPurityData] = useState([]);
     const [issueNumbers, setIssueNumbers] = useState([]);
@@ -73,6 +75,8 @@ const ReceiveFromAssay = () => {
                         setValue("form.ldgr", d.ldgr);
                         setValue("form.ldgr_name", d.ldgr_name || "");
                         replace(d.assayreceivedetail_set || []);
+                        reset(getValues(), { keepValues: true, keepDirty: false });
+                        resetTableDirty();
                     }
                 });
             }
@@ -100,6 +104,7 @@ const ReceiveFromAssay = () => {
                 }))
             );
         replace(rows);
+        markTableDirty();
     };
 
     const handleAddCornetRow = () => {
@@ -121,6 +126,7 @@ const ReceiveFromAssay = () => {
             is_cornet: true,
         };
         append(cornetRow);
+        markTableDirty();
     };
 
     const onSubmit = () => {
@@ -363,8 +369,8 @@ const ReceiveFromAssay = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
-                        Save
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || !canSave}>
+                        {saveLabel(saving)}
                     </Button>
                 </div>
             </form>

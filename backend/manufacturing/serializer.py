@@ -365,11 +365,20 @@ class KarigarIssueItemForPostSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
+    customer_order_no = serializers.SerializerMethodField()
+
+    def get_customer_order_no(self, obj):
+        coi = getattr(obj, 'customer_order_item', None)
+        if not coi:
+            return None
+        co = getattr(coi, 'order_no', None)
+        return getattr(co, 'order_no', None) if co else None
+
     item = serializers.SlugRelatedField(
         queryset=Item.objects.all(),
         slug_field="short_code"
     )
-    
+
     purity = serializers.SlugRelatedField(
         queryset=PurityMaster.objects.all(),
         slug_field='purity'
@@ -382,6 +391,7 @@ class KarigarIssueItemForPostSerializer(serializers.ModelSerializer):
             'id',
             'issue_sl_no',
             'customer_order_item',
+            'customer_order_no',
             'item',
             'purity',
             'pcs',
@@ -416,13 +426,23 @@ class KarigarIssueItemForUpdateSerializer(serializers.ModelSerializer):
 
 
 class SampleIssueItemDetailsSerializer(serializers.ModelSerializer):
+    # sub_item: PK (Item.id) — picker endpoints return both id (sub_item_id) and
+    # name (sub_item); frontend submits the id under the `sub_item` key.
+    # packet: slug (pckt_no) — picker endpoints already return the human code.
+    packet = serializers.SlugRelatedField(
+        queryset=Packet.objects.all(), slug_field='pckt_no',
+        allow_null=True, required=False,
+    )
     sub_item_name = serializers.CharField(source='sub_item.item_name', read_only=True, default='')
     packet_code = serializers.CharField(source='packet.pckt_no', read_only=True, default='')
 
     class Meta:
         model = SampleIssueItemDetails
         fields = ['id', 'sl_no', 'sub_item', 'sub_item_name', 'packet', 'packet_code', 'pcs', 'ct', 'gw', 'rate', 'value']
-        extra_kwargs = {'id': {'read_only': False, 'required': False}, 'sub_item': {'allow_null': True, 'required': False}, 'packet': {'allow_null': True, 'required': False}}
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'sub_item': {'allow_null': True, 'required': False},
+        }
 
 
 class SampleIssueItemSerializer(serializers.ModelSerializer):
@@ -629,11 +649,21 @@ class KarigarMasterSerializer(ModelSerializer):
 
 
 class KarigarIssueItemSerializer(ModelSerializer): #model a
+    customer_order_no = serializers.SerializerMethodField()
+
+    def get_customer_order_no(self, obj):
+        coi = getattr(obj, 'customer_order_item', None)
+        if not coi:
+            return None
+        co = getattr(coi, 'order_no', None)
+        return getattr(co, 'order_no', None) if co else None
+
     class Meta:
         model = KarigarIssueItem
         depth = 3
         fields = [
-            "customer_order_item","design_code",]  # Include relevant fields from ModelA
+            "customer_order_item", "customer_order_no", "design_code",
+        ]
 
 
 
@@ -757,10 +787,32 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
     ref_sample_issue = serializers.PrimaryKeyRelatedField(queryset=SampleIssue.objects.all(), required=False, allow_null=True)
     ref_sample_issue_item = serializers.PrimaryKeyRelatedField(queryset=SampleIssueItem.objects.all(), required=False, allow_null=True)
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    item_id = serializers.SerializerMethodField(read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
     receive_slip_no = serializers.PrimaryKeyRelatedField(queryset=KarigarReceive.objects.all(),required=False)
+    has_barcode = serializers.SerializerMethodField(read_only=True)
+    pending_ct = serializers.SerializerMethodField(read_only=True)
     # Nested Serializer for KarigarReceiveItemDetails
     details = KarigarReceiveItemDetailsForPostSerializer(many=True,source="karigarreceiveitemdetails_set")
+
+    def get_has_barcode(self, obj):
+        from inventory.models import BarcodeMain
+        if not getattr(obj, 'pk', None):
+            return False
+        return BarcodeMain.objects.filter(rec_item_id=obj.pk).exists()
+
+    def get_item_id(self, obj):
+        return obj.item_id if obj.item else None
+
+    def get_pending_ct(self, obj):
+        from decimal import Decimal
+        from django.db.models import Sum
+        if not getattr(obj, 'pk', None):
+            return 0
+        total_pending_ct = obj.karigarreceiveitemdetails_set.aggregate(
+            total=Sum('balance_ct')
+        )['total'] or Decimal('0')
+        return float(total_pending_ct)
 
     class Meta:
         model = KarigarReceiveItem
@@ -778,6 +830,7 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
             'pcs',
             'gw',
             'nw',
+            'has_barcode',
             'add_field_type',
             'add_gw',
             'less_field_type',
@@ -797,6 +850,8 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
             'remarks',
             'pending_pcs',
             'pending_gw',
+            'pending_ct',
+            'item_id',
             'details',  # Nested details serializer
         ]
         extra_kwargs = {
@@ -856,6 +911,12 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             details_data = validated_data.pop('karigarreceiveitemdetails_set')
             self._apply_auto_making(validated_data)
+            # Seed pending quantities so barcode creation can decrement from a real total.
+            # If not already set in the payload, default to the received pcs/nw.
+            if not validated_data.get('pending_pcs'):
+                validated_data['pending_pcs'] = validated_data.get('pcs') or 0
+            if not validated_data.get('pending_gw'):
+                validated_data['pending_gw'] = validated_data.get('nw') or validated_data.get('gw') or 0
             karigar_receive_item_instance = KarigarReceiveItem.objects.create(**validated_data)
             s_item = validated_data.get('ref_sample_issue_item')
             if s_item is not None:
@@ -894,14 +955,21 @@ class KarigarReceiveItemForUpdateSerializer(KarigarReceiveItemForPostSerializer)
 
     def create(self, validated_data):
         with transaction.atomic():
-        
+
             details_data = validated_data.pop('karigarreceiveitemdetails_set')
             karigar_receive_item_instance = KarigarReceiveItem.objects.create(**validated_data)
             return karigar_receive_item_instance
-    
+
     def update(self, instance, validated_data):
+        from inventory.models import BarcodeMain
+        if BarcodeMain.objects.filter(rec_item_id=instance.pk).exists():
+            raise serializers.ValidationError(
+                f"Receive line #{instance.sl_no} ({getattr(instance.item, 'short_code', '') or instance.item_id}) "
+                "already has a barcode created against it and cannot be edited. "
+                "Delete the barcode first if you need to change this row."
+            )
         with transaction.atomic():
-        
+
             children_data = KarigarReceiveItemDetailsForPostSerializer(validated_data.pop('karigarreceiveitemdetails_set', []),many=True).data
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
@@ -1013,8 +1081,23 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
             return karigar_receive_instance
 
     def update(self, instance, validated_data):
+        from inventory.models import BarcodeMain
         with transaction.atomic():
             children_data = KarigarReceiveItemForPostSerializer(validated_data.pop('karigarreceiveitem_set', []),many=True).data
+
+            # Guard: forbid deletion of any receive line that already has a barcode
+            incoming_ids = {c.get('id') for c in children_data if c.get('id')}
+            existing_qs = instance.karigarreceiveitem_set.all()
+            barcoded_ids = set(
+                BarcodeMain.objects.filter(rec_item__in=existing_qs).values_list('rec_item_id', flat=True)
+            )
+            removed_barcoded = barcoded_ids - incoming_ids
+            if removed_barcoded:
+                raise serializers.ValidationError(
+                    f"Cannot remove receive line(s) {sorted(removed_barcoded)} — "
+                    "barcode(s) already exist against them. Delete the barcode(s) first."
+                )
+
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
@@ -1042,7 +1125,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                 co = retail.branch.company if (retail.branch_id and retail.branch) else None
                 if not co:
                     _raise_missing_ledger("Making Charge Paid (Company not configured on Retail master)")
-                purity_name = purity_obj.purity if purity_obj else ''
+                purity_name = purity_obj.purity if isinstance(purity_obj, object) and hasattr(purity_obj, 'purity') else str(purity_obj) if purity_obj else ''
                 if '22' in purity_name:
                     ldgr = co.making_charge_paid_22k_ldgr
                 elif '18' in purity_name:
@@ -1163,9 +1246,10 @@ class KarigarReceiveItemforNoSerializer(serializers.ModelSerializer):
     karigarreceiveitemdetails_set = KarigarReceiveItemforNoDetailsSerializer(many=True,)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(),slug_field="purity")
     item = serializers.SlugRelatedField(queryset=Item.objects.all(),slug_field="short_code")
+    item_name = serializers.CharField(source='item.item_name', read_only=True, default=None)
     class Meta:
         model = KarigarReceiveItem
-        fields = ["id",'sl_no','item',"pcs","gw","nw","purity","karigarreceiveitemdetails_set"]
+        fields = ["id",'sl_no','item','item_name',"pcs","gw","nw","purity","karigarreceiveitemdetails_set"]
 
     
     def to_representation(self, instance):
@@ -1205,9 +1289,16 @@ class HallmarkIssueDetailsForPostSerializer(serializers.ModelSerializer):
 class HallmarkIssueItemForPostSerializer(serializers.ModelSerializer):
     receive_sl = serializers.PrimaryKeyRelatedField(queryset=KarigarReceiveItem.objects.all())
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    item_name = serializers.CharField(source='item.item_name', read_only=True, default=None)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
 
     hallmarkissuedetails_set = HallmarkIssueDetailsForPostSerializer(many=True)
+
+    # Source-receive metadata so the form can group items by where they came from.
+    source_receive_slip = serializers.CharField(source='receive_sl.receive_slip_no.receive_slip_no', read_only=True, default=None)
+    source_karigar = serializers.CharField(source='receive_sl.receive_slip_no.karigar_ldgr.ac_name', read_only=True, default=None)
+    source_date = serializers.DateField(source='receive_sl.receive_slip_no.date1', read_only=True, default=None)
+    source_sl_no = serializers.IntegerField(source='receive_sl.sl_no', read_only=True, default=None)
 
     class Meta:
         model = HallmarkIssueItem
@@ -1216,12 +1307,17 @@ class HallmarkIssueItemForPostSerializer(serializers.ModelSerializer):
             'sl_no',
             'receive_sl',
             'item',
+            'item_name',
             'pcs',
             'gw',
             'nw',
             'purity',
             'remarks',
-            'hallmarkissuedetails_set'
+            'hallmarkissuedetails_set',
+            'source_receive_slip',
+            'source_karigar',
+            'source_date',
+            'source_sl_no',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -1312,16 +1408,22 @@ class HallmarkReceiveDetailsForPostSerializer(serializers.ModelSerializer):
         }
 class HallmarkReceiveItemForPostSerializer(serializers.ModelSerializer):
     issue_slip_no = serializers.PrimaryKeyRelatedField(queryset=HallmarkIssue.objects.all())
+    receive_sl = serializers.PrimaryKeyRelatedField(
+        queryset=KarigarReceiveItem.objects.all(), required=False, allow_null=True
+    )
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code',allow_null=True,required=False)
+    # Loss wt may be left blank in the form — coerce blank/null to 0 on save.
+    loss_wt = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True, default=0)
     hallmarkreceivedetails_set = HallmarkReceiveDetailsForPostSerializer(many=True)
 
     class Meta:
         model = HallmarkReceiveItem
-        fields = [     
-            'id',          
+        fields = [
+            'id',
             'sl_no',
             'issue_slip_no',
+            'receive_sl',
             'huid',
             'remarks',
             'item',
@@ -1336,6 +1438,12 @@ class HallmarkReceiveItemForPostSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
         }
+
+    def to_internal_value(self, data):
+        # An empty string from a number input must not raise "A valid number is required".
+        if isinstance(data, dict) and data.get('loss_wt') in ('', None):
+            data = {**data, 'loss_wt': 0}
+        return super().to_internal_value(data)
     def create(self, validated_data):
         with transaction.atomic():
             details_data = validated_data.pop('details')

@@ -25,6 +25,7 @@ import { createLedger, getAccountGroup, getStates, getLedger, updateLedger, getT
 import PhoneInput, { makePhoneValidator } from "@/components/ui/PhoneInput";
 import Fuse from 'fuse.js';
 import { useSpellCheck } from '@/hooks/useSpellCheck';
+import { useF4Submit } from '@/hooks/useF4Submit';
 
 // ─── Account tree helpers ─────────────────────────────────────────────────────
 
@@ -304,7 +305,7 @@ const LedgerForm = () => {
     const nextUrl = searchParams.get("next"); // e.g. /sales/customerorder/list/add/
     const acGroupBtnRef = React.useRef(null);
 
-    const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { errors } } = useForm({
+    const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { errors, isDirty } } = useForm({
         defaultValues: {
             salutation: 'none',
             ac_name: '',
@@ -525,6 +526,8 @@ const LedgerForm = () => {
     const validateAadhar   = (v) => !v || /^[0-9]{12}$/.test(v)                        || 'Aadhar must be exactly 12 digits';
     const validatePassport = (v) => !v || /^[A-Z][0-9]{7}$/.test(v)                    || 'Invalid passport — expected format: A1234567';
 
+    useF4Submit(() => handleSubmit(onSubmit)());
+
     const onSubmit = async (data) => {
         if (activeRoleCodes.length === 0) {
             toast({ title: "Select at least one role", description: "Every ledger must have at least one role.", variant: "destructive" });
@@ -693,6 +696,7 @@ const LedgerForm = () => {
                     <Button
                         type="submit"
                         form="ledgerForm"
+                        disabled={!!id && !isDirty}
                         className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm"
                     >
                         {id ? 'Update Ledger' : 'Save Ledger'}
@@ -1398,7 +1402,7 @@ const LedgerForm = () => {
                     <Button type="button" variant="outline" onClick={() => navigate('/crm/ledger')} className="h-10 px-5">
                         Cancel
                     </Button>
-                    <Button type="submit" className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
+                    <Button type="submit" disabled={!!id && !isDirty} className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
                         {id ? 'Update Ledger' : 'Save Ledger'}
                     </Button>
                 </div>

@@ -15,6 +15,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils.jsx"
 import { useNavigate } from "react-router-dom";
 import { fetchKarigarIssueForEdit, updateKarigarIssue } from "../../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { SquarePen, Trash2, ShoppingCart, ChevronRight } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
 
@@ -49,7 +50,7 @@ function Field({ label, required, children, className = "" }) {
 const KarigarIssue = () => {
   const { id } = useParams();
   const { toast } = useToast()
-  const { register, handleSubmit, control, reset, watch, setValue, getValues , setFocus} = useForm({
+  const { register, handleSubmit, control, reset, watch, setValue, getValues , setFocus, formState: { isDirty } } = useForm({
     defaultValues: {
       form: {
         issue_slip_type: 'Stock',
@@ -67,6 +68,7 @@ const KarigarIssue = () => {
   const [purityData, setPurityData] = useState([]);
   const [pendingItems, setPendingItems] = useState([]);
   const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [pickerSearch, setPickerSearch] = useState("");
@@ -170,6 +172,8 @@ const KarigarIssue = () => {
           if (response.data.items) {
             setRows(response.data.items);
           }
+          reset(getValues(), { keepValues: true, keepDirty: false });
+          resetTableDirty();
         })
         .catch((error) => {
           console.error('Error fetching manufacturing issue:', error);
@@ -241,10 +245,12 @@ const KarigarIssue = () => {
     const match = mainItemData.find(i => i.short_code === row.item);
     setTableItemLabel(match ? match.item_name : (row.item ?? ""));
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
     setTimeout(() => itemComboRef.current?.querySelector('input')?.focus(), 0);
   };
 
   const handleDelete = (index) => {
+    markTableDirty();
     setRows((prev) => {
       const removed = prev[index];
       if (removed && removed.customer_order_item && removed._co_display) {
@@ -297,6 +303,7 @@ const KarigarIssue = () => {
       .filter((p) => selectedIds.has(p.co_item_id))
       .filter((p) => !existingCoItemIds.has(p.co_item_id));
     if (picked.length === 0) { setPickerOpen(false); return; }
+    markTableDirty();
     setRows((prev) => {
       const base = prev.length;
       const newRows = picked.map((p, idx) => ({
@@ -365,6 +372,7 @@ const KarigarIssue = () => {
         ...merged,
       }
       setRows([...rs, rowVals])
+      markTableDirty();
       editingMetaRef.current = null;
       setTableItemLabel("");
       reset({form:{...getValues('form')},table:{...tableDefaultValue}})
@@ -407,8 +415,8 @@ const KarigarIssue = () => {
           <Button type="button" variant="outline" size="sm" onClick={() => window.history.back()} className="cursor-pointer">
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSubmit(onSubmit)} className="min-w-24 cursor-pointer" disabled={saving}>
-            Save Job Work
+          <Button size="sm" onClick={handleSubmit(onSubmit)} className="min-w-24 cursor-pointer" disabled={saving || !canSave}>
+            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Job Work" : "Save Job Work")}
           </Button>
         </div>
       </div>

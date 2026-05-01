@@ -1,25 +1,51 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableRow, TableCell, TableHead, TableBody, TableHeader } from "@/components/ui/table";
-import { fetchSampleIssues, deleteSampleIssue } from "@/services/apiService";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select, SelectTrigger, SelectContent, SelectItem,
+} from "@/components/ui/select";
+import { DataTable } from "@/table";
+import { SquarePen, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, SquarePen } from "lucide-react";
+import { fetchSampleIssues, deleteSampleIssue } from "@/services/apiService";
 
 export default function SampleIssueList() {
-  const [rows, setRows] = useState([]);
-  const [search, setSearch] = useState("");
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const [search, setSearch] = useState("");
+  const [sortby, setSortby] = useState("-date1");
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState({ results: [], count: 0, total_pages: 1 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const PAGE_SIZE = 10;
 
   const load = async () => {
-    const res = await fetchSampleIssues({ search });
+    setLoading(true);
+    setError(null);
+    const res = await fetchSampleIssues({ search, page, ordering: sortby });
     if (res.success) {
-      setRows(Array.isArray(res.data) ? res.data : res.data.results || []);
+      const r = res.data || {};
+      const results = Array.isArray(r) ? r : (r.results || []);
+      const count = Array.isArray(r) ? results.length : (r.count ?? results.length);
+      const total_pages = r.total_pages ?? Math.max(1, Math.ceil(count / PAGE_SIZE));
+      setData({ results, count, total_pages });
+    } else {
+      setError(typeof res.error === "string" ? res.error : JSON.stringify(res.error));
     }
+    setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [page, sortby]);
+
+  const onSearch = () => {
+    setPage(1);
+    load();
+  };
 
   const onDelete = async (id) => {
     if (!window.confirm("Delete this Sample Issue? This cannot be undone.")) return;
@@ -33,42 +59,141 @@ export default function SampleIssueList() {
     }
   };
 
+  const fmtDate = (s) => {
+    if (!s) return "—";
+    try {
+      return new Date(s).toLocaleDateString("en-GB").replaceAll("/", "-");
+    } catch {
+      return s;
+    }
+  };
+
+  const columns = [
+    {
+      header: "Action",
+      accessorKey: "id",
+      cell: ({ row }) => (
+        <div className="flex space-x-4">
+          <Link
+            to={`/manufacturing/issue/sample-issue/${row.original.id}`}
+            className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center"
+          >
+            <SquarePen className="size-4" />
+          </Link>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(row.original.id); }}
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+      ),
+    },
+    {
+      header: "Date",
+      accessorKey: "date1",
+      cell: ({ getValue }) => fmtDate(getValue()),
+    },
+    {
+      header: "Bill No",
+      accessorKey: "billno",
+      cell: ({ getValue }) => <span className="font-medium">{getValue() || "—"}</span>,
+    },
+    {
+      header: "Karigar",
+      accessorKey: "karigar_ldgr_name",
+      cell: ({ getValue }) => getValue() || "—",
+    },
+    {
+      header: "Items",
+      accessorKey: "items",
+      cell: ({ getValue }) => (
+        <span className="tabular-nums">{(getValue() || []).length}</span>
+      ),
+    },
+    {
+      header: "Remarks",
+      accessorKey: "remarks",
+      cell: ({ getValue }) => (
+        <span className="text-muted-foreground text-sm">{getValue() || "—"}</span>
+      ),
+    },
+  ];
+
+  const handleRowClick = (row) => {
+    navigate(`/manufacturing/issue/sample-issue/${row.id}`);
+  };
+
   return (
-    <div className="p-4 space-y-3">
-      <div className="flex gap-2 items-center">
-        <h2 className="text-xl font-semibold flex-1">Sample Issues</h2>
-        <Input placeholder="Search billno / karigar" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Button onClick={load} variant="secondary">Search</Button>
-        <Button asChild><Link to="/manufacturing/issue/sample-issue/new">+ New</Link></Button>
+    <div className="flex flex-col gap-4 p-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <Input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") onSearch(); }}
+            placeholder="Search bill no / karigar..."
+            className="max-w-xs"
+          />
+          <Button size="sm" variant="secondary" onClick={onSearch}>Search</Button>
+          <Select value={sortby} onValueChange={(v) => { setSortby(v); setPage(1); }}>
+            <SelectTrigger className="w-44">
+              <span>{sortby ? sortby.replace("-", "↓ ") : "Sort by"}</span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="-date1">Date (New first)</SelectItem>
+              <SelectItem value="date1">Date (Old first)</SelectItem>
+              <SelectItem value="billno">Bill No (Asc)</SelectItem>
+              <SelectItem value="-billno">Bill No (Desc)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Link to="/manufacturing/issue/sample-issue/new">
+          <Button size="sm" className="gap-1.5">
+            <Plus className="size-4" />
+            Add Sample Issue
+          </Button>
+        </Link>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Bill No</TableHead>
-            <TableHead>Date</TableHead>
-            <TableHead>Karigar</TableHead>
-            <TableHead>Items</TableHead>
-            <TableHead>Remarks</TableHead>
-            <TableHead></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r) => (
-            <TableRow key={r.id}>
-              <TableCell>{r.billno}</TableCell>
-              <TableCell>{r.date1}</TableCell>
-              <TableCell>{r.karigar_ldgr_name}</TableCell>
-              <TableCell>{r.items?.length || 0}</TableCell>
-              <TableCell>{r.remarks}</TableCell>
-              <TableCell className="flex gap-2">
-                <Link to={`/manufacturing/issue/sample-issue/${r.id}`}><SquarePen size={16} /></Link>
-                <button onClick={() => onDelete(r.id)}><Trash2 size={16} /></button>
-              </TableCell>
-            </TableRow>
+      {/* Body */}
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          {[...Array(6)].map((_, i) => (
+            <Skeleton key={i} className="w-full h-10" />
           ))}
-        </TableBody>
-      </Table>
+        </div>
+      ) : error ? (
+        <div className="text-destructive text-sm">Error: {String(error)}</div>
+      ) : (
+        <>
+          <DataTable columns={columns} data={data.results} rowClick={handleRowClick} />
+
+          <div className="flex items-center justify-between pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {data.total_pages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(p + 1, data.total_pages))}
+              disabled={page >= data.total_pages}
+            >
+              Next
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableBody, TableHead, TableHeader } from "@/components/ui/table";
 import {
@@ -13,9 +14,11 @@ import {
 } from "@/services/apiService";
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit, cancelCustomerOrder } from "./services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { SquarePen, Trash2, Loader2, Plus, Zap, Lock, ChevronRight } from "lucide-react";
 import { arrayToObject } from "./Utils";
 import { renderErrorTree } from "./Utils";
+import { useF4Submit } from "@/hooks/useF4Submit";
 
 /* ─── helpers ─────────────────────────────────────────────── */
 function SectionCard({ title, children, className = "", action }) {
@@ -64,7 +67,7 @@ const CustomerOrderForm = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const { register, setFocus, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+  const { register, setFocus, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
     defaultValues: {
       form: {
         rate_14kt: 0, rate_18kt: 0, rate_22kt: 0,
@@ -85,6 +88,7 @@ const CustomerOrderForm = () => {
   const [purityData, setPurityData] = useState([]);
   const [fetchingRates, setFetchingRates] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
 
   const party_name    = watch("form.ldgr_code_name");
   const gold_rate_date = watch("form.gold_rate_date");
@@ -145,6 +149,8 @@ const CustomerOrderForm = () => {
               if (k !== 'items') setValue(`form.${k}`, v);
             });
             setRows(JSON.parse(JSON.stringify(data.data.items)));
+            reset(getValues(), { keepValues: true, keepDirty: false });
+            resetTableDirty();
           }
         });
       }
@@ -198,15 +204,40 @@ const CustomerOrderForm = () => {
       .finally(() => setSubmitting(false));
   };
 
+  useF4Submit(handleSubmit(onSubmit));
+
   const handleEdit = (index) => {
     reset({ form: getValues('form'), table: rs[index] });
     setRows(prev => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
-  const handleDelete = (index) => setRows(prev => prev.filter((_, i) => i !== index));
+  const handleDelete = (index) => { setRows(prev => prev.filter((_, i) => i !== index)); markTableDirty(); };
   const handleKeyDown = (e) => {
     if (e.key !== "Tab") return;
     e.preventDefault();
-    setRows([...rs, { sl_no: rs.length + 1, ...getValues("table") }]);
+    const row = getValues("table");
+    const code = (row.item_id ?? "").trim();
+    const known = mainItemData.find(
+      (it) => it.short_code === code || it.item_name === code
+    );
+    if (!known) {
+      toast({
+        title: "Unknown item",
+        description: code
+          ? `“${code}” is not in the item master. Please pick an item from the list.`
+          : "Please select an item before adding the row.",
+        variant: "destructive",
+      });
+      setFocus("table.item_id");
+      return;
+    }
+    setRows([...rs, {
+      sl_no: rs.length + 1,
+      ...row,
+      item_id: known.short_code,
+      item_name: known.item_name,
+    }]);
+    markTableDirty();
     reset({ form: getValues('form'), table: defaultTableValues });
     setFocus("table.item_id");
   };
@@ -259,13 +290,13 @@ const CustomerOrderForm = () => {
           </Button>
           <Button
             size="sm"
-            disabled={submitting}
+            disabled={submitting || !canSave}
             onClick={handleSubmit(onSubmit)}
             className="min-w-24 cursor-pointer"
           >
             {submitting
-              ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />Saving…</>
-              : "Save Order"
+              ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />{id ? "Updating…" : "Saving…"}</>
+              : (id ? "Update Order" : "Save Order")
             }
           </Button>
         </div>
@@ -349,17 +380,37 @@ const CustomerOrderForm = () => {
             <div className="col-span-2">
               <Field label="Party Name" required>
                 <div className="flex gap-2">
-                  <Input
-                    list="party_list"
-                    placeholder="Search customer…"
-                    {...register("form.ldgr_code_name", {
-                      onChange: (e) => {
-                        const sel = customers.find(c => c.ac_name === e.target.value);
-                        if (sel) setValue("form.ldgr", sel.id);
-                      },
-                    })}
-                    required
-                  />
+                  <div className="flex-1">
+                    <SearchableComboBox
+                      options={customers}
+                      labelKey="ac_name"
+                      searchKeys={["mobile1", "mobile2", "phone1"]}
+                      value={watch("form.ldgr_code_name") ?? ""}
+                      placeholder="Search by name or phone…"
+                      onInputChange={(val) => {
+                        setValue("form.ldgr_code_name", val);
+                        if (!val) setValue("form.ldgr", "");
+                      }}
+                      onSelect={(opt) => {
+                        setValue("form.ldgr_code_name", opt.ac_name ?? "");
+                        setValue("form.ldgr", opt.id);
+                      }}
+                      renderOption={(opt) => {
+                        const phone = opt.mobile1 || opt.mobile2 || opt.phone1 || "";
+                        const place = [opt.city, opt.state].filter(Boolean).join(", ");
+                        return (
+                          <div className="leading-tight">
+                            <div className="text-sm text-foreground">{opt.ac_name}</div>
+                            {(phone || place) && (
+                              <div className="text-[11px] text-muted-foreground mt-0.5">
+                                {phone}{phone && place ? " · " : ""}{place}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }}
+                    />
+                  </div>
                   <Link
                     to={`/crm/ledger/add/?next=${encodeURIComponent(location.pathname)}`}
                     tabIndex={-1}
@@ -370,11 +421,19 @@ const CustomerOrderForm = () => {
                   </Link>
                 </div>
                 <input type="hidden" {...register("form.ldgr")} />
-                <datalist id="party_list">
-                  {customers.map((c, i) => (
-                    <option key={i} value={c.ac_name}>{c.mobile1}</option>
-                  ))}
-                </datalist>
+                {(() => {
+                  const sel = customers.find(c => String(c.id) === String(watch("form.ldgr")));
+                  if (!sel) return null;
+                  const phone = [sel.mobile1, sel.mobile2, sel.phone1].filter(Boolean).join(" · ");
+                  const address = [sel.add1, sel.add2, sel.city, sel.state, sel.pincode].filter(Boolean).join(", ");
+                  if (!phone && !address) return null;
+                  return (
+                    <div className="mt-1.5 px-2.5 py-1.5 border border-border rounded-md bg-muted/30 text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 leading-snug">
+                      {phone && <span>📞 {phone}</span>}
+                      {address && <span>📍 {address}</span>}
+                    </div>
+                  );
+                })()}
               </Field>
             </div>
 
@@ -537,25 +596,33 @@ const CustomerOrderForm = () => {
                 <TableRow className="bg-primary/[0.03] border-b-2 border-primary/10 align-top">
                   <TableCell className="px-3 py-2 w-16" />
                   <TableCell className="px-2 py-2">
-                    <Input
-                      list="item_list"
-                      className="h-8 text-sm"
+                    <SearchableComboBox
+                      options={mainItemData}
+                      labelKey="short_code"
+                      searchKeys={["item_name"]}
+                      value={watch("table.item_id") ?? ""}
                       placeholder="Search item…"
-                      {...register("table.item_id", {
-                        onChange: (e) => {
-                          const match = mainItemData.find(
-                            (it) => it.short_code === e.target.value || it.item_name === e.target.value
-                          );
-                          setValue("table.item_name", match ? match.item_name : "");
-                        },
-                      })}
+                      className="text-sm"
+                      onInputChange={(val) => {
+                        setValue("table.item_id", val);
+                        const match = mainItemData.find(
+                          (it) => it.short_code === val || it.item_name === val
+                        );
+                        setValue("table.item_name", match ? match.item_name : "");
+                      }}
+                      onSelect={(opt) => {
+                        setValue("table.item_id", opt.short_code ?? "");
+                        setValue("table.item_name", opt.item_name ?? "");
+                      }}
+                      renderOption={(opt) => (
+                        <div className="leading-tight">
+                          <div className="text-sm text-foreground">{opt.item_name}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">{opt.short_code}</div>
+                        </div>
+                      )}
                     />
-                    <datalist id="item_list">
-                      {mainItemData.map((item, i) => (
-                        <option key={i} value={item.short_code}>{item.item_name}</option>
-                      ))}
-                    </datalist>
                     <input type="hidden" {...register("table.item_name")} />
+                    <input type="hidden" {...register("table.item_id")} />
                   </TableCell>
                   <TableCell className="px-2 py-2 w-28">
                     <Controller
@@ -733,12 +800,12 @@ const CustomerOrderForm = () => {
             </Button>
             <Button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !canSave}
               className="min-w-28 cursor-pointer"
             >
               {submitting
-                ? <><Loader2 className="size-4 mr-2 animate-spin" />Saving…</>
-                : "Save Order"
+                ? <><Loader2 className="size-4 mr-2 animate-spin" />{id ? "Updating…" : "Saving…"}</>
+                : (id ? "Update Order" : "Save Order")
               }
             </Button>
           </div>

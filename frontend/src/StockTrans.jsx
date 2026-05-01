@@ -10,11 +10,12 @@ import { createStockTransfer, fetchRetails } from "./services/apiService";
 import { useNavigate, useParams } from "react-router-dom";
 import { renderErrorTree } from "./Utils";
 import { SquarePen, Trash2, ArrowRight, PackageCheck, SendHorizontal, Hash, Scale, Barcode, ScanBarcode } from "lucide-react";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 const RetToRetstockTransfer = () => {
     const { toast } = useToast()
     const { id } = useParams()
-    const { register: originalRegister, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+    const { register: originalRegister, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
         defaultValues: {
             rate_18kt: 0,
             rate_22kt: 0,
@@ -106,6 +107,8 @@ const RetToRetstockTransfer = () => {
         };
     };
     const [rs, setRows] = useState([]);
+    const [saving, setSaving] = useState(false);
+    const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
     const [barCodes, setBarcodes] = useState([]);
     const [statesData, setstatesData] = useState([]);
     const [salespersonData, setSalespersonData] = useState([]);
@@ -192,6 +195,8 @@ const RetToRetstockTransfer = () => {
                             if (response.data.sent_status) {
                                 setIsSent(true);
                             }
+                            reset(getValues(), { keepValues: true, keepDirty: false });
+                            resetTableDirty();
                         })
                         .catch((error) => {
                             console.error('Error fetching manufacturing issue:', error);
@@ -318,10 +323,12 @@ const RetToRetstockTransfer = () => {
         const row = rs[index];
         reset({ form: getValues('form'), table: row });
         setRows((prev) => prev.filter((_, i) => i !== index));
+        markTableDirty();
     };
 
     const handleDelete = (index) => {
         setRows((prev) => prev.filter((_, i) => i !== index));
+        markTableDirty();
     };
 
 
@@ -334,13 +341,14 @@ const RetToRetstockTransfer = () => {
                 ...table,
             }
             setRows([...rs, rowVals])
+            markTableDirty();
             reset({ form: { ...getValues('form') } })
         }
     };
 
 
     const handleAddRow = () => {
-        const newItem = getValues("table"); 
+        const newItem = getValues("table");
         newItem.sl_no = rs.length +1;
 
         const matchingBarcode = barCodes.find(b => b.barcode === newItem.barcode);
@@ -349,7 +357,7 @@ const RetToRetstockTransfer = () => {
         }
 
         setRows([...rs, {...newItem}]);
-       
+        markTableDirty();
     };
 
     // Running totals
@@ -581,9 +589,9 @@ const RetToRetstockTransfer = () => {
                         <Button
                             type="submit"
                             className="bg-primary hover:bg-primary text-white"
-                            disabled={rs.length === 0}
+                            disabled={rs.length === 0 || saving || !canSave}
                         >
-                            Save Transfer
+                            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Transfer" : "Save Transfer")}
                         </Button>
                     )}
                 </div>

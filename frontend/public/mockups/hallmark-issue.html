@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Hallmark Issue — redesign mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --primary:        hsl(242 64% 63%);
+    --primary-soft:   hsl(242 64% 95%);
+    --primary-softer: hsl(242 64% 97.5%);
+    --accent-text:    hsl(242 64% 38%);
+    --slate-tint-a:   hsl(220 30% 97.5%);
+    --slate-tint-b:   hsl(242 30% 97.5%);
+    --row-border:     hsl(220 14% 92%);
+    --group-bg:       hsl(242 40% 96%);
+    --group-bg-2:     hsl(242 35% 94%);
+    --loss:           hsl(0 65% 47%);
+  }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .stage-a { background: var(--slate-tint-a); }
+  .stage-b { background: var(--slate-tint-b); }
+  .group-row td {
+    background: var(--group-bg);
+    border-top: 2px solid hsl(242 30% 86%) !important;
+    border-bottom: 1px solid var(--row-border) !important;
+    padding: 0.55rem 1rem;
+    font-size: 12.5px;
+    color: var(--accent-text);
+  }
+  .totals td {
+    background: var(--group-bg-2);
+    border-top: 2px solid hsl(242 30% 86%) !important;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .panel-shell {
+    border: 1px solid var(--row-border);
+    border-radius: 0.5rem;
+    background: white;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--row-border);
+    background: linear-gradient(180deg, hsl(242 40% 97%) 0%, white 100%);
+    border-radius: 0.5rem 0.5rem 0 0;
+  }
+  .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #64748b; font-weight: 600; margin-bottom: 0.25rem; }
+  .field-input { width: 100%; height: 2.25rem; padding: 0 0.65rem; border: 1px solid hsl(220 14% 88%); border-radius: 0.375rem; background: white; font-size: 13px; }
+  .field-input:focus { outline: 1px solid var(--primary); border-color: var(--primary); }
+  .pill-violet { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 0.3rem; background: hsl(242 64% 95%); color: var(--accent-text); font-size: 11px; font-weight: 600; }
+  .pill-pcs { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 0.25rem; background: hsl(220 14% 95%); color: #475569; font-size: 11px; font-weight: 500; }
+  .btn-primary { background: var(--primary); color: white; padding: 0.4rem 0.8rem; border-radius: 0.375rem; font-size: 12.5px; font-weight: 500; }
+  .btn-primary:hover { background: hsl(242 64% 56%); }
+  .btn-outline { border: 1px solid hsl(220 14% 88%); color: #334155; padding: 0.35rem 0.75rem; border-radius: 0.375rem; font-size: 12.5px; background: white; }
+  .btn-outline:hover { background: hsl(220 14% 96%); }
+  .btn-icon { color: #94a3b8; padding: 0.25rem; border-radius: 0.25rem; }
+  .btn-icon:hover { color: hsl(0 65% 47%); background: hsl(0 80% 97%); }
+  .checkbox { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid hsl(220 14% 75%); display:inline-block; vertical-align: middle; }
+  .checkbox.checked { background: var(--primary); border-color: var(--primary); position: relative; }
+  .checkbox.checked::after { content: "✓"; color: white; position: absolute; top: -3px; left: 1px; font-size: 11px; font-weight: 700; }
+  .receive-card { border: 1px solid var(--row-border); border-radius: 0.5rem; background: white; }
+  .receive-card.collapsed { background: hsl(220 14% 98%); }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800 p-6">
+<div class="max-w-[1400px] mx-auto space-y-12">
+
+  <header class="space-y-1">
+    <h1 class="text-2xl font-semibold">Hallmark Issue — redesign</h1>
+    <p class="text-sm text-slate-500">A hallmark issue can bundle items from multiple karigar receives. The current page makes you type a Receive Slip then a Sl No, blur, and repeat per item. Below: current layout for reference, then the redesign.</p>
+  </header>
+
+  <!-- ── A: CURRENT (reference) ───────────────────────────────────────── -->
+  <section class="space-y-2">
+    <h2 class="text-base font-semibold text-slate-700">A — Current (for reference)</h2>
+    <div class="panel-shell p-4 space-y-3">
+      <div class="grid grid-cols-4 gap-3">
+        <div><div class="field-label">Date</div><input class="field-input" value="29-04-2026" /></div>
+        <div><div class="field-label">Issue Slip No</div><input class="field-input" value="HMIS/R001/26-27/00007" /></div>
+        <div><div class="field-label">Hallmarking centre</div><input class="field-input" value="ABC Hallmark" /></div>
+        <div></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div></div>
+        <div><div class="field-label">Receive Slip No</div><input class="field-input" placeholder="type or pick…" /></div>
+        <div><div class="field-label">Sl. No</div><input class="field-input" placeholder="…" /></div>
+      </div>
+      <table class="w-full text-xs border-collapse">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="border px-3 py-2 font-semibold">S.No</th>
+            <th class="border px-3 py-2 font-semibold">Packet</th>
+            <th class="border px-3 py-2 font-semibold">Item</th>
+            <th class="border px-3 py-2 font-semibold">Purity</th>
+            <th class="border px-3 py-2 font-semibold">Pcs</th>
+            <th class="border px-3 py-2 font-semibold">Ct</th>
+            <th class="border px-3 py-2 font-semibold">Gw</th>
+            <th class="border px-3 py-2 font-semibold">Nw</th>
+          </tr>
+        </thead>
+        <tbody class="tabular">
+          <tr class="bg-violet-100"><td class="border px-3 py-2">1</td><td class="border px-3 py-2"></td><td class="border px-3 py-2">RING</td><td class="border px-3 py-2">14K</td><td class="border px-3 py-2">1</td><td class="border px-3 py-2"></td><td class="border px-3 py-2">4.000</td><td class="border px-3 py-2">3.700</td></tr>
+          <tr><td class="border px-3 py-2">1</td><td class="border px-3 py-2">LGMAIN</td><td class="border px-3 py-2">LG</td><td class="border px-3 py-2"></td><td class="border px-3 py-2">25</td><td class="border px-3 py-2">2.000</td><td class="border px-3 py-2">0.300</td><td class="border px-3 py-2"></td></tr>
+        </tbody>
+      </table>
+      <p class="text-xs text-slate-400 italic">No grouping by receive · no totals · adding multiple items requires retyping the slip and Sl No each time.</p>
+    </div>
+  </section>
+
+  <!-- ── B: REDESIGN ──────────────────────────────────────────────────── -->
+  <section class="space-y-3">
+    <h2 class="text-base font-semibold text-slate-700">B — Redesign (recommended)</h2>
+    <p class="text-xs text-slate-500">Three blocks: <span class="font-medium">slip header</span> · <span class="font-medium">add items from karigar receives</span> (multi-select across receives) · <span class="font-medium">added items table</span> grouped by source receive with violet group rows, rowSpan main pieces, totals row, and a remove button per row.</p>
+
+    <!-- ── Slip header ── -->
+    <div class="panel-shell">
+      <div class="section-head">
+        <div class="flex items-center gap-3">
+          <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Hallmark issue</span>
+          <span class="text-sm font-medium text-slate-800">New slip</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="btn-outline">Cancel</button>
+          <button class="btn-primary">Save</button>
+        </div>
+      </div>
+      <div class="p-4 grid grid-cols-4 gap-3">
+        <div><div class="field-label">Date</div><input class="field-input" value="29-04-2026" /></div>
+        <div><div class="field-label">Issue Slip No</div><input class="field-input" value="HMIS/R001/26-27/00007" disabled style="background:hsl(220 14% 96%); color:#64748b" /></div>
+        <div class="col-span-2"><div class="field-label">Hallmarking centre <span class="text-red-500">*</span></div><input class="field-input" value="ABC Hallmark" /></div>
+      </div>
+    </div>
+
+    <!-- ── Add items from receives ── -->
+    <div class="panel-shell">
+      <div class="section-head">
+        <div class="flex items-center gap-3">
+          <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Step 1 · Add items from karigar receives</span>
+          <span class="text-xs text-slate-400">3 receives available</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <input class="field-input" style="width:13rem" placeholder="Search karigar / slip / item…" />
+          <button class="btn-primary">Add 2 selected</button>
+        </div>
+      </div>
+      <div class="p-3 space-y-2.5">
+
+        <!-- Receive card: expanded -->
+        <div class="receive-card">
+          <div class="flex items-center justify-between px-3 py-2 border-b" style="border-color: var(--row-border)">
+            <div class="flex items-center gap-2.5">
+              <span class="checkbox"></span>
+              <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-500">▼ Receive</span>
+              <span class="font-medium text-sm text-slate-800">RS/R001/26-27/00001</span>
+              <span class="text-xs text-slate-400">·</span>
+              <span class="text-xs text-slate-500">28-04-2026</span>
+              <span class="text-xs text-slate-400">·</span>
+              <span class="pill-violet">Test Karigar</span>
+            </div>
+            <span class="text-xs text-slate-400 tabular">2 items · 4 pc · 12.500 g</span>
+          </div>
+          <table class="w-full text-[12.5px] border-collapse">
+            <thead>
+              <tr class="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+                <th class="px-3 py-2 border w-8"></th>
+                <th class="px-3 py-2 border">Sl</th>
+                <th class="px-3 py-2 border">Item</th>
+                <th class="px-3 py-2 border">Purity</th>
+                <th class="px-3 py-2 border text-right">Pcs</th>
+                <th class="px-3 py-2 border text-right">GW</th>
+                <th class="px-3 py-2 border text-right">NW</th>
+                <th class="px-3 py-2 border text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody class="tabular">
+              <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2 border text-center"><span class="checkbox checked"></span></td>
+                <td class="px-3 py-2 border text-center font-semibold">1</td>
+                <td class="px-3 py-2 border">Lab Diamond Ladies Ring</td>
+                <td class="px-3 py-2 border"><span class="pill-violet">14K</span></td>
+                <td class="px-3 py-2 border text-right">1</td>
+                <td class="px-3 py-2 border text-right">4.000</td>
+                <td class="px-3 py-2 border text-right font-medium">3.700</td>
+                <td class="px-3 py-2 border text-center text-xs text-emerald-600">● Available</td>
+              </tr>
+              <tr class="hover:bg-slate-50" style="opacity:.55">
+                <td class="px-3 py-2 border text-center"><span class="checkbox"></span></td>
+                <td class="px-3 py-2 border text-center font-semibold">2</td>
+                <td class="px-3 py-2 border">Gents Bracelet</td>
+                <td class="px-3 py-2 border"><span class="pill-violet">22K</span></td>
+                <td class="px-3 py-2 border text-right">1</td>
+                <td class="px-3 py-2 border text-right">18.500</td>
+                <td class="px-3 py-2 border text-right font-medium">17.900</td>
+                <td class="px-3 py-2 border text-center text-xs text-slate-400">Already on slip HMIS/00006</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Receive card: expanded with one selected -->
+        <div class="receive-card">
+          <div class="flex items-center justify-between px-3 py-2 border-b" style="border-color: var(--row-border)">
+            <div class="flex items-center gap-2.5">
+              <span class="checkbox checked"></span>
+              <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-500">▼ Receive</span>
+              <span class="font-medium text-sm text-slate-800">RS/R001/26-27/00002</span>
+              <span class="text-xs text-slate-400">·</span>
+              <span class="text-xs text-slate-500">28-04-2026</span>
+              <span class="text-xs text-slate-400">·</span>
+              <span class="pill-violet">Bapan Kar</span>
+            </div>
+            <span class="text-xs text-slate-400 tabular">1 item · 1 pc · 5.300 g</span>
+          </div>
+          <table class="w-full text-[12.5px] border-collapse">
+            <thead>
+              <tr class="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+                <th class="px-3 py-2 border w-8"></th>
+                <th class="px-3 py-2 border">Sl</th>
+                <th class="px-3 py-2 border">Item</th>
+                <th class="px-3 py-2 border">Purity</th>
+                <th class="px-3 py-2 border text-right">Pcs</th>
+                <th class="px-3 py-2 border text-right">GW</th>
+                <th class="px-3 py-2 border text-right">NW</th>
+                <th class="px-3 py-2 border text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody class="tabular">
+              <tr class="hover:bg-slate-50">
+                <td class="px-3 py-2 border text-center"><span class="checkbox checked"></span></td>
+                <td class="px-3 py-2 border text-center font-semibold">1</td>
+                <td class="px-3 py-2 border">Earring Pair</td>
+                <td class="px-3 py-2 border"><span class="pill-violet">18K</span></td>
+                <td class="px-3 py-2 border text-right">1</td>
+                <td class="px-3 py-2 border text-right">5.300</td>
+                <td class="px-3 py-2 border text-right font-medium">5.150</td>
+                <td class="px-3 py-2 border text-center text-xs text-emerald-600">● Available</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Receive card: collapsed -->
+        <div class="receive-card collapsed">
+          <div class="flex items-center justify-between px-3 py-2.5">
+            <div class="flex items-center gap-2.5">
+              <span class="checkbox"></span>
+              <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-500">▶ Receive</span>
+              <span class="font-medium text-sm text-slate-800">RS/R001/26-27/00003</span>
+              <span class="text-xs text-slate-400">·</span>
+              <span class="text-xs text-slate-500">29-04-2026</span>
+              <span class="text-xs text-slate-400">·</span>
+              <span class="pill-violet">Sourav Karmakar</span>
+            </div>
+            <span class="text-xs text-slate-400 tabular">3 items · 3 pc · 24.700 g</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Added items ── -->
+    <div class="panel-shell">
+      <div class="section-head">
+        <div class="flex items-center gap-3">
+          <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-500">Step 2 · Items on this slip</span>
+          <span class="text-xs text-slate-500">2 items from 2 receives · <span class="tabular">2 pc · 9.300 g · 8.850 nw</span></span>
+        </div>
+      </div>
+      <table class="w-full text-[12.5px] border-collapse">
+        <thead>
+          <tr class="text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+            <th class="px-3 py-2 border text-center w-8"></th>
+            <th class="px-3 py-2 border">Sl</th>
+            <th class="px-3 py-2 border">Item</th>
+            <th class="px-3 py-2 border">Purity</th>
+            <th class="px-3 py-2 border">Sub-item / Stone</th>
+            <th class="px-3 py-2 border">Packet</th>
+            <th class="px-3 py-2 border text-right">Pcs</th>
+            <th class="px-3 py-2 border text-right">Ct</th>
+            <th class="px-3 py-2 border text-right">GW</th>
+            <th class="px-3 py-2 border text-right">NW</th>
+          </tr>
+        </thead>
+        <tbody class="tabular">
+          <!-- Group: receive 1 -->
+          <tr class="group-row">
+            <td colspan="10">▸ <span class="font-semibold">RS/R001/26-27/00001</span> · Test Karigar · 28-04-2026</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2.5 border text-center align-middle" rowspan="2">
+              <button class="btn-icon" title="Remove">✕</button>
+            </td>
+            <td class="px-3 py-2.5 border text-center font-semibold align-middle" rowspan="2">1</td>
+            <td class="px-3 py-2.5 border align-middle font-medium" rowspan="2">Lab Diamond Ladies Ring</td>
+            <td class="px-3 py-2.5 border align-middle" rowspan="2"><span class="pill-violet">14K</span></td>
+            <td class="px-3 py-2.5 border">LG</td>
+            <td class="px-3 py-2.5 border">LGMAIN</td>
+            <td class="px-3 py-2.5 border text-right stage-a">25</td>
+            <td class="px-3 py-2.5 border text-right stage-a">2.000</td>
+            <td class="px-3 py-2.5 border text-right stage-a">0.300</td>
+            <td class="px-3 py-2.5 border text-right align-middle font-medium" rowspan="2">3.700</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2.5 border">Gold</td>
+            <td class="px-3 py-2.5 border text-slate-400">—</td>
+            <td class="px-3 py-2.5 border text-right stage-b">1</td>
+            <td class="px-3 py-2.5 border text-right stage-b text-slate-400">—</td>
+            <td class="px-3 py-2.5 border text-right stage-b">3.700</td>
+          </tr>
+
+          <!-- Group: receive 2 -->
+          <tr class="group-row">
+            <td colspan="10">▸ <span class="font-semibold">RS/R001/26-27/00002</span> · Bapan Kar · 28-04-2026</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2.5 border text-center align-middle">
+              <button class="btn-icon" title="Remove">✕</button>
+            </td>
+            <td class="px-3 py-2.5 border text-center font-semibold">2</td>
+            <td class="px-3 py-2.5 border font-medium">Earring Pair</td>
+            <td class="px-3 py-2.5 border"><span class="pill-violet">18K</span></td>
+            <td class="px-3 py-2.5 border text-slate-400">—</td>
+            <td class="px-3 py-2.5 border text-slate-400">—</td>
+            <td class="px-3 py-2.5 border text-right stage-a">1</td>
+            <td class="px-3 py-2.5 border text-right stage-a text-slate-400">—</td>
+            <td class="px-3 py-2.5 border text-right stage-a">5.300</td>
+            <td class="px-3 py-2.5 border text-right font-medium">5.150</td>
+          </tr>
+
+          <!-- Totals -->
+          <tr class="totals">
+            <td colspan="6" class="px-3 py-2.5 border text-center">Total · 2 items from 2 receives</td>
+            <td class="px-3 py-2.5 border text-right">2</td>
+            <td class="px-3 py-2.5 border text-right">2.000</td>
+            <td class="px-3 py-2.5 border text-right">9.300</td>
+            <td class="px-3 py-2.5 border text-right">8.850</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <footer class="text-xs text-slate-400 pt-4 border-t">
+    Mockup only · static HTML · ERP violet HSL(242 64% 63%)
+  </footer>
+
+</div>
+</body>
+</html>

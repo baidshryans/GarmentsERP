@@ -45,6 +45,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { FieldContainer } from "@/Utils.jsx";
 import { fetchSalesVoucherwithID, updateSalesVoucher, getGoldRate } from "../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { useNavigate } from "react-router-dom";
 import { renderErrorTree } from "../../Utils";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
@@ -80,7 +81,7 @@ const SalesVoucherAdd = () => {
     setValue,
     getValues,
     setFocus,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm({
     defaultValues: {
       form: {
@@ -169,6 +170,8 @@ const SalesVoucherAdd = () => {
   });
 
   // ── State ──────────────────────────────────────────────────────────────────
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
+  const [saving, setSaving] = useState(false);
   const [rs, setRows] = useState([]);              // manual / raw items
   const [statesData, setstatesData] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -438,6 +441,8 @@ const SalesVoucherAdd = () => {
               }
             });
           }
+          reset(getValues(), { keepValues: true, keepDirty: false });
+          resetTableDirty();
         }
       }
     });
@@ -740,6 +745,7 @@ const SalesVoucherAdd = () => {
       ...prev,
       { ...newMain, item_name: mainItemDisplay || newMain.item, details_set: [] },
     ]);
+    markTableDirty();
     setMainItemDisplay("");
     setValue("mainItem", {
       item: "", item_desc: "", finish: false,
@@ -757,6 +763,7 @@ const SalesVoucherAdd = () => {
 
   const handleDeleteMainItem = (mainIdx) => {
     setRows(prev => prev.filter((_, i) => i !== mainIdx));
+    markTableDirty();
     setCalculate(prev => prev + 1);
   };
 
@@ -769,6 +776,7 @@ const SalesVoucherAdd = () => {
       };
       return updated;
     });
+    markTableDirty();
     setCalculate(prev => prev + 1);
   };
 
@@ -795,6 +803,7 @@ const SalesVoucherAdd = () => {
       };
       return updated;
     });
+    markTableDirty();
     setDetailItem(null);
     setDetailItemDisplay("");
     reset({
@@ -813,6 +822,7 @@ const SalesVoucherAdd = () => {
   /** @deprecated Use handleDeleteMainItem / handleDeleteSubItem */
   const handleDeleteManualRow = (index) => {
     setRows(prev => prev.filter((_, i) => i !== index));
+    markTableDirty();
     setCalculate(prev => prev + 1);
   };
 
@@ -850,17 +860,20 @@ const SalesVoucherAdd = () => {
         return;
       }
 
+      setSaving(true);
       const response = id
         ? await updateSalesVoucher(data, id)
         : await createSalesVoucher(data);
 
       if (response.success) {
-        toast({ title: "Form submitted successfully!" });
+        toast({ title: id ? "Sales voucher updated!" : "Form submitted successfully!" });
         setTimeout(() => navigate("/sales/list/"), 500);
       } else {
+        setSaving(false);
         toast({ title: "Form submission failed.", description: renderErrorTree(response.error) });
       }
     } catch (error) {
+      setSaving(false);
       console.error("Error creating Sales Voucher:", error);
       toast({ title: "An error occurred. Please try again later." });
     }
@@ -1924,8 +1937,9 @@ const SalesVoucherAdd = () => {
           <Button
             asChild
             className="bg-primary hover:bg-primary text-white px-8"
+            disabled={saving || !canSave}
           >
-            <button type="submit">Save</button>
+            <button type="submit" disabled={saving || !canSave}>{saveLabel(saving)}</button>
           </Button>
           <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>

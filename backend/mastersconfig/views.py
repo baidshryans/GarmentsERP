@@ -211,7 +211,7 @@ class RetailMasterView(ListCreateAPIView):
         # Auto-assign the new retail to the creating user's UserLocation so
         # it appears immediately in their retail selector dropdown.
         user = self.request.user
-        if user and user.is_authenticated:
+        if user and user.is_authenticated and not user.is_superuser:
             from contacts.models import UserLocation
             ul, _ = UserLocation.objects.get_or_create(user=user)
             ul.location.add(retail)

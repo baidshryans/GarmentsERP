@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
  *   value          {string}   — controlled display value (sync from watch())
  *   onSelect       {fn(opt)}  — called when user selects an option
  *   onInputChange  {fn(val)}  — optional: called on every keystroke (for server-side search)
+ *   renderOption   {fn(opt)}  — optional: custom renderer for each row in the dropdown
  *   placeholder    {string}
  *   className      {string}
  *   disabled       {bool}
@@ -30,6 +31,7 @@ export function SearchableComboBox({
   value = "",
   onSelect,
   onInputChange,
+  renderOption,
   placeholder = "Search…",
   className = "",
   disabled = false,
@@ -171,7 +173,7 @@ export function SearchableComboBox({
               onMouseDown={(e) => { e.preventDefault(); select(opt) }}
               onMouseEnter={() => setActiveIndex(i)}
             >
-              {opt[labelKey]}
+              {renderOption ? renderOption(opt) : opt[labelKey]}
             </div>
           ))}
         </div>,

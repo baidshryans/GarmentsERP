@@ -101,26 +101,46 @@ def create_barcode_from_receive_api(request):
         # Fetch relevant records
         rec = KarigarReceive.objects.get(receive_slip_no=rec_slip_no)
         rec_item = KarigarReceiveItem.objects.get(receive_slip_no=rec, sl_no=sl_no)
-        
+
         # Fetch details with related data
         rec_details = KarigarReceiveItemDetails.objects.filter(
-            receive_slip_no=rec, 
+            receive_slip_no=rec,
             sl_no=sl_no
         ).select_related('packet__stone_item_id',)
-        
-        iss_item = KarigarIssueItem.objects.get(id=rec_item.ref_job_sl_no_id)
-        huid = HallmarkReceiveItemForPostSerializer(rec_item.hallmarkreceiveitem_set,many=True).data[0]["huid"] if len(HallmarkReceiveItemForPostSerializer(rec_item.hallmarkreceiveitem_set,many=True).data) > 0 else None
+
+        # Resolve the originating issue item — either a Karigar job-work item or
+        # a Sample-issue item, depending on what the receive references. Either
+        # may carry a design_code we want to prefill into the barcode form.
+        order_no = None
+        design_code = None
+        if rec_item.ref_job_sl_no_id:
+            iss_item = KarigarIssueItem.objects.filter(id=rec_item.ref_job_sl_no_id).first()
+            if iss_item:
+                design_code = iss_item.design_code or None
+                if iss_item.customer_order_item and iss_item.customer_order_item.order_no:
+                    order_no = iss_item.customer_order_item.order_no.order_no
+        elif rec_item.ref_sample_issue_item_id:
+            from manufacturing.models import SampleIssueItem
+            sample_item = SampleIssueItem.objects.filter(id=rec_item.ref_sample_issue_item_id).first()
+            if sample_item:
+                design_code = sample_item.design_code or None
+
+        # Resolve the HUID by walking back through any sample re-issue chain to the
+        # original karigar receive that was hallmarked. See manufacturing/utils.py.
+        from manufacturing.utils import resolve_huid_for_receive_item
+        huid = resolve_huid_for_receive_item(rec_item)
         # Prepare the response data
         response_data = {
-            
-           
-            'order_no': iss_item.customer_order_item.order_no.order_no if iss_item.customer_order_item else None,
-            'design_code': iss_item.design_code,
+
+
+            'order_no': order_no,
+            'design_code': design_code,
             'huid':huid,
             'voucher_no':rec.receive_slip_no,
             'purity':rec_item.purity.purity,
             'kr_code':rec.karigar_ldgr.id,
             'item':rec_item.item.short_code,
+            'item_name':rec_item.item.item_name,
             'pcs':rec_item.pending_pcs,
             'rec_item':rec_item.id,
             'gw':rec_item.pending_gw,
@@ -2848,3 +2868,127 @@ class OpeningInventoryViewSet(RetailBaseViewset):
             -instance.pcs, -instance.ct, -instance.gw,
         )
         instance.delete()
+
+
+class UnbarcodedStockReportView(APIView):
+    """Unbarcoded stock report with rich filtering. Lists rows from UnBarcodedMain
+    scoped to the request user's retail."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = UnBarcodedMain.objects.select_related(
+            'item', 'purity', 'retail', 'kr_code', 'customer_order'
+        ).filter(retail=request.retail)
+
+        p = request.query_params
+
+        # Stock status filter: 'active' (default), 'sold', 'all'
+        status_param = (p.get('stk_status') or 'active').lower()
+        if status_param == 'active':
+            qs = qs.filter(stk_status=True)
+        elif status_param == 'sold':
+            qs = qs.filter(stk_status=False)
+        # 'all' -> no filter
+
+        # Source / created_from (comma-separated codes)
+        sources = p.get('source')
+        if sources:
+            codes = [c.strip() for c in sources.split(',') if c.strip()]
+            if codes:
+                qs = qs.filter(created_from__in=codes)
+
+        # Item / Purity / Karigar / Customer order / Design code / Metal color
+        if p.get('item'):
+            qs = qs.filter(item_id=p.get('item'))
+        if p.get('purity'):
+            qs = qs.filter(purity_id=p.get('purity'))
+        if p.get('kr_code'):
+            qs = qs.filter(kr_code_id=p.get('kr_code'))
+        if p.get('customer_order'):
+            qs = qs.filter(customer_order_id=p.get('customer_order'))
+        if p.get('design_code'):
+            qs = qs.filter(design_code__icontains=p.get('design_code'))
+        if p.get('metal_color'):
+            qs = qs.filter(metal_color__iexact=p.get('metal_color'))
+        if p.get('label'):
+            qs = qs.filter(label__icontains=p.get('label'))
+
+        # Date range on created_date
+        date_from = p.get('date_from')
+        date_to = p.get('date_to')
+        if date_from:
+            qs = qs.filter(created_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(created_date__lte=date_to)
+
+        # Weight ranges
+        for fld, key in (('gw', 'gw_min'), ('gw', 'gw_max'),
+                         ('nw', 'nw_min'), ('nw', 'nw_max')):
+            pass  # handled below explicitly for clarity
+
+        if p.get('gw_min'):
+            qs = qs.filter(gw__gte=p.get('gw_min'))
+        if p.get('gw_max'):
+            qs = qs.filter(gw__lte=p.get('gw_max'))
+        if p.get('nw_min'):
+            qs = qs.filter(nw__gte=p.get('nw_min'))
+        if p.get('nw_max'):
+            qs = qs.filter(nw__lte=p.get('nw_max'))
+
+        qs = qs.order_by('-created_date', '-id')
+
+        rows = []
+        total_pcs = 0
+        total_gw = 0.0
+        total_nw = 0.0
+        total_value = 0.0
+        for ub in qs:
+            pcs = ub.pcs or 0
+            gw = float(ub.gw or 0)
+            nw = float(ub.nw or 0)
+            val = float(ub.total_amount or 0)
+            total_pcs += pcs
+            total_gw += gw
+            total_nw += nw
+            total_value += val
+            rows.append({
+                'id': ub.id,
+                'label': ub.label,
+                'item': ub.item.short_code if ub.item else None,
+                'item_name': ub.item.item_name if ub.item else (ub.item_desc or ''),
+                'purity': ub.purity.purity if ub.purity else None,
+                'pcs': pcs,
+                'gw': gw,
+                'nw': nw,
+                'huid': ub.huid,
+                'design_code': ub.design_code,
+                'kr_code_id': ub.kr_code_id,
+                'kr_code_name': getattr(ub.kr_code, 'ac_name', None) if ub.kr_code else None,
+                'customer_order_id': ub.customer_order_id,
+                'customer_order_no': getattr(ub.customer_order, 'order_no', None) if ub.customer_order else None,
+                'metal_color': ub.metal_color,
+                'size': ub.size,
+                'making_val': float(ub.making_val or 0),
+                'making_type': ub.making_type,
+                'other_chg': float(ub.other_chg or 0),
+                'value': float(ub.value or 0),
+                'total_amount': val,
+                'source': ub.created_from,
+                'source_label': dict(UnBarcodedMain.CREATED_FROM_CHOICES).get(ub.created_from, ub.created_from),
+                'stk_status': ub.stk_status,
+                'op_stk': ub.op_stk,
+                'voucher_no': ub.voucher_no,
+                'created_by': ub.created_by,
+                'created_date': ub.created_date,
+            })
+
+        return Response({
+            'rows': rows,
+            'totals': {
+                'pcs': total_pcs,
+                'gw': round(total_gw, 3),
+                'nw': round(total_nw, 3),
+                'value': round(total_value, 2),
+                'count': len(rows),
+            },
+        })

@@ -47,6 +47,7 @@ import { useNavigate } from "react-router-dom";
 
 import { FieldContainer } from "@/Utils";
 import { fetchSalesReturnById, updateSalesReturn } from "../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 const RawSalesReturn = () => {
   const { toast } = useToast();
@@ -60,6 +61,7 @@ const RawSalesReturn = () => {
     watch,
     setValue,
     getValues,
+    formState: { isDirty },
   } = useForm({
     defaultValues: {
       form: {
@@ -118,6 +120,8 @@ const RawSalesReturn = () => {
 
   // Data-lists from your APIs
   const [rs, setRows] = useState([]); // array of items to be submitted
+  const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [mainItemData, setMainItemData] = useState([]);
   const [customerOrders, setCustomerOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -209,7 +213,7 @@ const RawSalesReturn = () => {
               };
               reset({form:{...data.data}})
               setRows(JSON.parse(JSON.stringify(data.data.salereturnitem_set)))
-              
+              resetTableDirty();
             }
           })
           }
@@ -239,25 +243,28 @@ const RawSalesReturn = () => {
       }
 
       // const response = await createSalesReturn(data);
+      setSaving(true);
       const response= id ? (await updateSalesReturn(data,id))  : ( await createSalesReturn(data));
-      
+
       if (response.success) {
-        toast({ title: "Form submitted successfully!" });
+        toast({ title: id ? "Updated successfully!" : "Form submitted successfully!" });
         reset(); // Clear entire form
         setRows([]); // Clear item array
-      
+
         setTimeout(() => {
           navigate("/sales/salesreturn/list/");
-        }, 2000); 
+        }, 2000);
 
       } else {
+        setSaving(false);
         toast({
           title: "Form submission failed. Please try again.",
           description: renderErrorTree(response.error),
         });  // Error toast
       }
-            
+
     } catch (error) {
+      setSaving(false);
       console.error("Error creating Sales Voucher:", error);
       toast({ title: "An error occurred. Please try again later." });
     }
@@ -273,6 +280,7 @@ const RawSalesReturn = () => {
     const itemData = getValues("@/table");
     // Add to array
     setRows((prev) => [...prev, itemData]);
+    markTableDirty();
     // Reset the single "@/table" input fields to blank
     reset({
       ...getValues(),
@@ -321,6 +329,7 @@ const RawSalesReturn = () => {
     newItem.details = [det]
 
     setRows([...rs, {...newItem}]);
+    markTableDirty();
     // optionally reset the single "@/table" fields after adding
     reset({
       ...getValues(),
@@ -441,10 +450,12 @@ const RawSalesReturn = () => {
   // Example: if you want to remove a row
   const handleDeleteItem = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleEdit = (index) => {
     const itemToEdit = rs[index];
+    markTableDirty();
     reset({
       ...getValues(),
       table: {
@@ -867,8 +878,8 @@ const RawSalesReturn = () => {
 
         {/* FINAL SUBMIT BUTTONS */}
         <div className="flex justify-center mt-5">
-          <Button type="submit" className="mr-4">
-            Save
+          <Button type="submit" disabled={saving || !canSave} className="mr-4">
+            {saveLabel(saving)}
           </Button>
           <Button
             variant="outline" onClick={() => window.history.back()}

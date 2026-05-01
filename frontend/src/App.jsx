@@ -71,6 +71,7 @@ const PurchaseVoucherList        = lazy(() => import("./components/manufacturing
 const StockMatchingReport        = lazy(() => import("./components/manufacturing/purchases/StockMatchingReport"));
 const IdGenerationReport         = lazy(() => import("./components/Inventory/BarcodeManagement/IdGenerationReport"));
 const KarigarStoneTransactions   = lazy(() => import("./components/manufacturing/reports/KarigarStoneTransactions.jsx"));
+const UnbarcodedStockReport      = lazy(() => import("./components/manufacturing/reports/UnbarcodedStockReport.jsx"));
 const FinishedItemRecReport      = lazy(() => import("./finishItemreceiveReport.jsx"));
 const GstInputRegister           = lazy(() => import("./GstInputRegister.jsx"));
 const GstOutputRegister          = lazy(() => import("./GstOutputRegister.jsx"));
@@ -355,6 +356,7 @@ const appRoutes = [
   { path: "manufacturing/reports/joborder",          heading: "Job Order Report",                 component: <JoborderReport /> },
   { path: "manufacturing/reports/karigar-jobwork",   heading: "Karigar Job Work Report",          component: <KarigarJobWorkReport /> },
   { path: "manufacturing/reports/refinery",          heading: "Refinery Report",                  component: <RefineryReport /> },
+  { path: "manufacturing/reports/unbarcoded-stock",  heading: "Unbarcoded Stock Report",          component: <UnbarcodedStockReport /> },
 
   // ── Purchases ─────────────────────────────────────────────────────────────
   { path: "purchase/list/",                        heading: "Purchase Voucher List",  component: <PurchaseVoucherList /> },

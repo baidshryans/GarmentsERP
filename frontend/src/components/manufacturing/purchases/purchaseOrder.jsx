@@ -17,6 +17,7 @@ import { fetchPoNoNext, fetchPurchaseOrderForEdit, updatePurchaseOrderForEdit } 
 import { SquarePen, Trash2, ChevronRight, ShoppingCart, Link2 } from "lucide-react";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 /* ─── helpers ──────────────────────────────────────────────── */
 function SectionCard({ title, children, className = "", action }) {
@@ -49,7 +50,7 @@ function Field({ label, required, children, className = "" }) {
 const PurchaseOrder = () => {
   const { toast } = useToast()
   const { id } = useParams()
-  const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus } = useForm({
+  const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus, formState: { isDirty } } = useForm({
     defaultValues: {
       form: {
         place_of_supply: "WB",
@@ -75,6 +76,7 @@ const PurchaseOrder = () => {
     ? new Set(prefillItemIdsParam.split(",").map(s => Number(s.trim())).filter(n => !Number.isNaN(n)))
     : null;
   const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [rs, setRows] = useState([]);
 const [mainItemData, setMainItemData] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -160,6 +162,8 @@ useEffect(() => {
             if (response.data.purchaseorderitems_set) {
               setRows(response.data.purchaseorderitems_set);
             }
+            reset(getValues(), { keepValues: true, keepDirty: false });
+            resetTableDirty();
           })
           .catch((error) => console.error('Error fetching purchase order:', error));
       }
@@ -230,9 +234,11 @@ useEffect(() => {
     // effect overwrite it with max+1.
     skipAutoSlNoRef.current = true;
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDelete = (index) => {
+    markTableDirty();
     setRows((prev) => {
       const removed = prev[index];
       if (removed && removed.customer_order_item && removed._co_display) {
@@ -285,6 +291,7 @@ useEffect(() => {
       .filter((p) => selectedIds.has(p.co_item_id))
       .filter((p) => !existingCoItemIds.has(p.co_item_id));
     if (picked.length === 0) { setPickerOpen(false); return; }
+    markTableDirty();
     setRows((prev) => {
       const base = prev.length;
       const newRows = picked.map((p, idx) => ({
@@ -389,7 +396,7 @@ useEffect(() => {
       });
       return;
     }
-    setRows([...rs, { ...merged, po_sl_no: slNoNum }]);
+    setRows([...rs, { ...merged, po_sl_no: slNoNum }]); markTableDirty();
     editingMetaRef.current = null;
     reset({ form: { ...getValues('form') }, table: { ...tableDefaultValue } });
     setFocus('table.po_sl_no');
@@ -739,8 +746,8 @@ useEffect(() => {
           >
             Cancel
           </Button>
-          <Button type="submit" className="min-w-28 cursor-pointer" disabled={saving}>
-            Save Order
+          <Button type="submit" className="min-w-28 cursor-pointer" disabled={saving || !canSave}>
+            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Order" : "Save Order")}
           </Button>
         </div>
       </form>

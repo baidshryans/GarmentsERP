@@ -10,6 +10,7 @@ import { Table, TableRow, TableCell, TableBody, TableHeader, TableHead } from "@
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchMainItem, fetchPurity, getLedgers, fetchPackets } from "@/services/apiService";
 import { createMeltingIssue, fetchNextMeltingIssueNo, fetchMeltingIssueForEdit, updateMeltingIssueForEdit } from "../../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { useParams, useNavigate } from "react-router-dom";
 import { SquarePen, Trash2 } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
@@ -36,7 +37,7 @@ const IssueToMelting = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus } = useForm({
+    const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus, formState: { isDirty } } = useForm({
         defaultValues: {
             form: {
                 date1: new Date().toISOString().split("T")[0],
@@ -50,6 +51,7 @@ const IssueToMelting = () => {
 
     const [rs, setRows] = useState([]);
     const [saving, setSaving] = useState(false);
+    const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
     const [meltingHouses, setMeltingHouses] = useState([]);
     const [mainItemData, setMainItemData] = useState([]);
     const [purityData, setPurityData] = useState([]);
@@ -82,6 +84,8 @@ const IssueToMelting = () => {
                             if (response.data.meltingissuedetail_set) {
                                 setRows(response.data.meltingissuedetail_set);
                             }
+                            reset(getValues(), { keepValues: true, keepDirty: false });
+                            resetTableDirty();
                         }
                     })
                     .catch(console.error);
@@ -97,6 +101,7 @@ const IssueToMelting = () => {
             return;
         }
         setRows((prev) => [...prev, { ...row }]);
+        markTableDirty();
         reset({ form: { ...getValues("form") }, table: { ...tableDefault } });
         setFocus("table.packet");
     };
@@ -104,10 +109,12 @@ const IssueToMelting = () => {
     const handleEdit = (index) => {
         reset({ form: { ...getValues("form") }, table: { ...rs[index] } });
         setRows((prev) => prev.filter((_, i) => i !== index));
+        markTableDirty();
     };
 
     const handleDelete = (index) => {
         setRows((prev) => prev.filter((_, i) => i !== index));
+        markTableDirty();
     };
 
     const handleKeyDown = (e) => {
@@ -380,8 +387,8 @@ const IssueToMelting = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
-                        Save
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || !canSave}>
+                        {saveLabel(saving)}
                     </Button>
                 </div>
             </form>

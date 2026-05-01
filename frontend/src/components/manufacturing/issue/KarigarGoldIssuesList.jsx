@@ -83,6 +83,17 @@ function KarigarGoldIssuesList() {
       accessorKey: "billno",
     },
     {
+      header: "Karigar Name",
+      accessorKey: "karigar_ldgr_name",
+      cell: ({ row }) => (
+        <div>
+          {row.original?.karigar_ldgr_name || row.original?.ref_job_no?.karigar_ldgr?.display_name}
+
+        </div>
+      ),
+
+    },
+    {
       header: "Job No",
       accessorKey: "job_no",
       cell: ({ row }) => (
@@ -116,17 +127,6 @@ function KarigarGoldIssuesList() {
             {String(item.customer_order_item)}
           </div>)) : ""}
 
-
-        </div>
-      ),
-
-    },
-    {
-      header: "Karigar Name",
-      accessorKey: "karigar_ldgr",
-      cell: ({ row }) => (
-        <div>
-          {row.original?.ref_job_no?.karigar_ldgr?.display_name}
 
         </div>
       ),

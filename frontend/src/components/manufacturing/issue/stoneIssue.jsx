@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { fetchMainItem, fetchNextStoneBillNo, getStates, fetchPurity, fetchPacke
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchStoneIssueForEdit, updateKarigarStoneIssue } from "../../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { SquarePen, Trash2 } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router-dom";
@@ -38,7 +39,7 @@ const tableDefaultValue = {
 const StoneIssue = () => {
   const {id } = useParams()
   const { toast } = useToast()
-  const { register, handleSubmit, control, reset, watch, setValue, getValues,setFocus } = useForm({
+  const { register, handleSubmit, control, reset, watch, setValue, getValues,setFocus, formState: { isDirty } } = useForm({
     defaultValues: {
       form:{
       place_of_supply:"WB",
@@ -67,6 +68,8 @@ const StoneIssue = () => {
   const [currentPacketHsnRates, setCurrentPacketHsnRates] = useState({ cgst: 0, sgst: 0, igst: 0 });
   const [packetBalance, setPacketBalance] = useState(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
+  const hydratingRef = useRef(!!id);
 
   const loadJobItems = async (jobId) => {
     const slip_type = getValues("form.slip_type");
@@ -100,24 +103,45 @@ const StoneIssue = () => {
       if (initialData.success) setRetailStateCode(initialData.data.retail_state_code || "");
     }
     fetchData().then(d => {
-          if (id) {
-    
-            
-              fetchStoneIssueForEdit(id)
-                .then((response) => {
-                  Object.keys(response.data).forEach((key) => {
-                    setValue(`form.${key}`, response.data[key]);
-                  });
-          
-                  // Set items array
-                  if (response.data.karigarstoneissue_set) {
-                    setRows(response.data.karigarstoneissue_set);
-                  }
-                })
-                .catch((error) => {
-                  console.error('Error fetching manufacturing issue:', error);
-                });
-          }
+          if (!id) return;
+          fetchStoneIssueForEdit(id)
+            .then(async (response) => {
+              Object.keys(response.data).forEach((key) => {
+                setValue(`form.${key}`, response.data[key]);
+              });
+
+              const detailRows = response.data.karigarstoneissue_set || [];
+              setRows(detailRows);
+
+              if (detailRows.length > 0) {
+                const refJobId = detailRows[0].ref_job_object_id;
+                const jobSlId = detailRows[0].job_sl_object_id;
+                const slipType = response.data.slip_type;
+
+                const k = await fetchPos(slipType);
+                const karigarList = k.success ? k.data.results : [];
+                setKarigars(karigarList);
+
+                const found = karigarList.find((x) => x.id === refJobId);
+                if (found) setValue("form.ref_job_name", found.name);
+                setValue("form.ref_job_object_id", refJobId);
+
+                const jobResp = await fetchStoneIssuesFilterJobs(refJobId, slipType);
+                if (jobResp.success) {
+                  const items = jobResp.data.job_items || [];
+                  setJobItems(items);
+                  const sel = items.find((x) => x.id === jobSlId);
+                  if (sel) setSelectedJobItem(sel);
+                }
+              }
+              reset(getValues(), { keepValues: true, keepDirty: false });
+              resetTableDirty();
+              hydratingRef.current = false;
+            })
+            .catch((error) => {
+              console.error('Error fetching manufacturing issue:', error);
+              hydratingRef.current = false;
+            });
         });
   }, []);
 
@@ -149,6 +173,7 @@ const StoneIssue = () => {
       if (karigars.success) setKarigars(karigars.data.results);
     }
     fetchData();
+    if (hydratingRef.current) return;
     setValue("form.ref_job_name", "");
     setValue("form.ref_job_object_id", "");
     setSelectedJobItem(null);
@@ -243,10 +268,12 @@ const StoneIssue = () => {
     const row = rs[index];
     reset({form:getValues('form'),table:row});
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDelete = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
 
@@ -265,9 +292,13 @@ const StoneIssue = () => {
       }
       e.preventDefault()
       setRows([...rs, rowVals])
+      markTableDirty();
       reset({form:{...getValues('form')},table:{...tableDefaultValue}})
       setPacketBalance(null);
-      setFocus('table.packet')
+      setTimeout(() => {
+        const el = document.querySelector('[data-packet-combo] input');
+        if (el) el.focus();
+      }, 0);
 
     }
   };
@@ -604,7 +635,7 @@ const StoneIssue = () => {
             <TableBody>
               <TableRow className="bg-muted/20">
                 <TableCell className="py-1.5 px-2 text-center text-muted-foreground">{rs.length + 1}</TableCell>
-                <TableCell className="py-1.5 px-2">
+                <TableCell className="py-1.5 px-2" data-packet-combo>
                   <SearchableComboBox
                     options={packets}
                     labelKey="pckt_no"
@@ -734,8 +765,8 @@ const StoneIssue = () => {
 
       {/* ── Actions ── */}
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+        <Button type="submit" disabled={saving || !canSave}>
+          {saveLabel(saving)}
         </Button>
         <Button type="button" variant="ghost" onClick={() => window.history.back()}>
           Cancel

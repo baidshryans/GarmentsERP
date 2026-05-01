@@ -40,6 +40,7 @@ import {
   fetchSalesApprovalById,
   updateSalesApproval,
 } from "../../services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 /* ─── helpers ──────────────────────────────────────────────── */
 const fmt = (v) =>
@@ -66,7 +67,7 @@ const SalesApprovalAdd = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { register, handleSubmit, control, reset, watch, setValue, getValues } =
+  const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } =
     useForm({
       defaultValues: {
         form: {
@@ -97,6 +98,7 @@ const SalesApprovalAdd = () => {
 
   /* ── state ── */
   const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, resetTableDirty } = useEditDirty({ id, isDirty });
   const [statesData, setStatesData]       = useState([]);
   const [customers, setCustomers]         = useState([]);
   const [salespersonData, setSalesperson] = useState([]);
@@ -143,6 +145,8 @@ const SalesApprovalAdd = () => {
               setValue(`form.${key}`, d[key]);
             }
           });
+          reset(getValues(), { keepValues: true, keepDirty: false });
+          resetTableDirty();
         }
       }
     }
@@ -547,7 +551,7 @@ const SalesApprovalAdd = () => {
 
         {/* ── Actions ──────────────────────────────────────── */}
         <div className="flex justify-center gap-4 pt-2">
-          <Button type="submit" disabled={saving}>Save</Button>
+          <Button type="submit" disabled={saving || !canSave}>{saveLabel(saving)}</Button>
           <Button variant="outline" type="button" onClick={() => window.history.back()}>
             Cancel
           </Button>

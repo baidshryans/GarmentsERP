@@ -17,6 +17,7 @@ import {
 } from "../../../services/apiService";
 import { renderErrorTree } from "../../../Utils";
 import { Trash2 } from "lucide-react";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 /* Vertical label + input stacking */
 const Field = ({ label, children }) => (
@@ -31,7 +32,7 @@ const ReceiveFromRefinary = () => {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const { register, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+    const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
         defaultValues: {
             form: {
                 date1: new Date().toISOString().split("T")[0],
@@ -46,6 +47,7 @@ const ReceiveFromRefinary = () => {
     const { fields, append, remove, replace } = useFieldArray({ control, name: "table" });
 
     const [saving, setSaving] = useState(false);
+    const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
     const [refineries, setRefineries] = useState([]);
     const [purityData, setPurityData] = useState([]);
     const [issueNumbers, setIssueNumbers] = useState([]);
@@ -74,6 +76,8 @@ const ReceiveFromRefinary = () => {
                         setValue("form.ldgr", d.ldgr);
                         setValue("form.ldgr_name", d.ldgr_name || "");
                         replace(d.refinaryreceivedetail_set || []);
+                        reset(getValues(), { keepValues: true, keepDirty: false });
+                        resetTableDirty();
                     }
                 });
             }
@@ -101,6 +105,7 @@ const ReceiveFromRefinary = () => {
                 }))
             );
         replace(rows);
+        markTableDirty();
     };
 
     const onSubmit = () => {
@@ -312,8 +317,8 @@ const ReceiveFromRefinary = () => {
                     <Button type="button" variant="outline" onClick={() => window.history.back()}>
                         Cancel
                     </Button>
-                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>
-                        Save
+                    <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || !canSave}>
+                        {saveLabel(saving)}
                     </Button>
                 </div>
             </form>

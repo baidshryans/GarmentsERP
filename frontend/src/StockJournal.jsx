@@ -18,6 +18,7 @@ import {
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { SquarePen, Trash2, Save, X } from "lucide-react";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 const StockJournal = () => {
@@ -25,7 +26,7 @@ const StockJournal = () => {
   const { id }     = useParams();
   const navigate   = useNavigate();
 
-  const { register, handleSubmit, control, reset, watch, setValue, getValues } = useForm({
+  const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
     defaultValues: {
       form: {
         date1:    new Date().toISOString().split("T")[0],
@@ -46,6 +47,8 @@ const StockJournal = () => {
   });
 
   const [rows,        setRows]        = useState([]);
+  const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [purityData,  setPurityData]  = useState([]);
   const [packets,     setPackets]     = useState([]);
   const [rawItems,    setRawItems]    = useState([]);   // type=R items
@@ -88,6 +91,8 @@ const StockJournal = () => {
             setValue("form.billno",  d.billno  || "");
             setValue("form.remarks", d.remarks || "");
             if (d.stockjournaldetail_set) setRows(d.stockjournaldetail_set);
+            reset(getValues(), { keepValues: true, keepDirty: false });
+            resetTableDirty();
           })
           .catch(err => console.error("Error fetching stock journal:", err));
       }
@@ -146,6 +151,7 @@ const StockJournal = () => {
     }
 
     setRows(prev => [...prev, { ...newItem }]);
+    markTableDirty();
     setValue("table", {
       packet: "", item: "", metal_purity: "", doc_type: "",
       pcs: "", ct: "", gw: "", loss: "",
@@ -166,10 +172,12 @@ const StockJournal = () => {
       setPacketActive(false);
     }
     setRows(prev => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDelete = (index) => {
     setRows(prev => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleKeyDown = (e) => {
@@ -491,8 +499,8 @@ const StockJournal = () => {
             <Button type="button" variant="outline" onClick={() => window.history.back()} className="gap-2">
               <X className="size-4" /> Cancel
             </Button>
-            <Button type="submit" className="gap-2 bg-primary hover:bg-primary text-white">
-              <Save className="size-4" /> Save
+            <Button type="submit" disabled={saving || !canSave} className="gap-2 bg-primary hover:bg-primary text-white">
+              <Save className="size-4" /> {saveLabel(saving)}
             </Button>
           </div>
         </form>

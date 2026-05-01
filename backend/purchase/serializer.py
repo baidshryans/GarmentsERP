@@ -387,7 +387,8 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     purchasevoucherdetails_set = PurchaseVoucherDetailsSerializer(many=True,)
 
     def get_item_name(self, obj):
-        return obj.item.item_name if obj.item else None
+        item = obj.get('item') if isinstance(obj, dict) else obj.item
+        return item.item_name if item else None
 
     class Meta:
         model = PurchaseVoucherItems
@@ -531,11 +532,17 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
         for item in obj.purchasevoucheritems_set.all():
             for detail in item.purchasevoucherdetails_set.all():
                 if detail.sub_item and detail.sub_item.item_type == 'S':
-                    stone_wt += detail.sub_gw or Decimal('0')
+                    stone_wt += detail.sub_ct or Decimal('0')
         return float(stone_wt)
 
     def get_total_nw(self, obj):
-        return round(self.get_total_gw(obj) - self.get_total_stone_wt(obj), 3)
+        from decimal import Decimal
+        gold_nw = Decimal('0')
+        for item in obj.purchasevoucheritems_set.all():
+            for detail in item.purchasevoucherdetails_set.all():
+                if detail.sub_item_id == 31:
+                    gold_nw += detail.sub_gw or Decimal('0')
+        return float(gold_nw)
 
     class Meta:
         model = PurchaseVoucher
@@ -659,49 +666,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
             _round_off = Decimal(str(purchase_voucher_instance.round_off or 0))
 
-            # ── DEBUG: print every journal line ──────────────────────────────
-            print(f"\n{'='*60}")
-            print(f"PURCHASE VOUCHER JOURNAL — {purchase_voucher_instance.billno}")
-            print(f"  bill_value (recomputed): {purchase_voucher_instance.bill_value}")
-            print(f"  tds_amt : {purchase_voucher_instance.tds_amt}  round_off: {_round_off}")
-            print(f"  cgst={purchase_voucher_instance.cgst}  sgst={purchase_voucher_instance.sgst}  igst={purchase_voucher_instance.igst}")
-            print(f"  hallmark={purchase_voucher_instance.hallmark_charge}  freight={purchase_voucher_instance.freight_amt}")
-            print(f"  discount={purchase_voucher_instance.discount_amt}")
-            print(f"  --- ITEM item_value totals ---")
-            for _i in item_instances:
-                print(f"    item={_i.item}  item_value={_i.item_value}  making={_i.making_value}")
-            print(f"  --- SUB-ITEM detail values ---")
-            for _d in item_detail_instances:
-                _ln = _d.sub_item.purchase_ledger.ac_name if _d.sub_item and _d.sub_item.purchase_ledger else "?NO_LEDGER?"
-                print(f"    DEBIT  {_ln:40s}  value={_d.value}  (sub_item={_d.sub_item}, id={_d.id})")
-            _dbg_debit = (
-                Decimal(str(purchase_voucher_instance.cgst or 0)) +
-                Decimal(str(purchase_voucher_instance.sgst or 0)) +
-                Decimal(str(purchase_voucher_instance.igst or 0)) +
-                Decimal(str(purchase_voucher_instance.hallmark_charge or 0)) +
-                Decimal(str(purchase_voucher_instance.freight_amt or 0)) +
-                max(_round_off, Decimal('0')) +
-                sum(Decimal(str(_i.making_value or 0)) for _i in item_instances) +
-                sum(Decimal(str(_d.value or 0)) for _d in item_detail_instances)
-            )
-            _dbg_credit = (
-                Decimal(str(purchase_voucher_instance.discount_amt or 0)) +
-                (abs(_round_off) if _round_off < 0 else Decimal('0')) +
-                Decimal(str(purchase_voucher_instance.bill_value or 0))
-            )
-            print(f"  --- VENDOR credit ---")
-            print(f"    CREDIT {str(purchase_voucher_instance.ldgr.ac_name):40s}  {(purchase_voucher_instance.bill_value - Decimal(str(purchase_voucher_instance.tds_amt or 0))):.2f}")
-            print(f"  --- TOTALS ---")
-            print(f"    Total DEBIT : {_dbg_debit:.2f}")
-            print(f"    Total CREDIT: {_dbg_credit:.2f}")
-            print(f"    DIFFERENCE  : {(_dbg_debit - _dbg_credit):.2f}")
-            print(f"{'='*60}\n")
-            # ── END DEBUG ─────────────────────────────────────────────────────
-
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
                             "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
-                            "narration":f"Purchase Voucher Narration",
+                            "narration":f"Purchase Voucher {purchase_voucher_instance.billno}",
                             "voucher_type":global_vars.VoucherType.purc_sc,
                             "retail":retail.id,
                             "voucher_details": (
@@ -751,7 +719,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}")
                 tds_ser = JournalEntrySerializer(data={
                     'date': purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                    'voucher_no': generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                    'voucher_no': _existing_tds_voucher_no or generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                     'narration': f"TDS u/s {purchase_voucher_instance.tds_section.section_code} on {purchase_voucher_instance.billno}",
                     'voucher_type': global_vars.VoucherType.purc_sc,
                     'retail': retail.id,
@@ -848,6 +816,8 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             instance.due_amt = max(instance.bill_value - _amount_paid, Decimal('0'))
             instance.save(update_fields=['bill_value', 'due_amt'])
 
+            _existing_voucher_no     = instance.ac_voucher.voucher_no     if instance.ac_voucher     else None
+            _existing_tds_voucher_no = instance.tds_ac_voucher.voucher_no if instance.tds_ac_voucher else None
             if instance.ac_voucher:
                 instance.ac_voucher.delete()
             if instance.tds_ac_voucher:
@@ -867,8 +837,8 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             _round_off = Decimal(str(purchase_voucher_instance.round_off or 0))
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                            "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
-                            "narration":f"Purchase Voucher Narration",
+                            "voucher_no":_existing_voucher_no or generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                            "narration":f"Purchase Voucher {purchase_voucher_instance.billno}",
                             "voucher_type":global_vars.VoucherType.purc_sc,
                             "retail":retail.id,
                             "voucher_details": (
@@ -919,7 +889,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}")
                 tds_ser = JournalEntrySerializer(data={
                     'date': purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                    'voucher_no': generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                    'voucher_no': _existing_tds_voucher_no or generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
                     'narration': f"TDS u/s {purchase_voucher_instance.tds_section.section_code} on {purchase_voucher_instance.billno}",
                     'voucher_type': global_vars.VoucherType.purc_sc,
                     'retail': retail.id,

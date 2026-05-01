@@ -34,7 +34,7 @@ const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
     );
     const debounceRef = useRef(null);
 
-    const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm({
+    const { register, handleSubmit, control, formState: { errors, isSubmitting, isDirty } } = useForm({
         defaultValues: {
             ldgr: initial?.ldgr ? String(initial.ldgr) : '',
             type: initial ? (Number(initial.debit) > 0 ? 'debit' : 'credit') : 'debit',
@@ -131,9 +131,9 @@ const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
             </div>
 
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
-                <Button type="submit" disabled={isSubmitting}
+                <Button type="submit" disabled={isSubmitting || (!!initial && !isDirty)}
                     className="flex-1 bg-primary hover:bg-primary text-white font-semibold">
-                    {isSubmitting ? 'Saving…' : initial ? 'Update' : 'Save'}
+                    {isSubmitting ? (initial ? 'Updating…' : 'Saving…') : initial ? 'Update' : 'Save'}
                 </Button>
                 <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
             </div>

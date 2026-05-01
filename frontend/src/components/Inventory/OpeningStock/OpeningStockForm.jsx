@@ -277,7 +277,7 @@ export default function OpeningStockForm() {
       <div className="flex gap-3">
         <Button onClick={handleSave} disabled={saving}>
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save
+          {saving ? (isEdit ? "Updating…" : "Saving…") : (isEdit ? "Update" : "Save")}
         </Button>
         <Button variant="outline" onClick={() => navigate("/inventory/opening-stock")}>
           Cancel

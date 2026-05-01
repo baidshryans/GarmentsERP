@@ -51,6 +51,7 @@ urlpatterns = [
     path('api/barcode-images/<int:pk>/', views.BarcodeImageDelete.as_view(), name='barcode_image_delete'),
     re_path(r'^api/barcode-image-file/(?P<name>.+)$', views.serve_barcode_image_file, name='barcode_image_file'),
     path('api/raw-material-balance/', views.RawMaterialBalanceReportView.as_view(), name='raw_material_balance'),
+    path('api/unbarcoded-stock-report/', views.UnbarcodedStockReportView.as_view(), name='unbarcoded_stock_report'),
     path('api/raw-material-ledger/', views.RawMaterialMovementLedgerView.as_view(), name='raw_material_ledger'),
     path('api/semi-finished-stock/', views.SemiFinishedStockReportView.as_view(), name='semi_finished_stock'),
     path('api/rfid/assign/', views.RfidTagAssignView.as_view(), name='rfid_tag_assign'),

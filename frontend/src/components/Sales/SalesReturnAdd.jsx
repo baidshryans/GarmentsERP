@@ -34,6 +34,7 @@ import {
 import { useParams, useNavigate } from "react-router-dom";
 import { renderErrorTree } from "../../Utils";
 import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
@@ -77,7 +78,7 @@ const SalesReturnAdd = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { register, handleSubmit, control, reset, watch, setValue, getValues } =
+  const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } =
     useForm({
       defaultValues: {
         form: {
@@ -108,6 +109,7 @@ const SalesReturnAdd = () => {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [rs, setRows]                             = useState([]);
   const [fetchedBillItems, setFetchedBillItems]   = useState([]);
   const [selectedIndices, setSelectedIndices]     = useState(new Set());
@@ -183,6 +185,7 @@ const SalesReturnAdd = () => {
           });
           setRows(JSON.parse(JSON.stringify(d.salereturnitem_set || [])));
           setCalculate((c) => c + 1);
+          resetTableDirty();
         }
       }
     }
@@ -325,6 +328,7 @@ const SalesReturnAdd = () => {
     if (selectedIndices.size === 0) { toast({ title: "No items selected" }); return; }
     const selected = fetchedBillItems.filter((_, i) => selectedIndices.has(i));
     setRows((prev) => [...prev, ...selected]);
+    markTableDirty();
     setFetchedBillItems([]);
     setSelectedIndices(new Set());
 
@@ -361,6 +365,7 @@ const SalesReturnAdd = () => {
         salereturndetails_set: [],
       },
     ]);
+    markTableDirty();
     setMainItemDisplay("");
     setValue("mainItem", { ...emptyMainItem });
     setCalculate((c) => c + 1);
@@ -417,6 +422,7 @@ const SalesReturnAdd = () => {
           : row
       )
     );
+    markTableDirty();
     // Reset but keep sl_no for convenience
     setDetailItemDisplay("");
     setDetailItem(null);
@@ -431,6 +437,7 @@ const SalesReturnAdd = () => {
   // ── Row management ────────────────────────────────────────────────────────
   const handleDeleteItem = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
     setCalculate((c) => c + 1);
   };
 
@@ -442,6 +449,7 @@ const SalesReturnAdd = () => {
           : row
       )
     );
+    markTableDirty();
   };
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -909,7 +917,7 @@ const SalesReturnAdd = () => {
         {/* ══ Action Buttons ════════════════════════════════════════════════ */}
         <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
           <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving}>Save</Button>
+          <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || !canSave}>{saveLabel(saving)}</Button>
         </div>
       </form>
     </div>

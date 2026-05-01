@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchMainItem, fetchOrderItem, fetchReceiveSlipNo, fetchKarigarIssues, fetchPurity, getLedgers, createCustomerOrder, fetchPackets, getStates, fetchStoneIssuesFilterJobs, fetchMainItemDetails, createKarigarReceive, fetchKarigarReceive, fetchKarigarReceivewithID, updateKarigarReceive, fetchSampleIssues, fetchSampleIssueForEdit } from "@/services/apiService";
+import { useEditDirty } from "@/hooks/useEditDirty";
 import { Link, useParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
@@ -35,7 +36,7 @@ function SectionCard({ title, children, className = "", action, subtitle }) {
 const JobWorkReceive = () => {
   const { id } = useParams()
   const { toast } = useToast()
-  const { register, control, handleSubmit, reset, watch, setValue, getValues, trigger } = useForm({
+  const { register, control, handleSubmit, reset, watch, setValue, getValues, trigger, formState: { isDirty } } = useForm({
     defaultValues: {
       form: {
         date1: new Date().toISOString().split('T')[0],
@@ -46,6 +47,7 @@ const JobWorkReceive = () => {
     }
   });
   const navigate=useNavigate();
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [change, setChange] = useState(0);
   const [saving, setSaving] = useState(false);
   const [serialNos, setSerialNos] = useState([]);
@@ -78,9 +80,13 @@ const JobWorkReceive = () => {
   }, [watchedRefJobNoId]);
 function modifyData(data) {
   data.items.forEach(item => {
-    // Calculate pending values
+    // Calculate pending values from received pcs/gw minus what's already in details
     const pending_pcs = item.pcs - (item.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_pcs) || 0), 0));
     const pending_gw = item.nw - (item.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_gw) || 0), 0));
+
+    // Set pending values on the main item object
+    item.pending_pcs = pending_pcs;
+    item.pending_gw = pending_gw;
 
     let newDetail = {
       broken_pcs: 0,
@@ -93,8 +99,6 @@ function modifyData(data) {
       balance_gw: item.nw,
       balance_pcs: 0,
       sl_no: item.sl_no,
-      pending_pcs:0,  // Add pending values
-      pending_gw:0,    // Add pending values
     };
 
     item.details.push(newDetail);
@@ -111,8 +115,14 @@ function modifyData(data) {
     const response = await fetchStoneIssuesFilterJobs(refJobNoId, "Job Order");
     console.log("[JobWorkReceive] filter-job-items response:", response);
     if (response.success) {
-      const items = response.data.job_items || [];
-      console.log("[JobWorkReceive] setting serialNos to", items.length, "items:", items);
+      let items = response.data.job_items || [];
+      // Filter to show only items that have been issued but not yet fully received
+      items = items.filter(item => {
+        const issued = parseFloat(item.issued_qty || item.pcs || 0);
+        const received = parseFloat(item.received_qty || 0);
+        return issued > received;
+      });
+      console.log("[JobWorkReceive] setting serialNos to", items.length, "items (after filtering for pending):", items);
       setSerialNos(items);
     } else {
       toast({ title: "An error occurred. Please try again later." });
@@ -156,6 +166,20 @@ function modifyData(data) {
       const matchingSerial = serialNos.find(
         (s) => String(s.job_sl_no) === String(sl_no)
       );
+
+      // Check for duplicate: prevent adding the same job item twice
+      const refJobSlNo = matchingSerial?.id || null;
+      const existingItem = getValues("table").find(
+        (item) => item.ref_job_sl_no === refJobSlNo
+      );
+      if (existingItem) {
+        toast({
+          title: "Duplicate Item",
+          description: `Item '${ref_job_no}' with SL No '${sl_no}' is already added in this receive slip.`,
+        });
+        return;
+      }
+
       const stone_details = [...data.data.details]
       data.data.date1 = getValues("form.date1")
       data.data.sl_no = sl
@@ -200,6 +224,7 @@ function modifyData(data) {
       data.data.details = (data.data.details || []).map(round3WeightFields);
 
       append(data.data)
+      markTableDirty();
       setTimeout(() => {
         handletunchChange(getValues("table").length - 1);
         handlelossChange(getValues("table").length - 1);
@@ -257,6 +282,7 @@ function modifyData(data) {
       _source_label: `Sample · ${getValues("form.ref_sample_issue_billno") || ""} · Sl ${ref_sample_sl_no}`,
     };
     append(row);
+    markTableDirty();
 
     setValue("form.ref_sample_issue_billno", "");
     setValue("form.ref_sample_issue_id", "");
@@ -317,6 +343,8 @@ function modifyData(data) {
                 setValue(`form.${key}`, formData.form[key]);
               }
             });
+            reset(getValues(), { keepValues: true, keepDirty: false });
+            resetTableDirty();
           }
         })
       }
@@ -382,10 +410,12 @@ function modifyData(data) {
     const row = rs[index];
     reset(row);
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDelete = (index) => {
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const recalcNw = (index) => {
@@ -698,9 +728,20 @@ function modifyData(data) {
             )}
             {watchFields.map((field, index) => {
               const tightInput = "h-8 text-right text-xs border border-input/60 focus-visible:ring-1 bg-white";
+              const locked = !!field.has_barcode;
+              const lockedInput = locked
+                ? "h-8 text-right text-xs border border-input/40 bg-muted/30 cursor-not-allowed"
+                : tightInput;
               return (
-                <TableRow key={field.id ?? index} className="odd:bg-muted/10 hover:bg-muted/20 transition-colors">
-                  <TableCell className="px-2 py-1.5 border text-xs">{field.sl_no}</TableCell>
+                <TableRow key={field.id ?? index} className={`hover:bg-muted/20 transition-colors ${locked ? "bg-amber-50/40" : "odd:bg-muted/10"}`}>
+                  <TableCell className="px-2 py-1.5 border text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span>{field.sl_no}</span>
+                      {locked && (
+                        <span title="Barcoded — cannot be edited" className="inline-flex items-center text-[10px] font-medium text-amber-700 bg-amber-100 border border-amber-200 rounded px-1 py-0.5 leading-none">🔒 Barcoded</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="px-2 py-1.5 border text-[11px] text-muted-foreground">
                     {field._source_label
                       || (field.ref_job_sl_no ? "Job" : (field.ref_sample_issue_item ? "Sample" : "—"))}
@@ -713,18 +754,18 @@ function modifyData(data) {
                     <Controller
                       name={`table.${index}.finish_status`}
                       control={control}
-                      render={({ field }) => (
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      render={({ field: ctlField }) => (
+                        <Checkbox checked={ctlField.value} onCheckedChange={ctlField.onChange} disabled={locked} />
                       )}
                     />
                   </TableCell>
                   <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums">{field.pcs}</TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" step="0.001" className={tightInput}
+                    <Input type="number" step="0.001" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.gw`, { onChange: () => recalcNw(index) })} />
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" step="0.001" className={tightInput}
+                    <Input type="number" step="0.001" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.nw`)} defaultValue={0.000} />
                   </TableCell>
                   <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums text-muted-foreground bg-muted/20">
@@ -735,11 +776,11 @@ function modifyData(data) {
                     ).toFixed(3)}
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" step="0.001" className={tightInput}
+                    <Input type="number" step="0.001" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.less_gw`, { onChange: e => handlelesswtChange(index) })} />
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" step="0.01" className={tightInput}
+                    <Input type="number" step="0.01" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.loss`, { onChange: e => handlelossChange(index) })} />
                   </TableCell>
                   <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums text-muted-foreground bg-muted/20">
@@ -749,26 +790,26 @@ function modifyData(data) {
                     {Number(watch(`table.${index}.main_total_wt`) || 0).toFixed(3)}
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" step="0.01" className={tightInput}
+                    <Input type="number" step="0.01" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.tunch_per`, { onChange: e => handletunchChange(index) })} />
                   </TableCell>
                   <TableCell className="px-2 py-1.5 border text-xs text-right tabular-nums text-muted-foreground bg-muted/20">
                     {Number(watch(`table.${index}.fine_wt`) || 0).toFixed(3)}
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" className={tightInput}
+                    <Input type="number" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.add_field_type`)} />
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" className={tightInput}
+                    <Input type="number" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.making`)} />
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="number" className={tightInput}
+                    <Input type="number" className={lockedInput} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.rhodium`)} />
                   </TableCell>
                   <TableCell className="px-1 py-1 border">
-                    <Input type="text" className="h-8 text-xs border border-input/60 focus-visible:ring-1 bg-white"
+                    <Input type="text" className={locked ? "h-8 text-xs border border-input/40 bg-muted/30 cursor-not-allowed" : "h-8 text-xs border border-input/60 focus-visible:ring-1 bg-white"} readOnly={locked} disabled={locked}
                       {...register(`table.${index}.remarks`)} />
                   </TableCell>
                 </TableRow>
@@ -996,8 +1037,8 @@ function modifyData(data) {
 
         <div className="flex justify-end items-center gap-2 pt-2">
           <Button type="button" variant="outline" size="sm" onClick={() => window.history.back()}>Cancel</Button>
-          <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving}>
-            {saving ? "Saving..." : (id ? "Update Receive" : "Save Receive")}
+          <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving || !canSave}>
+            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Receive" : "Save Receive")}
           </Button>
         </div>
       </form>

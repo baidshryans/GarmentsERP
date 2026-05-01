@@ -278,7 +278,7 @@ def create_company_operational_ledgers(sender, instance, created, **kwargs):
         ])
 
 
-@receiver(post_save, sender=RetailMaster)
+@receiver(post_save, sender=RetailMaster, dispatch_uid="mastersconfig_create_retail_ledgers")
 def create_retail_ledgers(sender, instance, created, **kwargs):
     """
     When a new retail is created, auto-create a Cash-in-Hand ledger and assign it.

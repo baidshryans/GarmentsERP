@@ -478,6 +478,7 @@ def audit_log(request):
         return Response({'detail': 'Admin access required.'}, status=403)
 
     from easyaudit.models import CRUDEvent
+    from django.utils.timezone import localtime
 
     qs = CRUDEvent.objects.select_related('user', 'content_type').order_by('-datetime')
 
@@ -505,7 +506,7 @@ def audit_log(request):
 
     data = [{
         'id':            e.id,
-        'datetime':      e.datetime.strftime('%Y-%m-%d %H:%M:%S'),
+        'datetime':      localtime(e.datetime).strftime('%Y-%m-%d %H:%M:%S'),
         'event_type':    EVENT_LABELS.get(e.event_type, str(e.event_type)),
         'model':         e.content_type.model if e.content_type else '',
         'app':           e.content_type.app_label if e.content_type else '',

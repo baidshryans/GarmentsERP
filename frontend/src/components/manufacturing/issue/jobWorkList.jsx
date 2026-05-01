@@ -112,14 +112,18 @@ const KarigarJobs = () => {
     {
       header: "Order No",
       accessorKey: "order_no",
-      cell: ({ row }) => (
-        <div>
-          {row.original.items.map(item => (<div>
-            {item?.customer_order_item?.order_no?.order_no ?? ""}
-          </div>))}
-
-        </div>
-      ),
+      cell: ({ row }) => {
+        const nos = Array.from(new Set(
+          (row.original.items ?? [])
+            .map(it => it?.customer_order_no || it?.customer_order_item?.order_no?.order_no || "")
+            .filter(Boolean)
+        ));
+        return (
+          <div>
+            {nos.length === 0 ? "" : nos.map((n, i) => <div key={i}>{n}</div>)}
+          </div>
+        );
+      },
     },
   ];
   return (

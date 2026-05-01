@@ -114,7 +114,7 @@ export default function InterRetailTransferAdd() {
           <Button size="sm" variant="outline" onClick={() => navigate("/inventory/inter-retail-transfer")}>Cancel</Button>
           <Button size="sm" onClick={save} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            Save Draft
+            {saving ? (isEdit ? "Updating…" : "Saving…") : (isEdit ? "Update Draft" : "Save Draft")}
           </Button>
         </div>
       </div>

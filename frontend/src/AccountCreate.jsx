@@ -110,7 +110,7 @@ const AccountCreate = () => {
         reset,
         setValue,
         getValues,
-        formState: { errors, isSubmitting },
+        formState: { errors, isSubmitting, isDirty },
     } = useForm({
         defaultValues: { name: '', code: '', parent: '' },
     });
@@ -208,9 +208,9 @@ const AccountCreate = () => {
                         {isSystemGroup ? 'Back' : 'Cancel'}
                     </Button>
                     {!isSystemGroup && (
-                        <Button type="submit" form="accountForm" disabled={isSubmitting}
+                        <Button type="submit" form="accountForm" disabled={isSubmitting || (isEdit && !isDirty)}
                             className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
-                            {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
+                            {isSubmitting ? (isEdit ? 'Updating…' : 'Saving…') : isEdit ? 'Update Group' : 'Save Group'}
                         </Button>
                     )}
                 </div>

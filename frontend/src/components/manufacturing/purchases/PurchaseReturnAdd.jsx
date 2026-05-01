@@ -34,6 +34,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { FieldContainer } from "@/Utils.jsx";
 import { renderErrorTree } from "../../../Utils";
 import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
+import { useEditDirty } from "@/hooks/useEditDirty";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const SectionHeader = ({ number, title }) => (
@@ -100,7 +101,7 @@ const PurchaseReturnAdd = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const { register, handleSubmit, control, reset, watch, setValue, getValues } =
+  const { register, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } =
     useForm({
       defaultValues: {
         form: {
@@ -127,6 +128,8 @@ const PurchaseReturnAdd = () => {
     });
 
   // ── State ──────────────────────────────────────────────────────────────────
+  const [saving, setSaving] = useState(false);
+  const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [rs, setRows] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
@@ -172,6 +175,8 @@ const PurchaseReturnAdd = () => {
               if (data.purchasereturnitems_set) {
                 setRows(JSON.parse(JSON.stringify(data.purchasereturnitems_set)));
               }
+              reset(getValues(), { keepValues: true, keepDirty: false });
+              resetTableDirty();
             }
           })
           .catch((err) => console.error("Error fetching purchase return:", err));
@@ -202,6 +207,7 @@ const PurchaseReturnAdd = () => {
           ...prev,
           ...(cleanData.purchasereturnitems_set || []),
         ]);
+        markTableDirty();
       }
     } catch (err) {
       console.error("Error fetching purchase voucher:", err);
@@ -213,6 +219,7 @@ const PurchaseReturnAdd = () => {
   const handleAddRow = () => {
     const newItem = { ...getValues("table"), purchasereturndetails_set: [] };
     setRows((prev) => [...prev, newItem]);
+    markTableDirty();
     reset({ ...getValues(), table: { ...emptyTableRow } });
   };
 
@@ -256,6 +263,7 @@ const PurchaseReturnAdd = () => {
             : row
         )
       );
+      markTableDirty();
       reset({ ...getValues(), details: { ...emptyDetails } });
     }
   };
@@ -268,11 +276,12 @@ const PurchaseReturnAdd = () => {
   };
 
   // ── Row management ─────────────────────────────────────────────────────────
-  const handleDeleteItem = (index) => setRows((prev) => prev.filter((_, i) => i !== index));
+  const handleDeleteItem = (index) => { setRows((prev) => prev.filter((_, i) => i !== index)); markTableDirty(); };
 
   const handleEdit = (index) => {
     reset({ ...getValues(), table: { ...rs[index] } });
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
   };
 
   const handleDeleteDetail = (itemIdx, detailIdx) => {
@@ -288,6 +297,7 @@ const PurchaseReturnAdd = () => {
           : item
       )
     );
+    markTableDirty();
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -298,22 +308,25 @@ const PurchaseReturnAdd = () => {
         return;
       }
       const data = { ...getValues("form"), purchasereturnitems_set: rs };
+      setSaving(true);
       const response = id
         ? await updatePurchaseReturnForEdit(data, id)
         : await createPurchaseReturn(data);
 
       if (response.success) {
-        toast({ title: "Form submitted successfully!" });
+        toast({ title: id ? "Updated successfully!" : "Form submitted successfully!" });
         reset();
         setRows([]);
         setTimeout(() => navigate("/purchase/purchasereturn/list/"), 2000);
       } else {
+        setSaving(false);
         toast({
           title: "Form submission failed.",
           description: renderErrorTree(response.error),
         });
       }
     } catch (error) {
+      setSaving(false);
       console.error("Error submitting Purchase Return:", error);
       toast({ title: "An error occurred. Please try again later." });
     }
@@ -724,8 +737,8 @@ const PurchaseReturnAdd = () => {
           <Button type="button" variant="outline" onClick={() => window.history.back()}>
             Cancel
           </Button>
-          <Button type="submit" className="bg-primary hover:bg-primary text-white">
-            Save
+          <Button type="submit" disabled={saving || !canSave} className="bg-primary hover:bg-primary text-white">
+            {saveLabel(saving)}
           </Button>
         </div>
       </form>

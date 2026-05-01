@@ -52,7 +52,7 @@ def _customer_order_item_lock(obj):
         return 'billed', f"Billed directly on Purchase Voucher {ref}".rstrip()
     ki = obj.karigarissueitem_set.select_related('issue_slip').first()
     if ki:
-        return 'in_production', f"Issued to Karigar job {ki.issue_slip.billno}"
+        return 'in_production', f"Issued to Karigar job {ki.issue_slip.issue_slip_no}"
     po = obj.purchaseorderitems_set.select_related('po_slip').first()
     if po:
         return 'in_production', f"Issued to Purchase Order {po.po_slip.po_no}"

@@ -494,10 +494,10 @@ export default function QuotationAdd() {
             Cancel
           </Button>
           <Button onClick={() => handleSave(false)} disabled={saving} className="h-9 gap-1.5">
-            <Save className="size-4" /> {saving ? "Saving…" : "Save Draft"}
+            <Save className="size-4" /> {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Draft" : "Save Draft")}
           </Button>
           <Button onClick={() => handleSave(true)} disabled={saving} className="h-9 gap-1.5 bg-primary">
-            <Printer className="size-4" /> Save & Print
+            <Printer className="size-4" /> {id ? "Update & Print" : "Save & Print"}
           </Button>
         </div>
       </div>

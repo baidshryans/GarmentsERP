@@ -377,7 +377,8 @@ export default function SampleIssue() {
         details: (it.details || []).map((d, di) => ({
           id: d.id,
           sl_no: di + 1,
-          sub_item: d.sub_item || null,
+          // sub_item: PK from picker (sub_item_id); packet: pckt_no slug
+          sub_item: d.sub_item_id ?? null,
           packet: d.packet || null,
           pcs: d.pcs || 0,
           ct: d.ct || 0,
@@ -585,7 +586,7 @@ export default function SampleIssue() {
               <TableBody>
                 {items.map((item, idx) => (
                   <React.Fragment key={idx}>
-                    <TableRow className="bg-white border-t-2 border-violet-200/70 hover:bg-violet-50/30">
+                    <TableRow className="bg-white border-t-2 border-violet-200/70 hover:bg-violet-50/30 font-semibold">
                       <TableCell className="py-1.5 px-2">
                         <Button
                           type="button"
@@ -598,29 +599,21 @@ export default function SampleIssue() {
                           <Trash2 size={12} />
                         </Button>
                       </TableCell>
-                      <TableCell className="py-1.5 px-3 font-medium">{item.sl_no}</TableCell>
-                      <TableCell className="py-1.5 px-3 text-muted-foreground">{item.source_type}</TableCell>
+                      <TableCell className="py-1.5 px-3">{item.sl_no}</TableCell>
+                      <TableCell className="py-1.5 px-3 text-muted-foreground font-normal">{item.source_type}</TableCell>
                       <TableCell className="py-1.5 px-3"></TableCell>
                       <TableCell className="py-1.5 px-3"></TableCell>
                       <TableCell className="py-1.5 px-3">{item.item_name}</TableCell>
                       <TableCell className="py-1.5 px-3">{item.purity_name}</TableCell>
                       <TableCell className="py-1.5 px-3 font-mono text-sm">{item.design_code || item.barcode_no}</TableCell>
-                      <TableCell className="py-1.5 px-3 text-right">{item.pcs}</TableCell>
+                      <TableCell className="py-1.5 px-3 text-right tabular-nums">{item.pcs}</TableCell>
                       <TableCell className="py-1.5 px-3"></TableCell>
-                      <TableCell className="py-1.5 px-3 text-right">
-                        <Input
-                          className="h-7 w-24 text-sm text-right p-1 tabular-nums"
-                          value={item.gw}
-                          onChange={(e) => updateField(idx, "gw", e.target.value)}
-                          onBlur={(e) => {
-                            const v = e.target.value;
-                            if (v !== "" && !isNaN(Number(v))) updateField(idx, "gw", Number(v).toFixed(3));
-                          }}
-                        />
+                      <TableCell className="py-1.5 px-3 text-right tabular-nums">
+                        {item.gw != null && item.gw !== "" ? Number(item.gw).toFixed(3) : ""}
                       </TableCell>
                       <TableCell className="py-1.5 px-3"></TableCell>
                       <TableCell className="py-1.5 px-3"></TableCell>
-                      <TableCell className="py-1.5 px-3">
+                      <TableCell className="py-1.5 px-3 font-normal">
                         <Input className="h-7 text-sm p-1" value={item.remarks} onChange={(e) => updateField(idx, "remarks", e.target.value)} />
                       </TableCell>
                     </TableRow>

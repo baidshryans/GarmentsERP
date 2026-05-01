@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Customer Order — Customer Select Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .field-label { font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 4px; display:block; }
+  .req::after { content:" *"; color:#dc2626; }
+  .input { width:100%; height:36px; padding: 0 10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; background:#fff; }
+  .input:focus { outline:none; border-color:#2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
+  .ghost-btn { height:36px; width:36px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d1d5db; border-radius:6px; background:#fff; }
+  .ghost-btn:hover { background:#f9fafb; }
+  .combo-popover { position:absolute; z-index:30; left:0; right:0; top:calc(100% + 4px); background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow: 0 10px 25px rgba(0,0,0,.08); max-height: 280px; overflow:auto; }
+  .combo-row { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; cursor:pointer; }
+  .combo-row:last-child { border-bottom:0; }
+  .combo-row:hover, .combo-row.active { background:#eff6ff; }
+  .name { font-size:14px; color:#111827; font-weight:500; }
+  .meta { font-size:12px; color:#6b7280; margin-top:2px; }
+  mark { background:#fef08a; color:inherit; padding:0 1px; border-radius:2px; }
+  .info-card { margin-top:6px; padding:6px 10px; border:1px solid #e5e7eb; background:#f8fafc; border-radius:6px; font-size:12px; color:#334155; display:flex; flex-wrap:wrap; gap: 4px 14px; align-items:center; line-height:1.35; }
+  .info-card .k { color:#64748b; font-weight:500; margin-right:4px; }
+  .info-card .sep { color:#cbd5e1; }
+  .panel { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:18px; }
+  .panel + .panel { margin-top:14px; }
+  .panel h3 { font-size:14px; font-weight:600; color:#111827; margin-bottom:14px; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  .grid4 { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:14px; }
+  .toggle { display:inline-flex; gap:6px; padding:2px; background:#f3f4f6; border-radius:6px; }
+  .toggle button { padding:4px 10px; font-size:12px; border-radius:4px; }
+  .toggle .on { background:#fff; box-shadow: 0 1px 2px rgba(0,0,0,.06); font-weight:500; }
+  .badge { font-size:10px; padding:1px 6px; border-radius:999px; background:#dcfce7; color:#166534; margin-left:6px; vertical-align:middle; }
+</style>
+</head>
+<body class="bg-slate-50 p-8">
+<div class="max-w-5xl mx-auto">
+
+  <div class="mb-5 flex items-center justify-between">
+    <div>
+      <div class="text-xs uppercase tracking-wide text-slate-500">Mockup</div>
+      <h1 class="text-xl font-semibold text-slate-900">New Customer Order — Customer Picker</h1>
+    </div>
+    <div class="text-xs text-slate-500">Two states: <em>searching</em> &amp; <em>selected</em></div>
+  </div>
+
+  <!-- ─────────────  STATE A: searching  ───────────── -->
+  <div class="panel">
+    <h3>State A — Typing in the Customer field <span class="badge">live filter</span></h3>
+
+    <div class="grid2">
+      <div>
+        <label class="field-label req">Party Name</label>
+        <div class="flex gap-2 relative">
+          <div class="relative flex-1">
+            <input class="input pr-8" value="raj" autofocus />
+            <svg class="absolute right-2 top-1/2 -translate-y-1/2 size-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+
+            <div class="combo-popover">
+              <div class="combo-row active">
+                <div class="name">Mr. <mark>Raj</mark>esh Kumar</div>
+                <div class="meta">📞 +91 98xxx 12345 · Andheri West, Mumbai</div>
+              </div>
+              <div class="combo-row">
+                <div class="name"><mark>Raj</mark>iv Mehta &amp; Sons</div>
+                <div class="meta">📞 +91 90xxx 88221 · Surat, Gujarat</div>
+              </div>
+              <div class="combo-row">
+                <div class="name">Pooja <mark>Raj</mark>put</div>
+                <div class="meta">📞 +91 99xxx 71009 · Jaipur, Rajasthan</div>
+              </div>
+              <div class="combo-row">
+                <div class="name">Vikram Singh <mark>Raj</mark>awat</div>
+                <div class="meta">📞 +91 70xxx 44210 · Udaipur, Rajasthan</div>
+              </div>
+              <div class="combo-row text-blue-700 font-medium">
+                + Add a new customer named “raj”
+              </div>
+            </div>
+          </div>
+          <button class="ghost-btn" title="Add new customer">+</button>
+        </div>
+        <div class="mt-1 text-[11px] text-slate-500">Search by name or phone. Phone match works too — try typing <code>98xxx</code>.</div>
+      </div>
+
+      <div>
+        <label class="field-label">Order No.</label>
+        <input class="input" value="CO/2026/0142" disabled />
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────  STATE B: selected  ───────────── -->
+  <div class="panel">
+    <h3>State B — After selecting a customer</h3>
+
+    <div class="grid2">
+      <div>
+        <label class="field-label req">Party Name</label>
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <input class="input pr-8" value="Mr. Rajesh Kumar" />
+            <button class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700" title="Clear">✕</button>
+          </div>
+          <button class="ghost-btn" title="Add new customer">+</button>
+        </div>
+
+        <!-- Read-only info card that appears once a customer is chosen -->
+        <div class="info-card">
+          <span><span class="k">📞</span>+91 98xxx 12345</span>
+          <span class="sep">·</span>
+          <span><span class="k">📍</span>Flat 7B, Linking Rd, Andheri West, Mumbai 400053</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="field-label">Order No.</label>
+        <input class="input" value="CO/2026/0142" disabled />
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────  Behaviour notes  ───────────── -->
+  <div class="panel">
+    <h3>Behaviour notes</h3>
+    <ul class="text-[13px] text-slate-700 space-y-1.5 list-disc pl-5">
+      <li>Replace the current <code>&lt;input list="party_list"&gt;</code> + native <code>&lt;datalist&gt;</code> with the existing <code>SearchableComboBox</code> component (already used on the Sales Voucher page).</li>
+      <li><b>Search keys:</b> <code>ac_name</code>, <code>mobile1</code>, <code>mobile2</code>, <code>phone1</code> — typing digits matches phones; typing letters matches name.</li>
+      <li>Each row shows <b>name</b> on top, <b>phone · city</b> on the second line, with the matched substring highlighted.</li>
+      <li>On select: set <code>form.ldgr</code> (id) + <code>form.ldgr_code_name</code> (display), and reveal the read-only info card with <b>phone</b> (mobile1 / phone1) and <b>address</b> (add1, add2, city, state, pincode joined).</li>
+      <li>Clearing the field hides the info card and resets <code>form.ldgr</code>.</li>
+      <li>The trailing <b>+</b> button keeps its existing behaviour — link to <code>/crm/ledger/add/?next=…</code> to add a new customer.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

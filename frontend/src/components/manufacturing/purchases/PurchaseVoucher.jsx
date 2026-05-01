@@ -647,22 +647,78 @@ const PurchaseVoucher = () => {
         return;
       }
     }
+
+    // Helper to extract slug value from SlugRelatedField object
+    // Handles both slug strings and full name strings by looking them up in reference data
+    const extractSlug = (obj, slugField) => {
+      if (!obj) return null;
+      if (typeof obj === 'string') {
+        // obj is already a string — could be slug OR full name
+        // Try to find matching item in reference data to extract the correct slug
+        let refData = [];
+        let displayField = '';
+
+        if (slugField === 'short_code') {
+          refData = mainItemsM;
+          displayField = 'item_name';
+        } else if (slugField === 'purity') {
+          refData = purityData;
+          displayField = 'purity'; // purity is both slug and display
+        } else if (slugField === 'pckt_no') {
+          refData = packets;
+          displayField = 'pckt_no'; // pckt_no is both slug and display
+        }
+
+        // First check if it's already a valid slug
+        const validSlug = refData.find(m => m[slugField] === obj);
+        if (validSlug) return obj; // Already correct slug
+
+        // If not, try to find it as a display name and extract the slug
+        const byName = refData.find(m => m[displayField] === obj);
+        if (byName) return byName[slugField]; // Found by display name, return slug
+
+        // Fallback: return obj as-is (will likely fail validation, which helps debugging)
+        return obj;
+      }
+      // obj is not a string, try to extract the slug field from the object
+      return obj[slugField] ?? null;
+    };
+
+    // Helper to extract pk from PrimaryKeyRelatedField object
+    const extractPk = (obj) => {
+      if (!obj) return null;
+      if (typeof obj === 'number') return obj; // already a pk
+      return obj.id ?? obj.pk ?? null;
+    };
+
     const toIntOrNull = v => (v === "" || v === undefined || v === null || Number.isNaN(Number(v))) ? null : Number(v);
-    form.purchasevoucheritems_set = rs.map(item => ({
-      ...item,
-      pcs: toIntOrNull(item.pcs),
-      pending_pcs: toIntOrNull(item.pending_pcs),
-      making_value: toIntOrNull(item.making_value),
-      // Backend FK: translate client-side `customer_order_item_id` to the
-      // DRF field name. Direct CO → PV path; null for PO-linked or manual rows.
-      customer_order_item: item.customer_order_item_id ?? null,
-      purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
-        ...d,
-        sub_pcs: toIntOrNull(d.sub_pcs),
-      })),
-    }));
+    form.purchasevoucheritems_set = rs.map(item => {
+      const processedItem = {
+        ...item,
+        item: extractSlug(item.item, 'short_code'),
+        purity: extractSlug(item.purity, 'purity'),
+        barcode: extractSlug(item.barcode, 'barcode'),
+        order_no: extractSlug(item.order_no, 'order_no'),
+        customer_order_item: item.customer_order_item_id ?? null,
+        pcs: toIntOrNull(item.pcs),
+        pending_pcs: toIntOrNull(item.pending_pcs),
+        making_value: toIntOrNull(item.making_value),
+        purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
+          ...d,
+          sub_item: extractSlug(d.sub_item, 'short_code'),
+          metal_purity: extractSlug(d.metal_purity, 'purity'),
+          packet: extractSlug(d.packet, 'pckt_no'),
+          sub_pcs: toIntOrNull(d.sub_pcs),
+        })),
+      };
+      console.log(`Processing item: item="${processedItem.item}", purity="${processedItem.purity}"`);
+      return processedItem;
+    });
     form.purchasevoucherdetails_set = rsRaw.map(d => ({
       ...d,
+      sub_item: extractSlug(d.sub_item, 'short_code'),
+      metal_purity: extractSlug(d.metal_purity, 'purity'),
+      packet: extractSlug(d.packet, 'pckt_no'),
       sub_pcs: toIntOrNull(d.sub_pcs),
     }));
     form.hsn = getValues("hsn") || null;
@@ -686,6 +742,9 @@ const PurchaseVoucher = () => {
       ).toFixed(2)
     );
     setSaving(true);
+    console.log(`Form data being sent - first item:`, form.purchasevoucheritems_set[0]);
+    console.log(`Form data being sent - first item.item:`, form.purchasevoucheritems_set[0]?.item);
+    console.log(`Form data being sent - first item.purity:`, form.purchasevoucheritems_set[0]?.purity);
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })

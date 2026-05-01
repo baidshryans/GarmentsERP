@@ -84,9 +84,9 @@ function modifyData(data) {
     const pending_pcs = item.pcs - (item.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_pcs) || 0), 0));
     const pending_gw = item.nw - (item.details.reduce((sum, detail) => sum + (parseFloat(detail.balance_gw) || 0), 0));
 
-    // Set pending values on the main item object
-    item.pending_pcs = pending_pcs;
-    item.pending_gw = pending_gw;
+    // Set pending values on the main item object, rounded to 3 decimals to avoid floating-point precision issues
+    item.pending_pcs = round3(pending_pcs);
+    item.pending_gw = round3(pending_gw);
 
     let newDetail = {
       broken_pcs: 0,

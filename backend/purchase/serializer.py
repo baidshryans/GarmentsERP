@@ -907,6 +907,9 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             purchase_voucher_instance.gstin_ref  = retail.gstin_master
             purchase_voucher_instance.branch_ref = retail.branch
             purchase_voucher_instance.save()
+            from purchase.models import PurchaseVoucherDetails as _PVD_chk
+            _final = list(_PVD_chk.objects.filter(billno=purchase_voucher_instance, main_item__isnull=False).values('id', 'rate'))
+            print(f"[FINAL-STATE] details in DB at end of update(): {_final}")
             return purchase_voucher_instance
 
 class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):

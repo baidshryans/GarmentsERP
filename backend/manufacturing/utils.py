@@ -157,6 +157,8 @@ def create_or_update_nested(serializer_class, parent_instance, related_name,pare
             instances.append(serializer_instance.save(**{parent_name : parent_instance}))
 
     # Delete any remaining objects not in the new data
+    if existing_objects:
+        print(f"[COUN-DELETE] related_name={related_name} deleting ids={list(existing_objects.keys())}")
     for obj in existing_objects.values():
         obj.delete()
     return instances

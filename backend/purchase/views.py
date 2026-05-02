@@ -129,11 +129,25 @@ class PurchaseReturnViewset(RetailBaseViewset):
         serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 class PurchaseVoucherViewset(RetailBaseViewset):
-    queryset = PurchaseVoucher.objects.select_related('ldgr', 'retail', 'hsn').prefetch_related(
+    queryset = PurchaseVoucher.objects.select_related(
+        'ldgr', 'retail', 'hsn'
+    ).prefetch_related(
+        # Eagerly load all FK fields accessed by PurchaseVoucherItemsSerializer
+        # (item, purity, barcode, order_no) so each row doesn't issue a separate query.
+        Prefetch(
+            'purchasevoucheritems_set',
+            queryset=PurchaseVoucherItems.objects.select_related(
+                'item', 'purity', 'barcode', 'order_no'
+            ).order_by('id'),
+        ),
+        # Eagerly load all FK fields accessed by PurchaseVoucherDetailsSerializer.
+        # sub_item was already here; metal_purity and packet are new additions.
         Prefetch(
             'purchasevoucheritems_set__purchasevoucherdetails_set',
-            queryset=PurchaseVoucherDetails.objects.select_related('sub_item').order_by('id'),
-        )
+            queryset=PurchaseVoucherDetails.objects.select_related(
+                'sub_item', 'metal_purity', 'packet'
+            ).order_by('id'),
+        ),
     ).all()
     serializer_class = PurchaseVoucherPostSerializer
     filter_backends = [DjangoFilterBackend,OrderingFilter, SearchFilter]

@@ -649,7 +649,7 @@ const PurchaseVoucher = () => {
     let currentRsRaw = rsRaw;
     const pendingDetail = { ...getValues('details') };
     console.log(`[SUBMIT] pendingDetail.sub_item="${pendingDetail.sub_item}" pendingDetail.sl_no="${pendingDetail.sl_no}" pendingDetail.id=${pendingDetail.id}`);
-    console.log(`[SUBMIT] rs items:`, currentRs.map(r => ({ sl_no: r.sl_no, details: (r.purchasevoucherdetails_set||[]).map(d => ({ id: d.id, sub_item: d.sub_item })) })));
+    console.log(`[SUBMIT] rs[0] details:`, JSON.stringify((currentRs[0]?.purchasevoucherdetails_set||[]).map(d => ({id: d.id, sub_item: d.sub_item, rate: d.rate}))));
     if (pendingDetail.sub_item) {
       const slNo = Number(pendingDetail.sl_no);
       console.log(`[SUBMIT] auto-committing pending edit: slNo=${slNo}`);
@@ -811,6 +811,7 @@ const PurchaseVoucher = () => {
     console.log(`Form data being sent - first item:`, form.purchasevoucheritems_set[0]);
     console.log(`Form data being sent - first item.item:`, form.purchasevoucheritems_set[0]?.item);
     console.log(`Form data being sent - first item.purity:`, form.purchasevoucheritems_set[0]?.purity);
+    console.log(`[PAYLOAD] details sent:`, JSON.stringify((form.purchasevoucheritems_set[0]?.purchasevoucherdetails_set||[]).map(d => ({id: d.id, sub_item: d.sub_item, rate: d.rate}))));
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })

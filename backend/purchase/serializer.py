@@ -479,7 +479,12 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        create_or_update_nested(PurchaseVoucherDetailsSerializer, instance, 'purchasevoucherdetails_set',  'main_item',PurchaseVoucherDetailsSerializer(detail_data,many=True).data)
+        reserialized_details = PurchaseVoucherDetailsSerializer(detail_data, many=True).data
+        print(f"[BACKEND-UPDATE-DETAILS] item.id={instance.id} incoming ids={[d.get('id') for d in detail_data]} reserialized ids={[d.get('id') for d in reserialized_details]}")
+        from manufacturing.utils import create_or_update_nested as _coun
+        existing_before = {obj.id: obj.sub_item_id for obj in instance.purchasevoucherdetails_set.all()}
+        print(f"[BACKEND-UPDATE-DETAILS] existing in DB before sync: {existing_before}")
+        create_or_update_nested(PurchaseVoucherDetailsSerializer, instance, 'purchasevoucherdetails_set',  'main_item', reserialized_details)
 
         # ── Always recompute item_value from the actual saved sub-item values.
         #    item_value = Σ(sub-item.value) + making_value.

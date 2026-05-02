@@ -374,11 +374,18 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        # main_item is a structural FK set by the parent item relationship.
-        # Never let incoming data (which may be null/missing from the frontend)
-        # overwrite it — doing so would cause filter(main_item=None).delete()
-        # to erase this sub-item on the next save.
-        validated_data.pop('main_item', None)
+        # Guard: never let an incoming null clear a main_item FK that is already
+        # set. The frontend may omit or send null for main_item, but when the
+        # record is already attached to a parent item that relationship must be
+        # preserved — otherwise filter(main_item=None).delete() will erase it.
+        # Records that legitimately have main_item=None (direct details) are
+        # unaffected: their existing None stays None.
+        if (
+            'main_item' in validated_data
+            and validated_data['main_item'] is None
+            and instance.main_item_id is not None
+        ):
+            validated_data.pop('main_item')
         return super().update(instance, validated_data)
 
 class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):

@@ -373,6 +373,14 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
             validated_data['billno'] = main_item.billno
         return super().create(validated_data)
 
+    def update(self, instance, validated_data):
+        # main_item is a structural FK set by the parent item relationship.
+        # Never let incoming data (which may be null/missing from the frontend)
+        # overwrite it — doing so would cause filter(main_item=None).delete()
+        # to erase this sub-item on the next save.
+        validated_data.pop('main_item', None)
+        return super().update(instance, validated_data)
+
 class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
     item_name = serializers.SerializerMethodField()
@@ -480,8 +488,6 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         reserialized = PurchaseVoucherDetailsSerializer(detail_data, many=True).data
-        existing_ids = [obj.id for obj in instance.purchasevoucherdetails_set.all()]
-        print(f"[DETAIL-SYNC] item.id={instance.id}  existing_ids={existing_ids}  incoming_ids={[d.get('id') for d in reserialized]}")
         create_or_update_nested(PurchaseVoucherDetailsSerializer, instance, 'purchasevoucherdetails_set',  'main_item', reserialized)
 
         # ── Always recompute item_value from the actual saved sub-item values.
@@ -756,11 +762,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             create_or_update_nested(PurchaseVoucherItemsSerializer, instance, 'purchasevoucheritems_set', 'billno', PurchaseVoucherItemsSerializer(items_data, many=True).data)
 
             # Rebuild direct details (those without a main item)
-            _pre_delete = list(instance.purchasevoucherdetails_set.values('id', 'main_item_id'))
-            print(f"[PRE-DELETE] details before filter(main_item=None).delete(): {_pre_delete}")
             instance.purchasevoucherdetails_set.filter(main_item=None).delete()
-            _post_delete = list(instance.purchasevoucherdetails_set.values('id', 'main_item_id'))
-            print(f"[POST-DELETE] details after filter(main_item=None).delete(): {_post_delete}")
             for detail_data in direct_details_data:
                 # FE may echo back fields we set explicitly below — drop them so
                 # **detail_data doesn't double-pass billno/main_item/retail.
@@ -911,9 +913,6 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             purchase_voucher_instance.gstin_ref  = retail.gstin_master
             purchase_voucher_instance.branch_ref = retail.branch
             purchase_voucher_instance.save()
-            from purchase.models import PurchaseVoucherDetails as _PVD_chk
-            _final = list(_PVD_chk.objects.filter(billno=purchase_voucher_instance, main_item__isnull=False).values('id', 'rate'))
-            print(f"[FINAL-STATE] details in DB at end of update(): {_final}")
             return purchase_voucher_instance
 
 class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):

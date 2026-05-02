@@ -90,7 +90,16 @@ class VoucherDetail(models.Model):
     chq_date = models.DateField(null=True,blank=True)
     
     def __str__(self):
-        return f"Transaction for {self.account.ac_name} in Voucher Detail {self.voucher_main.id}"
+        # Use raw FK value (voucher_main_id) instead of traversing the relation.
+        # When this object is being cascade-deleted because voucher_main was deleted,
+        # accessing self.voucher_main triggers a DB lookup that raises DoesNotExist,
+        # which crashes easyaudit's post_delete signal handler and rolls back the
+        # entire purchase-voucher update transaction.
+        try:
+            account_name = self.account.ac_name
+        except Exception:
+            account_name = f"account_id={self.account_id}"
+        return f"Transaction for {account_name} in Voucher Detail {self.voucher_main_id}"
     
     class Meta:
         db_table = "voucher_detail"

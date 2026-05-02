@@ -610,11 +610,9 @@ const PurchaseVoucher = () => {
     // Skip when a sub-item is being pulled into the edit row — the edit handler
     // already sets the correct sl_no and we must not overwrite it.
     if (skipSlNoUpdateRef.current) {
-      console.log(`[SL_NO-EFFECT] skipping overwrite (guard active), rs.length=${rs.length}`);
       skipSlNoUpdateRef.current = false;
       return;
     }
-    console.log(`[SL_NO-EFFECT] setting details.sl_no = ${rs.length}`);
     setValue("details.sl_no", rs.length);
   }, [rs])
 
@@ -648,12 +646,9 @@ const PurchaseVoucher = () => {
     let currentRs = rs;
     let currentRsRaw = rsRaw;
     const pendingDetail = { ...getValues('details') };
-    console.log(`[SUBMIT] pendingDetail.sub_item="${pendingDetail.sub_item}" pendingDetail.sl_no="${pendingDetail.sl_no}" pendingDetail.id=${pendingDetail.id}`);
-    console.log(`[SUBMIT] rs[0] details:`, JSON.stringify((currentRs[0]?.purchasevoucherdetails_set||[]).map(d => ({id: d.id, sub_item: d.sub_item, rate: d.rate}))));
     if (pendingDetail.sub_item) {
       const slNo = Number(pendingDetail.sl_no);
-      console.log(`[SUBMIT] auto-committing pending edit: slNo=${slNo}`);
-      if (!pendingDetail.sl_no || slNo <= 0) {
+        if (!pendingDetail.sl_no || slNo <= 0) {
         // Raw item — add back to rsRaw
         currentRsRaw = [...currentRsRaw, pendingDetail];
         setRsRaw(currentRsRaw);
@@ -811,7 +806,6 @@ const PurchaseVoucher = () => {
     console.log(`Form data being sent - first item:`, form.purchasevoucheritems_set[0]);
     console.log(`Form data being sent - first item.item:`, form.purchasevoucheritems_set[0]?.item);
     console.log(`Form data being sent - first item.purity:`, form.purchasevoucheritems_set[0]?.purity);
-    console.log(`[PAYLOAD] details sent:`, JSON.stringify((form.purchasevoucheritems_set[0]?.purchasevoucherdetails_set||[]).map(d => ({id: d.id, sub_item: d.sub_item, rate: d.rate}))));
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })
@@ -932,7 +926,6 @@ const PurchaseVoucher = () => {
     // Trigger formula recalculation so value/fine_wt auto-compute correctly in edit mode
     setCalculate(prev => prev + 1);
 
-    console.log(`[EDIT-SUB] rowIndex=${rowIndex} subIndex=${subIndex} subItem.id=${subItem.id} sl_no=${rs[rowIndex].sl_no} sub_item=${subItem.sub_item}`);
 
     // Remove from saved list so user can re-add after editing
     // Also recalculate item_value so bill_value stays consistent
@@ -994,9 +987,7 @@ const PurchaseVoucher = () => {
         setDetailItemDisplay("");
         return;
       }
-      console.log(`[TAB-COMMIT] vals.id=${vals.id} vals.sl_no=${vals.sl_no} vals.sub_item=${vals.sub_item} rs.length=${rs.length}`);
       const idx = rs.findIndex(r => r.sl_no === Number(vals.sl_no));
-      console.log(`[TAB-COMMIT] idx=${idx}, rs sl_nos=${rs.map(r=>r.sl_no).join(',')}`);
       if (idx < 0) {
         // If sl_no is null/empty/0, this is a raw item being re-added (e.g. after
         // handleEditRawRow cleared sl_no). Fall back to the rsRaw path instead of

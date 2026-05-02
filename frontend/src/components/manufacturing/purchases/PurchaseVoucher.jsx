@@ -187,6 +187,7 @@ const PurchaseVoucher = () => {
   const [rs, setRows] = useState([]);
   const editingRowRef = useRef(null); // preserves sub-items while main item is being edited
   const editingSubItemRef = useRef(false); // guards against concurrent sub-item edits & packet effect overwriting rate
+  const skipSlNoUpdateRef = useRef(false); // prevents [rs] useEffect from clobbering sl_no during sub-item edit
   const formRef = useRef(null);
   useEnterAsTab(formRef);
   const [rsRaw, setRsRaw] = useState([]);
@@ -606,6 +607,12 @@ const PurchaseVoucher = () => {
 
 
   useEffect(() => {
+    // Skip when a sub-item is being pulled into the edit row — the edit handler
+    // already sets the correct sl_no and we must not overwrite it.
+    if (skipSlNoUpdateRef.current) {
+      skipSlNoUpdateRef.current = false;
+      return;
+    }
     setValue("details.sl_no", rs.length);
   }, [rs])
 
@@ -628,12 +635,65 @@ const PurchaseVoucher = () => {
 
   const onSubmit = async (data) => {
     const form = getValues("form");
-    if (rs.length === 0 && rsRaw.length === 0) {
+
+    // ── Auto-commit any sub-item currently in the edit row ──────────────────
+    // If the user clicks Save/F4 while a sub-item edit is in progress (i.e. they
+    // haven't pressed Tab yet to commit it), the sub-item is currently absent from
+    // both `rs` and `rsRaw` (it was removed when edit was clicked).  Without this
+    // guard, create_or_update_nested would DELETE it from the database.
+    // We auto-commit inline here, building currentRs/currentRsRaw as local
+    // snapshots so we don't depend on React state flushing before we read it.
+    let currentRs = rs;
+    let currentRsRaw = rsRaw;
+    const pendingDetail = { ...getValues('details') };
+    if (pendingDetail.sub_item) {
+      const slNo = Number(pendingDetail.sl_no);
+      if (!pendingDetail.sl_no || slNo <= 0) {
+        // Raw item — add back to rsRaw
+        currentRsRaw = [...currentRsRaw, pendingDetail];
+        setRsRaw(currentRsRaw);
+      } else {
+        // Nested sub-item — find its parent and push it back in
+        const targetIdx = currentRs.findIndex(r => r.sl_no === slNo);
+        if (targetIdx >= 0) {
+          currentRs = currentRs.map((row, i) => {
+            if (i !== targetIdx) return row;
+            const existing = Array.isArray(row.purchasevoucherdetails_set)
+              ? row.purchasevoucherdetails_set
+              : [];
+            const updatedDetails = [...existing, pendingDetail];
+            const subTotal = updatedDetails.reduce((sum, d) => parseFloat(sum) + parseFloat(d.value || 0), 0);
+            const makingAmt = row.making_type === 'val' ? parseFloat(row.making_value || 0) : 0;
+            return { ...row, purchasevoucherdetails_set: updatedDetails, item_value: parseFloat((subTotal + makingAmt).toFixed(2)) };
+          });
+          setRows(currentRs);
+        } else {
+          // sl_no doesn't match any row — fall back to rsRaw to avoid data loss
+          currentRsRaw = [...currentRsRaw, pendingDetail];
+          setRsRaw(currentRsRaw);
+        }
+      }
+      // Clear the edit row
+      reset({
+        form: getValues('form'),
+        hsn: getValues('hsn'),
+        table: getValues('table'),
+        details: {
+          id: null, sl_no: "", billno: "", packet: "", sub_item: "",
+          sub_pcs: 0, sub_ct: 0.0, sub_gw: 0.0, metal_purity: "",
+          loss: 0, tunch: 0.0, fine_wt: 0.0, rate: 0.0, value: 0.0,
+        },
+      });
+      setDetailItemDisplay("");
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    if (currentRs.length === 0 && currentRsRaw.length === 0) {
       toast({ title: "Table is empty" })
       return;
     }
     // Weight reconciliation: sub-item GW totals must match parent item GW
-    for (const item of rs) {
+    for (const item of currentRs) {
       const details = item.purchasevoucherdetails_set || [];
       if (!details.length) continue;
       const totalSubGW = details.reduce((sum, d) => sum + parseFloat(d.sub_gw || 0), 0);
@@ -692,7 +752,8 @@ const PurchaseVoucher = () => {
     };
 
     const toIntOrNull = v => (v === "" || v === undefined || v === null || Number.isNaN(Number(v))) ? null : Number(v);
-    form.purchasevoucheritems_set = rs.map(item => {
+    // Use currentRs/currentRsRaw (not rs/rsRaw) so any auto-committed pending edit is included
+    form.purchasevoucheritems_set = currentRs.map(item => {
       const processedItem = {
         ...item,
         item: extractSlug(item.item, 'short_code'),
@@ -714,7 +775,7 @@ const PurchaseVoucher = () => {
       console.log(`Processing item: item="${processedItem.item}", purity="${processedItem.purity}"`);
       return processedItem;
     });
-    form.purchasevoucherdetails_set = rsRaw.map(d => ({
+    form.purchasevoucherdetails_set = currentRsRaw.map(d => ({
       ...d,
       sub_item: extractSlug(d.sub_item, 'short_code'),
       metal_purity: extractSlug(d.metal_purity, 'purity'),
@@ -725,8 +786,8 @@ const PurchaseVoucher = () => {
 
     // Recompute bill_value fresh from current row data right before sending,
     // so we never rely on the formula-effect having already converged.
-    const _itemValueSum = rs.reduce((s, item) => s + parseFloat(item.item_value || 0), 0)
-                        + rsRaw.reduce((s, d) => s + parseFloat(d.value || 0), 0);
+    const _itemValueSum = currentRs.reduce((s, item) => s + parseFloat(item.item_value || 0), 0)
+                        + currentRsRaw.reduce((s, d) => s + parseFloat(d.value || 0), 0);
     const _taxable = _itemValueSum
       + parseFloat(form.freight_amt || 0)
       + parseFloat(form.hallmark_charge || 0)
@@ -867,6 +928,8 @@ const PurchaseVoucher = () => {
 
     // Remove from saved list so user can re-add after editing
     // Also recalculate item_value so bill_value stays consistent
+    // Guard the [rs] useEffect so it doesn't overwrite the sl_no we just set above
+    skipSlNoUpdateRef.current = true;
     setRows((prev) =>
       prev.map((row, i) => {
         if (i !== rowIndex) return row;
@@ -925,6 +988,36 @@ const PurchaseVoucher = () => {
       }
       const idx = rs.findIndex(r => r.sl_no === Number(vals.sl_no));
       if (idx < 0) {
+        // If sl_no is null/empty/0, this is a raw item being re-added (e.g. after
+        // handleEditRawRow cleared sl_no). Fall back to the rsRaw path instead of
+        // showing an error — this was the root cause of edited raw items being deleted.
+        if (!vals.sl_no || Number(vals.sl_no) <= 0) {
+          markTableDirty();
+          setRsRaw(prev => [...prev, { ...vals }]);
+          reset({
+            form: getValues('form'),
+            hsn: getValues('hsn'),
+            table: getValues('table'),
+            details: {
+              id: null,
+              sl_no: "",
+              billno: "",
+              packet: "",
+              sub_item: "",
+              sub_pcs: 0,
+              sub_ct: 0.0,
+              sub_gw: 0.0,
+              metal_purity: "",
+              loss: 0,
+              tunch: 0.0,
+              fine_wt: 0.0,
+              rate: 0.0,
+              value: 0.0,
+            },
+          });
+          setDetailItemDisplay("");
+          return;
+        }
         const validSlNos = rs.map(r => r.sl_no).join(", ");
         toast({ title: `Invalid Sl No — valid numbers: ${validSlNos}` });
         return;
@@ -1118,7 +1211,9 @@ const PurchaseVoucher = () => {
     editingSubItemRef.current = true;
 
     setValue('details.id', subItem.id ?? null);
-    setValue('details.sl_no', subItem.sl_no ?? null);
+    // Raw items have no parent main-item, so sl_no must be null/empty so that
+    // handleKeyDownDetails falls back to the rsRaw path (not a main-item lookup).
+    setValue('details.sl_no', null);
     setValue('details.packet', subItem.packet || "");
     setValue('details.sub_item', subItem.sub_item || "");
     setValue('details.sub_pcs', subItem.sub_pcs || 0);
@@ -1135,6 +1230,8 @@ const PurchaseVoucher = () => {
     setCalculate(prev => prev + 1);
 
     // Remove from rsRaw so the user can re-add after editing.
+    // Guard the [rs] useEffect so it doesn't overwrite the null sl_no we just set.
+    skipSlNoUpdateRef.current = true;
     setRsRaw((prev) => prev.filter((_, i) => i !== index));
     markTableDirty();
   };

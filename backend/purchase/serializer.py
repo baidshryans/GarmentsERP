@@ -756,7 +756,11 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             create_or_update_nested(PurchaseVoucherItemsSerializer, instance, 'purchasevoucheritems_set', 'billno', PurchaseVoucherItemsSerializer(items_data, many=True).data)
 
             # Rebuild direct details (those without a main item)
+            _pre_delete = list(instance.purchasevoucherdetails_set.values('id', 'main_item_id'))
+            print(f"[PRE-DELETE] details before filter(main_item=None).delete(): {_pre_delete}")
             instance.purchasevoucherdetails_set.filter(main_item=None).delete()
+            _post_delete = list(instance.purchasevoucherdetails_set.values('id', 'main_item_id'))
+            print(f"[POST-DELETE] details after filter(main_item=None).delete(): {_post_delete}")
             for detail_data in direct_details_data:
                 # FE may echo back fields we set explicitly below — drop them so
                 # **detail_data doesn't double-pass billno/main_item/retail.

@@ -60,11 +60,13 @@ function StateChip({ state }) {
   const map = {
     unlocked:      "bg-slate-100 text-slate-700 border-slate-200",
     in_production: "bg-amber-50 text-amber-800 border-amber-200",
+    barcoded:      "bg-teal-50 text-teal-800 border-teal-200",
     billed:        "bg-emerald-50 text-emerald-800 border-emerald-200",
   };
   const label = {
     unlocked: "Not yet released",
     in_production: "In production",
+    barcoded: "Ready for Delivery",
     billed: "Delivered",
   }[state] || state;
   return (

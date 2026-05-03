@@ -493,6 +493,8 @@ function CustomerOrderList() {
           pill = { label: 'Delivered', cls: 'bg-emerald-100 text-emerald-800' };
         } else if (items.some(i => i.lock_state === 'billed')) {
           pill = { label: 'Billed', cls: 'bg-sky-100 text-sky-800' };
+        } else if (items.some(i => i.lock_state === 'barcoded')) {
+          pill = { label: 'Ready for Delivery', cls: 'bg-teal-100 text-teal-800' };
         } else if (items.some(i => i.lock_state === 'in_production')) {
           pill = { label: 'In Production', cls: 'bg-amber-100 text-amber-800' };
         } else {
@@ -502,7 +504,7 @@ function CustomerOrderList() {
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm">{o.order_no}</span>
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${pill.cls}`}>
-              {(pill.label === 'In Production' || pill.label === 'Billed') && <Lock className="w-2.5 h-2.5" />}
+              {(pill.label === 'In Production' || pill.label === 'Billed' || pill.label === 'Ready for Delivery') && <Lock className="w-2.5 h-2.5" />}
               {pill.label}
             </span>
           </div>

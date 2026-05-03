@@ -77,8 +77,8 @@ function calculateOrderDeliveryStatus(order) {
   // All items billed → delivered
   if (hasAll('billed')) return 'delivered';
 
-  // Any item in production or billed → ready
-  if (hasAny('in_production') || hasAny('billed')) return 'ready';
+  // Any item barcoded (ready for delivery), in production, or billed → ready
+  if (hasAny('barcoded') || hasAny('in_production') || hasAny('billed')) return 'ready';
 
   // All unlocked → pending
   return 'pending';

@@ -37,19 +37,25 @@ class CustomerOrderItemSerializer(ModelSerializer):
 def _customer_order_item_lock(obj):
     """Return (lock_state, lock_reason) for a CustomerOrderItems row."""
     # Truly delivered: a Sales Voucher exists for a barcode tied to this CO item.
-    # Walk: CO item → PO/PV/KR items → BarcodeMain → SalesVouItem
     sv_billno = _sv_billno_for_co_item(obj)
     if sv_billno:
         return 'billed', f"Sold via Sales Voucher {sv_billno}"
 
     if obj.sale_status:
         return 'billed', 'Billed in a sales voucher'
+
     # Direct CO → PV path: the CO item was billed straight onto a Purchase
     # Voucher without going through a Purchase Order. This is terminal.
     pv = obj.purchasevoucheritems_set.select_related('billno').first()
     if pv:
         ref = pv.billno.billno if pv.billno else ''
         return 'billed', f"Billed directly on Purchase Voucher {ref}".rstrip()
+
+    # Barcoded but not yet sold: a barcode exists for this CO item.
+    barcode_ids = _barcode_ids_for_co_item(obj)
+    if barcode_ids:
+        return 'barcoded', 'Barcode created — ready for delivery'
+
     ki = obj.karigarissueitem_set.select_related('issue_slip').first()
     if ki:
         return 'in_production', f"Issued to Karigar job {ki.issue_slip.issue_slip_no}"
@@ -59,9 +65,8 @@ def _customer_order_item_lock(obj):
     return 'unlocked', ''
 
 
-def _sv_billno_for_co_item(coi):
-    """Return the SalesVou billno of the first Sales Voucher whose barcode
-    traces back to this CustomerOrderItems row, or None if not yet sold.
+def _barcode_ids_for_co_item(coi):
+    """Return a set of BarcodeMain IDs tied to this CustomerOrderItems row.
 
     Walks three barcode-sourcing chains:
       A) CO → PO line → PV line (po_no/po_sl_no match) → BarcodeMain.pur_voucher
@@ -71,7 +76,6 @@ def _sv_billno_for_co_item(coi):
     from inventory.models import BarcodeMain
     from purchase.models import PurchaseVoucherItems
     from manufacturing.models import KarigarReceiveItem
-    from sales.models import SalesVouItem
 
     barcode_ids = set()
 
@@ -101,6 +105,15 @@ def _sv_billno_for_co_item(coi):
         for bc_id in BarcodeMain.objects.filter(pur_voucher_id__in=pv_ids).values_list('id', flat=True):
             barcode_ids.add(bc_id)
 
+    return barcode_ids
+
+
+def _sv_billno_for_co_item(coi):
+    """Return the SalesVou billno of the first Sales Voucher whose barcode
+    traces back to this CustomerOrderItems row, or None if not yet sold."""
+    from sales.models import SalesVouItem
+
+    barcode_ids = _barcode_ids_for_co_item(coi)
     if not barcode_ids:
         return None
 

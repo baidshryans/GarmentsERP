@@ -5,7 +5,7 @@ from .models import BarcodeDetails, BarcodeMain
 class BarCodeMainFilter(django_filters.FilterSet):
     """FilterSet for BarcodeMain with support for related field lookups"""
     rec_item__receive_slip_no = django_filters.CharFilter(
-        field_name='rec_item__receive_slip_no',
+        field_name='rec_item__receive_slip_no__receive_slip_no',
         lookup_expr='exact'
     )
     rec_item__sl_no = django_filters.NumberFilter(

@@ -15,7 +15,7 @@ class BarCodeMainFilter(django_filters.FilterSet):
 
     class Meta:
         model = BarcodeMain
-        fields = ['barcode', 'item', 'purity', 'stk_status', 'rec_item__receive_slip_no', 'rec_item__sl_no']
+        fields = ['barcode', 'item', 'purity', 'stk_status']
 
 
 class StockValuationReportFilter(django_filters.FilterSet):

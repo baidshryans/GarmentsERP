@@ -421,7 +421,7 @@ class BarCodeView(RetailBaseViewset):
         'barcodedetails_set__packet',
     ).all()
     filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
-    filterset_fields = ['barcode', 'item', 'purity', 'stk_status']
+    filterset_fields = ['barcode', 'item', 'purity', 'stk_status', 'rec_item__receive_slip_no', 'rec_item__sl_no']
     search_fields = ['barcode', 'item__short_code', 'item__item_name',]
 
     def get_serializer_class(self):

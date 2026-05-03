@@ -18,6 +18,7 @@ import { openAndPrint } from "@/services/print/utils";
 import ReceiveFromKarigar from "@/services/print/ReceiveFromKariger";
 import { deleteJobWorkReceive } from "../../../services/apiService";
 import { useSearchParams } from 'react-router-dom';
+import BarcodeDetailsModal from "./BarcodeDetailsModal";
 
 const KarigarReceive = () => {
   const { toast } = useToast();
@@ -34,6 +35,8 @@ const KarigarReceive = () => {
   const [showPanel, setShowPanel] = useState(false); // Changed to false by default
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
+  const [barcodeModalOpen, setBarcodeModalOpen] = useState(false);
+  const [selectedBarcodeItem, setSelectedBarcodeItem] = useState(null);
 
   useEffect(() => {
     const fetchLedgers = async () => {
@@ -319,7 +322,10 @@ const KarigarReceive = () => {
                                   <Button
                                     size="sm"
                                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
-                                    onClick={() => navigate(`/inventory/barcodemanagement/list/?rec_sl_no=${encodeURIComponent(details.receive_slip_no)}&sl_no=${detail.sl_no}`)}
+                                    onClick={() => {
+                                      setSelectedBarcodeItem({ slNo: detail.sl_no, detail });
+                                      setBarcodeModalOpen(true);
+                                    }}
                                   >
                                     View Barcode
                                   </Button>
@@ -372,6 +378,17 @@ const KarigarReceive = () => {
           </ResizablePanel>
         </>
       )}
+
+      <BarcodeDetailsModal
+        isOpen={barcodeModalOpen}
+        onClose={() => {
+          setBarcodeModalOpen(false);
+          setSelectedBarcodeItem(null);
+        }}
+        receiveSlipNo={details.receive_slip_no}
+        slNo={selectedBarcodeItem?.slNo}
+        detail={selectedBarcodeItem?.detail}
+      />
     </ResizablePanelGroup>
   );
 };

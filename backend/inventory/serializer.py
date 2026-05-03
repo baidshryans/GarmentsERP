@@ -457,11 +457,12 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             return instance
 
 class BarCodeMainListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for list views — no nested barcodedetails_set."""
+    """Lightweight serializer for list views — includes barcodedetails_set for modal display."""
     item = serializers.SlugRelatedField(read_only=True, slug_field="short_code")
     purity = serializers.SlugRelatedField(read_only=True, slug_field="purity")
     item_name = serializers.SerializerMethodField()
     purity_name = serializers.SerializerMethodField()
+    barcodedetails_set = BarcodeDetailsSerializer(many=True, read_only=True)
     # dia_ct is annotated on the queryset via Sum('barcodedetails_set__ct')
     dia_ct = serializers.FloatField(read_only=True, default=None)
     customer_order_no = serializers.CharField(source='customer_order.order_no', read_only=True, default=None)
@@ -486,7 +487,7 @@ class BarCodeMainListSerializer(serializers.ModelSerializer):
             'barcode', 'pcs', 'gw', 'nw', 'huid',
             'making_val', 'making_type', 'other_chg', 'design_code',
             'total_amount', 'stk_status', 'created_date', 'voucher_no',
-            'dia_ct',
+            'dia_ct', 'barcodedetails_set',
             'customer_order', 'customer_order_no',
             'customer_order_status', 'customer_order_party_name',
         ]

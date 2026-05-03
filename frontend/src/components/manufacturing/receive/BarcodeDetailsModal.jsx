@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import apiClient from "@/services/apiClient";
 
@@ -61,6 +61,9 @@ const BarcodeDetailsModal = ({ isOpen, onClose, receiveSlipNo, slNo, detail }) =
           <DialogTitle className="text-lg">
             Barcode Details — {receiveSlipNo}
           </DialogTitle>
+          <DialogDescription>
+            Barcodes created against this receive slip item
+          </DialogDescription>
         </DialogHeader>
 
         {loading ? (

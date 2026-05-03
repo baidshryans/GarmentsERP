@@ -398,8 +398,22 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 retail=request.retail
             )
             if pur:
-                pur.pending_pcs = (pur.pending_pcs or 0) - (child.pcs or 0)
-                pur.pending_gw  = (pur.pending_gw  or 0) - (child.gw  or 0)
+                new_pending_pcs = (pur.pending_pcs or 0) - (child.pcs or 0)
+                new_pending_gw = (pur.pending_gw or 0) - (child.gw or 0)
+
+                if new_pending_pcs < 0:
+                    raise serializers.ValidationError(
+                        f"Cannot create barcode: Purchase voucher item has only {pur.pending_pcs} pending pieces, "
+                        f"but barcode requires {child.pcs} pieces."
+                    )
+                if new_pending_gw < 0:
+                    raise serializers.ValidationError(
+                        f"Cannot create barcode: Purchase voucher item has only {pur.pending_gw} pending weight, "
+                        f"but barcode requires {child.gw} weight."
+                    )
+
+                pur.pending_pcs = new_pending_pcs
+                pur.pending_gw = new_pending_gw
                 # NOTE: Do NOT mirror child onto pur.barcode — a single PV line
                 # can split into multiple BarcodeMain rows (1→N). The authoritative
                 # direction is BarcodeMain.pur_voucher. pur.barcode is a legacy FK
@@ -407,8 +421,22 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 pur.save()
 
             if rec_item:
-                rec_item.pending_pcs = (rec_item.pending_pcs or 0) - (child.pcs or 0)
-                rec_item.pending_gw  = (rec_item.pending_gw  or 0) - (child.gw  or 0)
+                new_pending_pcs = (rec_item.pending_pcs or 0) - (child.pcs or 0)
+                new_pending_gw = (rec_item.pending_gw or 0) - (child.gw or 0)
+
+                if new_pending_pcs < 0:
+                    raise serializers.ValidationError(
+                        f"Cannot create barcode: Receive item has only {rec_item.pending_pcs} pending pieces, "
+                        f"but barcode requires {child.pcs} pieces."
+                    )
+                if new_pending_gw < 0:
+                    raise serializers.ValidationError(
+                        f"Cannot create barcode: Receive item has only {rec_item.pending_gw} pending weight, "
+                        f"but barcode requires {child.gw} weight."
+                    )
+
+                rec_item.pending_pcs = new_pending_pcs
+                rec_item.pending_gw = new_pending_gw
                 rec_item.save()
         return child
 

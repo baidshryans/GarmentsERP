@@ -877,6 +877,16 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
         s_parent = attrs.get('ref_sample_issue')
         if s_item and s_parent and s_item.issue_id != s_parent.id:
             raise serializers.ValidationError({'ref_sample_issue_item': "Item does not belong to the selected Sample Issue."})
+
+        # Validate that pending_pcs and pending_gw are not negative
+        pending_pcs = attrs.get('pending_pcs')
+        pending_gw = attrs.get('pending_gw')
+
+        if pending_pcs is not None and pending_pcs < 0:
+            raise serializers.ValidationError({'pending_pcs': "Pending pieces cannot be negative."})
+        if pending_gw is not None and pending_gw < 0:
+            raise serializers.ValidationError({'pending_gw': "Pending weight cannot be negative."})
+
         return attrs
 
     def _apply_auto_making(self, validated_data):

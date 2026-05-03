@@ -315,14 +315,24 @@ const KarigarReceive = () => {
                             <TableCell className="px-3 py-2.5 border text-right tabular-nums font-semibold">{fmt(item.amt, 2)}</TableCell>
                             {subIdx === 0 && (
                               <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-center align-middle">
-                                <Button
-                                  size="sm"
-                                  className="bg-[hsl(242_64%_63%)] hover:bg-[hsl(242_64%_56%)] text-white text-xs"
-                                  onClick={() => navigate(`/inventory/barcodemanagement/list/add/?rec_sl_no=${encodeURIComponent(details.receive_slip_no)}&sl_no=${item.sl_no}`)}
-                                  disabled={detail.item_id === 31 ? !detail.pending_gw : !(detail.pending_pcs && (detail.pending_gw || detail.pending_ct))}
-                                >
-                                  Create Barcode
-                                </Button>
+                                {detail.has_barcode && detail.pending_pcs === 0 && detail.pending_gw === 0 ? (
+                                  <Button
+                                    size="sm"
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                                    onClick={() => navigate(`/inventory/barcodemanagement/list/?rec_sl_no=${encodeURIComponent(details.receive_slip_no)}&sl_no=${detail.sl_no}`)}
+                                  >
+                                    View Barcode
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    className="bg-[hsl(242_64%_63%)] hover:bg-[hsl(242_64%_56%)] text-white text-xs"
+                                    onClick={() => navigate(`/inventory/barcodemanagement/list/add/?rec_sl_no=${encodeURIComponent(details.receive_slip_no)}&sl_no=${item.sl_no}`)}
+                                    disabled={detail.item_id === 31 ? !detail.pending_gw : !(detail.pending_pcs && (detail.pending_gw || detail.pending_ct))}
+                                  >
+                                    Create Barcode
+                                  </Button>
+                                )}
                               </TableCell>
                             )}
                           </TableRow>

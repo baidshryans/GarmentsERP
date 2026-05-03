@@ -1,7 +1,7 @@
 ﻿from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.db import transaction
-from inventory.filters import StockValuationReportFilter
+from inventory.filters import StockValuationReportFilter, BarCodeMainFilter
 from inventory.serializer import BarCodeDetailSerializer, BarCodeMainListSerializer, BarCodeMainSerializer, BarcodeCreationReportSerializer, BarcodeMainToSaleVouSerializer, BarcodeSplitMergeSerializer, BarcodeTransactionSerializer, DesignMainSerializer, InterRetailTransferVoucherSerializer, ItemStockReportSerializer, OpeningInventorySerializer, RfidCountResultSerializer, RfidCountSessionSerializer, RfidTagAssignSerializer, StockJournalSerializer, StockTransferSerializer, UnBarcodedMainSerializer
 from manufacturing.models import *
 from manufacturing.serializer import HallmarkReceiveItemForPostSerializer
@@ -421,7 +421,7 @@ class BarCodeView(RetailBaseViewset):
         'barcodedetails_set__packet',
     ).all()
     filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
-    filterset_fields = ['barcode', 'item', 'purity', 'stk_status', 'rec_item__receive_slip_no', 'rec_item__sl_no']
+    filterset_class = BarCodeMainFilter
     search_fields = ['barcode', 'item__short_code', 'item__item_name',]
 
     def get_serializer_class(self):

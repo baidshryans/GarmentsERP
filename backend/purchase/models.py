@@ -6,6 +6,7 @@ from mastersconfig.models import *
 from goldrates.models import *
 from sales.models import CustomerOrder, CustomerOrderItems
 from inventory.models import BarcodeMain, BarcodeDetails
+from common.audit import TenantHistoricalRecords
 
 
 def _attachment_storage():
@@ -68,6 +69,8 @@ class PurchaseVoucher(models.Model):
     @property
     def ldgr_name(self):
         return self.ldgr.ac_name
+
+    history = TenantHistoricalRecords()
 
     class Meta:
         db_table="purchase_voucher"
@@ -139,6 +142,9 @@ class PurchaseVoucherItems(models.Model): #main item
             ),
         ]
 
+    history = TenantHistoricalRecords()
+
+
 class PurchaseVoucherDetails(models.Model):
     main_item = models.ForeignKey(PurchaseVoucherItems, on_delete=models.CASCADE, null=True)
     billno = models.ForeignKey(PurchaseVoucher, on_delete=models.CASCADE, null=True)
@@ -162,7 +168,9 @@ class PurchaseVoucherDetails(models.Model):
     @property
     def date(self):
         return self.main_item.billno.date1 if self.main_item else self.billno.date1
- 
+
+    history = TenantHistoricalRecords()
+
     class Meta:
         db_table="purchase_voucher_details"
 

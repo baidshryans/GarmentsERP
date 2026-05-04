@@ -2,6 +2,7 @@ from django.db import models
 from contacts.models import Ledger
 from mastersconfig.models import Item, SalesPersonMaster
 from goldrates.models import PurityMaster
+from common.audit import TenantHistoricalRecords
 # Create your models here.
 class CustomerOrder(models.Model):
     ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
@@ -206,6 +207,8 @@ class SalesVou(models.Model):
         if self.igst_per and (self.cgst_per or self.sgst_per):
             raise ValidationError("CGST and SGST must be 0 if IGST is defined.")
 
+    history = TenantHistoricalRecords()
+
     class Meta:
         db_table = "sales_vou"
         indexes = [
@@ -235,6 +238,7 @@ class SalesVouItem(models.Model):
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
 
+    history = TenantHistoricalRecords()
 
     class Meta:
         db_table = "sales_vou_main"
@@ -271,6 +275,8 @@ class BankDetail(models.Model):
         on_delete=models.SET_NULL, related_name='cheque_deposits',
     )
 
+    history = TenantHistoricalRecords()
+
     class Meta:
         db_table = 'sale_voucher_bankdetail'
 
@@ -301,6 +307,8 @@ class SalesVouItemDetails(models.Model):
     def fine_wt(self):
         # tunch is stored as a percentage (e.g. 101 means 101%)
         return (self.gw if self.gw else Decimal(0)) * ((self.tunch / Decimal('100')) if self.tunch else Decimal(0))
+
+    history = TenantHistoricalRecords()
 
     class Meta:
         db_table = "sales_vou_detail"

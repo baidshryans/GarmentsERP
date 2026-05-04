@@ -69,6 +69,8 @@ INSTALLED_APPS = [
     "rest_framework",
     'rest_framework.authtoken',
     'easyaudit',
+    'simple_history',
+    'common',
 ]
 
 EXTERNAL_APPS = [
@@ -125,6 +127,9 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'mastersconfig.middleware.RetailMiddleware',
+    # Must come after RetailMiddleware so request.retail is set when the
+    # simple_history pre_create_historical_record signal fires.
+    'common.middleware.TenantHistoryMiddleware',
     'licensing.middleware.LicenseMiddleware',
 ]
 
@@ -141,6 +146,15 @@ DJANGO_EASY_AUDIT_LOGGING_BACKEND = 'jewel_test.audit_backend.SafeAuditBackend'
 DJANGO_EASY_AUDIT_UNREGISTERED_CLASSES_EXTRA = [
     'contacts.UserLocation',
 ]
+
+# ── django-simple-history ─────────────────────────────────────────────────────
+# Phase 1: instrument the core financial models with full row snapshots so we
+# get reliable nested-edit tracking, bulk-operation coverage, and point-in-time
+# restore. easy-audit will be retired in Phase 5 once history coverage is
+# proven across all tiers.
+SIMPLE_HISTORY_HISTORY_CHANGE_REASON_USE_TEXT_FIELD = False
+# Don't fire the historical-record signal during raw `manage.py migrate` runs.
+SIMPLE_HISTORY_REVERT_DISABLED = False
 
 
 ROOT_URLCONF = 'jewel_test.urls'

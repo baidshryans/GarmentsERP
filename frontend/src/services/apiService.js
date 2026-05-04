@@ -388,6 +388,26 @@ export const fetchAuditLog = async (params = {}) => {
   } catch (e) { return { success: false, error: e.response?.data || e.message }; }
 };
 
+// Reverse a single past operation (parent + nested children that share one history_transaction_id)
+export const reverseTransaction = async (history_transaction_id, dry_run = false) => {
+  try {
+    const r = await apiClient.post('/userauth/api/audit-log/reverse-transaction/', {
+      history_transaction_id, dry_run,
+    });
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+};
+
+// Restore the system to its state at a specific timestamp
+export const restoreToPoint = async (timestamp, dry_run = false, retail_id = null) => {
+  try {
+    const r = await apiClient.post('/userauth/api/audit-log/restore-to-point/', {
+      timestamp, dry_run, retail_id,
+    });
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+};
+
 // ── Dashboard Summary ─────────────────────────────────────────────────────────
 export const fetchDashboardSummary = () => _api('get', '/userauth/api/dashboard-summary/');
 

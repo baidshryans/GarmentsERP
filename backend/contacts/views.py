@@ -933,7 +933,8 @@ class LedgerCSVUploadView(APIView):
             if to_create:
                 new_names = [ac_name for ac_name, _, _, _ in to_create]
                 new_objs  = [Ledger(ac_name=ac_name, **fields) for ac_name, fields, _, _ in to_create]
-                Ledger.objects.bulk_create(new_objs)
+                # bulk_create_with_history so the audit log captures CSV-imported ledgers
+                Ledger.objects.bulk_create_with_history(new_objs, Ledger)
                 # Re-fetch to get DB-assigned PKs (needed for role creation)
                 created_map = {
                     ldgr.ac_name.lower(): ldgr

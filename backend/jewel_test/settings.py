@@ -68,7 +68,6 @@ INSTALLED_APPS = [
      "corsheaders",
     "rest_framework",
     'rest_framework.authtoken',
-    'easyaudit',
     'simple_history',
     'common',
 ]
@@ -123,7 +122,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'easyaudit.middleware.easyaudit.EasyAuditMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'mastersconfig.middleware.RetailMiddleware',
@@ -133,27 +131,12 @@ MIDDLEWARE = [
     'licensing.middleware.LicenseMiddleware',
 ]
 
-DJANGO_EASY_AUDIT_WATCH_MODEL_EVENTS = True  # Tracks model changes (create, update, delete)
-DJANGO_EASY_AUDIT_WATCH_REQUEST_EVENTS = True  # Tracks HTTP requests
-DJANGO_EASY_AUDIT_WATCH_AUTH_EVENTS = True  # Tracks login/logout actions
-# Custom backend that silently swallows OperationalError when the
-# easyaudit tables don't exist yet (e.g. during `python manage.py migrate`).
-DJANGO_EASY_AUDIT_LOGGING_BACKEND = 'jewel_test.audit_backend.SafeAuditBackend'
-
-# Exclude internal system models whose M2M changes are not meaningful audit
-# events. UserLocation is synced automatically on every superuser request —
-# auditing it floods the easyaudit_crudevent table with M2M_ADD rows.
-DJANGO_EASY_AUDIT_UNREGISTERED_CLASSES_EXTRA = [
-    'contacts.UserLocation',
-]
-
-# ── django-simple-history ─────────────────────────────────────────────────────
-# Phase 1: instrument the core financial models with full row snapshots so we
-# get reliable nested-edit tracking, bulk-operation coverage, and point-in-time
-# restore. easy-audit will be retired in Phase 5 once history coverage is
-# proven across all tiers.
+# ── Audit trail ───────────────────────────────────────────────────────────────
+# django-simple-history snapshots every CRUD on the models that opted in via
+# common.audit.TenantHistoricalRecords. Multi-tenant scope and per-operation
+# reversal are powered by the history_retail / history_transaction_id columns
+# attached to each historical row.
 SIMPLE_HISTORY_HISTORY_CHANGE_REASON_USE_TEXT_FIELD = False
-# Don't fire the historical-record signal during raw `manage.py migrate` runs.
 SIMPLE_HISTORY_REVERT_DISABLED = False
 
 

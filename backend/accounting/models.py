@@ -95,11 +95,9 @@ class VoucherDetail(models.Model):
     history = TenantHistoricalRecords()
 
     def __str__(self):
-        # Use raw FK value (voucher_main_id) instead of traversing the relation.
-        # When this object is being cascade-deleted because voucher_main was deleted,
-        # accessing self.voucher_main triggers a DB lookup that raises DoesNotExist,
-        # which crashes easyaudit's post_delete signal handler and rolls back the
-        # entire purchase-voucher update transaction.
+        # Use raw FK value (voucher_main_id) to be cascade-delete safe — accessing
+        # self.voucher_main during a cascade can raise DoesNotExist before the
+        # delete completes.
         try:
             account_name = self.account.ac_name
         except Exception:

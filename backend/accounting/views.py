@@ -2968,7 +2968,10 @@ class ApproveDepreciationSuggestionView(APIView):
                     voucher_type=VoucherType.depreciation, account=accum_ldgr,
                     debit=Decimal('0'), credit=line.approved_amount,
                 ))
-            VoucherDetail.objects.bulk_create(vd_rows)
+            # bulk_create_with_history ensures the historical_voucherdetail
+            # rows are also written — plain bulk_create skips Django signals
+            # and the audit log would otherwise miss every depreciation posting.
+            VoucherDetail.objects.bulk_create_with_history(vd_rows, VoucherDetail)
 
             for line in lines:
                 if line.approved_amount <= 0:

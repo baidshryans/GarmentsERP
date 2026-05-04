@@ -47,10 +47,6 @@ PROTECTED_TABLES = {
     # User-location mapping
     'contacts_userlocation',
     'contacts_userlocation_location',
-    # Easy-audit
-    'easyaudit_crudevent',
-    'easyaudit_loginevent',
-    'easyaudit_requestevent',
     # SQLite internals
     'sqlite_sequence',
 }
@@ -391,7 +387,7 @@ def setup_rollback(request):
     Wipe all setup data when a user abandons the wizard before completion.
 
     Truncates every application table (except protected user/auth/migration tables)
-    AND the easyaudit_* tables so the audit trail of the failed setup is also cleared.
+    AND every historical_* simple-history table so the audit trail of the failed setup is also cleared.
     Refuses to run if setup is already complete.
     """
     # Refuse if setup is already complete
@@ -411,15 +407,11 @@ def setup_rollback(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-    # Easy-audit tables MUST be truncated as part of rollback
-    rollback_protected = PROTECTED_TABLES - {
-        'easyaudit_crudevent',
-        'easyaudit_loginevent',
-        'easyaudit_requestevent',
-    }
-
+    # All historical_* tables (and any other non-protected tables) get truncated
+    # on rollback. simple-history's tables follow the {appname}_historical{model}
+    # naming pattern and are not in PROTECTED_TABLES, so they're cleared here.
     all_tables = set(connection.introspection.table_names())
-    tables_to_truncate = sorted(all_tables - rollback_protected)
+    tables_to_truncate = sorted(all_tables - PROTECTED_TABLES)
 
     truncated = []
     errors = []

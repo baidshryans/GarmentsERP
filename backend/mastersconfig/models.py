@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 import global_vars
+from common.audit import TenantHistoricalRecords
 # Create your modes here.
 
     
@@ -282,7 +283,7 @@ class RetailMaster(models.Model):
             return f"{display}/{self.retail_code}/{fy}/"
         return f"{display}/{self.retail_code}/"
 
-
+    history = TenantHistoricalRecords()
 
 
 
@@ -373,7 +374,8 @@ class Item(models.Model):
 
     class Meta:
         db_table = "item_master"
-        
+
+    history = TenantHistoricalRecords()
 
 
 class Shapes(models.Model):
@@ -540,6 +542,8 @@ class Packet(models.Model):
     created_date = models.DateField(default=timezone.now)
 
     op_stock_wtd_avg_rate = models.DecimalField(default=0,decimal_places=3,max_digits=10)
+
+    history = TenantHistoricalRecords()
 
     class Meta:
         db_table = "packet_master"

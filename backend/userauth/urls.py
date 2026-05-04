@@ -35,6 +35,8 @@ urlpatterns += [
     path('api/modules/', views.list_modules),
     path('api/backup-database/', views.backup_database),
     path('api/audit-log/', views.audit_log),
+    path('api/audit-log/reverse-transaction/', views.reverse_transaction_view),
+    path('api/audit-log/restore-to-point/',    views.restore_to_point_view),
     path('api/dashboard-summary/', views.dashboard_summary),
 ]
 

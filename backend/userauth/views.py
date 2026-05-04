@@ -473,54 +473,128 @@ def backup_database(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def audit_log(request):
-    """GET /userauth/api/audit-log/ — paginated CRUD event log (admin only)."""
+    """GET /userauth/api/audit-log/ — paginated audit trail (admin only).
+
+    Backed by django-simple-history. Iterates every model that registered a
+    TenantHistoricalRecords field, scoped to the active retail, sorts the
+    union by date and paginates in memory. Output shape stays identical to
+    the old easy-audit response so AuditLog.jsx renders unchanged.
+    """
     if not _is_admin(request):
         return Response({'detail': 'Admin access required.'}, status=403)
 
-    from easyaudit.models import CRUDEvent
-    from django.utils.timezone import localtime
+    from common.history_query import query_history
 
-    qs = CRUDEvent.objects.select_related('user', 'content_type').order_by('-datetime')
-
+    retail     = getattr(request, 'retail', None)
     user_id    = request.GET.get('user')
     model_name = request.GET.get('model', '').strip()
-    from_date  = request.GET.get('from_date')
-    to_date    = request.GET.get('to_date')
+    from_date  = request.GET.get('from_date') or None
+    to_date    = request.GET.get('to_date') or None
 
-    if user_id:
-        qs = qs.filter(user_id=user_id)
-    if model_name:
-        qs = qs.filter(content_type__model__icontains=model_name)
-    if from_date:
-        qs = qs.filter(datetime__date__gte=from_date)
-    if to_date:
-        qs = qs.filter(datetime__date__lte=to_date)
+    rows = query_history(
+        retail=retail,
+        from_date=from_date,
+        to_date=to_date,
+        model_name=model_name,
+        user_id=user_id,
+    )
 
     page      = max(int(request.GET.get('page', 1)), 1)
     page_size = 50
     offset    = (page - 1) * page_size
-    total     = qs.count()
-    events    = qs[offset: offset + page_size]
-
-    EVENT_LABELS = {1: 'CREATE', 2: 'UPDATE', 3: 'DELETE'}
-
-    data = [{
-        'id':            e.id,
-        'datetime':      localtime(e.datetime).strftime('%Y-%m-%d %H:%M:%S'),
-        'event_type':    EVENT_LABELS.get(e.event_type, str(e.event_type)),
-        'model':         e.content_type.model if e.content_type else '',
-        'app':           e.content_type.app_label if e.content_type else '',
-        'object_repr':   e.object_repr,
-        'user':          e.user.username if e.user else 'System',
-        'changed_fields': e.changed_fields,
-    } for e in events]
+    total     = len(rows)
+    page_rows = rows[offset: offset + page_size]
 
     return Response({
         'count':     total,
         'page':      page,
         'page_size': page_size,
         'num_pages': max(1, (total + page_size - 1) // page_size),
-        'results':   data,
+        'results':   page_rows,
+    })
+
+
+# ── Audit Reversal & Restore (admin only) ───────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reverse_transaction_view(request):
+    """POST /userauth/api/audit-log/reverse-transaction/
+
+    Body: { history_transaction_id, dry_run? }
+    Undoes every change written during one HTTP request (rows that share
+    the same history_transaction_id). Use dry_run=true to preview.
+    """
+    if not _is_admin(request):
+        return Response({'detail': 'Admin access required.'}, status=403)
+
+    from common.restore import reverse_transaction
+
+    txn_id = request.data.get('history_transaction_id')
+    if not txn_id:
+        return Response({'detail': 'history_transaction_id is required.'}, status=400)
+
+    dry_run = bool(request.data.get('dry_run', False))
+
+    try:
+        summary = reverse_transaction(txn_id, dry_run=dry_run)
+    except Exception as exc:
+        return Response({'detail': f'Reversal failed: {exc}'}, status=500)
+
+    return Response({
+        'dry_run':  dry_run,
+        'summary':  summary.as_dict(),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def restore_to_point_view(request):
+    """POST /userauth/api/audit-log/restore-to-point/
+
+    Body: { timestamp (ISO 8601), retail_id?, dry_run? }
+    Roll all tracked rows back to the state that was current at `timestamp`.
+    """
+    if not _is_admin(request):
+        return Response({'detail': 'Admin access required.'}, status=403)
+
+    from common.restore import restore_to_point
+    from mastersconfig.models import RetailMaster
+    from django.utils.dateparse import parse_datetime
+    from django.utils.timezone import make_aware, is_aware
+
+    raw_ts = request.data.get('timestamp')
+    if not raw_ts:
+        return Response({'detail': 'timestamp is required.'}, status=400)
+
+    ts = parse_datetime(raw_ts)
+    if ts is None:
+        return Response({'detail': 'timestamp must be ISO 8601.'}, status=400)
+    if not is_aware(ts):
+        ts = make_aware(ts)
+
+    retail_id = request.data.get('retail_id')
+    retail = None
+    if retail_id:
+        try:
+            retail = RetailMaster.objects.get(pk=retail_id)
+        except RetailMaster.DoesNotExist:
+            return Response({'detail': f'Retail {retail_id} not found.'}, status=404)
+    else:
+        retail = getattr(request, 'retail', None)
+
+    dry_run = bool(request.data.get('dry_run', False))
+
+    try:
+        summary = restore_to_point(ts, retail=retail, dry_run=dry_run)
+    except Exception as exc:
+        return Response({'detail': f'Restore failed: {exc}'}, status=500)
+
+    return Response({
+        'dry_run':  dry_run,
+        'timestamp': ts.isoformat(),
+        'retail':    retail.retail_code if retail else None,
+        'summary':   summary.as_dict(),
     })
 
 

@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 
 from mastersconfig.models import RetailMaster
 from django.core.exceptions import ValidationError
+from common.audit import TenantHistoricalRecords
 
 
 # ── Constants ────────────────────────────────────────────────────────────────
@@ -119,6 +120,8 @@ class Ledger(models.Model):
     def clean(self):
         """Type-specific validation is now handled in the serializer after roles are saved."""
         super().clean()
+
+    history = TenantHistoricalRecords()
 
     class Meta:
         db_table = "ledger_master"

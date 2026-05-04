@@ -56,7 +56,10 @@ class CustomerOrderView(ListCreateAPIView):
         serializer.save(retail=self.request.retail)
 
 class CustomerOrderViewset(views.RetailBaseViewset):
-    queryset = CustomerOrder.objects.select_related('ldgr', 'retail').prefetch_related('items', 'linked_vouchers').all()
+    queryset = CustomerOrder.objects.select_related(
+        'ldgr', 'retail', 'retail__state', 'retail__gstin_master',
+        'salesman_1', 'salesman_2',
+    ).prefetch_related('items', 'linked_vouchers').all()
     serializer_class = CustomerOrderSerializer
     filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
     filterset_fields = ['ldgr', 'status']
@@ -590,10 +593,13 @@ class SalesVoucherViewset(views.RetailBaseViewset):
     queryset = SalesVou.objects.select_related(
         'ldgr', 'sales_person', 'sales_person2', 'ac_voucher', 'retail'
     ).prefetch_related(
+        'salesvouitem_set__item',
         'salesvouitem_set__barcode',
         'salesvouitem_set__main_item_set__item',
+        'salesvouitem_set__main_item_set__packet',
         'salesvouitemdetails_set__item',
-        'bank_details'
+        'salesvouitemdetails_set__packet',
+        'bank_details',
     ).all()
     serializer_class = SalesVouSerializer
     filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
@@ -1335,7 +1341,11 @@ def get_sale_voucher_for_return(request):
 
 
 class SalesApprovalViewset(views.RetailBaseViewset):
-    queryset = SalesApproval.objects.all()
+    queryset = SalesApproval.objects.select_related(
+        'ldgr', 'sales_person', 'sales_person2', 'place_of_supply', 'retail'
+    ).prefetch_related(
+        'items__main_item_set'
+    ).all()
     serializer_class = SalesApprovalSerializer
     filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
 

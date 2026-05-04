@@ -198,7 +198,7 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
         return float(obj.advance_available)
 
     def get_linked_bill_count(self, obj):
-        return obj.linked_vouchers.count()
+        return len(obj.linked_vouchers.all())
 
     def get_is_overdue(self, obj):
         from datetime import date
@@ -271,7 +271,7 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     has_advance             = serializers.SerializerMethodField(read_only=True)
 
     def get_is_deletable(self, obj):
-        return not obj.linked_vouchers.exists()
+        return not obj.linked_vouchers.all()
 
     def get_is_cancellable(self, obj):
         return obj.delivery_status not in ('delivered', 'cancelled')

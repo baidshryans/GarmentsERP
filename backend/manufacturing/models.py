@@ -1,4 +1,4 @@
-from django.db import models
+﻿from django.db import models
 from accounting.models import VoucherMain
 from contacts.models import Ledger
 from goldrates.models import PurityMaster
@@ -917,60 +917,3 @@ class RepairKarigarLink(models.Model):
     class Meta:
         db_table = 'repair_karigar_link'
 
-
-# views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from itertools import chain
-from operator import itemgetter
-from datetime import datetime
-from decimal import Decimal
-from collections import defaultdict
-from django.db.models import F, Value
-
-class CombinedGoldTransactionView(APIView):
-
-    def get_combined_gold_ledger_data(self, start_date, end_date, purity_id):
-        issues_qs = KarigarGoldIssue.objects.filter(
-            header__date1__range=[start_date, end_date],
-            conv_purity_id=purity_id
-        ).annotate(
-            date=F('header__date1'),
-            karigar_id=F('header__karigar_ldgr_id'),
-            karigar_name=F('header__karigar_ldgr__ac_name'),
-            gold_wt=F('conv_wt'),
-            type=Value('issue')
-        ).values('date', 'karigar_id', 'karigar_name', 'gold_wt', 'type')
-
-        receives_qs = KarigarReceiveItem.objects.filter(
-            receive_slip_no__date1__range=[start_date, end_date],
-            purity_id=purity_id
-        ).annotate(
-            date=F('receive_slip_no__date1'),
-            karigar_id=F('receive_slip_no__karigar_ldgr_id'),
-            karigar_name=F('receive_slip_no__karigar_ldgr__ac_name'),
-            gold_wt=F('nw'),
-            type=Value('receive')
-        ).values('date', 'karigar_id', 'karigar_name', 'gold_wt', 'type')
-
-        combined = sorted(
-            chain(issues_qs, receives_qs),
-            key=itemgetter('date')
-        )
-        return combined
-
-    def get(self, request):
-        start_date = request.query_params.get("start")
-        end_date = request.query_params.get("end")
-        purity_id = request.query_params.get("purity")
-
-        if not (start_date and end_date and purity_id):
-            return Response({"error": "Missing parameters"}, status=status.HTTP_400_BAD_REQUEST)
-
-        data = self.get_combined_gold_ledger_data(start_date, end_date, purity_id)
-
-        # Apply pagination manually
-        paginator = self.pagination_class()
-        paginated_data = paginator.paginate_queryset(data, request)
-        return paginator.get_paginated_response(paginated_data)

@@ -1024,7 +1024,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('karigarreceiveitem_set')
         with transaction.atomic():
             karigar_receive_instance = KarigarReceive.objects.create(**validated_data,)
-            
+
             # Create related KarigarReceiveItem instances
             for item_data in items_data:
                 details = item_data.pop('karigarreceiveitemdetails_set')
@@ -1032,7 +1032,17 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                 for detail in details:
                     KarigarReceiveItemDetails.objects.create( receive_slip_no = karigar_receive_instance,
             main_sl_no = kr_item,**detail)
-                        
+
+            # ── Idempotent: remove any pre-existing making voucher for this
+            # date + karigar before posting a fresh one (defends against
+            # retries, legacy orphans, and resubmissions).
+            from accounting.models import VoucherMain
+            VoucherMain.objects.filter(
+                retail=karigar_receive_instance.retail,
+                narration__startswith=f"Being making charges for Artisan on date {karigar_receive_instance.date1}",
+                transactions__account=karigar_receive_instance.karigar_ldgr,
+            ).distinct().delete()
+
             # ── Making charges voucher: Dr Making Charge Paid [purity] / Cr Karigar ──
             # Group making charges by purity so each purity posts to its own ledger.
             from collections import defaultdict
@@ -1119,7 +1129,20 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                 nested_data=children_data,
                 parent_name="receive_slip_no"
             )
-            instance.making_vid.delete()
+
+            # ── Idempotent cleanup of any prior making-charge vouchers ──────
+            # Don't trust making_vid alone — a single FK only catches one
+            # voucher and any legacy orphans (created by older buggy updates
+            # or SET_NULL-cascaded references) would survive. Find every
+            # voucher matching this receive's narration signature and remove
+            # them all before we create the replacement.
+            from accounting.models import VoucherMain
+            VoucherMain.objects.filter(
+                retail=instance.retail,
+                narration__startswith=f"Being making charges for Artisan on date {instance.date1}",
+                transactions__account=instance.karigar_ldgr,
+            ).distinct().delete()
+            instance.making_vid = None
             karigar_receive_instance = instance
 
             # ── Making charges voucher: Dr Making Charge Paid [purity] / Cr Karigar ──

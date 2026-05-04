@@ -135,6 +135,13 @@ DJANGO_EASY_AUDIT_WATCH_AUTH_EVENTS = True  # Tracks login/logout actions
 # easyaudit tables don't exist yet (e.g. during `python manage.py migrate`).
 DJANGO_EASY_AUDIT_LOGGING_BACKEND = 'jewel_test.audit_backend.SafeAuditBackend'
 
+# Exclude internal system models whose M2M changes are not meaningful audit
+# events. UserLocation is synced automatically on every superuser request —
+# auditing it floods the easyaudit_crudevent table with M2M_ADD rows.
+DJANGO_EASY_AUDIT_UNREGISTERED_CLASSES_EXTRA = [
+    'contacts.UserLocation',
+]
+
 
 ROOT_URLCONF = 'jewel_test.urls'
 CORS_ALLOW_HEADERS = ["*"]

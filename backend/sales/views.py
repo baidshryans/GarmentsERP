@@ -2432,31 +2432,52 @@ def deposit_cheque(request, pk):
     try:
         cheques_in_hand = Ledger.objects.get(ac_name='Cheques in Hand', is_system=True)
     except Ledger.DoesNotExist:
-        return Response({'detail': 'System ledger "Cheques in Hand" not found. Please re-run seed-accounts from Setup.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'System ledger "Cheques in Hand" not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    from accounting.serializers import JournalEntrySerializer
+    from accounting.models import VoucherMain, VoucherDetail
     from accounting.utils import get_next_bill_number
     from global_vars import VoucherType
+    from decimal import Decimal
+
+    amount = Decimal(str(bd.amount))
 
     with transaction.atomic():
         voucher_no = get_next_bill_number(retail, VoucherType.cntr, fiscal_year)
         narration  = f"Cheque deposit — {bd.chq_no} — {bd.bank_name}"
 
-        ser = JournalEntrySerializer(data={
-            'date':         deposit_date,
-            'voucher_no':   voucher_no,
-            'retail':       retail.id,
-            'narration':    narration[:150],
-            'voucher_type': VoucherType.cntr,
-            'voucher_details': [
-                {'account': bank_ledger.ac_name,        'debit': str(bd.amount), 'credit': 0},
-                {'account': cheques_in_hand.ac_name,    'debit': 0, 'credit': str(bd.amount),
-                 'chq_no': bd.chq_no, 'chq_date': str(bd.chq_date) if bd.chq_date else None},
-            ],
-        }, context={'request': request})
-
-        ser.is_valid(raise_exception=True)
-        voucher = ser.save()
+        # Create the Contra voucher directly using PKs — avoids the name-based
+        # SlugRelatedField lookup in JournalEntrySerializer which would fail if
+        # two retails share a bank ledger name (Cheques in Hand is a single
+        # global system ledger; its per-retail balance is tracked via
+        # VoucherDetail → VoucherMain → retail).
+        voucher = VoucherMain.objects.create(
+            date=deposit_date,
+            voucher_no=voucher_no,
+            narration=narration[:150],
+            amount=amount,
+            voucher_type=VoucherType.cntr,
+            retail=retail,
+            fiscal_year=fiscal_year,
+        )
+        VoucherDetail.objects.create(
+            voucher_main=voucher,
+            voucher_no=voucher_no,
+            voucher_type=VoucherType.cntr,
+            account=bank_ledger,
+            debit=amount,
+            credit=0,
+        )
+        VoucherDetail.objects.create(
+            voucher_main=voucher,
+            voucher_no=voucher_no,
+            voucher_type=VoucherType.cntr,
+            account=cheques_in_hand,
+            debit=0,
+            credit=amount,
+            chq_no=bd.chq_no or '',
+            chq_date=bd.chq_date,
+            party_bank_name=bd.bank_name or '',
+        )
 
         bd.cheque_status   = 'DEPOSITED'
         bd.deposit_date    = deposit_date

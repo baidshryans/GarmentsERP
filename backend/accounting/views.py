@@ -1185,9 +1185,69 @@ def account_tree(request):
     return Response(tree_data)
 
 
+def _voucher_source_document(voucher):
+    """If `voucher` was auto-posted from a business document (karigar receive,
+    sales voucher, purchase voucher, depreciation approval, scheme payment,
+    cheque deposit, credit/debit note), return (label, identifier).
+    Otherwise return None — meaning it was created directly via the journal API
+    and is fair game for editing through the journal list.
+
+    Lazy imports avoid circular dependencies between the accounting app and
+    the apps that point back at it.
+    """
+    # ── Manufacturing ────────────────────────────────────────────────────────
+    from manufacturing.models import KarigarReceive
+    kr = KarigarReceive.objects.filter(making_vid=voucher).first()
+    if kr:
+        return ('Karigar Receive', kr.receive_slip_no)
+
+    # ── Sales ────────────────────────────────────────────────────────────────
+    from sales.models import SalesVou, SaleReturn, BankDetail
+    sv = SalesVou.objects.filter(ac_voucher=voucher).first()
+    if sv:
+        return ('Sales Voucher', sv.billno)
+    sv_rcpt = SalesVou.objects.filter(ac_rec_voucher=voucher).first()
+    if sv_rcpt:
+        return ('Sales Receipt', sv_rcpt.billno)
+    sr = SaleReturn.objects.filter(ac_voucher=voucher).first()
+    if sr:
+        return ('Sale Return', sr.billno)
+    chq = BankDetail.objects.filter(deposit_voucher=voucher).select_related('sales_vou').first()
+    if chq:
+        return ('Cheque Deposit', f"{chq.chq_no or ''} (Sales {chq.sales_vou.billno})")
+
+    # ── Purchase ─────────────────────────────────────────────────────────────
+    from purchase.models import PurchaseVoucher, PurchaseReturn
+    pv = PurchaseVoucher.objects.filter(ac_voucher=voucher).first()
+    if pv:
+        return ('Purchase Voucher', pv.billno)
+    pv_tds = PurchaseVoucher.objects.filter(tds_ac_voucher=voucher).first()
+    if pv_tds:
+        return ('Purchase Voucher TDS', pv_tds.billno)
+    pr = PurchaseReturn.objects.filter(ac_voucher=voucher).first()
+    if pr:
+        return ('Purchase Return', pr.billno)
+
+    # ── Accounting (credit/debit notes, depreciation) ───────────────────────
+    from accounting.models import CreditDebitNote, DepreciationSuggestion
+    cn = CreditDebitNote.objects.filter(ac_voucher=voucher).first()
+    if cn:
+        return ('Credit/Debit Note', cn.note_no)
+    dep = DepreciationSuggestion.objects.filter(voucher=voucher).first()
+    if dep:
+        return ('Depreciation Suggestion', dep.label)
+
+    # ── Gold Scheme ──────────────────────────────────────────────────────────
+    from goldscheme.models import SchemePayment
+    sp = SchemePayment.objects.filter(voucher=voucher).first()
+    if sp:
+        return ('Scheme Payment', f"#{sp.id}")
+
+    return None
 
 
-
+class JournalEntryViewSet(RetailBaseViewset):
+    serializer_class = JournalEntrySerializer
 class JournalEntryViewSet(RetailBaseViewset):
     serializer_class = JournalEntrySerializer
     queryset = VoucherMain.objects.select_related('retail').prefetch_related('transactions__account').all()
@@ -1208,6 +1268,19 @@ class JournalEntryViewSet(RetailBaseViewset):
 
     def _check_voucher_mutable(self, instance, action):
         from rest_framework.exceptions import ValidationError
+
+        # System-posted vouchers (those created by a business document like a
+        # karigar receive, sales voucher, purchase voucher, depreciation
+        # approval, etc.) must be edited via their source document — never
+        # directly through the journal list.
+        source = _voucher_source_document(instance)
+        if source is not None:
+            label, identifier = source
+            raise ValidationError(
+                f"Voucher '{instance.voucher_no}' was posted from {label} "
+                f"'{identifier}'. Edit the {label} to change this entry."
+            )
+
         if instance.status == 'posted':
             raise ValidationError(
                 f"Voucher '{instance.voucher_no}' cannot be {action} while it is posted. Cancel it first."

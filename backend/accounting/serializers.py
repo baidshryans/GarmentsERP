@@ -922,7 +922,12 @@ class FixedAssetSerializer(serializers.ModelSerializer):
     class Meta:
         model  = FixedAsset
         fields = '__all__'
-        read_only_fields = ('accumulated_depreciation', 'created_at')
+        read_only_fields = (
+            'accumulated_depreciation', 'created_at',
+            # Depreciation ledgers are set globally in Fixed Asset Settings — no
+            # per-asset overrides allowed through the API.
+            'accum_depreciation_ledger', 'depreciation_expense_ledger',
+        )
 
     def get_it_block_rate(self, obj):
         if obj.it_block_category and obj.it_block_category in IT_BLOCK_RATES:

@@ -15,7 +15,7 @@ import {
 import { Plus, Pencil, Info } from "lucide-react";
 import {
   fetchFixedAssets, createFixedAsset, updateFixedAsset,
-  fetchITBlockRates, getLedgers,
+  fetchITBlockRates,
 } from "@/services/apiService";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,7 +30,6 @@ const BLANK = {
   purchase_date: "", purchase_cost: "", residual_value: "",
   depreciation_method: "WDV", rate_or_life: "",
   it_block_category: "",
-  accum_depreciation_ledger: "", depreciation_expense_ledger: "",
   status: "ACTIVE",
 };
 
@@ -38,7 +37,6 @@ export default function FixedAssetMasterPage() {
   const { toast } = useToast();
   const [assets, setAssets]         = useState([]);
   const [blockRates, setBlockRates]  = useState([]);
-  const [ledgers, setLedgers]        = useState([]);
   const [open, setOpen]              = useState(false);
   const [editId, setEditId]          = useState(null);
   const [editLedgerName, setEditLedgerName] = useState(""); // read-only display of auto-created ledger
@@ -48,7 +46,6 @@ export default function FixedAssetMasterPage() {
   useEffect(() => {
     load();
     fetchITBlockRates().then(r => r.success && setBlockRates(r.data));
-    getLedgers().then(r => r.success && setLedgers(Array.isArray(r.data) ? r.data : (r.data.results || [])));
   }, []);
 
   async function load() {
@@ -65,22 +62,18 @@ export default function FixedAssetMasterPage() {
 
   function openEdit(a) {
     setEditId(a.id);
-    // Show the name of the auto-created asset ledger (read-only)
-    const ledger = ledgers.find(l => l.id === a.asset_ledger);
-    setEditLedgerName(ledger ? ledger.ac_name : a.asset_ledger_name || "");
+    setEditLedgerName(a.asset_ledger_name || "");
     setForm({
-      asset_code: a.asset_code || "",
-      asset_name: a.asset_name || "",
-      description: a.description || "",
-      purchase_date: a.purchase_date || "",
-      purchase_cost: String(a.purchase_cost || ""),
-      residual_value: String(a.residual_value || ""),
+      asset_code:          a.asset_code || "",
+      asset_name:          a.asset_name || "",
+      description:         a.description || "",
+      purchase_date:       a.purchase_date || "",
+      purchase_cost:       String(a.purchase_cost || ""),
+      residual_value:      String(a.residual_value || ""),
       depreciation_method: a.depreciation_method || "WDV",
-      rate_or_life: String(a.rate_or_life || ""),
-      it_block_category: a.it_block_category || "",
-      accum_depreciation_ledger: a.accum_depreciation_ledger ? String(a.accum_depreciation_ledger) : "",
-      depreciation_expense_ledger: a.depreciation_expense_ledger ? String(a.depreciation_expense_ledger) : "",
-      status: a.status || "ACTIVE",
+      rate_or_life:        String(a.rate_or_life || ""),
+      it_block_category:   a.it_block_category || "",
+      status:              a.status || "ACTIVE",
     });
     setOpen(true);
   }
@@ -111,10 +104,7 @@ export default function FixedAssetMasterPage() {
     setSaving(true);
     const payload = {
       ...form,
-      // asset_ledger is auto-created by the backend on create — not sent by frontend
-      accum_depreciation_ledger:   form.accum_depreciation_ledger || null,
-      depreciation_expense_ledger: form.depreciation_expense_ledger || null,
-      it_block_category:           form.it_block_category || null,
+      it_block_category: form.it_block_category || null,
     };
     const r = editId
       ? await updateFixedAsset(editId, payload)
@@ -216,11 +206,9 @@ export default function FixedAssetMasterPage() {
                 </div>
               </section>
 
-              {/* Ledger info + overrides */}
+              {/* Asset ledger info — auto-created, read-only */}
               <section className="space-y-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accounting Ledgers</h3>
-
-                {/* Asset ledger — auto-created, read-only */}
                 <div className="flex items-start gap-2 rounded-md bg-muted/50 border px-3 py-2">
                   <Info className="size-4 mt-0.5 text-muted-foreground shrink-0" />
                   <p className="text-xs text-muted-foreground">
@@ -230,22 +218,10 @@ export default function FixedAssetMasterPage() {
                     }
                   </p>
                 </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  <LedgerSelect
-                    label="Accumulated Depreciation Ledger override"
-                    value={form.accum_depreciation_ledger}
-                    onChange={v => set("accum_depreciation_ledger", v)}
-                    ledgers={ledgers}
-                  />
-                  <LedgerSelect
-                    label="Depreciation Expense Ledger override"
-                    value={form.depreciation_expense_ledger}
-                    onChange={v => set("depreciation_expense_ledger", v)}
-                    ledgers={ledgers}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">Leave blank to use the retail-wide defaults from Fixed Asset Settings.</p>
+                <p className="text-xs text-muted-foreground">
+                  Depreciation expense and accumulated depreciation ledgers are taken from{" "}
+                  <span className="font-medium text-foreground">Fixed Asset Settings</span> and applied to all assets automatically.
+                </p>
               </section>
 
               <Button onClick={handleSave} disabled={saving} className="w-full">
@@ -311,23 +287,5 @@ function F({ label, children, className = "" }) {
       <Label className="text-xs">{label}</Label>
       {children}
     </div>
-  );
-}
-
-function LedgerSelect({ label, value, onChange, ledgers }) {
-  return (
-    <F label={label}>
-      <Select value={value || "__none__"} onValueChange={v => onChange(v === "__none__" ? "" : v)}>
-        <SelectTrigger>
-          <SelectValue placeholder="— Use settings default —" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">— Use settings default —</SelectItem>
-          {ledgers.map(l => (
-            <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </F>
   );
 }

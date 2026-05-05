@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,15 @@ const AddJournal = () => {
   const [uploadingFiles, setUploadingFiles]     = useState(false);
   const [customers, setCustomers] = useState([]);
   const [selectedLedger, setSelectedLedger] = useState(null);
+
+  // True when the currently-entered account is a Cash or Bank ledger.
+  // Used to disable the forbidden debit/credit field proactively (PMNT → no
+  // debit on cash/bank; RCPT → no credit on cash/bank).
+  const isCashBankLedger = useMemo(
+    () => selectedLedger?.roles?.some(r => r.role === 'CA' || r.role === 'BA') ?? false,
+    [selectedLedger],
+  );
+
   const [purityData, setPurityData] = useState([]);
   const [totalCredit, settotalCredit] = useState(0);
   const [totalDebit, settotalDebit] = useState(0);
@@ -376,8 +385,12 @@ const AddJournal = () => {
       }
 
       // Cash/Bank side restriction
-      const ledger = selectedLedger;
-      const isCashBank = ledger?.roles?.some(r => r.role === 'CA' || r.role === 'BA');
+      // Prefer selectedLedger (set by combobox onSelect); fall back to
+      // matching by name in the current search results so validation still
+      // fires when the user typed the account name without clicking a suggestion.
+      const ledger = selectedLedger
+        ?? customers.find(c => c.ac_name?.trim().toLowerCase() === row.account?.trim().toLowerCase());
+      const isCashBank = ledger?.roles?.some(r => r.role === 'CA' || r.role === 'BA') ?? false;
       if (isCashBank) {
         if (journal_type === 'RCPT' && rowCredit > 0) {
           toast({
@@ -529,6 +542,12 @@ const AddJournal = () => {
                   onSelect={(opt) => {
                     setValue("table.account", opt.ac_name);
                     setSelectedLedger(opt);
+                    // Clear the forbidden field immediately on selection
+                    const optIsCashBank = opt?.roles?.some(r => r.role === 'CA' || r.role === 'BA');
+                    if (optIsCashBank) {
+                      if (journal_type === "PMNT") setValue("table.debit",  "");
+                      if (journal_type === "RCPT") setValue("table.credit", "");
+                    }
                   }}
                   placeholder="Search account..."
                 />
@@ -552,10 +571,26 @@ const AddJournal = () => {
                 </TableCell>
               )}
               <TableCell className="w-28 px-4 py-2 border">
-                <Input type="number" {...register("table.debit")}/>
+                {/* PMNT: Cash/Bank can only be credited — block debit entry */}
+                {isCashBankLedger && journal_type === "PMNT" ? (
+                  <div className="flex flex-col gap-0.5">
+                    <Input type="number" disabled value="" className="bg-gray-100 cursor-not-allowed opacity-60" tabIndex={-1} />
+                    <span className="text-[10px] text-amber-600 font-medium leading-tight">Credit only</span>
+                  </div>
+                ) : (
+                  <Input type="number" {...register("table.debit")} />
+                )}
               </TableCell>
               <TableCell className="w-28 px-4 py-2 border">
-                <Input type="number" {...register("table.credit")} onKeyDown={(e) => handleKeyDown(e)} />
+                {/* RCPT: Cash/Bank can only be debited — block credit entry */}
+                {isCashBankLedger && journal_type === "RCPT" ? (
+                  <div className="flex flex-col gap-0.5">
+                    <Input type="number" disabled value="" className="bg-gray-100 cursor-not-allowed opacity-60" tabIndex={-1} />
+                    <span className="text-[10px] text-amber-600 font-medium leading-tight">Debit only</span>
+                  </div>
+                ) : (
+                  <Input type="number" {...register("table.credit")} onKeyDown={(e) => handleKeyDown(e)} />
+                )}
               </TableCell>
 
 

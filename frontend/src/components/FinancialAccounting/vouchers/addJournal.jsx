@@ -151,7 +151,7 @@ const AddJournal = () => {
 
   const onSubmit = (data) => {
     const form = getValues('form')
-    form.voucher_details = rs.map(row => ({
+    form.voucher_details = rs.map(({ _ledger, bill_id, ...row }) => ({
       ...row,
       debit:  parseFloat(row.debit)  || 0,
       credit: parseFloat(row.credit) || 0,
@@ -229,8 +229,52 @@ const AddJournal = () => {
 
   const handleEdit = (index) => {
     const row = rs[index];
-    const value=getValues();
-    reset({...value,table:row})
+
+    // RCPT / PMNT: if this row carries ledger metadata it was produced by the
+    // bill-allocation path. Collapse the full consecutive group (all rows with
+    // the same _ledger.id and account name) back into the entry form, restoring
+    // the total amount and the per-bill allocation array.
+    if ((journal_type === "PMNT" || journal_type === "RCPT") && row._ledger) {
+      const ledgerId = row._ledger.id;
+
+      // Expand selection to all consecutive rows that belong to the same group
+      let start = index;
+      let end   = index;
+      while (start > 0 && rs[start - 1]?._ledger?.id === ledgerId && rs[start - 1]?.account === row.account) start--;
+      while (end < rs.length - 1 && rs[end + 1]?._ledger?.id === ledgerId && rs[end + 1]?.account === row.account) end++;
+
+      const groupRows = rs.slice(start, end + 1);
+      const isDebit   = groupRows.some(r => parseFloat(r.debit  || 0) > 0);
+      const totalAmt  = groupRows.reduce((s, r) => s + parseFloat(r.debit || 0) + parseFloat(r.credit || 0), 0);
+
+      // Rebuild allocations — skip "on account" rows (bill_id is null / ref_bill_no is empty)
+      const restoredAllocations = groupRows
+        .filter(r => r.bill_id && r.ref_bill_no)
+        .map(r => ({
+          bill_id: r.bill_id,
+          billno:  r.ref_bill_no,
+          amount:  parseFloat(r.debit || 0) + parseFloat(r.credit || 0),
+        }));
+
+      setSelectedLedger(row._ledger);
+      setAllocations(restoredAllocations);
+
+      const value = getValues();
+      reset({ ...value, table: {
+        account:     row.account,
+        status:      "",
+        ref_bill_no: "",
+        debit:       isDebit  ? String(totalAmt) : "",
+        credit:      !isDebit ? String(totalAmt) : "",
+      }});
+
+      setRows(prev => prev.filter((_, i) => i < start || i > end));
+      return;
+    }
+
+    // Default: single-row edit (JRNL, CONTRA, or un-allocated RCPT/PMNT rows)
+    const value = getValues();
+    reset({ ...value, table: row });
     setRows((prev) => prev.filter((_, i) => i !== index));
     markTableDirty();
   };
@@ -287,6 +331,8 @@ const AddJournal = () => {
         const isDebit = parseFloat(row.debit || 0) > 0;
         const expanded = allocations.map(a => ({
           account:    row.account,
+          _ledger:    selectedLedger,   // stored for edit-reconstruction only
+          bill_id:    a.bill_id,        // stored for edit-reconstruction only
           status:     "",
           ref_bill_no: a.billno,
           debit:      isDebit ? a.amount : 0,
@@ -298,6 +344,8 @@ const AddJournal = () => {
         if (remainder > 0.01) {
           expanded.push({
             account:    row.account,
+            _ledger:    selectedLedger,
+            bill_id:    null,
             status:     "",
             ref_bill_no: "",
             debit:      isDebit ? remainder : 0,

@@ -55,7 +55,7 @@ const AddJournal = () => {
   const [salespersonData, setSalespersonData] = useState([]);
   const [mainItemData, setMainItemData] = useState([]);
   const [allocations, setAllocations] = useState([]);  // bill-wise allocations for current party row
-  const [allocationHintOpen, setAllocationHintOpen] = useState(false);
+  const accountInputRef = useRef(null);  // focus target after clicking edit on a row
   const [narrationForSuggestion, setNarrationForSuggestion] = useState(null);
   const [saving, setSaving] = useState(false);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
@@ -279,6 +279,7 @@ const AddJournal = () => {
       }});
 
       setRows(prev => prev.filter((_, i) => i < start || i > end));
+      setTimeout(() => accountInputRef.current?.focus(), 0);
       return;
     }
 
@@ -287,6 +288,7 @@ const AddJournal = () => {
     reset({ ...value, table: row });
     setRows((prev) => prev.filter((_, i) => i !== index));
     markTableDirty();
+    setTimeout(() => accountInputRef.current?.focus(), 0);
   };
 
   const handleDelete = (index) => {
@@ -537,6 +539,7 @@ const AddJournal = () => {
               <TableCell className="w-14 px-4 py-2 border"></TableCell>
               <TableCell className="w-52 px-4 py-2 border">
                 <SearchableComboBox
+                  ref={accountInputRef}
                   options={customers}
                   searchKeys={["mobile1", "mobile2", "phone1"]}
                   value={watch("table.account") ?? ""}
@@ -689,25 +692,7 @@ const AddJournal = () => {
         {(journal_type === "PMNT" || journal_type === "RCPT") && (() => {
           const partyAmt    = parseFloat(watch("table.debit") || 0) + parseFloat(watch("table.credit") || 0);
           const currentLedger = selectedLedger;
-          return (<>
-            <div className="mt-3 mb-2 rounded-lg border border-blue-100 bg-blue-50 text-xs text-blue-700 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setAllocationHintOpen(v => !v)}
-                className="w-full flex items-center gap-2 px-4 py-2 font-semibold text-left hover:bg-blue-100 transition-colors"
-              >
-                <span className={`text-blue-400 transition-transform duration-150 ${allocationHintOpen ? "rotate-90" : ""}`}>▶</span>
-                How to allocate against outstanding bills
-              </button>
-              {allocationHintOpen && (
-                <ol className="list-decimal list-inside space-y-0.5 text-blue-600 px-4 pb-3 pt-0">
-                  <li>Select the {journal_type === "PMNT" ? "vendor / supplier" : "customer"} account in the row above.</li>
-                  <li>Enter the total {journal_type === "PMNT" ? "payment" : "receipt"} amount in the {journal_type === "PMNT" ? "Debit" : "Credit"} field.</li>
-                  <li>In the table below, enter how much goes against each outstanding bill. Use <strong>Auto-fill (FIFO)</strong> to fill automatically.</li>
-                  <li>Press <kbd className="px-1 py-0.5 rounded bg-blue-100 font-mono">Tab</kbd> from the {journal_type === "PMNT" ? "Debit" : "Credit"} field to commit — one row per bill, with any remainder posted <em>on account</em>.</li>
-                </ol>
-              )}
-            </div>
+          return (
             <BillAllocationTable
               ledgerId={currentLedger?.id}
               kind={journal_type === "PMNT" ? "purchase" : "sales"}
@@ -715,7 +700,7 @@ const AddJournal = () => {
               allocations={allocations}
               onChange={setAllocations}
             />
-          </>);
+          );
         })()}
 
         <br></br>

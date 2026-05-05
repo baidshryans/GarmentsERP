@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils"
  *   disabled       {bool}
  *   autoFocus      {bool}
  */
-export function SearchableComboBox({
+export const SearchableComboBox = forwardRef(function SearchableComboBox({
   options = [],
   labelKey = "ac_name",
   searchKeys = [],
@@ -37,12 +37,15 @@ export function SearchableComboBox({
   disabled = false,
   autoFocus = false,
   tabIndex,
-}) {
+}, ref) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const [inputVal, setInputVal] = useState(value ?? "")
   const [dropdownStyle, setDropdownStyle] = useState({})
   const inputRef = useRef(null)
+
+  // Expose a focus() method to parent components via ref
+  useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }), [])
   const listRef = useRef(null)
 
   // Sync when parent updates the value (e.g. after reset() in edit mode)
@@ -181,4 +184,4 @@ export function SearchableComboBox({
       )}
     </div>
   )
-}
+})

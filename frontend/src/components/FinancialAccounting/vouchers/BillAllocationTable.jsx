@@ -31,6 +31,7 @@ export default function BillAllocationTable({
 }) {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
 
   // Fetch outstanding bills whenever the ledger changes
   const load = async () => {
@@ -112,11 +113,30 @@ export default function BillAllocationTable({
           <Button type="button" variant="outline" size="sm" onClick={autoFillFIFO}>
             Auto-fill (FIFO)
           </Button>
+          <button
+            type="button"
+            onClick={() => setHintOpen(v => !v)}
+            className="text-[11px] text-violet-400 hover:text-violet-600 flex items-center gap-1 transition-colors"
+            title="How to use bill allocation"
+          >
+            <span className={`transition-transform duration-150 ${hintOpen ? "rotate-90" : ""}`}>▶</span>
+            How to use
+          </button>
           <Button type="button" variant="outline" size="sm" onClick={clearAll}>
             Clear
           </Button>
         </div>
       </div>
+
+      {hintOpen && (
+        <div className="mb-3 rounded-md border border-violet-200 bg-white px-3 py-2.5 text-xs text-violet-700">
+          <ol className="list-decimal list-inside space-y-0.5">
+            <li>Select the {kind === "purchase" ? "vendor / supplier" : "customer"} account and enter the {kind === "purchase" ? "payment (Debit)" : "receipt (Credit)"} amount in the row above.</li>
+            <li>Enter how much of that amount applies to each bill below, or use <strong>Auto-fill (FIFO)</strong> to fill oldest bills first.</li>
+            <li>Press <kbd className="px-1 py-0.5 rounded bg-violet-100 font-mono">Tab</kbd> from the amount field to commit — one row per bill is added, with any remainder posted <em>on account</em>.</li>
+          </ol>
+        </div>
+      )}
 
       {loading ? (
         <div className="text-xs text-gray-500 py-3">Loading…</div>

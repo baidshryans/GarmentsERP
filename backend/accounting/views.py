@@ -1396,8 +1396,9 @@ class VoucherAttachmentListCreate(ListCreateAPIView):
     def get_queryset(self):
         from .models import VoucherAttachment
         voucher_id = self.request.query_params.get('voucher')
-        if voucher_id:
-            return VoucherAttachment.objects.filter(voucher_id=voucher_id).order_by('-uploaded_at')
+        if voucher_id and str(voucher_id).isdigit():
+            return VoucherAttachment.objects.filter(voucher_id=int(voucher_id)).order_by('-uploaded_at')
+        # Non-numeric or missing voucher param → empty queryset (don't 500)
         return VoucherAttachment.objects.none()
 
 

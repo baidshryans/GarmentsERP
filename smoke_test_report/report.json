@@ -1,0 +1,218 @@
+[
+  {
+    "label": "Home / Dashboard",
+    "route": "/",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Settings \u2014 Audit Log",
+    "route": "/settings/audit-log",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Journal Vouchers (NEW URL)",
+    "route": "/accounting/JRNL",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Receipt Vouchers (NEW URL)",
+    "route": "/accounting/RCPT",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Payment Vouchers (NEW URL)",
+    "route": "/accounting/PMNT",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Contra Vouchers (NEW URL)",
+    "route": "/accounting/CONTRA",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "OLD URL should 404",
+    "route": "/accounting/AddJournal/JRNL",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Account Tree",
+    "route": "/accounting/account-tree",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Trial Balance",
+    "route": "/accounting/trialbalance",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Day Book",
+    "route": "/accounting/day-book",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Cash Book",
+    "route": "/accounting/cashbook",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Ledger Statement",
+    "route": "/accounting/ledger-statement",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Outstanding Report",
+    "route": "/accounting/outstanding",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Aged Receivables",
+    "route": "/accounting/aged-receivables",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Advance Register",
+    "route": "/accounting/advance-register",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Credit/Debit Notes",
+    "route": "/accounting/credit-debit-notes",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Bank Reconciliation",
+    "route": "/accounting/bank-reconciliation",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Cash Gold Conversion",
+    "route": "/accounting/cashgoldconversion",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Opening Balance",
+    "route": "/accounting/opening-balance",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Pending Cheques",
+    "route": "/sales/pending-cheques",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Job Work Receive list",
+    "route": "/manufacturing/receive/jobworkreceive/",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Fixed Asset Master",
+    "route": "/fixed-assets/master",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Depreciation Worksheet",
+    "route": "/fixed-assets/depreciation",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  },
+  {
+    "label": "Fixed Asset Settings",
+    "route": "/fixed-assets/settings",
+    "http_status": 200,
+    "load_ok": true,
+    "console_errors": [],
+    "failed_requests": [],
+    "error": null
+  }
+]

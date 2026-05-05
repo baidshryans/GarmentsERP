@@ -11,6 +11,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, createJournalEntry, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment } from "@/services/apiService";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
+
+// Only these four voucher types are valid for the journal/receipt/payment/contra
+// editor. Anything else (e.g. /accounting/AddJournal/JRNL pointing at a legacy
+// bookmark) would otherwise render this component with garbage params and
+// trigger a cascade of 4xx/5xx API calls.
+const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
 import { FieldContainer } from "@/Utils";
 import { fetchAccountingVoucher, fetchJournalEntryForEdit, fetchVoucherNoNext, updateJournalEntryForEdit } from "../../../services/apiService";
 import { SquarePen, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
@@ -23,6 +29,8 @@ const AddJournal = () => {
   const navigate = useNavigate();
   const {id} = useParams()
   const { journal_type } = useParams();
+  const isValidType = !journal_type || VALID_JOURNAL_TYPES.includes(journal_type);
+
   const [searchParams] = useSearchParams();
   // Pre-fill linkage from query string when launched from a Customer Order
   // (e.g. .../accounting/RCPT/add?customer_order=12&order_no=CO-1 ).
@@ -58,8 +66,14 @@ const AddJournal = () => {
   const [totalCredit, settotalCredit] = useState(0);
   const [totalDebit, settotalDebit] = useState(0);
 
+  // Redirect away from malformed URLs (e.g. legacy /accounting/AddJournal/JRNL)
+  useEffect(() => {
+    if (!isValidType) navigate("/accounting", { replace: true });
+  }, [isValidType, navigate]);
+
   // Load existing attachments when editing
   useEffect(() => {
+    if (!isValidType || !id) return;
     if (id) {
       getVoucherAttachments(id).then((res) => {
         if (res.success) {
@@ -71,6 +85,7 @@ const AddJournal = () => {
   }, [id]);
 
   useEffect(() => {
+    if (!isValidType) return;
     if (journal_type) {
       setValue("form.voucher_type", journal_type); // Set the default voucher type
     }
@@ -104,6 +119,7 @@ const AddJournal = () => {
   }, [rs]);
 
   useEffect(() => {
+    if (!isValidType) return;
     async function fetchData() {
       const [customers, salesperson, orderNo, mainItem, purity] = await Promise.all([
         getLedgers({type:""}),
@@ -367,6 +383,8 @@ const AddJournal = () => {
   };
 
 
+
+  if (!isValidType) return null;
 
   return (
     <div className="container mt-5">

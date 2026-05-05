@@ -8,7 +8,9 @@ import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { useToast } from "@/hooks/use-toast";
 import { deleteJournalentry,fetchAccountingVoucher} from "./services/apiService";
-import { useSearchParams,useParams } from 'react-router-dom';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
+
+const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { openAndPrint } from "@/services/print/utils";
 import AccountingVoucher from "@/services/print/AccouuntingVoucher";
@@ -17,7 +19,16 @@ import VoucherAttachments from "@/components/FinancialAccounting/vouchers/Vouche
 const AccountingVoucherList = () => {
   const { toast } = useToast();
   const {journal_type}=useParams();
+  const navigate = useNavigate();
+  const isValidType = VALID_JOURNAL_TYPES.includes(journal_type);
+
   useF2Navigate(`/accounting/${journal_type}/add`);
+
+  // Guard against legacy / malformed URLs (e.g. /accounting/AddJournal/JRNL).
+  // Use an effect so all subsequent hooks still run in stable order.
+  useEffect(() => {
+    if (!isValidType) navigate("/accounting", { replace: true });
+  }, [isValidType, navigate]);
   const [params , setParams]=useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +131,8 @@ const AccountingVoucherList = () => {
       },
     },
   ];
+
+  if (!isValidType) return null;
 
   return (
     <div className="p-4">

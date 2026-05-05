@@ -17,6 +17,13 @@ import {
     Sheet,
     SheetContent,
 } from "@/components/ui/sheet";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCircle2, XCircle, Loader2, Search, User, ShoppingBag, Hammer, Package, Factory, Flame, BadgeCheck, Banknote, Landmark, TrendingUp, TrendingDown, MoreHorizontal, Crown } from 'lucide-react';
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -43,8 +50,37 @@ function buildAccountTree(flatList) {
     return roots;
 }
 
-// FA asset account group codes — ledger creation blocked; use Asset Master instead
+// FA asset account group codes
 const FA_ASSET_CODES = new Set(['FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH']);
+
+// IT block categories valid for each FA group (mirrors backend _IT_BLOCK_TO_FA_GROUP)
+const FA_GROUP_IT_BLOCKS = {
+    'FA-LB': [
+        { value: 'BLDG_RES', label: 'Residential Building (5%)' },
+        { value: 'BLDG_COM', label: 'Commercial Building (10%)' },
+    ],
+    'FA-FF': [
+        { value: 'FURN', label: 'Furniture & Fixtures (10%)' },
+    ],
+    'FA-PM': [
+        { value: 'PLANT',  label: 'Plant & Machinery (15%)' },
+        { value: 'BOOKS',  label: 'Books (100%)' },
+        { value: 'INTANG', label: 'Intangible Assets (25%)' },
+    ],
+    'FA-VH': [
+        { value: 'VEHICLE', label: 'Vehicles (15%)' },
+    ],
+    'FA-CE': [
+        { value: 'COMPUTER', label: 'Computers & Software (40%)' },
+    ],
+};
+
+// Default WDV rates by IT block (used to pre-fill the rate field)
+const IT_BLOCK_DEFAULT_RATE = {
+    BLDG_RES: 5, BLDG_COM: 10, FURN: 10,
+    PLANT: 15, VEHICLE: 15, COMPUTER: 40,
+    BOOKS: 100, INTANG: 25,
+};
 
 // Hints shown on hover — examples of ledgers that belong under each account group
 const GROUP_HINTS = {
@@ -181,19 +217,18 @@ const ROLE_META = {
     OTH: { Icon: MoreHorizontal, group: 'account', desc: 'Miscellaneous ledger'            },
 };
 
-const GroupPickerNode = ({ node, level, onSelect, suggestedCode }) => {
+const GroupPickerNode = ({ node, level, onSelect, suggestedCode, allowFa = false }) => {
     const hasChildren = node.children?.length > 0;
     const [open, setOpen] = useState(level === 0);
     const indent = level * 20;
-    const isBlocked = FA_ASSET_CODES.has(node.code);
+    const isFaGroup = FA_ASSET_CODES.has(node.code);
+    // Block FA groups only when allowFa is false (create mode / no reclassification)
+    const isBlocked = isFaGroup && !allowFa;
     const hint = GROUP_HINTS[node.code];
     const isSuggested = suggestedCode && node.code === suggestedCode;
 
     function handleClick() {
-        if (isBlocked) {
-            alert(`Ledgers under "${node.name}" are managed automatically.\nPlease create the asset in Fixed Assets → Asset Master instead.`);
-            return;
-        }
+        if (isBlocked) return;
         onSelect(node);
     }
 
@@ -201,13 +236,13 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode }) => {
         <div>
             <div
                 className={`group flex items-center gap-2 py-2 pr-3 rounded-lg transition-colors relative ${
-                    isBlocked ? 'opacity-50 cursor-not-allowed' :
+                    isBlocked ? 'opacity-40 cursor-not-allowed' :
                     isSuggested ? 'bg-green-50 ring-1 ring-green-300 hover:bg-green-100 cursor-pointer' :
                     'hover:bg-violet-50 cursor-pointer'
                 }`}
                 style={{ paddingLeft: `${indent + 8}px` }}
                 onClick={handleClick}
-                title={isBlocked ? `Use Fixed Assets > Asset Master to add ledgers under ${node.name}` : hint || undefined}
+                title={isBlocked ? `Use Fixed Assets → Asset Master to add ledgers under ${node.name}` : hint || undefined}
             >
                 {hasChildren ? (
                     <button
@@ -243,6 +278,11 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode }) => {
                                 Suggested
                             </span>
                         )}
+                        {isFaGroup && allowFa && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0 uppercase tracking-wider">
+                                Fixed Asset
+                            </span>
+                        )}
                     </div>
                     {hint && (
                         <span className="text-[10px] text-gray-400 truncate leading-tight mt-0.5">
@@ -257,7 +297,7 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode }) => {
             {open && hasChildren && (
                 <div className={level === 0 ? 'ml-3 border-l border-violet-100 pl-1 mb-1' : 'ml-3 border-l border-gray-100 pl-1'}>
                     {node.children.map(child => (
-                        <GroupPickerNode key={child.id} node={child} level={level + 1} onSelect={isBlocked ? () => {} : onSelect} suggestedCode={suggestedCode} />
+                        <GroupPickerNode key={child.id} node={child} level={level + 1} onSelect={isBlocked ? () => {} : onSelect} suggestedCode={suggestedCode} allowFa={allowFa} />
                     ))}
                 </div>
             )}
@@ -370,6 +410,52 @@ const LedgerForm = () => {
     // Prevents the role-based b2b auto-set from firing on the initial data load
     // (we want to preserve the saved value, not override it on mount).
     const skipB2bAutoset = React.useRef(false);
+
+    // ── FA reclassification state ──────────────────────────────────────────────
+    // Holds field.onChange from the ac_group Controller so handleGroupPickerSelect can call it
+    const groupFieldOnChange = React.useRef(null);
+    const [faModalOpen, setFaModalOpen] = useState(false);
+    const [pendingFaGroup, setPendingFaGroup] = useState(null); // node user clicked
+    const [faDetails, setFaDetails] = useState({
+        purchase_date: '', purchase_cost: '', residual_value: '0',
+        it_block_category: '', depreciation_method: 'WDV', rate_or_life: '', description: '',
+    });
+    // Set to true once FA modal is confirmed; triggers fa_data inclusion in payload
+    const [faDetailsConfirmed, setFaDetailsConfirmed] = useState(false);
+    const [faRemoveConfirmOpen, setFaRemoveConfirmOpen] = useState(false);
+    const [pendingNonFaGroup, setPendingNonFaGroup] = useState(null); // node user clicked (FA→non-FA)
+    // ── end FA reclassification state ─────────────────────────────────────────
+
+    // ── FA reclassification: intercept group picker selection ─────────────────
+    const handleGroupPickerSelect = useCallback((node) => {
+        const isNewFa = FA_ASSET_CODES.has(node.code);
+        const currentGroupId = getValues('ac_group');
+        const currentGroup = accounts.find(a => a.id.toString() === currentGroupId);
+        const isOldFa = currentGroup && FA_ASSET_CODES.has(currentGroup.code);
+
+        // Expense → FA: open FA details modal (edit mode only)
+        if (id && isNewFa && !isOldFa) {
+            setPendingFaGroup(node);
+            setFaDetails({ purchase_date: '', purchase_cost: '', residual_value: '0', it_block_category: '', depreciation_method: 'WDV', rate_or_life: '', description: '' });
+            setFaDetailsConfirmed(false);
+            setFaModalOpen(true);
+            setPickerOpen(false);
+            return;
+        }
+        // FA → Expense: open remove confirmation dialog (edit mode only)
+        if (id && !isNewFa && isOldFa) {
+            setPendingNonFaGroup(node);
+            setFaRemoveConfirmOpen(true);
+            setPickerOpen(false);
+            return;
+        }
+        // Normal selection (FA→FA, non-FA→non-FA, or create mode)
+        groupFieldOnChange.current?.(node.id.toString());
+        setGroupAutoFilled(false);
+        setPickerOpen(false);
+        setGroupSearch('');
+    }, [id, accounts, getValues]);
+    // ── end handleGroupPickerSelect ────────────────────────────────────────────
 
     // Derived helpers
     // useMemo keeps the array reference stable when ledgerRoles hasn't changed,
@@ -543,13 +629,15 @@ const LedgerForm = () => {
         }
         try {
             const payload = {
-            ...data,
-            b2b: data.b2b === 'true',
-            b2b_pricelist: data.b2b_pricelist ? Number(data.b2b_pricelist) : null,
-            retail_discount_pricelist: data.retail_discount_pricelist ? Number(data.retail_discount_pricelist) : null,
-            dob: data.dob || null,
-            anniversary: data.anniversary || null,
-        };
+                ...data,
+                b2b: data.b2b === 'true',
+                b2b_pricelist: data.b2b_pricelist ? Number(data.b2b_pricelist) : null,
+                retail_discount_pricelist: data.retail_discount_pricelist ? Number(data.retail_discount_pricelist) : null,
+                dob: data.dob || null,
+                anniversary: data.anniversary || null,
+                // Include FA details if user confirmed reclassification to FA group
+                ...(faDetailsConfirmed ? { fa_data: faDetails } : {}),
+            };
             const response = id ? await updateLedger(id, payload) : await createLedger(payload);
             if (response.success) {
                 const newId = response.data?.id ?? id;
@@ -568,7 +656,20 @@ const LedgerForm = () => {
                     }
                     setPendingDocs([]);
                 }
-                toast({ title: "Success", description: `Ledger ${id ? 'updated' : 'created'} successfully.` });
+
+                // FA reclassification success notices
+                if (response.data?.fa_record_created) {
+                    toast({ title: "Fixed Asset registered", description: "A Fixed Asset record has been created — view it in Fixed Assets → Asset Master." });
+                } else if (response.data?.fa_record_deleted) {
+                    toast({ title: "Fixed Asset removed", description: "The Fixed Asset record has been deleted. The ledger has been moved to the new group." });
+                } else {
+                    toast({ title: "Success", description: `Ledger ${id ? 'updated' : 'created'} successfully.` });
+                }
+                // Reset FA reclassification state
+                setFaDetailsConfirmed(false);
+                setPendingFaGroup(null);
+                setPendingNonFaGroup(null);
+
                 setTimeout(() => {
                     // If opened from another page (e.g. Customer Order form), redirect back with new ledger info
                     if (!id && nextUrl) {
@@ -960,6 +1061,8 @@ const LedgerForm = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-5">
                             <Controller name="ac_group" control={control} render={({ field }) => {
+                                // Expose field.onChange to handleGroupPickerSelect (defined in LedgerForm scope)
+                                groupFieldOnChange.current = field.onChange;
                                 const selected = accounts.find(a => a.id.toString() === field.value);
                                 return (
                                     <>
@@ -1031,16 +1134,12 @@ const LedgerForm = () => {
                                                                 const _suggested = suggestGroupCode(acName);
                                                                 const _isSugg = _suggested && acc.code === _suggested;
                                                                 const _hint = GROUP_HINTS[acc.code];
+                                                                const _isFa = FA_ASSET_CODES.has(acc.code);
                                                                 return (
                                                                     <button
                                                                         key={acc.id}
                                                                         type="button"
-                                                                        onClick={() => {
-                                                                            field.onChange(acc.id.toString());
-                                                                            setGroupAutoFilled(false);
-                                                                            setPickerOpen(false);
-                                                                            setGroupSearch('');
-                                                                        }}
+                                                                        onClick={() => handleGroupPickerSelect(acc)}
                                                                         className={`w-full flex items-center gap-2 py-2 px-3 rounded-lg text-left transition-colors ${_isSugg ? 'bg-green-50 ring-1 ring-green-300 hover:bg-green-100' : 'hover:bg-violet-50'}`}
                                                                         title={_hint || undefined}
                                                                     >
@@ -1053,6 +1152,7 @@ const LedgerForm = () => {
                                                                             <div className="flex items-center gap-1.5">
                                                                                 <span className="text-sm text-gray-700 truncate">{acc.name}</span>
                                                                                 {_isSugg && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-200 text-green-800 shrink-0 uppercase tracking-wider">Suggested</span>}
+                                                                                {_isFa && id && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0 uppercase tracking-wider">Fixed Asset</span>}
                                                                             </div>
                                                                             {_hint && <span className="text-[10px] text-gray-400 truncate leading-tight mt-0.5">{_hint}</span>}
                                                                         </div>
@@ -1066,12 +1166,9 @@ const LedgerForm = () => {
                                                                 key={node.id}
                                                                 node={node}
                                                                 level={0}
-                                                                onSelect={(n) => {
-                                                                    field.onChange(n.id.toString());
-                                                                    setGroupAutoFilled(false);
-                                                                    setPickerOpen(false);
-                                                                }}
+                                                                onSelect={handleGroupPickerSelect}
                                                                 suggestedCode={suggestGroupCode(acName)}
+                                                                allowFa={!!id}
                                                             />
                                                         ))
                                                     )}
@@ -1408,6 +1505,235 @@ const LedgerForm = () => {
                 </div>
 
             </form>
+
+            {/* ── FA Details Modal (Expense → FA reclassification) ──────────── */}
+            <Dialog open={faModalOpen} onOpenChange={(open) => {
+                if (!open) {
+                    // User dismissed modal — reset pending group so picker reverts
+                    setPendingFaGroup(null);
+                }
+                setFaModalOpen(open);
+            }}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold text-gray-900">
+                            Register as Fixed Asset
+                        </DialogTitle>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Moving this ledger to <span className="font-semibold text-primary">{pendingFaGroup?.name}</span> requires Fixed Asset details. A Fixed Asset record will be created automatically.
+                        </p>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2">
+                        {/* Row 1: Purchase Date + Purchase Cost */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                    Purchase Date <span className="text-red-400">*</span>
+                                </label>
+                                <Input
+                                    type="date"
+                                    value={faDetails.purchase_date}
+                                    onChange={e => setFaDetails(d => ({ ...d, purchase_date: e.target.value }))}
+                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                    Purchase Cost (₹) <span className="text-red-400">*</span>
+                                </label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    value={faDetails.purchase_cost}
+                                    onChange={e => setFaDetails(d => ({ ...d, purchase_cost: e.target.value }))}
+                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Row 2: Residual Value + IT Block */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                    Residual Value (₹)
+                                </label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0"
+                                    value={faDetails.residual_value}
+                                    onChange={e => setFaDetails(d => ({ ...d, residual_value: e.target.value }))}
+                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                    IT Block Category <span className="text-red-400">*</span>
+                                </label>
+                                <Select
+                                    value={faDetails.it_block_category}
+                                    onValueChange={v => {
+                                        const defaultRate = IT_BLOCK_DEFAULT_RATE[v] ?? '';
+                                        setFaDetails(d => ({ ...d, it_block_category: v, rate_or_life: String(defaultRate) }));
+                                    }}
+                                >
+                                    <SelectTrigger className="h-10 text-sm border-gray-200 focus:border-violet-400">
+                                        <SelectValue placeholder="Select category…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(FA_GROUP_IT_BLOCKS[pendingFaGroup?.code] ?? []).map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Row 3: Depreciation Method + Rate / Life */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                    Depreciation Method <span className="text-red-400">*</span>
+                                </label>
+                                <div className="flex rounded-md border border-gray-200 overflow-hidden h-10">
+                                    {['WDV', 'SLM'].map(m => (
+                                        <button
+                                            key={m}
+                                            type="button"
+                                            onClick={() => setFaDetails(d => ({ ...d, depreciation_method: m }))}
+                                            className={`flex-1 text-sm font-medium transition-colors ${
+                                                faDetails.depreciation_method === m
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            {m}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-gray-400">
+                                    {faDetails.depreciation_method === 'WDV' ? 'Written Down Value — rate applied on book value' : 'Straight Line Method — equal charge each year'}
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                    {faDetails.depreciation_method === 'WDV' ? 'Rate (%)' : 'Useful Life (years)'} <span className="text-red-400">*</span>
+                                </label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder={faDetails.depreciation_method === 'WDV' ? 'e.g. 15' : 'e.g. 5'}
+                                    value={faDetails.rate_or_life}
+                                    onChange={e => setFaDetails(d => ({ ...d, rate_or_life: e.target.value }))}
+                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Row 4: Description */}
+                        <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                                Description
+                            </label>
+                            <textarea
+                                rows={2}
+                                placeholder="Optional notes about this asset…"
+                                value={faDetails.description}
+                                onChange={e => setFaDetails(d => ({ ...d, description: e.target.value }))}
+                                className="w-full px-3 py-2 text-sm rounded-md border border-gray-200 focus:outline-none focus:border-violet-400 resize-none"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setPendingFaGroup(null);
+                                setFaModalOpen(false);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                // Validate required fields
+                                const missing = [];
+                                if (!faDetails.purchase_date) missing.push('Purchase Date');
+                                if (!faDetails.purchase_cost || Number(faDetails.purchase_cost) <= 0) missing.push('Purchase Cost');
+                                if (!faDetails.it_block_category) missing.push('IT Block Category');
+                                if (!faDetails.rate_or_life || Number(faDetails.rate_or_life) <= 0) missing.push(faDetails.depreciation_method === 'WDV' ? 'Rate (%)' : 'Useful Life');
+                                if (missing.length > 0) {
+                                    toast({ title: "Required fields missing", description: missing.join(', '), variant: "destructive" });
+                                    return;
+                                }
+                                // Confirm: update group selection and mark fa_data as confirmed
+                                groupFieldOnChange.current?.(pendingFaGroup.id.toString());
+                                setGroupAutoFilled(false);
+                                setFaDetailsConfirmed(true);
+                                setFaModalOpen(false);
+                            }}
+                            className="bg-primary text-white hover:bg-primary/90"
+                        >
+                            Confirm & Assign Group
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── FA Remove Confirmation Dialog (FA → Expense reclassification) ── */}
+            <Dialog open={faRemoveConfirmOpen} onOpenChange={(open) => {
+                if (!open) setPendingNonFaGroup(null);
+                setFaRemoveConfirmOpen(open);
+            }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-base font-bold text-gray-900">
+                            Remove Fixed Asset record?
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 py-1 text-sm text-gray-600">
+                        <p>
+                            This ledger is linked to a <span className="font-semibold">Fixed Asset</span>. Moving it to{' '}
+                            <span className="font-semibold text-primary">{pendingNonFaGroup?.name}</span> will permanently delete the Fixed Asset record.
+                        </p>
+                        <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs">
+                            This is only possible if <strong>no depreciation</strong> has been posted against this asset. If depreciation exists, you must dispose the asset through Fixed Assets → Asset Master first.
+                        </p>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                setPendingNonFaGroup(null);
+                                setFaRemoveConfirmOpen(false);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() => {
+                                groupFieldOnChange.current?.(pendingNonFaGroup.id.toString());
+                                setGroupAutoFilled(false);
+                                setFaRemoveConfirmOpen(false);
+                            }}
+                        >
+                            Confirm Reclassification
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
         </div>
     );
 };

@@ -20,6 +20,8 @@ from rest_framework import viewsets
 from .serializers import AccountSerializer
 import csv
 import io
+import re
+from decimal import Decimal
 from datetime import datetime
 from rest_framework.parsers import MultiPartParser
 from django.db import transaction
@@ -88,6 +90,19 @@ def check_ledger_name(request):
 # FA asset account groups that are managed exclusively via the Fixed Asset Master.
 # Ledgers under these groups are auto-created when a FixedAsset is added.
 FA_ASSET_GROUP_CODES = {'FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH'}
+
+# Maps IT block category → FA account group code (mirrors accounting.views._IT_BLOCK_TO_AC_GROUP).
+# Kept here to avoid a circular import between contacts.views and accounting.views.
+_IT_BLOCK_TO_FA_GROUP = {
+    'BLDG_RES': 'FA-LB',
+    'BLDG_COM': 'FA-LB',
+    'FURN':     'FA-FF',
+    'PLANT':    'FA-PM',
+    'VEHICLE':  'FA-VH',
+    'COMPUTER': 'FA-CE',
+    'BOOKS':    'FA-PM',
+    'INTANG':   'FA-PM',
+}
 
 
 class ListCreateLedger(ListCreateAPIView):
@@ -185,59 +200,44 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        new_ac_group_id = request.data.get('ac_group')
+
+        # Resolve old/new groups and determine transition direction
+        old_group = instance.ac_group
+        new_group = None
+        if new_ac_group_id is not None:
+            try:
+                new_group = Account.objects.get(pk=new_ac_group_id)
+            except Account.DoesNotExist:
+                pass  # serializer will raise a validation error
+
+        old_is_fa = bool(old_group and old_group.code in FA_ASSET_GROUP_CODES)
+        new_is_fa = bool(new_group and new_group.code in FA_ASSET_GROUP_CODES)
+        group_changed = (
+            new_group is not None
+            and (old_group is None or old_group.pk != new_group.pk)
+        )
+
+        # \u2500\u2500 FA \u2192 non-FA reclassification \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # Must run BEFORE the is_system guard because FA ledgers are system-managed.
+        if group_changed and old_is_fa and not new_is_fa:
+            return self._reclassify_fa_to_non_fa(request, instance, new_group)
+
+        # \u2500\u2500 Block edits on system-managed ledgers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
         if instance.is_system:
             return Response(
                 {'error': 'System-created ledgers cannot be edited.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # --- Validate ac_group transitions (Expense <-> Fixed Asset) ---
-        new_ac_group_id = request.data.get('ac_group')
-        if new_ac_group_id is not None:
-            from accounting.models import Account, FixedAsset
-            old_group = instance.ac_group
-            try:
-                new_group = Account.objects.get(pk=new_ac_group_id) if new_ac_group_id else None
-            except Account.DoesNotExist:
-                new_group = None  # serializer will catch the invalid FK
+        # \u2500\u2500 non-FA \u2192 FA reclassification \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        if group_changed and not old_is_fa and new_is_fa:
+            return self._reclassify_to_fa(request, instance, new_group, *args, **kwargs)
 
-            old_pk = old_group.pk if old_group else None
-            new_pk = new_group.pk if new_group else None
+        # \u2500\u2500 FA \u2192 FA: allow freely (e.g. Plant & Machinery \u2192 Vehicles) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # No special handling needed; fall through to normal update.
 
-            if old_pk != new_pk:
-                old_is_fa = old_group.code in FA_ASSET_GROUP_CODES if old_group else False
-                new_is_fa = new_group.code in FA_ASSET_GROUP_CODES if new_group else False
-
-                # Block: any group -> FA asset group
-                if new_is_fa:
-                    return Response(
-                        {'ac_group': (
-                            f"Ledgers cannot be moved into '{new_group.name}'. "
-                            "Fixed asset ledgers are created automatically when you "
-                            "add an asset in Fixed Assets \u2192 Asset Master."
-                        )},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # Block: FA asset group -> any non-FA group while active assets exist
-                if old_is_fa:
-                    has_active_assets = (
-                        FixedAsset.objects
-                        .filter(asset_ledger=instance)
-                        .exclude(status='DISPOSED')
-                        .exists()
-                    )
-                    if has_active_assets:
-                        return Response(
-                            {'ac_group': (
-                                "This ledger is linked to an active fixed asset. "
-                                "Please dispose the asset in Fixed Assets \u2192 Asset Master "
-                                "before changing its account group."
-                            )},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-        # If the ledger has non-CO roles and the name is being changed, check uniqueness
+        # \u2500\u2500 Normal edit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
         new_name = (request.data.get('ac_name') or '').strip()
         if new_name and new_name.lower() != instance.ac_name.lower():
             if _has_non_customer_role(instance) and _name_conflicts(new_name, exclude_id=instance.pk):
@@ -246,6 +246,132 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         return super().update(request, *args, **kwargs)
+
+    def _reclassify_to_fa(self, request, instance, new_group, *args, **kwargs):
+        """
+        Move a non-FA ledger into an FA group.
+        Requires fa_data in the request body. Creates a FixedAsset record atomically.
+        """
+        fa_data = request.data.get('fa_data')
+        if not fa_data:
+            return Response(
+                {
+                    'fa_data': (
+                        'Fixed Asset details are required when moving a ledger into an FA group. '
+                        'Provide fa_data with: purchase_date, purchase_cost, it_block_category, '
+                        'depreciation_method, and rate_or_life.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        required_fields = ['purchase_date', 'purchase_cost', 'it_block_category',
+                           'depreciation_method', 'rate_or_life']
+        missing = [f for f in required_fields if not str(fa_data.get(f, '')).strip()]
+        if missing:
+            return Response(
+                {'fa_data': f"Missing required FA fields: {', '.join(missing)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate: chosen IT block must map to the chosen FA group
+        expected_code = _IT_BLOCK_TO_FA_GROUP.get(fa_data['it_block_category'], 'FA-PM')
+        if new_group.code != expected_code:
+            return Response(
+                {
+                    'fa_data': (
+                        f"IT block category '{fa_data['it_block_category']}' belongs in FA group "
+                        f"'{expected_code}', not '{new_group.code}'. "
+                        "Please select a compatible IT block category for this FA group."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Save all ledger fields via the serializer (validates normally)
+            response = super(RetrieveUpdateDestroyLedger, self).update(request, *args, **kwargs)
+            instance.refresh_from_db()
+
+            # Mark as system-managed to protect it from direct editing via ledger master
+            Ledger.objects.filter(pk=instance.pk).update(is_system=True)
+            instance.refresh_from_db()
+
+            # Auto-generate a unique asset_code from the ledger name
+            base_code = re.sub(r'[^A-Z0-9]', '', instance.ac_name.upper())[:15] or 'ASSET'
+            asset_code = base_code
+            suffix = 1
+            while FixedAsset.objects.filter(
+                retail=instance.retail_code, asset_code=asset_code
+            ).exists():
+                asset_code = f"{base_code[:14]}{suffix}"
+                suffix += 1
+
+            asset = FixedAsset.objects.create(
+                retail=instance.retail_code,
+                asset_code=asset_code,
+                asset_name=instance.ac_name,
+                purchase_date=fa_data['purchase_date'],
+                purchase_cost=Decimal(str(fa_data['purchase_cost'])),
+                residual_value=Decimal(str(fa_data.get('residual_value') or '0')),
+                depreciation_method=fa_data['depreciation_method'],
+                rate_or_life=Decimal(str(fa_data['rate_or_life'])),
+                it_block_category=fa_data['it_block_category'],
+                description=fa_data.get('description', ''),
+                asset_ledger=instance,
+            )
+
+        response.data['fa_record_created'] = True
+        response.data['fa_id'] = asset.pk
+        return response
+
+    def _reclassify_fa_to_non_fa(self, request, instance, new_group):
+        """
+        Move an FA (system) ledger to a non-FA group.
+        Deletes the FixedAsset record if no depreciation has been posted.
+        Also cleans up orphaned DISPOSED records (see observation 1115).
+        """
+        active_assets   = FixedAsset.objects.filter(asset_ledger=instance).exclude(status='DISPOSED')
+        disposed_assets = FixedAsset.objects.filter(asset_ledger=instance, status='DISPOSED')
+
+        if active_assets.exists():
+            asset = active_assets.first()
+            if asset.accumulated_depreciation > 0:
+                return Response(
+                    {
+                        'ac_group': (
+                            f"Cannot reclassify: \u20b9{asset.accumulated_depreciation} of depreciation "
+                            "has already been posted against this asset. "
+                            "Please dispose it through Fixed Assets \u2192 Asset Master first."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # No depreciation posted \u2014 safe to delete the FA record and reclassify
+            fa_record_deleted = True
+            with transaction.atomic():
+                active_assets.delete()
+                disposed_assets.update(asset_ledger=None)
+                Ledger.objects.filter(pk=instance.pk).update(
+                    ac_group=new_group,
+                    is_system=False,
+                )
+        else:
+            # Only disposed assets or none \u2014 clean up orphaned disposed FKs
+            fa_record_deleted = disposed_assets.exists()
+            with transaction.atomic():
+                disposed_assets.update(asset_ledger=None)
+                Ledger.objects.filter(pk=instance.pk).update(
+                    ac_group=new_group,
+                    is_system=False,
+                )
+
+        instance.refresh_from_db()
+        serializer = self.get_serializer(instance)
+        data = dict(serializer.data)
+        if fa_record_deleted:
+            data['fa_record_deleted'] = True
+        return Response(data)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -256,7 +382,6 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
             )
         # Block deletion if ledger is linked to active fixed assets
         if instance.ac_group and instance.ac_group.code in FA_ASSET_GROUP_CODES:
-            from accounting.models import FixedAsset
             if FixedAsset.objects.filter(asset_ledger=instance).exclude(status='DISPOSED').exists():
                 return Response(
                     {'error': 'This ledger is linked to an active fixed asset and cannot be deleted.'},

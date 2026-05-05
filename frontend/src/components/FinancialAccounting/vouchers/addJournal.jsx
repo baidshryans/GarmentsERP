@@ -308,6 +308,7 @@ const AddJournal = () => {
         setRows(prev => [...prev, ...expanded]);
         markTableDirty();
         setAllocations([]);
+        setSelectedLedger(null);
         reset({ ...getValues(), table: { account: "", status: "", ref_bill_no: "", debit: "", credit: "" } });
         e.preventDefault();
         return;
@@ -461,18 +462,18 @@ const AddJournal = () => {
         <Table className="w-full table-fixed border-collapse">
           <TableBody>
             <TableRow className=" w-full bg-gray-100">
-              <TableCell className="w-28 px-4 py-2 border">Options</TableCell>
-              <TableCell className="w-28 px-4 py-2 border">Account</TableCell>
+              <TableCell className="w-14 px-4 py-2 border">Options</TableCell>
+              <TableCell className="w-52 px-4 py-2 border">Account</TableCell>
 
               {showStatus && <TableCell className="w-28 px-4 py-2 border">Status</TableCell>}
-              <TableCell className="w-28 px-4 py-2 border">Ref Bill No</TableCell>
+              {showStatus && <TableCell className="w-28 px-4 py-2 border">Ref Bill No</TableCell>}
               <TableCell className="w-28 px-4 py-2 border">Debit</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Credit</TableCell>
             </TableRow>
 
             <TableRow>
-              <TableCell className="w-28 px-4 py-2 border"></TableCell>
-              <TableCell className="w-28 px-4 py-2 border">
+              <TableCell className="w-14 px-4 py-2 border"></TableCell>
+              <TableCell className="w-52 px-4 py-2 border">
                 <SearchableComboBox
                   options={customers}
                   value={watch("table.account") ?? ""}
@@ -497,9 +498,11 @@ const AddJournal = () => {
                 </TableCell>
               )}
 
-              <TableCell className="w-28 px-4 py-2 border">
-                <Input type="number" {...register("table.ref_bill_no")} />
-              </TableCell>
+              {showStatus && (
+                <TableCell className="w-28 px-4 py-2 border">
+                  <Input type="number" {...register("table.ref_bill_no")} />
+                </TableCell>
+              )}
               <TableCell className="w-28 px-4 py-2 border">
                 <Input type="number" {...register("table.debit")}/>
               </TableCell>
@@ -512,7 +515,7 @@ const AddJournal = () => {
             </TableRow>
             {rs.map((row, index) => (
               <TableRow key={index} className="w-full bg-white">
-                <TableCell className="w-28 px-4 py-2 border">
+                <TableCell className="w-14 px-4 py-2 border">
                   <div className="flex justify-center items-center gap-2">
                     <SquarePen
                       size={20}
@@ -528,9 +531,9 @@ const AddJournal = () => {
                   {row.main_item}
 
                 </TableCell>
-                <TableCell className="w-20 px-4 py-2 border">{row.account}</TableCell>
+                <TableCell className="w-52 px-4 py-2 border">{row.account}</TableCell>
                 {showStatus && <TableCell className="w-16 px-4 py-2 border">{row.status}</TableCell>}
-                <TableCell className="w-16 px-4 py-2 border">{row.ref_bill_no || (row.account && !showStatus ? <span className="text-muted-foreground italic">on account</span> : "")}</TableCell>
+                {showStatus && <TableCell className="w-16 px-4 py-2 border">{row.ref_bill_no}</TableCell>}
                 <TableCell className="w-24 px-4 py-2 border">{row.debit}</TableCell>
                 <TableCell className="w-32 px-4 py-2 border">{row.credit}</TableCell>
               </TableRow>
@@ -538,17 +541,17 @@ const AddJournal = () => {
 
             <TableRow>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
-              <TableCell className="w-32 px-4 py-2 border"></TableCell>
+              <TableCell className="w-32 px-4 py-2 border">{!showStatus ? "Total :" : ""}</TableCell>
               {showStatus && <TableCell className="w-32 px-4 py-2 border"></TableCell>}
-              <TableCell className="w-32 px-4 py-2 border">Total : </TableCell>
+              {showStatus && <TableCell className="w-32 px-4 py-2 border">Total : </TableCell>}
               <TableCell className="w-32 px-4 py-2 border">{totalDebit}</TableCell>
               <TableCell className="w-32 px-4 py-2 border">{totalCredit}</TableCell>
             </TableRow>
             <TableRow>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
-              <TableCell className="w-32 px-4 py-2 border"></TableCell>
+              <TableCell className="w-32 px-4 py-2 border">{!showStatus ? "Difference :" : ""}</TableCell>
               {showStatus && <TableCell className="w-32 px-4 py-2 border"></TableCell>}
-              <TableCell className="w-32 px-4 py-2 border">Difference : </TableCell>
+              {showStatus && <TableCell className="w-32 px-4 py-2 border">Difference : </TableCell>}
               <TableCell className="w-32 px-4 py-2 border">{totalCredit - totalDebit}</TableCell>
               <TableCell className="w-32 px-4 py-2 border"></TableCell>
             </TableRow>
@@ -560,13 +563,19 @@ const AddJournal = () => {
         })()}
         <br></br>
 
-        {/* ── Bill-wise allocation picker (PMNT / RCPT only) ────────────────
-            Pick the party ledger + enter the total payable/receivable in the
-            row above, then allocate that amount across one or more
-            outstanding bills here. On Tab from the Credit field, the single
-            party row is expanded into N voucher_detail rows (one per
-            allocated bill, plus one "on account" row for any remainder).
-            Backend validates sums, ledger-match and overpayment. */}
+        {(journal_type === "PMNT" || journal_type === "RCPT") && (
+          <div className="mt-3 mb-1 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700 space-y-1">
+            <p className="font-semibold">How to allocate against outstanding bills</p>
+            <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
+              <li>Select the {journal_type === "PMNT" ? "vendor / supplier" : "customer"} account in the row above.</li>
+              <li>Enter the total {journal_type === "PMNT" ? "payment" : "receipt"} amount in the {journal_type === "PMNT" ? "Debit" : "Credit"} field.</li>
+              <li>In the table below, enter how much of that amount goes against each outstanding bill. Use <strong>Auto-fill (FIFO)</strong> to fill automatically.</li>
+              <li>Press <kbd className="px-1 py-0.5 rounded bg-blue-100 font-mono">Tab</kbd> from the {journal_type === "PMNT" ? "Debit" : "Credit"} field to commit — one row per bill will be added to the voucher, with any remainder posted <em>on account</em>.</li>
+            </ol>
+          </div>
+        )}
+
+        {/* ── Bill-wise allocation picker (PMNT / RCPT only) ─────────────── */}
         {(journal_type === "PMNT" || journal_type === "RCPT") && (() => {
           const partyAmt    = parseFloat(watch("table.debit") || 0) + parseFloat(watch("table.credit") || 0);
           const currentLedger = selectedLedger;

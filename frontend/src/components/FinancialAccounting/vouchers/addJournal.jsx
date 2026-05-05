@@ -545,7 +545,7 @@ const AddJournal = () => {
         <br></br>
 
         {(() => {
-          const showStatus = journal_type !== "PMNT" && journal_type !== "RCPT";
+          const showStatus = journal_type !== "PMNT" && journal_type !== "RCPT" && journal_type !== "CONTRA";
           return (
         <Table className="w-full table-fixed border-collapse">
           <TableBody>

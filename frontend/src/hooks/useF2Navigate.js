@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
  *
  * Usage:
  *   useF2Navigate("/sales/add/");
- *   useF2Navigate(`/accounting/AddJournal/${journal_type}/add`);
+ *   useF2Navigate(`/accounting/${journal_type}/add`);
  */
 export function useF2Navigate(to) {
   const navigate = useNavigate();

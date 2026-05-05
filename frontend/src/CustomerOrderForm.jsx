@@ -507,7 +507,7 @@ const CustomerOrderForm = () => {
                         ldgr: String(watch("form.ldgr")),
                         ldgr_name: watch("form.ldgr_code_name") || "",
                       }).toString();
-                      window.open(`/accounting/AddJournal/RCPT/add?${qs}`, "_blank");
+                      window.open(`/accounting/RCPT/add?${qs}`, "_blank");
                     }}
                   >
                     <Plus className="size-4" />

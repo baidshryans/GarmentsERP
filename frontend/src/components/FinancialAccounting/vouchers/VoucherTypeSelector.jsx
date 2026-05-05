@@ -48,7 +48,7 @@ export default function VoucherTypeSelector() {
   const navigate = useNavigate();
 
   const handleSelect = (type) => {
-    navigate(`/accounting/AddJournal/${type}/add`);
+    navigate(`/accounting/${type}/add`);
   };
 
   return (

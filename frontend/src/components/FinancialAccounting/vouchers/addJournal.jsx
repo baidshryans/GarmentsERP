@@ -25,7 +25,7 @@ const AddJournal = () => {
   const { journal_type } = useParams();
   const [searchParams] = useSearchParams();
   // Pre-fill linkage from query string when launched from a Customer Order
-  // (e.g. .../accounting/AddJournal/RCPT/add?customer_order=12&order_no=CO-1 ).
+  // (e.g. .../accounting/RCPT/add?customer_order=12&order_no=CO-1 ).
   const preCustomerOrderId = searchParams.get("customer_order") || "";
   const preOrderNo         = searchParams.get("order_no")       || "";
   const preLedgerName      = searchParams.get("ldgr_name")      || "";
@@ -176,7 +176,7 @@ const AddJournal = () => {
           }
 
           toast({ title: "Voucher saved successfully!" });
-          navigate(`/accounting/AddJournal/${journal_type}`);
+          navigate(`/accounting/${journal_type}`);
         } else {
           setSaving(false);
           // Surface the actual server-side error message (covers 269ST / 40A(3) limit errors)
@@ -205,7 +205,7 @@ const AddJournal = () => {
   };
 
   useF4Submit(handleSubmit(onSubmit));
-  useF2Navigate(`/accounting/AddJournal/${journal_type}/add`);
+  useF2Navigate(`/accounting/${journal_type}/add`);
 
   const handleEdit = (index) => {
     const row = rs[index];

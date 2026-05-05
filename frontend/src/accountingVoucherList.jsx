@@ -17,7 +17,7 @@ import VoucherAttachments from "@/components/FinancialAccounting/vouchers/Vouche
 const AccountingVoucherList = () => {
   const { toast } = useToast();
   const {journal_type}=useParams();
-  useF2Navigate(`/accounting/AddJournal/${journal_type}/add`);
+  useF2Navigate(`/accounting/${journal_type}/add`);
   const [params , setParams]=useSearchParams();
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);

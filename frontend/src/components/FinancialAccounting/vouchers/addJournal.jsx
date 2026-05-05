@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom"
 // trigger a cascade of 4xx/5xx API calls.
 const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
 import { FieldContainer } from "@/Utils";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { fetchAccountingVoucher, fetchJournalEntryForEdit, fetchVoucherNoNext, updateJournalEntryForEdit } from "../../../services/apiService";
 import { SquarePen, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
 import AccountSuggestion from "@/components/AI/AccountSuggestion";
@@ -62,6 +63,7 @@ const AddJournal = () => {
   const [pendingFiles, setPendingFiles]         = useState([]);   // queued (add mode, uploaded on save)
   const [uploadingFiles, setUploadingFiles]     = useState(false);
   const [customers, setCustomers] = useState([]);
+  const [selectedLedger, setSelectedLedger] = useState(null);
   const [purityData, setPurityData] = useState([]);
   const [totalCredit, settotalCredit] = useState(0);
   const [totalDebit, settotalDebit] = useState(0);
@@ -121,14 +123,12 @@ const AddJournal = () => {
   useEffect(() => {
     if (!isValidType) return;
     async function fetchData() {
-      const [customers, salesperson, orderNo, mainItem, purity] = await Promise.all([
-        getLedgers({type:""}),
+      const [salesperson, orderNo, mainItem, purity] = await Promise.all([
         fetchSalesperson(),
         fetchVoucherNoNext(journal_type),
         fetchMainItem(),
         fetchPurity(),
       ]);
-      if (customers.success) setCustomers(customers.data.results);
       if (salesperson.success) setSalespersonData(salesperson.data.results);
       if (!id && orderNo.success) setValue("form.voucher_no", orderNo.data.billno);
       if (mainItem.success) setMainItemData(mainItem.data.results);
@@ -137,13 +137,17 @@ const AddJournal = () => {
     fetchData();
   }, []);
 
-  const account_name = watch('table.account')
-
-  useEffect(()=>{
-    getLedgers({search:account_name,type:""}).then(customers => {
-      if (customers.success) setCustomers(customers.data.results);
-    })
-  },[account_name])
+  const account_name = watch("table.account");
+  const accountTimerRef = useRef(null);
+  useEffect(() => {
+    if (accountTimerRef.current) clearTimeout(accountTimerRef.current);
+    accountTimerRef.current = setTimeout(() => {
+      getLedgers({ search: account_name, type: "" }).then(res => {
+        if (res.success) setCustomers(res.data.results);
+      });
+    }, 300);
+    return () => clearTimeout(accountTimerRef.current);
+  }, [account_name]);
 
   const onSubmit = (data) => {
     const form = getValues('form')
@@ -323,7 +327,7 @@ const AddJournal = () => {
       }
 
       // Cash/Bank side restriction
-      const ledger = customers.find(c => c.ac_name === row.account);
+      const ledger = selectedLedger;
       const isCashBank = ledger?.roles?.some(r => r.role === 'CA' || r.role === 'BA');
       if (isCashBank) {
         if (journal_type === 'RCPT' && rowCredit > 0) {
@@ -349,6 +353,7 @@ const AddJournal = () => {
       // Default: single-row add
       setRows(prev => [...prev, { ...row }])
       markTableDirty();
+      setSelectedLedger(null);
       reset({...getValues(),
         table:{
           account:"",
@@ -366,8 +371,7 @@ const AddJournal = () => {
     if (e.key === "Tab") {
       const status = getValues("table.status");
       const account = getValues("table.account");
-      const customer = customers.find(c => c.ac_name === account);
-      const customerId = customer ? customer.id : null;
+      const customerId = selectedLedger?.id ?? null;
       console.log(status)
       if (status === "Against_Ref" &&  journal_type=== "PMNT"){
       const newWindow = window.open(`/accountadd/${journal_type}/${customerId}`, '_blank', 'width=800,height=600');
@@ -469,13 +473,16 @@ const AddJournal = () => {
             <TableRow>
               <TableCell className="w-28 px-4 py-2 border"></TableCell>
               <TableCell className="w-28 px-4 py-2 border">
-                <Input list="item_list" {...register("table.account")} />
-                <datalist id="item_list">
-                  {customers.map((item, index) => (
-                    <option key={index} value={item.ac_name}  > {item.ac_name}</option>
-                  ))}
-
-                </datalist>
+                <SearchableComboBox
+                  options={customers}
+                  value={watch("table.account") ?? ""}
+                  onInputChange={(val) => setValue("table.account", val)}
+                  onSelect={(opt) => {
+                    setValue("table.account", opt.ac_name);
+                    setSelectedLedger(opt);
+                  }}
+                  placeholder="Search account..."
+                />
               </TableCell>
               {showStatus && (
                 <TableCell className="w-28 px-4 py-2 border">
@@ -561,9 +568,8 @@ const AddJournal = () => {
             allocated bill, plus one "on account" row for any remainder).
             Backend validates sums, ledger-match and overpayment. */}
         {(journal_type === "PMNT" || journal_type === "RCPT") && (() => {
-          const accountName = watch("table.account");
           const partyAmt    = parseFloat(watch("table.debit") || 0) + parseFloat(watch("table.credit") || 0);
-          const currentLedger = customers.find(c => c.ac_name === accountName);
+          const currentLedger = selectedLedger;
           return (
             <BillAllocationTable
               ledgerId={currentLedger?.id}
@@ -730,3 +736,6 @@ const AddJournal = () => {
 };
 
 export default AddJournal;
+
+
+

@@ -1064,59 +1064,68 @@ const SalesVoucherAdd = () => {
                 placeholder="Search customer…"
               />
               <input type="hidden" {...register("form.ldgr")} />
-              <p className="text-xs mt-1 text-gray-500">
-                Ledger cash: {cashledger}
+              <div className="text-[10px] mt-1 flex flex-wrap items-center gap-1.5">
+                {!Array.isArray(cashledger) && cashledger != null && (() => {
+                  const bal = parseFloat(cashledger);
+                  return (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold ${
+                      bal > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      bal < 0 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                               'bg-gray-50 text-gray-500 border-gray-200'
+                    }`}>
+                      <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+                      </svg>
+                      ₹{bal.toLocaleString('en-IN')}
+                    </span>
+                  );
+                })()}
                 {b2bPricelist && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                     B2B: {b2bPricelist.name}
                   </span>
                 )}
                 {retailDiscountPricelist && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded font-semibold bg-green-50 text-green-700 border border-green-200">
                     Discount: {retailDiscountPricelist.name}
                   </span>
                 )}
                 {activeOffer && !b2bPricelist && (
-                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-50 text-orange-700 border border-orange-200">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded font-semibold bg-orange-50 text-orange-700 border border-orange-200">
                     Offer: {activeOffer.name}
                   </span>
                 )}
-              </p>
+                {customerCashInfo && (() => {
+                  const { cash_received, limit, remaining } = customerCashInfo;
+                  const pct = limit > 0 ? Math.min(100, (cash_received / limit) * 100) : 0;
+                  const isNearLimit = remaining < limit * 0.1;
+                  const isAtLimit = remaining <= 0;
+                  const circ = 75.4;
+                  const offset = circ * (1 - pct / 100);
+                  const fmt = (n) => n >= 100000 ? `₹${n % 100000 === 0 ? n / 100000 : (n / 100000).toFixed(1)}L`
+                                   : n >= 1000   ? `₹${n % 1000 === 0 ? n / 1000 : (n / 1000).toFixed(1)}k`
+                                   : `₹${n.toLocaleString('en-IN')}`;
+                  const clr = isAtLimit
+                    ? { ring: '#dc2626', track: '#fecaca', cls: 'bg-red-50 text-red-700 border-red-200' }
+                    : isNearLimit
+                    ? { ring: '#d97706', track: '#fde68a', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                    : { ring: '#7c3aed', track: '#ddd6fe', cls: 'bg-violet-50 text-violet-700 border-violet-200' };
+                  return (
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border font-semibold ${clr.cls}`}>
+                      <svg width="14" height="14" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
+                        <circle cx="16" cy="16" r="12" fill="none" stroke={clr.track} strokeWidth="5"/>
+                        <circle cx="16" cy="16" r="12" fill="none" stroke={clr.ring} strokeWidth="5"
+                          strokeDasharray={circ} strokeDashoffset={offset}
+                          strokeLinecap="round" transform="rotate(-90 16 16)"/>
+                      </svg>
+                      {isAtLimit ? 'Cash limit reached' : `${fmt(cash_received)} / ${fmt(limit)} · ${fmt(remaining)} left`}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
           </FieldContainer>
         </div>
-        {customerCashInfo && (() => {
-          const { cash_received, limit, remaining } = customerCashInfo;
-          const pct = limit > 0 ? Math.min(100, (cash_received / limit) * 100) : 0;
-          const isNearLimit = remaining < limit * 0.1;
-          const isAtLimit   = remaining <= 0;
-          return (
-            <div className={`mb-4 rounded-md border px-3 py-2 text-xs ${
-              isAtLimit   ? 'bg-red-50 border-red-200 text-red-700' :
-              isNearLimit ? 'bg-amber-50 border-amber-200 text-amber-700' :
-                            'bg-gray-50 border-gray-200 text-gray-600'
-            }`}>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="font-medium">Cash received this FY</span>
-                <span className="font-mono font-semibold">
-                  ₹{cash_received.toLocaleString('en-IN')} / ₹{limit.toLocaleString('en-IN')}
-                </span>
-              </div>
-              <div className="h-1 rounded-full bg-gray-200 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    isAtLimit ? 'bg-red-500' : isNearLimit ? 'bg-amber-400' : 'bg-violet-400'
-                  }`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-              {isAtLimit
-                ? <p className="mt-1 font-semibold text-red-600">⚠ Cash limit reached — no further cash can be accepted from this customer this FY.</p>
-                : <p className="mt-1 text-muted-foreground">Remaining: ₹{remaining.toLocaleString('en-IN')}</p>
-              }
-            </div>
-          );
-        })()}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>

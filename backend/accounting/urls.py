@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/vou-no/<str:type>/',views.get_next_vou_no),
     path('api/cg-no/',views.get_next_cg_no),
     path('api/get-ldgr-cash-total/<int:ledger_id>',views.cash_total_of_ledger),
+    path('api/ledger-balance/<int:ledger_id>/', views.ledger_current_balance, name='ledger-current-balance'),
     path('api/pnl',views.ProfitLossAPIView.as_view()),
     path('api/bal-sheet',views.BalanceSheetAPIView.as_view()),
     path('api/bs-group-ledgers/', views.BsGroupLedgersView.as_view(), name='bs-group-ledgers'),

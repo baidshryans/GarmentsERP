@@ -1641,6 +1641,47 @@ def cash_total_of_ledger(request, ledger_id):
     return Response({'total_cash': total_debit or 0})
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def ledger_current_balance(request, ledger_id):
+    """
+    Returns the current running balance for a ledger (opening + all posted txns).
+
+    balance = opening(debit−credit) + sum(txn debit) − sum(txn credit)
+
+    For asset accounts (Cash / Bank) a positive value means available funds.
+    Used by the frontend to cap the payable amount in Payment vouchers.
+    """
+    try:
+        ledger = Ledger.objects.get(pk=ledger_id, retail=request.retail)
+    except Ledger.DoesNotExist:
+        return Response({"error": "Ledger not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    opening = LedgerOpenBalance.objects.filter(
+        ldgr=ledger, retail=request.retail
+    ).aggregate(
+        total=Coalesce(
+            Sum(F('debit') - F('credit'), output_field=DecimalField(max_digits=20, decimal_places=4)),
+            Value(Decimal('0'))
+        )
+    )['total'] or Decimal('0')
+
+    txn = VoucherDetail.objects.filter(
+        account=ledger,
+        voucher_main__retail=request.retail,
+    ).aggregate(
+        total_debit=Coalesce(Sum('debit'),  Value(Decimal('0'))),
+        total_credit=Coalesce(Sum('credit'), Value(Decimal('0'))),
+    )
+
+    balance = opening + txn['total_debit'] - txn['total_credit']
+    return Response({
+        'ledger_id':   ledger_id,
+        'ledger_name': ledger.ac_name,
+        'balance':     balance,
+    })
+
+
 from django.db.models import Value
 from django.db.models.functions import Coalesce
 

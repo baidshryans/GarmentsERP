@@ -9,7 +9,7 @@ import { useF2Navigate } from "@/hooks/useF2Navigate"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
-import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, createJournalEntry, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment } from "@/services/apiService";
+import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, createJournalEntry, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment, fetchLedgerBalance } from "@/services/apiService";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 
 // Only these four voucher types are valid for the journal/receipt/payment/contra
@@ -65,6 +65,9 @@ const AddJournal = () => {
   const [uploadingFiles, setUploadingFiles]     = useState(false);
   const [customers, setCustomers] = useState([]);
   const [selectedLedger, setSelectedLedger] = useState(null);
+  // Available balance for the selected Cash/Bank account (PMNT only).
+  // null = not fetched / not applicable.
+  const [cashBankBalance, setCashBankBalance] = useState(null);
 
   // True when the currently-entered account is a Cash or Bank ledger.
   // Used to disable the forbidden debit/credit field proactively (PMNT → no
@@ -279,6 +282,7 @@ const AddJournal = () => {
       }});
 
       setRows(prev => prev.filter((_, i) => i < start || i > end));
+      setCashBankBalance(null);
       setTimeout(() => accountInputRef.current?.focus(), 0);
       return;
     }
@@ -288,6 +292,7 @@ const AddJournal = () => {
     reset({ ...value, table: row });
     setRows((prev) => prev.filter((_, i) => i !== index));
     markTableDirty();
+    setCashBankBalance(null);
     setTimeout(() => accountInputRef.current?.focus(), 0);
   };
 
@@ -369,6 +374,7 @@ const AddJournal = () => {
         markTableDirty();
         setAllocations([]);
         setSelectedLedger(null);
+        setCashBankBalance(null);
         reset({ ...getValues(), table: { account: "", status: "", ref_bill_no: "", debit: "", credit: "" } });
         e.preventDefault();
         return;
@@ -412,6 +418,24 @@ const AddJournal = () => {
           });
           e.preventDefault();
           return;
+        }
+
+        // ── Balance cap: PMNT Cash/Bank credit cannot exceed available balance ──
+        if (journal_type === 'PMNT' && cashBankBalance !== null) {
+          // Total already committed for this same Cash/Bank account in this voucher
+          const alreadyCommitted = rs
+            .filter(r => r.account === row.account)
+            .reduce((s, r) => s + (parseFloat(r.credit) || 0), 0);
+          const totalUsed = alreadyCommitted + rowCredit;
+          if (totalUsed > cashBankBalance + 0.01) {
+            toast({
+              title: "Insufficient balance",
+              description: `${row.account} has an available balance of ₹${cashBankBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}. You are trying to pay ₹${totalUsed.toLocaleString("en-IN", { maximumFractionDigits: 2 })}.`,
+              variant: "destructive",
+            });
+            e.preventDefault();
+            return;
+          }
         }
       }
 
@@ -567,6 +591,16 @@ const AddJournal = () => {
                       if (journal_type === "RCPT") setValue("table.credit", "");
                     }
 
+                    // ── Fetch available balance for Cash/Bank in PMNT ────────
+                    if (optIsCashBank && journal_type === "PMNT" && opt.id) {
+                      setCashBankBalance(null); // reset while loading
+                      fetchLedgerBalance(opt.id).then(res => {
+                        if (res.success) setCashBankBalance(parseFloat(res.data.balance));
+                      });
+                    } else {
+                      setCashBankBalance(null);
+                    }
+
                     // ── Auto-fill the balancing amount ───────────────────────
                     // Use the committed-row totals to derive what's still needed.
                     // diff > 0  → more debit than credit → need credit entry
@@ -631,7 +665,23 @@ const AddJournal = () => {
                     <span className="text-[10px] text-amber-600 font-medium leading-tight">Debit only</span>
                   </div>
                 ) : (
-                  <Input type="number" {...register("table.credit")} onKeyDown={(e) => handleKeyDown(e)} />
+                  <div className="flex flex-col gap-0.5">
+                    <Input type="number" {...register("table.credit")} onKeyDown={(e) => handleKeyDown(e)} />
+                    {/* Balance cap indicator — shown only for PMNT Cash/Bank */}
+                    {isCashBankLedger && journal_type === "PMNT" && (
+                      <span className={`text-[10px] font-medium leading-tight ${
+                        cashBankBalance === null
+                          ? "text-gray-400"
+                          : cashBankBalance <= 0
+                            ? "text-red-500"
+                            : "text-green-600"
+                      }`}>
+                        {cashBankBalance === null
+                          ? "Fetching balance…"
+                          : `Available: ₹${cashBankBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+                      </span>
+                    )}
+                  </div>
                 )}
               </TableCell>
 

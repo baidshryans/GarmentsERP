@@ -3607,6 +3607,20 @@ export async function fetchDuePaymentsSale(id) {
 }
 
 /**
+ * Fetch the current running balance for a ledger (opening + all posted txns).
+ * For Cash/Bank asset accounts a positive value means available funds.
+ * Returns: { ledger_id, ledger_name, balance }
+ */
+export async function fetchLedgerBalance(ledgerId) {
+  try {
+    const response = await apiClient.get(`/accounting/api/ledger-balance/${ledgerId}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+/**
  * Fetch outstanding bills for a ledger, compact shape for the BillAllocationTable.
  * kind: 'sales' (for Receipt vouchers) | 'purchase' (for Payment vouchers)
  * Returns: [{id, billno, date, total, due_amt}, ...]

@@ -542,11 +542,37 @@ const AddJournal = () => {
                   onSelect={(opt) => {
                     setValue("table.account", opt.ac_name);
                     setSelectedLedger(opt);
-                    // Clear the forbidden field immediately on selection
+
                     const optIsCashBank = opt?.roles?.some(r => r.role === 'CA' || r.role === 'BA');
+
+                    // ── Clear forbidden field for Cash/Bank accounts ─────────
                     if (optIsCashBank) {
                       if (journal_type === "PMNT") setValue("table.debit",  "");
                       if (journal_type === "RCPT") setValue("table.credit", "");
+                    }
+
+                    // ── Auto-fill the balancing amount ───────────────────────
+                    // Use the committed-row totals to derive what's still needed.
+                    // diff > 0  → more debit than credit → need credit entry
+                    // diff < 0  → more credit than debit → need debit entry
+                    // Only fill the field if it's currently empty so we never
+                    // overwrite something the user typed intentionally.
+                    const diff = Math.round((totalDebit - totalCredit) * 100) / 100;
+
+                    if (diff > 0.01) {
+                      // Need a credit entry — skip only when Cash/Bank in RCPT
+                      // (which must be debited, not credited)
+                      const canCredit = !(optIsCashBank && journal_type === "RCPT");
+                      if (canCredit && !getValues("table.credit")) {
+                        setValue("table.credit", String(diff));
+                      }
+                    } else if (diff < -0.01) {
+                      // Need a debit entry — skip only when Cash/Bank in PMNT
+                      // (which must be credited, not debited)
+                      const canDebit = !(optIsCashBank && journal_type === "PMNT");
+                      if (canDebit && !getValues("table.debit")) {
+                        setValue("table.debit", String(-diff));
+                      }
                     }
                   }}
                   placeholder="Search account..."

@@ -1,0 +1,294 @@
+from decimal import Decimal
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+
+from accounting.serializers import JournalEntrySerializer
+from accounting.utils import generate_voucher_no
+from contacts.models import Ledger
+import global_vars
+from goldrates.models import PurityMaster
+from manufacturing.utils import create_or_update_nested
+from mastersconfig.models import Item, Packet
+from ..models import PurchaseReturn, PurchaseReturnItems, PurchaseReturnDetails
+
+from .voucher import _raise_missing_ledger
+
+
+class PurchaseReturnDetailsSerializer(serializers.ModelSerializer):
+    # Fields related to PurchaseReturnDetails model
+    sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field ="pckt_no", required=False)
+
+    class Meta:
+        model = PurchaseReturnDetails
+        fields = [
+            'id',
+
+            'sub_item',
+            'sub_pcs',
+            'sub_gw',
+            'sub_ct',
+            'metal_purity',
+            'loss',
+            'tunch',
+            'packet',
+            'rate',
+            'value',
+            'fine_wt',  # Computed property
+        ]
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
+
+
+class PurchaseReturnItemsSerializer(serializers.ModelSerializer):
+    # Fields related to PurchaseReturnItems model
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
+
+    # Nested Serializer for PurchaseReturnDetails
+    purchasereturndetails_set = PurchaseReturnDetailsSerializer(many=True)
+
+    class Meta:
+        model = PurchaseReturnItems
+        fields = [
+            'id',
+            'sl_no',
+            'item',
+            'pcs',
+            'gw',
+            'purity',
+            'making_type',
+            'making_value',
+            'making',
+            'remarks',
+            'purchasereturndetails_set',  # Nested details serializer
+        ]
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
+
+    def create(self, validated_data):
+        details_data = validated_data.pop('purchasereturndetails_set')
+        purchase_return_item_instance = PurchaseReturnItems.objects.create(**validated_data)
+
+        # Create related PurchaseReturnDetails instances
+        for detail_data in details_data:
+            PurchaseReturnDetails.objects.create(main_item=purchase_return_item_instance, **detail_data)
+
+        return purchase_return_item_instance
+
+    def update(self, instance, validated_data):
+        detail_data = validated_data.pop('purchasereturndetails_set', [])
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        create_or_update_nested(PurchaseReturnDetailsSerializer, instance, 'purchasereturndetails_set', 'main_item', PurchaseReturnDetailsSerializer(detail_data, many=True).data)
+        return instance
+
+
+class PurchaseReturnSerializer(serializers.ModelSerializer):
+    # Fields related to PurchaseReturn model
+    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
+    pv_billno = serializers.CharField(write_only=True)
+    # Nested Serializer for PurchaseReturnItems
+    purchasereturnitems_set = PurchaseReturnItemsSerializer(many=True)
+
+    class Meta:
+        model = PurchaseReturn
+        fields = [
+            'id',
+            'billno',
+            'pv_billno',
+            'purchase_voucher_ref',
+            'date1',
+            'ldgr',
+            'ldgr_name',
+            'discount',
+            'cgst_amt',
+            'sgst_amt',
+            'igst_amt',
+            'tcs_amt',
+            'narration',
+            'mode_of_transport',
+            'total_incl_tax',  # Computed property
+            'purchasereturnitems_set',  # Nested items serializer
+        ]
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
+
+    def create(self, validated_data):
+        items_data = validated_data.pop('purchasereturnitems_set')
+        purchase_return_instance = PurchaseReturn.objects.create(**validated_data)
+
+        # Create related PurchaseReturnItems instances
+        item_instances = []
+        item_detail_instances = []
+        items_with_details = []  # list of (main_item_instance, [detail_instances]) for journal building
+        for item_data in items_data:
+            details_data = item_data.pop('purchasereturndetails_set')
+            purchase_return_item_instance = PurchaseReturnItems.objects.create(billno=purchase_return_instance, **item_data)
+            item_instances.append(purchase_return_item_instance)
+            # Create related PurchaseReturnDetails instances
+            detail_instances = []
+            for detail_data in details_data:
+                ret_item = PurchaseReturnDetails.objects.create(main_item=purchase_return_item_instance, **detail_data)
+                item_detail_instances.append(ret_item)
+                detail_instances.append(ret_item)
+            items_with_details.append((purchase_return_item_instance, detail_instances))
+        retail = self.context.get('request').retail
+        _gm = retail.gstin_master
+        _co = retail.branch.company if retail.branch_id and retail.branch else None
+        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+        _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+        _pr_round_off = Decimal(str(purchase_return_instance.round_off or 0))
+
+        # Build item journal lines: making rolled into first sub-item's purchase_ledger (credit)
+        _pr_item_lines = []
+        for _main, _sub_details in items_with_details:
+            _making = Decimal(str(_main.making_value or 0))
+            for _idx, _d in enumerate(_sub_details):
+                if not (_d.sub_item and _d.sub_item.purchase_ledger):
+                    raise ValidationError(
+                        f"Item '{_d.sub_item}' has no purchase ledger configured. "
+                        f"Please set the purchase ledger in the Item Master."
+                    )
+                _amt = Decimal(str(_d.value or 0)) + (_making if _idx == 0 else Decimal('0'))
+                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
+
+        ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
+                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
+                "narration":f"Purchase Return Narration",
+                "voucher_type":global_vars.VoucherType.purc_ret,
+                "retail":retail.id,
+                "voucher_details": [
+                    {
+                        'account': in_cgst,
+                        'credit':f"{purchase_return_instance.cgst_amt:.2f}"
+                    },
+                    {'account': in_sgst,
+                        'credit':f"{purchase_return_instance.sgst_amt:.2f}"
+                    },
+                    {'account': in_igst,
+                        'credit':f"{purchase_return_instance.igst_amt:.2f}"
+                    },
+                    {'account':_hallmark_ldgr,
+                        'credit':f"{purchase_return_instance.hallmark_charge:.2f}" if purchase_return_instance.hallmark_charge else '0.0'
+                    },
+                    {'account':_carriage_ldgr,
+                        'credit':f"{purchase_return_instance.freight_amt:.2f}" if purchase_return_instance.freight_amt else '0.0'
+                    },
+                ] +
+                # Round off: reverse the sign vs purchase voucher
+                # PV: positive round_off → DEBIT round_off_ldgr  → Return: CREDIT round_off_ldgr
+                # PV: negative round_off → CREDIT round_off_ldgr → Return: DEBIT round_off_ldgr
+                ([{'account': _round_off_ldgr, 'credit': f"{_pr_round_off:.2f}"}] if _pr_round_off > 0 else []) +
+                ([{'account': _round_off_ldgr, 'debit': f"{abs(_pr_round_off):.2f}"}] if _pr_round_off < 0 else []) +
+                # Discount: PV credits discount_ldgr → Return debits discount_ldgr (reversal)
+                ([{'account': _discount_ldgr, 'debit': f"{purchase_return_instance.discount:.2f}"}]
+                    if (purchase_return_instance.discount or 0) > 0 else []) +
+                _pr_item_lines +
+                [{
+                    'account':purchase_return_instance.ldgr.ac_name,
+                    'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
+                }]},
+                context=self.context)
+
+        if ser.is_valid(raise_exception=True):
+
+            ref = ser.save()
+        purchase_return_instance.ac_voucher = ref
+        purchase_return_instance.gstin_ref  = retail.gstin_master
+        purchase_return_instance.branch_ref = retail.branch
+        purchase_return_instance.save()
+        return purchase_return_instance
+
+    def update(self, instance, validated_data):
+        detail_data = validated_data.pop('purchasereturnitems_set', [])
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        create_or_update_nested(PurchaseReturnItemsSerializer, instance, 'purchasereturnitems_set', 'billno', PurchaseReturnItemsSerializer(detail_data, many=True).data)
+        purchase_return_instance = instance
+        instance.ac_voucher.delete()
+        # Fresh DB queries — avoid stale prefetch cache left by create_or_update_nested
+        item_instances = list(PurchaseReturnItems.objects.filter(billno=instance).select_related('purity', 'item'))
+        item_detail_instances = list(PurchaseReturnDetails.objects.filter(billno=instance).select_related('sub_item__purchase_ledger', 'main_item'))
+        retail = self.context.get('request').retail
+        _gm = retail.gstin_master
+        _co = retail.branch.company if retail.branch_id and retail.branch else None
+        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+        _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+        _pr_round_off = Decimal(str(purchase_return_instance.round_off or 0))
+
+        # Build item journal lines: making rolled into first sub-item's purchase_ledger (credit)
+        from collections import defaultdict as _defaultdict
+        _pr_details_by_main = _defaultdict(list)
+        for _d in item_detail_instances:
+            _pr_details_by_main[_d.main_item_id].append(_d)
+        _pr_item_lines = []
+        for _main in item_instances:
+            _making = Decimal(str(_main.making_value or 0))
+            for _idx, _d in enumerate(_pr_details_by_main.get(_main.id, [])):
+                if not (_d.sub_item and _d.sub_item.purchase_ledger):
+                    raise ValidationError(
+                        f"Item '{_d.sub_item}' has no purchase ledger configured. "
+                        f"Please set the purchase ledger in the Item Master."
+                    )
+                _amt = Decimal(str(_d.value or 0)) + (_making if _idx == 0 else Decimal('0'))
+                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
+
+        ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
+                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
+                "narration":f"Purchase Return Narration",
+                "voucher_type":global_vars.VoucherType.purc_ret,
+                "retail":retail.id,
+                "voucher_details": [
+                    {
+                        'account': in_cgst,
+                        'credit':f"{purchase_return_instance.cgst_amt:.2f}"
+                    },
+                    {'account': in_sgst,
+                        'credit':f"{purchase_return_instance.sgst_amt:.2f}"
+                    },
+                    {'account': in_igst,
+                        'credit':f"{purchase_return_instance.igst_amt:.2f}"
+                    },
+                    {'account':_hallmark_ldgr,
+                        'credit':f"{purchase_return_instance.hallmark_charge:.2f}" if purchase_return_instance.hallmark_charge else '0.0'
+                    },
+                    {'account':_carriage_ldgr,
+                        'credit':f"{purchase_return_instance.freight_amt:.2f}" if purchase_return_instance.freight_amt else '0.0'
+                    },
+                ] +
+                ([{'account': _round_off_ldgr, 'credit': f"{_pr_round_off:.2f}"}] if _pr_round_off > 0 else []) +
+                ([{'account': _round_off_ldgr, 'debit': f"{abs(_pr_round_off):.2f}"}] if _pr_round_off < 0 else []) +
+                ([{'account': _discount_ldgr, 'debit': f"{purchase_return_instance.discount:.2f}"}]
+                    if (purchase_return_instance.discount or 0) > 0 else []) +
+                _pr_item_lines +
+                [{
+                    'account':purchase_return_instance.ldgr.ac_name,
+                    'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
+                }]},
+                context=self.context)
+
+        if ser.is_valid(raise_exception=True):
+
+            ref = ser.save()
+        purchase_return_instance.ac_voucher = ref
+        purchase_return_instance.gstin_ref  = retail.gstin_master
+        purchase_return_instance.branch_ref = retail.branch
+        purchase_return_instance.save()
+        return purchase_return_instance

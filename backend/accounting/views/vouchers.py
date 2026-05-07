@@ -1,49 +1,28 @@
-from datetime import date, datetime, timedelta
-from decimal import Decimal, InvalidOperation
-import json
+from datetime import date, datetime
 
 from django.db import transaction
-from django.db.models import Sum, F, Case, When, Value, DecimalField, FloatField, Prefetch
-from django.core.exceptions import ObjectDoesNotExist
-from django.http import JsonResponse
 from django.utils import timezone
 
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.generics import ListCreateAPIView, ListAPIView
+from rest_framework.generics import ListCreateAPIView
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
-from contacts.models import Ledger
 from global_vars import VoucherType
-from inventory.views import ClosingStockCal
-from sales.models import SalesVou
-from sales.serializers import SalesVouSerializer
 from userauth.views import RetailBaseViewset
-from purchase.models import PurchaseVoucher
 
-from ..fine_gold_service import FineGoldRateService
 from ..models import *
-from ..models import Account, VoucherDetail
+from ..models import Account
 from ..serializers import (
-    AccountSerializer,
-    CashbookTransactionSerializer,
     GoldCashSerializder,
     JournalEntrySerializer,
-    LedgerSerializer,
     LedgerLightSerializer,
-    LedgerOpenBalanceSerializer,
-    PurchaseVoucherSerializer,
 )
-from ..utils import generate_voucher_no
 from ..utils import *
-
-from rest_framework.viewsets import ModelViewSet
-from rest_framework.exceptions import PermissionDenied
 
 
 @api_view(['GET'])

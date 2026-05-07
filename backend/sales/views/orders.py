@@ -1,27 +1,21 @@
-import json
 import logging
-logger = logging.getLogger(__name__)
-from django.shortcuts import get_object_or_404, render, redirect
-from django.http import HttpResponse, JsonResponse
-from django.urls import reverse
-from django.utils.timezone import make_aware
+
 from django.utils import timezone
-from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
-from ..serializers import CustomerOrderSerializer, PortalCustomerOrderSerializer
-from ..models import *
-from django.contrib.auth.decorators import login_required
-from userauth import views
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-#import other relevant models
-from goldrates.models import PurityMaster
-from contacts.models import Ledger, LedgerRole
+
 from mastersconfig.models import Item
+from userauth import views
+
+from ..models import *
+from ..serializers import CustomerOrderSerializer
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])

@@ -1,39 +1,34 @@
 import json
 import logging
 import decimal
-logger = logging.getLogger(__name__)
-from django.shortcuts import get_object_or_404, render, redirect
-from django.http import HttpResponse, JsonResponse
+from datetime import datetime
+
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
 from django.urls import reverse
-from django.utils.timezone import make_aware
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When, Exists, OuterRef, Sum, Q
+from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
-from ..serializers import CustomerOrderSerializer, PortalCustomerOrderSerializer
-from ..models import *
-from django.contrib.auth.decorators import login_required
-from userauth import views
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-#import other relevant models
+from rest_framework.views import APIView
+
 from goldrates.models import PurityMaster
 from contacts.models import Ledger, LedgerRole
 from mastersconfig.models import Item
+from accounting.serializers import SaleVoucherLedgerSerializer
+from userauth import views
 
-from datetime import datetime
-from rest_framework.viewsets import ModelViewSet
-from accounting.serializers import LedgerSerializer, SaleVoucherLedgerSerializer
-from ..utils import generate_next_sale_voucher_no, generate_next_sale_return_no, generate_next_sale_app_no, DecimalEncoder
-from ..serializers import SaleReturnSerializer, SaleVoucherToReturnSerializer, SalesApprovalSerializer, SalesVouSerializer
-from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When, Exists, OuterRef
-from django.db.models import Sum
-from django.db.models.functions import Coalesce
-from rest_framework.views import APIView
-from django.db.models import Q
+from ..models import *
+from ..utils import DecimalEncoder
+from ..serializers import SalesApprovalSerializer, SalesVouSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class SalesVoucherViewset(views.RetailBaseViewset):

@@ -40,7 +40,7 @@ from ..serializers import (
     PurchaseVoucherSerializer,
 )
 from ..utils import generate_voucher_no
-from accounting.utils import *
+from ..utils import *
 
 from django.db.models import Value
 from django.db.models.functions import Coalesce, Abs
@@ -51,7 +51,6 @@ from .ledger import (
     _can_view_combined,
     _get_retail_for_report,
     _get_retail_ids_for_report,
-    DueAdvanceReportSerializer,
 )
 
 

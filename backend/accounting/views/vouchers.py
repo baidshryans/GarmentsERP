@@ -40,7 +40,7 @@ from ..serializers import (
     PurchaseVoucherSerializer,
 )
 from ..utils import generate_voucher_no
-from accounting.utils import *
+from ..utils import *
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.exceptions import PermissionDenied
@@ -231,7 +231,7 @@ def initial_data_view(request):
         Ledger.objects.select_related('ac_group').prefetch_related('roles').only('id', 'ac_name', 'ac_group'),
         many=True
     ).data
-    from accounting.utils import peek_next_bill_number
+    from ..utils import peek_next_bill_number
     voucher_no = peek_next_bill_number(request.retail, 'JRNL')
     default_date = timezone.localdate()
 
@@ -244,14 +244,14 @@ def initial_data_view(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_next_gc_no(request):
-    from accounting.utils import peek_next_bill_number
+    from ..utils import peek_next_bill_number
     bill_no = peek_next_bill_number(request.retail, "GC")
     return Response({"billno":bill_no})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_next_vou_no(request,type):
-    from accounting.utils import peek_next_bill_number
+    from ..utils import peek_next_bill_number
     type_map = {
         "PMNT": VoucherType.pmnt,
         "CONTRA": VoucherType.cntr,
@@ -273,7 +273,7 @@ def get_next_vou_no(request,type):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_next_cg_no(request):
-    from accounting.utils import peek_next_bill_number
+    from ..utils import peek_next_bill_number
     bill_no = peek_next_bill_number(request.retail, "CG")
     return Response({"billno":bill_no})
 

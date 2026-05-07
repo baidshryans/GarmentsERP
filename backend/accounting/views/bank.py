@@ -40,7 +40,7 @@ from ..serializers import (
     PurchaseVoucherSerializer,
 )
 from ..utils import generate_voucher_no
-from accounting.utils import *
+from ..utils import *
 
 
 class BankStatementListCreate(ListCreateAPIView):

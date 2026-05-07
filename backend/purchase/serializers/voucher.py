@@ -485,6 +485,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
 
             # Separate TDS journal: Dr Vendor / Cr TDS Payable
             _tds_amt = purchase_voucher_instance.tds_amt or 0
+            _existing_tds_voucher_no = None  # new voucher — no prior TDS journal to preserve
             if _tds_amt > 0 and purchase_voucher_instance.tds_section:
                 _tds_ldgr = purchase_voucher_instance.tds_section.ledger
                 if not _tds_ldgr:

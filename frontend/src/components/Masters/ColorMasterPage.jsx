@@ -2,12 +2,13 @@ import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import { DataTable } from "@/table"
 import { SquarePen, Trash2, Plus, X, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
 import { fetchColors, createColor, updateColor, deleteColor } from "@/services/apiService"
+import { ConfirmDialog } from "@/components/common/ConfirmDialog"
+import { parseApiError } from "@/lib/utils"
 
 const emptyForm = { color_name: "" }
 
@@ -19,6 +20,7 @@ export default function ColorMasterPage() {
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [submitting, setSubmitting] = useState(false)
+  const [deleteId, setDeleteId] = useState(null)
 
   const load = async () => {
     setLoading(true)
@@ -48,11 +50,7 @@ export default function ColorMasterPage() {
       reset()
       load()
     } else {
-      const msg =
-        typeof res.error === "object"
-          ? Object.values(res.error).flat().join(", ")
-          : res.error
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      toast({ title: "Error", description: parseApiError(res.error), variant: "destructive" })
     }
     setSubmitting(false)
   }
@@ -65,15 +63,15 @@ export default function ColorMasterPage() {
     setShowForm(true)
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this color?")) return
-    const res = await deleteColor(id)
+  const handleDelete = async () => {
+    const res = await deleteColor(deleteId)
     if (res.success) {
       toast({ title: "Color deleted" })
       load()
     } else {
-      toast({ title: "Error", description: String(res.error), variant: "destructive" })
+      toast({ title: "Error", description: parseApiError(res.error), variant: "destructive" })
     }
+    setDeleteId(null)
   }
 
   const reset = () => {
@@ -90,7 +88,7 @@ export default function ColorMasterPage() {
           <button onClick={() => handleEdit(row.original)} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
             <SquarePen className="size-4" />
           </button>
-          <button onClick={() => handleDelete(row.original.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors">
+          <button onClick={() => setDeleteId(row.original.id)} className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors">
             <Trash2 className="size-4" />
           </button>
         </div>
@@ -102,6 +100,14 @@ export default function ColorMasterPage() {
 
   return (
     <div className="p-4 flex flex-col gap-4">
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Delete Color"
+        description="This color will be permanently removed."
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+      />
+
       {!showForm && (
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setShowForm(true)}>
@@ -130,12 +136,7 @@ export default function ColorMasterPage() {
                   maxLength={50}
                 />
               </div>
-              <Button
-                type="submit"
-                size="sm"
-                className="h-9"
-                disabled={submitting || !form.color_name.trim()}
-              >
+              <Button type="submit" size="sm" className="h-9" disabled={submitting || !form.color_name.trim()}>
                 <Check className="size-4 mr-1" />
                 {editingId ? "Update" : "Save"}
               </Button>
@@ -148,15 +149,12 @@ export default function ColorMasterPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="flex flex-col gap-2">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-9 w-full" />
-          ))}
-        </div>
-      ) : (
-        <DataTable columns={columns} data={rows} />
-      )}
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={loading}
+        emptyMessage="No colors found. Add one above."
+      />
     </div>
   )
 }

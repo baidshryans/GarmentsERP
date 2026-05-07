@@ -67,14 +67,15 @@ export default function PurityMasterPage() {
   }
 
   const handleDelete = async () => {
-    const res = await deletePurity(deleteId)
+    const id = deleteId
+    setDeleteId(null)
+    const res = await deletePurity(id)
     if (res.success) {
       toast({ title: "Purity deleted" })
       load()
     } else {
       toast({ title: "Error", description: parseApiError(res.error), variant: "destructive" })
     }
-    setDeleteId(null)
   }
 
   const reset = () => {

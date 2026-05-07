@@ -64,14 +64,15 @@ export default function ColorMasterPage() {
   }
 
   const handleDelete = async () => {
-    const res = await deleteColor(deleteId)
+    const id = deleteId
+    setDeleteId(null)
+    const res = await deleteColor(id)
     if (res.success) {
       toast({ title: "Color deleted" })
       load()
     } else {
       toast({ title: "Error", description: parseApiError(res.error), variant: "destructive" })
     }
-    setDeleteId(null)
   }
 
   const reset = () => {

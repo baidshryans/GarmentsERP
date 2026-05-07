@@ -23,6 +23,12 @@ export function DataTable({
   isLoading = false,
   emptyMessage = "No records found.",
 }) {
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  })
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
@@ -32,12 +38,6 @@ export function DataTable({
       </div>
     )
   }
-
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  })
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">

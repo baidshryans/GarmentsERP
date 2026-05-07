@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button"
 export function ConfirmDialog({
   open,
   onConfirm,
-  onCancel,
+  onCancel = () => {},
   title = "Are you sure?",
   description = "This action cannot be undone.",
   confirmLabel = "Delete",

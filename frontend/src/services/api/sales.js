@@ -1,6 +1,5 @@
 // frontend/src/services/api/sales.js
 import apiClient from "../apiClient";
-import { _api } from "./_helpers";
 
 // ── Private helpers (mirrors apiService.js internals) ─────────────────────────
 async function deleteResource(url, id) {

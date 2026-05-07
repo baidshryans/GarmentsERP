@@ -1,6 +1,5 @@
 // frontend/src/services/api/accounting.js
 import apiClient from "../apiClient";
-import { _api } from "./_helpers";
 
 export async function getAccountGroup() {
   try {

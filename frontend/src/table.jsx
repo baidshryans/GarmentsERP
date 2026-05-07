@@ -14,12 +14,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function DataTable({
   columns,
   data,
   rowClick = () => {},
+  isLoading = false,
+  emptyMessage = "No records found.",
 }) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-2">
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-9 w-full" />
+        ))}
+      </div>
+    )
+  }
+
   const table = useReactTable({
     data,
     columns,
@@ -65,7 +78,7 @@ export function DataTable({
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground text-sm">
-                No results found.
+                {emptyMessage}
               </TableCell>
             </TableRow>
           )}

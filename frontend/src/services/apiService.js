@@ -2465,17 +2465,6 @@ export async function fetchStoneIssued(refJobNo, jobSlipNo, OrderType) {
   }
 }
 
-export async function fetchPurchaseApproval() {
-  return { results: [] }
-  try {
-    const response = await apiClient.get(``);
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error("Failed to fetch order items :", error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
-
 export async function createKarigarStoneReceive(data) {
 
   try {
@@ -3392,9 +3381,27 @@ export async function fetchCompanies() {
   }
 }
 
+/* Build a FormData payload when any value is a File/Blob (logo upload),
+   otherwise pass the object through as JSON. Skips null/undefined and
+   intentionally omits File-typed fields that were not changed. */
+function buildCompanyPayload(payload) {
+  const hasFile = Object.values(payload || {}).some(
+    (v) => v instanceof File || v instanceof Blob
+  );
+  if (!hasFile) return { data: payload, headers: undefined };
+  const fd = new FormData();
+  Object.entries(payload).forEach(([k, v]) => {
+    if (v === null || v === undefined) return;
+    if (v instanceof File || v instanceof Blob) fd.append(k, v);
+    else fd.append(k, v);
+  });
+  return { data: fd, headers: { "Content-Type": "multipart/form-data" } };
+}
+
 export async function createCompany(payload) {
   try {
-    const response = await apiClient.post(`/mastersconfig/api/company/`, payload);
+    const { data, headers } = buildCompanyPayload(payload);
+    const response = await apiClient.post(`/mastersconfig/api/company/`, data, { headers });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -3403,7 +3410,8 @@ export async function createCompany(payload) {
 
 export async function updateCompany(id, payload) {
   try {
-    const response = await apiClient.patch(`/mastersconfig/api/company/${id}/`, payload);
+    const { data, headers } = buildCompanyPayload(payload);
+    const response = await apiClient.patch(`/mastersconfig/api/company/${id}/`, data, { headers });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

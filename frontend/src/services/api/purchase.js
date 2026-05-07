@@ -107,17 +107,6 @@ export async function fetchPurchaseRetun({ search = "", page = 1, ordering = "" 
   }
 }
 
-export async function fetchPurchaseApproval() {
-  return { results: [] }
-  try {
-    const response = await apiClient.get(``);
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error("Failed to fetch order items :", error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
-
 export async function fetchPos(slip_type) {
   try {
     const response = await apiClient.get(`manufacturing/get-pojo-list/?slip_type=${slip_type}`);

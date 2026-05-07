@@ -8,7 +8,6 @@ export async function getGoldRate(date) {
 
     return { success: true, data: response.data };
   } catch (error) {
-    console.error("Failed to fetch PurchaseVoucher:", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }

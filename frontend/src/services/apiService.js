@@ -1,11 +1,6 @@
-// frontend/src/services/apiService.js
-// ─────────────────────────────────────────────────────────────────────────────
-// Barrel re-export — all domain API modules re-exported here so existing code
-// that imports from "@/services/apiService" continues to work without changes.
-//
-// New code should import directly from the domain module:
-//   import { createSalesVoucher } from "@/services/api/sales"
-// ─────────────────────────────────────────────────────────────────────────────
+// frontend/src/services/apiService.js — barrel re-export
+// All domain modules re-exported so existing imports keep working.
+// New code: import directly from "@/services/api/<domain>"
 export * from "./api/userauth";
 export * from "./api/contacts";
 export * from "./api/accounting";

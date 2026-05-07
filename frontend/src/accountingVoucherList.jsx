@@ -7,7 +7,8 @@ import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/u
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { useToast } from "@/hooks/use-toast";
-import { deleteJournalentry,fetchAccountingVoucher} from "./services/apiService";
+import { deleteJournalentry, fetchAccountingVoucher } from "./services/apiService";
+import { fetchCompanies } from "@/services/apiService";
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 
 const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
@@ -37,10 +38,32 @@ const AccountingVoucherList = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
+  const [companyInfo, setCompanyInfo] = useState({});
 
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
 
+
+ useEffect(() => {
+    fetchCompanies().then((res) => {
+      if (res.success) {
+        const companies = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+        if (companies.length > 0) {
+          const c = companies[0];
+          setCompanyInfo({
+            company_name: c.company_name,
+            company_address: [c.address, c.city, c.pincode].filter(Boolean).join(', '),
+            company_phone: c.phone,
+            company_email: c.email,
+            company_pan: c.pan,
+            company_gstin: c.gstin,
+            company_tan: c.tan,
+            company_cin: c.cin,
+          });
+        }
+      }
+    });
+  }, []);
 
  useEffect(() => {
   const fetchLedgers = async () => {
@@ -85,7 +108,7 @@ const AccountingVoucherList = () => {
           >
             <Trash2 className="size-4" />
           </button>
-          <button onClick={() => openAndPrint(<AccountingVoucher data={row.original} />)}>
+          <button onClick={() => openAndPrint(<AccountingVoucher data={{ ...row.original, ...companyInfo }} />)}>
             <Printer className="size-4" />
           </button>
           <VoucherAttachments

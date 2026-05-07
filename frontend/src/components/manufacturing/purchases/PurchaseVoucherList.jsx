@@ -9,7 +9,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { DataTable } from "@/table"
 import { SquarePen, Printer, Trash2, X, Plus } from "lucide-react";
 import { openAndPrint } from '@/services/print/utils';
-import PurchaseVoucher from '@/services/print/PurchaseVoucherVendor';
+import PurchaseVoucherVendorPrint from '@/services/print/PurchaseVoucherVendor';
+import PurchaseVoucherCustomerPrint from '@/services/print/PurchaseVoucherCustomer';
 import { useToast } from "@/hooks/use-toast";
 import { deletePurchaseVoucher } from '../../../services/apiService';
 import PurchaseAttachments from './PurchaseAttachments';
@@ -121,7 +122,10 @@ const totalPages = data?.data?.total_pages ?? 1;
           >
             <Trash2 className="size-4" />
           </button>
-          <button onClick={() => openAndPrint(<PurchaseVoucher data={{ ...row.original, ...companyInfo }} />)}>
+          <button onClick={() => {
+            const PrintComp = row.original.voucher_type === "Customer" ? PurchaseVoucherCustomerPrint : PurchaseVoucherVendorPrint;
+            openAndPrint(<PrintComp data={{ ...row.original, ...companyInfo }} />);
+          }}>
             <Printer className="size-4" />
           </button>
           {row.original.voucher_type === "Vendor" && (

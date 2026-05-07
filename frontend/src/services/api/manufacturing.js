@@ -1,25 +1,6 @@
 // frontend/src/services/api/manufacturing.js
 import apiClient from "../apiClient";
-
-// ── Private helpers (mirrors apiService.js internals) ─────────────────────────
-async function deleteResource(url, id) {
-  try {
-    const response = await apiClient.delete(`${url}/${id}/`);
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error(`Failed to delete resource at ${url}:`, error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
-
-function handleDelete(result, toast, message) {
-  if (result.success) {
-    toast({ title: "Success", description: message });
-    setTimeout(() => window.location.reload(), 600);
-  } else {
-    toast({ title: "Error", description: result.error });
-  }
-}
+import { deleteResource, handleDelete } from "./_helpers";
 
 // ── Karigar Issue ─────────────────────────────────────────────────────────────
 
@@ -417,6 +398,8 @@ export const deleteAssayReceive = async (id, toast) => {
 };
 
 // ── Barcode Reports ───────────────────────────────────────────────────────────
+// Note: these functions call /inventory/api/ endpoints but are kept here
+// as they relate to the karigar barcode workflow in manufacturing.
 
 export async function fetchSplitBarcodeReport(fromDate, toDate) {
   try {
@@ -459,7 +442,6 @@ export async function fetchArtisanDataAPI(searchTerm = "") {
 export async function fetchItemDataAPI() {
   try {
     const response = await apiClient.get("/mastersconfig/api/item/?item_type=M&page_size=500");
-    console.log("Raw API Response for items:", response); // Debug line
 
     // Handle different possible response structures
     let data = [];
@@ -473,7 +455,6 @@ export async function fetchItemDataAPI() {
       }
     }
 
-    console.log("Processed item data:", data); // Debug line
     return { success: true, data };
   } catch (error) {
     console.error("Error fetching item data:", error.response?.data || error.message);
@@ -528,7 +509,6 @@ export async function fetchStoneWorkOrderReportAPI(filterParams = {}) {
 export async function fetchGroupDataAPI() {
   try {
     const response = await apiClient.get("/mastersconfig/api/item_group/");
-    console.log("Raw API Response for item groups:", response); // Debug line
 
     // Handle different possible response structures
     let data = [];
@@ -542,7 +522,6 @@ export async function fetchGroupDataAPI() {
       }
     }
 
-    console.log("Processed item group data:", data); // Debug line
     return { success: true, data };
   } catch (error) {
     console.error("Error fetching item group data:", error.response?.data || error.message);
@@ -553,7 +532,6 @@ export async function fetchGroupDataAPI() {
 export async function fetchShapeDataAPI() {
   try {
     const response = await apiClient.get("/mastersconfig/api/shape/");
-    console.log("Raw API Response for shapes:", response); // Debug line
 
     // Handle different possible response structures
     let data = [];
@@ -567,7 +545,6 @@ export async function fetchShapeDataAPI() {
       }
     }
 
-    console.log("Processed shape data:", data); // Debug line
     return { success: true, data };
   } catch (error) {
     console.error("Error fetching shape data:", error.response?.data || error.message);
@@ -608,7 +585,6 @@ export async function fetchPacketWiseStoneReportAPI(filterParams = {}) {
 export async function fetchPacketDataAPI() {
   try {
     const response = await apiClient.get("/mastersconfig/api/packet/");
-    console.log("Raw API Response for packets:", response);
 
     let data = [];
     if (response.data) {
@@ -621,7 +597,6 @@ export async function fetchPacketDataAPI() {
       }
     }
 
-    console.log("Processed packet data:", data);
     return { success: true, data };
   } catch (error) {
     console.error("Error fetching packet data:", error.response?.data || error.message);

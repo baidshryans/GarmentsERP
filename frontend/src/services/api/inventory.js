@@ -1,25 +1,6 @@
 // frontend/src/services/api/inventory.js
 import apiClient from "../apiClient";
-
-// ── Private helpers (mirrors apiService.js internals) ─────────────────────────
-async function deleteResource(url, id) {
-  try {
-    const response = await apiClient.delete(`${url}/${id}/`);
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error(`Failed to delete resource at ${url}:`, error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
-
-function handleDelete(result, toast, message) {
-  if (result.success) {
-    toast({ title: "Success", description: message });
-    setTimeout(() => window.location.reload(), 600);
-  } else {
-    toast({ title: "Error", description: result.error });
-  }
-}
+import { deleteResource, handleDelete } from "./_helpers";
 
 // ── Closing Stock ─────────────────────────────────────────────────────────────
 
@@ -217,7 +198,6 @@ export async function fetchBarcodeDetail(barcode, hsn, ldgr) {
 
     const qs = (ldgr !== undefined && ldgr !== null && ldgr !== "") ? `?ldgr=${encodeURIComponent(ldgr)}` : "";
     const response = await apiClient.get(`/inventory/api/get-barcode-detail/${barcode}/${hsn}/${qs}`);
-    console.log(barcode)
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch Serial numbers :", error.response?.data || error.message);
@@ -243,7 +223,6 @@ export async function fetchBarcodeDetailOnly(barcode, ldgr) {
 
     const qs = (ldgr !== undefined && ldgr !== null && ldgr !== "") ? `?ldgr=${encodeURIComponent(ldgr)}` : "";
     const response = await apiClient.get(`/inventory/api/get-barcode-detail/${barcode}/${qs}`);
-    console.log(barcode)
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch Serial numbers :", error.response?.data || error.message);

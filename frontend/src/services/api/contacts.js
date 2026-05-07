@@ -1,26 +1,6 @@
 // frontend/src/services/api/contacts.js
 import apiClient from "../apiClient";
-import { _api } from "./_helpers";
-
-// ── Internal helpers (mirrored from apiService.js) ────────────────────────────
-async function deleteResource(url, id) {
-  try {
-    const response = await apiClient.delete(`${url}/${id}/`);
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error(`Failed to delete resource at ${url}:`, error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
-
-function handleDelete(result, toast, message) {
-  if (result.success) {
-    toast({ title: "Success", description: message });
-    setTimeout(() => window.location.reload(), 600);
-  } else {
-    toast({ title: "Error", description: result.error });
-  }
-}
+import { _api, deleteResource, handleDelete } from "./_helpers";
 
 // ── Ledgers ───────────────────────────────────────────────────────────────────
 export async function getLedgers({ search = "", page = 1, ordering = "", type = "KR", page_size, ac_group_code = "" } = {}) {

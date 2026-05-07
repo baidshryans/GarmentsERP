@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTable } from "@/table";
-import { Building2, SquarePen, Plus, X, Check, Trash2, GitBranch, Globe } from "lucide-react";
+import { Building2, SquarePen, Plus, X, Check, Trash2, GitBranch, Globe, Upload, Image as ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { fetchCompanies, createCompany, updateCompany, deleteCompany } from "@/services/apiService";
@@ -25,6 +25,8 @@ const emptyForm = {
   enforce_cash_limits: false,
   max_cash_receipt_limit: 199999,
   max_cash_payment_limit: 10000,
+  bis_logo: null,        // File on upload, omitted when not changed
+  company_logo: null,
 };
 
 // CIN format: L/U + 5 digits + 2 alpha (state) + 4 digits + 3 alpha (company type) + 6 digits
@@ -47,6 +49,10 @@ export default function CompanyMasterPage() {
   const [form, setForm]               = useState(emptyForm);
   const [submitting, setSubmitting]   = useState(false);
   const [cinError, setCinError]       = useState(null);
+  // Existing-logo preview URLs come from the server in edit mode; new uploads
+  // overlay them by setting form.bis_logo / form.company_logo to a File.
+  const [existingBisLogo, setExistingBisLogo]         = useState(null);
+  const [existingCompanyLogo, setExistingCompanyLogo] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -66,6 +72,27 @@ export default function CompanyMasterPage() {
     if (name === "cin") setCinError(validateCIN(value));
   };
 
+  const handleFile = (name) => (e) => {
+    const file = e.target.files?.[0] || null;
+    setForm((f) => ({ ...f, [name]: file }));
+  };
+
+  const clearLogo = (name) => {
+    // Empty string tells DRF to clear the field; existing preview is dropped.
+    setForm((f) => ({ ...f, [name]: "" }));
+    if (name === "bis_logo")     setExistingBisLogo(null);
+    if (name === "company_logo") setExistingCompanyLogo(null);
+  };
+
+  /* Strip File-typed fields that the user did not touch so we don't send
+     stale `null`s on PATCH (which would clear server-side files). */
+  const buildSubmitPayload = () => {
+    const out = { ...form };
+    if (out.bis_logo === null)     delete out.bis_logo;
+    if (out.company_logo === null) delete out.company_logo;
+    return out;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.company_name.trim()) return;
@@ -73,9 +100,10 @@ export default function CompanyMasterPage() {
     if (cinErr) { setCinError(cinErr); return; }
     setSubmitting(true);
 
+    const payload = buildSubmitPayload();
     const res = editingId
-      ? await updateCompany(editingId, form)
-      : await createCompany(form);
+      ? await updateCompany(editingId, payload)
+      : await createCompany(payload);
 
     if (res.success) {
       toast({ title: editingId ? "Company updated" : "Company created" });
@@ -111,7 +139,11 @@ export default function CompanyMasterPage() {
       enforce_cash_limits:    row.enforce_cash_limits    ?? false,
       max_cash_receipt_limit: row.max_cash_receipt_limit ?? 199999,
       max_cash_payment_limit: row.max_cash_payment_limit ?? 10000,
+      bis_logo: null,
+      company_logo: null,
     });
+    setExistingBisLogo(row.bis_logo || null);
+    setExistingCompanyLogo(row.company_logo || null);
     setEditingId(row.id);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -135,6 +167,8 @@ export default function CompanyMasterPage() {
     setEditingId(null);
     setForm(emptyForm);
     setCinError(null);
+    setExistingBisLogo(null);
+    setExistingCompanyLogo(null);
   };
 
   const columns = [
@@ -426,6 +460,31 @@ export default function CompanyMasterPage() {
               </div>
             </div>
 
+            {/* Branding — logos used on printed invoices */}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+                Branding · Invoice Print
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <LogoField
+                  label="BIS Hallmark Logo"
+                  hint="Shown top-left on the tax invoice"
+                  fileValue={form.bis_logo}
+                  existingUrl={existingBisLogo}
+                  onChange={handleFile("bis_logo")}
+                  onClear={() => clearLogo("bis_logo")}
+                />
+                <LogoField
+                  label="Company Logo"
+                  hint="Shown top-right on the tax invoice"
+                  fileValue={form.company_logo}
+                  existingUrl={existingCompanyLogo}
+                  onChange={handleFile("company_logo")}
+                  onClear={() => clearLogo("company_logo")}
+                />
+              </div>
+            </div>
+
             <div className="flex gap-3 pt-1">
               <Button
                 type="submit"
@@ -487,6 +546,70 @@ export default function CompanyMasterPage() {
       ) : (
         <DataTable columns={columns} data={rows} />
       )}
+    </div>
+  );
+}
+
+/* Reusable logo upload field with preview, change, and clear actions. */
+function LogoField({ label, hint, fileValue, existingUrl, onChange, onClear }) {
+  // Local preview of a freshly chosen file (before upload).
+  const [localPreview, setLocalPreview] = useState(null);
+  useEffect(() => {
+    if (fileValue instanceof File) {
+      const url = URL.createObjectURL(fileValue);
+      setLocalPreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setLocalPreview(null);
+  }, [fileValue]);
+
+  const previewUrl = localPreview || existingUrl;
+  const cleared = fileValue === "";
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label className="text-xs">
+        {label} <span className="text-muted-foreground font-normal">· {hint}</span>
+      </Label>
+      <div className="flex items-stretch gap-3 rounded-md border border-border p-2 bg-muted/20">
+        <div className="flex items-center justify-center w-20 h-20 rounded border border-dashed border-border bg-background overflow-hidden flex-shrink-0">
+          {previewUrl && !cleared ? (
+            <img src={previewUrl} alt={label} className="max-w-full max-h-full object-contain" />
+          ) : (
+            <ImageIcon className="size-5 text-muted-foreground" />
+          )}
+        </div>
+        <div className="flex flex-col justify-center gap-1.5 flex-1 min-w-0">
+          <label className="inline-flex items-center gap-1.5 px-2 h-7 rounded bg-primary text-white text-xs font-medium cursor-pointer hover:opacity-90 w-fit">
+            <Upload className="size-3.5" />
+            {previewUrl && !cleared ? "Replace" : "Upload"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              onChange={onChange}
+              className="hidden"
+            />
+          </label>
+          {(previewUrl || fileValue instanceof File) && !cleared && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="inline-flex items-center gap-1 text-[11px] text-rose-500 hover:text-rose-600 w-fit"
+            >
+              <X className="size-3" /> Remove
+            </button>
+          )}
+          <p className="text-[10px] text-muted-foreground truncate">
+            {fileValue instanceof File
+              ? fileValue.name
+              : cleared
+                ? "Will be removed on save"
+                : existingUrl
+                  ? "Currently uploaded"
+                  : "PNG, JPG, SVG, or WebP"}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,43 +1,38 @@
 from decimal import Decimal
-from rest_framework.serializers import ModelSerializer
-from rest_framework.exceptions import ValidationError
 
+from django.db import transaction
+
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from rest_framework.serializers import ModelSerializer
+
+import global_vars
 from accounting.serializers import JournalEntrySerializer
 from accounting.utils import generate_voucher_no
-from contacts.models import Ledger
-from global_vars import STATES_OF_INDIA
-import global_vars
 from goldrates.models import PurityMaster
 from inventory.models import BarcodeMain
 from manufacturing.utils import create_or_update_nested
 from mastersconfig.models import Item, Packet, State, Hsn
-from purchase.models import PurchaseOrderItems, PurchaseVoucher,PurchaseOrder
 from sales.models import CustomerOrder, CustomerOrderItems
-from django.db import transaction
-from accounting.models import VoucherMain
+from ..models import (
+    PurchaseVoucher,
+    PurchaseVoucherDetails,
+    PurchaseVoucherItems,
+    PurchaseAttachment,
+)
+
+
 class PurchaseVoucherSerializer(ModelSerializer):
     class Meta:
         model = PurchaseVoucher
         fields = "__all__"
 
-class PurchaseOrderSerializer(ModelSerializer):
-    class Meta:
-        model = PurchaseOrder
-        fields = "__all__"
 
-class PurchaseOrderItemsSerializer(ModelSerializer):
-    class Meta:
-        model = PurchaseOrderItems
-        fields = "__all__"
-
-from rest_framework import serializers
-from .models import PurchaseReturn, PurchaseReturnItems, PurchaseReturnDetails, PurchaseVoucherDetails, PurchaseVoucherItems
-
-from rest_framework.exceptions import ValidationError as _LedgerConfigError
 def _raise_missing_ledger(label):
-    raise _LedgerConfigError(
+    raise ValidationError(
         {'ledger_config': f"Required ledger '{label}' is not configured on master. Please configure it in Company/GSTIN/Retail master before saving vouchers."}
     )
+
 
 def _making_ldgr_name_for_purity(co, purity_obj):
     """Return ac_name of the Making Charge Paid ledger matching the item's purity.
@@ -58,284 +53,6 @@ def _making_ldgr_name_for_purity(co, purity_obj):
         _raise_missing_ledger(f"Making Charge Paid ledger for purity '{purity_name}' (configure on Company master)")
     return ldgr.ac_name
 
-
-
-class PurchaseReturnDetailsSerializer(serializers.ModelSerializer):
-    # Fields related to PurchaseReturnDetails model
-    sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
-    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field ="pckt_no", required=False)
-
-    class Meta:
-        model = PurchaseReturnDetails
-        fields = [
-            'id',
-            
-            'sub_item',
-            'sub_pcs',
-            'sub_gw',
-            'sub_ct',
-            'metal_purity',
-            'loss',
-            'tunch',
-            'packet',
-            'rate',
-            'value',
-            'fine_wt',  # Computed property
-        ]
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-        }
-
-class PurchaseReturnItemsSerializer(serializers.ModelSerializer):
-    # Fields related to PurchaseReturnItems model
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
-    purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
-
-    # Nested Serializer for PurchaseReturnDetails
-    purchasereturndetails_set = PurchaseReturnDetailsSerializer(many=True)
-
-    class Meta:
-        model = PurchaseReturnItems
-        fields = [
-            'id',
-            'sl_no',
-            'item',
-            'pcs',
-            'gw',
-            'purity',
-            'making_type',
-            'making_value',
-            'making',
-            'remarks',
-            'purchasereturndetails_set',  # Nested details serializer
-        ]
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-        }
-
-    def create(self, validated_data):
-        details_data = validated_data.pop('purchasereturndetails_set')
-        purchase_return_item_instance = PurchaseReturnItems.objects.create(**validated_data)
-        
-        # Create related PurchaseReturnDetails instances
-        for detail_data in details_data:
-            PurchaseReturnDetails.objects.create(main_item=purchase_return_item_instance, **detail_data)
-        
-        return purchase_return_item_instance
-    
-    def update(self, instance, validated_data):
-        detail_data = validated_data.pop('purchasereturndetails_set', [])
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        create_or_update_nested(PurchaseReturnDetailsSerializer, instance, 'purchasereturndetails_set',  'main_item',PurchaseReturnDetailsSerializer(detail_data,many=True).data)
-        return instance
-
-
-class PurchaseReturnSerializer(serializers.ModelSerializer):
-    # Fields related to PurchaseReturn model
-    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
-    pv_billno = serializers.CharField(write_only=True)
-    # Nested Serializer for PurchaseReturnItems
-    purchasereturnitems_set = PurchaseReturnItemsSerializer(many=True)
-
-    class Meta:
-        model = PurchaseReturn
-        fields = [
-            'id',
-            'billno',
-            'pv_billno',
-            'purchase_voucher_ref',
-            'date1',
-            'ldgr',
-            'ldgr_name',
-            'discount',
-            'cgst_amt',
-            'sgst_amt',
-            'igst_amt',
-            'tcs_amt',
-            'narration',
-            'mode_of_transport',
-            'total_incl_tax',  # Computed property
-            'purchasereturnitems_set',  # Nested items serializer
-        ]
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-        }
-    def create(self, validated_data):
-        items_data = validated_data.pop('purchasereturnitems_set')
-        purchase_return_instance = PurchaseReturn.objects.create(**validated_data)
-        
-        # Create related PurchaseReturnItems instances
-        item_instances = []
-        item_detail_instances = []
-        items_with_details = []  # list of (main_item_instance, [detail_instances]) for journal building
-        for item_data in items_data:
-            details_data = item_data.pop('purchasereturndetails_set')
-            purchase_return_item_instance = PurchaseReturnItems.objects.create(billno=purchase_return_instance, **item_data)
-            item_instances.append(purchase_return_item_instance)
-            # Create related PurchaseReturnDetails instances
-            detail_instances = []
-            for detail_data in details_data:
-                ret_item = PurchaseReturnDetails.objects.create(main_item=purchase_return_item_instance, **detail_data)
-                item_detail_instances.append(ret_item)
-                detail_instances.append(ret_item)
-            items_with_details.append((purchase_return_item_instance, detail_instances))
-        retail = self.context.get('request').retail
-        _gm = retail.gstin_master
-        _co = retail.branch.company if retail.branch_id and retail.branch else None
-        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
-        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
-        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
-        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
-        _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
-        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
-        _pr_round_off = Decimal(str(purchase_return_instance.round_off or 0))
-
-        # Build item journal lines: making rolled into first sub-item's purchase_ledger (credit)
-        _pr_item_lines = []
-        for _main, _sub_details in items_with_details:
-            _making = Decimal(str(_main.making_value or 0))
-            for _idx, _d in enumerate(_sub_details):
-                if not (_d.sub_item and _d.sub_item.purchase_ledger):
-                    raise ValidationError(
-                        f"Item '{_d.sub_item}' has no purchase ledger configured. "
-                        f"Please set the purchase ledger in the Item Master."
-                    )
-                _amt = Decimal(str(_d.value or 0)) + (_making if _idx == 0 else Decimal('0'))
-                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
-
-        ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
-                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
-                "narration":f"Purchase Return Narration",
-                "voucher_type":global_vars.VoucherType.purc_ret,
-                "retail":retail.id,
-                "voucher_details": [
-                    {
-                        'account': in_cgst,
-                        'credit':f"{purchase_return_instance.cgst_amt:.2f}"
-                    },
-                    {'account': in_sgst,
-                        'credit':f"{purchase_return_instance.sgst_amt:.2f}"
-                    },
-                    {'account': in_igst,
-                        'credit':f"{purchase_return_instance.igst_amt:.2f}"
-                    },
-                    {'account':_hallmark_ldgr,
-                        'credit':f"{purchase_return_instance.hallmark_charge:.2f}" if purchase_return_instance.hallmark_charge else '0.0'
-                    },
-                    {'account':_carriage_ldgr,
-                        'credit':f"{purchase_return_instance.freight_amt:.2f}" if purchase_return_instance.freight_amt else '0.0'
-                    },
-                ] +
-                # Round off: reverse the sign vs purchase voucher
-                # PV: positive round_off → DEBIT round_off_ldgr  → Return: CREDIT round_off_ldgr
-                # PV: negative round_off → CREDIT round_off_ldgr → Return: DEBIT round_off_ldgr
-                ([{'account': _round_off_ldgr, 'credit': f"{_pr_round_off:.2f}"}] if _pr_round_off > 0 else []) +
-                ([{'account': _round_off_ldgr, 'debit': f"{abs(_pr_round_off):.2f}"}] if _pr_round_off < 0 else []) +
-                # Discount: PV credits discount_ldgr → Return debits discount_ldgr (reversal)
-                ([{'account': _discount_ldgr, 'debit': f"{purchase_return_instance.discount:.2f}"}]
-                    if (purchase_return_instance.discount or 0) > 0 else []) +
-                _pr_item_lines +
-                [{
-                    'account':purchase_return_instance.ldgr.ac_name,
-                    'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
-                }]},
-                context=self.context)
-
-        if ser.is_valid(raise_exception=True):
-
-            ref = ser.save()
-        purchase_return_instance.ac_voucher = ref
-        purchase_return_instance.gstin_ref  = retail.gstin_master
-        purchase_return_instance.branch_ref = retail.branch
-        purchase_return_instance.save()
-        return purchase_return_instance
-
-    def update(self, instance, validated_data):
-        detail_data = validated_data.pop('purchasereturnitems_set', [])
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        create_or_update_nested(PurchaseReturnItemsSerializer, instance, 'purchasereturnitems_set',  'billno',PurchaseReturnItemsSerializer(detail_data,many=True).data)
-        purchase_return_instance = instance
-        instance.ac_voucher.delete()
-        # Fresh DB queries — avoid stale prefetch cache left by create_or_update_nested
-        item_instances = list(PurchaseReturnItems.objects.filter(billno=instance).select_related('purity', 'item'))
-        item_detail_instances = list(PurchaseReturnDetails.objects.filter(billno=instance).select_related('sub_item__purchase_ledger', 'main_item'))
-        retail = self.context.get('request').retail
-        _gm = retail.gstin_master
-        _co = retail.branch.company if retail.branch_id and retail.branch else None
-        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
-        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
-        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
-        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
-        _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
-        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
-        _pr_round_off = Decimal(str(purchase_return_instance.round_off or 0))
-
-        # Build item journal lines: making rolled into first sub-item's purchase_ledger (credit)
-        from collections import defaultdict as _defaultdict
-        _pr_details_by_main = _defaultdict(list)
-        for _d in item_detail_instances:
-            _pr_details_by_main[_d.main_item_id].append(_d)
-        _pr_item_lines = []
-        for _main in item_instances:
-            _making = Decimal(str(_main.making_value or 0))
-            for _idx, _d in enumerate(_pr_details_by_main.get(_main.id, [])):
-                if not (_d.sub_item and _d.sub_item.purchase_ledger):
-                    raise ValidationError(
-                        f"Item '{_d.sub_item}' has no purchase ledger configured. "
-                        f"Please set the purchase ledger in the Item Master."
-                    )
-                _amt = Decimal(str(_d.value or 0)) + (_making if _idx == 0 else Decimal('0'))
-                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
-
-        ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
-                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
-                "narration":f"Purchase Return Narration",
-                "voucher_type":global_vars.VoucherType.purc_ret,
-                "retail":retail.id,
-                "voucher_details": [
-                    {
-                        'account': in_cgst,
-                        'credit':f"{purchase_return_instance.cgst_amt:.2f}"
-                    },
-                    {'account': in_sgst,
-                        'credit':f"{purchase_return_instance.sgst_amt:.2f}"
-                    },
-                    {'account': in_igst,
-                        'credit':f"{purchase_return_instance.igst_amt:.2f}"
-                    },
-                    {'account':_hallmark_ldgr,
-                        'credit':f"{purchase_return_instance.hallmark_charge:.2f}" if purchase_return_instance.hallmark_charge else '0.0'
-                    },
-                    {'account':_carriage_ldgr,
-                        'credit':f"{purchase_return_instance.freight_amt:.2f}" if purchase_return_instance.freight_amt else '0.0'
-                    },
-                ] +
-                ([{'account': _round_off_ldgr, 'credit': f"{_pr_round_off:.2f}"}] if _pr_round_off > 0 else []) +
-                ([{'account': _round_off_ldgr, 'debit': f"{abs(_pr_round_off):.2f}"}] if _pr_round_off < 0 else []) +
-                ([{'account': _discount_ldgr, 'debit': f"{purchase_return_instance.discount:.2f}"}]
-                    if (purchase_return_instance.discount or 0) > 0 else []) +
-                _pr_item_lines +
-                [{
-                    'account':purchase_return_instance.ldgr.ac_name,
-                    'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
-                }]},
-                context=self.context)
-
-        if ser.is_valid(raise_exception=True):
-
-            ref = ser.save()
-        purchase_return_instance.ac_voucher = ref
-        purchase_return_instance.gstin_ref  = retail.gstin_master
-        purchase_return_instance.branch_ref = retail.branch
-        purchase_return_instance.save()
-        return purchase_return_instance
 
 class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
     sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
@@ -387,6 +104,7 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
         ):
             validated_data.pop('main_item')
         return super().update(instance, validated_data)
+
 
 class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
@@ -443,7 +161,6 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     def validate(self, data):
         details = data.get('purchasevoucherdetails_set', [])
         if details:
-            from decimal import Decimal
             gw = Decimal(str(data.get('gw', 0) or 0))
             total_sub_gw = sum(Decimal(str(d.get('sub_gw', 0) or 0)) for d in details)
             if abs(total_sub_gw - gw) > Decimal('0.01'):
@@ -514,6 +231,7 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
 
         return instance
 
+
 class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
 
     # Nested serializers
@@ -528,6 +246,40 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
     total_gw = serializers.SerializerMethodField()
     total_stone_wt = serializers.SerializerMethodField()
     total_nw = serializers.SerializerMethodField()
+    party_address = serializers.SerializerMethodField()
+    party_pan     = serializers.SerializerMethodField()
+    party_gstin   = serializers.SerializerMethodField()
+    party_phone   = serializers.SerializerMethodField()
+    party_aadhar  = serializers.SerializerMethodField()
+    party_state   = serializers.SerializerMethodField()
+
+    def get_party_address(self, obj):
+        ldgr = obj.ldgr
+        if not ldgr:
+            return ''
+        parts = [ldgr.add1, ldgr.add2, ldgr.city]
+        addr = ', '.join(p for p in parts if p)
+        if ldgr.pincode:
+            addr += ' - ' + ldgr.pincode
+        return addr
+
+    def get_party_pan(self, obj):
+        return obj.ldgr.pan if obj.ldgr else ''
+
+    def get_party_gstin(self, obj):
+        return obj.ldgr.gst if obj.ldgr else ''
+
+    def get_party_phone(self, obj):
+        ldgr = obj.ldgr
+        if not ldgr:
+            return ''
+        return ldgr.mobile1 or ldgr.phone1 or ''
+
+    def get_party_aadhar(self, obj):
+        return obj.ldgr.aadhar if obj.ldgr else ''
+
+    def get_party_state(self, obj):
+        return obj.ldgr.state if obj.ldgr else ''
 
     def get_vendor_state_code(self, obj):
         try:
@@ -537,13 +289,11 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             return None
 
     def get_total_gw(self, obj):
-        from decimal import Decimal
         return float(sum(
             (item.gw or Decimal('0')) for item in obj.purchasevoucheritems_set.all()
         ))
 
     def get_total_stone_wt(self, obj):
-        from decimal import Decimal
         stone_wt = Decimal('0')
         for item in obj.purchasevoucheritems_set.all():
             for detail in item.purchasevoucherdetails_set.all():
@@ -552,7 +302,6 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
         return float(stone_wt)
 
     def get_total_nw(self, obj):
-        from decimal import Decimal
         gold_nw = Decimal('0')
         for item in obj.purchasevoucheritems_set.all():
             for detail in item.purchasevoucherdetails_set.all():
@@ -600,10 +349,17 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             'total_gw',
             'total_stone_wt',
             'total_nw',
+            'party_address',
+            'party_pan',
+            'party_gstin',
+            'party_phone',
+            'party_aadhar',
+            'party_state',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
         }
+
     def create(self, validated_data):
         with transaction.atomic():
             items_data = validated_data.pop('purchasevoucheritems_set')
@@ -729,6 +485,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
 
             # Separate TDS journal: Dr Vendor / Cr TDS Payable
             _tds_amt = purchase_voucher_instance.tds_amt or 0
+            _existing_tds_voucher_no = None  # new voucher — no prior TDS journal to preserve
             if _tds_amt > 0 and purchase_voucher_instance.tds_section:
                 _tds_ldgr = purchase_voucher_instance.tds_section.ledger
                 if not _tds_ldgr:
@@ -786,8 +543,8 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             #    is STALE after create_or_update_nested modifies sub-items.
             #    Using stale cache gives old detail values in the journal, causing
             #    the debit/credit mismatch equal to the rate-change amount.
-            from purchase.models import PurchaseVoucherItems as _PVItems
-            from purchase.models import PurchaseVoucherDetails as _PVDetails
+            from ..models import PurchaseVoucherItems as _PVItems
+            from ..models import PurchaseVoucherDetails as _PVDetails
             item_instances = list(
                 _PVItems.objects.filter(billno=instance).select_related('item', 'purity')
             )
@@ -922,169 +679,25 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             purchase_voucher_instance.save()
             return purchase_voucher_instance
 
-class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):
-    customer_order_item = serializers.PrimaryKeyRelatedField(queryset=CustomerOrderItems.objects.all(), required=False, allow_null=True)
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
-    due_date = serializers.DateField(required=False, allow_null=True)
-    
-    class Meta:
-        model = PurchaseOrderItems
-        fields = [
-            'id',
-            'po_sl_no',
-            'customer_order_item',
-            'item',
-            'purity',
-            'pcs',
-            'approx_wt',
-            'design_code',
-            'size',
-            'due_date',
-            'remarks',
-            'rec_status',
-        ]
-
-class PurchaseOrderForPostSerializer(serializers.ModelSerializer):
-    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
-    purchaseorderitems_set = PurchaseOrderItemsForPostSerializer(many=True,)
-    class Meta:
-        model = PurchaseOrder
-        fields = [
-            'id',
-            'date1',
-            'po_type',
-            'po_no',
-            'ldgr',
-            'ldgr_name',
-            'retail',
-            'purchaseorderitems_set'
-        ]
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-        }
-
-    def validate(self, attrs):
-        """
-        Reject duplicate customer_order_item references:
-          1) within the same submitted payload (user added the same CO item twice)
-          2) against already-saved PurchaseOrderItems elsewhere in the system
-             (each CO item may live on at most ONE PO line across the system).
-        """
-        items = attrs.get('purchaseorderitems_set') or []
-        po_type = attrs.get('po_type') or (self.instance.po_type if self.instance else None)
-
-        # Required-field guard — each line must have item, purity, pcs, approx_wt.
-        # Mirrors the frontend Tab-add guard so raw API / admin writes can't bypass it.
-        from datetime import date as _date
-        today = _date.today()
-        field_errors = []
-        for idx, it in enumerate(items, start=1):
-            missing = []
-            if not it.get('item'):
-                missing.append('item')
-            if not it.get('purity'):
-                missing.append('purity')
-            pcs = it.get('pcs')
-            if pcs in (None, '') or (isinstance(pcs, (int, float)) and pcs <= 0):
-                missing.append('pcs')
-            wt = it.get('approx_wt')
-            try:
-                wt_val = float(wt) if wt not in (None, '') else 0
-            except (TypeError, ValueError):
-                wt_val = 0
-            if wt_val <= 0:
-                missing.append('approx_wt')
-            if missing:
-                field_errors.append(f"Line {idx}: missing {', '.join(missing)}")
-            # Due-date guard — if supplied, must be strictly after today.
-            due = it.get('due_date')
-            if due is not None and due <= today:
-                field_errors.append(f"Line {idx}: due_date must be after today ({today.isoformat()})")
-        if field_errors:
-            raise serializers.ValidationError({'purchaseorderitems_set': field_errors})
-
-        # For Customer-Order POs, every line must carry a customer_order_item FK.
-        # Stock / manual items are not allowed on a CO-type PO.
-        if po_type == 'Customer Order':
-            unlinked = [idx for idx, it in enumerate(items, start=1) if not it.get('customer_order_item')]
-            if unlinked:
-                raise serializers.ValidationError({
-                    'purchaseorderitems_set': (
-                        f"Customer Order POs must only contain items linked to a customer order. "
-                        f"Line(s) {unlinked} are unlinked — use the 'Pick from Customer Orders' dialog."
-                    )
-                })
-
-        seen = set()
-        dupes_in_payload = set()
-        for it in items:
-            coi = it.get('customer_order_item')
-            if coi is None:
-                continue
-            coi_id = coi.pk if hasattr(coi, 'pk') else coi
-            if coi_id in seen:
-                dupes_in_payload.add(coi_id)
-            seen.add(coi_id)
-        if dupes_in_payload:
-            raise serializers.ValidationError({
-                'purchaseorderitems_set': (
-                    f"The same customer-order item cannot appear twice in one PO. "
-                    f"Duplicate item id(s): {sorted(dupes_in_payload)}"
-                )
-            })
-        # Collision against OTHER saved POs — excludes the current PO on update.
-        if seen:
-            qs = PurchaseOrderItems.objects.filter(customer_order_item_id__in=seen)
-            if self.instance is not None:
-                qs = qs.exclude(po_slip=self.instance)
-            already = list(qs.values_list('customer_order_item_id', flat=True))
-            if already:
-                raise serializers.ValidationError({
-                    'purchaseorderitems_set': (
-                        f"Customer-order item(s) {sorted(set(already))} are already "
-                        f"allocated to another Purchase Order."
-                    )
-                })
-        return attrs
-
-    def create(self, validated_data):
-        with transaction.atomic():
-            
-            items_data = validated_data.pop('purchaseorderitems_set')
-            purchase_order_instance = PurchaseOrder.objects.create(**validated_data)
-
-            # Create related PurchaseVoucherItems instances
-            for item_data in items_data:
-                PurchaseOrderItems.objects.create(po_slip=purchase_order_instance, **item_data)
-
-            return purchase_order_instance
-        
-    def update(self, instance, validated_data):
-        with transaction.atomic():
-            detail_data = validated_data.pop('purchaseorderitems_set', [])
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
-            create_or_update_nested(PurchaseOrderItemsForPostSerializer, instance, 'purchaseorderitems_set',  'po_slip',PurchaseOrderItemsForPostSerializer(detail_data,many=True).data)
-            return instance
 
 class PurchaseVoucherDetailsToReturnDetailsSerializer(PurchaseVoucherDetailsSerializer):
     def to_representation(self, instance):
         repr = super().to_representation(instance)
         return repr
-    
+
+
 class PurchaseVoucherItemToReturnSerializer(PurchaseVoucherItemsSerializer):
     purchasevoucherdetails_set = PurchaseVoucherDetailsToReturnDetailsSerializer(many=True)
+
     def to_representation(self, instance):
         repr = super().to_representation(instance)
         repr['purchasereturndetails_set'] = repr["purchasevoucherdetails_set"]
         del repr["purchasevoucherdetails_set"]
         return repr
 
+
 class PurchaseAttachmentSerializer(serializers.ModelSerializer):
     class Meta:
-        from .models import PurchaseAttachment
         model = PurchaseAttachment
         fields = ['id', 'purchase', 'file', 'original_name', 'uploaded_at']
         read_only_fields = ['original_name', 'uploaded_at']
@@ -1102,7 +715,8 @@ class PurchaseAttachmentSerializer(serializers.ModelSerializer):
 
 
 class PurchaseVoucherToReturnSerializer(PurchaseVoucherPostSerializer):
-    purchasevoucheritems_set =  PurchaseVoucherItemToReturnSerializer(many=True)
+    purchasevoucheritems_set = PurchaseVoucherItemToReturnSerializer(many=True)
+
     def to_representation(self, instance):
         repr = super().to_representation(instance)
         repr['ldgr'] = repr['ldgr']

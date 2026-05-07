@@ -6,7 +6,7 @@ import mimetypes
 import os
 
 from purchase.filters import PurchaseItemFilterSet
-from purchase.serializer import PurchaseOrderForPostSerializer, PurchaseOrderSerializer, PurchaseReturnSerializer, PurchaseVoucherItemsSerializer, PurchaseVoucherPostSerializer, PurchaseVoucherSerializer, PurchaseVoucherToReturnSerializer
+from purchase.serializers import PurchaseOrderForPostSerializer, PurchaseOrderSerializer, PurchaseReturnSerializer, PurchaseVoucherItemsSerializer, PurchaseVoucherPostSerializer, PurchaseVoucherSerializer, PurchaseVoucherToReturnSerializer
 from userauth.views import RetailBaseViewset
 from .models import *
 import json
@@ -327,7 +327,7 @@ def purchase_return_initial_data(request):
 
 
 class PurchaseAttachmentListCreate(ListCreateAPIView):
-    from .serializer import PurchaseAttachmentSerializer
+    from .serializers import PurchaseAttachmentSerializer
     serializer_class = PurchaseAttachmentSerializer
     from rest_framework.parsers import MultiPartParser
     parser_classes = [MultiPartParser]

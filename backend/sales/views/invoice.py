@@ -1,592 +1,34 @@
 import json
 import logging
-logger = logging.getLogger(__name__)
-from django.shortcuts import get_object_or_404, render
-from django.shortcuts import render, redirect
-from django.http import HttpResponse, JsonResponse
+import decimal
+from datetime import datetime
+
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse
 from django.urls import reverse
-from django.utils.timezone import make_aware
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When, Exists, OuterRef, Sum, Q
+from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import OrderingFilter,SearchFilter
-from sales.serializers import CustomerOrderSerializer, PortalCustomerOrderSerializer
-from .models import *
-from django.contrib.auth.decorators import login_required
-from userauth import views
-from rest_framework.generics import ListCreateAPIView,RetrieveUpdateDestroyAPIView
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.decorators import api_view, action, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-#import other relevant models
+from rest_framework.views import APIView
+
 from goldrates.models import PurityMaster
 from contacts.models import Ledger, LedgerRole
 from mastersconfig.models import Item
-from .models import *
+from accounting.serializers import SaleVoucherLedgerSerializer
+from userauth import views
 
-# Create your views here.
+from ..models import *
+from ..utils import DecimalEncoder
+from ..serializers import SalesApprovalSerializer, SalesVouSerializer
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def order_no_view(request):
-    """Return a read-only preview of the next Customer Order number (no DB write)."""
-    try:
-        from accounting.utils import peek_next_bill_number
-        retail = request.retail
-        order_no = peek_next_bill_number(retail, "CO")
-        return Response({"order_no": order_no}, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-
-
-class CustomerOrderView(ListCreateAPIView):
-    queryset = CustomerOrder.objects.all()
-    serializer_class = CustomerOrderSerializer
-    filter_backends = [OrderingFilter,DjangoFilterBackend]
-    ordering = ['-order_no']
-    
-
-    def get_queryset(self):
-        return CustomerOrder.objects.filter(retail=self.request.retail).select_related('ldgr').prefetch_related('items')
-
-    def perform_create(self, serializer):
-        serializer.save(retail=self.request.retail)
-
-class CustomerOrderViewset(views.RetailBaseViewset):
-    queryset = CustomerOrder.objects.select_related(
-        'ldgr', 'retail', 'retail__state', 'retail__gstin_master',
-        'salesman_1', 'salesman_2',
-    ).prefetch_related('items', 'linked_vouchers').all()
-    serializer_class = CustomerOrderSerializer
-    filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
-    filterset_fields = ['ldgr', 'status']
-    search_fields = ['order_no', 'ldgr__ac_name', 'ldgr__mobile1', 'ldgr__mobile2', 'ldgr__mobile3']
-
-    @property
-    def ordering_fields(self):
-        return self.serializer_class.Meta.fields
-
-    # Optionally set default ordering
-    ordering = ['-date1', '-order_no']
-
-    def perform_create(self, serializer):
-        from accounting.utils import get_next_bill_number
-        retail = self.request.retail
-        order_no = get_next_bill_number(retail, "CO")
-        serializer.save(retail=retail, order_no=order_no)
-
-    def perform_destroy(self, instance):
-        from rest_framework.exceptions import ValidationError
-        from accounting.utils import release_last_bill_number
-        from accounting.models import VoucherMain
-        if instance.linked_vouchers.exists():
-            raise ValidationError(
-                f"Customer order '{instance.order_no}' cannot be deleted because a sales voucher has been raised against it."
-            )
-        order_no = instance.order_no
-        retail = instance.retail
-        fiscal_year = getattr(retail, 'active_fy', None)
-        # Detach any advance RCPT vouchers so the receipts survive as plain customer credits
-        VoucherMain.objects.filter(customer_order=instance).update(customer_order=None)
-        super().perform_destroy(instance)
-        release_last_bill_number(retail, "CO", order_no, fiscal_year)
-
-    _SPEC_FIELDS = ('item_id', 'pcs', 'gw', 'purity', 'making_type', 'making_amt', 'size')
-
-    def _lock_state(self, item_row):
-        from sales.serializers import _customer_order_item_lock
-        return _customer_order_item_lock(item_row)[0]
-
-    def _norm(self, v):
-        if v is None or v == '':
-            return None
-        try:
-            from decimal import Decimal
-            return Decimal(str(v))
-        except Exception:
-            return str(v)
-
-    def perform_update(self, serializer):
-        from rest_framework.exceptions import ValidationError
-        instance = serializer.instance
-
-        # Terminal states block all edits
-        if instance.delivery_status in ('delivered', 'cancelled'):
-            raise ValidationError(
-                f"Customer order '{instance.order_no}' cannot be edited because it is in '{instance.delivery_status}' state."
-            )
-
-        # Per-line lock validation using the raw request payload
-        incoming_items = self.request.data.get('items', []) or []
-        existing_by_id = {it.id: it for it in instance.items.all()}
-
-        incoming_ids = set()
-        for payload in incoming_items:
-            pid = payload.get('id')
-            if not pid:
-                continue  # new line, no lock possible
-            incoming_ids.add(pid)
-            existing = existing_by_id.get(pid)
-            if not existing:
-                continue
-            state = self._lock_state(existing)
-            if state == 'unlocked':
-                continue
-            # locked: spec fields must be unchanged
-            db_snapshot = {
-                'item_id': existing.item_id.short_code if existing.item_id else None,
-                'pcs':     existing.pcs,
-                'gw':      existing.gw,
-                'purity':  existing.purity.purity if existing.purity else None,
-                'making_type': existing.making_type,
-                'making_amt':  existing.making_amt,
-                'size':    existing.size,
-            }
-            for f in self._SPEC_FIELDS:
-                if self._norm(payload.get(f)) != self._norm(db_snapshot.get(f)):
-                    raise ValidationError(
-                        f"Line #{existing.sl_no} is {state.replace('_', ' ')} and its '{f}' cannot be changed."
-                    )
-
-        # Removed locked lines are not allowed
-        for pid, existing in existing_by_id.items():
-            if pid in incoming_ids:
-                continue
-            state = self._lock_state(existing)
-            if state != 'unlocked':
-                raise ValidationError(
-                    f"Line #{existing.sl_no} is {state.replace('_', ' ')} and cannot be removed from the order."
-                )
-
-        super().perform_update(serializer)
-
-    @action(detail=True, methods=['post'], url_path='cancel')
-    def cancel(self, request, pk=None):
-        from rest_framework.exceptions import ValidationError
-        from accounting.models import VoucherMain
-        order = self.get_object()
-        if order.delivery_status in ('delivered', 'cancelled'):
-            raise ValidationError(
-                f"Customer order '{order.order_no}' is already in '{order.delivery_status}' state."
-            )
-        pre_data = self.get_serializer(order).data
-        had_advance = pre_data.get('has_advance')
-        had_production = pre_data.get('has_in_production_items')
-        order.delivery_status = 'cancelled'
-        order.save(update_fields=['delivery_status'])
-        # Detach any advance RCPT vouchers so the receipts survive as plain customer credits
-        VoucherMain.objects.filter(customer_order=order).update(customer_order=None)
-        order.refresh_from_db()
-        data = self.get_serializer(order).data
-        warnings = []
-        if had_production:
-            warnings.append("Some items are still in production. Coordinate with the karigar / supplier to stop or divert work.")
-        if had_advance:
-            warnings.append("Advance receipts remain on the customer's ledger as a credit. Refund or adjust against a future sale.")
-        return Response({**data, 'warnings': warnings})
-
-    @action(detail=True, methods=['get'], url_path='advance-available')
-    def advance_available(self, request, pk=None):
-        """
-        Returns the order's advance state, derived from linked RCPT vouchers:
-          - advance_amt:        total advance received (SUM of linked receipts)
-          - advance_reconciled: total already applied to sales bills
-          - advance_available:  remaining that can be applied to a new bill
-        The frontend should use `advance_available` as a read-only display;
-        the server auto-applies it when the sale is created.
-        """
-        order = self.get_object()
-        return Response({
-            'order_no':           order.order_no,
-            'advance_amt':        float(order.advance_amt),
-            'advance_reconciled': float(order.advance_reconciled),
-            'advance_available':  float(order.advance_available),
-        })
-
-
-class CustomerOrderNumberView(ListCreateAPIView):
-
-    queryset = CustomerOrder.objects.all().distinct()
-    serializer_class = CustomerOrderSerializer
-    filter_backends = [OrderingFilter]
-    ordering = ['-order_no']
-
-class RetrieveCustomerOrderView(RetrieveUpdateDestroyAPIView):
-    queryset = CustomerOrder.objects.all()
-    serializer_class = CustomerOrderSerializer
-
-from .serializers import CustomerOrderItemsToPurchaseStyleSerializer
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_customer_item_as_purchase_style(request, order_no, sl_no):
-    try:
-        item = CustomerOrderItems.objects.get(order_no=order_no, sl_no=sl_no)
-    except CustomerOrderItems.DoesNotExist:
-        return Response({"detail": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = CustomerOrderItemsToPurchaseStyleSerializer(item)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def pending_customer_order_items(request):
-    """Customer-order line items not yet released to any Purchase Order
-    or Karigar Job Work, scoped to the current retail."""
-    retail = getattr(request, 'retail', None)
-    if not retail:
-        return Response({'error': 'Retail context missing'}, status=400)
-
-    qs = (
-        CustomerOrderItems.objects
-        .select_related('order_no', 'order_no__ldgr', 'item_id', 'purity')
-        .filter(
-            order_no__retail=retail,
-            purchaseorderitems__isnull=True,
-            karigarissueitem__isnull=True,
-            purchasevoucheritems__isnull=True,   # exclude direct-PV'd CO items
-        )
-        .order_by('order_no__date1', 'order_no__order_no', 'sl_no')
-    )
-
-    data = [
-        {
-            'co_item_id': r.id,
-            'co_id': r.order_no_id,
-            'co_no': r.order_no.order_no if r.order_no else None,
-            'co_date': r.order_no.date1.isoformat() if r.order_no and r.order_no.date1 else None,
-            'customer_name': r.order_no.ldgr.ac_name if r.order_no and r.order_no.ldgr else None,
-            'sl_no': r.sl_no,
-            'item': r.item_id.short_code if r.item_id else None,
-            'item_name': r.item_id.item_name if r.item_id else None,
-            'purity': r.purity.purity if r.purity else None,
-            'pcs': r.pcs,
-            'approx_wt': float(r.gw) if r.gw is not None else None,
-            'size': r.size,
-            'due_date': r.order_no.delivery_date.isoformat() if r.order_no and r.order_no.delivery_date else None,
-            'remarks': r.remarks,
-        }
-        for r in qs
-    ]
-    return Response(data, status=status.HTTP_200_OK)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def customer_order_timeline(request, order_id):
-    """
-    Per-item event timeline for a single customer order.
-
-    Stitches together already-existing FKs across sales, purchase, manufacturing
-    and inventory to produce a precomputed list of events per CO item:
-        placed -> released_po / released_mo -> received_karigar -> barcoded -> delivered
-
-    Pure read - no writes, no schema changes.
-    """
-    from purchase.models import PurchaseOrderItems, PurchaseVoucherItems
-    from manufacturing.models import KarigarIssueItem, KarigarReceiveItem
-    from sales.models import SalesVouItem
-    from sales.serializers import _customer_order_item_lock
-    from inventory.models import BarcodeMain
-
-    def _barcodes_for_pv(pv_item_id):
-        """A single PV line may split into multiple barcodes (1:N).
-        BarcodeMain.pur_voucher is the canonical direction."""
-        return list(BarcodeMain.objects.filter(pur_voucher_id=pv_item_id).order_by('created_date', 'id'))
-
-    def _barcodes_for_rec(rec_item_id):
-        """Same pattern for the MO path — BarcodeMain.rec_item is canonical."""
-        return list(BarcodeMain.objects.filter(rec_item_id=rec_item_id).order_by('created_date', 'id'))
-
-    retail = getattr(request, 'retail', None)
-    if not retail:
-        return Response({'error': 'Retail context missing'}, status=400)
-
-    try:
-        order = (
-            CustomerOrder.objects
-            .select_related('ldgr', 'retail')
-            .prefetch_related('items', 'items__item_id', 'items__purity')
-            .get(id=order_id, retail=retail)
-        )
-    except CustomerOrder.DoesNotExist:
-        return Response({'error': 'Customer order not found'}, status=404)
-
-    items_payload = []
-    for coi in order.items.all().order_by('sl_no'):
-        events = []
-
-        # 1. placed
-        if order.date1:
-            events.append({
-                'kind': 'placed',
-                'date': order.date1.isoformat(),
-                'label': 'Order placed',
-                'ref': order.order_no,
-            })
-
-        po_item = (
-            PurchaseOrderItems.objects
-            .select_related('po_slip', 'po_slip__ldgr')
-            .filter(customer_order_item=coi)
-            .first()
-        )
-        ki_item = (
-            KarigarIssueItem.objects
-            .select_related('issue_slip', 'issue_slip__karigar_ldgr')
-            .filter(customer_order_item=coi)
-            .first()
-        )
-
-        # 2. released_po / received on PV / barcode via PV.
-        # A single PV line can split into multiple barcodes (1:N), so collect a list.
-        barcodes = []
-        if po_item and po_item.po_slip:
-            po = po_item.po_slip
-            events.append({
-                'kind': 'released_po',
-                'date': po.date1.isoformat() if po.date1 else None,
-                'label': 'Released to Purchase Order',
-                'ref': po.po_no,
-                'vendor': po.ldgr.ac_name if po.ldgr else None,
-            })
-            # Any PV line matching this PO's (po_no, po_sl_no) — with or without a barcode yet.
-            pv_item_po = (
-                PurchaseVoucherItems.objects
-                .select_related('billno', 'billno__ldgr')
-                .filter(po_no=po.po_no, po_sl_no=po_item.po_sl_no)
-                .order_by('id')
-                .first()
-            )
-            if pv_item_po and pv_item_po.billno:
-                pv_bill = pv_item_po.billno
-                events.append({
-                    'kind': 'received_pv',
-                    'date': pv_bill.date1.isoformat() if pv_bill.date1 else None,
-                    'label': 'Received on Purchase Voucher',
-                    'ref': pv_bill.billno,
-                    'vendor': pv_bill.ldgr.ac_name if getattr(pv_bill, 'ldgr', None) else None,
-                })
-                # Barcodes are authoritatively linked via BarcodeMain.pur_voucher (1:N).
-                barcodes.extend(_barcodes_for_pv(pv_item_po.id))
-
-        # 2b. direct CO -> PV path (no PO in between). Runs independently of the
-        # PO branch — it's possible for data-entry / historical anomalies to link
-        # a CO item to both; both should surface on the timeline.
-        pv_item_direct = (
-            PurchaseVoucherItems.objects
-            .select_related('billno', 'billno__ldgr')
-            .filter(customer_order_item=coi)
-            .order_by('id')
-            .first()
-        )
-        if pv_item_direct and pv_item_direct.billno:
-            pv_bill = pv_item_direct.billno
-            events.append({
-                'kind': 'received_pv',
-                'date': pv_bill.date1.isoformat() if pv_bill.date1 else None,
-                'label': 'Received directly on Purchase Voucher',
-                'ref': pv_bill.billno,
-                'vendor': pv_bill.ldgr.ac_name if getattr(pv_bill, 'ldgr', None) else None,
-            })
-            barcodes.extend(_barcodes_for_pv(pv_item_direct.id))
-
-        # 3. released_mo + 4. received_karigar + barcode via KR
-        if ki_item and ki_item.issue_slip:
-            ki_slip = ki_item.issue_slip
-            karigar_name = ki_slip.karigar_ldgr.ac_name if getattr(ki_slip, 'karigar_ldgr', None) else None
-            events.append({
-                'kind': 'released_mo',
-                'date': ki_slip.date1.isoformat() if ki_slip.date1 else None,
-                'label': 'Released to Karigar Job Work',
-                # KarigarIssue uses issue_slip_no (CharField) as its human-readable ID.
-                'ref': ki_slip.issue_slip_no,
-                'karigar': karigar_name,
-            })
-            # One karigar issue can be split across multiple receive rows
-            # (partial receives). Emit a `received_karigar` event per receive
-            # and collect barcodes via the canonical BarcodeMain.rec_item FK.
-            kr_items = list(
-                KarigarReceiveItem.objects
-                .select_related('receive_slip_no')
-                .filter(ref_job_sl_no=ki_item)
-                .order_by('date1', 'id')
-            )
-            for kr_item in kr_items:
-                events.append({
-                    'kind': 'received_karigar',
-                    'date': kr_item.date1.isoformat() if kr_item.date1 else None,
-                    'label': 'Received from Karigar',
-                    'ref': kr_item.receive_slip_no.receive_slip_no if kr_item.receive_slip_no else None,
-                })
-                barcodes.extend(_barcodes_for_rec(kr_item.id))
-
-        # 5. barcoded + 6. delivered — one pair of events per barcode (1:N).
-        # De-dupe in case the same barcode got collected via multiple paths.
-        seen_bc = set()
-        unique_barcodes = []
-        for bc in barcodes:
-            if bc and bc.id not in seen_bc:
-                seen_bc.add(bc.id)
-                unique_barcodes.append(bc)
-        for bc in unique_barcodes:
-            events.append({
-                'kind': 'barcoded',
-                'date': bc.created_date.isoformat() if bc.created_date else None,
-                'label': 'Barcode created - ready for delivery',
-                'ref': bc.barcode,
-            })
-            sv_item = (
-                SalesVouItem.objects
-                .select_related('billno')
-                .filter(barcode=bc)
-                .order_by('id')
-                .first()
-            )
-            if sv_item and sv_item.billno:
-                sv = sv_item.billno
-                events.append({
-                    'kind': 'delivered',
-                    'date': sv.date1.isoformat() if sv.date1 else None,
-                    'label': 'Delivered on Sales Voucher',
-                    'ref': sv.billno,
-                    'barcode': bc.barcode,
-                })
-
-        state, _reason = _customer_order_item_lock(coi)
-        items_payload.append({
-            'co_item_id': coi.id,
-            'sl_no': coi.sl_no,
-            'item': coi.item_id.short_code if coi.item_id else None,
-            'item_name': coi.item_id.item_name if coi.item_id else None,
-            'purity': coi.purity.purity if coi.purity else None,
-            'pcs': coi.pcs,
-            'approx_wt': float(coi.gw) if coi.gw is not None else None,
-            'size': coi.size,
-            'remarks': coi.remarks,
-            'state': state,
-            'events': events,
-        })
-
-    return Response({
-        'order': {
-            'id': order.id,
-            'order_no': order.order_no,
-            'date1': order.date1.isoformat() if order.date1 else None,
-            'delivery_date': order.delivery_date.isoformat() if order.delivery_date else None,
-            'customer_name': order.ldgr.ac_name if order.ldgr else None,
-            'nature': order.nature,
-            'status': order.status,
-            'delivery_status': order.delivery_status,
-        },
-        'items': items_payload,
-    }, status=status.HTTP_200_OK)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def customer_order_delivery_overview(request):
-    """
-    Returns delivery KPI stats for the current retail:
-      - overdue_count        orders past delivery_date, not delivered/cancelled/billed
-      - due_today_count      orders due exactly today
-      - due_this_week_count  orders due in next 7 days (excl. today)
-      - pending_count        all open (not delivered/cancelled) orders
-      - delivered_count      delivered this month
-      - overdue_orders       first 10 overdue orders (for the alert banner)
-    """
-    from datetime import date, timedelta
-    retail = request.retail
-    if not retail:
-        return Response({'error': 'Retail context missing'}, status=400)
-
-    today     = date.today()
-    week_end  = today + timedelta(days=7)
-    month_start = today.replace(day=1)
-
-    open_qs = CustomerOrder.objects.filter(
-        retail=retail
-    ).exclude(
-        delivery_status__in=['delivered', 'cancelled']
-    ).exclude(status='Billed')
-
-    overdue_qs   = open_qs.filter(delivery_date__lt=today, delivery_date__isnull=False)
-    today_qs     = open_qs.filter(delivery_date=today)
-    this_week_qs = open_qs.filter(delivery_date__gt=today, delivery_date__lte=week_end)
-
-    delivered_qs = CustomerOrder.objects.filter(
-        retail=retail, delivery_status='delivered',
-        actual_delivery_date__gte=month_start
-    )
-
-    # Lightweight overdue list for the alert banner (max 10 rows)
-    overdue_orders = overdue_qs.select_related('ldgr').order_by('delivery_date')[:10]
-    overdue_list = [
-        {
-            'id':            o.id,
-            'order_no':      o.order_no,
-            'customer':      o.ldgr.ac_name if o.ldgr else '—',
-            'delivery_date': str(o.delivery_date),
-            'days_overdue':  (today - o.delivery_date).days,
-            'delivery_status': o.delivery_status,
-            'nature':        o.nature,
-        }
-        for o in overdue_orders
-    ]
-
-    return Response({
-        'overdue_count':        overdue_qs.count(),
-        'due_today_count':      today_qs.count(),
-        'due_this_week_count':  this_week_qs.count(),
-        'pending_count':        open_qs.count(),
-        'delivered_this_month': delivered_qs.count(),
-        'overdue_orders':       overdue_list,
-    })
-
-
-@api_view(['PATCH'])
-@permission_classes([IsAuthenticated])
-def customer_order_update_delivery(request, pk):
-    """
-    Quick update of delivery_status and optionally actual_delivery_date.
-    Body: { delivery_status, actual_delivery_date (optional) }
-    """
-    try:
-        order = CustomerOrder.objects.get(pk=pk, retail=request.retail)
-    except CustomerOrder.DoesNotExist:
-        return Response({'error': 'Order not found'}, status=404)
-
-    new_status = request.data.get('delivery_status')
-    if new_status not in dict(CustomerOrder.DELIVERY_STATUS_CHOICES):
-        return Response({'error': f'Invalid delivery_status: {new_status}'}, status=400)
-
-    order.delivery_status = new_status
-
-    if new_status == 'delivered':
-        from datetime import date as date_cls
-        order.actual_delivery_date = request.data.get('actual_delivery_date') or str(date_cls.today())
-
-    order.save(update_fields=['delivery_status', 'actual_delivery_date'])
-    return Response(CustomerOrderSerializer(order).data)
-
-
-# ============= Sales Voucher Views (formerly in sale_voucher app) =============
-
-from datetime import datetime
-from rest_framework.viewsets import ModelViewSet
-from accounting.serializers import LedgerSerializer, SaleVoucherLedgerSerializer
-from sales.utils import generate_next_sale_voucher_no, generate_next_sale_return_no, generate_next_sale_app_no
-from sales.serializers import SaleReturnSerializer, SaleVoucherToReturnSerializer, SalesApprovalSerializer, SalesVouSerializer
-from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When, Exists, OuterRef
-from django.db.models import Sum
-from django.db.models.functions import Coalesce
-from rest_framework.views import APIView
-from django.db.models import Q
-import decimal
+logger = logging.getLogger(__name__)
 
 
 class SalesVoucherViewset(views.RetailBaseViewset):
@@ -602,12 +44,12 @@ class SalesVoucherViewset(views.RetailBaseViewset):
         'bank_details',
     ).all()
     serializer_class = SalesVouSerializer
-    filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
 
-    search_fields = ['billno','ldgr__ac_name']
+    search_fields = ['billno', 'ldgr__ac_name']
 
     def get_queryset(self):
-        from .models import EWayBill
+        from ..models import EWayBill
         return super().get_queryset().annotate(
             has_eway_bill=Exists(
                 EWayBill.objects.filter(sales_vou=OuterRef('pk'), status='GENERATED')
@@ -1083,13 +525,6 @@ def gstr3b_report(request):
     })
 
 
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, decimal.Decimal):
-            return float(obj)
-        return super(DecimalEncoder, self).default(obj)
-
-
 class GenerateJsonView(APIView):
     def get(self, request):
         if not request.retail:
@@ -1219,8 +654,8 @@ class GenerateJsonView(APIView):
                     item__item_name='GOLD',
                     gw__gt=0
                 ).first()
-                stone_details = SalesVouItemDetails.objects.filter( Q(billno=sales_vou,
-                    main_item=sale_main,gw__gt=0) &
+                stone_details = SalesVouItemDetails.objects.filter(Q(billno=sales_vou,
+                    main_item=sale_main, gw__gt=0) &
                     ~Q(item__item_name='GOLD'),
                 ).select_related('item')
                 stone_desc = ""
@@ -1329,17 +764,6 @@ class GenerateJsonView(APIView):
         return response
 
 
-@api_view()
-@permission_classes([IsAuthenticated])
-def get_sale_voucher_for_return(request):
-    bill_no = request.query_params.get('bill_no')
-    if not bill_no:
-        return Response({"error": "Bill number is required"}, status=400)
-    obj = SalesVou.objects.get(billno=bill_no)
-    serializer = SaleVoucherToReturnSerializer(obj)
-    return Response(serializer.data)
-
-
 class SalesApprovalViewset(views.RetailBaseViewset):
     queryset = SalesApproval.objects.select_related(
         'ldgr', 'sales_person', 'sales_person2', 'place_of_supply', 'retail'
@@ -1347,9 +771,9 @@ class SalesApprovalViewset(views.RetailBaseViewset):
         'items__main_item_set'
     ).all()
     serializer_class = SalesApprovalSerializer
-    filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
 
-    search_fields=['billno','ldgr__ac_name']
+    search_fields = ['billno', 'ldgr__ac_name']
 
     @property
     def ordering_fields(self):
@@ -1364,70 +788,6 @@ class SalesApprovalViewset(views.RetailBaseViewset):
         super().perform_destroy(instance)
         release_last_bill_number(retail, 'SA', billno, fiscal_year)
 
-class SalesReturnViewset(views.RetailBaseViewset):
-    queryset = SaleReturn.objects.select_related('ldgr', 'ac_voucher', 'retail').prefetch_related(
-        'salereturnitem_set__salereturndetails_set'
-    ).all()
-    serializer_class = SaleReturnSerializer
-    filter_backends=[DjangoFilterBackend,OrderingFilter,SearchFilter]
-
-    search_fields=['billno','ldgr__ac_name']
-
-    @property
-    def ordering_fields(self):
-        return self.serializer_class.Meta.fields
-
-    ordering = ['-date1', '-id']
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
-
-    def _resolve_fiscal_year(self, retail, voucher_date):
-        from mastersconfig.models import FiscalYearMaster
-        if voucher_date:
-            fy = FiscalYearMaster.objects.filter(
-                retail=retail, fy_start__lte=voucher_date, fy_end__gte=voucher_date,
-            ).first()
-            if fy:
-                return fy
-        return getattr(retail, 'active_fy', None)
-
-    def perform_create(self, serializer):
-        retail = getattr(self.request, 'retail', None)
-        if not retail:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
-        voucher_date = serializer.validated_data.get('date1')
-        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
-        serializer.save(retail=retail, fiscal_year=fiscal_year)
-
-    def _check_sale_return_mutable(self, instance, action):
-        from rest_framework.exceptions import ValidationError
-        if instance.ac_voucher is not None and instance.ac_voucher.status == 'posted':
-            raise ValidationError(
-                f"Sale return '{instance.billno}' cannot be {action} because its accounting entry is posted."
-            )
-
-    def perform_destroy(self, instance):
-        self._check_sale_return_mutable(instance, 'deleted')
-        from accounting.utils import release_last_bill_number
-        retail = instance.retail
-        fiscal_year = instance.fiscal_year
-        billno = instance.billno
-        super().perform_destroy(instance)
-        release_last_bill_number(retail, 'SR', billno, fiscal_year)
-
-    def perform_update(self, serializer):
-        from rest_framework.exceptions import ValidationError
-        retail = getattr(self.request, 'retail', None)
-        if not retail:
-            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
-        self._check_sale_return_mutable(serializer.instance, 'edited')
-        voucher_date = serializer.validated_data.get('date1') or serializer.instance.date1
-        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
-        serializer.save(retail=retail, fiscal_year=fiscal_year)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1439,7 +799,8 @@ def get_next_sv_no(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     bill_no = peek_next_bill_number(request.retail, "SV")
-    return Response({"billno":bill_no})
+    return Response({"billno": bill_no})
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1451,7 +812,8 @@ def get_next_sr_no(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     bill_no = peek_next_bill_number(request.retail, "SR")
-    return Response({"billno":bill_no})
+    return Response({"billno": bill_no})
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1463,7 +825,8 @@ def get_next_sa_no(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     bill_no = peek_next_bill_number(request.retail, "SA")
-    return Response({"billno":bill_no})
+    return Response({"billno": bill_no})
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -1634,9 +997,21 @@ def build_sub_item_text(d):
         return t
 
 
-def build_invoice_context(voucher, retail):
+def build_invoice_context(voucher, retail, request=None):
     """Build the complete data dict for the invoice print view."""
     from mastersconfig.models import State as StateModel
+
+    def _abs_media(field):
+        """Return an absolute URL for an ImageField or '' if missing."""
+        try:
+            url = field.url if field else ''
+        except (ValueError, AttributeError):
+            return ''
+        if not url:
+            return ''
+        if request is not None:
+            return request.build_absolute_uri(url)
+        return url
 
     # ── Company info — use exhibition profile if one was active when bill was raised ──
     exh = voucher.exhibition_profile
@@ -1778,6 +1153,9 @@ def build_invoice_context(voucher, retail):
         'company_tan':          (company.tan if company else '') or '',
         'company_cin':          (company.cin if company else '') or '',
         'company_website':      (company.website if company else '') or '',
+        # Branding logos (uploaded via Settings → Company Master)
+        'bis_logo_url':     _abs_media(getattr(company, 'bis_logo', None)) if company else '',
+        'company_logo_url': _abs_media(getattr(company, 'company_logo', None)) if company else '',
         # Invoice meta
         'billno':       voucher.billno or '',
         'gst_billno':   voucher.gst_billno or '',
@@ -1816,116 +1194,6 @@ def build_invoice_context(voucher, retail):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def sale_return_print_data(request, pk):
-    """Return fully-computed credit-note JSON for a SaleReturn (for React print)."""
-    try:
-        sr = SaleReturn.objects.select_related(
-            'ldgr', 'retail', 'retail__state', 'sales_voucher_ref',
-        ).prefetch_related(
-            'salereturnitem_set__item',
-            'salereturnitem_set__salereturndetails_set__item',
-            'salereturnitem_set__salereturndetails_set__metal_purity',
-        ).get(pk=pk, retail=request.retail)
-    except SaleReturn.DoesNotExist:
-        return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-    retail = request.retail
-    ldgr   = sr.ldgr
-
-    # ── Company info ─────────────────────────────────────────────────────────
-    company = None
-    if retail.branch_id and retail.branch and retail.branch.company_id:
-        company = retail.branch.company
-    company_address = ', '.join(filter(None, [
-        retail.address_line1, retail.address_line2, retail.address_line3,
-        retail.city, retail.pincode,
-    ]))
-    _gm = retail.gstin_master
-    company_gstin = (_gm.gstin if _gm else '') or ''
-
-    # ── Customer info ─────────────────────────────────────────────────────────
-    customer_address = ', '.join(filter(None, [ldgr.add1, ldgr.add2, ldgr.city, ldgr.pincode]))
-
-    # ── Build items list ─────────────────────────────────────────────────────
-    items_data = []
-    for ri in sr.salereturnitem_set.all():
-        sub_rows = []
-        for d in ri.salereturndetails_set.all():
-            parts = []
-            if d.item:
-                parts.append(d.item.item_name or d.item.short_code)
-            if d.metal_purity:
-                parts.append(str(d.metal_purity))
-            if d.gw:
-                parts.append(f'GW: {float(d.gw):.3f}g')
-            if d.tunch:
-                parts.append(f'Tunch: {float(d.tunch):.2f}%')
-            if d.rate:
-                parts.append(f'@ ₹{float(d.rate):.0f}')
-            sub_rows.append({
-                'text':         ' | '.join(parts),
-                'pcs':          d.pcs,
-                'gw':           float(d.gw or 0),
-                'rate':         float(d.rate or 0),
-                'amount':       float(d.amount or 0),
-                'item_type':    d.item.item_type if d.item else '',
-                'metal_purity': str(d.metal_purity) if d.metal_purity else '',
-            })
-
-        items_data.append({
-            'sn':        len(items_data) + 1,
-            'barcode':   ri.barcode or '',
-            'item_name': ri.item.item_name if ri.item else (ri.item.short_code if ri.item else ''),
-            'pcs':       ri.pcs or 0,
-            'gw':        float(ri.gw or 0),
-            'making':    float(ri.making_value or 0),
-            'amount':    float(ri.amount or 0),
-            'sub_rows':  sub_rows,
-        })
-
-    # ── Tax & totals ──────────────────────────────────────────────────────────
-    taxable  = float(sr.taxable_value)
-    cgst_amt = round(taxable * float(sr.cgst_per or 0) / 100, 2)
-    sgst_amt = round(taxable * float(sr.sgst_per or 0) / 100, 2)
-    igst_amt = round(taxable * float(sr.igst_per or 0) / 100, 2)
-    total    = round(taxable + cgst_amt + sgst_amt + igst_amt, 2)
-
-    # ── Original invoice reference ────────────────────────────────────────────
-    ref_billno  = sr.sales_voucher_ref.billno if sr.sales_voucher_ref else ''
-    ref_gst_no  = sr.original_sale_gst_billno or (
-        sr.sales_voucher_ref.gst_billno if sr.sales_voucher_ref else ''
-    )
-    ref_date    = str(sr.sales_voucher_ref.date1) if sr.sales_voucher_ref and sr.sales_voucher_ref.date1 else ''
-
-    return Response({
-        'note_type':        'CN',
-        'company_name':     (company.company_name if company else retail.retail_name) or '',
-        'company_address':  company_address,
-        'company_gstin':    company_gstin,
-        'company_state':    getattr(retail.state, 'name', '') if retail.state else '',
-        'note_no':          sr.billno or '',
-        'date':             str(sr.date1) if sr.date1 else '',
-        'party_name':       ldgr.ac_name or '',
-        'party_address':    customer_address,
-        'party_gstin':      ldgr.gst or '',
-        'party_state':      ldgr.state or '',
-        'ref_invoice_no':   f'{ref_billno}{(" / GST: " + ref_gst_no) if ref_gst_no else ""}',
-        'ref_invoice_date': ref_date,
-        'reason':           'Customer Return',
-        'items':            items_data,
-        'mrp':              float(sr.mrp or 0),
-        'discount':         float(sr.discount or 0),
-        'taxable_value':    round(taxable, 2),
-        'cgst_per':         float(sr.cgst_per or 0), 'cgst_amt': cgst_amt,
-        'sgst_per':         float(sr.sgst_per or 0), 'sgst_amt': sgst_amt,
-        'igst_per':         float(sr.igst_per or 0), 'igst_amt': igst_amt,
-        'amount':           total,
-        'adjustment_ledger': '',
-    })
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def sale_voucher_print_data(request, pk):
     """Return fully-computed invoice JSON for the React print component."""
     try:
@@ -1941,7 +1209,7 @@ def sale_voucher_print_data(request, pk):
         return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     try:
-        data = build_invoice_context(voucher, request.retail)
+        data = build_invoice_context(voucher, request.retail, request=request)
     except Exception as exc:
         import traceback
         logger.error("build_invoice_context failed for voucher %s: %s\n%s", pk, exc, traceback.format_exc())
@@ -1972,7 +1240,7 @@ def eway_transport_update(request, pk):
     voucher.save(update_fields=list(allowed & set(request.data.keys())))
 
     # Create or update an EWayBill tracking record so it appears in the E-Way Bills list
-    from .models import EWayBill
+    from ..models import EWayBill
     ewb = EWayBill.objects.filter(sales_vou=voucher, retail=request.retail).order_by('-generated_date').first()
     transport_fields = {
         'party_name':       voucher.ldgr.ac_name if voucher.ldgr else '',
@@ -2146,7 +1414,7 @@ class EwayBillGenerateView(APIView):
         json_data = json.dumps(eway_json, cls=DecimalEncoder, indent=4)
 
         # Create or update EWayBill tracking record (deduplication: one record per voucher per retail)
-        from .models import EWayBill
+        from ..models import EWayBill
         ewb_snapshot = dict(
             party_name=voucher.ldgr.ac_name if voucher.ldgr else '',
             source_billno=voucher.billno or '',
@@ -2179,7 +1447,7 @@ class EWayBillListView(APIView):
     """GET /sales/api/eway-bills/ — list all E-Way bills for the current retail."""
 
     def get(self, request):
-        from .models import EWayBill
+        from ..models import EWayBill
         qs = EWayBill.objects.filter(retail=request.retail).select_related(
             'sales_vou', 'sales_vou__ldgr',
             'sales_approval', 'sales_approval__ldgr',
@@ -2200,7 +1468,7 @@ class EWayBillListView(APIView):
         if status_filter:
             qs = qs.filter(status=status_filter)
 
-        from .serializers import EWayBillSerializer
+        from ..serializers import EWayBillSerializer
         serializer = EWayBillSerializer(qs, many=True)
         return Response(serializer.data)
 
@@ -2209,7 +1477,7 @@ class EWayBillListView(APIView):
 @permission_classes([IsAuthenticated])
 def eway_bill_cancel(request, pk):
     """POST /sales/api/eway-bills/<pk>/cancel/ — cancel an E-Way bill."""
-    from .models import EWayBill
+    from ..models import EWayBill
     from django.utils import timezone
     try:
         ewb = EWayBill.objects.get(pk=pk, retail=request.retail)
@@ -2230,7 +1498,7 @@ def eway_bill_cancel(request, pk):
 @permission_classes([IsAuthenticated])
 def eway_bill_update_ebn(request, pk):
     """PATCH /sales/api/eway-bills/<pk>/update-ebn/ — save EBN after NIC upload."""
-    from .models import EWayBill
+    from ..models import EWayBill
     try:
         ewb = EWayBill.objects.get(pk=pk, retail=request.retail)
     except EWayBill.DoesNotExist:
@@ -2242,7 +1510,7 @@ def eway_bill_update_ebn(request, pk):
     if request.data.get('valid_until'):
         ewb.valid_until = request.data['valid_until']
     ewb.save(update_fields=['eway_bill_no', 'valid_from', 'valid_until'])
-    from .serializers import EWayBillSerializer
+    from ..serializers import EWayBillSerializer
     return Response(EWayBillSerializer(ewb).data)
 
 
@@ -2250,7 +1518,7 @@ def eway_bill_update_ebn(request, pk):
 @permission_classes([IsAuthenticated])
 def eway_bill_delete(request, pk):
     """DELETE /sales/api/eway-bills/<pk>/ — hard delete (only if no EBN assigned)."""
-    from .models import EWayBill
+    from ..models import EWayBill
     try:
         ewb = EWayBill.objects.get(pk=pk, retail=request.retail)
     except EWayBill.DoesNotExist:
@@ -2484,7 +1752,7 @@ def deposit_cheque(request, pk):
         bd.deposit_voucher = voucher
         bd.save(update_fields=['cheque_status', 'deposit_date', 'deposit_voucher'])
 
-    from sales.serializers import BankDetails
+    from ..serializers import BankDetails
     return Response(BankDetails(bd).data)
 
 
@@ -2519,214 +1787,6 @@ def retail_discount_pricelist_for_ledger(request, ledger_id):
         return Response(None, status=status.HTTP_204_NO_CONTENT)
     from mastersconfig.serializers import RetailDiscountPricelistSerializer
     return Response(RetailDiscountPricelistSerializer(ledger.retail_discount_pricelist).data)
-
-
-# ── Quotation ────────────────────────────────────────────────────────────────
-
-from sales.serializers import QuotationSerializer, QuotationListSerializer
-
-
-class QuotationViewset(views.RetailBaseViewset):
-    queryset = Quotation.objects.select_related(
-        'ldgr', 'sales_person', 'retail'
-    ).prefetch_related('items__details').all()
-    serializer_class = QuotationSerializer
-    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
-    search_fields = ['quotation_no', 'ldgr__ac_name', 'party_name']
-    filterset_fields = ['status']
-    ordering = ['-id']
-
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return QuotationListSerializer
-        return QuotationSerializer
-
-    def perform_create(self, serializer):
-        from accounting.utils import peek_next_bill_number
-        retail = getattr(self.request, 'retail', None)
-        fiscal_year = getattr(retail, 'active_fy', None) if retail else None
-        qt_no = peek_next_bill_number(retail, "QT")
-        serializer.save(
-            retail=retail,
-            fiscal_year=fiscal_year,
-            created_by=self.request.user,
-            quotation_no=qt_no,
-        )
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_next_qt_no(request):
-    from accounting.utils import peek_next_bill_number
-    if not request.retail:
-        return Response({"error": "Missing or invalid X-RETAIL-ID header"}, status=status.HTTP_400_BAD_REQUEST)
-    bill_no = peek_next_bill_number(request.retail, "QT")
-    return Response({"billno": bill_no})
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def quotation_initial_data(request):
-    """Combined initial data for the Quotation form."""
-    from mastersconfig.models import SalesPersonMaster
-    from mastersconfig.serializers import SalesPersonMasterSerializer
-    from accounting.utils import peek_next_bill_number
-    from accounting.serializers import LedgerLightSerializer
-    from goldrates.models import PurityMaster
-
-    if not request.retail:
-        return Response({"error": "Missing or invalid X-RETAIL-ID header"}, status=status.HTTP_400_BAD_REQUEST)
-
-    bill_no = peek_next_bill_number(request.retail, "QT")
-    ledgers_qs = (Ledger.objects
-                  .filter(roles__role='CO')
-                  .select_related('ac_group')
-                  .prefetch_related('roles')
-                  .only('id', 'ac_name', 'ac_group')
-                  .distinct())
-    salespersons_qs = SalesPersonMaster.objects.filter(retail=request.retail)
-    purities = list(PurityMaster.objects.values('purity', 'gw_per'))
-
-    return Response({
-        "billno": bill_no,
-        "ledgers": LedgerLightSerializer(ledgers_qs, many=True).data,
-        "salespersons": SalesPersonMasterSerializer(salespersons_qs, many=True).data,
-        "purities": purities,
-    })
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def quotation_print_data(request, pk):
-    """Full quotation data for the print template."""
-    qt = get_object_or_404(
-        Quotation.objects.select_related('ldgr', 'sales_person')
-        .prefetch_related('items__details'),
-        pk=pk
-    )
-    data = QuotationSerializer(qt).data
-    # Add party contact info if ledger exists
-    if qt.ldgr:
-        data['party_mobile'] = qt.ldgr.mobile1 or ''
-        data['party_address'] = ', '.join(filter(None, [
-            qt.ldgr.address1 or '', qt.ldgr.city or '', qt.ldgr.state or '',
-        ]))
-    return Response(data)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def quotation_duplicate(request, pk):
-    """Duplicate a quotation with new number and draft status."""
-    from accounting.utils import peek_next_bill_number
-    from datetime import date, timedelta
-
-    original = get_object_or_404(Quotation, pk=pk)
-    retail = getattr(request, 'retail', None)
-    new_no = peek_next_bill_number(retail, "QT")
-
-    with transaction.atomic():
-        new_qt = Quotation.objects.create(
-            date1=date.today(),
-            quotation_no=new_no,
-            ldgr=original.ldgr,
-            party_name=original.party_name,
-            gold_rate_date=original.gold_rate_date,
-            rate_18kt=original.rate_18kt,
-            rate_22kt=original.rate_22kt,
-            rate_24kt=original.rate_24kt,
-            total_items=original.total_items,
-            grand_total=original.grand_total,
-            tax_percent=original.tax_percent,
-            tax_amount=original.tax_amount,
-            net_total=original.net_total,
-            status='draft',
-            valid_until=date.today() + timedelta(days=7),
-            remarks=original.remarks,
-            seller_info=original.seller_info,
-            sales_person=original.sales_person,
-            retail=retail,
-            fiscal_year=getattr(retail, 'active_fy', None) if retail else None,
-            created_by=request.user,
-        )
-        for item in original.items.all():
-            new_item = QuotationItem.objects.create(
-                quotation=new_qt,
-                sl_no=item.sl_no,
-                barcode=item.barcode,
-                barcode_text=item.barcode_text,
-                item=item.item,
-                item_name=item.item_name,
-                design_code=item.design_code,
-                purity_text=item.purity_text,
-                pcs=item.pcs,
-                gw=item.gw,
-                nw=item.nw,
-                gold_rate=item.gold_rate,
-                gold_amount=item.gold_amount,
-                making_rate=item.making_rate,
-                making_amount=item.making_amount,
-                total_diamond_pcs=item.total_diamond_pcs,
-                total_diamond_wt=item.total_diamond_wt,
-                total_diamond_amt=item.total_diamond_amt,
-                total_stone_pcs=item.total_stone_pcs,
-                total_stone_wt=item.total_stone_wt,
-                total_stone_amt=item.total_stone_amt,
-                total_amount=item.total_amount,
-                image_url=item.image_url,
-            )
-            for det in item.details.all():
-                QuotationItemDetail.objects.create(
-                    quotation_item=new_item,
-                    packet=det.packet,
-                    packet_name=det.packet_name,
-                    item_name=det.item_name,
-                    is_diamond=det.is_diamond,
-                    pcs=det.pcs,
-                    wt=det.wt,
-                    rate=det.rate,
-                    amount=det.amount,
-                )
-    return Response({"id": new_qt.id, "quotation_no": new_qt.quotation_no})
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def quotation_finalize(request, pk):
-    """Finalize a quotation (draft → finalized)."""
-    qt = get_object_or_404(Quotation, pk=pk)
-    if qt.status != 'draft':
-        return Response({"error": f"Cannot finalize quotation in '{qt.status}' status."}, status=status.HTTP_400_BAD_REQUEST)
-    qt.status = 'finalized'
-    qt.save(update_fields=['status'])
-    return Response({"status": "finalized"})
-
-
-@api_view(['GET'])
-@permission_classes([])
-def portal_customer_orders(request):
-    """
-    Portal endpoint: Customer sees their orders with status tracking.
-    Only includes customer-relevant fields (order_no, delivery_status, item_count, etc.)
-    Excludes vendor/karigar names for privacy.
-    """
-    from goldscheme.portal_auth import PortalTokenAuthentication, IsPortalAuthenticated
-
-    auth = PortalTokenAuthentication()
-    try:
-        result = auth.authenticate(request)
-        if result is None:
-            return Response({'error': 'Portal authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-
-    customer = getattr(request, 'portal_customer', None)
-    if not customer:
-        return Response({'error': 'Portal authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
-    orders = CustomerOrder.objects.filter(ldgr=customer).order_by('-date1')
-    serializer = PortalCustomerOrderSerializer(orders, many=True)
-    return Response(serializer.data)
 
 
 @api_view(['GET'])

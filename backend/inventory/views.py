@@ -2455,10 +2455,9 @@ class RfidInventoryCountView(APIView):
         })
 
 
-class RfidCountSessionViewSet(ModelViewSet):
+class RfidCountSessionViewSet(RetailBaseViewset):
     """CRUD for saved RFID count sessions."""
     serializer_class = RfidCountSessionSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         if not self.request.retail:

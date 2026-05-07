@@ -249,14 +249,20 @@ const BarcodeManagementList = () => {
     }));
 
     // Gold sub-item — re-inject with NW as weight and main-item purity
-    // (rate is fetched live at sale time)
+    // (rate is fetched live at sale time). The item must always be the
+    // raw "Gold" item, not the main finished-product item.
     const nw = parseFloat(form_data.nw) || 0;
-    const goldEntry = pvGoldItemRef.current && nw > 0
+    const goldRef = pvGoldItemRef.current || {
+      item:      "Gold",
+      item_name: "Gold",
+      uom:       "Gm",
+    };
+    const goldEntry = nw > 0
       ? {
           packet:       null,
-          item:         pvGoldItemRef.current.item,
-          item_name:    pvGoldItemRef.current.item_name,
-          uom:          pvGoldItemRef.current.uom,
+          item:         goldRef.item,
+          item_name:    goldRef.item_name,
+          uom:          goldRef.uom,
           pcs:          0,
           ct:           0,
           gw:           nw,

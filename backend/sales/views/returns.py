@@ -1,8 +1,7 @@
 import json
 import logging
 logger = logging.getLogger(__name__)
-from django.shortcuts import get_object_or_404, render
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils.timezone import make_aware
@@ -23,7 +22,6 @@ from rest_framework import status
 from goldrates.models import PurityMaster
 from contacts.models import Ledger, LedgerRole
 from mastersconfig.models import Item
-from ..models import *
 
 from ..serializers import SaleReturnSerializer, SaleVoucherToReturnSerializer, SalesApprovalSerializer, SalesVouSerializer
 from django.db.models import Q

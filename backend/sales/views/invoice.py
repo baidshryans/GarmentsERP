@@ -2,8 +2,7 @@ import json
 import logging
 import decimal
 logger = logging.getLogger(__name__)
-from django.shortcuts import get_object_or_404, render
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from django.utils.timezone import make_aware
@@ -24,12 +23,11 @@ from rest_framework import status
 from goldrates.models import PurityMaster
 from contacts.models import Ledger, LedgerRole
 from mastersconfig.models import Item
-from ..models import *
 
 from datetime import datetime
 from rest_framework.viewsets import ModelViewSet
 from accounting.serializers import LedgerSerializer, SaleVoucherLedgerSerializer
-from ..utils import generate_next_sale_voucher_no, generate_next_sale_return_no, generate_next_sale_app_no
+from ..utils import generate_next_sale_voucher_no, generate_next_sale_return_no, generate_next_sale_app_no, DecimalEncoder
 from ..serializers import SaleReturnSerializer, SaleVoucherToReturnSerializer, SalesApprovalSerializer, SalesVouSerializer
 from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When, Exists, OuterRef
 from django.db.models import Sum
@@ -530,13 +528,6 @@ def gstr3b_report(request):
         },
         'period': {'from': from_date, 'to': to_date},
     })
-
-
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, decimal.Decimal):
-            return float(obj)
-        return super(DecimalEncoder, self).default(obj)
 
 
 class GenerateJsonView(APIView):

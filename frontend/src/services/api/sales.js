@@ -469,3 +469,101 @@ export async function finalizeQuotation(id) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+// ── Customer Orders ───────────────────────────────────────────────────────────
+
+export async function fetchCustomerOrders({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`/sales/api/customer-orders-vs/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCustomerOrdersKanban({ search = "" } = {}) {
+  try {
+    const params = new URLSearchParams({ page_size: 500, ordering: "-date1" });
+    if (search) params.append("search", search);
+    const response = await apiClient.get(`/sales/api/customer-orders-vs/?${params.toString()}`);
+    return { success: true, data: response.data?.results ?? response.data ?? [] };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── E-Way Bills ───────────────────────────────────────────────────────────────
+
+export async function fetchEWayBills({ search = "", status = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (status) params.append("status", status);
+    const response = await apiClient.get(`/sales/api/eway-bills/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function cancelEWayBill(id, reason = "") {
+  try {
+    const response = await apiClient.post(`/sales/api/eway-bills/${id}/cancel/`, { reason });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteEWayBill(id) {
+  try {
+    await apiClient.delete(`/sales/api/eway-bills/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateEWayBillEBN(id, data) {
+  try {
+    const response = await apiClient.patch(`/sales/api/eway-bills/${id}/update-ebn/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Sales Reports ─────────────────────────────────────────────────────────────
+
+export async function fetchSalesRegister(params) {
+  try {
+    const response = await apiClient.get('/sales/api/reports/sales-register/', { params });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSaleApprovalRegister(params) {
+  try {
+    const response = await apiClient.get('/sales/api/reports/sale-approval-register/', { params });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSlNosOrders(id) {
+  try {
+    const response = await apiClient.get(`/manufacturing/fetch-sl-no/?order_no_id=${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch Serial numbers :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

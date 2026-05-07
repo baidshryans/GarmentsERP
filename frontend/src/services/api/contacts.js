@@ -258,3 +258,48 @@ export async function fetchCustomerOrdersByLedger(ldgr_id, { onlyWithAdvance = t
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+// ── Ledger Documents ──────────────────────────────────────────────────────────
+
+export async function getLedgerDocuments(ldgrId) {
+  try {
+    const response = await apiClient.get(`/contacts/api/ledger-documents/?ldgr=${ldgrId}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function uploadLedgerDocument(ldgrId, file, documentType) {
+  try {
+    const formData = new FormData();
+    formData.append("ldgr", ldgrId);
+    formData.append("document", file);
+    formData.append("document_type", documentType);
+    const response = await apiClient.post("/contacts/api/ledger-documents/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteLedgerDocument(id) {
+  try {
+    await apiClient.delete(`/contacts/api/ledger-documents/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function CashTotalLedger(ledger_id) {
+  try {
+    const response = await apiClient.get(`accounting/api/get-ldgr-cash-total/${ledger_id}`);
+    return { success: response.status < 300, data: response.data };
+  } catch (error) {
+    console.error('Failed to get total ledger:', error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

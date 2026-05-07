@@ -509,3 +509,333 @@ export async function fetchRfidSessionResults(sessionId) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+// ── Barcode List/Bulk ─────────────────────────────────────────────────────────
+
+export async function fetchBarcodes({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`inventory/barcode/?stk_status=true&${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchBarcodeList({ search = "", page = 1, ordering = "", ids = "", page_size = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    if (ids) params.append("ids", ids);
+    if (page_size) params.append("page_size", page_size);
+    params.append("page", page);
+    const response = await apiClient.get(`inventory/barcode/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchBarcodeBulk({ item, packet, purity, stk_status, search } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (item) params.append("item", item);
+    if (packet) params.append("packet", packet);
+    if (purity) params.append("purity", purity);
+    if (stk_status !== undefined && stk_status !== "") params.append("stk_status", stk_status);
+    if (search) params.append("search", search);
+    const response = await apiClient.get(`inventory/api/barcode-bulk/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchBarcodeByText(barcodeText) {
+  try {
+    const response = await apiClient.get(
+      `inventory/barcode/?barcode=${encodeURIComponent(barcodeText)}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch barcode by text:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchBarcodeHistoryList({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`inventory/brcode-history?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Barcode Merges / Splits ───────────────────────────────────────────────────
+
+export async function fetchBarcodeMerges({ from_date = "", to_date = "" } = {}) {
+  try {
+    const params = new URLSearchParams({ transaction_type: "Merge" });
+    if (from_date) params.append("date1__gte", from_date);
+    if (to_date) params.append("date1__lte", to_date);
+    const response = await apiClient.get(`inventory/api/brcode-split-merge?${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch barcode merges:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchBarcodeSplits({ from_date = "", to_date = "" } = {}) {
+  try {
+    const params = new URLSearchParams({ transaction_type: "Split" });
+    if (from_date) params.append("date1__gte", from_date);
+    if (to_date) params.append("date1__lte", to_date);
+    const response = await apiClient.get(`inventory/api/brcode-split-merge?${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch barcode splits:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Barcode CRUD ──────────────────────────────────────────────────────────────
+
+export async function createBarcode(data) {
+  try {
+    const response = await apiClient.post("/inventory/barcode/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch states :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function convertBarcode(barcode) {
+  const data = { barcode: barcode };
+  try {
+    const response = await apiClient.post("inventory/api/bar-unbar/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch states :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function mergeBarcode(data) {
+  try {
+    const response = await apiClient.post("/inventory/api/barcode-merge/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch states :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchNextBarcode() {
+  try {
+    const response = await apiClient.get(`/inventory/api/generate-barcode/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Barcode Images ────────────────────────────────────────────────────────────
+
+export async function deleteBarcodeImage(id) {
+  try {
+    await apiClient.delete(`/inventory/api/barcode-images/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function uploadBarcodeImages(barcodeId, files) {
+  try {
+    const formData = new FormData();
+    formData.append("barcode", barcodeId);
+    for (const file of files) {
+      formData.append("image", file);
+    }
+    const response = await apiClient.post("/inventory/api/barcode-images/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getBarcodeImages(barcodeId) {
+  try {
+    const response = await apiClient.get(`/inventory/api/barcode-images/?barcode=${barcodeId}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Barcode Order Ops ─────────────────────────────────────────────────────────
+
+export async function releaseBarcodeFromOrder(id, { mode, remarks = "" }) {
+  try {
+    const response = await apiClient.post(
+      `inventory/barcode/${id}/release-from-order/`,
+      { mode, remarks }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function transferBarcodeToOrder(id, { order_id }) {
+  try {
+    const response = await apiClient.post(
+      `inventory/barcode/${id}/transfer-to-order/`,
+      { order_id }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Stock Transfer ────────────────────────────────────────────────────────────
+
+export async function fetchStockTransferForEdit(id) {
+  try {
+    const response = await apiClient.get(`/inventory/stock-transfer/${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch states :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchStockTransferForList({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`/inventory/stock-transfer/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createStockTransfer(data) {
+  try {
+    const response = await apiClient.post("/inventory/stock-transfer/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch states :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateStockTransferForEdit(data, id) {
+  try {
+    const response = await apiClient.put(`/inventory/stock-transfer/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch states :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Raw Material ──────────────────────────────────────────────────────────────
+
+export async function getRawMaterialBalance(params = {}) {
+  try {
+    const query = new URLSearchParams(params).toString();
+    const response = await apiClient.get(`/inventory/api/raw-material-balance/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getRawMaterialLedger(params = {}) {
+  try {
+    const query = new URLSearchParams(params).toString();
+    const response = await apiClient.get(`/inventory/api/raw-material-ledger/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getRawMaterialTransactions(params = {}) {
+  try {
+    const query = new URLSearchParams(params).toString();
+    const response = await apiClient.get(`inventory/raw-material-txn/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getSemiFinishedStock() {
+  try {
+    const response = await apiClient.get("/inventory/api/semi-finished-stock/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getUnbarcodedStockReport(params = {}) {
+  try {
+    const cleaned = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== "" && v !== null && v !== undefined)
+    );
+    const query = new URLSearchParams(cleaned).toString();
+    const response = await apiClient.get(`inventory/api/unbarcoded-stock-report/?${query}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchUnBarcodedList({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    params.append("page", page);
+    const response = await apiClient.get(`inventory/unbarcoded/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchPacketBalance(pcktNo) {
+  try {
+    const response = await apiClient.get(`manufacturing/packet-balance/?pckt_no=${encodeURIComponent(pcktNo)}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch packet balance:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

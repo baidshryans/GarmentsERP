@@ -1,5 +1,6 @@
 // frontend/src/services/api/accounting.js
 import apiClient from "../apiClient";
+import { deleteResource, handleDelete } from "./_helpers";
 
 export async function getAccountGroup() {
   try {
@@ -369,19 +370,6 @@ export async function setCommissionLedger(commission_ldgr_id) {
   }
 }
 
-export async function suggestAccounts(narration, voucherType = "JRNL", amount = 0) {
-  try {
-    const response = await apiClient.post("/ai/suggest-accounts/", {
-      narration,
-      voucher_type: voucherType,
-      amount,
-    });
-    return { success: true, data: response.data };
-  } catch (error) {
-    return { success: false, error: error.response?.data?.error || error.message };
-  }
-}
-
 export async function fetchGSTInputReport(startDate, endDate, gstinId) {
   try {
     const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
@@ -458,6 +446,166 @@ export async function getNextGCno() {
   } catch (error) {
     console.error("Failed to fetch states :", error.response?.data || error.message);
 
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Accounting Voucher ────────────────────────────────────────────────────────
+
+export async function fetchAccountingVoucher({ search = "", page = 1, ordering = "", voucher_type = "" } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    if (ordering) params.append("ordering", ordering);
+    if (voucher_type) params.append("voucher_type", voucher_type);
+    params.append("page", page);
+
+    const response = await apiClient.get(`/accounting/api/journal/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch voucher:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export const deleteJournalentry = async (id, toast) => {
+  const result = await deleteResource("/accounting/api/journal", id);
+  handleDelete(result, toast, "Accounting Voucher deleted successfully.");
+};
+
+// ── Voucher Attachments ───────────────────────────────────────────────────────
+
+export async function getVoucherAttachments(voucherId) {
+  try {
+    const response = await apiClient.get(`/accounting/api/voucher-attachments/?voucher=${voucherId}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function uploadVoucherAttachment(voucherId, file) {
+  try {
+    const formData = new FormData();
+    formData.append("voucher", voucherId);
+    formData.append("file", file);
+    const response = await apiClient.post("/accounting/api/voucher-attachments/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteVoucherAttachment(id) {
+  try {
+    await apiClient.delete(`/accounting/api/voucher-attachments/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Credit / Debit Notes ──────────────────────────────────────────────────────
+
+export async function createCreditDebitNote(data) {
+  try {
+    const response = await apiClient.post("/accounting/api/credit-debit-notes/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function cancelCreditDebitNote(id) {
+  try {
+    const response = await apiClient.post(`/accounting/api/credit-debit-notes/${id}/cancel/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCreditDebitNote(id) {
+  try {
+    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCreditDebitNotes(noteType) {
+  try {
+    const params = noteType ? `?note_type=${noteType}` : "";
+    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCNDNPrintData(id) {
+  try {
+    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${id}/print-data/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchNextCNDNNumber(noteType) {
+  try {
+    const response = await apiClient.get(`/accounting/api/cn-dn-no/${noteType}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── RCM / RCV Register ────────────────────────────────────────────────────────
+
+export async function fetchRCVs() {
+  try {
+    const response = await apiClient.get(`manufacturing/api/fetch-rcv-slip-nos`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchRcmRegister({ from_date, to_date } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (from_date) params.append('from_date', from_date);
+    if (to_date) params.append('to_date', to_date);
+    const response = await apiClient.get(`/purchase/api/rcm-register/?${params.toString()}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── GST Reports ───────────────────────────────────────────────────────────────
+
+export async function fetchGSTinputReport(fromDate, toDate) {
+  try {
+    const response = await apiClient.get(`/sales/api/gst-input?start_date=${fromDate}&end_date=${toDate}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch shape :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchGSToutputReport(fromDate, toDate) {
+  try {
+    const response = await apiClient.get(`/sales/api/api/gst-output?start_date=${fromDate}&end_date=${toDate}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch shape :", error.response?.data || error.message);
     return { success: false, error: error.response?.data || error.message };
   }
 }

@@ -385,3 +385,34 @@ export async function createGstin(payload) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+// ── Retail Management ─────────────────────────────────────────────────────────
+
+export async function createRetail(payload) {
+  try {
+    const response = await apiClient.post(`/mastersconfig/api/retail/`, payload);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateRetail(id, payload) {
+  try {
+    const response = await apiClient.patch(`/mastersconfig/api/retail/${id}/`, payload);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Licensing ─────────────────────────────────────────────────────────────────
+
+export async function fetchAllApps() {
+  try {
+    const response = await apiClient.get("/licensing/api/all-apps/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

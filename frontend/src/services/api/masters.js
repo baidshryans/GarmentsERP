@@ -890,3 +890,27 @@ export async function uploadKarigarMakingCSV(file) {
     return { success: false, error: error.response?.data?.error || error.message };
   }
 }
+
+// ── Packets ───────────────────────────────────────────────────────────────────
+
+export async function fetchPackets() {
+  try {
+    const response = await apiClient.get(`mastersconfig/api/packet/?page_size=10000`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Main Item Details ─────────────────────────────────────────────────────────
+
+export async function fetchMainItemDetails(ref_job_no, job_sl_no) {
+  try {
+    const response = await apiClient.get(`manufacturing/fetch-main-details/?job_sl_no=${job_sl_no}&ref_job_no=${ref_job_no}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch order items :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

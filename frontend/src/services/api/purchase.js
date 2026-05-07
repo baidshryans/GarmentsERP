@@ -316,3 +316,13 @@ export async function fetchStockMatchingReport({ from, to, tolerance = 0.05, mis
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+export async function fetchPurchaseVoucherForEdit(id) {
+  try {
+    const response = await apiClient.get(`/purchase/api/purchase-voucher/${id}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch PurchaseVoucher:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

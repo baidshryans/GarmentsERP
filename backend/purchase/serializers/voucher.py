@@ -1,26 +1,25 @@
 from decimal import Decimal
-from rest_framework.serializers import ModelSerializer
-from rest_framework.exceptions import ValidationError
-from rest_framework import serializers
 
+from django.db import transaction
+
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from rest_framework.serializers import ModelSerializer
+
+import global_vars
 from accounting.serializers import JournalEntrySerializer
 from accounting.utils import generate_voucher_no
-from contacts.models import Ledger
-from global_vars import STATES_OF_INDIA
-import global_vars
 from goldrates.models import PurityMaster
 from inventory.models import BarcodeMain
 from manufacturing.utils import create_or_update_nested
 from mastersconfig.models import Item, Packet, State, Hsn
+from sales.models import CustomerOrder, CustomerOrderItems
 from ..models import (
     PurchaseVoucher,
     PurchaseVoucherDetails,
     PurchaseVoucherItems,
     PurchaseAttachment,
 )
-from sales.models import CustomerOrder, CustomerOrderItems
-from django.db import transaction
-from accounting.models import VoucherMain
 
 
 class PurchaseVoucherSerializer(ModelSerializer):
@@ -29,11 +28,8 @@ class PurchaseVoucherSerializer(ModelSerializer):
         fields = "__all__"
 
 
-from rest_framework.exceptions import ValidationError as _LedgerConfigError
-
-
 def _raise_missing_ledger(label):
-    raise _LedgerConfigError(
+    raise ValidationError(
         {'ledger_config': f"Required ledger '{label}' is not configured on master. Please configure it in Company/GSTIN/Retail master before saving vouchers."}
     )
 
@@ -165,7 +161,6 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     def validate(self, data):
         details = data.get('purchasevoucherdetails_set', [])
         if details:
-            from decimal import Decimal
             gw = Decimal(str(data.get('gw', 0) or 0))
             total_sub_gw = sum(Decimal(str(d.get('sub_gw', 0) or 0)) for d in details)
             if abs(total_sub_gw - gw) > Decimal('0.01'):
@@ -294,13 +289,11 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             return None
 
     def get_total_gw(self, obj):
-        from decimal import Decimal
         return float(sum(
             (item.gw or Decimal('0')) for item in obj.purchasevoucheritems_set.all()
         ))
 
     def get_total_stone_wt(self, obj):
-        from decimal import Decimal
         stone_wt = Decimal('0')
         for item in obj.purchasevoucheritems_set.all():
             for detail in item.purchasevoucherdetails_set.all():
@@ -309,7 +302,6 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
         return float(stone_wt)
 
     def get_total_nw(self, obj):
-        from decimal import Decimal
         gold_nw = Decimal('0')
         for item in obj.purchasevoucheritems_set.all():
             for detail in item.purchasevoucherdetails_set.all():

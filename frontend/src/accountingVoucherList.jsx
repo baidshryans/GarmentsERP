@@ -52,15 +52,15 @@ const AccountingVoucherList = () => {
         if (companies.length > 0) {
           const c = companies[0];
           const retails = retailRes.success ? (Array.isArray(retailRes.data) ? retailRes.data : retailRes.data?.results ?? []) : [];
-          const retailCode = sessionStorage.getItem("retail_code");
-          const retail = retails.find(r => r.retail_code === retailCode) || retails[0];
+          const activeRetailCode = sessionStorage.getItem("retail_code") || "";
+          const retail = retails.find((r) => r.retail_code === activeRetailCode);
           setCompanyInfo({
             company_name: c.company_name,
             company_address: [c.address, c.city, c.pincode].filter(Boolean).join(', '),
             company_phone: c.phone,
             company_email: c.email,
             company_pan: c.pan,
-            company_gstin: retail?.gstin_master_str || "",
+            company_gstin: retail?.gstin_master_str || c.gstin || "",
             company_tan: c.tan,
             company_cin: c.cin,
           });

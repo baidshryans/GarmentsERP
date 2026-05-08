@@ -110,9 +110,7 @@ const PaymentVoucherSlip = ({ data = {} }) => {
         <div className="pv-amount-block">
           <div className="pv-lbl" style={{ textAlign: "right" }}>Amount</div>
           <div className="pv-amount-fig">₹&nbsp;{fmt(totalAmt) || "0.00"}</div>
-          {totalAmt > 0 && (
-            <div className="pv-amount-words">{numberToWords(totalAmt)}</div>
-          )}
+          <div className="pv-amount-words">{numberToWords(totalAmt)}</div>
         </div>
       </div>
 

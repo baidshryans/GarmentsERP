@@ -1858,9 +1858,9 @@ const PurchaseVoucher = () => {
               ))}
 
               {/* Direct sub-items (rsRaw) — rendered as standalone rows in
-                  the same items list, primarily used in Customer mode where
-                  there is no main item picker. */}
-              {rsRaw.map((detail, idx) => (
+                  the same items list in Customer mode only. In Vendor mode
+                  they are rendered in the dedicated table below. */}
+              {isCustomer && rsRaw.map((detail, idx) => (
                 <TableRow key={`raw-${idx}`} className="bg-white">
                   <TableCell className="px-4 py-2 border align-middle">
                     <div className="flex flex-row justify-center items-center gap-1">

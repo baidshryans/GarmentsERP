@@ -1262,8 +1262,10 @@ class PnlGroupLedgersView(APIView):
         desc_ids = [a.id for a in descendants]
 
         ledgers = Ledger.objects.filter(ac_group_id__in=desc_ids)
-        if retail:
-            ledgers = ledgers.filter(retail=retail)
+        # Do NOT filter ledgers by retail here — ledgers are company-wide and may
+        # not have a retail assigned even though they carry transactions for a
+        # specific retail (e.g. making charge ledgers).  Retail scoping is applied
+        # on the transaction side below, consistent with the main P&L calculation.
 
         # Transaction balances within date range
         txn_filter = {

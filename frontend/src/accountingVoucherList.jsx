@@ -66,7 +66,8 @@ const AccountingVoucherList = () => {
           });
         }
       }
-    });
+    })
+    .catch((err) => console.error("Failed to load company/retail info:", err));
   }, []);
 
  useEffect(() => {

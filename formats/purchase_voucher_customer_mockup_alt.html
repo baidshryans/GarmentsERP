@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Purchase Voucher (Customer) — Monochrome Mockup</title>
+<style>
+  /* ─── Design tokens (monochrome) ───────────────────────────────────── */
+  :root {
+    --ink:        #000;
+    --ink-soft:   #2b2b2b;
+    --muted:      #6e6e6e;
+    --line:       #d0d0d0;
+    --line-dk:    #9a9a9a;
+    --bg-soft:    #f6f6f6;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #dadada;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 9.5px;
+    line-height: 1.45;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Toolbar (screen-only) */
+  .toolbar {
+    position: sticky; top: 0; z-index: 10;
+    background: #fff; border-bottom: 1px solid var(--line);
+    padding: 8px 14px; display: flex; gap: 10px; align-items: center;
+    font-size: 11px;
+  }
+  .toolbar button {
+    background: #fff; border: 1px solid var(--ink); color: var(--ink);
+    font: inherit; padding: 4px 10px; cursor: pointer; border-radius: 2px;
+  }
+  .toolbar button.active { background: var(--ink); color: #fff; }
+  .toolbar .hint { color: var(--muted); margin-left: auto; }
+
+  @media print {
+    .toolbar { display: none; }
+    body { background: #fff; }
+    .page { box-shadow: none !important; margin: 0 !important; }
+  }
+
+  /* ─── Sheet (A4 portrait, default) ─────────────────────────────────── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 18px auto;
+    padding: 14mm 13mm;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(0,0,0,.10);
+    position: relative;
+  }
+  .page::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--ink);
+  }
+
+  /* ─── Compact (A5 landscape) variant ───────────────────────────────── */
+  body.compact .page {
+    width: 210mm; min-height: 148mm;
+    padding: 5mm 7mm; margin: 18px auto;
+  }
+  body.compact .page::before { height: 2px; }
+  body.compact .copy-line    { margin-bottom: 2px; }
+  body.compact .copy-line .copy-tag { padding: 1px 7px; font-size: 7px; }
+  body.compact .header        { margin-bottom: 5px; }
+  body.compact .h-display     { font-size: 14px; letter-spacing: 0.4px; }
+  body.compact .logo-slot     { width: 40px; height: 40px; font-size: 6.5px; }
+  body.compact .logo-slot.square { width: 60px; height: 38px; }
+  body.compact .brand-text .meta { font-size: 8.5px; margin-top: 2px; line-height: 1.35; }
+  body.compact .brand-text .meta div + div { margin-top: 0; }
+  body.compact .doc-bar       { padding: 0 0 3px; margin-bottom: 6px; }
+  body.compact .h-doc         { font-size: 11px; letter-spacing: 2.5px; }
+  body.compact .meta-strip    { margin-bottom: 6px; column-gap: 6px; }
+  body.compact .meta-strip .meta-card { padding: 4px 8px; }
+  body.compact .meta-strip .label { font-size: 7px; margin-bottom: 1px; }
+  body.compact .meta-strip .value { font-size: 9.5px; }
+  body.compact .vendor-card   { padding: 6px 10px; margin-bottom: 6px; }
+  body.compact .vendor-card .label { margin-bottom: 2px; }
+  body.compact .vendor-card .name { font-size: 10.5px; }
+  body.compact .vendor-card .addr { font-size: 9px; margin-bottom: 3px; }
+  body.compact .vendor-card .ids-row { padding-top: 3px; column-gap: 14px; row-gap: 2px; }
+  body.compact .items thead th { padding: 4px 5px; font-size: 7.5px; }
+  body.compact .items tbody td { padding: 5px 5px; font-size: 8.5px; }
+  body.compact .items tbody td .item-sub { font-size: 7.5px; margin-top: 1px; }
+  body.compact .items tbody tr.filler td { padding: 3px 5px; }
+  body.compact .items tr.tot td { padding: 4px 5px; font-size: 9px; }
+  body.compact .items tr.tot.first td { padding-top: 5px; }
+  body.compact .items tr.tot.grand td { padding-top: 5px; padding-bottom: 5px; font-size: 10.5px; }
+  body.compact .meta-line     { margin-top: 6px; font-size: 9px; }
+  body.compact .meta-line + .meta-line { margin-top: 3px; }
+  body.compact .signoff       { margin-top: 8px; padding-top: 6px; gap: 14px; }
+  body.compact .sign .sig-box { margin-top: 18px; padding: 4px 18px 0; }
+  body.compact .gst-grid      { row-gap: 2px; }
+  body.compact .footer        { margin-top: 8px; padding-top: 5px; font-size: 7px; }
+
+  @media print {
+    body.compact .page {
+      width: 210mm; min-height: 148mm; box-shadow: none; margin: 0; padding: 5mm 7mm;
+    }
+  }
+
+  /* ─── Typography helpers ──────────────────────────────────────────── */
+  .label {
+    text-transform: uppercase; letter-spacing: 1.4px;
+    font-size: 8px; font-weight: 600; color: var(--muted);
+  }
+  .h-display { font-size: 22px; font-weight: 800; letter-spacing: 1.2px; color: var(--ink); }
+  .h-doc     { font-size: 16px; font-weight: 700; letter-spacing: 4px; color: var(--ink); }
+  .strong    { font-weight: 700; color: var(--ink); }
+  .num       { font-variant-numeric: tabular-nums; }
+  .right     { text-align: right; }
+
+  /* ─── Copy indicator (above header, right-aligned) ──────────────── */
+  .copy-line {
+    display: flex; justify-content: flex-end; align-items: center;
+    margin-bottom: 6px;
+  }
+  .copy-line .copy-tag {
+    display: inline-block;
+    color: var(--ink);
+    font-size: 9px; letter-spacing: 1.8px; text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  /* ─── Header (BIS-left · centred company · logo-right) ───────────── */
+  .header {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .logo-slot {
+    width: 78px; height: 78px;
+    border: 1px dashed var(--line-dk);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    font-size: 8px; font-weight: 600; letter-spacing: 1px;
+    text-align: center; line-height: 1.1;
+  }
+  .logo-slot.square { border-radius: 4px; width: 100px; height: 66px; }
+  .header .left  { justify-self: start; }
+  .header .right { justify-self: end; }
+  .brand-text { text-align: center; }
+  .brand-text .h-display { line-height: 1.1; }
+  .brand-text .meta {
+    color: var(--ink-soft); font-size: 10.5px; margin-top: 6px;
+    line-height: 1.45;
+  }
+  .brand-text .meta div + div { margin-top: 2px; }
+
+  /* ─── Document title (below header, clean, centered) ─────────────── */
+  .doc-bar {
+    text-align: center;
+    padding: 2px 0 6px;
+    margin-bottom: 14px;
+  }
+  .doc-bar .h-doc { display: inline-block; }
+
+  /* ─── Meta cards (Voucher No · Date · Place of Supply) ──────────── */
+  .meta-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: 10px;
+    margin-bottom: 16px;
+  }
+  .meta-strip .meta-card {
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 10px 14px;
+    background: #fff;
+  }
+  .meta-strip .label { margin-bottom: 4px; }
+  .meta-strip .value { font-size: 11px; font-weight: 700; color: var(--ink); }
+
+  /* ─── Vendor / Customer card (stacked rows, full-width) ──────────── */
+  .vendor-card {
+    background: var(--bg-soft);
+    padding: 12px 16px;
+    border-left: 3px solid var(--ink);
+    border-radius: 2px;
+    margin-bottom: 16px;
+    font-size: 9.5px;
+  }
+  .vendor-card .label    { margin-bottom: 6px; }
+  .vendor-card .name     { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+  .vendor-card .addr     { color: var(--ink-soft); font-size: 10px; margin-bottom: 6px; line-height: 1.4; }
+  .vendor-card .ids-row  {
+    display: flex; flex-wrap: wrap;
+    column-gap: 22px; row-gap: 3px;
+    padding-top: 6px; border-top: 1px dashed var(--line);
+  }
+  .vendor-card .kv { display: inline-flex; align-items: baseline; gap: 6px; }
+  .vendor-card .kv .k {
+    color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+    font-size: 7.8px; font-weight: 600;
+  }
+  .vendor-card .kv .v { color: var(--ink); font-weight: 600; font-size: 9.5px; }
+
+  /* ─── Items table ────────────────────────────────────────────────── */
+  .items { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .items thead th {
+    text-transform: uppercase; letter-spacing: 1.2px;
+    font-size: 8px; font-weight: 700; color: var(--ink);
+    text-align: right; padding: 9px 8px;
+    border-bottom: 1.5px solid var(--ink);
+    background: #fff;
+  }
+  .items thead th.t-left   { text-align: left; }
+  .items thead th.t-center { text-align: center; }
+  .items tbody td {
+    padding: 11px 8px;
+    border-bottom: 1px solid var(--line);
+    font-size: 10px;
+    color: var(--ink);
+    vertical-align: top;
+  }
+  .items tbody td.t-num    { text-align: right; font-variant-numeric: tabular-nums; }
+  .items tbody td.t-center { text-align: center; }
+  .items tbody td.sl       { color: var(--ink); font-weight: 700; font-size: 10px; }
+  .items tbody td .item-name { font-weight: 700; }
+  .items tbody td .item-sub  { color: var(--ink-soft); font-size: 8.5px; margin-top: 2px; }
+  .items tbody tr.filler td  { border-bottom: 1px dotted var(--line); padding: 9px 8px; }
+
+  /* ─── Totals integrated into items table ─────────────────────────── */
+  .items tr.tot td {
+    border-bottom: none;
+    padding: 7px 8px;
+    font-size: 10px;
+    color: var(--ink);
+  }
+  .items tr.tot td.tot-label {
+    text-align: right; padding-right: 10px;
+    font-weight: 500; color: var(--ink-soft);
+  }
+  .items tr.tot td.tot-value {
+    text-align: right; font-variant-numeric: tabular-nums;
+    font-weight: 600; white-space: nowrap;
+  }
+  .items tr.tot td.tot-label { white-space: nowrap; }
+  .items tr.tot.first td { border-top: 1px solid var(--line-dk); padding-top: 9px; }
+  .items tr.tot.subtotal td.tot-label { color: var(--ink); font-weight: 600; }
+  .items tr.tot.subtotal td.tot-value { font-weight: 700; }
+  .items tr.tot.grand td {
+    border-top: 1px solid var(--line-dk);
+    padding-top: 9px; padding-bottom: 9px;
+    font-size: 11.5px; font-weight: 700; color: var(--ink);
+  }
+
+  /* ─── Narration / In Words (single-line lines below table) ───────── */
+  .meta-line {
+    margin-top: 14px;
+    font-size: 10px;
+    color: var(--ink);
+  }
+  .meta-line + .meta-line { margin-top: 5px; }
+  .meta-line .label {
+    display: inline-block; margin-right: 8px;
+  }
+
+  /* ─── Sign-off ───────────────────────────────────────────────────── */
+  .signoff {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 24px; margin-top: 32px;
+    padding-top: 16px; border-top: 1px solid var(--ink);
+  }
+  .gst-grid {
+    display: grid; grid-template-columns: auto 1fr;
+    column-gap: 10px; row-gap: 4px; font-size: 9px;
+  }
+  .gst-grid .k {
+    color: var(--muted); text-transform: uppercase; letter-spacing: 1.3px;
+    font-size: 7.8px; align-self: center;
+  }
+  .gst-grid .v { color: var(--ink); font-weight: 600; }
+
+  .sign { text-align: right; }
+  .sign .for { font-size: 10px; color: var(--ink-soft); }
+  .sign .for .strong { color: var(--ink); }
+  .sign .sig-box {
+    display: inline-block; margin-top: 48px;
+    padding: 6px 26px 0;
+    border-top: 1.5px solid var(--ink);
+    font-size: 8.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.6px; color: var(--ink);
+  }
+
+  /* ─── Footer ─────────────────────────────────────────────────────── */
+  .footer {
+    margin-top: 28px;
+    text-align: center;
+    padding-top: 10px; border-top: 1px solid var(--line);
+    font-size: 8px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1.2px;
+  }
+</style>
+
+<style id="page-rule">@page { size: A4 portrait; margin: 8mm; }</style>
+</head>
+<body>
+
+<!-- ─── Toolbar (screen only) ───────────────────────────────────────── -->
+<div class="toolbar no-print">
+  <strong>Preview size:</strong>
+  <button id="btn-a4" class="active" type="button">A4 portrait</button>
+  <button id="btn-a5" type="button">A5 landscape (compact, ≤3 items)</button>
+  <span class="hint">Compact format auto-applies when items ≤ 3 in the React component.</span>
+</div>
+
+<div class="page">
+
+  <!-- ─── COPY INDICATOR (above header) ─────────────────────────────── -->
+  <div class="copy-line">
+    <span class="copy-tag">Original / Duplicate</span>
+  </div>
+
+  <!-- ─── HEADER : BIS  ·  Company (centered)  ·  Brand logo ────────── -->
+  <div class="header">
+    <div class="left">
+      <div class="logo-slot">BIS<br/>HALLMARK</div>
+    </div>
+    <div class="brand-text">
+      <div class="h-display">ZORII DIAMONDS PVT. LTD.</div>
+      <div class="meta">
+        <div>24, Camac Street, 1st Floor, Kolkata-700016</div>
+        <div>Phone : 8981584400  ·  Email : contact@zorii.in</div>
+        <div>CIN : U32111WB2025PTC276060</div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="logo-slot square">COMPANY<br/>LOGO</div>
+    </div>
+  </div>
+
+  <!-- ─── TITLE ─────────────────────────────────────────────────────── -->
+  <div class="doc-bar">
+    <span class="h-doc">PURCHASE VOUCHER (CUSTOMER)</span>
+  </div>
+
+  <!-- ─── META CARDS ────────────────────────────────────────────────── -->
+  <div class="meta-strip">
+    <div class="meta-card">
+      <div class="label">Voucher No.</div>
+      <div class="value num">C2627 / 00004</div>
+    </div>
+    <div class="meta-card">
+      <div class="label">Voucher Date</div>
+      <div class="value num">06 May 2026</div>
+    </div>
+    <div class="meta-card">
+      <div class="label">Place of Supply</div>
+      <div class="value">West Bengal · 19</div>
+    </div>
+  </div>
+
+  <!-- ─── VENDOR / CUSTOMER ─────────────────────────────────────────── -->
+  <div class="vendor-card">
+    <div class="name">Anita Baradia</div>
+    <div class="addr">Vivek Vihar, Kolkata - 700019, West Bengal</div>
+    <div class="ids-row">
+      <span class="kv"><span class="k">Phone</span><span class="v">+91 98300 12345</span></span>
+      <span class="kv"><span class="k">PAN</span><span class="v">BYUPB1924R</span></span>
+      <span class="kv"><span class="k">GSTIN</span><span class="v" style="color: var(--ink-soft); font-weight: 500;">Unregistered</span></span>
+      <span class="kv"><span class="k">State</span><span class="v">West Bengal · 19</span></span>
+    </div>
+  </div>
+
+  <!-- ─── ITEMS TABLE ───────────────────────────────────────────────── -->
+  <table class="items">
+    <colgroup>
+      <col style="width:5%"  />
+      <col style="width:33%" />
+      <col style="width:6%"  />
+      <col style="width:7%"  />
+      <col style="width:9%"  />
+      <col style="width:9%"  />
+      <col style="width:10%" />
+      <col style="width:11%" />
+      <col style="width:10%" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="t-center">SL</th>
+        <th class="t-left">Particulars</th>
+        <th>Pcs</th>
+        <th>Ct</th>
+        <th>Wt</th>
+        <th>Fine Wt</th>
+        <th>Rate</th>
+        <th>Value</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="sl t-center">01</td>
+        <td>
+          <div class="item-name">Old Gold</div>
+          <div class="item-sub">Purity: MIXK · Acquired against scheme redemption</div>
+        </td>
+        <td class="t-center">—</td>
+        <td class="t-num">—</td>
+        <td class="t-num strong">18.720</td>
+        <td class="t-num">—</td>
+        <td class="t-num">10,955.29</td>
+        <td class="t-num">2,05,083.00</td>
+        <td class="t-num strong">2,05,083.00</td>
+      </tr>
+      <tr class="filler"><td colspan="9">&nbsp;</td></tr>
+      <tr class="filler"><td colspan="9">&nbsp;</td></tr>
+
+      <!-- Totals — integrated as bottom rows of the items table -->
+      <tr class="tot subtotal first">
+        <td colspan="7"></td>
+        <td class="tot-label">Subtotal</td>
+        <td class="tot-value">2,05,083.00</td>
+      </tr>
+      <tr class="tot">
+        <td colspan="7"></td>
+        <td class="tot-label">Round Off</td>
+        <td class="tot-value">0.00</td>
+      </tr>
+      <tr class="tot grand">
+        <td colspan="7"></td>
+        <td class="tot-label">Total Payable</td>
+        <td class="tot-value">2,05,083.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ─── NARRATION (rendered only when not blank) ──────────────────── -->
+  <div class="meta-line">
+    <span class="label">Narration</span>
+    <span>Old gold receipt against scheme redemption</span>
+  </div>
+
+  <!-- ─── IN WORDS (single line) ────────────────────────────────────── -->
+  <div class="meta-line">
+    <span class="label">In Words</span>
+    <span class="strong">Rupees Two Lakh Five Thousand Eighty Three Only</span>
+  </div>
+
+  <!-- ─── SIGN-OFF ──────────────────────────────────────────────────── -->
+  <div class="signoff">
+    <div>
+      <div class="label" style="margin-bottom:8px;">Issued By</div>
+      <div class="gst-grid">
+        <div class="k">Pan</div>     <div class="v">AACCZ5519L</div>
+        <div class="k">Gstin</div>   <div class="v">19AACCZ5519L1ZR</div>
+        <div class="k">State</div>   <div class="v">West Bengal · 19</div>
+      </div>
+    </div>
+    <div class="sign">
+      <div class="for">for <span class="strong">Zorii Diamonds Pvt. Ltd.</span></div>
+      <div class="sig-box">Authorised Signatory</div>
+    </div>
+  </div>
+
+  <!-- ─── FOOTER ────────────────────────────────────────────────────── -->
+  <div class="footer">
+    Computer-generated voucher · No physical signature required
+  </div>
+</div>
+
+<script>
+  const btnA4 = document.getElementById('btn-a4');
+  const btnA5 = document.getElementById('btn-a5');
+  const pageRule = document.getElementById('page-rule');
+  btnA4.addEventListener('click', () => {
+    document.body.classList.remove('compact');
+    btnA4.classList.add('active'); btnA5.classList.remove('active');
+    pageRule.textContent = '@page { size: A4 portrait; margin: 8mm; }';
+  });
+  btnA5.addEventListener('click', () => {
+    document.body.classList.add('compact');
+    btnA5.classList.add('active'); btnA4.classList.remove('active');
+    pageRule.textContent = '@page { size: A5 landscape; margin: 6mm; }';
+  });
+</script>
+
+</body>
+</html>

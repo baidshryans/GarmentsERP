@@ -193,7 +193,8 @@ class CompanyMasterSerializer(ModelSerializer):
         fields = [
             'id', 'company_name', 'pan', 'tan', 'gstin', 'cin',
             'phone', 'email', 'address', 'city', 'state', 'state_name',
-            'pincode', 'website', 'created_at', 'branch_count', 'retail_count',
+            'pincode', 'website', 'bis_logo', 'company_logo',
+            'created_at', 'branch_count', 'retail_count',
             'enforce_cash_limits', 'max_cash_receipt_limit', 'max_cash_payment_limit',
             'discount_ldgr', 'round_off_ldgr', 'hallmark_charge_ldgr',
             'making_receive_ldgr', 'gold_conversion_ldgr',

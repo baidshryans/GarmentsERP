@@ -7,21 +7,21 @@ import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
 import { useF2Navigate } from "@/hooks/useF2Navigate"
 import { useEnterAsTab } from "@/hooks/useEnterAsTab"
-import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Table, TableRow, TableCell, TableHead, TableHeader, TableBody } from "@/components/ui/table";
-import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, getLedger, createCustomerOrder, getStates, fetchPVNoNext, fetchPoNoNext, fetchPackets, fetchPos, fetchStoneIssuesFilterJobs, fetchStoneIssued, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchLedgerTDSInfo } from "@/services/apiService";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { fetchMainItem, fetchSalesperson, fetchPurity, getLedgers, getStates, fetchPVNoNext, fetchPackets, fetchPos, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchLedgerTDSInfo } from "@/services/apiService";
+import { useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { fetchCustomerOrders, fetchOrderItem, fetchPurchaseVoucherForEdit, fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, updatePurchaseVoucherForEdit, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
+import { fetchCustomerOrders, fetchPurchaseVoucherForEdit, fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, updatePurchaseVoucherForEdit, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SquarePen, Trash2, Paperclip, X, Upload, FileText } from "lucide-react";
 import InvoiceUpload from "@/components/AI/InvoiceUpload";
 import PurchaseAttachments from "./PurchaseAttachments";
 import { uploadPurchaseAttachment } from "@/services/apiService";
-import { arrayToObject, renderErrorTree } from "../../../Utils";
+import { renderErrorTree } from "../../../Utils";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { useNavigate } from "react-router";
 import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
@@ -255,9 +255,6 @@ const PurchaseVoucher = () => {
     const idx = rs.findIndex(r => r.sl_no === Number(vals.sl_no));
     if (idx >= 0) {
       const tablevalues = rs[idx];
-      console.log(tablevalues)
-      console.log(evaluateFormula("gw - SUM(purchasevoucherdetails_set.sub_gw)", tablevalues))
-
       setValue("details.sub_gw", evaluateFormula("gw - SUM(purchasevoucherdetails_set.sub_gw)", tablevalues));
       setValue("details.metal_purity", tablevalues.purity)
       setCalculate(prev => prev + 1)
@@ -554,8 +551,14 @@ const PurchaseVoucher = () => {
       setValue(`table.${col}`, evaluateFormula(statmaintableFormulas[col], maintable));
     })
 
-    // When tunch is entered for Gold, rate must be 0 (tunch-based pricing)
-    if (parseFloat(table.tunch || 0) > 0 && detailItemData?.short_code === "Gold") {
+    // When tunch is entered for Gold, rate must be 0 (tunch-based pricing).
+    // Customer purchases (old-gold buybacks) use a flat ₹/g rate even when
+    // a tunch value is present, so don't zero the rate in that flow.
+    if (
+      current_vou_type !== 'Customer' &&
+      parseFloat(table.tunch || 0) > 0 &&
+      detailItemData?.short_code === "Gold"
+    ) {
       setValue('details.rate', 0);
     }
   }, [rs, rsRaw, watchedFields, watchedTunch, calculate]);
@@ -574,6 +577,12 @@ const PurchaseVoucher = () => {
       return;
     }
     if (!watchedPacketDetail) {
+      // Customer voucher entries don't use the packet field — sub-item is picked
+      // directly. Skip the reset so the user's typed rate / sub_item aren't wiped
+      // when `packets` finishes loading after the form mounts.
+      if (current_vou_type === 'Customer') {
+        return;
+      }
       setDetailItemDisplay("");
       setValue('details.sub_item', "");
       setValue('details.rate', 0);
@@ -772,7 +781,6 @@ const PurchaseVoucher = () => {
           sub_pcs: toIntOrNull(d.sub_pcs),
         })),
       };
-      console.log(`Processing item: item="${processedItem.item}", purity="${processedItem.purity}"`);
       return processedItem;
     });
     form.purchasevoucherdetails_set = currentRsRaw.map(d => ({
@@ -803,9 +811,6 @@ const PurchaseVoucher = () => {
       ).toFixed(2)
     );
     setSaving(true);
-    console.log(`Form data being sent - first item:`, form.purchasevoucheritems_set[0]);
-    console.log(`Form data being sent - first item.item:`, form.purchasevoucheritems_set[0]?.item);
-    console.log(`Form data being sent - first item.purity:`, form.purchasevoucheritems_set[0]?.purity);
     try {
       const response = id
         ? await updatePVmutaion.mutateAsync({ data: form, id })
@@ -854,7 +859,6 @@ const PurchaseVoucher = () => {
     const { customer_order_id, sl_no } = getValues();
     try {
       const data = await getCustomerItemAsPurchaseStyle(customer_order_id, sl_no);
-      console.log(data)
       Object.keys(data.data).forEach((key) => {
         setValue(`table.${key}`, data.data[key]);
       });
@@ -954,9 +958,7 @@ const PurchaseVoucher = () => {
   const handleKeyDownDetails = (e) => {
     if (e.key === "Tab") {
       e.preventDefault();
-      // if you want to actually intercept the Tab
       const vals = { ...getValues("details") }
-      console.log(vals)
       if (!vals.sub_item) { toast({ title: "No item added" }); return; }
 
       // No main item entered → save as standalone sub-item (e.g. raw stones / gold).
@@ -1308,6 +1310,13 @@ const PurchaseVoucher = () => {
                   value={field.value}
                   disabled={vou_type}
                   onValueChange={(val) => {
+                    // Redirect Customer-mode entries to their canonical URL so
+                    // the form mounts cleanly with vou_type pre-locked. Vendor
+                    // stays in place and just resets transient state.
+                    if (val === "Customer") {
+                      navigate("/purchase/customerpurchase/list/add/?vou_type=Customer");
+                      return;
+                    }
                     field.onChange(val);
                     setRows([]);
                     markTableDirty();
@@ -1417,7 +1426,7 @@ const PurchaseVoucher = () => {
           <Input type="hidden" {...register("form.ldgr_code")} />
           <Input type="hidden" {...register("customer_order_item")} />
         </div>
-        {hsn_current || id ? <>
+        {hsn_current || id || isCustomer ? <>
 
           {/* Item Details */}
           <div className="flex items-center gap-3 my-5">
@@ -1713,7 +1722,7 @@ const PurchaseVoucher = () => {
                     step="0.01"
                     {...register("details.rate")}
                     placeholder="Rate"
-                    disabled={parseFloat(watchedTunch || 0) > 0 && detailItemData?.short_code === "Gold"}
+                    disabled={!isCustomer && parseFloat(watchedTunch || 0) > 0 && detailItemData?.short_code === "Gold"}
                   />
                 </TableCell>
                 <TableCell className="w-28 px-4 py-2 border">
@@ -1755,10 +1764,13 @@ const PurchaseVoucher = () => {
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Remarks</TableCell>
               </TableRow>
 
-              {rs.length === 0 && (
+              {rs.length === 0 && rsRaw.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={17} className="px-4 py-6 border text-center text-sm text-gray-400">
-                    No items added yet. Add a main item above and press <kbd className="px-1 py-0.5 rounded bg-gray-100 border text-gray-500 font-mono text-[11px]">Tab</kbd> on Remarks to add it here.
+                    {isCustomer
+                      ? <>No items added yet. Fill the row above and press <kbd className="px-1 py-0.5 rounded bg-gray-100 border text-gray-500 font-mono text-[11px]">Tab</kbd> on Value to add it here.</>
+                      : <>No items added yet. Add a main item above and press <kbd className="px-1 py-0.5 rounded bg-gray-100 border text-gray-500 font-mono text-[11px]">Tab</kbd> on Remarks to add it here.</>
+                    }
                   </TableCell>
                 </TableRow>
               )}
@@ -1819,7 +1831,6 @@ const PurchaseVoucher = () => {
                         </div>
                       </TableCell>
                       <TableCell className="w-28 px-4 py-2 border">{item.sl_no}</TableCell>
-                      {/* <TableCell className="w-28 px-4 py-2 border">{detail.bill_no}</TableCell> */}
                       <TableCell className="w-28 px-4 py-2 border">{detail.packet}</TableCell>
 
                       <TableCell className="w-48 px-4 py-2 border">{mainItemData.find(m => m.short_code === detail.sub_item)?.item_name || detail.sub_item}</TableCell>
@@ -1846,13 +1857,44 @@ const PurchaseVoucher = () => {
                 </React.Fragment>
               ))}
 
+              {/* Direct sub-items (rsRaw) — rendered as standalone rows in
+                  the same items list, primarily used in Customer mode where
+                  there is no main item picker. */}
+              {rsRaw.map((detail, idx) => (
+                <TableRow key={`raw-${idx}`} className="bg-white">
+                  <TableCell className="px-4 py-2 border align-middle">
+                    <div className="flex flex-row justify-center items-center gap-1">
+                      <SquarePen color="#6d6d6d" className="size-4 cursor-pointer" onClick={() => handleEditRawRow(idx)} />
+                      <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteRawRow(idx)} />
+                    </div>
+                  </TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{idx + 1}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.packet}</TableCell>
+                  <TableCell className="w-48 px-4 py-2 border">{mainItemData.find(m => m.short_code === detail.sub_item)?.item_name || detail.sub_item}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border"></TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.sub_pcs}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.sub_gw}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border"></TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.metal_purity}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.loss : ""}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.tunch : ""}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.fine_wt : ""}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.rate}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border"></TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{detail.value}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border"></TableCell>
+                </TableRow>
+              ))}
+
             </TableBody>
           </Table>
           </div> </> : <></>}
 
-        {/* Legacy direct items — shown in edit mode only if the voucher had them */}
+        {/* Legacy direct items — already rendered above inside the main
+            items list, so suppress this duplicate copy in Customer mode. */}
 
-        {rsRaw.length > 0 && (
+        {!isCustomer && rsRaw.length > 0 && (
           <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse mt-2">
             <TableBody>

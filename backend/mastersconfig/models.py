@@ -38,6 +38,10 @@ class CompanyMaster(models.Model):
     )
     pincode      = models.CharField(max_length=10, blank=True)
     website      = models.CharField(max_length=200, blank=True)
+    bis_logo     = models.ImageField(upload_to='company-logos/', blank=True, null=True,
+                                     help_text="BIS Hallmark logo for printed invoices")
+    company_logo = models.ImageField(upload_to='company-logos/', blank=True, null=True,
+                                     help_text="Company logo for printed invoices")
     created_at   = models.DateTimeField(auto_now_add=True)
 
     # ── Operational Ledgers (auto-created on company creation) ───────────────

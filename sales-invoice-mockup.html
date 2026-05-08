@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Tax Invoice — Alternative Layout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0f172a;
+    --body: #1e293b;
+    --muted: #64748b;
+    --faint: #94a3b8;
+    --rule: #e2e8f0;
+    --band: #f8fafc;
+    --accent: #1e293b;
+    --accent-soft: #f1f5f9;
+    --highlight: #0f172a;
+    --gold: #b08d3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #eef2f6;
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    color: var(--body);
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    width: 210mm;
+    height: 297mm;
+    margin: 24px auto;
+    background: #fff;
+    padding: 10mm 11mm;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+    color: var(--body);
+    font-size: 9px;
+    line-height: 1.45;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .hdr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--ink);
+    text-align: center;
+  }
+  .bis {
+    width: 64px; height: 64px;
+    border: 1px dashed var(--faint);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 7.5px; color: var(--muted); text-align: center; line-height: 1.15;
+    letter-spacing: 0.5px;
+  }
+  .logo {
+    width: 90px; height: 64px;
+    border: 1px dashed var(--faint);
+    display: grid; place-items: center;
+    font-size: 7.5px; color: var(--muted); text-align: center; line-height: 1.15;
+    letter-spacing: 0.5px;
+  }
+  .brand-block {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .brand {
+    font-family: "Fraunces", "Playfair Display", Georgia, serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .brand-sub {
+    font-size: 9px; color: var(--muted); letter-spacing: 0.2px;
+  }
+  .brand-sub strong { color: var(--ink); font-weight: 600; }
+  .brand-ids {
+    display: flex; gap: 18px;
+    font-size: 8.5px; color: var(--muted); margin-top: 2px;
+  }
+  .brand-ids span b { color: var(--ink); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+  /* ── Invoice meta strip ─────────────────────────────── */
+  .invoice-strip {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: 10px 0 12px;
+  }
+  .invoice-strip .eyebrow {
+    font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .invoice-strip .num {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 20px; font-weight: 600; color: var(--ink);
+    letter-spacing: -0.3px; margin-top: 2px;
+  }
+  .invoice-strip .right { text-align: right; font-size: 9px; color: var(--muted); }
+  .invoice-strip .right b { color: var(--ink); font-weight: 600; margin-left: 4px; }
+  .invoice-strip .right div + div { margin-top: 2px; }
+
+  /* ── Parties (Buyer / Consignee) ────────────────────── */
+  .parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-bottom: 12px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .party {
+    padding: 10px 12px;
+    position: relative;
+  }
+  .party + .party { border-left: 1px solid var(--rule); }
+  .party .eyebrow {
+    font-size: 7px; letter-spacing: 1.8px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .party .eyebrow::after {
+    content: ""; flex: 1; height: 1px; background: var(--rule);
+  }
+  .party .name {
+    font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -0.1px;
+  }
+  .party .addr {
+    font-size: 9px; color: var(--body); margin-top: 4px; line-height: 1.55;
+  }
+  .party .ids {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 8px 14px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--rule);
+  }
+  .party .ids .id-cell .lbl {
+    font-size: 7px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .party .ids .id-cell .val {
+    font-size: 9px; color: var(--ink); font-weight: 600;
+    font-variant-numeric: tabular-nums; margin-top: 1px;
+    word-break: break-all;
+  }
+  .party .ids .id-cell .val.empty { color: var(--faint); font-weight: 400; }
+
+  /* ── Transport pill row ──────────────────────────────── */
+  .pills {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .pill {
+    background: var(--band);
+    padding: 7px 10px;
+    border-radius: 4px;
+  }
+  .pill .lbl {
+    font-size: 7px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .pill .val {
+    font-size: 9.5px; color: var(--ink); font-weight: 600; margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pill .val.empty { color: var(--faint); font-weight: 400; }
+
+  /* ── Metal rate strip ────────────────────────────────── */
+  .rate-strip {
+    display: flex; align-items: baseline; gap: 14px;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 14px;
+  }
+  .rate-strip .lbl {
+    font-size: 7.5px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .rate-strip .rate {
+    font-size: 10px; font-weight: 600; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .rate-strip .rate b { font-weight: 700; }
+
+  /* ── Items table ─────────────────────────────────────── */
+  table.items {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 8.5px;
+  }
+  table.items thead th {
+    text-align: right;
+    padding: 7px 5px;
+    font-size: 7px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+    border-bottom: 1px solid var(--ink);
+  }
+  table.items thead th.l { text-align: left; }
+  table.items thead th.c { text-align: center; }
+  table.items tbody td {
+    padding: 6px 5px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  table.items tbody td.l { text-align: left; }
+  table.items tbody td.c { text-align: center; }
+  table.items tbody td.product {
+    text-align: left;
+    color: var(--ink); font-weight: 600; font-size: 9px;
+  }
+  table.items tbody tr.parent td { font-weight: 600; color: var(--ink); padding: 6px 5px; }
+  table.items tbody tr.parent td.amount { font-weight: 700; }
+  table.items tbody tr.parent td.sn { font-weight: 700; color: var(--ink); }
+  table.items tbody tr.sub td {
+    color: var(--muted);
+    border-bottom: 1px dashed var(--rule);
+    font-size: 8px;
+    padding: 4px 5px;
+    background: #fcfcfd;
+  }
+  table.items tbody tr.sub td.l {
+    padding-left: 12px;
+    font-style: italic;
+  }
+
+  /* ── Purchase details (sourced from purchase voucher) ── */
+  .purchase {
+    margin: 14px 0;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .purchase .head {
+    background: var(--band);
+    padding: 6px 10px;
+    font-size: 7.5px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+    border-bottom: 1px solid var(--rule);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .purchase .head .src {
+    font-size: 7px; letter-spacing: 0.8px; text-transform: none;
+    color: var(--faint); font-weight: 500; font-style: italic;
+  }
+  .purchase table {
+    width: 100%; border-collapse: collapse; font-size: 8.5px;
+  }
+  .purchase th {
+    text-align: left; padding: 5px 10px;
+    font-size: 7px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .purchase th.r, .purchase td.r { text-align: right; font-variant-numeric: tabular-nums; }
+  .purchase td {
+    padding: 5px 10px;
+    color: var(--ink); font-weight: 500;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .purchase tr:last-child td { border-bottom: none; }
+
+  .purchase-total {
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 8px 12px;
+    background: var(--band);
+  }
+  .purchase-total .row {
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .purchase-total .row .lbl {
+    font-size: 8px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .purchase-total .row .val {
+    font-size: 11px; color: var(--ink); font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .purchase-total .src {
+    margin-top: 4px;
+    font-size: 7.5px; color: var(--faint); font-style: italic;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Bottom split ────────────────────────────────────── */
+  .bottom {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 18px;
+    margin-top: 14px;
+  }
+  .left-col h4 {
+    font-size: 7.5px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-bottom: 6px;
+  }
+  .left-col .block { margin-bottom: 18px; }
+  .left-col .buyback {
+    display: grid; grid-template-columns: 1.4fr 1fr 0.7fr;
+    gap: 16px;
+    padding: 4px 0 0;
+  }
+  .buyback .col .ttl {
+    font-size: 7px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700; margin-bottom: 3px;
+  }
+  .buyback .col .v { font-size: 9px; color: var(--body); font-weight: 400; line-height: 1.5; }
+  .pay-row {
+    display: flex; gap: 22px; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .pay-row .pay {
+    display: flex; align-items: baseline; gap: 6px;
+  }
+  .pay-row .pay .pl {
+    font-size: 7.5px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--muted); font-weight: 700;
+  }
+  .pay-row .pay .pv {
+    font-size: 11px; color: var(--ink); font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .words {
+    font-size: 8.5px; color: var(--muted); font-style: italic;
+    border-top: 1px dashed var(--rule); padding-top: 6px;
+  }
+  .words b { color: var(--ink); font-style: normal; font-weight: 600; }
+
+  /* ── Totals ladder ───────────────────────────────────── */
+  .totals { font-size: 9.5px; }
+  .totals .row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 5px 0;
+    color: var(--body);
+  }
+  .totals .row .lbl {
+    font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  .totals .row .val {
+    font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink);
+  }
+  .totals .row.bold {
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    padding: 7px 0;
+  }
+  .totals .row.bold .lbl { color: var(--ink); font-weight: 700; }
+  .totals .row.bold .val { font-weight: 700; }
+  .totals .row.tax .lbl { color: var(--muted); }
+  .totals .row.net {
+    margin-top: 4px;
+    border-top: 2px solid var(--ink);
+    padding: 8px 0;
+  }
+  .totals .row.net .lbl { color: var(--ink); font-weight: 700; font-size: 9px; }
+  .totals .row.net .val { font-weight: 700; }
+
+  /* ── Footer ──────────────────────────────────────────── */
+  .footer {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule);
+  }
+  .footer .terms {
+    font-size: 8px; color: var(--muted); line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .footer .terms div + div { margin-top: 2px; }
+  .footer .sig-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: end;
+  }
+  .sig {
+    text-align: center;
+    display: flex; flex-direction: column; align-items: stretch;
+    min-height: 78px;
+  }
+  .sig .for {
+    font-size: 7.5px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; margin-bottom: 4px;
+  }
+  .sig .space {
+    flex: 1;
+    min-height: 56px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 5px;
+  }
+  .sig .lbl {
+    font-size: 7.5px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--ink); font-weight: 700;
+  }
+
+  .stamp {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 7.5px; color: var(--faint);
+    letter-spacing: 0.4px; font-style: italic;
+  }
+  .stamp .page-no {
+    font-style: normal; font-weight: 700; color: var(--muted); letter-spacing: 1px;
+  }
+
+  @media print {
+    body { background: #fff; }
+    .page { box-shadow: none; margin: 0; padding: 8mm; width: auto; min-height: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="bis">BIS<br>HALLMARK</div>
+    <div class="brand-block">
+      <div class="brand">Zorii</div>
+      <div class="brand-sub">24 Camac Street, Kolkata 700016</div>
+      <div class="brand-sub">
+        Phone <strong>+91 98458 69875</strong>&nbsp; ·&nbsp;
+        Email <strong>abc@example.com</strong>
+      </div>
+      <div class="brand-ids">
+        <span>GSTIN<b>19AACFJ4832H1ZP</b></span>
+        <span>PAN<b>AACFJ4832H</b></span>
+        <span>CIN<b>U36911WB2024PTC123456</b></span>
+      </div>
+    </div>
+    <div class="logo">COMPANY<br>LOGO</div>
+  </div>
+
+  <!-- INVOICE NUMBER + DATE -->
+  <div class="invoice-strip">
+    <div>
+      <div class="eyebrow">Tax Invoice</div>
+      <div class="num">SV/R001/26-27/00001</div>
+    </div>
+    <div class="right">
+      <div>Date<b>06 May 2026</b></div>
+    </div>
+  </div>
+
+  <!-- PARTIES -->
+  <div class="parties">
+    <div class="party">
+      <div class="eyebrow">Billed to · From Ledger Master</div>
+      <div class="name">Aarzoo Jain</div>
+      <div class="addr">9, Kanodia Kothi, Mukkram Kanodia Road, Howrah, West Bengal 711101</div>
+      <div class="ids">
+        <div class="id-cell"><div class="lbl">State</div><div class="val">West Bengal (19)</div></div>
+        <div class="id-cell"><div class="lbl">PAN</div><div class="val">BEIPB4478P</div></div>
+        <div class="id-cell"><div class="lbl">GSTIN</div><div class="val empty">—</div></div>
+        <div class="id-cell"><div class="lbl">Aadhar</div><div class="val empty">—</div></div>
+        <div class="id-cell"><div class="lbl">DL No</div><div class="val empty">—</div></div>
+        <div class="id-cell"><div class="lbl">Phone</div><div class="val">+91 98765 43210</div></div>
+      </div>
+    </div>
+    <div class="party">
+      <div class="eyebrow">Shipped to · From Ledger Master</div>
+      <div class="name">Aarzoo Jain</div>
+      <div class="addr">9, Kanodia Kothi, Mukkram Kanodia Road, Howrah, West Bengal 711101</div>
+      <div class="ids">
+        <div class="id-cell"><div class="lbl">Place of Supply</div><div class="val">West Bengal (19)</div></div>
+        <div class="id-cell"><div class="lbl">PAN</div><div class="val">BEIPB4478P</div></div>
+        <div class="id-cell"><div class="lbl">GSTIN</div><div class="val empty">—</div></div>
+        <div class="id-cell"><div class="lbl">Mode</div><div class="val empty">—</div></div>
+        <div class="id-cell"><div class="lbl">Vehicle</div><div class="val empty">—</div></div>
+        <div class="id-cell"><div class="lbl">E-way Ref</div><div class="val empty">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- METAL RATE STRIP -->
+  <div class="rate-strip">
+    <span class="lbl">Metal Rate</span>
+    <span class="rate">14K <b>: ₹ 9,200</b> / gm</span>
+  </div>
+
+  <!-- ITEMS -->
+  <table class="items">
+    <colgroup>
+      <col style="width: 4%"  /><!-- S.No        -->
+      <col style="width: 17%" /><!-- Item        -->
+      <col style="width: 7%"  /><!-- HSN         -->
+      <col style="width: 6%"  /><!-- Purity      -->
+      <col style="width: 4%"  /><!-- Pcs         -->
+      <col style="width: 6%"  /><!-- GW          -->
+      <col style="width: 6%"  /><!-- NW          -->
+      <col style="width: 7%"  /><!-- Rate        -->
+      <col style="width: 9%"  /><!-- Metal Value -->
+      <col style="width: 9%"  /><!-- Stone Value -->
+      <col style="width: 8%"  /><!-- Making      -->
+      <col style="width: 7%"  /><!-- Other       -->
+      <col style="width: 10%" /><!-- Amount      -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="c">S.No</th>
+        <th class="l">Item</th>
+        <th class="c">HSN</th>
+        <th class="c">Purity</th>
+        <th>Pcs</th>
+        <th>GW</th>
+        <th>NW</th>
+        <th>Rate</th>
+        <th>Metal Value</th>
+        <th>Stone Value</th>
+        <th>Making</th>
+        <th>Other</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="parent">
+        <td class="c sn">1</td>
+        <td class="product">Lab Diamond Bangles</td>
+        <td class="c">711319</td>
+        <td class="c">14K</td>
+        <td>2</td>
+        <td>28.000</td>
+        <td>24.065</td>
+        <td>9,200</td>
+        <td>2,21,398</td>
+        <td>2,95,125</td>
+        <td>25,000</td>
+        <td>0</td>
+        <td class="amount">5,41,523</td>
+      </tr>
+      <tr class="sub">
+        <td class="c"></td>
+        <td class="l" colspan="4">↳ Lab Grown Diamond · 19.675 ct @ ₹ 15,000</td>
+        <td>3.935</td>
+        <td></td>
+        <td>15,000</td>
+        <td></td>
+        <td>2,95,125</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr class="parent">
+        <td class="c sn">2</td>
+        <td class="product">Solitaire Pendant</td>
+        <td class="c">711319</td>
+        <td class="c">18K</td>
+        <td>1</td>
+        <td>4.250</td>
+        <td>3.910</td>
+        <td>11,800</td>
+        <td>46,138</td>
+        <td>62,500</td>
+        <td>4,800</td>
+        <td>0</td>
+        <td class="amount">1,13,438</td>
+      </tr>
+      <tr class="sub">
+        <td class="c"></td>
+        <td class="l" colspan="4">↳ Lab Grown Diamond · 0.50 ct @ ₹ 1,25,000</td>
+        <td>0.100</td>
+        <td></td>
+        <td>1,25,000</td>
+        <td></td>
+        <td>62,500</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+
+      <tr class="parent">
+        <td class="c sn">3</td>
+        <td class="product">Diamond Stud Earrings</td>
+        <td class="c">711319</td>
+        <td class="c">18K</td>
+        <td>1</td>
+        <td>2.860</td>
+        <td>2.640</td>
+        <td>11,800</td>
+        <td>31,152</td>
+        <td>0</td>
+        <td>3,200</td>
+        <td>0</td>
+        <td class="amount">34,352</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- BOTTOM -->
+  <div class="bottom">
+    <div class="left-col">
+      <div class="block">
+        <h4>Purchase Details</h4>
+        <div class="purchase-total">
+          <div class="row">
+            <span class="lbl">Total Purchase Amount</span>
+            <span class="val">₹ 3,57,625</span>
+          </div>
+          <div class="src">From Purchase Voucher · PV/26-27/00187 · 02 May 2026</div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h4>Buy-back Policy &amp; Deductions</h4>
+        <div class="buyback">
+          <div class="col">
+            <div class="ttl">Stones</div>
+            <div class="v">Lab Grown Diamonds — 30%<br>Precious Col. Stone — 25%<br>Imitation — 100%</div>
+          </div>
+          <div class="col">
+            <div class="ttl">Gold</div>
+            <div class="v">Prevailing<br>Buying Rate</div>
+          </div>
+          <div class="col">
+            <div class="ttl">Making</div>
+            <div class="v">100%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h4>Mode of Payment</h4>
+        <div class="pay-row">
+          <div class="pay">
+            <span class="pl">Bank</span>
+            <span class="pv">₹ 0</span>
+          </div>
+          <div class="pay">
+            <span class="pl">Cash</span>
+            <span class="pv">₹ 25,000</span>
+          </div>
+        </div>
+        <div class="words">
+          <b>In words:</b> Rupees Five Lakh Thirty Two Thousand Seven Hundred Sixty Nine Only
+        </div>
+      </div>
+    </div>
+
+    <div class="totals">
+      <div class="row">
+        <span class="lbl">Freight Charges</span>
+        <span class="val">0</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Less: Discount</span>
+        <span class="val">0</span>
+      </div>
+      <div class="row bold">
+        <span class="lbl">Total Before Tax</span>
+        <span class="val">5,41,523</span>
+      </div>
+      <div class="row tax">
+        <span class="lbl">SGST 1.500%</span>
+        <span class="val">8,123</span>
+      </div>
+      <div class="row tax">
+        <span class="lbl">CGST 1.500%</span>
+        <span class="val">8,123</span>
+      </div>
+      <div class="row tax">
+        <span class="lbl">IGST 0.000%</span>
+        <span class="val">0</span>
+      </div>
+      <div class="row bold">
+        <span class="lbl">Total After Tax</span>
+        <span class="val">5,57,769</span>
+      </div>
+      <div class="row">
+        <span class="lbl">Less: Advance Amount</span>
+        <span class="val">0</span>
+      </div>
+      <div class="row net">
+        <span class="lbl">Net Receivable</span>
+        <span class="val">₹ 5,32,769</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="terms">
+      <div>•&nbsp; Goods sold and delivered from <b style="color:var(--ink)">Kolkata</b> showroom.</div>
+      <div>•&nbsp; Subject to <b style="color:var(--ink)">Kolkata</b> jurisdiction only.</div>
+      <div>•&nbsp; All disputes are to be settled in writing within 7 days of delivery.</div>
+    </div>
+    <div class="sig-row">
+      <div class="sig">
+        <div class="for">&nbsp;</div>
+        <div class="space"></div>
+        <div class="lbl">Customer Signature</div>
+      </div>
+      <div class="sig">
+        <div class="for">For Zorii Diamonds Pvt. Ltd.</div>
+        <div class="space"></div>
+        <div class="lbl">Authorised Signatory</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stamp">
+    <span>This is a computer-generated invoice and does not require a signature</span>
+    &nbsp;·&nbsp;
+    <span class="page-no">PAGE 1</span>
+  </div>
+
+</div>
+</body>
+</html>

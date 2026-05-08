@@ -1,5 +1,5 @@
 // frontend/src/services/print/PaymentVoucherSlip.jsx
-import React from "react";
+/* eslint-disable react/prop-types */
 import { fmt, fmtDate, numberToWords, detectParty, detectMode } from "./printHelpers";
 
 const FONTS = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";

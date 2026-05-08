@@ -16,6 +16,7 @@ import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { openAndPrint } from "@/services/print/utils";
 import AccountingVoucher from "@/services/print/AccouuntingVoucher";
 import PaymentVoucherSlip  from "@/services/print/PaymentVoucherSlip";
+import { isPmnt } from "@/services/print/printHelpers";
 import VoucherAttachments from "@/components/FinancialAccounting/vouchers/VoucherAttachments";
 
 const AccountingVoucherList = () => {
@@ -116,9 +117,8 @@ const AccountingVoucherList = () => {
           <button
             onClick={() => {
               const printData = { ...row.original, ...companyInfo };
-              const isPmntType = ["PMNT", "PMNT-PURC"].includes(row.original.voucher_type);
               openAndPrint(
-                isPmntType
+                isPmnt(row.original.voucher_type)
                   ? <PaymentVoucherSlip data={printData} />
                   : <AccountingVoucher  data={printData} />
               );

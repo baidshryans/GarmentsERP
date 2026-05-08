@@ -1857,10 +1857,9 @@ const PurchaseVoucher = () => {
                 </React.Fragment>
               ))}
 
-              {/* Direct sub-items (rsRaw) — rendered as standalone rows in
-                  the same items list in Customer mode only. In Vendor mode
-                  they are rendered in the dedicated table below. */}
-              {isCustomer && rsRaw.map((detail, idx) => (
+              {/* Direct sub-items (rsRaw) — rendered as rows in the main
+                  table so columns stay aligned with the header above. */}
+              {rsRaw.map((detail, idx) => (
                 <TableRow key={`raw-${idx}`} className="bg-white">
                   <TableCell className="px-4 py-2 border align-middle">
                     <div className="flex flex-row justify-center items-center gap-1">
@@ -1891,52 +1890,6 @@ const PurchaseVoucher = () => {
           </Table>
           </div> </> : <></>}
 
-        {/* Legacy direct items — already rendered above inside the main
-            items list, so suppress this duplicate copy in Customer mode. */}
-
-        {!isCustomer && rsRaw.length > 0 && (
-          <div className="overflow-x-auto">
-          <Table className="w-full table-fixed border-collapse mt-2">
-            <TableBody>
-              <TableRow className="bg-violet-50">
-                <TableCell className="w-12 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider"></TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Packet</TableCell>
-                <TableCell className="w-24 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Item</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Pcs</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Ct</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">GW</TableCell>
-                <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Purity</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Loss</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Tunch</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Fine Wt</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Rate</TableCell>
-                <TableCell className="w-20 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider">Value</TableCell>
-              </TableRow>
-              {rsRaw.map((detail, idx) => (
-                <TableRow key={idx}>
-                  <TableCell className="px-4 py-2 border text-center">
-                    <div className="flex flex-row justify-center items-center gap-1">
-                      <SquarePen color="#6d6d6d" className="size-4 cursor-pointer" onClick={() => handleEditRawRow(idx)} />
-                      <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteRawRow(idx)} />
-                    </div>
-                  </TableCell>
-                  <TableCell className="w-24 px-4 py-2 border">{detail.packet}</TableCell>
-                  <TableCell className="w-24 px-4 py-2 border">{detail.sub_item}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_pcs}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_gw}</TableCell>
-                  <TableCell className="w-28 px-4 py-2 border">{detail.metal_purity}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.loss : ""}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.tunch : ""}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.sub_item === "Gold" ? detail.fine_wt : ""}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border">{detail.rate}</TableCell>
-                  <TableCell className="w-20 px-4 py-2 border font-semibold">{detail.value}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </div>
-        )}
 
         <div className="container mt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { SquarePen, Printer, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { openAndPrint } from "@/services/print/utils";
-import AccountingVoucher from "@/services/print/AccouuntingVoucher";
+import AccountingVoucher from "@/services/print/AccountingVoucher";
 import PaymentVoucherSlip  from "@/services/print/PaymentVoucherSlip";
 import { isPmnt } from "@/services/print/printHelpers";
 import VoucherAttachments from "@/components/FinancialAccounting/vouchers/VoucherAttachments";

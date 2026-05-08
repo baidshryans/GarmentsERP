@@ -161,7 +161,6 @@ function buildPnlHtml(data, ledgersByGroupId = {}) {
     let html = '';
     for (const item of items) {
       const bal = Number(item.balance || 0);
-      if (Math.abs(bal) < 0.005) continue; // skip zero-balance groups
       const hasChildren = item.children?.length > 0;
       const indent = depth * 14;
       const cls = depth === 0 ? 'pnl-group' : 'pnl-subgroup';
@@ -427,9 +426,7 @@ function AccountRows({ items = [], isCredit = false, depth = 0, startDate, endDa
 
   if (!items.length) return null;
 
-  return items
-    .filter((item) => Math.abs(Number(item.balance || 0)) >= 0.005)
-    .map((item) => {
+  return items.map((item) => {
     const bal = Number(item.balance || 0);
     const hasChildren = item.children?.length > 0;
     const isExpanded = !!expanded[item.id];

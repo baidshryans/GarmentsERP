@@ -3,8 +3,8 @@ from .models import BranchMaster, Colors, CompanyMaster, Hsn, Item, ItemGroupMas
 
 @admin.register(CompanyMaster)
 class CompanyMasterAdmin(admin.ModelAdmin):
-    list_display = ['company_name', 'gstin', 'phone', 'email']
-    search_fields = ['company_name', 'gstin']
+    list_display = ['company_name', 'phone', 'email']
+    search_fields = ['company_name']
 
 @admin.register(BranchMaster)
 class BranchMasterAdmin(admin.ModelAdmin):

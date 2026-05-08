@@ -351,7 +351,7 @@ class CreditDebitNoteViewSet(RetailBaseViewset):
             getattr(retail, 'city', ''),
             getattr(retail, 'pincode', ''),
         ]))
-        company_gstin = retail.gstin or ''
+        company_gstin = (retail.gstin_master.gstin if retail.gstin_master else '') if retail else ''
         company_state = retail.state.name if getattr(retail, 'state', None) else ''
 
         # Party info

@@ -14,7 +14,6 @@ const emptyForm = {
   company_name: "",
   pan: "",
   tan: "",
-  gstin: "",
   cin: "",
   phone: "",
   email: "",
@@ -128,7 +127,6 @@ export default function CompanyMasterPage() {
       company_name:           row.company_name           ?? "",
       pan:                    row.pan                    ?? "",
       tan:                    row.tan                    ?? "",
-      gstin:                  row.gstin                  ?? "",
       cin:                    row.cin                    ?? "",
       phone:                  row.phone                  ?? "",
       email:                  row.email                  ?? "",
@@ -296,17 +294,6 @@ export default function CompanyMasterPage() {
                     placeholder="AAAA00000A"
                     className="h-9 text-sm uppercase"
                     maxLength={10}
-                  />
-                </div>
-                <div className="flex flex-col gap-1 md:col-span-2">
-                  <Label className="text-xs">GSTIN <span className="text-muted-foreground font-normal">(company-level, if any)</span></Label>
-                  <Input
-                    name="gstin"
-                    value={form.gstin}
-                    onChange={handleChange}
-                    placeholder="15 digit GSTIN"
-                    className="h-9 text-sm uppercase"
-                    maxLength={15}
                   />
                 </div>
                 <div className="flex flex-col gap-1 md:col-span-2">

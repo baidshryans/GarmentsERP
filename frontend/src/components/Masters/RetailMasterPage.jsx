@@ -21,13 +21,14 @@ import {
   updateRetail,
   fetchStates,
   fetchBranches,
+  fetchGstins,
 } from "@/services/apiService";
 import { COUNTRIES } from "@/components/ui/PhoneInput";
 
 const emptyForm = {
   retail_name: "",
   retail_code: "",
-  gstin: "",
+  gstin_master: "",
   email: "",
   phone: "",
   bill_series: "",
@@ -50,6 +51,7 @@ export default function RetailMasterPage() {
   const [rows, setRows]         = useState([]);
   const [states, setStates]     = useState([]);
   const [branches, setBranches] = useState([]);
+  const [gstins, setGstins]     = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -58,10 +60,11 @@ export default function RetailMasterPage() {
 
   const load = async () => {
     setLoading(true);
-    const [retailRes, stateRes, branchRes] = await Promise.all([
+    const [retailRes, stateRes, branchRes, gstinRes] = await Promise.all([
       fetchRetails(),
       fetchStates(),
       fetchBranches(),
+      fetchGstins(),
     ]);
     if (retailRes.success) {
       const d = retailRes.data;
@@ -74,6 +77,10 @@ export default function RetailMasterPage() {
     if (branchRes.success) {
       const d = branchRes.data;
       setBranches(Array.isArray(d) ? d : d?.results ?? []);
+    }
+    if (gstinRes.success) {
+      const d = gstinRes.data;
+      setGstins(Array.isArray(d) ? d : d?.results ?? []);
     }
     setLoading(false);
   };
@@ -95,7 +102,7 @@ export default function RetailMasterPage() {
 
     const payload = { ...form };
     // Send nulls for optional empty strings on create
-    if (!payload.gstin)   payload.gstin  = null;
+    if (!payload.gstin_master) payload.gstin_master = null;
     if (!payload.email)   payload.email  = null;
     if (!payload.state)   payload.state  = null;
     if (!payload.branch)  payload.branch = null;
@@ -126,7 +133,7 @@ export default function RetailMasterPage() {
     setForm({
       retail_name: row.retail_name ?? "",
       retail_code: row.retail_code ?? "",
-      gstin: row.gstin ?? "",
+      gstin_master: row.gstin_master ?? "",
       email: row.email ?? "",
       phone: row.phone ?? "",
       bill_series: row.bill_series ?? "",
@@ -184,7 +191,7 @@ export default function RetailMasterPage() {
         ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800"><Zap className="size-3" />Exhibition</span>
         : <span className="text-xs text-muted-foreground">Regular</span>,
     },
-    { header: "GSTIN", accessorKey: "gstin" },
+    { header: "GSTIN", accessorKey: "gstin_master_str" },
     { header: "Phone", accessorKey: "phone" },
     { header: "City", accessorKey: "city" },
     { header: "State", accessorKey: "state_name" },
@@ -248,14 +255,22 @@ export default function RetailMasterPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">GSTIN</Label>
-                <Input
-                  name="gstin"
-                  value={form.gstin}
-                  onChange={handleChange}
-                  placeholder="15-char GSTIN"
-                  className="h-9 text-sm"
-                  maxLength={30}
-                />
+                <Select
+                  value={form.gstin_master ? String(form.gstin_master) : "__none__"}
+                  onValueChange={(v) => handleSelect("gstin_master", v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Select GSTIN" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— No GSTIN —</SelectItem>
+                    {gstins.map((g) => (
+                      <SelectItem key={g.id} value={String(g.id)}>
+                        {g.gstin}{g.legal_name ? ` — ${g.legal_name}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Email</Label>

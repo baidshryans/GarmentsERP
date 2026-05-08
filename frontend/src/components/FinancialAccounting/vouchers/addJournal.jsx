@@ -654,7 +654,11 @@ const AddJournal = () => {
                     <span className="text-[10px] text-amber-600 font-medium leading-tight">Credit only</span>
                   </div>
                 ) : (
-                  <Input type="number" {...register("table.debit")} />
+                  <Input
+                    type="number"
+                    {...register("table.debit")}
+                    onKeyDown={isCashBankLedger && journal_type === "RCPT" ? (e) => handleKeyDown(e) : undefined}
+                  />
                 )}
               </TableCell>
               <TableCell className="w-28 px-4 py-2 border">

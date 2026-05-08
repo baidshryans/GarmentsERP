@@ -355,6 +355,7 @@ class OutstandingBillsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         retail = request.retail
+        from sales.models import SalesVou
         if kind == 'sales':
             qs = SalesVou.objects.filter(
                 retail=retail, ldgr_id=ldgr_id, due_amt__gt=0,

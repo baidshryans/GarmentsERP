@@ -27,7 +27,6 @@ class CompanyMaster(models.Model):
     company_name = models.CharField(max_length=200)
     pan          = models.CharField(max_length=10, blank=True, help_text="Permanent Account Number")
     tan          = models.CharField(max_length=10, blank=True, help_text="Tax Deduction Account Number")
-    gstin        = models.CharField(max_length=15, blank=True, help_text="Company-level GSTIN (if any)")
     cin          = models.CharField(max_length=21, blank=True, help_text="Corporate Identification Number")
     phone        = models.CharField(max_length=20, blank=True)
     email        = models.EmailField(blank=True)

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
-import { fetchPurchaseVoucher, fetchCompanies } from "@/services/apiService";
+import { fetchPurchaseVoucher, fetchCompanies, fetchRetails } from "@/services/apiService";
 import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -48,18 +48,21 @@ function PurchaseVoucherList({ voucherType = "" }) {
   const [companyInfo, setCompanyInfo] = useState({});
 
   useEffect(() => {
-    fetchCompanies().then((res) => {
-      if (res.success) {
-        const companies = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+    Promise.all([fetchCompanies(), fetchRetails()]).then(([companyRes, retailRes]) => {
+      if (companyRes.success) {
+        const companies = Array.isArray(companyRes.data) ? companyRes.data : companyRes.data?.results ?? [];
         if (companies.length > 0) {
           const c = companies[0];
+          const retails = retailRes.success ? (Array.isArray(retailRes.data) ? retailRes.data : retailRes.data?.results ?? []) : [];
+          const retailCode = sessionStorage.getItem("retail_code");
+          const retail = retails.find(r => r.retail_code === retailCode) || retails[0];
           setCompanyInfo({
             company_name: c.company_name,
             company_address: [c.address, c.city, c.pincode].filter(Boolean).join(', '),
             company_phone: c.phone,
             company_email: c.email,
             company_pan: c.pan,
-            company_gstin: c.gstin,
+            company_gstin: retail?.gstin_master_str || "",
             company_tan: c.tan,
             company_cin: c.cin,
           });

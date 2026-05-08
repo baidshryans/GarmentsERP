@@ -142,7 +142,8 @@ const GoldIssue = () => {
     setValue("table.metal_purity_gw_per", metalPurityObj ? `${metalPurityObj.gw_per}` : "");
     setValue("table.conv_purity_gw_per", convPurityObj ? `${convPurityObj.gw_per}` : "");
     Object.keys(statmaintableFormulas).forEach((col) => {
-      setValue(`table.${col}`, evaluateFormula(statmaintableFormulas[col], maintable));
+      const val = evaluateFormula(statmaintableFormulas[col], maintable);
+      setValue(`table.${col}`, val && !isNaN(val) ? val : "0.00");
     })
   }, [table, metalPurity, convPurity, itemGw]);
 

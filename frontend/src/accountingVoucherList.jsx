@@ -8,13 +8,14 @@ import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { useToast } from "@/hooks/use-toast";
 import { deleteJournalentry, fetchAccountingVoucher } from "./services/apiService";
-import { fetchCompanies } from "@/services/apiService";
+import { fetchCompanies, fetchRetails } from "@/services/apiService";
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 
 const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { openAndPrint } from "@/services/print/utils";
 import AccountingVoucher from "@/services/print/AccouuntingVoucher";
+import PaymentVoucherSlip  from "@/services/print/PaymentVoucherSlip";
 import VoucherAttachments from "@/components/FinancialAccounting/vouchers/VoucherAttachments";
 
 const AccountingVoucherList = () => {
@@ -45,18 +46,21 @@ const AccountingVoucherList = () => {
 
 
  useEffect(() => {
-    fetchCompanies().then((res) => {
-      if (res.success) {
-        const companies = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+    Promise.all([fetchCompanies(), fetchRetails()]).then(([companyRes, retailRes]) => {
+      if (companyRes.success) {
+        const companies = Array.isArray(companyRes.data) ? companyRes.data : companyRes.data?.results ?? [];
         if (companies.length > 0) {
           const c = companies[0];
+          const retails = retailRes.success ? (Array.isArray(retailRes.data) ? retailRes.data : retailRes.data?.results ?? []) : [];
+          const retailCode = sessionStorage.getItem("retail_code");
+          const retail = retails.find(r => r.retail_code === retailCode) || retails[0];
           setCompanyInfo({
             company_name: c.company_name,
             company_address: [c.address, c.city, c.pincode].filter(Boolean).join(', '),
             company_phone: c.phone,
             company_email: c.email,
             company_pan: c.pan,
-            company_gstin: c.gstin,
+            company_gstin: retail?.gstin_master_str || "",
             company_tan: c.tan,
             company_cin: c.cin,
           });
@@ -108,7 +112,17 @@ const AccountingVoucherList = () => {
           >
             <Trash2 className="size-4" />
           </button>
-          <button onClick={() => openAndPrint(<AccountingVoucher data={{ ...row.original, ...companyInfo }} />)}>
+          <button
+            onClick={() => {
+              const printData = { ...row.original, ...companyInfo };
+              const isPmntType = ["PMNT", "PMNT-PURC"].includes(row.original.voucher_type);
+              openAndPrint(
+                isPmntType
+                  ? <PaymentVoucherSlip data={printData} />
+                  : <AccountingVoucher  data={printData} />
+              );
+            }}
+          >
             <Printer className="size-4" />
           </button>
           <VoucherAttachments

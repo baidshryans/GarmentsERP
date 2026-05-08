@@ -71,7 +71,7 @@ const PaymentVoucherSlip = ({ data = {} }) => {
 
       {/* ── Company header ── */}
       <div className="pv-header">
-        <div className="pv-co-name">{d.company_name || "JEWEL INDIA"}</div>
+        <div className="pv-co-name">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</div>
         {d.company_address && (
           <div className="pv-co-sub">{d.company_address}</div>
         )}
@@ -154,7 +154,7 @@ const PaymentVoucherSlip = ({ data = {} }) => {
           </div>
           <div className="pv-sig-block">
             <div style={{ fontSize: "8px", fontWeight: 600, marginBottom: 2 }}>
-              for {d.company_name || "JEWEL INDIA"}
+              for {d.company_legal_name || d.company_name || "JEWEL INDIA"}
             </div>
             <div className="pv-sig-line">Authorised Signatory</div>
           </div>

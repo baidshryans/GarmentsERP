@@ -271,6 +271,7 @@ class RetailSerializer(ModelSerializer):
     commission_ldgr_name = serializers.SerializerMethodField(read_only=True)
     branch_name          = serializers.CharField(source='branch.branch_name', read_only=True, default='')
     gstin_master_str     = serializers.CharField(source='gstin_master.gstin', read_only=True, default='')
+    gstin_legal_name     = serializers.CharField(source='gstin_master.legal_name', read_only=True, default='')
 
     def get_commission_ldgr_name(self, obj):
         return obj.commission_ldgr.ac_name if obj.commission_ldgr else None

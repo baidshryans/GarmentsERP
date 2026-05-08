@@ -127,7 +127,7 @@ const AccountingVoucher = ({ data = {} }) => {
         {d.company_logo_url && (
           <img src={d.company_logo_url} alt="" style={{height:40,marginBottom:4,objectFit:"contain"}} />
         )}
-        <div className="av-co-name">{d.company_name || "JEWEL INDIA"}</div>
+        <div className="av-co-name">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</div>
         {d.company_address && <div className="av-co-sub">{d.company_address}</div>}
         {(d.company_phone || d.company_email) && (
           <div className="av-co-sub">
@@ -315,7 +315,7 @@ const AccountingVoucher = ({ data = {} }) => {
           )}
           <div className="av-sig-block">
             <div style={{fontSize:"9.5px",fontWeight:600,marginBottom:2}}>
-              for {d.company_name || "JEWEL INDIA"}
+              for {d.company_legal_name || d.company_name || "JEWEL INDIA"}
             </div>
             <div className="av-sig-line">Authorised Signatory</div>
           </div>

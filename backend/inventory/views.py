@@ -709,7 +709,7 @@ class ClosingStockCalculator(APIView):
         # fall back to legacy single `retail_id`. Empty / missing = all retails combined.
         # Scope/combined access is gated to admin/superadmin; other users are pinned to
         # their own request.retail regardless of what they pass.
-        from accounting.views import _can_view_combined  # lazy import to avoid circular
+        from accounting.views.ledger import _can_view_combined  # lazy import to avoid circular
         is_admin = _can_view_combined(request.user)
         combined_flag = request.query_params.get('combined', '').lower() in ('true', '1')
         retail_ids_raw = request.query_params.getlist('retail_ids') or request.query_params.getlist('retail_ids[]')

@@ -203,6 +203,13 @@ class PurchaseVoucherViewset(RetailBaseViewset):
         fiscal_year = instance.fiscal_year
         billno = instance.billno
         prefix = 'PVC' if instance.voucher_type == 'Customer' else 'PVV'
+        # Delete linked accounting journals before the purchase voucher so that
+        # VoucherMain/VoucherDetail entries don't outlive the inventory records.
+        # (The FK is SET_NULL, so Django won't cascade-delete them automatically.)
+        if instance.ac_voucher_id:
+            instance.ac_voucher.delete()
+        if instance.tds_ac_voucher_id:
+            instance.tds_ac_voucher.delete()
         super().perform_destroy(instance)
         release_last_bill_number(retail, prefix, billno, fiscal_year)
 

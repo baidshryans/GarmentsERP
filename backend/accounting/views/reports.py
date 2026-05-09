@@ -229,8 +229,15 @@ def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
         "total_expenses": total_expenses,
         "net_profit": net_profit,
         "income": get_accounts_tree('Income', retail_ids=retail_ids, start_date=start_date, end_date=end_date),
-        # Purchase account tree (EXP-DIR-PUR) — shown interactively in COGS section
-        "purchases_tree": get_accounts_tree(pur_group_name, retail_ids=retail_ids, start_date=start_date, end_date=end_date) if pur_group_name else [],
+        # Purchase account tree (EXP-DIR-PUR) — shown interactively in COGS section.
+        # Wrap pur_group itself as the top-level item so it always appears even when
+        # EXP-DIR-PUR has no child Account groups (only Ledgers directly beneath it).
+        "purchases_tree": [{
+            "id": pur_group.id,
+            "name": pur_group.name,
+            "balance": purchases - purchase_returns,
+            "children": get_accounts_tree(pur_group_name, retail_ids=retail_ids, start_date=start_date, end_date=end_date),
+        }] if pur_group_name else [],
         # Direct Expenses tree excluding Purchase Account (already in COGS)
         "direct_expenses": get_accounts_tree(
             'Direct Expenses', retail_ids=retail_ids,

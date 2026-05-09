@@ -105,6 +105,17 @@ const PNL_EXTRA_CSS = `
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   Returns true if an item (or any of its descendants) has a non-zero balance.
+   Used to suppress entirely-zero subtrees from both screen and print views.
+───────────────────────────────────────────────────────────────────────────── */
+function hasNonZeroBalance(item) {
+  if (!item.children?.length) {
+    return Math.abs(Number(item.balance || 0)) >= 0.005;
+  }
+  return item.children.some(hasNonZeroBalance);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Collect all leaf-group IDs (no children) from an account-group tree
 ───────────────────────────────────────────────────────────────────────────── */
 function collectLeafGroupIds(items = []) {
@@ -160,6 +171,7 @@ function buildPnlHtml(data, ledgersByGroupId = {}) {
   function groupRows(items, isCredit = false, depth = 0) {
     let html = '';
     for (const item of items) {
+      if (!hasNonZeroBalance(item)) continue;
       const bal = Number(item.balance || 0);
       const hasChildren = item.children?.length > 0;
       const indent = depth * 14;
@@ -426,7 +438,9 @@ function AccountRows({ items = [], isCredit = false, depth = 0, startDate, endDa
 
   if (!items.length) return null;
 
-  return items.map((item) => {
+  return items
+    .filter(hasNonZeroBalance)
+    .map((item) => {
     const bal = Number(item.balance || 0);
     const hasChildren = item.children?.length > 0;
     const isExpanded = !!expanded[item.id];

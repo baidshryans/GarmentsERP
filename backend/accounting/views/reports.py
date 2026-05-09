@@ -84,9 +84,11 @@ def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
         purchases = pur_agg['purchases'] or Decimal(0)
         purchase_returns = pur_agg['purchase_returns'] or Decimal(0)
         pur_exclude_ids = frozenset([pur_group.id] + [a.id for a in pur_descendants])
+        pur_group_name = pur_group.name
     except Account.DoesNotExist:
         purchases = Decimal(0)
         purchase_returns = Decimal(0)
+        pur_group_name = None
 
     # ── Closing Stock ─────────────────────────────────────────────────────────
     # Derived from physical inventory (same source the balance sheet uses), not
@@ -227,6 +229,8 @@ def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
         "total_expenses": total_expenses,
         "net_profit": net_profit,
         "income": get_accounts_tree('Income', retail_ids=retail_ids, start_date=start_date, end_date=end_date),
+        # Purchase account tree (EXP-DIR-PUR) — shown interactively in COGS section
+        "purchases_tree": get_accounts_tree(pur_group_name, retail_ids=retail_ids, start_date=start_date, end_date=end_date) if pur_group_name else [],
         # Direct Expenses tree excluding Purchase Account (already in COGS)
         "direct_expenses": get_accounts_tree(
             'Direct Expenses', retail_ids=retail_ids,

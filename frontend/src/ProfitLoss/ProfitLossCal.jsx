@@ -213,9 +213,7 @@ function buildPnlHtml(data, ledgersByGroupId = {}) {
   // ── COGS ──
   body += sectionRow('Cost of Goods Sold');
   body += row('pnl-amt', 'Opening Stock', data.opening_stock, null, 4);
-  body += row('pnl-amt', 'Gross Purchases', data.purchases, null, 4);
-  if (Number(data.purchase_returns) > 0)
-    body += row('pnl-amt', '(−) Purchase Returns', null, data.purchase_returns, 4);
+  body += groupRows(data.purchases_tree || [], false, 0);
   if (Number(data.transfer_in) > 0)
     body += row('pnl-amt', '(+) Transfers In', data.transfer_in, null, 4);
   if (Number(data.transfer_out) > 0)
@@ -570,6 +568,7 @@ export default function ProfitLossCal() {
     if (mode === 'expanded') {
       const allLeafIds = [
         ...collectLeafGroupIds(data.income || []),
+        ...collectLeafGroupIds(data.purchases_tree || []),
         ...collectLeafGroupIds(data.direct_expenses || []),
         ...collectLeafGroupIds(data.indirect_expenses || []),
       ];
@@ -667,8 +666,7 @@ export default function ProfitLossCal() {
 
               <SectionHeader label="Cost of Goods Sold" />
               <AmountRow label="Opening Stock" debit={data.opening_stock} />
-              <AmountRow label="Gross Purchases" debit={data.purchases} />
-              {Number(data.purchase_returns) > 0 && <AmountRow label="(−) Purchase Returns" credit={data.purchase_returns} />}
+              <AccountRows items={data.purchases_tree || []} isCredit={false} startDate={startDate} endDate={endDate} onLedgerClick={setModalLedger} expandAll={expandAll} />
               {Number(data.transfer_in) > 0 && <AmountRow label="(+) Transfers In (from other retails)" debit={data.transfer_in} />}
               {Number(data.transfer_out) > 0 && <AmountRow label="(−) Transfers Out (to other retails)" credit={data.transfer_out} />}
               <AmountRow label="(−) Closing Stock" credit={data.closing_stock} />

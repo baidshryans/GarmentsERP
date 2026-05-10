@@ -246,6 +246,7 @@ class JournalEntrySerializer(serializers.Serializer):
     voucher_type = serializers.CharField(max_length=10)
     retail = serializers.PrimaryKeyRelatedField(queryset=RetailMaster.objects.all(), required=False)
     status = serializers.CharField(max_length=200,required=False)
+    vendor_bill = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
     # customer_order: accepted as a plain integer ID on input and resolved in
     # create(). Using PrimaryKeyRelatedField here would force a module-load-time
     # import of sales.CustomerOrder, which pulls in sales.serializers, which
@@ -412,6 +413,26 @@ class JournalEntrySerializer(serializers.Serializer):
                 f"Debit: {debit_total}, Credit: {credit_total}."
             )
 
+        # Always generate a fresh, sequence-safe voucher number.
+        # The client sends a peeked value (peek_next_bill_number) which is
+        # read-only and never increments the BillNumberSequence, so re-using it
+        # causes a UNIQUE constraint failure on the second consecutive save.
+        #
+        # Must use the canonical VoucherType prefix (e.g. "CNTR" not "CONTRA")
+        # so the sequence key matches what peek_next_bill_number uses.
+        _VTYPE_TO_SEQ_PREFIX = {
+            'JRNL':     global_vars.VoucherType.journal,     # 'JRNL'
+            'PMNT':     global_vars.VoucherType.pmnt,        # 'PMNT'
+            'CONTRA':   global_vars.VoucherType.cntr,        # 'CNTR'  ← must remap
+            'RCPT':     global_vars.VoucherType.rcpt,        # 'RCPT'
+            'RCPT-SALE': global_vars.VoucherType.rcpt_sale,  # 'RCPT-SALE'
+        }
+        seq_prefix = _VTYPE_TO_SEQ_PREFIX.get(vtype_upper, vtype_upper)
+        fy = getattr(retail_obj, 'active_fy', None) if retail_obj else None
+        validated_data['voucher_no'] = generate_voucher_no(
+            type=seq_prefix, retail=retail_obj, fiscal_year=fy
+        )
+
         voucher_main = VoucherMain.objects.create(
             **validated_data,
             amount=debit_total,
@@ -502,27 +523,34 @@ class JournalEntrySerializer(serializers.Serializer):
 
             # Update due amount if PMNT voucher type
             if vtype_upper == "PMNT" and detail.get('ref_bill_no'):
-                try:
-                    purchase_voucher = PurchaseVoucher.objects.select_for_update().get(billno=detail['ref_bill_no'])
-                except PurchaseVoucher.DoesNotExist:
-                    raise ValidationError(
-                        f"Purchase voucher '{detail['ref_bill_no']}' not found — cannot allocate payment."
-                    )
-                # Ledger must match — can't pay Vendor A's bill from Vendor B's ledger
-                if purchase_voucher.ldgr_id != account_instance.id:
-                    raise ValidationError(
-                        f"Ledger mismatch: purchase {purchase_voucher.billno} belongs to "
-                        f"'{purchase_voucher.ldgr.ac_name}', but this line is posted to "
-                        f"'{account_instance.ac_name}'."
-                    )
-                amt = Decimal(str(detail['debit'] or detail['credit'] or 0))
-                if amt > purchase_voucher.due_amt:
-                    raise ValidationError(
-                        f"Overpayment on purchase {purchase_voucher.billno}: "
-                        f"outstanding ₹{purchase_voucher.due_amt}, attempted ₹{amt}."
-                    )
-                purchase_voucher.due_amt -= amt
-                purchase_voucher.save()
+                purchase_voucher = PurchaseVoucher.objects.select_for_update().filter(
+                    billno=detail['ref_bill_no']
+                ).first()
+                if purchase_voucher:
+                    # Ledger must match — can't pay Vendor A's bill from Vendor B's ledger
+                    if purchase_voucher.ldgr_id != account_instance.id:
+                        raise ValidationError(
+                            f"Ledger mismatch: purchase {purchase_voucher.billno} belongs to "
+                            f"'{purchase_voucher.ldgr.ac_name}', but this line is posted to "
+                            f"'{account_instance.ac_name}'."
+                        )
+                    amt = Decimal(str(detail['debit'] or detail['credit'] or 0))
+                    if amt > purchase_voucher.due_amt:
+                        raise ValidationError(
+                            f"Overpayment on purchase {purchase_voucher.billno}: "
+                            f"outstanding ₹{purchase_voucher.due_amt}, attempted ₹{amt}."
+                        )
+                    purchase_voucher.due_amt -= amt
+                    purchase_voucher.save()
+                else:
+                    # Allow JRNL voucher numbers as ref — outstanding tracked dynamically
+                    is_jrnl = VoucherMain.objects.filter(
+                        voucher_no=detail['ref_bill_no'], voucher_type='JRNL'
+                    ).exists()
+                    if not is_jrnl:
+                        raise ValidationError(
+                            f"Purchase voucher '{detail['ref_bill_no']}' not found — cannot allocate payment."
+                        )
 
             if vtype_upper == "RCPT" and detail.get('ref_bill_no'):
                 try:
@@ -621,14 +649,15 @@ class JournalEntrySerializer(serializers.Serializer):
                 ref_bill_no = old_detail.ref_bill_no
                 amt = old_detail.debit or old_detail.credit or Decimal(0)
                 if voucher_type == "PMNT" and ref_bill_no:
-                    try:
-                        purchase_voucher = PurchaseVoucher.objects.select_for_update().get(billno=ref_bill_no)
-                        purchase_voucher.due_amt += amt
-                        purchase_voucher.save()
-                    except PurchaseVoucher.DoesNotExist:
+                    pv_rev = PurchaseVoucher.objects.select_for_update().filter(billno=ref_bill_no).first()
+                    if pv_rev:
+                        pv_rev.due_amt += amt
+                        pv_rev.save()
+                    elif not VoucherMain.objects.filter(voucher_no=ref_bill_no, voucher_type='JRNL').exists():
                         raise ValidationError(
                             f"Cannot reverse original allocation: purchase voucher '{ref_bill_no}' no longer exists."
                         )
+                    # JRNL-based payments: no due_amt to reverse — outstanding computed dynamically
                 elif voucher_type == "RCPT" and ref_bill_no:
                     try:
                         sale_voucher = SalesVou.objects.select_for_update().get(billno=ref_bill_no)
@@ -647,19 +676,20 @@ class JournalEntrySerializer(serializers.Serializer):
                 ref_bill_no = detail.get('ref_bill_no')
                 amt = Decimal(detail.get('debit') or detail.get('credit') or 0)
                 if voucher_type == "PMNT" and ref_bill_no:
-                    try:
-                        purchase_voucher = PurchaseVoucher.objects.select_for_update().get(billno=ref_bill_no)
-                    except PurchaseVoucher.DoesNotExist:
+                    pv_new = PurchaseVoucher.objects.select_for_update().filter(billno=ref_bill_no).first()
+                    if pv_new:
+                        if amt > pv_new.due_amt:
+                            raise ValidationError(
+                                f"Overpayment on purchase {pv_new.billno}: "
+                                f"outstanding ₹{pv_new.due_amt}, attempted ₹{amt}."
+                            )
+                        pv_new.due_amt -= amt
+                        pv_new.save()
+                    elif not VoucherMain.objects.filter(voucher_no=ref_bill_no, voucher_type='JRNL').exists():
                         raise ValidationError(
                             f"Purchase voucher '{ref_bill_no}' not found — cannot allocate payment."
                         )
-                    if amt > purchase_voucher.due_amt:
-                        raise ValidationError(
-                            f"Overpayment on purchase {purchase_voucher.billno}: "
-                            f"outstanding ₹{purchase_voucher.due_amt}, attempted ₹{amt}."
-                        )
-                    purchase_voucher.due_amt -= amt
-                    purchase_voucher.save()
+                    # JRNL-based payments: outstanding tracked dynamically — no due_amt update
                 elif voucher_type == "RCPT" and ref_bill_no:
                     try:
                         sale_voucher = SalesVou.objects.select_for_update().get(billno=ref_bill_no)

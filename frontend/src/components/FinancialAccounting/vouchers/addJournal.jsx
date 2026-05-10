@@ -60,6 +60,7 @@ const AddJournal = () => {
   const [saving, setSaving] = useState(false);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [savedVoucherId, setSavedVoucherId] = useState(id || null);
+  const [voucherStatus, setVoucherStatus] = useState(null); // 'posted' | 'cancelled' | null
   const [savedAttachments, setSavedAttachments] = useState([]);   // already uploaded (edit mode)
   const [pendingFiles, setPendingFiles]         = useState([]);   // queued (add mode, uploaded on save)
   const [uploadingFiles, setUploadingFiles]     = useState(false);
@@ -107,6 +108,7 @@ const AddJournal = () => {
 
     if (id)fetchJournalEntryForEdit(id).then
       ((response) => {
+        setVoucherStatus(response.data.status ?? null);
         Object.keys(response.data).forEach((key) => {
           setValue(`form.${key}`, response.data[key]);
         });
@@ -169,6 +171,7 @@ const AddJournal = () => {
       debit:  parseFloat(row.debit)  || 0,
       credit: parseFloat(row.credit) || 0,
     }));
+    if (voucherStatus === 'cancelled') form.status = 'posted';
 
     console.log(form)
     if (rs.length === 0) {
@@ -488,6 +491,14 @@ const AddJournal = () => {
       >
         <h6 className="text-lg font-semibold">Add Journal Entry</h6>
         <hr className="my-3" />
+        {voucherStatus === 'cancelled' && (
+          <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+            <div className="flex-1 text-sm">
+              <div className="font-semibold text-amber-900">This voucher is cancelled</div>
+              <div className="text-amber-700 text-xs mt-0.5">Saving will re-post it and restore its accounting effects.</div>
+            </div>
+          </div>
+        )}
         {preCustomerOrderId && (journal_type === "RCPT" || journal_type === "RCPT-SALE") && (
           <div className="my-3 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
             <div className="flex-1 text-sm">
@@ -536,8 +547,8 @@ const AddJournal = () => {
             <Input type="text" {...register("form.voucher_no")} readOnly disabled />
           </FieldContainer>
           <FieldContainer>
-            <Label htmlFor="status" className="text-nowrap">Vendor Bill No</Label>
-            <Input type="text" {...register("status")} />
+            <Label htmlFor="vendor_bill" className="text-nowrap">Vendor Bill No</Label>
+            <Input type="text" {...register("form.vendor_bill")} />
           </FieldContainer>
 
         </div>
@@ -749,7 +760,7 @@ const AddJournal = () => {
           return (
             <BillAllocationTable
               ledgerId={currentLedger?.id}
-              kind={journal_type === "PMNT" ? "purchase" : "sales"}
+              kind={journal_type === "PMNT" ? "payable" : "sales"}
               partyAmount={partyAmt}
               allocations={allocations}
               onChange={setAllocations}

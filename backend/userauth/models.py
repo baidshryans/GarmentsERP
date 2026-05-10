@@ -49,3 +49,32 @@ class UserRole(models.Model):
 
     class Meta:
         unique_together = ('user', 'role')
+
+
+class LoginLog(models.Model):
+    """Records every login attempt and explicit logout for the main ERP app."""
+    ACTION_CHOICES = [('login', 'Login'), ('logout', 'Logout')]
+
+    user                = models.ForeignKey(
+                            settings.AUTH_USER_MODEL,
+                            null=True, blank=True,
+                            on_delete=models.SET_NULL,
+                            related_name='login_logs',
+                          )
+    username_attempted  = models.CharField(max_length=150, blank=True)  # captures failed-login usernames
+    action              = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    success             = models.BooleanField(default=True)
+    ip_address          = models.GenericIPAddressField(null=True, blank=True)
+    user_agent          = models.CharField(max_length=500, blank=True)
+    timestamp           = models.DateTimeField(auto_now_add=True, db_index=True)
+    retail              = models.ForeignKey(
+                            'mastersconfig.RetailMaster',
+                            null=True, blank=True,
+                            on_delete=models.SET_NULL,
+                          )
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.action} {self.username_attempted or (self.user.username if self.user else '?')} @ {self.timestamp}"

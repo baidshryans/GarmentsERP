@@ -198,6 +198,7 @@ def create_barcode_from_purchase(request):
         # Prepare response data
         response_data = {
             'order_no': purchase_item.order_no.order_no if purchase_item.order_no else None,
+            'size': purchase_item.size or '',
             'huid': None,  # Assuming huid is not available in this model structure
             'voucher_no': purchase_voucher.billno,
             'purity': purchase_item.purity.purity if purchase_item.purity else None,

@@ -828,7 +828,7 @@ class RepairJobCard(models.Model):
         'contacts.Ledger',
         on_delete=models.PROTECT,
         related_name='repair_job_cards',
-        limit_choices_to={'type': 'CO'},
+        limit_choices_to={'roles__role': 'CO'},
     )
     status                 = models.CharField(max_length=10, choices=STATUS_CHOICES, default='RCV')
     item                   = models.ForeignKey(

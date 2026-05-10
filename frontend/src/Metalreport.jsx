@@ -11,6 +11,11 @@ import apiClient from "@/services/apiClient";
 import { Coins, Filter } from "lucide-react";
 import { isValidDateRange } from "@/lib/dateRange";
 
+const purityLabel = (p) => {
+  const s = String(p ?? '');
+  return (s.endsWith('K') || s.endsWith('k')) ? s : s + 'K';
+};
+
 function fmtDate(d) {
   if (!d) return "—";
   const dt = new Date(d);
@@ -146,7 +151,7 @@ export default function KarigarMetalLedger() {
               <SelectContent>
                 <SelectItem value="all">All Purities</SelectItem>
                 {purities.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>{p.purity}K</SelectItem>
+                  <SelectItem key={p.id} value={String(p.id)}>{purityLabel(p.purity)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -256,7 +261,7 @@ export default function KarigarMetalLedger() {
                         <React.Fragment key={`${karigar.id}-${purity}`}>
                           <tr className="bg-violet-50/60 border-t border-violet-100">
                             <td colSpan={9} className="px-3 py-1.5 text-xs font-semibold text-primary">
-                              {karigar.ac_name} — {purity}K
+                              {karigar.ac_name} — {purityLabel(purity)}
                             </td>
                           </tr>
                           <tr className="bg-gray-50/60 border-t border-gray-100">

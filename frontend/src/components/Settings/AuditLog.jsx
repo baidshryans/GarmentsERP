@@ -4,8 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Search, ChevronLeft, ChevronRight, RefreshCw, Undo2, History, AlertTriangle } from "lucide-react";
-import { fetchAuditLog, reverseTransaction, restoreToPoint } from "@/services/apiService";
+import {
+  Search, ChevronLeft, ChevronRight, RefreshCw, Undo2,
+  History, AlertTriangle, LogIn, Loader2,
+} from "lucide-react";
+import {
+  fetchAuditLog, reverseTransaction, restoreToPoint,
+  fetchLoginLog, fetchAuditDetail,
+} from "@/services/apiService";
 import { isValidDateRange } from "@/lib/dateRange";
 
 const EVENT_STYLE = {
@@ -14,9 +20,75 @@ const EVENT_STYLE = {
   DELETE: "bg-red-50   text-red-700",
 };
 
+// ── Diff cell: fetches old/new on first click, then shows inline table ────────
+function DiffCell({ row }) {
+  const [state, setState] = useState("idle"); // idle | loading | done | error
+  const [changes, setChanges] = useState([]);
+
+  // Only UPDATE rows can have a meaningful diff
+  if (row.event_type !== "UPDATE") return <span className="text-muted-foreground">—</span>;
+
+  async function load() {
+    if (state !== "idle") return;
+    setState("loading");
+    const res = await fetchAuditDetail(row.id);
+    if (res.success) {
+      setChanges(res.data.changes || []);
+      setState("done");
+    } else {
+      setState("error");
+    }
+  }
+
+  if (state === "idle") {
+    return (
+      <button
+        onClick={load}
+        className="text-[11px] text-primary hover:underline"
+      >
+        View diff
+      </button>
+    );
+  }
+  if (state === "loading") {
+    return <Loader2 className="size-3 animate-spin text-muted-foreground" />;
+  }
+  if (state === "error") {
+    return <span className="text-[10px] text-red-500">Failed to load</span>;
+  }
+  if (changes.length === 0) {
+    return <span className="text-[10px] text-muted-foreground">No field changes recorded</span>;
+  }
+  return (
+    <details open className="text-[10px]">
+      <summary className="cursor-pointer text-primary hover:underline text-[11px] mb-1">
+        {changes.length} field{changes.length !== 1 ? "s" : ""} changed
+      </summary>
+      <table className="w-full border-collapse mt-1 text-[10px]">
+        <thead>
+          <tr className="bg-muted/60">
+            <th className="text-left px-1.5 py-0.5 font-semibold">Field</th>
+            <th className="text-left px-1.5 py-0.5 font-semibold text-red-600">Old</th>
+            <th className="text-left px-1.5 py-0.5 font-semibold text-green-700">New</th>
+          </tr>
+        </thead>
+        <tbody>
+          {changes.map((c, i) => (
+            <tr key={i} className={i % 2 === 1 ? "bg-muted/20" : ""}>
+              <td className="px-1.5 py-0.5 font-mono">{c.field}</td>
+              <td className="px-1.5 py-0.5 text-red-600 max-w-[120px] truncate" title={c.old ?? "—"}>{c.old ?? <span className="italic text-muted-foreground">null</span>}</td>
+              <td className="px-1.5 py-0.5 text-green-700 max-w-[120px] truncate" title={c.new ?? "—"}>{c.new ?? <span className="italic text-muted-foreground">null</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+  );
+}
+
 export default function AuditLog() {
-  const { toast }    = useToast();
-  const [tab, setTab] = useState("log");   // "log" | "restore"
+  const { toast } = useToast();
+  const [tab, setTab] = useState("log"); // "log" | "logins" | "restore"
   const [data, setData]       = useState({ results: [], count: 0, num_pages: 1, page: 1 });
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -57,13 +129,12 @@ export default function AuditLog() {
 
   const sf = (k, v) => setFilters((prev) => ({ ...prev, [k]: v }));
 
-  // ── Reverse a single transaction ────────────────────────────────────────
+  // ── Reverse a single transaction ──────────────────────────────────────────
   async function handleReverse(row) {
     if (!row.history_transaction_id) {
       toast({ title: "This event has no transaction id — cannot reverse.", variant: "destructive" });
       return;
     }
-    // 1. Dry run
     const dry = await reverseTransaction(row.history_transaction_id, true);
     if (!dry.success) {
       toast({ title: "Reversal preview failed", description: JSON.stringify(dry.error), variant: "destructive" });
@@ -77,7 +148,6 @@ export default function AuditLog() {
     );
     if (!ok) return;
 
-    // 2. Real
     const real = await reverseTransaction(row.history_transaction_id, false);
     if (real.success) {
       toast({ title: `Reversed: ${real.data.summary.total_changes} change(s)` });
@@ -94,6 +164,9 @@ export default function AuditLog() {
         <div className="flex items-center gap-1 rounded-md border p-0.5 bg-muted/30">
           <Button size="sm" variant={tab === "log" ? "default" : "ghost"} className="h-7 text-xs" onClick={() => setTab("log")}>
             <History className="size-3.5 mr-1" /> Activity
+          </Button>
+          <Button size="sm" variant={tab === "logins" ? "default" : "ghost"} className="h-7 text-xs" onClick={() => setTab("logins")}>
+            <LogIn className="size-3.5 mr-1" /> Login Activity
           </Button>
           <Button size="sm" variant={tab === "restore" ? "default" : "ghost"} className="h-7 text-xs" onClick={() => setTab("restore")}>
             <RefreshCw className="size-3.5 mr-1" /> Restore Points
@@ -170,17 +243,8 @@ export default function AuditLog() {
                         <td className="px-4 py-2.5 text-xs max-w-[200px] truncate" title={e.object_repr}>
                           {e.object_repr}
                         </td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[260px]">
-                          {e.changed_fields ? (
-                            <details className="cursor-pointer">
-                              <summary className="text-primary hover:underline text-[11px]">View</summary>
-                              <pre className="mt-1 text-[10px] bg-muted rounded p-1 overflow-x-auto max-h-32 whitespace-pre-wrap">
-                                {typeof e.changed_fields === "string"
-                                  ? e.changed_fields
-                                  : JSON.stringify(e.changed_fields, null, 2)}
-                              </pre>
-                            </details>
-                          ) : "—"}
+                        <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[280px]">
+                          <DiffCell row={e} />
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           {e.history_transaction_id && (
@@ -213,16 +277,145 @@ export default function AuditLog() {
         </>
       )}
 
+      {tab === "logins" && <LoginActivityTab toast={toast} />}
+
       {tab === "restore" && <RestorePointsTab toast={toast} />}
     </div>
   );
 }
 
-// ── Restore Points Tab ─────────────────────────────────────────────────────
+// ── Login Activity Tab ────────────────────────────────────────────────────────
+
+function LoginActivityTab({ toast }) {
+  const [data, setData]       = useState({ results: [], count: 0, num_pages: 1, page: 1 });
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({ from_date: "", to_date: "", action: "", username: "", page: 1 });
+
+  const load = useCallback(async (f = filters) => {
+    setLoading(true);
+    const params = {};
+    if (f.from_date) params.from_date = f.from_date;
+    if (f.to_date)   params.to_date   = f.to_date;
+    if (f.action)    params.action    = f.action;
+    if (f.username)  params.username  = f.username;
+    params.page = f.page;
+    const res = await fetchLoginLog(params);
+    if (res.success) setData(res.data);
+    else toast({ title: "Failed to load login log", variant: "destructive" });
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, []);
+
+  const sf = (k, v) => setFilters((prev) => ({ ...prev, [k]: v }));
+  const apply = () => { const f = { ...filters, page: 1 }; setFilters(f); load(f); };
+  const goPage = (p) => { const f = { ...filters, page: p }; setFilters(f); load(f); };
+
+  return (
+    <>
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-3 p-3 rounded-xl border border-border bg-muted/30">
+        <div>
+          <Label className="text-xs">From Date</Label>
+          <Input type="date" className="h-8 text-sm mt-1 w-36"
+            value={filters.from_date} onChange={(e) => sf("from_date", e.target.value)} max={filters.to_date || undefined} />
+        </div>
+        <div>
+          <Label className="text-xs">To Date</Label>
+          <Input type="date" className="h-8 text-sm mt-1 w-36"
+            value={filters.to_date} onChange={(e) => sf("to_date", e.target.value)} min={filters.from_date || undefined} />
+        </div>
+        <div>
+          <Label className="text-xs">Username</Label>
+          <Input className="h-8 text-sm mt-1 w-36" placeholder="Search user…"
+            value={filters.username} onChange={(e) => sf("username", e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && apply()} />
+        </div>
+        <div>
+          <Label className="text-xs">Action</Label>
+          <select className="h-8 text-sm mt-1 border rounded-md px-2 bg-background"
+            value={filters.action} onChange={(e) => sf("action", e.target.value)}>
+            <option value="">All</option>
+            <option value="login">Login</option>
+            <option value="logout">Logout</option>
+          </select>
+        </div>
+        <Button size="sm" className="h-8" onClick={apply}>
+          <Search className="size-3.5 mr-1.5" /> Search
+        </Button>
+        <Button size="sm" variant="outline" className="h-8" onClick={() => {
+          const f = { from_date: "", to_date: "", action: "", username: "", page: 1 };
+          setFilters(f); load(f);
+        }}>Clear</Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {data.count.toLocaleString()} event{data.count !== 1 ? "s" : ""} found
+        {data.num_pages > 1 && ` — Page ${data.page} of ${data.num_pages}`}
+      </p>
+
+      {loading ? (
+        <div className="flex flex-col gap-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+      ) : (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 border-b border-border">
+                  {["Date & Time", "Username", "Action", "Result", "IP Address", "Retail", "User Agent"].map((h) => (
+                    <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-2.5">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.results.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">No login events found.</td></tr>
+                ) : data.results.map((e, i) => (
+                  <tr key={e.id} className={`border-b border-border last:border-0 hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
+                    <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">{e.timestamp}</td>
+                    <td className="px-4 py-2.5 text-xs font-medium">{e.username_attempted || e.user || "—"}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${e.action === "login" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
+                        {e.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${e.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                        {e.success ? "Success" : "Failed"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 font-mono text-xs">{e.ip_address || "—"}</td>
+                    <td className="px-4 py-2.5 text-xs">{e.retail || "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[200px] truncate" title={e.user_agent}>{e.user_agent || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {data.num_pages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <Button size="sm" variant="outline" disabled={data.page <= 1} onClick={() => goPage(data.page - 1)}>
+            <ChevronLeft className="size-4" />
+          </Button>
+          <span className="text-xs text-muted-foreground">Page {data.page} / {data.num_pages}</span>
+          <Button size="sm" variant="outline" disabled={data.page >= data.num_pages} onClick={() => goPage(data.page + 1)}>
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── Restore Points Tab ────────────────────────────────────────────────────────
 
 function RestorePointsTab({ toast }) {
   const [timestamp, setTimestamp] = useState(() => {
-    // default: 1 hour ago, ISO local format suitable for datetime-local input
     const d = new Date(Date.now() - 60 * 60 * 1000);
     return d.toISOString().slice(0, 16);
   });

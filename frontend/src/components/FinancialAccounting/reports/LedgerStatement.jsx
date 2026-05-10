@@ -391,7 +391,7 @@ export default function LedgerStatement() {
               <div>
                 <h3 className="font-semibold text-foreground">{report.ledger_name}</h3>
                 <p className="text-xs text-muted-foreground">
-                  {report.from_date} to {report.to_date}
+                  {toDdMm(report.from_date)} to {toDdMm(report.to_date)}
                 </p>
               </div>
               <div className="text-right text-sm">
@@ -421,7 +421,7 @@ export default function LedgerStatement() {
                   )}
                   {report.transactions.map((t, i) => (
                     <tr key={i} className={`border-t border-border ${i % 2 === 1 ? "bg-muted/20" : ""} hover:bg-accent/30 transition-colors`}>
-                      <td className="px-4 py-2">{t.date}</td>
+                      <td className="px-4 py-2">{toDdMm(t.date)}</td>
                       <td className="px-4 py-2 font-mono text-xs">{t.voucher_no}</td>
                       <td className="px-4 py-2">
                         <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-medium">{t.voucher_type}</span>

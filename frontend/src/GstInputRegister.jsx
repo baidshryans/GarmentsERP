@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Download } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Download, Printer } from 'lucide-react';
 import { fetchGSTInputReport, fetchGstins, getFiscalYears } from "./services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { isValidDateRange } from "@/lib/dateRange";
 const today = () => new Date().toISOString().slice(0, 10);
 
 const GstInputRegister = () => {
+  const printRef = useRef(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState(today());
   const [data, setData] = useState([]);
@@ -49,9 +50,6 @@ const GstInputRegister = () => {
     }
   };
 
-  useEffect(() => {
-    if (startDate) fetchData();
-  }, [startDate]);
 
   const fmt = (amount) =>
     amount !== null && amount !== undefined ? Number(amount).toFixed(2) : '0.00';
@@ -62,6 +60,29 @@ const GstInputRegister = () => {
       month: '2-digit',
       year: 'numeric',
     });
+
+  const handlePrint = () => {
+    const content = printRef.current?.innerHTML;
+    if (!content) return;
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>GST Input Register</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 11px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+        th { background: #f0f0f0; font-weight: bold; }
+        .text-right { text-align: right; }
+        tfoot tr { font-weight: bold; background: #f9f9f9; }
+        h2 { font-size: 14px; margin-bottom: 8px; }
+      </style></head><body>
+      <h2>GST Input Register — ${startDate} to ${endDate}</h2>
+      ${content}
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+  };
 
   const exportToCSV = () => {
     const headers = [
@@ -175,6 +196,10 @@ const GstInputRegister = () => {
           <Download className="w-3.5 h-3.5 mr-1" />
           Export CSV
         </Button>
+        <Button size="sm" variant="outline" onClick={handlePrint} disabled={loading || data.length === 0} className="h-9">
+          <Printer className="w-3.5 h-3.5 mr-1" />
+          Print
+        </Button>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -195,7 +220,7 @@ const GstInputRegister = () => {
             </p>
           )}
 
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="rounded-lg border border-border overflow-hidden" ref={printRef}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -206,10 +231,10 @@ const GstInputRegister = () => {
                     <th className="px-3 py-2.5 text-left font-semibold border-r border-border">Party Name</th>
                     <th className="px-3 py-2.5 text-left font-semibold border-r border-border">GST IN</th>
                     <th className="px-3 py-2.5 text-left font-semibold border-r border-border">PAN No</th>
+                    <th className="px-3 py-2.5 text-right font-semibold border-r border-border">Taxable Amt</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">Bill Value</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">Goods Value</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">+/- Before Tax</th>
-                    <th className="px-3 py-2.5 text-right font-semibold border-r border-border">Taxable Amt</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">SGST</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">CGST</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">IGST</th>
@@ -238,10 +263,10 @@ const GstInputRegister = () => {
                         <td className="px-3 py-2 border-r border-border/50 max-w-32 truncate">{row.party_name}</td>
                         <td className="px-3 py-2 border-r border-border/50">{row.gstin || '—'}</td>
                         <td className="px-3 py-2 border-r border-border/50">{row.pan || '—'}</td>
+                        <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.taxable_amount)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.bill_value)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.goods_value)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.before_tax)}</td>
-                        <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.taxable_amount)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.sgst)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.cgst)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.igst)}</td>
@@ -255,10 +280,10 @@ const GstInputRegister = () => {
                   <tfoot>
                     <tr className="border-t-2 border-border bg-muted/50 font-semibold text-foreground">
                       <td colSpan="6" className="px-3 py-2.5 text-sm">Totals</td>
+                      <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.taxable_amount)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.bill_value)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.goods_value)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.before_tax)}</td>
-                      <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.taxable_amount)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.sgst)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.cgst)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.igst)}</td>

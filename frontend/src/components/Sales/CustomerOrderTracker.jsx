@@ -58,16 +58,20 @@ function buildStageTimeline(events) {
 
 function StateChip({ state }) {
   const map = {
-    unlocked:      "bg-slate-100 text-slate-700 border-slate-200",
-    in_production: "bg-amber-50 text-amber-800 border-amber-200",
-    barcoded:      "bg-teal-50 text-teal-800 border-teal-200",
-    billed:        "bg-emerald-50 text-emerald-800 border-emerald-200",
+    unlocked:        "bg-slate-100 text-slate-700 border-slate-200",
+    in_production:   "bg-amber-50 text-amber-800 border-amber-200",
+    barcoded:        "bg-teal-50 text-teal-800 border-teal-200",
+    billed:          "bg-emerald-50 text-emerald-800 border-emerald-200",
+    Returned:        "bg-red-50 text-red-700 border-red-200",
+    "Partial Return": "bg-orange-50 text-orange-700 border-orange-200",
   };
   const label = {
     unlocked: "Not yet released",
     in_production: "In production",
     barcoded: "Ready for Delivery",
     billed: "Delivered",
+    Returned: "Returned",
+    "Partial Return": "Partial Return",
   }[state] || state;
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${map[state] || "bg-slate-100 text-slate-700 border-slate-200"}`}>
@@ -350,6 +354,15 @@ const CustomerOrderTracker = () => {
                       <span>Delivery by {formatDate(timeline.order.delivery_date)}</span>
                       {timeline.order.delivery_status && (
                         <span>Status: <span className="text-foreground">{timeline.order.delivery_status}</span></span>
+                      )}
+                      {(timeline.order.status === "Returned" || timeline.order.status === "Partial Return") && (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          timeline.order.status === "Returned"
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : "bg-orange-50 text-orange-700 border-orange-200"
+                        }`}>
+                          {timeline.order.status}
+                        </span>
                       )}
                     </div>
                   </div>

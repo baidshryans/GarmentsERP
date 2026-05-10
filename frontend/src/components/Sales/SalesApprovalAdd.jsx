@@ -262,8 +262,8 @@ const SalesApprovalAdd = () => {
           </FieldContainer>
 
           {/* Party Name */}
-          <div className="flex items-center gap-2">
-            <Label className="text-nowrap shrink-0">Party Name</Label>
+          <FieldContainer>
+            <Label className="text-nowrap">Party Name</Label>
             <SearchableComboBox
               options={customers}
               value={watch("form.ldgr_name") ?? ""}
@@ -272,10 +272,9 @@ const SalesApprovalAdd = () => {
                 setValue("form.ldgr", opt.id)
               }}
               placeholder="Search customer…"
-              className="flex-1"
             />
-          </div>
-          <input type="hidden" {...register("form.ldgr")} />
+            <input type="hidden" {...register("form.ldgr")} />
+          </FieldContainer>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">

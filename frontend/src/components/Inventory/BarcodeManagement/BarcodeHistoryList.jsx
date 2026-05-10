@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
@@ -18,19 +19,45 @@ const TRANS_LABELS = {
   ADJUSTMENT: "Adjustment",
 }
 
+const TRANS_COLORS = {
+  PURCHASE:         "bg-blue-50   text-blue-700   border-blue-200",
+  SALE:             "bg-green-50  text-green-700  border-green-200",
+  SALE_RETURN:      "bg-red-50    text-red-700    border-red-200",
+  KARIGAR_ISSUE:    "bg-amber-50  text-amber-700  border-amber-200",
+  KARIGAR_RECEIVE:  "bg-teal-50   text-teal-700   border-teal-200",
+  SPLIT:            "bg-purple-50 text-purple-700 border-purple-200",
+  MERGE:            "bg-indigo-50 text-indigo-700 border-indigo-200",
+  TRANSFER:         "bg-sky-50    text-sky-700    border-sky-200",
+  ADJUSTMENT:       "bg-orange-50 text-orange-700 border-orange-200",
+}
+
 const fmtWt = (v) => v != null ? Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "-"
 const fmtDate = (v) => new Date(v).toLocaleString("en-GB").replaceAll("/", "-")
 
 export default function BarcodeHistoryList() {
+  const [searchParams] = useSearchParams()
+  const initBarcode = searchParams.get('search') || ''
+
   const [barcodeOptions, setBarcodeOptions] = useState([])
-  const [barcodeSearch, setBarcodeSearch] = useState("")
-  const [selectedBarcode, setSelectedBarcode] = useState("")
+  const [barcodeSearch, setBarcodeSearch] = useState(initBarcode)
+  const [selectedBarcode, setSelectedBarcode] = useState(initBarcode)
   const [sortby, setSortby] = useState("-date")
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [hasSearched, setHasSearched] = useState(false)
+
+
+  // Auto-load history when barcode passed via URL ?search= param
+  const didAutoLoad = useRef(false)
+  useEffect(() => {
+    if (initBarcode && !didAutoLoad.current) {
+      didAutoLoad.current = true
+      loadHistory(initBarcode, '-date')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Server-side barcode search for the combobox
   useEffect(() => {
@@ -137,12 +164,12 @@ export default function BarcodeHistoryList() {
               <thead>
                 <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2.5 text-left font-semibold">Date & Time</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Type</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Barcode</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Item</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Pcs</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Gw (g)</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Bill No</th>
-                  <th className="px-3 py-2.5 text-left font-semibold">Type</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,6 +183,11 @@ export default function BarcodeHistoryList() {
                 {rows.map((r, i) => (
                   <tr key={r.id ?? i} className={`border-t border-border/50 ${i % 2 === 1 ? "bg-muted/20" : ""}`}>
                     <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.date)}</td>
+                    <td className="px-3 py-2 text-xs">
+                      <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium uppercase tracking-wide ${TRANS_COLORS[r.trans_type] ?? "bg-muted text-muted-foreground border-border"}`}>
+                        {TRANS_LABELS[r.trans_type] || r.trans_type}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-xs font-mono">{r.barcode}</td>
                     <td className="px-3 py-2 text-xs">
                       {r.item_name
@@ -165,11 +197,6 @@ export default function BarcodeHistoryList() {
                     <td className="px-3 py-2 text-right tabular-nums text-xs">{r.pcs ?? "-"}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-xs">{fmtWt(r.gw)}</td>
                     <td className="px-3 py-2 text-xs font-mono">{r.billno || "-"}</td>
-                    <td className="px-3 py-2 text-xs">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
-                        {TRANS_LABELS[r.trans_type] || r.trans_type}
-                      </span>
-                    </td>
                   </tr>
                 ))}
               </tbody>

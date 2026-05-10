@@ -7,7 +7,7 @@ import {
   transferBarcodeToOrder,
 } from "@/services/apiService";
 import { useToast } from "@/hooks/use-toast";
-import { Repeat2, ArrowRightCircle, Unlink, ChevronLeft } from "lucide-react";
+import { Repeat2, ArrowRightCircle, Unlink, ChevronLeft, X } from "lucide-react";
 
 /**
  * BarcodeTransferDialog
@@ -48,7 +48,15 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
         setLoadingOrders(false);
       }
     })();
-    return () => { cancel = true; };
+  
+  // Close on Escape key
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape' && !submitting) onClose?.() }
+    if (open) window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [open, submitting, onClose])
+
+  return () => { cancel = true; };
   }, [step, orderSearch]);
 
   if (!open || !barcode) return null;
@@ -91,11 +99,14 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
               <ChevronLeft size={16} />
             </Button>
           )}
-          <h2 className="text-lg font-semibold">
+          <h2 className="text-lg font-semibold flex-1">
             {step === "menu" && "Transfer barcode"}
             {step === "to-unbarcoded" && "Transfer to Unbarcoded"}
             {step === "to-order" && "Transfer to Customer Order"}
           </h2>
+          <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto" onClick={onClose} disabled={submitting} title="Close">
+            <X size={16} />
+          </Button>
         </div>
 
         <div className="text-sm space-y-1 mb-4 bg-gray-50 rounded p-3 border">

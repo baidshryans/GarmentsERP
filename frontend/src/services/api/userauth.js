@@ -175,10 +175,34 @@ export async function backupDatabaseDownload() {
   } catch (e) { return { success: false, error: e.message }; }
 }
 
+// ── Logout ────────────────────────────────────────────────────────────────────
+export const callLogout = async () => {
+  try {
+    await apiClient.post('/userauth/api/logout/');
+    return { success: true };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+};
+
+// ── Login Log ─────────────────────────────────────────────────────────────────
+export const fetchLoginLog = async (params = {}) => {
+  try {
+    const r = await apiClient.get('/userauth/api/login-log/', { params });
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+};
+
 // ── Audit Log ─────────────────────────────────────────────────────────────────
 export const fetchAuditLog = async (params = {}) => {
   try {
     const r = await apiClient.get('/userauth/api/audit-log/', { params });
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+};
+
+// Fetch old→new field diff for a single history record
+export const fetchAuditDetail = async (id) => {
+  try {
+    const r = await apiClient.get('/userauth/api/audit-log/detail/', { params: { id } });
     return { success: true, data: r.data };
   } catch (e) { return { success: false, error: e.response?.data || e.message }; }
 };

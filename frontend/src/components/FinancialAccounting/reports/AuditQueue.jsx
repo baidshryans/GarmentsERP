@@ -17,11 +17,16 @@ import { useToast } from "@/hooks/use-toast";
 import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
+const fyStart = (() => {
+  const now = new Date();
+  const yr = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+  return `${yr}-04-01`;
+})();
 
 const VOUCHER_TYPE_LABELS = {
   JRNL: "Journal", PMNT: "Payment", RCPT_SALE: "Receipt", "RCPT-SALE": "Receipt",
   CONTRA: "Contra", SALE: "Sale", "SALE-RET": "Sale Return",
-  "PURC-SC": "Purchase", "PURC-RET": "Purchase Return",
+  "PURC-SC": "Purchase", "PURC-CO": "Purchase (OG)", "PURC-RET": "Purchase Return",
 };
 
 const fmt = (v) =>
@@ -93,7 +98,7 @@ function AttachmentStrip({ attachments, onPreview }) {
 export default function AuditQueue() {
   const { toast } = useToast();
 
-  const [fromDate, setFromDate] = useState(today);
+  const [fromDate, setFromDate] = useState(fyStart);
   const [toDate,   setToDate]   = useState(today);
   const [show,     setShow]     = useState("unaudited");
   const [vtFilter, setVtFilter] = useState("all");   // voucher type filter
@@ -328,11 +333,11 @@ export default function AuditQueue() {
                     ? <ChevronDown  className="size-4 text-muted-foreground shrink-0" />
                     : <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                   }
-                  <span className="font-mono text-xs text-muted-foreground w-28 shrink-0">{v.voucher_no}</span>
+                  <span className="font-mono text-xs text-muted-foreground w-52 shrink-0 whitespace-nowrap">{v.voucher_no}</span>
                   <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-medium shrink-0">
                     {VOUCHER_TYPE_LABELS[v.voucher_type] ?? v.voucher_type}
                   </span>
-                  <span className="text-sm font-medium truncate">{v.narration}</span>
+                  <span className="text-sm font-medium truncate max-w-xs">{v.narration}</span>
                   <span className="ml-auto text-sm font-semibold shrink-0">{fmt(v.amount)}</span>
                   <span className="text-xs text-muted-foreground shrink-0 w-24 text-right">{v.date}</span>
                 </button>

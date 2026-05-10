@@ -269,6 +269,31 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     is_cancellable          = serializers.SerializerMethodField(read_only=True)
     has_in_production_items = serializers.SerializerMethodField(read_only=True)
     has_advance             = serializers.SerializerMethodField(read_only=True)
+    linked_receipts         = serializers.SerializerMethodField(read_only=True)
+
+    def get_linked_receipts(self, obj):
+        from django.db.models import Sum as _Sum
+        from accounting.models import ReferenceBills as _RefBills
+        receipts = obj.receipts.filter(
+            voucher_type__in=['RCPT', 'RCPT-SALE'],
+            status='posted',
+        ).order_by('date', 'id')
+        rows = []
+        for v in receipts:
+            applied = (
+                _RefBills.objects.filter(voucher=v)
+                .aggregate(s=_Sum('amount'))['s'] or 0
+            )
+            rows.append({
+                'id': v.id,
+                'voucher_no': v.voucher_no,
+                'date': v.date.isoformat(),
+                'amount': float(v.amount),
+                'amount_applied': float(applied),
+                'amount_remaining': float(max(0, float(v.amount) - float(applied))),
+                'narration': v.narration or '',
+            })
+        return rows
 
     def get_is_deletable(self, obj):
         return not obj.linked_vouchers.all()
@@ -303,7 +328,8 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
              'retail_name', 'retail_phone', 'retail_city',
              'retail_address_line1', 'retail_address_line2', 'retail_address_line3',
              'retail_pincode', 'retail_state', 'retail_gstin', 'retail_email',
-             'is_deletable', 'is_cancellable', 'has_in_production_items', 'has_advance']
+             'is_deletable', 'is_cancellable', 'has_in_production_items', 'has_advance',
+             'linked_receipts']
 
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -590,6 +616,10 @@ class SalesVouSerializer(serializers.ModelSerializer):
     customer_order = serializers.PrimaryKeyRelatedField(
         queryset=CustomerOrder.objects.all(), allow_null=True, required=False
     )
+    advance_receipt_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, write_only=True, default=list,
+        help_text="PKs of unlinked RCPT vouchers to apply as advance (used when no customer_order is set)"
+    )
     old_gold_purchase = serializers.PrimaryKeyRelatedField(
         queryset=PurchaseVoucher.objects.filter(voucher_type='Customer'),
         allow_null=True, required=False
@@ -636,6 +666,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'cash',
             'due_amt',
             'advance_deducted',
+            'advance_receipt_ids',
             'customer_order',
             'old_gold_purchase',
             'old_gold_adjusted',
@@ -712,6 +743,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             items_data = validated_data.pop('salesvouitem_set')
             item_Details = validated_data.pop('salesvouitemdetails_set')
             bank_details = validated_data.pop('bank_details')
+            advance_receipt_ids = validated_data.pop('advance_receipt_ids', [])
 
             # Auto-generate bill number server-side to avoid clashes
             request = self.context.get("request")
@@ -743,13 +775,35 @@ class SalesVouSerializer(serializers.ModelSerializer):
             bank_total       = sum(Decimal(str(b.get('amount', 0) or 0)) for b in bank_details)
             # total_bill_value is a model property; read after instance creation below
 
-            # ── Auto-apply CustomerOrder advance (single source of truth) ─────
-            # The client MUST NOT send advance_deducted. It is computed on the
-            # server from the order's linked receipts so the ledger and the
-            # advance adjustment can never drift apart.
+            # ── Auto-apply advance (single source of truth) ───────────────────
+            # advance_deducted is always computed server-side, never accepted from client.
+            # Path A: customer_order FK set → use order's linked RCPT pool.
+            # Path B: advance_receipt_ids provided → direct RCPT selection (no order needed).
             customer_order = validated_data.get('customer_order')
+            if customer_order and advance_receipt_ids:
+                raise ValidationError(
+                    'Provide either customer_order or advance_receipt_ids, not both.'
+                )
             if customer_order:
                 advance_deducted = customer_order.advance_available
+            elif advance_receipt_ids:
+                from django.db.models import Sum as _Sum
+                from accounting.models import VoucherMain as _VM, ReferenceBills as _RefBills
+                advance_deducted = Decimal('0')
+                for rcpt_pk in advance_receipt_ids:
+                    try:
+                        rcpt = _VM.objects.get(
+                            pk=rcpt_pk,
+                            voucher_type__in=['RCPT', 'RCPT-SALE'],
+                            status='posted',
+                        )
+                    except _VM.DoesNotExist:
+                        raise ValidationError(f'Receipt id={rcpt_pk} not found or not a valid RCPT.')
+                    applied = (
+                        _RefBills.objects.filter(voucher=rcpt)
+                        .aggregate(s=_Sum('amount'))['s'] or Decimal('0')
+                    )
+                    advance_deducted += max(Decimal('0'), Decimal(str(rcpt.amount)) - applied)
             else:
                 advance_deducted = Decimal('0')
             validated_data['advance_deducted'] = advance_deducted
@@ -790,25 +844,38 @@ class SalesVouSerializer(serializers.ModelSerializer):
             )
             # (saved again after ac_voucher is assigned below)
 
-            # ── Write ReferenceBills rows linking order receipts → this sale ──
-            # Splits the advance across receipts in FIFO order. This is the
-            # audit trail that says "RCPT-123 was used to pay SV-456 for ₹X".
-            if customer_order and advance_deducted > 0:
+            # ── Write ReferenceBills rows (advance audit trail) ───────────────
+            # "RCPT-123 was used to pay SV-456 for ₹X"
+            if advance_deducted > 0:
                 from django.db.models import Sum as _Sum
-                from accounting.models import ReferenceBills as _RefBills
+                from accounting.models import ReferenceBills as _RefBills, VoucherMain as _VM
                 remaining = advance_deducted
-                order_receipts = customer_order.receipts.filter(
-                    voucher_type__in=['RCPT', 'RCPT-SALE'],
-                    status='posted',
-                ).order_by('date', 'id')
-                for rcpt in order_receipts:
+
+                if customer_order:
+                    # Path A: FIFO across all receipts linked to the order
+                    receipt_pool = list(
+                        customer_order.receipts.filter(
+                            voucher_type__in=['RCPT', 'RCPT-SALE'],
+                            status='posted',
+                        ).order_by('date', 'id')
+                    )
+                else:
+                    # Path B: explicit receipt IDs supplied by the frontend
+                    receipt_pool = list(
+                        _VM.objects.filter(
+                            pk__in=advance_receipt_ids,
+                            voucher_type__in=['RCPT', 'RCPT-SALE'],
+                            status='posted',
+                        ).order_by('date', 'id')
+                    )
+
+                for rcpt in receipt_pool:
                     if remaining <= 0:
                         break
-                    # How much of this receipt is still unallocated against any bill?
                     already = _RefBills.objects.filter(voucher=rcpt).aggregate(
                         s=_Sum('amount')
                     )['s'] or Decimal('0')
-                    rcpt_available = Decimal(rcpt.amount) - already
+                    rcpt_available = Decimal(str(rcpt.amount)) - already
                     if rcpt_available <= 0:
                         continue
                     alloc = min(remaining, rcpt_available)

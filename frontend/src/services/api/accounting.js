@@ -138,6 +138,15 @@ export async function updateJournalEntryForEdit(data, id) {
   }
 }
 
+export async function cancelJournalEntry(id) {
+  try {
+    const response = await apiClient.post(`/accounting/api/journal/${id}/cancel/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function fetchtrial() {
   try {
     const response = await apiClient.get(`/accounting/api/trial/`);
@@ -606,6 +615,39 @@ export async function fetchGSToutputReport(fromDate, toDate) {
     return { success: true, data: response.data };
   } catch (error) {
     console.error("Failed to fetch shape :", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchUnlinkedReceipts(ldgrId) {
+  try {
+    const response = await apiClient.get(`/accounting/api/unlinked-receipts/?ldgr_id=${ldgrId}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function linkReceiptToOrder(voucherId, customerOrderId) {
+  try {
+    const response = await apiClient.patch(
+      `/accounting/api/journal/${voucherId}/link-order/`,
+      { customer_order: customerOrderId }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function releaseReceiptFromOrder(voucherId) {
+  try {
+    const response = await apiClient.patch(
+      `/accounting/api/journal/${voucherId}/link-order/`,
+      { customer_order: null }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
     return { success: false, error: error.response?.data || error.message };
   }
 }

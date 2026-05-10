@@ -191,6 +191,58 @@ class JournalEntryViewSet(RetailBaseViewset):
             'status':    voucher.status,
             'detail':    'Voucher cancelled and ledger effects reversed.',
         })
+    from rest_framework.decorators import action as _drf_action
+    @_drf_action(detail=True, methods=['patch'], url_path='link-order')
+    def link_order(self, request, pk=None):
+        """
+        Link or unlink a RCPT/RCPT-SALE voucher to/from a CustomerOrder.
+          PATCH body: { "customer_order": <order_pk> }  → link
+          PATCH body: { "customer_order": null }        → release back to on-account
+        Releasing is blocked when the advance has already been applied to a bill.
+        """
+        from django.db.models import Sum as _Sum
+        from ..models import ReferenceBills as _RefBills
+        from sales.models import CustomerOrder
+
+        voucher = self.get_object()
+        if voucher.voucher_type not in ('RCPT', 'RCPT-SALE'):
+            return Response(
+                {'detail': 'Only RCPT/RCPT-SALE vouchers can be linked to a customer order.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        co_id = request.data.get('customer_order')
+
+        if co_id is None:
+            # Release — block if advance already consumed
+            applied = _RefBills.objects.filter(voucher=voucher).aggregate(
+                s=_Sum('amount')
+            )['s'] or 0
+            if applied > 0:
+                return Response(
+                    {'detail': 'Cannot release: this advance has already been applied to a sales bill.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            voucher.customer_order = None
+            voucher.save(update_fields=['customer_order'])
+            return Response({'id': voucher.id, 'customer_order': None})
+
+        # Link — resolve order (must belong to same retail)
+        try:
+            order = CustomerOrder.objects.get(pk=co_id, retail=voucher.retail)
+        except CustomerOrder.DoesNotExist:
+            return Response(
+                {'detail': f'CustomerOrder id={co_id} not found.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        voucher.customer_order = order
+        voucher.save(update_fields=['customer_order'])
+        return Response({
+            'id': voucher.id,
+            'customer_order': order.id,
+            'order_no': order.order_no,
+        })
+
     def perform_create(self, serializer):
         with transaction.atomic():
             serializer.save(retail=self.request.retail)
@@ -422,3 +474,53 @@ class NextCNDNNumberView(APIView):
         retail = request.retail
         next_no = peek_next_bill_number(retail, note_type)
         return Response({'next_no': next_no})
+
+class UnlinkedReceiptsView(APIView):
+    """
+    GET /accounting/api/unlinked-receipts/?ldgr_id=<ledger_pk>
+    Returns posted RCPT/RCPT-SALE vouchers for a customer ledger that have no
+    CustomerOrder FK, together with how much of each is still unallocated.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from decimal import Decimal as _D
+        from django.db.models import Sum as _Sum
+        from ..models import ReferenceBills as _RefBills
+
+        ldgr_id = request.query_params.get("ldgr_id")
+        if not ldgr_id:
+            return Response({"detail": "ldgr_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        retail = request.retail
+        vouchers = (
+            VoucherMain.objects
+            .filter(
+                retail=retail,
+                voucher_type__in=["RCPT", "RCPT-SALE"],
+                status="posted",
+                customer_order__isnull=True,
+                transactions__account_id=ldgr_id,
+            )
+            .distinct()
+            .order_by("date", "id")
+        )
+
+        rows = []
+        for v in vouchers:
+            applied = (
+                _RefBills.objects.filter(voucher=v)
+                .aggregate(s=_Sum("amount"))["s"] or _D("0")
+            )
+            remaining = _D(str(v.amount)) - _D(str(applied))
+            if remaining <= 0:
+                continue
+            rows.append({
+                "id": v.id,
+                "voucher_no": v.voucher_no,
+                "date": v.date.isoformat(),
+                "amount": float(v.amount),
+                "amount_remaining": float(remaining),
+                "narration": v.narration or "",
+            })
+        return Response(rows)

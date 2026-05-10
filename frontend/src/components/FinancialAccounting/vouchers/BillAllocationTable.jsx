@@ -93,7 +93,7 @@ export default function BillAllocationTable({
   if (!ledgerId) {
     return (
       <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-xs text-gray-500">
-        Select a party ledger to see outstanding {kind === "sales" ? "sales" : "purchase"} bills.
+        Select a party ledger to see outstanding {kind === "sales" ? "sales" : kind === "payable" ? "purchase and journal" : "purchase"} bills.
       </div>
     );
   }
@@ -103,7 +103,7 @@ export default function BillAllocationTable({
       <div className="flex items-center gap-2 mb-3">
         <FileText className="size-4 text-primary" />
         <span className="text-sm font-semibold text-primary">
-          Outstanding {kind === "sales" ? "Sales" : "Purchase"} Bills
+          Outstanding {kind === "sales" ? "Sales" : kind === "payable" ? "Payables" : "Purchase"} Bills
         </span>
         <div className="ml-auto flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -156,7 +156,10 @@ export default function BillAllocationTable({
             </TableRow>
             {bills.map((b) => (
               <TableRow key={b.id} className="bg-white">
-                <TableCell className="px-3 py-1.5 text-xs font-medium">{b.billno}</TableCell>
+                <TableCell className="px-3 py-1.5 text-xs font-medium">
+                  <div>{b.label || b.billno}</div>
+                  {b.narration && <div className="text-[11px] text-gray-400 truncate max-w-[200px]">{b.narration}</div>}
+                </TableCell>
                 <TableCell className="px-3 py-1.5 text-xs text-gray-600">{b.date}</TableCell>
                 <TableCell className="px-3 py-1.5 text-xs text-right">
                   ₹{parseFloat(b.total).toLocaleString("en-IN")}

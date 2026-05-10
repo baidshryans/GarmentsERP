@@ -155,12 +155,12 @@ def sale_return_print_data(request, pk):
 
             items_data.append({
                 'sn':        len(items_data) + 1,
-                'barcode':   ri.barcode or '',
+                'barcode':   ri.barcode.barcode if ri.barcode else '',
                 'item_name': ri.item.item_name if ri.item else '',
                 'pcs':       ri.pcs or 0,
                 'gw':        float(ri.gw or 0),
                 'making':    float(ri.making_value or 0),
-                'amount':    float(ri.amount or 0),
+                'amount':    sum(r['amount'] for r in sub_rows) + float(ri.making_value or 0),
                 'sub_rows':  sub_rows,
             })
 

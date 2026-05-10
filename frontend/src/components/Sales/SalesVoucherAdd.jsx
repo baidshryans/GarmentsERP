@@ -7,7 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle, Plus } from "lucide-react";
+import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle, Plus, Loader2 } from "lucide-react";
+import { fetchUnlinkedReceipts } from "@/services/api/accounting";
 import {
   Select,
   SelectTrigger,
@@ -194,6 +195,9 @@ const SalesVoucherAdd = () => {
   const [customerCashInfo, setCustomerCashInfo] = useState(null); // { cash_received, limit, remaining }
   const [customerOrders, setCustomerOrders] = useState([]);       // orders with available advance
   const [selectedOrder, setSelectedOrder] = useState(null);       // the linked CustomerOrder object
+  const [onAccountReceipts, setOnAccountReceipts] = useState([]); // unlinked RCPT vouchers for direct advance
+  const [loadingOnAccount, setLoadingOnAccount] = useState(false);
+  const [selectedReceiptIds, setSelectedReceiptIds] = useState([]); // PKs chosen for direct advance
   const [customerPurchases, setCustomerPurchases] = useState([]); // old gold purchases with available balance
   const [selectedPurchase, setSelectedPurchase] = useState(null); // the linked PurchaseVoucher object
   const [b2bPricelist, setB2bPricelist] = useState(null);         // null = retail mode; object = B2B pricelist data
@@ -862,6 +866,12 @@ const SalesVoucherAdd = () => {
       // Send null when no order/purchase linked (avoid empty-string FK)
       if (!data.customer_order) data.customer_order = null;
       if (!data.old_gold_purchase) data.old_gold_purchase = null;
+      // Direct on-account advance: only send when no order is linked
+      if (!data.customer_order && selectedReceiptIds.length > 0) {
+        data.advance_receipt_ids = selectedReceiptIds;
+      } else {
+        delete data.advance_receipt_ids;
+      }
 
       // ── Section 269ST: Cash Limit Compliance (₹2,00,000) ────────────────
       // Under Section 269ST of the Income Tax Act, no person can accept ₹2L or
@@ -1029,19 +1039,8 @@ const SalesVoucherAdd = () => {
             </div>
           </FieldContainer>
 
-          {enableGstBill && (
-            <FieldContainer>
-              <Label className="text-nowrap">GST Bill No</Label>
-              <div className="flex items-center gap-2 flex-1">
-                <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                  {watch("form.gst_billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
-                </span>
-                <input type="hidden" {...register("form.gst_billno", { required: enableGstBill })} />
-              </div>
-            </FieldContainer>
-          )}
-
-          {/* Party Name with ledger lookup */}
+          {/* Party Name with ledger lookup — spans 2 cols to align with Sales Person row */}
+          <div className="sm:col-span-1 lg:col-span-2">
           <FieldContainer>
             <Label className="text-nowrap">Party Name</Label>
             <div className="relative">
@@ -1071,6 +1070,13 @@ const SalesVoucherAdd = () => {
                   setSelectedOrder(null);
                   setValue("form.customer_order", "");
                   setValue("form.advance_deducted", 0);
+                  setSelectedReceiptIds([]);
+                  setOnAccountReceipts([]);
+                  setLoadingOnAccount(true);
+                  fetchUnlinkedReceipts(opt.id).then(res => {
+                    setLoadingOnAccount(false);
+                    setOnAccountReceipts(res.success ? res.data : []);
+                  });
                   setCustomerPurchases(purchasesRes.success ? purchasesRes.data : []);
                   setSelectedPurchase(null);
                   setValue("form.old_gold_purchase", "");
@@ -1151,6 +1157,19 @@ const SalesVoucherAdd = () => {
               </div>
             </div>
           </FieldContainer>
+          </div>
+
+          {enableGstBill && (
+            <FieldContainer>
+              <Label className="text-nowrap">GST Bill No</Label>
+              <div className="flex items-center gap-2 flex-1">
+                <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+                  {watch("form.gst_billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+                </span>
+                <input type="hidden" {...register("form.gst_billno", { required: enableGstBill })} />
+              </div>
+            </FieldContainer>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
@@ -1329,6 +1348,53 @@ const SalesVoucherAdd = () => {
                   The full available advance is applied automatically. Any surplus
                   stays on the order and will roll into the next bill against it.
                 </p>
+              </div>
+            )}
+
+            {/* On-account credits — only shown when no order is linked */}
+            {!selectedOrder && (loadingOnAccount || onAccountReceipts.length > 0) && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  On-account credits
+                </p>
+                {loadingOnAccount ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" /> Loading…
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border overflow-hidden">
+                    {onAccountReceipts.map(r => {
+                      const checked = selectedReceiptIds.includes(r.id);
+                      return (
+                        <label
+                          key={r.id}
+                          className={`flex items-center gap-3 px-3 py-2 cursor-pointer text-xs border-b last:border-0 transition-colors ${checked ? "bg-emerald-50" : "hover:bg-muted/30"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={e => {
+                              setSelectedReceiptIds(prev =>
+                                e.target.checked ? [...prev, r.id] : prev.filter(x => x !== r.id)
+                              );
+                            }}
+                            className="accent-primary"
+                          />
+                          <span className="font-mono flex-1">{r.voucher_no}</span>
+                          <span className="text-muted-foreground">{r.date}</span>
+                          <span className="font-medium text-emerald-700">
+                            ₹{r.amount_remaining.toLocaleString("en-IN")} available
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedReceiptIds.length > 0 && (
+                  <p className="text-[10px] text-emerald-700 mt-1">
+                    Selected credits will be applied as advance deduction on this bill.
+                  </p>
+                )}
               </div>
             )}
           </div>

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import { SquarePen, Printer, Trash2 } from "lucide-react";
+import { SquarePen, Printer, Trash2, Ban } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/u
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { useToast } from "@/hooks/use-toast";
-import { deleteJournalentry, fetchAccountingVoucher } from "./services/apiService";
+import { deleteJournalentry, fetchAccountingVoucher, cancelJournalEntry } from "./services/apiService";
 import { fetchCompanies, fetchRetails } from "@/services/apiService";
 import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 
@@ -41,6 +41,7 @@ const AccountingVoucherList = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
   const [companyInfo, setCompanyInfo] = useState({});
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
@@ -96,7 +97,7 @@ const AccountingVoucherList = () => {
   };
 
   fetchLedgers();
-}, [search, page, sortby, journal_type]);
+}, [search, page, sortby, journal_type, refreshCount]);
 
 
   // Column definition
@@ -115,6 +116,25 @@ const AccountingVoucherList = () => {
           >
             <Trash2 className="size-4" />
           </button>
+          {row.original.status === 'posted' && (
+            <button
+              title="Cancel voucher"
+              onClick={async () => {
+                if (!window.confirm(`Cancel voucher ${row.original.voucher_no}? This will reverse its accounting effects.`)) return;
+                const res = await cancelJournalEntry(row.original.id);
+                if (res.success) {
+                  toast({ title: "Voucher cancelled", description: `${row.original.voucher_no} has been cancelled.` });
+                  setRefreshCount(c => c + 1);
+                } else {
+                  const msg = typeof res.error === 'object' ? JSON.stringify(res.error) : res.error;
+                  toast({ title: "Cancel failed", description: msg, variant: "destructive" });
+                }
+              }}
+              className="p-1.5 rounded text-orange-500 hover:bg-orange-50 transition-colors flex items-center"
+            >
+              <Ban className="size-4" />
+            </button>
+          )}
           <button
             onClick={() => {
               const printData = { ...row.original, ...companyInfo };
@@ -143,6 +163,16 @@ const AccountingVoucherList = () => {
     {
       header: "Voucher No",
       accessorKey: "voucher_no",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <span>{row.original.voucher_no}</span>
+          {row.original.status === 'cancelled' && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-300">
+              Cancelled
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       header: "Party Name",

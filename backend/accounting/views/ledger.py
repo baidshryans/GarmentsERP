@@ -349,9 +349,9 @@ class OutstandingBillsView(APIView):
     def get(self, request):
         ldgr_id = request.query_params.get('ledger')
         kind    = (request.query_params.get('type') or '').lower()
-        if not ldgr_id or kind not in ('sales', 'purchase'):
+        if not ldgr_id or kind not in ('sales', 'purchase', 'payable'):
             return Response(
-                {'error': "Query params 'ledger' and 'type' (sales|purchase) are required."},
+                {'error': "Query params 'ledger' and 'type' (sales|purchase|payable) are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         retail = request.retail
@@ -370,7 +370,7 @@ class OutstandingBillsView(APIView):
                 }
                 for sv in qs
             ]
-        else:
+        elif kind == 'purchase':
             qs = PurchaseVoucher.objects.filter(
                 retail=retail, ldgr_id=ldgr_id, due_amt__gt=0,
             ).order_by('date1', 'id')
@@ -384,6 +384,100 @@ class OutstandingBillsView(APIView):
                 }
                 for pv in qs
             ]
+        else:
+            # 'payable' — purchase invoices + outstanding journal credits combined
+            pv_qs = PurchaseVoucher.objects.filter(
+                retail=retail, ldgr_id=ldgr_id, due_amt__gt=0,
+            ).order_by('date1', 'id')
+            data = [
+                {
+                    'id':       pv.id,
+                    'billno':   pv.billno,
+                    'label':    pv.billno,
+                    'date':     pv.date1,
+                    'narration': '',
+                    'total':    float(pv.bill_value or pv.item_total or 0),
+                    'due_amt':  float(pv.due_amt or 0),
+                    'source':   'purchase',
+                }
+                for pv in pv_qs
+            ]
+
+            # Outstanding journal payables: JRNL credit entries for this ledger
+            # minus PMNT debits with matching ref_bill_no
+            from django.db.models import Sum, DecimalField
+            from django.db.models.functions import Coalesce
+
+            jrnl_credits = (
+                VoucherDetail.objects
+                .filter(
+                    account_id=ldgr_id,
+                    voucher_main__retail=retail,
+                    voucher_main__voucher_type='JRNL',
+                    credit__gt=0,
+                )
+                .select_related('voucher_main')
+                .values(
+                    'voucher_main__id',
+                    'voucher_main__voucher_no',
+                    'voucher_main__date',
+                    'voucher_main__vendor_bill',
+                    'voucher_main__narration',
+                )
+                .annotate(
+                    total_credit=Coalesce(
+                        Sum('credit', output_field=DecimalField(max_digits=15, decimal_places=2)),
+                        Value(Decimal('0'))
+                    )
+                )
+            )
+
+            # Build a map of how much has already been paid per JRNL voucher_no
+            jrnl_voucher_nos = [j['voucher_main__voucher_no'] for j in jrnl_credits]
+            paid_map = {}
+            if jrnl_voucher_nos:
+                pmnt_paid = (
+                    VoucherDetail.objects
+                    .filter(
+                        account_id=ldgr_id,
+                        voucher_main__retail=retail,
+                        voucher_main__voucher_type='PMNT',
+                        ref_bill_no__in=jrnl_voucher_nos,
+                        debit__gt=0,
+                    )
+                    .values('ref_bill_no')
+                    .annotate(
+                        paid=Coalesce(
+                            Sum('debit', output_field=DecimalField(max_digits=15, decimal_places=2)),
+                            Value(Decimal('0'))
+                        )
+                    )
+                )
+                for p in pmnt_paid:
+                    paid_map[p['ref_bill_no']] = Decimal(str(p['paid']))
+
+            for j in jrnl_credits:
+                voucher_no = j['voucher_main__voucher_no']
+                vendor_bill = j['voucher_main__vendor_bill'] or ''
+                total = Decimal(str(j['total_credit']))
+                paid = paid_map.get(voucher_no, Decimal('0'))
+                due = total - paid
+                if due > Decimal('0.01'):
+                    label = f"{vendor_bill} ({voucher_no})" if vendor_bill else voucher_no
+                    data.append({
+                        'id':        j['voucher_main__id'],
+                        'billno':    voucher_no,
+                        'label':     label,
+                        'date':      j['voucher_main__date'],
+                        'narration': j['voucher_main__narration'] or '',
+                        'total':     float(total),
+                        'due_amt':   float(due),
+                        'source':    'journal',
+                    })
+
+            # Sort merged list by date
+            data.sort(key=lambda x: (str(x['date']), x['id']))
+
         return Response(data)
 
 

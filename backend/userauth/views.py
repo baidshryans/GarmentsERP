@@ -30,13 +30,25 @@ class RetailBaseViewset(viewsets.ModelViewSet):
 
         serializer.save(retail=retail)
 
+def _get_client_ip(request):
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+
 class UserLoginView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
+        from userauth.models import LoginLog
         username = request.data.get("username")
         password = request.data.get("password")
+        ip       = _get_client_ip(request)
+        ua       = request.META.get('HTTP_USER_AGENT', '')[:500]
+        retail   = getattr(request, 'retail', None)
+
         user = authenticate(username=username, password=password)
         if user is not None:
             token, created = Token.objects.get_or_create(user=user)
@@ -49,6 +61,13 @@ class UserLoginView(APIView):
                 can_view_customer_data = user_role_obj.role.can_view_customer_data
             except UserRole.DoesNotExist:
                 pass
+
+            LoginLog.objects.create(
+                user=user, username_attempted=username,
+                action='login', success=True,
+                ip_address=ip, user_agent=ua, retail=retail,
+            )
+
             user_data = {
                 "id": user.id,
                 "username": user.username,
@@ -60,6 +79,13 @@ class UserLoginView(APIView):
                 "can_view_customer_data": can_view_customer_data,
             }
             return Response({"token": token.key, "user": user_data}, status=status.HTTP_200_OK)
+
+        # Failed login — log without a user FK (username may not exist)
+        LoginLog.objects.create(
+            user=None, username_attempted=username or '',
+            action='login', success=False,
+            ip_address=ip, user_agent=ua, retail=retail,
+        )
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
@@ -596,6 +622,159 @@ def restore_to_point_view(request):
         'retail':    retail.retail_code if retail else None,
         'summary':   summary.as_dict(),
     })
+
+
+# ── Logout ───────────────────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_view(request):
+    """POST /userauth/api/logout/ — delete the auth token and write a logout log."""
+    from userauth.models import LoginLog
+    from rest_framework.authtoken.models import Token
+
+    ip     = _get_client_ip(request)
+    ua     = request.META.get('HTTP_USER_AGENT', '')[:500]
+    retail = getattr(request, 'retail', None)
+
+    LoginLog.objects.create(
+        user=request.user,
+        username_attempted=request.user.username,
+        action='logout', success=True,
+        ip_address=ip, user_agent=ua, retail=retail,
+    )
+    # Invalidate the token so it can no longer be used
+    Token.objects.filter(user=request.user).delete()
+    return Response({'detail': 'Logged out.'})
+
+
+# ── Login Log ─────────────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def login_log(request):
+    """GET /userauth/api/login-log/ — paginated login/logout history (admin only)."""
+    if not _is_admin(request):
+        return Response({'detail': 'Admin access required.'}, status=403)
+
+    from userauth.models import LoginLog
+
+    qs = LoginLog.objects.select_related('user', 'retail').order_by('-timestamp')
+
+    from_date  = request.GET.get('from_date')
+    to_date    = request.GET.get('to_date')
+    action     = request.GET.get('action', '').strip()   # 'login' | 'logout'
+    username   = request.GET.get('username', '').strip()
+
+    if from_date:
+        qs = qs.filter(timestamp__date__gte=from_date)
+    if to_date:
+        qs = qs.filter(timestamp__date__lte=to_date)
+    if action:
+        qs = qs.filter(action=action)
+    if username:
+        qs = qs.filter(username_attempted__icontains=username)
+
+    page      = max(int(request.GET.get('page', 1)), 1)
+    page_size = 50
+    total     = qs.count()
+    rows      = qs[(page - 1) * page_size: page * page_size]
+
+    from django.utils.timezone import localtime
+
+    results = []
+    for log in rows:
+        results.append({
+            'id':         log.id,
+            'timestamp':  localtime(log.timestamp).strftime('%Y-%m-%d %H:%M:%S'),
+            'user':       log.user.username if log.user else None,
+            'username_attempted': log.username_attempted,
+            'action':     log.action,
+            'success':    log.success,
+            'ip_address': log.ip_address,
+            'user_agent': log.user_agent,
+            'retail':     log.retail.retail_name if log.retail else None,
+        })
+
+    return Response({
+        'count':     total,
+        'page':      page,
+        'page_size': page_size,
+        'num_pages': max(1, (total + page_size - 1) // page_size),
+        'results':   results,
+    })
+
+
+# ── Audit Log Detail (field-level diff) ───────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def audit_log_detail(request):
+    """GET /userauth/api/audit-log/detail/?id=<app.model:history_id>
+
+    Returns the old→new diff for a single UPDATE history record.
+    For CREATE rows the old values will be null; for DELETE the new values.
+    """
+    if not _is_admin(request):
+        return Response({'detail': 'Admin access required.'}, status=403)
+
+    composite_id = request.GET.get('id', '').strip()
+    if not composite_id or ':' not in composite_id:
+        return Response({'detail': 'id parameter required in format app.model:history_id'}, status=400)
+
+    try:
+        label, history_id_str = composite_id.rsplit(':', 1)
+        history_id = int(history_id_str)
+        app_label, model_name = label.split('.', 1)
+    except (ValueError, AttributeError):
+        return Response({'detail': f'Malformed id: {composite_id}'}, status=400)
+
+    from django.apps import apps
+    try:
+        live_model = apps.get_model(app_label, model_name)
+    except LookupError:
+        return Response({'detail': f'Unknown model: {label}'}, status=404)
+
+    historical_model = getattr(live_model, 'history', None)
+    if historical_model is None:
+        return Response({'detail': f'Model {label} has no history.'}, status=404)
+    historical_model = historical_model.model
+
+    try:
+        hist = historical_model.objects.get(history_id=history_id)
+    except historical_model.DoesNotExist:
+        return Response({'detail': f'History record {history_id} not found.'}, status=404)
+
+    # Find the immediately preceding record for the same live object
+    prev = (
+        historical_model.objects
+        .filter(id=hist.id, history_date__lt=hist.history_date)
+        .order_by('-history_date')
+        .first()
+    )
+
+    changes = []
+    if prev is not None:
+        try:
+            delta = hist.diff_against(prev)
+            for change in delta.changes:
+                changes.append({
+                    'field': change.field,
+                    'old':   str(change.old) if change.old is not None else None,
+                    'new':   str(change.new) if change.new is not None else None,
+                })
+        except Exception as exc:
+            return Response({'detail': f'Could not compute diff: {exc}'}, status=500)
+    else:
+        # CREATE — every field is "new"
+        for field in live_model._meta.get_fields():
+            if not hasattr(field, 'attname'):
+                continue
+            val = getattr(hist, field.attname, None)
+            if val is not None:
+                changes.append({'field': field.name, 'old': None, 'new': str(val)})
+
+    return Response({'history_id': history_id, 'event_type': hist.history_type, 'changes': changes})
 
 
 # ── Dashboard Summary ────────────────────────────────────────────────────────

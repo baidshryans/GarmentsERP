@@ -91,7 +91,7 @@ class PurchaseReturnItemsSerializer(serializers.ModelSerializer):
 class PurchaseReturnSerializer(serializers.ModelSerializer):
     # Fields related to PurchaseReturn model
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
-    pv_billno = serializers.CharField(write_only=True)
+    pv_billno = serializers.CharField(write_only=True, allow_blank=True, required=False)
     # Nested Serializer for PurchaseReturnItems
     purchasereturnitems_set = PurchaseReturnItemsSerializer(many=True)
 
@@ -117,6 +117,9 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
+            'narration': {'allow_blank': True, 'required': False},
+            'mode_of_transport': {'allow_blank': True, 'required': False},
+            'ldgr_name': {'read_only': True},
         }
 
     def create(self, validated_data):

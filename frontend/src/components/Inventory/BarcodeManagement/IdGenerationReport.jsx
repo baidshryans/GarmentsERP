@@ -11,6 +11,11 @@ import apiClient from "@/services/apiClient";
 import { Barcode, Filter } from "lucide-react";
 import { isValidDateRange } from "@/lib/dateRange";
 
+const purityLabel = (p) => {
+  const s = String(p ?? '');
+  return (s.endsWith('K') || s.endsWith('k')) ? s : s + 'K';
+};
+
 function fmtDate(d) {
   if (!d) return "—";
   const dt = new Date(d);
@@ -110,8 +115,6 @@ export default function IDGenerationReport() {
       setLoading(false);
     }
   }, [fromDate, toDate, artisanId, itemId, purityId, userVal, toast]);
-
-  useEffect(() => { load(); }, [load]);
 
   const summary = useMemo(() => ({
     rows: rows.length,
@@ -255,7 +258,7 @@ export default function IDGenerationReport() {
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={12} className="px-3 py-8 text-center text-gray-400">
-                      No barcodes generated in this range.
+                      Set filters and click Apply Filters to load the report.
                     </td>
                   </tr>
                 ) : rows.map((r) => {
@@ -266,7 +269,7 @@ export default function IDGenerationReport() {
                       <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.created_date)}</td>
                       <td className="px-3 py-2 font-mono text-xs">{r.barcode}</td>
                       <td className="px-3 py-2">{itemNameById[r.item] || `#${r.item}`}</td>
-                      <td className="px-3 py-2">{purityById[r.purity] ? `${purityById[r.purity]}K` : `#${r.purity}`}</td>
+                      <td className="px-3 py-2">{purityById[r.purity] ? purityLabel(purityById[r.purity]) : `#${r.purity}`}</td>
                       <td className="px-3 py-2 text-right">{r.pcs || 0}</td>
                       <td className="px-3 py-2 text-right">{num(r.gw)}</td>
                       <td className="px-3 py-2 text-right">{num(r.nw)}</td>

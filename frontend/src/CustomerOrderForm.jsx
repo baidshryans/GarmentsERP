@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,12 +15,13 @@ import {
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit, cancelCustomerOrder } from "./services/apiService";
 import { useEditDirty } from "@/hooks/useEditDirty";
-import { SquarePen, Trash2, Loader2, Plus, Zap, Lock, ChevronRight } from "lucide-react";
+import { SquarePen, Trash2, Loader2, Plus, Zap, Lock, ChevronRight, Link2, Unlink } from "lucide-react";
+import { fetchUnlinkedReceipts, linkReceiptToOrder, releaseReceiptFromOrder } from "@/services/api/accounting";
 import { arrayToObject } from "./Utils";
 import { renderErrorTree } from "./Utils";
 import { useF4Submit } from "@/hooks/useF4Submit";
 
-/* ─── helpers ─────────────────────────────────────────────── */
+/* â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function SectionCard({ title, children, className = "", action }) {
   return (
     <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${className}`}>
@@ -54,11 +55,11 @@ const DELIVERY_STATUS_LABELS = {
   cancelled: { label: "Cancelled", className: "bg-red-50 text-red-600 border-red-200" },
 };
 
-/* ─── component ────────────────────────────────────────────── */
+/* â”€â”€â”€ component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const CustomerOrderForm = () => {
   const defaultTableValues = {
     item_id: "", item_name: "", purity: "", pcs: 0, gw: 0,
-    making: "", making_type: "", other_chg: 0, size: "", remarks: "",
+    making_amt: "", making_type: "", other_chg: 0, size: "", remarks: "",
   };
 
   const { toast } = useToast();
@@ -88,6 +89,10 @@ const CustomerOrderForm = () => {
   const [purityData, setPurityData] = useState([]);
   const [fetchingRates, setFetchingRates] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [unlinkedReceipts, setUnlinkedReceipts] = useState([]);
+  const [loadingUnlinked, setLoadingUnlinked] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkingId, setLinkingId] = useState(null);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
 
   const party_name    = watch("form.ldgr_code_name");
@@ -224,7 +229,7 @@ const CustomerOrderForm = () => {
       toast({
         title: "Unknown item",
         description: code
-          ? `“${code}” is not in the item master. Please pick an item from the list.`
+          ? `â€œ${code}â€ is not in the item master. Please pick an item from the list.`
           : "Please select an item before adding the row.",
         variant: "destructive",
       });
@@ -244,11 +249,11 @@ const CustomerOrderForm = () => {
 
   const statusInfo = DELIVERY_STATUS_LABELS[delivery_status] ?? DELIVERY_STATUS_LABELS.pending;
 
-  /* ─── render ─────────────────────────────────────────────── */
+  /* â”€â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
 
-      {/* ── Breadcrumb ── */}
+      {/* â”€â”€ Breadcrumb â”€â”€ */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <button
           type="button"
@@ -268,7 +273,7 @@ const CustomerOrderForm = () => {
         )}
       </div>
 
-      {/* ── Page header ── */}
+      {/* â”€â”€ Page header â”€â”€ */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">
@@ -295,7 +300,7 @@ const CustomerOrderForm = () => {
             className="min-w-24 cursor-pointer"
           >
             {submitting
-              ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />{id ? "Updating…" : "Saving…"}</>
+              ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />{id ? "Updatingâ€¦" : "Savingâ€¦"}</>
               : (id ? "Update Order" : "Save Order")
             }
           </Button>
@@ -304,13 +309,13 @@ const CustomerOrderForm = () => {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
-        {/* ── Card 1: Order Reference ── */}
+        {/* â”€â”€ Card 1: Order Reference â”€â”€ */}
         <SectionCard title="Order Reference">
           <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
             <Field label="Order No">
               <span className="inline-flex items-center px-3 h-9 rounded-md bg-primary/5 border border-primary/20 text-primary text-sm font-semibold truncate">
                 {watch("form.order_no") || (
-                  <span className="text-primary/50 text-xs font-normal">Auto-generating…</span>
+                  <span className="text-primary/50 text-xs font-normal">Auto-generatingâ€¦</span>
                 )}
               </span>
               <input type="hidden" {...register("form.order_no")} />
@@ -373,10 +378,10 @@ const CustomerOrderForm = () => {
           </div>
         </SectionCard>
 
-        {/* ── Card 2: Customer & Sales ── */}
+        {/* â”€â”€ Card 2: Customer & Sales â”€â”€ */}
         <SectionCard title="Customer & Sales">
           <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
-            {/* Party — spans 2 cols */}
+            {/* Party â€” spans 2 cols */}
             <div className="col-span-2">
               <Field label="Party Name" required>
                 <div className="flex gap-2">
@@ -386,7 +391,7 @@ const CustomerOrderForm = () => {
                       labelKey="ac_name"
                       searchKeys={["mobile1", "mobile2", "phone1"]}
                       value={watch("form.ldgr_code_name") ?? ""}
-                      placeholder="Search by name or phone…"
+                      placeholder="Search by name or phoneâ€¦"
                       onInputChange={(val) => {
                         setValue("form.ldgr_code_name", val);
                         if (!val) setValue("form.ldgr", "");
@@ -403,7 +408,7 @@ const CustomerOrderForm = () => {
                             <div className="text-sm text-foreground">{opt.ac_name}</div>
                             {(phone || place) && (
                               <div className="text-[11px] text-muted-foreground mt-0.5">
-                                {phone}{phone && place ? " · " : ""}{place}
+                                {phone}{phone && place ? " Â· " : ""}{place}
                               </div>
                             )}
                           </div>
@@ -424,13 +429,13 @@ const CustomerOrderForm = () => {
                 {(() => {
                   const sel = customers.find(c => String(c.id) === String(watch("form.ldgr")));
                   if (!sel) return null;
-                  const phone = [sel.mobile1, sel.mobile2, sel.phone1].filter(Boolean).join(" · ");
+                  const phone = [sel.mobile1, sel.mobile2, sel.phone1].filter(Boolean).join(" Â· ");
                   const address = [sel.add1, sel.add2, sel.city, sel.state, sel.pincode].filter(Boolean).join(", ");
                   if (!phone && !address) return null;
                   return (
                     <div className="mt-1.5 px-2.5 py-1.5 border border-border rounded-md bg-muted/30 text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 leading-snug">
-                      {phone && <span>📞 {phone}</span>}
-                      {address && <span>📍 {address}</span>}
+                      {phone && <span>ðŸ“ž {phone}</span>}
+                      {address && <span>ðŸ“ {address}</span>}
                     </div>
                   );
                 })()}
@@ -470,7 +475,7 @@ const CustomerOrderForm = () => {
                   <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <SelectTrigger className="cursor-pointer"><SelectValue placeholder="Optional" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">— None —</SelectItem>
+                      <SelectItem value="__none__">â€” None â€”</SelectItem>
                       {salespersonData.map((sp, i) => (
                         <SelectItem key={`sp2-${i}`} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>
                       ))}
@@ -494,34 +499,169 @@ const CustomerOrderForm = () => {
                   className="bg-muted/50 cursor-not-allowed"
                 />
                 {id && watch("form.ldgr") && (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    title="Add receipt"
-                    className="cursor-pointer shrink-0"
-                    onClick={() => {
-                      const qs = new URLSearchParams({
-                        customer_order: String(id),
-                        order_no: watch("form.order_no") || "",
-                        ldgr: String(watch("form.ldgr")),
-                        ldgr_name: watch("form.ldgr_code_name") || "",
-                      }).toString();
-                      window.open(`/accounting/RCPT/add?${qs}`, "_blank");
-                    }}
-                  >
-                    <Plus className="size-4" />
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      title="New receipt for this order"
+                      className="cursor-pointer shrink-0"
+                      onClick={() => {
+                        const qs = new URLSearchParams({
+                          customer_order: String(id),
+                          order_no: watch("form.order_no") || "",
+                          ldgr: String(watch("form.ldgr")),
+                          ldgr_name: watch("form.ldgr_code_name") || "",
+                        }).toString();
+                        window.open(`/accounting/RCPT/add?${qs}`, "_blank");
+                      }}
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      title="Link an existing on-account receipt"
+                      className="cursor-pointer shrink-0"
+                      disabled={loadingUnlinked}
+                      onClick={async () => {
+                        setLoadingUnlinked(true);
+                        const res = await fetchUnlinkedReceipts(watch("form.ldgr"));
+                        setLoadingUnlinked(false);
+                        if (res.success) {
+                          setUnlinkedReceipts(res.data);
+                          setShowLinkDialog(true);
+                        } else {
+                          toast({ title: "Error", description: "Could not fetch on-account receipts.", variant: "destructive" });
+                        }
+                      }}
+                    >
+                      {loadingUnlinked ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />}
+                    </Button>
+                  </>
                 )}
               </div>
               {id && (
                 <p className="text-[10px] text-muted-foreground">Sum of linked receipt vouchers</p>
               )}
+
+              {/* Link existing receipt dialog */}
+              {showLinkDialog && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowLinkDialog(false)}>
+                  <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-5" onClick={e => e.stopPropagation()}>
+                    <h4 className="text-sm font-semibold mb-3">On-account receipts for this customer</h4>
+                    {unlinkedReceipts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No unallocated receipts found for this customer.</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Voucher No</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="text-right">Available</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {unlinkedReceipts.map(r => (
+                            <TableRow key={r.id}>
+                              <TableCell className="font-mono text-xs">{r.voucher_no}</TableCell>
+                              <TableCell className="text-xs">{r.date}</TableCell>
+                              <TableCell className="text-right text-xs">₹{r.amount.toLocaleString("en-IN")}</TableCell>
+                              <TableCell className="text-right text-xs">₹{r.amount_remaining.toLocaleString("en-IN")}</TableCell>
+                              <TableCell>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={linkingId === r.id}
+                                  onClick={async () => {
+                                    setLinkingId(r.id);
+                                    const res = await linkReceiptToOrder(r.id, Number(id));
+                                    setLinkingId(null);
+                                    if (res.success) {
+                                      setShowLinkDialog(false);
+                                      toast({ title: "Linked", description: `${r.voucher_no} linked to this order.` });
+                                      // Reload order to refresh advance_amt
+                                      const updated = await fetchCustomerOrderForEdit(id);
+                                      if (updated?.success) { Object.entries(updated.data).forEach(([k,v]) => { if (k !== 'items') setValue(`form.${k}`, v); }); reset(getValues(), { keepValues: true, keepDirty: false }); }
+                                    } else {
+                                      toast({ title: "Error", description: res.error?.detail || "Failed to link receipt.", variant: "destructive" });
+                                    }
+                                  }}
+                                >
+                                  {linkingId === r.id ? <Loader2 className="size-3 animate-spin" /> : "Link"}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                    <div className="flex justify-end mt-3">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setShowLinkDialog(false)}>Close</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Linked receipts table with Release buttons */}
+              {id && (watch("form.linked_receipts") || []).length > 0 && (
+                <div className="mt-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Linked receipts</p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Voucher</TableHead>
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-right text-xs">Amount</TableHead>
+                        <TableHead className="text-right text-xs">Applied</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(watch("form.linked_receipts") || []).map(r => (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-mono text-xs">{r.voucher_no}</TableCell>
+                          <TableCell className="text-xs">{r.date}</TableCell>
+                          <TableCell className="text-right text-xs">₹{r.amount.toLocaleString("en-IN")}</TableCell>
+                          <TableCell className="text-right text-xs">₹{r.amount_applied.toLocaleString("en-IN")}</TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="size-6"
+                              title={r.amount_applied > 0 ? "Cannot release — advance already applied to a bill" : "Release to on-account"}
+                              disabled={r.amount_applied > 0 || linkingId === r.id}
+                              onClick={async () => {
+                                setLinkingId(r.id);
+                                const res = await releaseReceiptFromOrder(r.id);
+                                setLinkingId(null);
+                                if (res.success) {
+                                  toast({ title: "Released", description: `${r.voucher_no} released to on-account.` });
+                                  const updated = await fetchCustomerOrderForEdit(id);
+                                  if (updated?.data?.form) reset({ form: updated.data.form, table: getValues("table") });
+                                } else {
+                                  toast({ title: "Error", description: res.error?.detail || "Failed to release.", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              {linkingId === r.id ? <Loader2 className="size-3 animate-spin" /> : <Unlink className="size-3" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </Field>
           </div>
         </SectionCard>
 
-        {/* ── Card 3: Gold Rate ── */}
+        {/* â”€â”€ Card 3: Gold Rate â”€â”€ */}
         <SectionCard title="Gold Rate">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-border bg-muted/20 cursor-pointer select-none">
@@ -549,17 +689,17 @@ const CustomerOrderForm = () => {
               <Field label="Rate Date" className="w-36">
                 <Input type="date" {...register("form.gold_rate_date")} disabled={!fix_gold_rate} />
               </Field>
-              <Field label="14K (₹/g)" className="w-28">
+              <Field label="14K (â‚¹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_14kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="18K (₹/g)" className="w-28">
+              <Field label="18K (â‚¹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_18kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="22K (₹/g)" className="w-28">
+              <Field label="22K (â‚¹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_22kt", { valueAsNumber: true })}
                 />
@@ -568,7 +708,7 @@ const CustomerOrderForm = () => {
           </div>
         </SectionCard>
 
-        {/* ── Card 4: Item Details ── */}
+        {/* â”€â”€ Card 4: Item Details â”€â”€ */}
         <SectionCard
           title="Item Details"
           action={
@@ -592,7 +732,7 @@ const CustomerOrderForm = () => {
               </TableHeader>
 
               <TableBody>
-                {/* ── Input row ── */}
+                {/* â”€â”€ Input row â”€â”€ */}
                 <TableRow className="bg-primary/[0.03] border-b-2 border-primary/10 align-top">
                   <TableCell className="px-3 py-2 w-16" />
                   <TableCell className="px-2 py-2">
@@ -601,7 +741,7 @@ const CustomerOrderForm = () => {
                       labelKey="short_code"
                       searchKeys={["item_name"]}
                       value={watch("table.item_id") ?? ""}
-                      placeholder="Search item…"
+                      placeholder="Search itemâ€¦"
                       className="text-sm"
                       onInputChange={(val) => {
                         setValue("table.item_id", val);
@@ -675,7 +815,7 @@ const CustomerOrderForm = () => {
                       <Input
                         type="text"
                         className="h-8 text-sm"
-                        placeholder="Remarks — Tab↹ to add"
+                        placeholder="Remarks â€” Tabâ†¹ to add"
                         onKeyDown={handleKeyDown}
                         {...register("table.remarks")}
                       />
@@ -683,7 +823,7 @@ const CustomerOrderForm = () => {
                   </TableCell>
                 </TableRow>
 
-                {/* ── Added rows ── */}
+                {/* â”€â”€ Added rows â”€â”€ */}
                 {rs.map((row, index) => {
                   const locked = row.lock_state && row.lock_state !== 'unlocked';
                   return (
@@ -761,7 +901,7 @@ const CustomerOrderForm = () => {
           </div>
         </SectionCard>
 
-        {/* ── Bottom action bar ── */}
+        {/* â”€â”€ Bottom action bar â”€â”€ */}
         <div className="flex items-center justify-between gap-3 pt-1 pb-6">
           <div>
             {id && watch("form.is_cancellable") && (
@@ -771,8 +911,8 @@ const CustomerOrderForm = () => {
                 className="border-amber-300 text-amber-700 hover:bg-amber-50 cursor-pointer"
                 onClick={async () => {
                   const warnings = [];
-                  if (watch("form.has_in_production_items")) warnings.push("• Some items are still in production with a karigar or supplier.");
-                  if (watch("form.has_advance"))             warnings.push("• Advance receipts will remain on the customer's ledger as a credit.");
+                  if (watch("form.has_in_production_items")) warnings.push("â€¢ Some items are still in production with a karigar or supplier.");
+                  if (watch("form.has_advance"))             warnings.push("â€¢ Advance receipts will remain on the customer's ledger as a credit.");
                   const orderNo = watch("form.order_no") || id;
                   const msg = `Cancel order ${orderNo}?` + (warnings.length ? `\n\n${warnings.join("\n")}` : "");
                   if (!window.confirm(msg)) return;
@@ -804,7 +944,7 @@ const CustomerOrderForm = () => {
               className="min-w-28 cursor-pointer"
             >
               {submitting
-                ? <><Loader2 className="size-4 mr-2 animate-spin" />{id ? "Updating…" : "Saving…"}</>
+                ? <><Loader2 className="size-4 mr-2 animate-spin" />{id ? "Updatingâ€¦" : "Savingâ€¦"}</>
                 : (id ? "Update Order" : "Save Order")
               }
             </Button>

@@ -543,34 +543,22 @@ const PurchaseReturnAdd = () => {
             <TableBody>
               <TableRow className="bg-violet-50">
                 <TH>Sl No</TH>
-                <TH>Sub Item</TH>
                 <TH>Pcs</TH>
                 <TH>Ct</TH>
                 <TH>GW</TH>
-                <TH>Metal Purity</TH>
+                <TH>Purity</TH>
                 <TH>Loss</TH>
                 <TH>Tunch</TH>
                 <TH>Rate</TH>
-                <TH>Value</TH>
+                <TH>Amount</TH>
                 <TH>Packet</TH>
               </TableRow>
               <TableRow>
                 <TableCell className="w-16 px-3 py-2 border">
                   <Input type="number" placeholder="#" {...register("details.sl_no")} />
                 </TableCell>
-                <TableCell className="w-28 px-3 py-2 border">
-                  <Input
-                    list="sub_item_list"
-                    disabled={!!detailPacket}
-                    className={detailPacket ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
-                    {...register("details.sub_item")}
-                  />
-                  <datalist id="sub_item_list">
-                    {mainItemData.map((m, i) => (
-                      <option key={i} value={m.short_code} />
-                    ))}
-                  </datalist>
-                </TableCell>
+                {/* sub_item hidden — auto-filled from packet, see detailPacket watch above */}
+                <input type="hidden" {...register("details.sub_item")} />
                 <TableCell className="w-20 px-3 py-2 border">
                   <Input type="number" {...register("details.sub_pcs")} />
                 </TableCell>
@@ -638,25 +626,19 @@ const PurchaseReturnAdd = () => {
               <TableRow className="bg-violet-50">
                 <TH></TH>
                 <TH>Sl No</TH>
+                <TH>Packet</TH>
                 <TH>Item</TH>
-                <TH>Pcs</TH>
-                <TH>GW</TH>
-                <TH>Purity</TH>
-                <TH>Making Type</TH>
-                <TH>Making Val</TH>
-                <TH>Making</TH>
-                <TH>Remarks</TH>
-                {/* Detail columns */}
-                <TH>Sub Item</TH>
                 <TH>Pcs</TH>
                 <TH>Ct</TH>
                 <TH>GW</TH>
-                <TH>Metal Purity</TH>
+                <TH>Purity</TH>
+                <TH>Making</TH>
+                <TH>Making Type</TH>
+                <TH>Making Value</TH>
                 <TH>Loss</TH>
                 <TH>Tunch</TH>
-                <TH>Rate</TH>
-                <TH>Value</TH>
-                <TH>Packet</TH>
+                <TH>Fine Wt</TH>
+                <TH>Amount</TH>
               </TableRow>
 
               {rs.map((item, idx) => (
@@ -680,16 +662,16 @@ const PurchaseReturnAdd = () => {
                       </div>
                     </TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.sl_no}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.purity}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs">{item.making}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making_type}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making_value}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{item.making}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{item.remarks}</TableCell>
-                    {/* Empty detail columns */}
-                    <TableCell className="px-3 py-2 border" colSpan={10}></TableCell>
+                    <TableCell className="px-3 py-2 border" colSpan={4}></TableCell>
                   </TableRow>
 
                   {/* Detail rows */}
@@ -704,20 +686,19 @@ const PurchaseReturnAdd = () => {
                             onClick={() => handleDeleteDetail(idx, detailIdx)}
                           />
                         </TableCell>
-                        {/* Empty main item columns */}
+                        {/* Detail: SL NO(↳) | PACKET | ITEM | PCS | CT | GW | PURITY | MAKING x3 | LOSS | TUNCH | FINE WT | AMOUNT */}
                         <TableCell className="px-3 py-2 border text-xs text-gray-400">↳</TableCell>
-                        <TableCell className="px-3 py-2 border" colSpan={8}></TableCell>
-                        {/* Detail data */}
-                        <TableCell className="px-3 py-2 border text-xs">{detail.sub_item}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{detail.packet}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs"></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_pcs}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{detail.sub_gw}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{detail.sub_gw != null ? parseFloat(detail.sub_gw).toFixed(3) : "—"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.metal_purity}</TableCell>
+                        <TableCell className="px-3 py-2 border" colSpan={3}></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.loss}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.tunch}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{detail.rate}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{(detail.sub_gw && detail.tunch) ? (parseFloat(detail.sub_gw) * parseFloat(detail.tunch) / 100).toFixed(3) : "—"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.value}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{detail.packet}</TableCell>
                       </TableRow>
                     ))}
                 </React.Fragment>

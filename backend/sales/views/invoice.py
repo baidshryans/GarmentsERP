@@ -8,7 +8,7 @@ from django.http import HttpResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When, Exists, OuterRef, Sum, Q
+from django.db.models import F, Value, ExpressionWrapper, DecimalField, Case, When, Exists, OuterRef, Sum, Q, Subquery, CharField
 from django.db.models.functions import Coalesce
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -187,13 +187,38 @@ class GSTOutputRegisterView(APIView):
     def get(self, request, format=None):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-
         gstin_id = request.query_params.get('gstin')
+
+        # ── Subqueries: HSN, UOM, gross-weight from SalesVouItem ─────────────
+        sv_hsn_sq = Subquery(
+            SalesVouItem.objects.filter(billno=OuterRef('pk'))
+            .values('item__hsn_no__hsn_no')[:1],
+            output_field=CharField()
+        )
+        sv_uom_sq = Subquery(
+            SalesVouItem.objects.filter(billno=OuterRef('pk'))
+            .values('item__uom')[:1],
+            output_field=CharField()
+        )
+        sv_gw_sq = Subquery(
+            SalesVouItem.objects.filter(billno=OuterRef('pk'))
+            .values('billno')
+            .annotate(s=Sum('gw', output_field=DecimalField()))
+            .values('s'),
+            output_field=DecimalField()
+        )
+
         sales_qs = SalesVou.objects.filter(
             date1__range=[start_date, end_date]
         ).select_related('ldgr', 'ac_voucher')
         if gstin_id:
             sales_qs = sales_qs.filter(gstin_ref_id=gstin_id)
+
+        _zero = Value(0, output_field=DecimalField())
+        _taxable = ExpressionWrapper(
+            Coalesce(F('mrp'), _zero) - Coalesce(F('discount'), _zero),
+            output_field=DecimalField()
+        )
 
         sales_annotated = sales_qs.annotate(
             vtype=F('ac_voucher__voucher_type'),
@@ -201,17 +226,51 @@ class GSTOutputRegisterView(APIView):
             gstin=F("ldgr__gst"),
             pan=F("ldgr__pan"),
             billvalue=F("mrp"),
-            beforetax=F("mrp") - F('discount'),
-            taxableamount=F("mrp") - F('discount'),
+            discount_amt=Coalesce(F('discount'), _zero),
+            taxableamount=_taxable,
             placeofsupply=F("place_of_supply"),
-            add_less=ExpressionWrapper(
-                Coalesce(F("freight_charge"), 0) + Coalesce(F("other_charge"), 0),
+            add_less=Coalesce(F("round_off"), _zero),
+            hsn=sv_hsn_sq,
+            uom=sv_uom_sq,
+            sale_gw=sv_gw_sq,
+        ).annotate(
+            cgst_amt=ExpressionWrapper(
+                F('taxableamount') * F('cgst_per') / Value(100),
                 output_field=DecimalField()
-            )
+            ),
+            sgst_amt=ExpressionWrapper(
+                F('taxableamount') * F('sgst_per') / Value(100),
+                output_field=DecimalField()
+            ),
+            igst_amt=ExpressionWrapper(
+                F('taxableamount') * F('igst_per') / Value(100),
+                output_field=DecimalField()
+            ),
         ).values(
             "date1", "vtype", "gst_billno", "partyname", "gstin", "pan",
-            "billvalue", "beforetax", "taxableamount", "sgst_per",
-            "cgst_per", "igst_per", "placeofsupply", "add_less"
+            "billvalue", "discount_amt", "taxableamount",
+            "cgst_amt", "sgst_amt", "igst_amt",
+            "sgst_per", "cgst_per", "igst_per",
+            "placeofsupply", "add_less", "hsn", "uom", "sale_gw"
+        )
+
+        # ── SaleReturn subqueries ─────────────────────────────────────────────
+        sr_hsn_sq = Subquery(
+            SaleReturnItem.objects.filter(billno=OuterRef('pk'))
+            .values('item__hsn_no__hsn_no')[:1],
+            output_field=CharField()
+        )
+        sr_uom_sq = Subquery(
+            SaleReturnItem.objects.filter(billno=OuterRef('pk'))
+            .values('item__uom')[:1],
+            output_field=CharField()
+        )
+        sr_gw_sq = Subquery(
+            SaleReturnItem.objects.filter(billno=OuterRef('pk'))
+            .values('billno')
+            .annotate(s=Sum('gw', output_field=DecimalField()))
+            .values('s'),
+            output_field=DecimalField()
         )
 
         return_qs = SaleReturn.objects.filter(
@@ -220,18 +279,42 @@ class GSTOutputRegisterView(APIView):
         if gstin_id:
             return_qs = return_qs.filter(retail__gstin_master_id=gstin_id)
 
+        _ret_taxable = ExpressionWrapper(
+            Coalesce(F('mrp'), _zero) - Coalesce(F('discount'), _zero),
+            output_field=DecimalField()
+        )
+
         return_annotated = return_qs.annotate(
             vtype=F('ac_voucher__voucher_type'),
             partyname=F("ldgr__ac_name"),
             gstin=F("ldgr__gst"),
             pan=F("ldgr__pan"),
             billvalue=F("mrp"),
-            beforetax=F("mrp") - F('discount'),
-            taxableamount=F("mrp") - F('discount'),
+            discount_amt=Coalesce(F('discount'), _zero),
+            taxableamount=_ret_taxable,
+            add_less=_zero,
+            hsn=sr_hsn_sq,
+            uom=sr_uom_sq,
+            sale_gw=sr_gw_sq,
+        ).annotate(
+            cgst_amt=ExpressionWrapper(
+                F('taxableamount') * F('cgst_per') / Value(100),
+                output_field=DecimalField()
+            ),
+            sgst_amt=ExpressionWrapper(
+                F('taxableamount') * F('sgst_per') / Value(100),
+                output_field=DecimalField()
+            ),
+            igst_amt=ExpressionWrapper(
+                F('taxableamount') * F('igst_per') / Value(100),
+                output_field=DecimalField()
+            ),
         ).values(
             "date1", "vtype", "billno", "partyname", "gstin", "pan",
-            "billvalue", "beforetax", "taxableamount", "sgst_per",
-            "cgst_per", "igst_per",
+            "billvalue", "discount_amt", "taxableamount",
+            "cgst_amt", "sgst_amt", "igst_amt",
+            "sgst_per", "cgst_per", "igst_per",
+            "add_less", "hsn", "uom", "sale_gw"
         )
 
         return Response({

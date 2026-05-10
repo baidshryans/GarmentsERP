@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle } from "lucide-react";
+import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle, Plus } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -41,7 +41,7 @@ import {
   fetchRetailDiscountPricelistForLedger,
   fetchActiveOffer,
 } from "@/services/apiService";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useLocation } from "react-router-dom";
 
 import { FieldContainer } from "@/Utils.jsx";
 import { fetchSalesVoucherwithID, updateSalesVoucher, getGoldRate } from "../../services/apiService";
@@ -71,6 +71,8 @@ const SalesVoucherAdd = () => {
   const { toast } = useToast();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   const {
     register: originalRegister,
@@ -514,6 +516,20 @@ const SalesVoucherAdd = () => {
     }, 300);
     return () => clearTimeout(partyNameTimerRef.current);
   }, [party_name]);
+
+  // Pre-fill customer when redirected back from the Add Ledger page
+  useEffect(() => {
+    const ldgr     = searchParams.get("ldgr");
+    const ldgrName = searchParams.get("ldgr_name");
+    if (ldgr && ldgrName) {
+      setValue("form.ldgr", ldgr);
+      setValue("form.ldgr_name", ldgrName);
+      setCustomers((prev) => {
+        const already = prev.some((c) => String(c.id) === String(ldgr));
+        return already ? prev : [{ id: ldgr, ac_name: ldgrName, mobile1: "" }, ...prev];
+      });
+    }
+  }, [searchParams]);
 
   // Recalculate formulas whenever anything changes
   useEffect(() => {
@@ -1029,6 +1045,7 @@ const SalesVoucherAdd = () => {
           <FieldContainer>
             <Label className="text-nowrap">Party Name</Label>
             <div className="relative">
+              <div className="flex gap-1.5">
               <SearchableComboBox
                 options={customers}
                 value={watch("form.ldgr_name") ?? ""}
@@ -1063,6 +1080,15 @@ const SalesVoucherAdd = () => {
                 }}
                 placeholder="Search customer…"
               />
+              <Link
+                to={`/crm/ledger/add/?next=${encodeURIComponent(location.pathname)}`}
+                tabIndex={-1}
+              >
+                <Button type="button" size="icon" variant="outline" title="Add new customer" className="cursor-pointer shrink-0 h-9 w-9">
+                  <Plus className="size-4" />
+                </Button>
+              </Link>
+              </div>
               <input type="hidden" {...register("form.ldgr")} />
               <div className="text-[10px] mt-1 flex flex-wrap items-center gap-1.5">
                 {!Array.isArray(cashledger) && cashledger != null && (() => {

@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Credit Note – Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<style>
+/* ── Design token — exact copy from SalesInvoice.jsx ── */
+:root {
+  --ink:  #0f172a;
+  --body: #1e293b;
+  --muted:#64748b;
+  --faint:#94a3b8;
+  --rule: #e2e8f0;
+  --band: #f8fafc;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #eef2f6;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  color: var(--body);
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  -webkit-font-smoothing: antialiased;
+  padding: 24px;
+}
+
+/* ── Root card ── */
+.cn-root {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #fff;
+  padding: 14mm 14mm 10mm;
+  box-shadow: 0 4px 24px rgba(15,23,42,.08);
+  font-size: 9px;
+  color: var(--body);
+  position: relative;
+}
+
+/* ── MOCKUP label (hidden when printing) ── */
+.mockup-pill {
+  position: absolute; top: 8px; right: 8px;
+  background: #fbbf24; color: #78350f;
+  font-size: 7.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 20px;
+}
+@media print { .mockup-pill { display: none; } body { background:#fff; padding:0; } .cn-root { box-shadow:none; } }
+
+/* ═══════════════════════════════════════
+   HEADER  (3-col: BIS | Brand | Logo)
+   Identical layout to SalesInvoice
+════════════════════════════════════════ */
+.cn-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--ink);
+}
+
+/* BIS / hallmark placeholder */
+.cn-logo-box {
+  width: 64px; height: 64px;
+  border: 1px dashed var(--faint);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7.5px; color: var(--muted); text-align: center; line-height: 1.15;
+}
+/* Company logo placeholder */
+.cn-logo-rect {
+  width: 90px; height: 64px;
+  border: 1px dashed var(--faint);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 7.5px; color: var(--muted); text-align: center; line-height: 1.15;
+  justify-self: end;
+}
+
+/* Brand block */
+.cn-brand-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cn-brand {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 28px; font-weight: 700; color: var(--ink);
+  letter-spacing: -0.5px; line-height: 1;
+}
+.cn-brand-sub { font-size: 9px; color: var(--muted); letter-spacing: 0.2px; text-align: center; }
+.cn-brand-sub strong { color: var(--ink); font-weight: 600; }
+.cn-brand-ids {
+  display: flex; gap: 18px; font-size: 8.5px; color: var(--muted); margin-top: 2px;
+}
+.cn-brand-ids span b { color: var(--ink); font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════
+   INVOICE HEAD  (same pattern as si-invoice-head)
+   "CREDIT NOTE" replaces "TAX INVOICE"
+════════════════════════════════════════ */
+.cn-invoice-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 9px 0 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.cn-invoice-head .cn-title {
+  font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+  color: var(--ink); font-weight: 700;
+}
+.cn-invoice-head .cn-subtitle {
+  font-size: 8px; color: var(--muted); letter-spacing: 0.3px; margin-top: 1px;
+}
+.cn-invoice-head .cn-meta {
+  font-size: 10px; color: var(--muted); text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cn-invoice-head .cn-meta .cn-num { color: var(--ink); font-weight: 700; letter-spacing: 0.2px; }
+.cn-invoice-head .cn-meta .cn-sep { color: var(--faint); margin: 0 8px; }
+.cn-invoice-head .cn-meta .cn-date { color: var(--ink); font-weight: 600; }
+
+/* ═══════════════════════════════════════
+   PARTY SECTION  (2-col)
+   Same border / font pattern as si-party
+════════════════════════════════════════ */
+.cn-parties {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--rule); border-radius: 4px;
+  margin: 8px 0;
+}
+.cn-party { padding: 10px 12px; position: relative; }
+.cn-party + .cn-party { border-left: 1px solid var(--rule); }
+
+/* section label — uppercase muted, with trailing rule line */
+.cn-pe {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 6px;
+  font-size: 7px; letter-spacing: 1.8px; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+}
+.cn-pe::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+.cn-party .cn-name { font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: -0.1px; }
+.cn-party .cn-addr { font-size: 9px; color: var(--body); margin-top: 4px; line-height: 1.55; }
+
+/* ID rows inside party (GSTIN / State) */
+.cn-party .cn-ids {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 8px; padding-top: 6px;
+  border-top: 1px dashed var(--rule);
+}
+.cn-id { display: flex; flex-direction: column; }
+.cn-id .cn-k {
+  font-size: 7px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+}
+.cn-id .cn-v {
+  font-size: 9px; color: var(--ink); font-weight: 600;
+  font-variant-numeric: tabular-nums; margin-top: 1px;
+}
+.cn-id .cn-v.empty { color: var(--faint); font-weight: 400; }
+
+/* Reason pill — uses --band background, --ink border, muted text */
+.cn-reason-pill {
+  display: inline-flex; align-items: center;
+  margin-top: 2px;
+  background: var(--band);
+  border: 1px solid var(--rule);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 7.5px; color: var(--body); font-weight: 600; letter-spacing: 0.3px;
+}
+
+/* ═══════════════════════════════════════
+   ITEMS TABLE  (exact si-items pattern)
+════════════════════════════════════════ */
+.cn-section-label {
+  font-size: 7.5px; letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--muted); font-weight: 700; margin-bottom: 4px;
+}
+table.cn-items {
+  width: 100%; border-collapse: collapse;
+  font-size: 8.5px; font-variant-numeric: tabular-nums;
+}
+table.cn-items thead th {
+  font-size: 7px; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+  border-bottom: 1px solid var(--ink);
+  padding: 5px 5px 4px;
+}
+table.cn-items thead th.l { text-align: left; }
+table.cn-items thead th.c { text-align: center; }
+table.cn-items thead th.r { text-align: right; }
+table.cn-items tbody td {
+  padding: 5px 5px;
+  border-bottom: 1px solid var(--rule);
+  font-variant-numeric: tabular-nums;
+}
+table.cn-items tbody td.l { text-align: left; }
+table.cn-items tbody td.c { text-align: center; }
+table.cn-items tbody td.r { text-align: right; }
+
+/* parent rows */
+table.cn-items tbody tr.parent td { font-weight: 600; color: var(--ink); padding: 6px 5px; }
+table.cn-items tbody tr.parent td.amt { font-weight: 700; }
+table.cn-items tbody tr.parent td.sn  { font-weight: 700; color: var(--ink); }
+/* sub-rows */
+table.cn-items tbody tr.sub td {
+  color: var(--muted);
+  border-bottom: 1px dashed var(--rule);
+  font-size: 8px;
+  background: #fcfcfd;
+  font-style: italic;
+}
+table.cn-items tbody tr.sub td.l { padding-left: 14px; }
+
+/* sub-row description text */
+.sub-desc { color: var(--muted); font-size: 8px; }
+
+/* ═══════════════════════════════════════
+   BOTTOM  (words + GST | totals)
+════════════════════════════════════════ */
+.cn-bottom {
+  display: grid; grid-template-columns: 1.4fr 1fr;
+  gap: 12px; margin-top: 10px;
+}
+
+/* Amount in words */
+.cn-words {
+  font-size: 8.5px; color: var(--muted); font-style: italic;
+  border-top: 1px dashed var(--rule); padding-top: 6px;
+}
+.cn-words b { color: var(--ink); font-style: normal; font-weight: 600; }
+
+/* Declaration */
+.cn-declaration {
+  margin-top: 10px; padding-top: 8px;
+  border-top: 1px dashed var(--rule);
+  font-size: 7.5px; color: var(--muted); line-height: 1.65;
+}
+.cn-declaration b { color: var(--ink); }
+
+/* ═══════════════════════════════════════
+   TOTALS  (exact si-totals pattern)
+════════════════════════════════════════ */
+.cn-totals { font-size: 9.5px; }
+.cn-row {
+  display: flex; justify-content: space-between;
+  padding: 5px 0; color: var(--body);
+}
+.cn-row .cn-l {
+  font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+.cn-row .cn-v {
+  font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink);
+}
+/* bold modifier */
+.cn-row.bold { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.cn-row.bold .cn-l { color: var(--ink); font-weight: 700; }
+.cn-row.bold .cn-v { font-weight: 700; }
+/* discount (deduction) */
+.cn-row.minus .cn-v { color: var(--body); }
+.cn-row.minus .cn-l::before { content: "− "; }
+/* net total — same as si-totals .net */
+.cn-row.net {
+  margin-top: 4px;
+  border-top: 2px solid var(--ink);
+  padding: 8px 0;
+}
+.cn-row.net .cn-l { color: var(--ink); font-weight: 700; font-size: 9px; }
+.cn-row.net .cn-v { font-weight: 700; }
+
+/* ═══════════════════════════════════════
+   FOOTER  (terms | stamp)
+   Same si-footer pattern
+════════════════════════════════════════ */
+.cn-footer {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  border-top: 1px solid var(--rule);
+  margin-top: 14px; padding-top: 8px;
+}
+.cn-terms { font-size: 8px; color: var(--muted); line-height: 1.6; }
+.cn-terms b { color: var(--ink); font-weight: 600; }
+.cn-stamp {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  font-size: 7.5px;
+}
+.cn-stamp .cn-sig-label {
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; margin-bottom: 4px;
+}
+.cn-stamp .cn-sig-line {
+  width: 140px; height: 48px; border-bottom: 1px solid var(--ink); margin-bottom: 5px;
+}
+.cn-stamp .cn-sig-name {
+  letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--ink); font-weight: 700;
+}
+.cn-stamp .cn-sig-sub { font-size: 7.5px; color: var(--faint); letter-spacing: 0.4px; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="cn-root">
+  <span class="mockup-pill">MOCKUP</span>
+
+  <!-- ══ HEADER ══ -->
+  <div class="cn-header">
+    <div class="cn-logo-box">BIS<br>Hallmark<br>Logo</div>
+
+    <div class="cn-brand-block">
+      <!-- company_name ← CompanyMaster.company_name -->
+      <div class="cn-brand">Jewel India</div>
+      <div class="cn-brand-sub">
+        <!-- company_legal_name ← CompanyMaster.legal_name -->
+        <strong>Jewel India Jewellers Pvt. Ltd.</strong>
+      </div>
+      <div class="cn-brand-sub">
+        <!-- address ← Retail.address_line1/2/3 + city + pincode -->
+        123, Gold Street, T. Nagar, Chennai – 600017, Tamil Nadu
+      </div>
+      <div class="cn-brand-ids">
+        <!-- gstin ← Retail.gstin_master.gstin (GstinMaster) -->
+        <span>GSTIN <b>33AABCJ1234F1Z5</b></span>
+        <!-- phone ← Retail.phone / CompanyMaster.phone -->
+        <span>Ph <b>044-2345-6789</b></span>
+        <!-- email ← Retail.email / CompanyMaster.email -->
+        <span>Email <b>info@jewelindia.com</b></span>
+      </div>
+    </div>
+
+    <div class="cn-logo-rect">Company<br>Logo</div>
+  </div>
+
+  <!-- ══ INVOICE HEAD ══ -->
+  <div class="cn-invoice-head">
+    <div>
+      <div class="cn-title">Credit Note</div>
+      <div class="cn-subtitle">GST Credit Note &nbsp;/&nbsp; Sales Return</div>
+    </div>
+    <div class="cn-meta">
+      <span class="cn-num">CN/R001/26-27/00012</span>
+      <span class="cn-sep">|</span>
+      <span class="cn-date">10-05-2026</span>
+    </div>
+  </div>
+
+  <!-- ══ PARTY SECTION ══ -->
+  <div class="cn-parties">
+    <!-- Left: Customer Details -->
+    <div class="cn-party">
+      <div class="cn-pe">Customer Details</div>
+      <div class="cn-name">Mr. Ramesh Krishnamurthy</div>
+      <div class="cn-addr">
+        45, Pondy Bazaar, T. Nagar<br>
+        Chennai – 600017, Tamil Nadu
+      </div>
+      <div class="cn-ids">
+        <div class="cn-id">
+          <span class="cn-k">GSTIN</span>
+          <span class="cn-v">33AABCK4321G1Z2</span>
+        </div>
+        <div class="cn-id">
+          <span class="cn-k">State</span>
+          <span class="cn-v">Tamil Nadu (33)</span>
+        </div>
+        <div class="cn-id">
+          <span class="cn-k">Mobile</span>
+          <span class="cn-v">+91 98400 12345</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Credit Note Details -->
+    <div class="cn-party">
+      <div class="cn-pe">Credit Note Details</div>
+      <div class="cn-ids" style="margin-top:0; padding-top:0; border-top:none;">
+        <div class="cn-id">
+          <!-- gstin ← Retail.gstin_master.gstin (GstinMaster) -->
+          <span class="cn-k">Our GSTIN</span>
+          <span class="cn-v">33AABCJ1234F1Z5</span>
+        </div>
+        <div class="cn-id">
+          <!-- state ← Retail.state.name + state_code -->
+          <span class="cn-k">Our State</span>
+          <span class="cn-v">Tamil Nadu (33)</span>
+        </div>
+        <div class="cn-id">
+          <span class="cn-k">Against Invoice</span>
+          <span class="cn-v">SV/R001/26-27/00001 &nbsp;/&nbsp; GST: R001/INV/26-27/001</span>
+        </div>
+        <div class="cn-id">
+          <span class="cn-k">Invoice Date</span>
+          <span class="cn-v">02-05-2026</span>
+        </div>
+        <div class="cn-id">
+          <span class="cn-k">Reason</span>
+          <span class="cn-v">
+            <span class="cn-reason-pill">Customer Return</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ITEMS TABLE ══ -->
+  <div style="margin-bottom:4px;">
+    <table class="cn-items">
+      <thead>
+        <tr>
+          <th class="l" style="width:28px">S.No/<br>Pcs</th>
+          <th class="l">Item Description</th>
+          <th class="c" style="width:52px">Purity</th>
+          <th class="r" style="width:52px">Gr. Wt</th>
+          <th class="r" style="width:52px">Making</th>
+          <th class="r" style="width:56px">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Item 1 — parent row -->
+        <tr class="parent">
+          <td class="sn l">1 / 1</td>
+          <td class="l">Gold Necklace – Designer Peacock Set</td>
+
+          <td class="c">916 KDM</td>
+          <td class="r">45.320 g</td>
+          <td class="r">4,250.00</td>
+          <td class="amt r">2,97,840.00</td>
+        </tr>
+        <!-- Sub rows -->
+        <tr class="sub">
+          <td class="l"></td>
+          <td class="l">Gold 22K | GW: 45.320g | Tunch: 91.60% | @ ₹6,500</td>
+          <td class="c">91.60%</td>
+          <td class="r">45.320</td>
+          <td class="r">—</td>
+          <td class="r">2,93,590.00</td>
+        </tr>
+
+        <!-- Item 2 — parent row -->
+        <tr class="parent">
+          <td class="sn l">2 / 2</td>
+          <td class="l">Diamond Bangle Pair – Floral</td>
+
+          <td class="c">18K</td>
+          <td class="r">18.640 g</td>
+          <td class="r">2,100.00</td>
+          <td class="amt r">1,58,928.00</td>
+        </tr>
+        <tr class="sub">
+          <td class="l"></td>
+          <td class="l">Gold 18K | GW: 18.640g | Tunch: 75.00% | @ ₹6,500</td>
+          <td class="c">75.00%</td>
+          <td class="r">18.640</td>
+          <td class="r">—</td>
+          <td class="r">90,645.00</td>
+        </tr>
+        <tr class="sub">
+          <td class="l"></td>
+          <td class="l">Diamond | GW: 2.100g | Tunch: 100% | @ ₹32,000</td>
+          <td class="c">VVS1</td>
+          <td class="r">2.100</td>
+          <td class="r">—</td>
+          <td class="r">66,183.00</td>
+        </tr>
+
+        <!-- Item 3 — parent row -->
+        <tr class="parent">
+          <td class="sn l">3 / 1</td>
+          <td class="l">Gold Chain – Rope Style 22K</td>
+
+          <td class="c">916 KDM</td>
+          <td class="r">12.500 g</td>
+          <td class="r">800.00</td>
+          <td class="amt r">82,050.00</td>
+        </tr>
+        <tr class="sub">
+          <td class="l"></td>
+          <td class="l">Gold 22K | GW: 12.500g | Tunch: 91.60% | @ ₹6,500</td>
+          <td class="c">91.60%</td>
+          <td class="r">12.500</td>
+          <td class="r">—</td>
+          <td class="r">81,250.00</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ BOTTOM  (words+GST  |  totals) ══ -->
+  <div class="cn-bottom">
+
+    <!-- LEFT: amount in words + GST summary + declaration -->
+    <div>
+      <div class="cn-words">
+        <b>Credit Amount in Words:</b><br>
+        Five Lakh Thirty Eight Thousand Eight Hundred Eighteen Rupees Only
+      </div>
+
+      <div class="cn-declaration">
+        <b>Declaration:</b> We hereby declare that this credit note shows the actual
+        credit amount and that all the particulars are true and correct to the
+        best of our knowledge and belief.<br><br>
+        Certified that the goods return are genuine and no other credit note has
+        been issued against Invoice No. SV/R001/26-27/00001 for the returned items.
+      </div>
+    </div>
+
+    <!-- RIGHT: totals -->
+    <div class="cn-totals">
+      <div class="cn-row">
+        <span class="cn-l">MRP (Gross)</span>
+        <span class="cn-v">5,46,000.00</span>
+      </div>
+      <div class="cn-row minus">
+        <span class="cn-l">Discount</span>
+        <span class="cn-v">81,600.00</span>
+      </div>
+      <div class="cn-row bold">
+        <span class="cn-l">Taxable Value</span>
+        <span class="cn-v">4,64,400.00</span>
+      </div>
+      <div class="cn-row">
+        <span class="cn-l">CGST @ 1.5%</span>
+        <span class="cn-v">6,966.00</span>
+      </div>
+      <div class="cn-row">
+        <span class="cn-l">SGST @ 1.5%</span>
+        <span class="cn-v">6,966.00</span>
+      </div>
+      <div class="cn-row net">
+        <span class="cn-l">Total Credit Amount</span>
+        <span class="cn-v">4,78,332.00</span>
+      </div>
+    </div>
+
+  </div><!-- /cn-bottom -->
+
+  <!-- ══ FOOTER ══ -->
+  <div class="cn-footer">
+    <div class="cn-terms">
+      <b>Terms &amp; Conditions:</b>
+      <div>1. This credit note is issued against the above referenced invoice only.</div>
+      <div>2. Credit is valid for 30 days from the date of issue.</div>
+      <div>3. Goods once returned cannot be re-exchanged without prior approval.</div>
+      <div>4. This is a computer-generated document and does not require a physical signature.</div>
+    </div>
+    <div class="cn-stamp">
+      <div class="cn-sig-label">For Jewel India Jewellers Pvt. Ltd.</div>
+      <div class="cn-sig-line"></div>
+      <div class="cn-sig-name">Authorised Signatory</div>
+      <div class="cn-sig-sub">This is a system-generated credit note</div>
+    </div>
+  </div>
+
+</div><!-- /cn-root -->
+</body>
+</html>

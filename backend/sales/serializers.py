@@ -1328,6 +1328,46 @@ class SaleReturnItemSerializer(serializers.ModelSerializer):
             return instance
 
 
+def _refresh_order_status(customer_order):
+    """Recompute CustomerOrder.status from all linked sale vouchers and their returns.
+
+    Status ladder (net = total_billed − total_returned):
+        ''              → nothing billed yet
+        'Partial'       → partially billed, no returns
+        'Billed'        → net >= ordered (fully delivered, returns if any cancel out)
+        'Partial Return'→ returns exist and net > 0 but < ordered
+        'Returned'      → net <= 0 (all deliveries reversed)
+    """
+    from decimal import Decimal
+    svous = list(customer_order.linked_vouchers.prefetch_related('sale_returns').all())
+    if not svous:
+        return
+
+    total_billed   = sum(sv.total_bill_value or Decimal(0) for sv in svous)
+    total_returned = sum(
+        sr.total_bill_value or Decimal(0)
+        for sv in svous
+        for sr in sv.sale_returns.all()
+    )
+    net_delivered = total_billed - total_returned
+    ordered_value = customer_order.advance_amt or Decimal(0)
+
+    if total_billed == 0:
+        customer_order.status = ''
+    elif net_delivered <= 0:
+        customer_order.status = 'Returned'
+    elif total_returned > 0 and net_delivered < ordered_value:
+        customer_order.status = 'Partial Return'
+    elif total_returned > 0 and net_delivered >= ordered_value:
+        customer_order.status = 'Billed'
+    elif net_delivered < ordered_value:
+        customer_order.status = 'Partial'
+    else:
+        customer_order.status = 'Billed'
+
+    customer_order.save(update_fields=['status'])
+
+
 class SaleReturnSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
 
@@ -1478,6 +1518,12 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                     sale_return_instance.billno, e,
                 )
 
+            # ── Update linked Customer Order status ───────────────────────────
+            _sv = sale_return_instance.sales_voucher_ref
+            _co = getattr(_sv, 'customer_order', None) if _sv else None
+            if _co:
+                _refresh_order_status(_co)
+
             return sale_return_instance
 
     def update(self, instance, validated_data):
@@ -1562,6 +1608,13 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             instance.gstin_ref  = request.retail.gstin_master
             instance.branch_ref = request.retail.branch
             instance.save()
+
+            # ── Update linked Customer Order status ───────────────────────────
+            _sv = instance.sales_voucher_ref
+            _co = getattr(_sv, 'customer_order', None) if _sv else None
+            if _co:
+                _refresh_order_status(_co)
+
             return sale_return_instance
 
 

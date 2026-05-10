@@ -1416,25 +1416,35 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                         'debit': f"{_amt:.2f}",
                     })
 
+            # Build party credit using Decimal-rounded components so it matches
+            # the individually-rounded debit lines exactly (avoids 0.01 mismatch).
+            _sr_cgst_d    = Decimal(f"{sale_return_instance.cgst_amt:.2f}")
+            _sr_sgst_d    = Decimal(f"{sale_return_instance.sgst_amt:.2f}")
+            _sr_igst_d    = Decimal(f"{sale_return_instance.igst_amt:.2f}")
+            _sr_tcs_d     = Decimal(f"{sale_return_instance.tcs_amt:.2f}")
+            _sr_item_total = sum(Decimal(line['debit']) for line in _sr_item_lines)
+            _sr_discount_d = Decimal(f"{sale_return_instance.discount:.2f}")
+            _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_item_total - _sr_discount_d
+
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
                         "narration":f"Sale Return Narration",
                         "voucher_type":global_vars.VoucherType.sale_ret,
                         "retail":request.retail.id,
                         "voucher_details": [
-                            {'account': out_cgst, 'debit':f"{sale_return_instance.cgst_amt:.2f}"},
-                            {'account': out_sgst, 'debit':f"{sale_return_instance.sgst_amt:.2f}"},
-                            {'account': out_igst, 'debit':f"{sale_return_instance.igst_amt:.2f}"},
-                            {'account':_tcs_ldgr,  'debit':f"{sale_return_instance.tcs_amt:.2f}"},
+                            {'account': out_cgst, 'debit':f"{_sr_cgst_d:.2f}"},
+                            {'account': out_sgst, 'debit':f"{_sr_sgst_d:.2f}"},
+                            {'account': out_igst, 'debit':f"{_sr_igst_d:.2f}"},
+                            {'account':_tcs_ldgr,  'debit':f"{_sr_tcs_d:.2f}"},
                         ] +
                         _sr_item_lines +
                         [{
                             'account':_discount_ldgr,
-                            'credit':f"{sale_return_instance.discount:.2f}",
+                            'credit':f"{_sr_discount_d:.2f}",
                         }] +
                         [{
                             'account':sale_return_instance.ldgr.ac_name,
-                            'credit':f"{(sale_return_instance.total_bill_value):.2f}",
+                            'credit':f"{_sr_party_credit:.2f}",
                         }]},
                         context=self.context)
             if ser.is_valid(raise_exception=True):
@@ -1514,41 +1524,35 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                     _amt = Decimal(str(_d.amount or 0)) + (_making if _idx == 0 else Decimal('0'))
                     _sr_item_lines.append({'account': _d.item.sale_ledger.ac_name, 'debit': f"{_amt:.2f}"})
 
+            # Build party credit using Decimal-rounded components so it matches
+            # the individually-rounded debit lines exactly (avoids 0.01 mismatch).
+            _sr_cgst_d    = Decimal(f"{sale_return_instance.cgst_amt:.2f}")
+            _sr_sgst_d    = Decimal(f"{sale_return_instance.sgst_amt:.2f}")
+            _sr_igst_d    = Decimal(f"{sale_return_instance.igst_amt:.2f}")
+            _sr_tcs_d     = Decimal(f"{sale_return_instance.tcs_amt:.2f}")
+            _sr_item_total = sum(Decimal(line['debit']) for line in _sr_item_lines)
+            _sr_discount_d = Decimal(f"{sale_return_instance.discount:.2f}")
+            _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_item_total - _sr_discount_d
+
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
                         "narration":f"Sale Return Narration",
                         "voucher_type":global_vars.VoucherType.sale_ret,
                         "retail":request.retail.id,
                         "voucher_details": [
-                            {
-                                'account': out_cgst,
-
-                                'debit':f"{sale_return_instance.cgst_amt:.2f}"
-                            },
-                            {'account': out_sgst,
-
-                                'debit':f"{sale_return_instance.sgst_amt:.2f}"
-                            },
-                            {'account': out_igst,
-
-                                'debit':f"{sale_return_instance.igst_amt:.2f}"
-                            },
-                            {'account':_tcs_ldgr,
-
-                                'debit':f"{sale_return_instance.tcs_amt:.2f}"
-                            },
+                            {'account': out_cgst, 'debit':f"{_sr_cgst_d:.2f}"},
+                            {'account': out_sgst, 'debit':f"{_sr_sgst_d:.2f}"},
+                            {'account': out_igst, 'debit':f"{_sr_igst_d:.2f}"},
+                            {'account':_tcs_ldgr, 'debit':f"{_sr_tcs_d:.2f}"},
                         ] +
                         _sr_item_lines +
                         [{
                             'account':_discount_ldgr,
-                            'credit':f"{sale_return_instance.discount:.2f}",
-
-                        },
-                        ] +
+                            'credit':f"{_sr_discount_d:.2f}",
+                        }] +
                         [{
                             'account':sale_return_instance.ldgr.ac_name,
-                            'credit':f"{(sale_return_instance.total_bill_value ):.2f}",
-
+                            'credit':f"{_sr_party_credit:.2f}",
                         }]},
                         context=self.context)
             if ser.is_valid(raise_exception=True):

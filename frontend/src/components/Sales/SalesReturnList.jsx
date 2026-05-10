@@ -57,7 +57,8 @@ function SalesReturnList() {
         openAndPrint(<SaleReturnCreditNote data={res.data} />);
         return;
       }
-      toast({ title: "Print failed", description: "Could not load credit note data.", variant: "destructive" });
+      const errMsg = res.error?.detail || res.error?.message || res.error || "Could not load credit note data.";
+      toast({ title: "Print failed", description: String(errMsg), variant: "destructive" });
     };
 
     const columns = [

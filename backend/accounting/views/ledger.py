@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from django.db.models import Sum, F, Value, DecimalField
+from django.db.models import Sum, F, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 
 from rest_framework import serializers, status
@@ -655,9 +655,19 @@ class OutstandingReportView(APIView):
 
         if report_type == "debtor":
             from sales.models import SalesVou as BillModel
+            _tbv = ExpressionWrapper(
+                (Coalesce(F('mrp'), 0) - Coalesce(F('discount'), 0)) * (
+                    1 + Coalesce(F('cgst_per'), 0) / 100
+                      + Coalesce(F('sgst_per'), 0) / 100
+                      + Coalesce(F('igst_per'), 0) / 100
+                ),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            )
             bills = BillModel.objects.filter(
                 retail=request.retail, due_amt__gt=0
-            ).select_related('ldgr').values('ldgr__ac_name', 'billno', 'date1', 'due_amt', 'total_bill_value')
+            ).annotate(total_bill_value=_tbv).select_related('ldgr').values(
+                'ldgr__ac_name', 'billno', 'date1', 'due_amt', 'total_bill_value'
+            )
             bill_no_key = 'billno'
             amount_key = 'total_bill_value'
         else:

@@ -768,7 +768,7 @@ class ProfitLossAPIView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
-def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, exclude_codes=None, retail_ids=None):
+def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, exclude_codes=None, retail_ids=None, gross_credit=False):
     """Fetch Chart of Accounts as a nested tree — optimized with batch queries.
 
     Args:
@@ -778,6 +778,8 @@ def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, ex
             Opening balances are always included regardless of date range.
         exclude_codes: List of Account.code strings whose sub-trees are omitted
             from both the rendered tree and the balance totals (e.g. ['EXP-DIR-PUR']).
+        gross_credit: When True, use Sum('credit') instead of Sum(debit-credit).
+            Use for income trees so gross sales show even when fully offset by returns.
     """
     all_accounts = list(Account.objects.all())
     root_account = next((a for a in all_accounts if a.name == root), None)
@@ -812,8 +814,9 @@ def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, ex
         txn_filter['voucher_main__retail_id__in'] = retail_ids
     if start_date and end_date:
         txn_filter['voucher_main__date__range'] = [start_date, end_date]
+    balance_expr = Sum(F('credit')) if gross_credit else Sum(F('debit') - F('credit'))
     balance_raw = VoucherDetail.objects.filter(**txn_filter).values('account__ac_group').annotate(
-        total_balance=Sum(F('debit') - F('credit'))
+        total_balance=balance_expr
     )
     balance_dict = {row['account__ac_group']: row['total_balance'] or Decimal(0) for row in balance_raw}
 
@@ -1245,7 +1248,35 @@ class PnlDrilldownView(APIView):
 
             return Response({"metric": "Expenses", "vouchers": list(rows)})
 
-        return Response({"error": "Invalid metric. Use: sales, purchases, purchase_returns, expenses"}, status=status.HTTP_400_BAD_REQUEST)
+        elif metric == "income":
+            income_root = Account.objects.filter(name="Income").first()
+            if not income_root:
+                return Response({"metric": "Income", "vouchers": []})
+            children = [income_root] + get_all_descendants(income_root)
+            ldgrs = Ledger.objects.filter(ac_group__in=children)
+
+            if account_group_id:
+                try:
+                    specific_group = Account.objects.get(pk=account_group_id)
+                    sub_descendants = [specific_group] + get_all_descendants(specific_group)
+                    ldgrs = ldgrs.filter(ac_group__in=sub_descendants)
+                except Account.DoesNotExist:
+                    pass
+
+            rows = VoucherDetail.objects.filter(
+                account__in=ldgrs,
+                **base_filter
+            ).select_related('voucher_main', 'account').order_by(
+                'voucher_main__date'
+            ).values(
+                'voucher_main__voucher_no', 'voucher_main__date',
+                'voucher_main__narration', 'account__ac_name',
+                'debit', 'credit'
+            )
+
+            return Response({"metric": "Income", "vouchers": list(rows)})
+
+        return Response({"error": "Invalid metric. Use: sales, purchases, purchase_returns, expenses, income"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PnlGroupLedgersView(APIView):
@@ -1286,12 +1317,14 @@ class PnlGroupLedgersView(APIView):
         if retail:
             txn_filter['voucher_main__retail'] = retail
 
+        use_gross = request.query_params.get("gross_credit", "false").lower() == "true"
+        balance_expr = Sum(F('credit')) if use_gross else Sum(F('debit') - F('credit'))
         txn_balances = VoucherDetail.objects.filter(**txn_filter).values('account').annotate(
-            balance=Sum(F('debit') - F('credit'))
+            balance=balance_expr
         )
         txn_dict = {r['account']: r['balance'] or Decimal(0) for r in txn_balances}
 
-        # Opening balances
+        # Opening balances (always net — openings are period-start snapshots)
         ob_filter = {'ldgr__in': ledgers}
         if retail:
             ob_filter['retail'] = retail

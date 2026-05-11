@@ -204,7 +204,7 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
         from datetime import date
         if not obj.delivery_date:
             return False
-        if obj.delivery_status in ('delivered', 'cancelled'):
+        if obj.delivery_status in ('delivered', 'cancelled', 'returned'):
             return False
         if obj.status == 'Billed':
             return False
@@ -299,7 +299,7 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
         return not obj.linked_vouchers.all()
 
     def get_is_cancellable(self, obj):
-        return obj.delivery_status not in ('delivered', 'cancelled')
+        return obj.delivery_status not in ('delivered', 'cancelled', 'returned')
 
     def get_has_in_production_items(self, obj):
         for it in obj.items.all():
@@ -1423,6 +1423,9 @@ def _refresh_order_status(customer_order):
         customer_order.status = ''
     elif net_delivered <= 0:
         customer_order.status = 'Returned'
+        customer_order.delivery_status = 'returned'
+        customer_order.save(update_fields=['status', 'delivery_status'])
+        return
     elif total_returned > 0 and net_delivered < ordered_value:
         customer_order.status = 'Partial Return'
     elif total_returned > 0 and net_delivered >= ordered_value:
@@ -1491,6 +1494,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                 # Only update barcode stock status for barcode-linked items
                 if sale_return_item_instance.barcode:
                     sale_return_item_instance.barcode.stk_status = True
+                    sale_return_item_instance.barcode.customer_order = None
                     sale_return_item_instance.barcode.save()
 
                 detail_instances = []
@@ -1505,33 +1509,47 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
             out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
             out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
             _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
 
-            # Build item journal lines:
-            # Making is rolled into the FIRST sub-item's sale_ledger debit so that the
-            # return passes through the same sale ledgers as the original sale entry,
-            # rather than splitting into a separate "Making Charge Received" account.
+            def _making_recv_ldgr_for_item(item):
+                try:
+                    purity_str = (item.barcode.purity.purity or '').upper() if item.barcode_id and item.barcode and item.barcode.purity else ''
+                except Exception:
+                    purity_str = ''
+                if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
+                    return _co.making_receive_14k_ldgr.ac_name
+                if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
+                    return _co.making_receive_18k_ldgr.ac_name
+                if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
+                    return _co.making_receive_22k_ldgr.ac_name
+                return _making_recv_ldgr
+
+            _sr_making_lines = [
+                {'account': _making_recv_ldgr_for_item(_main), 'debit': f"{Decimal(str(_main.making_value or 0)):.2f}"}
+                for _main, _ in items_with_details
+                if Decimal(str(_main.making_value or 0)) > 0
+            ]
             _sr_item_lines = []
             for _main, _sub_details in items_with_details:
-                _making = Decimal(str(_main.making_value or 0))
-                for _idx, _d in enumerate(_sub_details):
-                    _amt = Decimal(str(_d.amount or 0)) + (_making if _idx == 0 else Decimal('0'))
+                for _d in _sub_details:
                     _sr_item_lines.append({
                         'account': _d.item.sale_ledger.ac_name,
-                        'debit': f"{_amt:.2f}",
+                        'debit': f"{Decimal(str(_d.amount or 0)):.2f}",
                     })
 
             # Build party credit using Decimal-rounded components so it matches
             # the individually-rounded debit lines exactly (avoids 0.01 mismatch).
-            _sr_cgst_d    = Decimal(f"{sale_return_instance.cgst_amt:.2f}")
-            _sr_sgst_d    = Decimal(f"{sale_return_instance.sgst_amt:.2f}")
-            _sr_igst_d    = Decimal(f"{sale_return_instance.igst_amt:.2f}")
-            _sr_tcs_d     = Decimal(f"{sale_return_instance.tcs_amt:.2f}")
+            _sr_cgst_d     = Decimal(f"{sale_return_instance.cgst_amt:.2f}")
+            _sr_sgst_d     = Decimal(f"{sale_return_instance.sgst_amt:.2f}")
+            _sr_igst_d     = Decimal(f"{sale_return_instance.igst_amt:.2f}")
+            _sr_tcs_d      = Decimal(f"{sale_return_instance.tcs_amt:.2f}")
+            _sr_making_total = sum(Decimal(line['debit']) for line in _sr_making_lines)
             _sr_item_total = sum(Decimal(line['debit']) for line in _sr_item_lines)
             _sr_discount_d = Decimal(f"{sale_return_instance.discount:.2f}")
-            _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_item_total - _sr_discount_d
+            _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_making_total + _sr_item_total - _sr_discount_d
 
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
@@ -1544,6 +1562,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                             {'account': out_igst, 'debit':f"{_sr_igst_d:.2f}"},
                             {'account':_tcs_ldgr,  'debit':f"{_sr_tcs_d:.2f}"},
                         ] +
+                        _sr_making_lines +
                         _sr_item_lines +
                         [{
                             'account':_discount_ldgr,
@@ -1591,6 +1610,12 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             if _co:
                 _refresh_order_status(_co)
 
+            if sale_return_instance.sales_voucher_ref_id:
+                sv = sale_return_instance.sales_voucher_ref
+                return_total = Decimal(str(sale_return_instance.total_bill_value))
+                sv.due_amt = max(Decimal('0'), sv.due_amt - return_total)
+                sv.save(update_fields=['due_amt'])
+
             return sale_return_instance
 
     def update(self, instance, validated_data):
@@ -1620,32 +1645,49 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
             out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
             out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
             _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
             _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
 
-            # Build item journal lines: making rolled into first sub-item's sale_ledger
+            def _making_recv_ldgr_for_item(item):
+                try:
+                    purity_str = (item.barcode.purity.purity or '').upper() if item.barcode_id and item.barcode and item.barcode.purity else ''
+                except Exception:
+                    purity_str = ''
+                if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
+                    return _co.making_receive_14k_ldgr.ac_name
+                if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
+                    return _co.making_receive_18k_ldgr.ac_name
+                if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
+                    return _co.making_receive_22k_ldgr.ac_name
+                return _making_recv_ldgr
+
             from collections import defaultdict as _defaultdict
             _sr_details_by_main = _defaultdict(list)
             for _d in item_detail_instances:
                 _sr_details_by_main[_d.main_item_id].append(_d)
+            _sr_making_lines = [
+                {'account': _making_recv_ldgr_for_item(_main), 'debit': f"{Decimal(str(_main.making_value or 0)):.2f}"}
+                for _main in item_instances
+                if Decimal(str(_main.making_value or 0)) > 0
+            ]
             _sr_item_lines = []
             for _main in item_instances:
-                _making = Decimal(str(_main.making_value or 0))
-                for _idx, _d in enumerate(_sr_details_by_main.get(_main.id, [])):
-                    _amt = Decimal(str(_d.amount or 0)) + (_making if _idx == 0 else Decimal('0'))
-                    _sr_item_lines.append({'account': _d.item.sale_ledger.ac_name, 'debit': f"{_amt:.2f}"})
+                for _d in _sr_details_by_main.get(_main.id, []):
+                    _sr_item_lines.append({'account': _d.item.sale_ledger.ac_name, 'debit': f"{Decimal(str(_d.amount or 0)):.2f}"})
 
             # Build party credit using Decimal-rounded components so it matches
             # the individually-rounded debit lines exactly (avoids 0.01 mismatch).
-            _sr_cgst_d    = Decimal(f"{sale_return_instance.cgst_amt:.2f}")
-            _sr_sgst_d    = Decimal(f"{sale_return_instance.sgst_amt:.2f}")
-            _sr_igst_d    = Decimal(f"{sale_return_instance.igst_amt:.2f}")
-            _sr_tcs_d     = Decimal(f"{sale_return_instance.tcs_amt:.2f}")
+            _sr_cgst_d     = Decimal(f"{sale_return_instance.cgst_amt:.2f}")
+            _sr_sgst_d     = Decimal(f"{sale_return_instance.sgst_amt:.2f}")
+            _sr_igst_d     = Decimal(f"{sale_return_instance.igst_amt:.2f}")
+            _sr_tcs_d      = Decimal(f"{sale_return_instance.tcs_amt:.2f}")
+            _sr_making_total = sum(Decimal(line['debit']) for line in _sr_making_lines)
             _sr_item_total = sum(Decimal(line['debit']) for line in _sr_item_lines)
             _sr_discount_d = Decimal(f"{sale_return_instance.discount:.2f}")
-            _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_item_total - _sr_discount_d
+            _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_making_total + _sr_item_total - _sr_discount_d
 
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
                         "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
@@ -1658,6 +1700,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                             {'account': out_igst, 'debit':f"{_sr_igst_d:.2f}"},
                             {'account':_tcs_ldgr, 'debit':f"{_sr_tcs_d:.2f}"},
                         ] +
+                        _sr_making_lines +
                         _sr_item_lines +
                         [{
                             'account':_discount_ldgr,
@@ -2111,7 +2154,7 @@ class PortalCustomerOrderSerializer(serializers.ModelSerializer):
         from datetime import date
         if not obj.delivery_date:
             return False
-        if obj.delivery_status in ('delivered', 'cancelled'):
+        if obj.delivery_status in ('delivered', 'cancelled', 'returned'):
             return False
         if obj.status == 'Billed':
             return False

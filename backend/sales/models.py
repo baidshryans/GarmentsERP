@@ -25,6 +25,7 @@ class CustomerOrder(models.Model):
         ('pending',   'Pending'),
         ('ready',     'Ready for Delivery'),
         ('delivered', 'Delivered'),
+        ('returned',  'Returned'),
         ('cancelled', 'Cancelled'),
     ]
     delivery_status      = models.CharField(

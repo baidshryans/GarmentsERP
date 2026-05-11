@@ -404,13 +404,13 @@ const BarcodeManagementList = () => {
           This barcode is no longer in stock and cannot be edited.
         </div>
       )}
-      <form className="space-y-5" id="orderForm" onSubmit={isReadOnly ? (e) => e.preventDefault() : handleSubmit(onSubmit)}>
-      <div className={isReadOnly ? "pointer-events-none select-none opacity-60" : ""}>
+      <form className="space-y-8" id="orderForm" onSubmit={isReadOnly ? (e) => e.preventDefault() : handleSubmit(onSubmit)}>
+      <div className={isReadOnly ? "pointer-events-none select-none opacity-60 space-y-8" : "space-y-8"}>
 
         {/* ════════════════════════════════════════════════
             SECTION 1: Header Info
             ════════════════════════════════════════════════ */}
-        <div className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-3">
             <FieldContainer>
               <Label className="text-xs font-semibold text-muted-foreground">BARCODE</Label>
@@ -450,7 +450,7 @@ const BarcodeManagementList = () => {
               <Input type="text" {...register("form.order_no")} />
             </FieldContainer>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-3 mt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-3 mt-5">
             <FieldContainer>
               <Label className="text-xs font-semibold text-muted-foreground">HUID</Label>
               <Input type="text" {...register("form.huid")} />
@@ -480,7 +480,7 @@ const BarcodeManagementList = () => {
             SECTION 2: Main Item (inline table entry row)
             ════════════════════════════════════════════════ */}
         <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-          <div className="bg-primary/5 px-4 py-2 border-b">
+          <div className="bg-primary/5 px-4 py-3 border-b">
             <span className="text-sm font-semibold text-primary">Main Item</span>
           </div>
           <div className="overflow-x-auto">
@@ -609,7 +609,7 @@ const BarcodeManagementList = () => {
             SECTION 3: Sub-item Entry Row + Saved Items
             ════════════════════════════════════════════════ */}
         <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-          <div className="bg-primary/5 px-4 py-2 border-b flex items-center justify-between">
+          <div className="bg-primary/5 px-4 py-3 border-b flex items-center justify-between">
             <span className="text-sm font-semibold text-primary">Sub-Items (Stones / Accessories)</span>
             <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={handleAddSubItem}>
               <Plus className="size-4 mr-1" /> Add

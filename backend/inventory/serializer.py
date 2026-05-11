@@ -401,11 +401,10 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 new_pending_pcs = (pur.pending_pcs or 0) - (child.pcs or 0)
                 new_pending_gw = (pur.pending_gw or 0) - (child.gw or 0)
 
-                if new_pending_pcs < 0:
-                    raise serializers.ValidationError(
-                        f"Cannot create barcode: Purchase voucher item has only {pur.pending_pcs} pending pieces, "
-                        f"but barcode requires {child.pcs} pieces."
-                    )
+                # NOTE: pending-pcs guard intentionally skipped for PV-based
+                # barcode creation — pieces may be uninitialised (None) on
+                # older PV rows, and over-allocation by piece count is allowed.
+                # Weight, however, is still validated.
                 if new_pending_gw < 0:
                     raise serializers.ValidationError(
                         f"Cannot create barcode: Purchase voucher item has only {pur.pending_gw} pending weight, "

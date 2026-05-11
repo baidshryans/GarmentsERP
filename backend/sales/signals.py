@@ -62,6 +62,13 @@ def on_sale_return_delete(sender, instance, **kwargs):
         from accounting.models import VoucherMain
         VoucherMain.objects.filter(id=instance.ac_voucher_id).delete()
 
+    if instance.sales_voucher_ref_id:
+        from decimal import Decimal
+        sv = instance.sales_voucher_ref
+        return_total = Decimal(str(instance.total_bill_value))
+        sv.due_amt = sv.due_amt + return_total
+        sv.save(update_fields=['due_amt'])
+
 
 @receiver(pre_delete, sender=SalesApprovalItem)
 def on_sales_approval_item_delete(sender, instance, **kwargs):

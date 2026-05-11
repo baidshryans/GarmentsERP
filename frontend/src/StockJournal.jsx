@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from "@/components/ui/select";
@@ -104,30 +105,41 @@ const StockJournal = () => {
   const tablePacket = watch("table.packet");
   const tableItem   = watch("table.item");
 
-  // When packet field changes, auto-fill item and lock item input
-  const handlePacketChange = (e) => {
-    const val    = e.target.value.trim();
-    const found  = packets.find(p => p.pckt_no === val);
-    if (found) {
-      const itemName = found.stone_item_id?.item_name ?? found.stone_item_id?.short_code ?? "";
-      setValue("table.item", itemName);
-      setValue("table.metal_purity", "");   // purity not applicable in packet mode
-      setPacketActive(true);
-      setItemActive(false);
-    } else if (!val) {
-      // Cleared — unlock everything
+  // Packet selected from dropdown
+  const handlePacketSelect = (p) => {
+    const itemName = p.stone_item_id?.item_name ?? p.stone_item_id?.short_code ?? "";
+    setValue("table.packet", p.pckt_no);
+    setValue("table.item", itemName);
+    setValue("table.metal_purity", "");
+    setPacketActive(true);
+    setItemActive(false);
+  };
+
+  // Packet input cleared or typed (no match yet)
+  const handlePacketInputChange = (val) => {
+    setValue("table.packet", val);
+    if (!val) {
       setValue("table.item", "");
       setPacketActive(false);
       setItemActive(false);
     }
   };
 
-  // When item field is manually typed (without a packet), lock packet input
-  const handleItemChange = (e) => {
-    const val = e.target.value.trim();
+  // Item selected from dropdown
+  const handleItemSelect = (item) => {
+    setValue("table.item", item.item_name);
+    setValue("table.packet", "");
+    setValue("table.pcs", "");
+    setItemActive(true);
+    setPacketActive(false);
+  };
+
+  // Item typed freely (without selecting from dropdown)
+  const handleItemInputChange = (val) => {
+    setValue("table.item", val);
     if (val && !packetActive) {
-      setValue("table.packet", "");  // packet not applicable in item mode
-      setValue("table.pcs", "");     // stone pcs not applicable for type-R items
+      setValue("table.packet", "");
+      setValue("table.pcs", "");
       setItemActive(true);
     } else if (!val) {
       setItemActive(false);
@@ -292,41 +304,32 @@ const StockJournal = () => {
                   <TableCell className="px-2 py-1.5 border" />
 
                   {/* Packet — hidden when item (type R) is active */}
-                  <TableCell className="px-2 py-1.5 border min-w-[120px]">
+                  <TableCell className="px-2 py-1.5 border min-w-[140px]">
                     {itemActive ? (
                       <span className="text-xs text-muted-foreground italic px-1">N/A (item mode)</span>
                     ) : (
-                      <>
-                        <Input
-                          list="packet_list"
-                          {...register("table.packet", { onChange: handlePacketChange })}
-                          placeholder="Packet…"
-                        />
-                        <datalist id="packet_list">
-                          {packets.map((p, i) => (
-                            <option key={i} value={p.pckt_no}>{p.pckt_no}</option>
-                          ))}
-                        </datalist>
-                      </>
+                      <SearchableComboBox
+                        options={packets}
+                        labelKey="pckt_no"
+                        value={tablePacket}
+                        onSelect={handlePacketSelect}
+                        onInputChange={handlePacketInputChange}
+                        placeholder="Packet…"
+                      />
                     )}
                   </TableCell>
 
                   {/* Item */}
-                  <TableCell className="px-2 py-1.5 border min-w-[120px]">
-                    <Input
-                      list="item_list"
-                      {...register("table.item", { onChange: handleItemChange })}
+                  <TableCell className="px-2 py-1.5 border min-w-[140px]">
+                    <SearchableComboBox
+                      options={rawItems}
+                      labelKey="item_name"
+                      value={tableItem}
+                      onSelect={handleItemSelect}
+                      onInputChange={handleItemInputChange}
                       disabled={packetActive}
                       placeholder={packetActive ? "(auto-filled)" : "Item…"}
-                      className={packetActive ? "opacity-50 cursor-not-allowed" : ""}
                     />
-                    {!packetActive && (
-                      <datalist id="item_list">
-                        {rawItems.map((item, i) => (
-                          <option key={i} value={item.item_name} />
-                        ))}
-                      </datalist>
-                    )}
                   </TableCell>
 
                   {/* Metal Purity — hidden when packet is active */}

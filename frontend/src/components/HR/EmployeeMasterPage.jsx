@@ -47,7 +47,9 @@ export default function EmployeeMasterPage() {
 
   function openCreate() {
     setEditingId(null);
-    setForm(BLANK_FORM);
+    const stateCode = sessionStorage.getItem('state_code');
+    const matchedState = stateCode ? states.find(s => s.code === stateCode) : null;
+    setForm({ ...BLANK_FORM, state: matchedState ? String(matchedState.id) : null });
     setOpen(true);
   }
 
@@ -78,7 +80,15 @@ export default function EmployeeMasterPage() {
   }
 
   function set(field, value) {
-    setForm(f => ({ ...f, [field]: value }));
+    setForm(f => {
+      const updated = { ...f, [field]: value };
+      if (!editingId && (field === 'first_name' || field === 'last_name')) {
+        const first = field === 'first_name' ? value : f.first_name;
+        const last  = field === 'last_name'  ? value : f.last_name;
+        updated.full_name = [first, last].filter(Boolean).join(' ');
+      }
+      return updated;
+    });
   }
 
   async function handleSave() {
@@ -172,7 +182,7 @@ export default function EmployeeMasterPage() {
                     <Select value={form.state || ""} onValueChange={v => set("state", v || null)}>
                       <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
                       <SelectContent>
-                        {states.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.state_name}</SelectItem>)}
+                        {states.map(s => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </Field>

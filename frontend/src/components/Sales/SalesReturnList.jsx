@@ -107,6 +107,10 @@ function SalesReturnList() {
              {
                header: "Total bill",
                accessorKey: "total_bill_value",
+               cell: ({ getValue }) => {
+                 const v = parseFloat(getValue());
+                 return isNaN(v) ? "—" : v.toFixed(2);
+               },
                
              },
             

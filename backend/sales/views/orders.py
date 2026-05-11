@@ -103,7 +103,7 @@ class CustomerOrderViewset(views.RetailBaseViewset):
         instance = serializer.instance
 
         # Terminal states block all edits
-        if instance.delivery_status in ('delivered', 'cancelled'):
+        if instance.delivery_status in ('delivered', 'cancelled', 'returned'):
             raise ValidationError(
                 f"Customer order '{instance.order_no}' cannot be edited because it is in '{instance.delivery_status}' state."
             )
@@ -157,7 +157,7 @@ class CustomerOrderViewset(views.RetailBaseViewset):
         from rest_framework.exceptions import ValidationError
         from accounting.models import VoucherMain
         order = self.get_object()
-        if order.delivery_status in ('delivered', 'cancelled'):
+        if order.delivery_status in ('delivered', 'cancelled', 'returned'):
             raise ValidationError(
                 f"Customer order '{order.order_no}' is already in '{order.delivery_status}' state."
             )
@@ -281,7 +281,7 @@ def customer_order_timeline(request, order_id):
     """
     from purchase.models import PurchaseOrderItems, PurchaseVoucherItems
     from manufacturing.models import KarigarIssueItem, KarigarReceiveItem
-    from ..models import SalesVouItem
+    from ..models import SalesVouItem, SaleReturnItem
     from ..serializers import _customer_order_item_lock
     from inventory.models import BarcodeMain
 
@@ -448,8 +448,43 @@ def customer_order_timeline(request, order_id):
                     'ref': sv.billno,
                     'barcode': bc.barcode,
                 })
+                # Check if this barcode was subsequently returned
+                sr_item = (
+                    SaleReturnItem.objects
+                    .select_related('billno')
+                    .filter(barcode=bc)
+                    .order_by('id')
+                    .first()
+                )
+                if sr_item and sr_item.billno:
+                    sr = sr_item.billno
+                    events.append({
+                        'kind': 'returned',
+                        'date': sr.date1.isoformat() if sr.date1 else None,
+                        'label': 'Returned via Sale Return',
+                        'ref': sr.billno,
+                        'barcode': bc.barcode,
+                    })
 
         state, _reason = _customer_order_item_lock(coi)
+        # Override state with return-awareness when the item was billed (delivered).
+        # Count sold vs returned barcodes so we can distinguish full vs partial return.
+        if state == 'billed' and unique_barcodes:
+            sold_ids = set(
+                SalesVouItem.objects
+                .filter(barcode__in=unique_barcodes, billno__isnull=False)
+                .values_list('barcode_id', flat=True)
+            )
+            returned_ids = set(
+                SaleReturnItem.objects
+                .filter(barcode__in=unique_barcodes)
+                .values_list('barcode_id', flat=True)
+            )
+            if sold_ids and returned_ids >= sold_ids:
+                state = 'Returned'
+            elif returned_ids:
+                state = 'Partial Return'
+
         items_payload.append({
             'co_item_id': coi.id,
             'sl_no': coi.sl_no,
@@ -503,7 +538,7 @@ def customer_order_delivery_overview(request):
     open_qs = CustomerOrder.objects.filter(
         retail=retail
     ).exclude(
-        delivery_status__in=['delivered', 'cancelled']
+        delivery_status__in=['delivered', 'cancelled', 'returned']
     ).exclude(status='Billed')
 
     overdue_qs   = open_qs.filter(delivery_date__lt=today, delivery_date__isnull=False)

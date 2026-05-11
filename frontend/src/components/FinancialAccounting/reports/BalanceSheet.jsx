@@ -31,6 +31,23 @@ const fmtGrams = (v) => {
 };
 
 // Positive = debit balance, negative = credit balance (our Dr-Cr convention)
+// side: "assets" (normal=debit) | "liabilities" (normal=credit)
+// Returns { text, anomalous } — anomalous balances shown in parentheses
+function bsBalDisplay(balance, side) {
+  const n = Number(balance);
+  if (n === 0) return { text: "—", anomalous: false };
+  const anomalous = side === "assets" ? n < 0 : n > 0;
+  return { text: anomalous ? `(${fmt(n)})` : fmt(n), anomalous };
+}
+
+function bsGoldDisplay(grams, side) {
+  if (grams === null || grams === undefined) return { text: "—", anomalous: false };
+  const n = Number(grams);
+  if (!n) return { text: "—", anomalous: false };
+  const anomalous = side === "assets" ? n < 0 : n > 0;
+  return { text: anomalous ? `(${fmtGrams(n)} g)` : `${fmtGrams(n)} g`, anomalous };
+}
+
 const balLabel = (v) => {
   const n = Number(v);
   if (n === 0) return "—";
@@ -189,7 +206,7 @@ function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) 
 }
 
 /* ── Ledger drill-down modal ──────────────────────────────────────────────── */
-function LedgerModal({ groupId, groupName, endDate, unit, onClose }) {
+function LedgerModal({ groupId, groupName, endDate, unit, sideType, onClose }) {
   const [ledgers, setLedgers] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
@@ -207,7 +224,12 @@ function LedgerModal({ groupId, groupName, endDate, unit, onClose }) {
 
   const totalKey = isGold ? "gold_grams" : "balance";
   const total = ledgers?.reduce((s, l) => s + Number(l[totalKey] || 0), 0) ?? 0;
-  const formatBal = isGold ? gramsLabel : balLabel;
+  const formatBal = isGold
+    ? (v) => { const { text } = bsGoldDisplay(v, sideType); return text; }
+    : (v) => { const { text } = bsBalDisplay(v, sideType); return text; };
+  const isAnomalous = isGold
+    ? (v) => bsGoldDisplay(v, sideType).anomalous
+    : (v) => bsBalDisplay(v, sideType).anomalous;
 
   return (
     <div
@@ -257,14 +279,18 @@ function LedgerModal({ groupId, groupName, endDate, unit, onClose }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {ledgers.map((l, i) => (
-                  <tr key={l.id} className={`hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
-                    <td className="px-4 py-2 text-foreground">{l.ac_name}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-sm">
-                      {formatBal(isGold ? l.gold_grams : l.balance)}
-                    </td>
-                  </tr>
-                ))}
+                {ledgers.map((l, i) => {
+                  const rawVal = isGold ? l.gold_grams : l.balance;
+                  const anomalous = isAnomalous(rawVal);
+                  return (
+                    <tr key={l.id} className={`hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
+                      <td className="px-4 py-2 text-foreground">{l.ac_name}</td>
+                      <td className={"px-4 py-2 text-right tabular-nums text-sm " + (anomalous ? "text-rose-600 font-medium" : "")}>
+                        {formatBal(rawVal)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot className="border-t-2 border-border bg-muted/50">
                 <tr>
@@ -285,7 +311,7 @@ function LedgerModal({ groupId, groupName, endDate, unit, onClose }) {
 }
 
 /* ── Subgroup block (header + child rows + subtotal) ──────────────────────── */
-function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed, unit }) {
+function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed, unit, sideType }) {
   const expanded = !collapsed[group.id];
   const isGold = unit === "gold";
   const visibleAccounts = (group.accounts || []).filter(
@@ -312,10 +338,13 @@ function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed, un
       {expanded && visibleAccounts.map((acc) => {
         const isSpecial = acc.id === "net_profit" || acc.id === "closing_stock";
         const isActive = activeId === acc.id;
+        const { text: balText, anomalous } = isGold
+          ? bsGoldDisplay(acc.gold_grams, sideType)
+          : bsBalDisplay(acc.balance, sideType);
         return (
           <tr
             key={acc.id}
-            onClick={() => !isSpecial && onOpen(acc.id, acc.name)}
+            onClick={() => !isSpecial && onOpen(acc.id, acc.name, sideType)}
             className={`border-t border-border/30 transition-colors
               ${isSpecial ? "opacity-80" : "cursor-pointer hover:bg-primary/5"}
               ${isActive ? "bg-primary/10" : ""}`}
@@ -330,8 +359,8 @@ function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed, un
                 ? <span className="italic text-muted-foreground">{acc.name}</span>
                 : <span className="text-muted-foreground">{acc.name}</span>}
             </td>
-            <td className="px-4 py-1.5 text-right tabular-nums text-sm text-muted-foreground">
-              {isGold ? gramsLabel(acc.gold_grams) : balLabel(acc.balance)}
+            <td className={"px-4 py-1.5 text-right tabular-nums text-sm " + (anomalous ? "text-rose-600 font-medium" : "text-muted-foreground")}>
+              {balText}
             </td>
           </tr>
         );
@@ -341,7 +370,7 @@ function SubgroupBlock({ group, onOpen, activeId, collapsed, toggleCollapsed, un
 }
 
 /* ── Side panel (Assets or Liabilities) ───────────────────────────────────── */
-function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, collapsed, toggleCollapsed, unit }) {
+function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, collapsed, toggleCollapsed, unit, sideType }) {
   const isGold = unit === "gold";
   const groups = (side?.groups || []).filter(
     (g) => Number(g.total || 0) !== 0 || (g.accounts || []).some((a) => Number(a.balance || 0) !== 0)
@@ -372,6 +401,7 @@ function SidePanel({ title, icon: Icon, side, totalLabel, onOpen, activeId, coll
               collapsed={collapsed}
               toggleCollapsed={toggleCollapsed}
               unit={unit}
+              sideType={sideType}
             />
           ))}
         </tbody>
@@ -455,12 +485,12 @@ export default function BalanceSheet() {
 
   useEffect(() => { fetchReport(); /* eslint-disable-next-line */ }, []);
 
-  const openGroup = useCallback((id, name) => {
+  const openGroup = useCallback((id, name, sideType) => {
     if (activeId === id) {
       setModal(null);
       setActiveId(null);
     } else {
-      setModal({ id, name });
+      setModal({ id, name, sideType });
       setActiveId(id);
     }
   }, [activeId]);
@@ -799,6 +829,7 @@ export default function BalanceSheet() {
             collapsed={collapsed}
             toggleCollapsed={toggleCollapsed}
             unit={data.unit}
+            sideType="assets"
           />
           <SidePanel
             title="Liabilities & Equity"
@@ -810,6 +841,7 @@ export default function BalanceSheet() {
             collapsed={collapsed}
             toggleCollapsed={toggleCollapsed}
             unit={data.unit}
+            sideType="liabilities"
           />
         </div>
       )}
@@ -829,6 +861,7 @@ export default function BalanceSheet() {
           groupName={modal.name}
           endDate={endDate}
           unit={data?.unit || "inr"}
+          sideType={modal.sideType}
           onClose={() => { setModal(null); setActiveId(null); }}
         />
       )}

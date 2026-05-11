@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Search,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,6 +28,7 @@ const EVENT_STYLES = {
   received_pv:       { Icon: Truck,         dot: "bg-indigo-500",  ring: "ring-indigo-100"  },
   barcoded:          { Icon: Tag,           dot: "bg-sky-500",     ring: "ring-sky-100"     },
   delivered:         { Icon: CheckCircle2,  dot: "bg-emerald-600", ring: "ring-emerald-100" },
+  returned:          { Icon: RotateCcw,     dot: "bg-red-500",     ring: "ring-red-100"     },
 };
 
 // Pipeline stages — every CO item passes through these 5 milestones.
@@ -198,6 +200,27 @@ function ItemTimeline({ item }) {
             );
           })}
         </ol>
+
+        {/* Returns section — only shown when at least one returned event exists */}
+        {events.filter(e => e.kind === 'returned').length > 0 && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50/50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <RotateCcw className="size-4 text-red-500" />
+              <span className="text-sm font-semibold text-red-700">Returned</span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {events.filter(e => e.kind === 'returned').map((ev, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-2 text-xs text-red-600">
+                  <span>{formatDate(ev.date)}</span>
+                  <span className="font-mono bg-red-100 px-2 py-0.5 rounded">{ev.ref}</span>
+                  {ev.barcode && (
+                    <span className="text-red-400">Barcode: <span className="font-mono">{ev.barcode}</span></span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -253,11 +276,12 @@ const CustomerOrderTracker = () => {
   const headline = useMemo(() => {
     if (!timeline) return null;
     const { order, items } = timeline;
-    const total = items.length;
+    const total     = items.length;
     const delivered = items.filter(i => i.state === "billed").length;
+    const returned  = items.filter(i => i.state === "Returned" || i.state === "Partial Return").length;
     const inProd    = items.filter(i => i.state === "in_production").length;
-    const open      = total - delivered - inProd;
-    return { order, total, delivered, inProd, open };
+    const open      = total - delivered - inProd - returned;
+    return { order, total, delivered, inProd, returned, open };
   }, [timeline]);
 
   return (
@@ -376,6 +400,12 @@ const CustomerOrderTracker = () => {
                       {headline.inProd > 0 && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
                           {headline.inProd} in production
+                        </span>
+                      )}
+                      {headline.returned > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
+                          <RotateCcw className="size-2.5" />
+                          {headline.returned} returned
                         </span>
                       )}
                       {headline.open > 0 && (

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router-dom";
 import { DataTable } from "@/table";
-import { SquarePen, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard, Ban, Lock, Route } from "lucide-react";
+import { SquarePen, Printer, Trash2, AlertTriangle, Clock, CheckCircle2, Truck, Bell, X, LayoutDashboard, Ban, Lock, Route, RotateCcw } from "lucide-react";
 import { openAndPrint } from '@/services/print/utils';
 import CustomerOrder from '@/services/print/CustomerOrder';
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +25,7 @@ const DELIVERY_STATUS_OPTIONS = [
   { value: 'pending',   label: 'Pending',              color: 'bg-violet-100 text-primary' },
   { value: 'ready',     label: 'Ready for Delivery',   color: 'bg-sky-100 text-sky-800' },
   { value: 'delivered', label: 'Delivered',             color: 'bg-emerald-100 text-emerald-800' },
+  { value: 'returned',  label: 'Returned',              color: 'bg-red-100 text-red-700' },
   { value: 'cancelled', label: 'Cancelled',             color: 'bg-gray-100 text-gray-600' },
 ];
 
@@ -45,7 +46,7 @@ function DeliveryDateCell({ row }) {
   const due      = new Date(delivery_date);
   const diffDays = Math.round((due - today) / 86400000);
 
-  if (delivery_status === 'delivered' || delivery_status === 'cancelled') {
+  if (delivery_status === 'delivered' || delivery_status === 'cancelled' || delivery_status === 'returned') {
     return <span className="text-xs text-muted-foreground">{fmtDate(delivery_date)}</span>;
   }
 
@@ -541,6 +542,7 @@ function CustomerOrderList() {
             {r.delivery_status === 'ready'       && <Truck className="w-2.5 h-2.5" />}
             {r.delivery_status === 'pending'     && <Clock className="w-2.5 h-2.5" />}
             {r.delivery_status === 'cancelled'   && <X className="w-2.5 h-2.5" />}
+            {r.delivery_status === 'returned'    && <RotateCcw className="w-2.5 h-2.5" />}
             {meta.label}
           </button>
         );

@@ -1039,13 +1039,14 @@ const SalesVoucherAdd = () => {
             </div>
           </FieldContainer>
 
-          {/* Party Name with ledger lookup — spans 2 cols to align with Sales Person row */}
-          <div className="sm:col-span-1 lg:col-span-2">
+          {/* Party Name with ledger lookup */}
+          <div>
           <FieldContainer>
             <Label className="text-nowrap">Party Name</Label>
             <div className="relative">
               <div className="flex gap-1.5">
               <SearchableComboBox
+                className="flex-1"
                 options={customers}
                 value={watch("form.ldgr_name") ?? ""}
                 onInputChange={(val) => setValue("form.ldgr_name", val)}

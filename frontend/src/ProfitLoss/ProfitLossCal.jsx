@@ -189,10 +189,11 @@ function buildPnlHtml(data, ledgersByGroupId = {}) {
         const ledgers = ledgersByGroupId[item.id] || [];
         for (const l of ledgers) {
           const lbal = Number(l.balance || 0);
+          const lbalAbs = Math.abs(lbal);
           html += `<tr class="pnl-ledger">
             <td style="padding-left:${8 + indent + 14}px">${l.ac_name}</td>
-            <td>${!isCredit && lbal > 0 ? f(lbal) : ''}</td>
-            <td>${isCredit && lbal > 0 ? f(lbal) : ''}</td>
+            <td>${!isCredit && lbalAbs >= 0.005 ? f(lbal) : ''}</td>
+            <td>${isCredit && lbalAbs >= 0.005 ? f(lbal) : ''}</td>
           </tr>`;
         }
       }
@@ -248,13 +249,14 @@ function buildPnlHtml(data, ledgersByGroupId = {}) {
 }
 
 /* ── Ledger rows (screen only) ── */
-function LedgerRows({ groupId, startDate, endDate, onLedgerClick }) {
+function LedgerRows({ groupId, startDate, endDate, onLedgerClick, grossCredit = false }) {
   const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const gc = grossCredit ? '&gross_credit=true' : '';
     apiClient
-      .get(`/accounting/api/pnl-group-ledgers/?group_id=${groupId}&start_date=${startDate}&end_date=${endDate}`)
+      .get(`/accounting/api/pnl-group-ledgers/?group_id=${groupId}&start_date=${startDate}&end_date=${endDate}${gc}`)
       .then((res) => setLedgers(res.data.ledgers || []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -422,7 +424,7 @@ function PrintModal({ onClose, onPrint }) {
 }
 
 /* ── Recursive account-group rows (screen) ── */
-function AccountRows({ items = [], isCredit = false, depth = 0, startDate, endDate, onLedgerClick, expandAll }) {
+function AccountRows({ items = [], isCredit = false, grossCredit = false, depth = 0, startDate, endDate, onLedgerClick, expandAll }) {
   const [expanded, setExpanded] = useState({});
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -466,11 +468,11 @@ function AccountRows({ items = [], isCredit = false, depth = 0, startDate, endDa
         </tr>
 
         {isExpanded && hasChildren && (
-          <AccountRows items={item.children} isCredit={isCredit} depth={depth + 1}
+          <AccountRows items={item.children} isCredit={isCredit} grossCredit={grossCredit} depth={depth + 1}
             startDate={startDate} endDate={endDate} onLedgerClick={onLedgerClick} expandAll={expandAll} />
         )}
         {isExpanded && !hasChildren && (
-          <LedgerRows groupId={item.id} startDate={startDate} endDate={endDate} onLedgerClick={onLedgerClick} />
+          <LedgerRows groupId={item.id} startDate={startDate} endDate={endDate} onLedgerClick={onLedgerClick} grossCredit={grossCredit} />
         )}
       </Fragment>
     );

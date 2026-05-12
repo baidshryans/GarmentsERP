@@ -643,7 +643,16 @@ class BarcodeDetToSaleVouDetSerializer(BarcodeDetailsSerializer):
         representation["metal_purity"] = instance.purity.purity if instance.purity else None
         representation["item_name"] = instance.item.item_name if instance.item else None
         if instance.item.short_code == "Gold":
-            representation["rate"] = get_recent_gold_rate(self.context.get('purity'))
+            rate = get_recent_gold_rate(self.context.get('purity'))
+            representation["rate"] = rate
+            uom = instance.item.uom
+            if uom == "Ct":
+                qty = float(instance.ct or 0)
+            elif uom == "Pcs":
+                qty = float(instance.pcs or 0)
+            else:  # "Gm"
+                qty = float(instance.gw or 0)
+            representation["amt"] = round(rate * qty, 2) if rate else 0
         return representation
 
 

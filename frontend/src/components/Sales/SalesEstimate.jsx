@@ -65,8 +65,8 @@ export default function SalesEstimate() {
 
   // ── per-item derived values ────────────────────────────────────────────────
   const getItemTotals = (data) => {
-    const stoneItems = (data.main_item_set || []).filter((i) => i.item !== "GOLD");
-    const metalItem = (data.main_item_set || []).find((i) => i.item === "GOLD");
+    const stoneItems = (data.main_item_set || []).filter((i) => i.item !== "Gold");
+    const metalItem = (data.main_item_set || []).find((i) => i.item === "Gold");
     const totalStoneCt = stoneItems.reduce((s, i) => s + (parseFloat(i.ct) || 0), 0);
     const totalStoneValue = stoneItems.reduce((s, i) => s + (parseFloat(i.amt) || 0), 0);
     const totalMetalValue = metalItem ? parseFloat(metalItem.amt) || 0 : 0;

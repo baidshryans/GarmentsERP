@@ -116,7 +116,6 @@ const SalesEstimate              = lazy(() => import("./components/Sales/SalesEs
 const QuotationAdd               = lazy(() => import("./components/Sales/QuotationAdd"));
 const QuotationList              = lazy(() => import("./components/Sales/QuotationList"));
 const ForbiddenPage              = lazy(() => import("./Forbidden.jsx"));
-const ProfitLoss                 = lazy(() => import("./ProfitLoss/ProfitLoss.jsx"));
 const ProfitLossCal              = lazy(() => import("./ProfitLoss/ProfitLossCal.jsx"));
 const BalanceSheet               = lazy(() => import("./components/FinancialAccounting/reports/BalanceSheet.jsx"));
 const FinancialRatios            = lazy(() => import("./components/FinancialAccounting/reports/FinancialRatios.jsx"));
@@ -293,7 +292,7 @@ const appRoutes = [
   { path: "accounting/cashbook",                  heading: "Cash Book",                component: <CashBookRetail /> },
   { path: "accounting/bankbook",                  heading: "Bank Book",                component: <CombinedBankBook /> },
   { path: "accounting/balancesheet",              heading: "Balance Sheet",            component: <BalanceSheet /> },
-  { path: "accounting/profitloss",                heading: "Profit & Loss",            component: <ProfitLoss /> },
+  { path: "accounting/profitloss",                heading: "Profit & Loss",            component: <ProfitLossCal /> },
   { path: "accounting/profitlosscal",             heading: "Profit Loss Calculation",  component: <ProfitLossCal /> },
   { path: "accounting/gstinputregister",          heading: "GST Input Register",       component: <GstInputRegister /> },
   { path: "accounting/gstoutputregister",         heading: "GST Output Register",      component: <GstOutputRegister /> },

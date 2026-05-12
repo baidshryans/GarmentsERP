@@ -584,8 +584,8 @@ class NextCNDNNumberView(APIView):
 class UnallocatedVouchersView(APIView):
     """
     GET /accounting/api/unallocated-vouchers/?type=receipt|payment
-    Receipt: RCPT/RCPT-SALE with customer_order=NULL and at least one credit
-             line that has no ref_sales_vou (i.e., not yet matched to an invoice).
+    Receipt: RCPT (advance) with customer_order=NULL. RCPT-SALE vouchers are
+             excluded — they are always tied to a specific sale invoice.
     Payment: PMNT with at least one debit line that has no ref_purchase_vou.
     """
     permission_classes = [IsAuthenticated]
@@ -600,7 +600,7 @@ class UnallocatedVouchersView(APIView):
                 VoucherMain.objects
                 .filter(
                     retail=retail,
-                    voucher_type__in=['RCPT', 'RCPT-SALE'],
+                    voucher_type='RCPT',
                     status='posted',
                     customer_order__isnull=True,
                     transactions__credit__gt=0,

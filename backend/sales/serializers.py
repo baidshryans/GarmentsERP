@@ -1067,9 +1067,11 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                     'credit': 0,
                                 }] if old_gold_purchase and old_gold_adjusted > 0 else []) +
                                 [{
-                                            'account':sales_vou_instance.ldgr.ac_name,
-                                            'credit':f"{_rcpt_customer_credit:.2f}",
-                                            'debit':0
+                                            'account': sales_vou_instance.ldgr.ac_name,
+                                            'credit': f"{_rcpt_customer_credit:.2f}",
+                                            'debit': 0,
+                                            'ref_sales_vou': sales_vou_instance,
+                                            'ref_bill_no': sales_vou_instance.billno,
                                         }]},
                                         context=self.context)
                 if ser.is_valid(raise_exception=True):

@@ -238,13 +238,13 @@ function VoucherTable({ rows, loading, onRefresh, onAllocate, kind }) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-24" />
             <TableHead>Voucher No</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Party</TableHead>
             <TableHead className="text-right">Amount</TableHead>
             <TableHead className="text-right">Unallocated</TableHead>
             <TableHead>Narration</TableHead>
-            <TableHead className="w-24" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -262,6 +262,11 @@ function VoucherTable({ rows, loading, onRefresh, onAllocate, kind }) {
           )}
           {rows.map(row => (
             <TableRow key={row.id}>
+              <TableCell>
+                <Button size="sm" variant="outline" onClick={() => onAllocate(row)}>
+                  Allocate
+                </Button>
+              </TableCell>
               <TableCell className="font-mono text-xs">{row.voucher_no}</TableCell>
               <TableCell className="text-xs">{row.date}</TableCell>
               <TableCell className="text-sm">{row.party}</TableCell>
@@ -270,11 +275,6 @@ function VoucherTable({ rows, loading, onRefresh, onAllocate, kind }) {
                 <span className="text-amber-700 font-semibold text-sm">₹{fmt(row.unallocated_amount)}</span>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{row.narration}</TableCell>
-              <TableCell>
-                <Button size="sm" variant="outline" onClick={() => onAllocate(row)}>
-                  Allocate
-                </Button>
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>

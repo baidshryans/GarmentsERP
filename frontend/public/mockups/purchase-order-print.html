@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Purchase Order — Print Mockup</title>
+<style>
+  @page { size: A4 portrait; margin: 14mm 14mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #111; background: #fff; }
+
+  @media screen {
+    body { background: #e5e7eb; padding: 24px; }
+    .page { background: #fff; width: 182mm; min-height: 269mm; margin: 0 auto; padding: 14mm; box-shadow: 0 4px 24px rgba(0,0,0,.18); border-radius: 4px; }
+    .controls { max-width: 182mm; margin: 0 auto 16px; display: flex; gap: 10px; }
+    .controls button { background: #1d4ed8; color: #fff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; cursor: pointer; }
+    .controls button:hover { background: #1e40af; }
+  }
+  @media print { body { background: #fff; } .page { padding: 0; box-shadow: none; } .controls { display: none; } }
+
+  /* ── Typography ── */
+  .co-name    { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
+  .co-sub     { font-size: 8.5px; color: #555; margin-top: 2px; line-height: 1.5; }
+  .po-title   { font-size: 15px; font-weight: 700; letter-spacing: 3px; text-align: center; margin: 6px 0 4px; }
+  .po-type-badge {
+    display: inline-block; font-size: 8px; font-weight: 700; letter-spacing: 1px;
+    border: 1px solid #aaa; padding: 1px 6px; border-radius: 2px;
+    color: #555;
+  }
+
+  /* ── Header block ── */
+  .header-row { text-align: center; padding-bottom: 8px; border-bottom: 1px solid #aaa; margin-bottom: 8px; }
+
+  /* ── Meta grid (PO details + supplier, side by side) ── */
+  .meta-grid  { display: flex; gap: 0; margin-bottom: 10px; }
+  .meta-box   { flex: 1; padding: 6px 8px; border: 1px solid #ccc; font-size: 9px; line-height: 1.8; }
+  .meta-box:first-child { border-right: none; }
+  .meta-box .label { color: #777; width: 70px; display: inline-block; }
+  .meta-box .val   { font-weight: 700; }
+  .meta-box .box-title { font-size: 8px; font-weight: 700; letter-spacing: 1px; color: #888; text-transform: uppercase; margin-bottom: 3px; }
+  .supplier-name { font-size: 11px; font-weight: 700; margin-bottom: 1px; }
+
+  /* ── Items table ── */
+  table.po { width: 100%; border-collapse: collapse; table-layout: auto; margin-bottom: 0; }
+
+  col.c-sl   { width: 20px; }
+  col.c-purity { width: 32px; }
+  col.c-pcs  { width: 28px; }
+  col.c-wt   { width: 46px; }
+  col.c-dc   { width: 52px; }
+  col.c-size { width: 28px; }
+  col.c-due  { width: 52px; }
+
+  table.po thead th {
+    font-family: Arial, Helvetica, sans-serif;
+    border-left: 1px solid #bbb; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; border-right: none;
+    padding: 4px 5px; font-size: 9px; font-weight: 700; background: #fff;
+    text-align: center; white-space: nowrap; line-height: 1.3;
+  }
+  table.po thead th:first-child { border-left: none; }
+
+  table.po td {
+    font-family: Arial, Helvetica, sans-serif;
+    border-left: 1px solid #e0e0e0; border-top: none; border-bottom: none; border-right: none;
+    padding: 4px 5px; font-size: 10px; vertical-align: middle; line-height: 1.35;
+  }
+  table.po td:first-child { border-left: none; }
+
+  table.po tbody tr { border-bottom: 1px solid #efefef; }
+  table.po tbody tr:last-child { border-bottom: none; }
+  table.po tbody tr:hover { background: #fafafa; }
+
+  tr.totals-row td {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 700; font-size: 10px; background: #f5f5f5;
+    border-top: 1px solid #aaa; border-bottom: 1px solid #aaa;
+    border-left: 1px solid #e0e0e0; padding: 4px 5px;
+  }
+  tr.totals-row td:first-child { border-left: none; }
+
+  .r { text-align: right; } .c { text-align: center; } .l { text-align: left; }
+  .muted { color: #777; font-size: 8.5px; }
+
+  /* ── Status badge ── */
+  .badge-pending  { font-size: 7.5px; font-weight: 700; letter-spacing: 0.5px; color: #777; border: 1px solid #ccc; padding: 1px 5px; border-radius: 2px; }
+  .badge-received { font-size: 7.5px; font-weight: 700; letter-spacing: 0.5px; color: #444; border: 1px solid #aaa; padding: 1px 5px; border-radius: 2px; background: #f0f0f0; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .footer-note { font-size: 8px; color: #888; font-style: italic; max-width: 60%; line-height: 1.6; }
+  .sign-block { text-align: center; }
+  .sign-line { width: 110px; border-top: 1px solid #999; margin: 24px auto 0; }
+  .sign-label { font-size: 8.5px; color: #555; margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="controls"><button onclick="window.print()">Print / Save PDF</button></div>
+<div class="page">
+
+  <!-- ── Company header + PO title ── -->
+  <div class="header-row">
+    <div class="co-name">Jewel India</div>
+    <div class="co-sub">
+      123, Jewellers Street, T. Nagar, Chennai – 600 017<br>
+      Ph: +91 98400 00000 &nbsp;|&nbsp; jewel@jewelindia.com
+    </div>
+    <div class="po-title">PURCHASE ORDER</div>
+    <div><span class="po-type-badge">CUSTOMER ORDER</span></div>
+  </div>
+
+  <!-- ── PO details + Supplier ── -->
+  <div class="meta-grid">
+    <div class="meta-box">
+      <div class="box-title">Order Details</div>
+      <div><span class="label">PO No</span><span class="val">PO/2025-26/0042</span></div>
+      <div><span class="label">Date</span><span class="val">12 May 2026</span></div>
+    </div>
+    <div class="meta-box">
+      <div class="box-title">Supplier / Karigar</div>
+      <div class="supplier-name">Sri Murugan Jewellery Works</div>
+      <div class="muted">Ph: +91 98400 11111</div>
+    </div>
+  </div>
+
+  <!-- ── Line items table ── -->
+  <table class="po">
+    <colgroup>
+      <col class="c-sl">
+      <col><!-- Item -->
+      <col class="c-purity">
+      <col class="c-pcs">
+      <col class="c-wt">
+      <col class="c-dc">
+      <col class="c-size">
+      <col class="c-due">
+      <col><!-- Remarks -->
+      <col class="c-sl"><!-- Status -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="c">Sl</th>
+        <th class="l">Item</th>
+        <th class="c">Purity</th>
+        <th class="c">Pcs</th>
+        <th class="r">Approx Wt (g)</th>
+        <th class="c">Design Code</th>
+        <th class="c">Size</th>
+        <th class="c">Due Date</th>
+        <th class="l">Remarks</th>
+        <th class="c">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="c">1</td>
+        <td class="l">Ladies Earring Tops</td>
+        <td class="c">14K</td>
+        <td class="c">2</td>
+        <td class="r">3.50</td>
+        <td class="c">DC-1042</td>
+        <td class="c">—</td>
+        <td class="c">20/05/2026</td>
+        <td class="l muted">With LGD stones</td>
+        <td class="c"><span class="badge-pending">PENDING</span></td>
+      </tr>
+      <tr>
+        <td class="c">2</td>
+        <td class="l">Gents Ring</td>
+        <td class="c">22K</td>
+        <td class="c">1</td>
+        <td class="r">6.80</td>
+        <td class="c">DC-0891</td>
+        <td class="c">20</td>
+        <td class="c">18/05/2026</td>
+        <td class="l muted">Plain gold</td>
+        <td class="c"><span class="badge-received">RECEIVED</span></td>
+      </tr>
+      <tr>
+        <td class="c">3</td>
+        <td class="l">Ladies Necklace</td>
+        <td class="c">22K</td>
+        <td class="c">1</td>
+        <td class="r">22.00</td>
+        <td class="c">DC-2210</td>
+        <td class="c">—</td>
+        <td class="c">25/05/2026</td>
+        <td class="l muted">With emerald &amp; ruby</td>
+        <td class="c"><span class="badge-pending">PENDING</span></td>
+      </tr>
+      <tr>
+        <td class="c">4</td>
+        <td class="l">Bracelet</td>
+        <td class="c">18K</td>
+        <td class="c">1</td>
+        <td class="r">8.20</td>
+        <td class="c">DC-1805</td>
+        <td class="c">—</td>
+        <td class="c">22/05/2026</td>
+        <td class="l muted">Diamond bracelet</td>
+        <td class="c"><span class="badge-pending">PENDING</span></td>
+      </tr>
+      <tr>
+        <td class="c">5</td>
+        <td class="l">Nose Pin</td>
+        <td class="c">18K</td>
+        <td class="c">4</td>
+        <td class="r">1.60</td>
+        <td class="c">DC-1801</td>
+        <td class="c">—</td>
+        <td class="c">15/05/2026</td>
+        <td class="l muted"></td>
+        <td class="c"><span class="badge-pending">PENDING</span></td>
+      </tr>
+    </tbody>
+    <tr class="totals-row">
+      <td colspan="3" class="r">Total</td>
+      <td class="c">9</td>
+      <td class="r">42.10</td>
+      <td colspan="5"></td>
+    </tr>
+  </table>
+
+  <!-- ── Footer ── -->
+  <div class="footer">
+    <div class="footer-note">
+      Please ensure all items are hallmarked as per BIS standards.<br>
+      Delivery must be accompanied by a delivery challan.<br>
+      This is a computer-generated document.
+    </div>
+    <div class="sign-block">
+      <div class="sign-line"></div>
+      <div class="sign-label">Authorised Signatory</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

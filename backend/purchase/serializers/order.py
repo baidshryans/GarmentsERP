@@ -25,6 +25,7 @@ class PurchaseOrderItemsSerializer(ModelSerializer):
 class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):
     customer_order_item = serializers.PrimaryKeyRelatedField(queryset=CustomerOrderItems.objects.all(), required=False, allow_null=True)
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     due_date = serializers.DateField(required=False, allow_null=True)
 
@@ -35,6 +36,7 @@ class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):
             'po_sl_no',
             'customer_order_item',
             'item',
+            'item_name',
             'purity',
             'pcs',
             'approx_wt',

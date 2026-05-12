@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
-import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchSalesApproval, fetchBarcodeList, fetchHallmarkIssue, fetchHallmarkReceive, fetchPurchaseOrder } from "@/services/apiService";
+import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchSalesApproval, fetchBarcodeList, fetchHallmarkIssue, fetchHallmarkReceive, fetchPurchaseOrder, fetchCompanies, fetchRetails } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
-import { SquarePen, Trash2, Plus } from "lucide-react";
+import { SquarePen, Trash2, Plus, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deletePurchaseOrder } from '../../../services/apiService';
+import { deletePurchaseOrder, fetchPurchaseOrderForEdit } from '../../../services/apiService';
 import { useSearchParams } from 'react-router-dom';
+import { openAndPrint } from "@/services/print/utils";
+import { PurchaseOrderPrint } from "./purchaseOrderPrint";
 
 
 
@@ -25,6 +27,54 @@ function PurchaseOrderList() {
   const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
+  const [company, setCompany] = useState({});
+  const [retails, setRetails] = useState([]);
+  const [printingId, setPrintingId] = useState(null);
+
+  // Fetch company + retail details once on mount
+  useEffect(() => {
+    Promise.all([fetchCompanies(), fetchRetails()]).then(([companyRes, retailsRes]) => {
+      if (companyRes.success) {
+        const c = (companyRes.data?.results || companyRes.data || [])[0];
+        if (c) setCompany({
+          name:            c.company_name || '',
+          address:         [c.address, c.city, c.pincode].filter(Boolean).join(', '),
+          phone:           c.phone || '',
+          email:           c.email || '',
+          pan:             c.pan || '',
+          cin:             c.cin || '',
+          bis_logo_url:    c.bis_logo || '',
+          company_logo_url: c.company_logo || '',
+        });
+      }
+      if (retailsRes.success) {
+        setRetails(retailsRes.data?.results || retailsRes.data || []);
+      }
+    });
+  }, []);
+
+  const handlePrint = async (id) => {
+    setPrintingId(id);
+    try {
+      const res = await fetchPurchaseOrderForEdit(id);
+      if (res.success && res.data) {
+        const retail = retails.find(r => r.id === res.data.retail);
+        const gstin = retail?.gstin_master_str || '';
+        openAndPrint(
+          <PurchaseOrderPrint
+            po={res.data}
+            rows={res.data.purchaseorderitems_set || []}
+            company={{ ...company, gstin }}
+          />
+        );
+      } else {
+        toast({ title: "Could not load PO", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error loading PO", variant: "destructive" });
+    }
+    setPrintingId(null);
+  };
 
   useEffect(() => {
     const fetchLedgers = async () => {
@@ -56,15 +106,23 @@ function PurchaseOrderList() {
       header: "Action",
       accessorKey: "id",
       cell: ({ row }) => (
-        <div className="flex space-x-4">
+        <div className="flex items-center gap-1">
           <Link to={`/purchase/purchaseorder/list/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" />
+            <SquarePen className="size-3.5" />
           </Link>
+          <button
+            onClick={() => handlePrint(row.original.id)}
+            disabled={printingId === row.original.id}
+            className="p-1.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors flex items-center disabled:opacity-40"
+            title="Print"
+          >
+            <Printer className="size-3.5" />
+          </button>
           <button
             onClick={() => deletePurchaseOrder(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
-            <Trash2 className="mr-1" />
+            <Trash2 className="size-3.5" />
           </button>
         </div>
       ),

@@ -182,19 +182,19 @@ const INVOICE_CSS = `
 }
 .si-bis {
   width: 64px; height: 64px;
-  border: 1px dashed var(--faint);
   border-radius: 50%;
   display: grid; place-items: center;
   font-size: 7.5px; color: var(--muted); text-align: center; line-height: 1.15;
   letter-spacing: 0.5px;
 }
+.si-bis.placeholder { border: 1px dashed var(--faint); }
 .si-logo {
   width: 90px; height: 64px;
-  border: 1px dashed var(--faint);
   display: grid; place-items: center;
   font-size: 7.5px; color: var(--muted); text-align: center; line-height: 1.15;
   letter-spacing: 0.5px;
 }
+.si-logo.placeholder { border: 1px dashed var(--faint); }
 .si-bis img, .si-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .si-brand-block { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .si-brand {
@@ -561,7 +561,7 @@ const SalesInvoice = ({ data = {} }) => {
 
   const renderHeader = () => (
     <div className="si-hdr">
-      <div className="si-bis">
+      <div className={d.bis_logo_url ? 'si-bis' : 'si-bis placeholder'}>
         {d.bis_logo_url
           ? <img src={d.bis_logo_url} alt="BIS Hallmark" />
           : <span>BIS<br/>HALLMARK</span>}
@@ -586,7 +586,7 @@ const SalesInvoice = ({ data = {} }) => {
           </div>
         )}
       </div>
-      <div className="si-logo">
+      <div className={d.company_logo_url ? 'si-logo' : 'si-logo placeholder'}>
         {d.company_logo_url
           ? <img src={d.company_logo_url} alt="Logo" />
           : <span>COMPANY<br/>LOGO</span>}

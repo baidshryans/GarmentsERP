@@ -10,14 +10,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody, TableHeader } from "@/components/ui/table";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { fetchMainItem, fetchNextStoneBillNo, fetchPurity, fetchPackets, getLedgers, createKarigarStoneIssue, createPurchaseOrder, fetchPendingCustomerOrderItems } from "@/services/apiService";
+import { fetchMainItem, fetchNextStoneBillNo, fetchPurity, fetchPackets, getLedgers, createKarigarStoneIssue, createPurchaseOrder, fetchPendingCustomerOrderItems, fetchCompanies, fetchRetails } from "@/services/apiService";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
 import { fetchPoNoNext, fetchPurchaseOrderForEdit, updatePurchaseOrderForEdit } from "../../../services/apiService";
-import { SquarePen, Trash2, ChevronRight, ShoppingCart, Link2 } from "lucide-react";
+import { SquarePen, Trash2, ChevronRight, ShoppingCart, Link2, Printer } from "lucide-react";
 import { arrayToObject, renderErrorTree } from "../../../Utils";
 import { useNavigate } from "react-router";
 import { useEditDirty } from "@/hooks/useEditDirty";
+import { openAndPrint } from "@/services/print/utils";
+import { PurchaseOrderPrint } from "./purchaseOrderPrint";
 
 /* ─── helpers ──────────────────────────────────────────────── */
 function SectionCard({ title, children, className = "", action }) {
@@ -77,6 +79,8 @@ const PurchaseOrder = () => {
     : null;
   const [saving, setSaving] = useState(false);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
+  const [company, setCompany] = useState({});
+  const [retails, setRetails] = useState([]);
   const [rs, setRows] = useState([]);
 const [mainItemData, setMainItemData] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -90,14 +94,32 @@ const [mainItemData, setMainItemData] = useState([]);
 
 useEffect(() => {
     async function fetchData() {
-      const [pkts, customersRes, orderNo, mainItem, purity, pending] = await Promise.all([
+      const [pkts, customersRes, orderNo, mainItem, purity, pending, companyRes, retailsRes] = await Promise.all([
         fetchPackets(),
         getLedgers({ type: "VD" }),
         fetchPoNoNext(),
         fetchMainItem(),
         fetchPurity(),
         fetchPendingCustomerOrderItems(),
+        fetchCompanies(),
+        fetchRetails(),
       ]);
+      if (companyRes.success) {
+        const c = (companyRes.data?.results || companyRes.data || [])[0];
+        if (c) setCompany({
+          name:            c.company_name || '',
+          address:         [c.address, c.city, c.pincode].filter(Boolean).join(', '),
+          phone:           c.phone || '',
+          email:           c.email || '',
+          pan:             c.pan || '',
+          cin:             c.cin || '',
+          bis_logo_url:    c.bis_logo || '',
+          company_logo_url: c.company_logo || '',
+        });
+      }
+      if (retailsRes.success) {
+        setRetails(retailsRes.data?.results || retailsRes.data || []);
+      }
       if (pkts.success) setPackets(pkts.data.results);
       if (customersRes.success) setCustomers(customersRes.data.results);
       if (orderNo.success) setValue("form.po_no", orderNo.data.billno);
@@ -441,6 +463,28 @@ useEffect(() => {
           >
             Cancel
           </Button>
+          {id && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="cursor-pointer gap-1.5"
+              onClick={() => {
+                const retailId = getValues('form.retail');
+                const retail = retails.find(r => r.id === retailId);
+                const gstin = retail?.gstin_master_str || '';
+                openAndPrint(
+                  <PurchaseOrderPrint
+                    po={getValues('form')}
+                    rows={rs}
+                    company={{ ...company, gstin }}
+                  />
+                );
+              }}
+            >
+              <Printer className="size-3.5" /> Print
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={handleSubmit(onSubmit)}

@@ -25,6 +25,7 @@ class CompanyMaster(models.Model):
     Operational ledgers (discount, round off, etc.) are company-wide and auto-created on save.
     """
     company_name = models.CharField(max_length=200)
+    legal_name   = models.CharField(max_length=200, blank=True, help_text="Legal/registered name of the company (as per MCA/GST records)")
     pan          = models.CharField(max_length=10, blank=True, help_text="Permanent Account Number")
     tan          = models.CharField(max_length=10, blank=True, help_text="Tax Deduction Account Number")
     cin          = models.CharField(max_length=21, blank=True, help_text="Corporate Identification Number")

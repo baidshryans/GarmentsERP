@@ -1,4 +1,4 @@
-from django.db import models
+﻿from django.db import models
 from contacts.models import Ledger
 from mastersconfig.models import Item, SalesPersonMaster
 from goldrates.models import PurityMaster
@@ -22,11 +22,12 @@ class CustomerOrder(models.Model):
     remarks = models.CharField(max_length=100, null=True, blank=True)
 
     DELIVERY_STATUS_CHOICES = [
-        ('pending',   'Pending'),
-        ('ready',     'Ready for Delivery'),
-        ('delivered', 'Delivered'),
-        ('returned',  'Returned'),
-        ('cancelled', 'Cancelled'),
+        ('pending',        'Pending'),
+        ('ready',          'Ready for Delivery'),
+        ('delivered',      'Delivered'),
+        ('returned',       'Returned'),
+        ('partial_return', 'Partial Return'),
+        ('cancelled',      'Cancelled'),
     ]
     delivery_status      = models.CharField(
         max_length=20, choices=DELIVERY_STATUS_CHOICES,
@@ -134,7 +135,7 @@ class SalesVou(models.Model):
     tcs_section = models.ForeignKey('mastersconfig.TCSSectionMaster', on_delete=models.SET_NULL, null=True, blank=True, related_name='sales_vouchers')
     mode_of_transport = models.CharField(max_length=200, null=True, blank=True)
 
-    # ── E-Way Bill transport fields ────────────────────────────────────────────
+    # â”€â”€ E-Way Bill transport fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     vehicle_no       = models.CharField(max_length=20,  blank=True, default='', help_text="Vehicle registration number")
     transporter_name = models.CharField(max_length=100, blank=True, default='')
     transporter_id   = models.CharField(max_length=20,  blank=True, default='', help_text="Transporter GSTIN/ID")
@@ -264,8 +265,8 @@ class BankDetail(models.Model):
     # For CHEQUE: cheque number; for UPI/NEFT: UTR / transaction reference (optional)
     chq_no   = models.CharField(max_length=50, null=True, blank=True)
     chq_date = models.DateField(null=True, blank=True)
-    # Bank account ledger: for non-cheque → the account credited directly;
-    # for cheque → the bank account the cheque will eventually be deposited into
+    # Bank account ledger: for non-cheque â†’ the account credited directly;
+    # for cheque â†’ the bank account the cheque will eventually be deposited into
     ledger = models.ForeignKey(Ledger, null=True, blank=True, on_delete=models.SET_NULL, related_name='bank_payment_details')
 
     # Cheque clearing fields (only relevant when payment_mode = 'CHEQUE')
@@ -334,7 +335,7 @@ class SaleReturn(models.Model):
         SalesVou, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='sale_returns'
     )
-    # GST bill number of the original invoice — stored for credit note printing
+    # GST bill number of the original invoice â€” stored for credit note printing
     original_sale_gst_billno = models.CharField(max_length=20, blank=True, default='')
 
     @property
@@ -443,7 +444,7 @@ class SalesApproval(models.Model):
 
     @property
     def net_taxable(self):
-        """Taxable value after discount — base for GST calculation."""
+        """Taxable value after discount â€” base for GST calculation."""
         return (self.taxable_value or Decimal(0)) - (self.discount or Decimal(0))
 
     @property
@@ -470,7 +471,7 @@ class SalesApproval(models.Model):
     def total_incl_taxes(self):
         return self.net_taxable + self.cgst_amt + self.sgst_amt + self.igst_amt
 
-    # ── E-Way Bill transport fields ────────────────────────────────────────────
+    # â”€â”€ E-Way Bill transport fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     vehicle_no       = models.CharField(max_length=20,  blank=True, default='')
     transporter_name = models.CharField(max_length=100, blank=True, default='')
     transporter_id   = models.CharField(max_length=20,  blank=True, default='')
@@ -574,11 +575,11 @@ class EWayBill(models.Model):
         ordering = ['-generated_date']
 
     def __str__(self):
-        source = self.sales_vou.billno if self.sales_vou else (self.sales_approval.billno if self.sales_approval else '—')
+        source = self.sales_vou.billno if self.sales_vou else (self.sales_approval.billno if self.sales_approval else 'â€”')
         return f"EWB-{self.id} ({source})"
 
 
-# ── Quotation ────────────────────────────────────────────────────────────────
+# â”€â”€ Quotation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class Quotation(models.Model):
     STATUS_CHOICES = [
@@ -627,7 +628,7 @@ class Quotation(models.Model):
         ordering = ['-id']
 
     def __str__(self):
-        return f"{self.quotation_no} — {self.party_name or (self.ldgr.ac_name if self.ldgr else 'Walk-in')}"
+        return f"{self.quotation_no} â€” {self.party_name or (self.ldgr.ac_name if self.ldgr else 'Walk-in')}"
 
     @property
     def ldgr_name(self):
@@ -688,4 +689,4 @@ class QuotationItemDetail(models.Model):
         db_table = "quotation_item_detail"
 
     def __str__(self):
-        return f"{self.packet_name} — {self.pcs}pcs / {self.wt}ct"
+        return f"{self.packet_name} â€” {self.pcs}pcs / {self.wt}ct"

@@ -1,0 +1,343 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Customer Order â€” Print Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap"></noscript>
+<style>
+  @page { size: A4 portrait; margin: 14mm 14mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Inter", Arial, Helvetica, sans-serif; font-size: 10px; color: #111; background: #fff; }
+
+  @media screen {
+    body { background: #e5e7eb; padding: 24px; }
+    .page { background: #fff; width: 182mm; min-height: 269mm; margin: 0 auto; padding: 14mm; box-shadow: 0 4px 24px rgba(0,0,0,.18); border-radius: 4px; }
+    .controls { max-width: 182mm; margin: 0 auto 16px; display: flex; gap: 10px; }
+    .controls button { background: #1d4ed8; color: #fff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; cursor: pointer; }
+    .controls button:hover { background: #1e40af; }
+  }
+  @media print { body { background: #fff; } .page { padding: 0; box-shadow: none; } .controls { display: none; } }
+
+  /* â”€â”€ Header (matches Sales Invoice layout) â”€â”€ */
+  .co-hdr {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #0f172a;
+    margin-bottom: 0;
+  }
+  .co-bis {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 7.5px; color: #64748b; text-align: center; line-height: 1.15; letter-spacing: 0.5px;
+  }
+  .co-logo {
+    width: 90px; height: 64px;
+    display: grid; place-items: center;
+    font-size: 7.5px; color: #64748b; text-align: center; line-height: 1.15; letter-spacing: 0.5px;
+  }
+  .co-brand-block { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+  .co-brand { font-family: "Fraunces", Georgia, serif; font-size: 14px; font-weight: 700; color: #0f172a; }
+  .co-brand-sub { font-size: 9px; color: #64748b; letter-spacing: 0.2px; }
+  .co-brand-sub strong { color: #0f172a; font-weight: 600; }
+  .co-brand-ids { display: flex; gap: 18px; font-size: 8.5px; color: #64748b; margin-top: 2px; }
+  .co-brand-ids span b { color: #0f172a; font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+  /* â”€â”€ Document title strip â”€â”€ */
+  .co-title-strip {
+    text-align: center;
+    padding: 9px 0 7px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 10px;
+  }
+  .co-title { font-size: 11px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: #0f172a; }
+  .co-nature {
+    display: inline-block; margin-top: 4px;
+    font-size: 7.5px; font-weight: 700; letter-spacing: 1px;
+    border: 1px solid #aaa; padding: 1px 7px; border-radius: 2px; color: #555;
+  }
+
+  /* â”€â”€ Meta grid â”€â”€ */
+  .meta-grid { display: flex; gap: 0; margin-bottom: 10px; }
+  .meta-box { flex: 1; padding: 7px 9px; border: 1px solid #ccc; font-size: 9px; line-height: 1.9; }
+  .meta-box:not(:last-child) { border-right: none; }
+  .meta-box .box-title { font-size: 7.5px; font-weight: 700; letter-spacing: 1px; color: #888; text-transform: uppercase; margin-bottom: 3px; }
+  .meta-box .lbl { color: #777; display: inline-block; min-width: 72px; }
+  .meta-box .val { font-weight: 600; color: #0f172a; }
+  .meta-box .customer-name { font-size: 12px; font-weight: 700; color: #0f172a; margin-bottom: 1px; }
+
+  /* â”€â”€ Delivery status badge â”€â”€ */
+  .badge {
+    display: inline-block; font-size: 7px; font-weight: 700; letter-spacing: 0.8px;
+    padding: 1px 6px; border-radius: 2px; text-transform: uppercase; vertical-align: middle;
+    margin-left: 4px;
+  }
+  .badge-pending  { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+  .badge-ready    { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .badge-delivered{ background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .badge-overdue  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+  /* â”€â”€ Advance summary strip â”€â”€ */
+  .advance-strip {
+    display: flex; gap: 0;
+    border: 1px solid #e2e8f0; border-radius: 4px;
+    margin-bottom: 10px; overflow: hidden;
+    background: #f8fafc;
+  }
+  .advance-cell {
+    flex: 1; padding: 7px 10px; text-align: center;
+    border-right: 1px solid #e2e8f0;
+  }
+  .advance-cell:last-child { border-right: none; }
+  .advance-cell .a-lbl { font-size: 7px; letter-spacing: 1.4px; text-transform: uppercase; color: #64748b; font-weight: 700; }
+  .advance-cell .a-val { font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .advance-cell.available .a-val { color: #166534; }
+  .advance-cell.overdue-amt .a-val { color: #991b1b; }
+
+  /* â”€â”€ Items table â”€â”€ */
+  table.co { width: 100%; border-collapse: collapse; table-layout: auto; }
+
+  col.c-sl   { width: 20px; }
+  col.c-pur  { width: 32px; }
+  col.c-pcs  { width: 26px; }
+  col.c-wt   { width: 46px; }
+  col.c-size { width: 28px; }
+  col.c-mkt  { width: 48px; }
+  col.c-mka  { width: 48px; }
+  col.c-stat { width: 50px; }
+
+  table.co thead th {
+    font-family: "Inter", Arial, sans-serif;
+    border-left: 1px solid #bbb; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; border-right: none;
+    padding: 4px 5px; font-size: 8.5px; font-weight: 700; background: #fff;
+    text-align: center; white-space: nowrap; line-height: 1.3;
+  }
+  table.co thead th:first-child { border-left: none; }
+
+  table.co td {
+    font-family: "Inter", Arial, sans-serif;
+    border-left: 1px solid #e0e0e0; border-top: none; border-bottom: none; border-right: none;
+    padding: 4px 5px; font-size: 9.5px; vertical-align: middle; line-height: 1.35;
+  }
+  table.co td:first-child { border-left: none; }
+
+  table.co tbody tr { border-bottom: 1px solid #efefef; }
+  table.co tbody tr:last-child { border-bottom: none; }
+
+  tr.totals-row td {
+    font-weight: 700; font-size: 9.5px; background: #f5f5f5;
+    border-top: 1px solid #aaa; border-bottom: 1px solid #aaa;
+    border-left: 1px solid #e0e0e0; padding: 4px 5px;
+    font-family: "Inter", Arial, sans-serif;
+  }
+  tr.totals-row td:first-child { border-left: none; }
+
+  /* â”€â”€ Gold rate strip (shown only if fix_gold_rate = true) â”€â”€ */
+  .rate-strip {
+    display: flex; align-items: baseline; gap: 18px;
+    padding: 6px 0; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 10px; font-variant-numeric: tabular-nums;
+  }
+  .rate-strip .r-lbl { font-size: 7.5px; letter-spacing: 1.4px; text-transform: uppercase; color: #64748b; font-weight: 700; }
+  .rate-strip .r-val { font-size: 10px; color: #0f172a; font-weight: 500; }
+  .rate-strip .r-sep { color: #cbd5e1; }
+
+  /* â”€â”€ Item status badges â”€â”€ */
+  .st-pending   { font-size: 7px; font-weight: 700; letter-spacing: 0.5px; color: #777; border: 1px solid #ccc; padding: 1px 5px; border-radius: 2px; }
+  .st-production{ font-size: 7px; font-weight: 700; letter-spacing: 0.5px; color: #1d4ed8; border: 1px solid #93c5fd; background: #eff6ff; padding: 1px 5px; border-radius: 2px; }
+  .st-delivered { font-size: 7px; font-weight: 700; letter-spacing: 0.5px; color: #166534; border: 1px solid #86efac; background: #f0fdf4; padding: 1px 5px; border-radius: 2px; }
+
+  /* â”€â”€ Footer â”€â”€ */
+  .co-footer { margin-top: 22px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .footer-note { font-size: 8px; color: #888; font-style: italic; max-width: 60%; line-height: 1.7; }
+  .sign-block { text-align: center; }
+  .sign-line { width: 110px; border-top: 1px solid #999; margin: 28px auto 0; }
+  .sign-label { font-size: 8.5px; color: #555; margin-top: 3px; }
+
+  .r { text-align: right; } .c { text-align: center; } .l { text-align: left; }
+  .muted { color: #777; }
+</style>
+</head>
+<body>
+<div class="controls"><button onclick="window.print()">Print / Save PDF</button></div>
+<div class="page">
+
+  <!-- â”€â”€ Company header â”€â”€ -->
+  <div class="co-hdr">
+    <div class="co-bis">BIS<br>HALLMARK</div>
+    <div class="co-brand-block">
+      <div class="co-brand">Jewel India</div>
+      <div class="co-brand-sub" style="font-size:11px;font-weight:600;color:#0f172a;">Jewel India Jewellers Private Limited</div>
+      <div class="co-brand-sub">123, Jewellers Street, T. Nagar, Chennai â€“ 600 017</div>
+      <div class="co-brand-sub">
+        Phone <strong>+91 98400 00000</strong> &nbsp;Â·&nbsp; Email <strong>jewel@jewelindia.com</strong>
+      </div>
+      <div class="co-brand-ids">
+        <span>GSTIN<b>33AAAAA0000A1Z5</b></span>
+        <span>PAN<b>AAAAA0000A</b></span>
+      </div>
+    </div>
+    <div class="co-logo">COMPANY<br>LOGO</div>
+  </div>
+
+  <!-- â”€â”€ Document title â”€â”€ -->
+  <div class="co-title-strip">
+    <div class="co-title">Customer Order</div>
+  </div>
+
+  <!-- â”€â”€ Order details + Customer â”€â”€ -->
+  <div class="meta-grid">
+    <div class="meta-box">
+      <div class="box-title">Customer</div>
+      <div class="customer-name">Priya Ramesh</div>
+      <div><span class="lbl">Mobile</span><span class="val">+91 98400 22222</span></div>
+      <div><span class="lbl">Salesman</span><span class="val">Karthik M.</span></div>
+    </div>
+    <div class="meta-box">
+      <div class="box-title">Order Details</div>
+      <div><span class="lbl">Order No</span><span class="val">CO/2025-26/0087</span></div>
+      <div><span class="lbl">Order Date</span><span class="val">02/05/2026</span></div>
+      <div><span class="lbl">Delivery Date</span><span class="val">25/05/2026</span></div>
+    </div>
+  </div>
+
+  <!-- â”€â”€ Fixed gold rate strip â”€â”€ -->
+  <div class="rate-strip">
+    <span class="r-lbl">Fixed Gold Rates</span>
+    <span class="r-val">14K &nbsp;â‚¹ 5,240 / gm</span>
+    <span class="r-sep">Â·</span>
+    <span class="r-val">18K &nbsp;â‚¹ 6,750 / gm</span>
+    <span class="r-sep">Â·</span>
+    <span class="r-val">22K &nbsp;â‚¹ 8,240 / gm</span>
+  </div>
+
+  <!-- â”€â”€ Advance summary â”€â”€ -->
+  <div class="advance-strip">
+    <div class="advance-cell">
+      <div class="a-lbl">Estimated Value</div>
+      <div class="a-val">â‚¹ 1,85,000</div>
+    </div>
+    <div class="advance-cell">
+      <div class="a-lbl">Advance Received</div>
+      <div class="a-val">â‚¹ 50,000</div>
+    </div>
+    <div class="advance-cell available">
+      <div class="a-lbl">Advance Available</div>
+      <div class="a-val">â‚¹ 30,000</div>
+    </div>
+  </div>
+
+  <!-- â”€â”€ Line items table â”€â”€ -->
+  <table class="co">
+    <colgroup>
+      <col class="c-sl">
+      <col><!-- Item -->
+      <col class="c-pur">
+      <col class="c-pcs">
+      <col class="c-wt">
+      <col class="c-size">
+      <col class="c-mkt">
+      <col class="c-mka">
+      <col><!-- Remarks -->
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="c">Sl</th>
+        <th class="l">Item</th>
+        <th class="c">Purity</th>
+        <th class="c">Pcs</th>
+        <th class="r">Wt (g)</th>
+        <th class="c">Size</th>
+        <th class="c">Making Type</th>
+        <th class="r">Making (â‚¹)</th>
+        <th class="l">Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="c">1</td>
+        <td class="l">Ladies Necklace</td>
+        <td class="c">22K</td>
+        <td class="c">1</td>
+        <td class="r">28.500</td>
+        <td class="c">â€”</td>
+        <td class="c">Per Gram</td>
+        <td class="r">4,200</td>
+        <td class="l muted">With emerald &amp; ruby</td>
+      </tr>
+      <tr>
+        <td class="c">2</td>
+        <td class="l">Ladies Earring Tops</td>
+        <td class="c">18K</td>
+        <td class="c">2</td>
+        <td class="r">4.200</td>
+        <td class="c">â€”</td>
+        <td class="c">Fixed</td>
+        <td class="r">1,500</td>
+        <td class="l muted">LGD stones, white gold</td>
+      </tr>
+      <tr>
+        <td class="c">3</td>
+        <td class="l">Gents Ring</td>
+        <td class="c">22K</td>
+        <td class="c">1</td>
+        <td class="r">7.800</td>
+        <td class="c">22</td>
+        <td class="c">Per Gram</td>
+        <td class="r">800</td>
+        <td class="l muted">Plain gold, comfort fit</td>
+      </tr>
+      <tr>
+        <td class="c">4</td>
+        <td class="l">Bangles Pair</td>
+        <td class="c">22K</td>
+        <td class="c">2</td>
+        <td class="r">32.000</td>
+        <td class="c">2-6</td>
+        <td class="c">Per Gram</td>
+        <td class="r">5,600</td>
+        <td class="l muted"></td>
+      </tr>
+      <tr>
+        <td class="c">5</td>
+        <td class="l">Nose Pin</td>
+        <td class="c">18K</td>
+        <td class="c">1</td>
+        <td class="r">0.350</td>
+        <td class="c">â€”</td>
+        <td class="c">Fixed</td>
+        <td class="r">200</td>
+        <td class="l muted"></td>
+      </tr>
+    </tbody>
+    <tr class="totals-row">
+      <td colspan="3" class="r">Total</td>
+      <td class="c">7</td>
+      <td class="r">72.850</td>
+      <td colspan="4"></td>
+    </tr>
+  </table>
+
+  <!-- â”€â”€ Footer â”€â”€ -->
+  <div class="co-footer">
+    <div class="footer-note">
+      This is a preliminary order acknowledgement, not a tax invoice.<br>
+      Final billing will be done at the time of delivery.<br>
+      This is a computer-generated document.
+    </div>
+    <div class="sign-block">
+      <div class="sign-line"></div>
+      <div class="sign-label">Authorised Signatory</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
+

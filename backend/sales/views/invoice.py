@@ -1226,6 +1226,7 @@ def build_invoice_context(voucher, retail, request=None):
     return {
         # Company
         'company_name':         (company.company_name if company else retail.retail_name) or '',
+        'company_legal_name':   (company.legal_name if company else '') or '',
         'company_address':      company_address,
         'company_gstin':        company_gstin,
         'company_state':        company_state_name,

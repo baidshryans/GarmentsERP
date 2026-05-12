@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 from decimal import Decimal
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
@@ -44,7 +44,7 @@ def _customer_order_item_lock(obj):
     if obj.sale_status:
         return 'billed', 'Billed in a sales voucher'
 
-    # Direct CO → PV path: the CO item was billed straight onto a Purchase
+    # Direct CO â†’ PV path: the CO item was billed straight onto a Purchase
     # Voucher without going through a Purchase Order. This is terminal.
     pv = obj.purchasevoucheritems_set.select_related('billno').first()
     if pv:
@@ -54,7 +54,7 @@ def _customer_order_item_lock(obj):
     # Barcoded but not yet sold: a barcode exists for this CO item.
     barcode_ids = _barcode_ids_for_co_item(obj)
     if barcode_ids:
-        return 'barcoded', 'Barcode created — ready for delivery'
+        return 'barcoded', 'Barcode created â€” ready for delivery'
 
     ki = obj.karigarissueitem_set.select_related('issue_slip').first()
     if ki:
@@ -69,9 +69,9 @@ def _barcode_ids_for_co_item(coi):
     """Return a set of BarcodeMain IDs tied to this CustomerOrderItems row.
 
     Walks three barcode-sourcing chains:
-      A) CO → PO line → PV line (po_no/po_sl_no match) → BarcodeMain.pur_voucher
-      B) CO → KarigarIssueItem → KarigarReceiveItem (ref_job_sl_no) → BarcodeMain.rec_item
-      C) Direct CO → PV line (customer_order_item FK) → BarcodeMain.pur_voucher
+      A) CO â†’ PO line â†’ PV line (po_no/po_sl_no match) â†’ BarcodeMain.pur_voucher
+      B) CO â†’ KarigarIssueItem â†’ KarigarReceiveItem (ref_job_sl_no) â†’ BarcodeMain.rec_item
+      C) Direct CO â†’ PV line (customer_order_item FK) â†’ BarcodeMain.pur_voucher
     """
     from inventory.models import BarcodeMain
     from purchase.models import PurchaseVoucherItems
@@ -79,7 +79,7 @@ def _barcode_ids_for_co_item(coi):
 
     barcode_ids = set()
 
-    # Chain A: PO → PV
+    # Chain A: PO â†’ PV
     po_items = coi.purchaseorderitems_set.select_related('po_slip').all()
     for po_item in po_items:
         if not po_item.po_slip:
@@ -91,7 +91,7 @@ def _barcode_ids_for_co_item(coi):
         for bc_id in BarcodeMain.objects.filter(pur_voucher_id__in=list(pv_items)).values_list('id', flat=True):
             barcode_ids.add(bc_id)
 
-    # Chain B: KI → KR
+    # Chain B: KI â†’ KR
     ki_ids = list(coi.karigarissueitem_set.values_list('id', flat=True))
     if ki_ids:
         kr_ids = list(KarigarReceiveItem.objects.filter(ref_job_sl_no_id__in=ki_ids).values_list('id', flat=True))
@@ -99,7 +99,7 @@ def _barcode_ids_for_co_item(coi):
             for bc_id in BarcodeMain.objects.filter(rec_item_id__in=kr_ids).values_list('id', flat=True):
                 barcode_ids.add(bc_id)
 
-    # Chain C: direct CO → PV
+    # Chain C: direct CO â†’ PV
     pv_ids = list(coi.purchasevoucheritems_set.values_list('id', flat=True))
     if pv_ids:
         for bc_id in BarcodeMain.objects.filter(pur_voucher_id__in=pv_ids).values_list('id', flat=True):
@@ -340,7 +340,7 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         # Delivery date must be strictly after today. A same-day delivery is
-        # not a meaningful commitment — the order is effectively due "now".
+        # not a meaningful commitment â€” the order is effectively due "now".
         from datetime import date as _date
         delivery = attrs.get('delivery_date')
         if delivery is not None:
@@ -429,9 +429,9 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
             'amount',
             'packet',
             'fine_wt',  # Computed property
-            'uom',       # Read-only — item.uom, needed for frontend amount recalc
-            'item_type', # Read-only — item.item_type, needed for frontend B2B overrides
-            'item_name', # Read-only — item.item_name, shown in the sub-item row item column
+            'uom',       # Read-only â€” item.uom, needed for frontend amount recalc
+            'item_type', # Read-only â€” item.item_type, needed for frontend B2B overrides
+            'item_name', # Read-only â€” item.item_name, shown in the sub-item row item column
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -462,7 +462,7 @@ class SalesVouItemSerializer(serializers.ModelSerializer):
     main_item_set = SalesVouItemDetailsSerializer(many=True)
 
     # Read-only: lets the frontend know if this barcode is still in stock.
-    # False means it has been sold/transferred — the voucher should be locked for editing.
+    # False means it has been sold/transferred â€” the voucher should be locked for editing.
     barcode_stk_status = serializers.SerializerMethodField(read_only=True)
 
     def get_barcode_stk_status(self, obj):
@@ -496,12 +496,12 @@ class SalesVouItemSerializer(serializers.ModelSerializer):
         """Convert purity slug string (e.g. '14K') to PurityMaster PK (integer)."""
         if not value:
             return 0
-        # Already numeric (PK) — return as-is
+        # Already numeric (PK) â€” return as-is
         try:
             return int(value)
         except (ValueError, TypeError):
             pass
-        # Slug string — look up the PK
+        # Slug string â€” look up the PK
         try:
             return PurityMaster.objects.get(purity=value).pk
         except PurityMaster.DoesNotExist:
@@ -749,7 +749,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             validated_data['billno'] = generate_next_sale_voucher_no(request.retail)
 
-            # ── Section 269ST cash receipt limit check ────────────────────────
+            # â”€â”€ Section 269ST cash receipt limit check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             new_cash = Decimal(str(validated_data.get('cash', 0) or 0))
             if new_cash > 0:
                 from accounting.utils import get_customer_cash_received, get_company_cash_limits
@@ -763,22 +763,22 @@ class SalesVouSerializer(serializers.ModelSerializer):
                         raise ValidationError({
                             'cash': (
                                 f"Cash receipt limit exceeded for '{customer_ldgr.ac_name}'. "
-                                f"Already received ₹{already:,.0f} this FY  |  "
-                                f"Limit: ₹{limit:,.0f}  |  "
-                                f"Max receivable now: ₹{remaining:,.0f}."
+                                f"Already received â‚¹{already:,.0f} this FY  |  "
+                                f"Limit: â‚¹{limit:,.0f}  |  "
+                                f"Max receivable now: â‚¹{remaining:,.0f}."
                             )
                         })
-            # ─────────────────────────────────────────────────────────────────
+            # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-            # ── Compute server-side due_amt (patched after instance creation) ──
+            # â”€â”€ Compute server-side due_amt (patched after instance creation) â”€â”€
             cash_amt         = Decimal(str(validated_data.get('cash', 0) or 0))
             bank_total       = sum(Decimal(str(b.get('amount', 0) or 0)) for b in bank_details)
             # total_bill_value is a model property; read after instance creation below
 
-            # ── Auto-apply advance (single source of truth) ───────────────────
+            # â”€â”€ Auto-apply advance (single source of truth) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             # advance_deducted is always computed server-side, never accepted from client.
-            # Path A: customer_order FK set → use order's linked RCPT pool.
-            # Path B: advance_receipt_ids provided → direct RCPT selection (no order needed).
+            # Path A: customer_order FK set â†’ use order's linked RCPT pool.
+            # Path B: advance_receipt_ids provided â†’ direct RCPT selection (no order needed).
             customer_order = validated_data.get('customer_order')
             if customer_order and advance_receipt_ids:
                 raise ValidationError(
@@ -808,7 +808,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 advance_deducted = Decimal('0')
             validated_data['advance_deducted'] = advance_deducted
 
-            # ── Validate old_gold_adjusted against purchase's available balance ──
+            # â”€â”€ Validate old_gold_adjusted against purchase's available balance â”€â”€
             old_gold_adjusted = Decimal(str(validated_data.get('old_gold_adjusted', 0) or 0))
             old_gold_purchase = validated_data.get('old_gold_purchase')
             if old_gold_purchase and old_gold_adjusted > 0:
@@ -819,7 +819,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 if old_gold_adjusted > available_og:
                     raise ValidationError({
                         'old_gold_adjusted': (
-                            f"Cannot adjust ₹{old_gold_adjusted:,.0f} — only ₹{available_og:,.0f} "
+                            f"Cannot adjust â‚¹{old_gold_adjusted:,.0f} â€” only â‚¹{available_og:,.0f} "
                             f"is available from purchase {old_gold_purchase.billno}."
                         )
                     })
@@ -830,7 +830,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             total_bill = Decimal(str(sales_vou_instance.total_bill_value))
 
             # Cap advance_deducted to the portion of the bill not covered by
-            # cash / bank / old gold — any surplus order advance stays on the
+            # cash / bank / old gold â€” any surplus order advance stays on the
             # order to be consumed by future bills against the same order.
             room_for_advance = max(Decimal('0'), total_bill - cash_amt - bank_total - old_gold_adjusted)
             if advance_deducted > room_for_advance:
@@ -844,8 +844,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
             )
             # (saved again after ac_voucher is assigned below)
 
-            # ── Write ReferenceBills rows (advance audit trail) ───────────────
-            # "RCPT-123 was used to pay SV-456 for ₹X"
+            # â”€â”€ Write ReferenceBills rows (advance audit trail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # "RCPT-123 was used to pay SV-456 for â‚¹X"
             if advance_deducted > 0:
                 from django.db.models import Sum as _Sum
                 from accounting.models import ReferenceBills as _RefBills, VoucherMain as _VM
@@ -916,9 +916,9 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     detail_instance = SalesVouItemDetails.objects.create(main_item=sales_vou_item_instance, **detail_data)
                     item_detail_instances.append(detail_instance)
 
-            # ── Recompute mrp from actual saved items ─────────────────────────
-            # Journal balance: DEBIT total_bill_value = CREDIT Σmaking + Σitem.amount
-            # so mrp must equal Σ making_value + Σ item_detail.amount.
+            # â”€â”€ Recompute mrp from actual saved items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # Journal balance: DEBIT total_bill_value = CREDIT Î£making + Î£item.amount
+            # so mrp must equal Î£ making_value + Î£ item_detail.amount.
             # Recomputing from DB guarantees consistency even if the frontend
             # sent a slightly different value due to rounding or stale state.
             _actual_mrp = (
@@ -1083,7 +1083,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             sales_vou_instance.branch_ref = request.retail.branch
             sales_vou_instance.save()
 
-            # ── Update CustomerOrder status to reflect billing ────────────────
+            # â”€â”€ Update CustomerOrder status to reflect billing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if customer_order:
                 total_reconciled = customer_order.advance_reconciled
                 advance_total    = customer_order.advance_amt
@@ -1095,7 +1095,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     customer_order.status = 'Billed'
                 customer_order.save(update_fields=['status'])
 
-            # ── Update old gold purchase voucher due_amt ─────────────────────
+            # â”€â”€ Update old gold purchase voucher due_amt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if old_gold_purchase and old_gold_adjusted > 0:
                 from django.db.models import Sum as _Sum
                 total_adj = old_gold_purchase.linked_sales_vouchers.aggregate(
@@ -1118,12 +1118,12 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         with transaction.atomic():
-            # ── Release this voucher's barcodes back to stock before update ──
+            # â”€â”€ Release this voucher's barcodes back to stock before update â”€â”€
             # The voucher's own barcodes have stk_status=False (they were marked
             # sold at create time). Temporarily flipping them to True lets the
             # nested update validate/add/remove barcodes freely. We re-mark the
             # FINAL item set as sold after the nested update runs. Everything
-            # below is inside transaction.atomic() — any failure rolls back.
+            # below is inside transaction.atomic() â€” any failure rolls back.
             for _it in instance.salesvouitem_set.select_related('barcode').all():
                 if _it.barcode_id and _it.barcode and not _it.barcode.stk_status:
                     _it.barcode.stk_status = True
@@ -1133,7 +1133,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             item_details_data = validated_data.pop('salesvouitemdetails_set', [])
             bank_details = validated_data.pop('bank_details')
 
-            # ── Snapshot current DB values BEFORE setattr overwrites them ──────
+            # â”€â”€ Snapshot current DB values BEFORE setattr overwrites them â”€â”€â”€â”€â”€â”€
             # Needed to preserve subsequent payment receipts when recalculating due_amt.
             _old_total_bill  = Decimal(str(instance.total_bill_value))
             _old_cash        = Decimal(str(instance.cash or 0))
@@ -1153,7 +1153,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
             create_or_update_nested(SalesVouItemSerializer, instance, 'salesvouitem_set', 'billno', SalesVouItemSerializer(detail_data, many=True).data)
 
-            # ── Mark the final set of barcodes as sold ────────────────────────
+            # â”€â”€ Mark the final set of barcodes as sold â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             # Kept/added barcodes end up sold; removed barcodes were released
             # above and stay in stock because they're no longer in the set.
             for _it in instance.salesvouitem_set.select_related('barcode').all():
@@ -1162,7 +1162,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     _it.barcode.save(update_fields=['stk_status'])
 
             # Rebuild direct manual details (those not linked to a barcode item).
-            # These were previously dropped on update — now they are properly saved.
+            # These were previously dropped on update â€” now they are properly saved.
             instance.salesvouitemdetails_set.filter(main_item=None).delete()
             for raw in item_details_data:
                 raw = {k: v for k, v in raw.items()
@@ -1173,7 +1173,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             sales_vou_instance.ac_voucher.delete()
             create_or_update_nested(BankDetails, sales_vou_instance, 'bank_details', 'sales_vou', BankDetails(bank_details, many=True).data)
 
-            # ── Fresh DB queries — the prefetch_related cache on `instance` is STALE
+            # â”€â”€ Fresh DB queries â€” the prefetch_related cache on `instance` is STALE
             #    after create_or_update_nested; using it would put old values in the journal.
             from sales.models import SalesVouItem as _SVItem, SalesVouItemDetails as _SVDetail
             item_instances = list(_SVItem.objects.filter(billno=instance).select_related('item', 'barcode__purity'))
@@ -1181,13 +1181,13 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 _SVDetail.objects.filter(billno=instance).select_related('item')
             )
 
-            # ── Recompute mrp from actual saved items ─────────────────────────
+            # â”€â”€ Recompute mrp from actual saved items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             # Journal balance requires:
-            #   DEBIT  total_bill_value (= (mrp - discount) × (1 + tax_rate))
-            #   CREDIT Σ making_value  +  Σ item_detail.amount
-            # So mrp must equal Σ making_value + Σ item_detail.amount.
+            #   DEBIT  total_bill_value (= (mrp - discount) Ã— (1 + tax_rate))
+            #   CREDIT Î£ making_value  +  Î£ item_detail.amount
+            # So mrp must equal Î£ making_value + Î£ item_detail.amount.
             # If the frontend sent a stale mrp (e.g. after editing an item's rate),
-            # the journal would be unbalanced.  Recompute it from the DB — same fix
+            # the journal would be unbalanced.  Recompute it from the DB â€” same fix
             # as the purchase voucher's bill_value recomputation.
             _actual_mrp = (
                 sum(Decimal(str(item.making_value or 0)) for item in item_instances)
@@ -1305,7 +1305,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             if ser.is_valid(raise_exception=True):
 
                 ref = ser.save()
-            # ── Recalculate due_amt preserving subsequent payment receipts ──────
+            # â”€â”€ Recalculate due_amt preserving subsequent payment receipts â”€â”€â”€â”€â”€â”€
             _new_cash      = Decimal(str(sales_vou_instance.cash or 0))
             _new_bank_total= sum(Decimal(str(b['amount'] or 0)) for b in bank_details)
             _new_advance   = Decimal(str(sales_vou_instance.advance_deducted or 0))
@@ -1400,12 +1400,12 @@ class SaleReturnItemSerializer(serializers.ModelSerializer):
 def _refresh_order_status(customer_order):
     """Recompute CustomerOrder.status from all linked sale vouchers and their returns.
 
-    Status ladder (net = total_billed − total_returned):
-        ''              → nothing billed yet
-        'Partial'       → partially billed, no returns
-        'Billed'        → net >= ordered (fully delivered, returns if any cancel out)
-        'Partial Return'→ returns exist and net > 0 but < ordered
-        'Returned'      → net <= 0 (all deliveries reversed)
+    Status ladder (net = total_billed âˆ’ total_returned):
+        ''              â†’ nothing billed yet
+        'Partial'       â†’ partially billed, no returns
+        'Billed'        â†’ net >= ordered (fully delivered, returns if any cancel out)
+        'Partial Return'â†’ returns exist and net > 0 but < ordered
+        'Returned'      â†’ net <= 0 (all deliveries reversed)
     """
     from decimal import Decimal
     svous = list(customer_order.linked_vouchers.prefetch_related('sale_returns').all())
@@ -1430,6 +1430,7 @@ def _refresh_order_status(customer_order):
         return
     elif total_returned > 0 and net_delivered < ordered_value:
         customer_order.status = 'Partial Return'
+        customer_order.delivery_status = 'partial_return'
     elif total_returned > 0 and net_delivered >= ordered_value:
         customer_order.status = 'Billed'
     elif net_delivered < ordered_value:
@@ -1437,7 +1438,7 @@ def _refresh_order_status(customer_order):
     else:
         customer_order.status = 'Billed'
 
-    customer_order.save(update_fields=['status'])
+    customer_order.save(update_fields=['status', 'delivery_status'])
 
 
 class SaleReturnSerializer(serializers.ModelSerializer):
@@ -1606,7 +1607,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                     sale_return_instance.billno, e,
                 )
 
-            # ── Update linked Customer Order status ───────────────────────────
+            # â”€â”€ Update linked Customer Order status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _sv = sale_return_instance.sales_voucher_ref
             _co = getattr(_sv, 'customer_order', None) if _sv else None
             if _co:
@@ -1629,7 +1630,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             create_or_update_nested(SaleReturnItemSerializer, instance, 'salereturnitem_set', 'billno',SaleReturnItemSerializer(detail_data,many=True).data)
             sale_return_instance = instance
             instance.ac_voucher.delete()
-            # Fresh DB queries — avoid stale prefetch cache left by create_or_update_nested
+            # Fresh DB queries â€” avoid stale prefetch cache left by create_or_update_nested
             from sales.models import SaleReturnItem as _SRItem, SaleReturnDetails as _SRDetails
             item_instances = list(_SRItem.objects.filter(billno=instance).select_related('item__sale_ledger', 'purity'))
             item_detail_instances = list(_SRDetails.objects.filter(main_item__billno=instance).select_related('item__sale_ledger', 'main_item'))
@@ -1721,7 +1722,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             instance.branch_ref = request.retail.branch
             instance.save()
 
-            # ── Update linked Customer Order status ───────────────────────────
+            # â”€â”€ Update linked Customer Order status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _sv = instance.sales_voucher_ref
             _co = getattr(_sv, 'customer_order', None) if _sv else None
             if _co:
@@ -1917,7 +1918,7 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
         }
     def to_internal_value(self, data):
         # Propagate selected customer (ldgr) into context BEFORE nested item
-        # validators run — same reservation guard as SalesVouSerializer.
+        # validators run â€” same reservation guard as SalesVouSerializer.
         if hasattr(data, 'get'):
             ldgr_val = data.get('ldgr')
             if ldgr_val not in (None, '', 'null'):
@@ -2052,7 +2053,7 @@ class EWayBillSerializer(serializers.ModelSerializer):
         return None
 
 
-# ── Quotation Serializers ────────────────────────────────────────────────────
+# â”€â”€ Quotation Serializers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 from sales.models import Quotation, QuotationItem, QuotationItemDetail
 
@@ -2175,3 +2176,5 @@ class PortalCustomerOrderSerializer(serializers.ModelSerializer):
             'est_amount', 'item_count', 'is_overdue', 'days_overdue'
         ]
         read_only_fields = fields
+
+

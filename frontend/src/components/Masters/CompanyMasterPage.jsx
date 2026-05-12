@@ -12,6 +12,7 @@ import { fetchCompanies, createCompany, updateCompany, deleteCompany } from "@/s
 
 const emptyForm = {
   company_name: "",
+  legal_name: "",
   pan: "",
   tan: "",
   cin: "",
@@ -125,6 +126,7 @@ export default function CompanyMasterPage() {
   const handleEdit = (row) => {
     setForm({
       company_name:           row.company_name           ?? "",
+      legal_name:             row.legal_name             ?? "",
       pan:                    row.pan                    ?? "",
       tan:                    row.tan                    ?? "",
       cin:                    row.cin                    ?? "",
@@ -253,6 +255,16 @@ export default function CompanyMasterPage() {
                     className="h-9 text-sm"
                     autoFocus
                     required
+                  />
+                </div>
+                <div className="flex flex-col gap-1 md:col-span-2">
+                  <Label className="text-xs">Legal Name</Label>
+                  <Input
+                    name="legal_name"
+                    value={form.legal_name}
+                    onChange={handleChange}
+                    placeholder="e.g. Jewel India Pvt. Ltd. (as per MCA/GST records)"
+                    className="h-9 text-sm"
                   />
                 </div>
                 <div className="flex flex-col gap-1">

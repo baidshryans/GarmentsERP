@@ -1,424 +1,295 @@
-import React from "react";
+﻿import React from "react";
 
-// ─── Formatters ───────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const fmtDate = (d) => {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (isNaN(dt)) return d;
-  return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+const FONT = '"Inter", Arial, Helvetica, sans-serif';
+
+const FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap';
+
+const fmtDate = (val) => {
+  if (!val) return 'â€”';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const fmtN = (v, decimals = 3) => {
+const fmtWt = (v) => {
   const n = parseFloat(v);
-  return isNaN(n) || n === 0 ? "" : n.toFixed(decimals);
+  return isNaN(n) || n === 0 ? 'â€”' : n.toFixed(3);
 };
 
 const fmtAmt = (v) => {
   const n = parseFloat(v);
-  if (isNaN(n)) return "";
-  return "₹ " + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (isNaN(n) || n === 0) return 'â€”';
+  return 'â‚¹ ' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 };
 
-const NATURE_LABELS = {
-  new_booking: "New Booking",
-  repair: "Repair",
-  sample: "Sample",
-  to_be_altered: "To Be Altered",
-  valuation: "Valuation",
-  melting: "Melting",
+const MAKING_LABELS = {
+  per_nw:    '% of NW',
+  per_gram:  'Per Gram',
+  fixed:     'Fixed',
+  flat:      'Flat',
 };
 
-// ─── Style constants ──────────────────────────────────────────────────────────
+// â”€â”€ CSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const FONT = "'Arial', 'Helvetica', sans-serif";
-const BORDER = "1px solid #222";
-const BORDER_LIGHT = "1px solid #aaa";
-const BORDER_DASHED = "1px dashed #bbb";
+const CO_CSS = `
+  .co-hdr {
+    display: grid; grid-template-columns: auto 1fr auto;
+    align-items: center; gap: 16px;
+    padding-bottom: 14px; border-bottom: 2px solid #0f172a; margin-bottom: 0;
+  }
+  .co-bis {
+    width: 64px; height: 64px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 7.5px; color: #64748b; text-align: center; line-height: 1.15;
+    letter-spacing: 0.5px; font-family: "Inter", Arial, sans-serif;
+  }
+  .co-bis img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .co-logo {
+    width: 90px; height: 64px;
+    display: grid; place-items: center;
+    font-size: 7.5px; color: #64748b; text-align: center; line-height: 1.15;
+    letter-spacing: 0.5px; font-family: "Inter", Arial, sans-serif;
+  }
+  .co-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .co-brand-block { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+  .co-brand { font-family: "Fraunces", Georgia, serif; font-size: 14px; font-weight: 700; color: #0f172a; }
+  .co-brand-sub { font-size: 9px; color: #64748b; letter-spacing: 0.2px; font-family: "Inter", Arial, sans-serif; }
+  .co-brand-sub strong { color: #0f172a; font-weight: 600; }
+  .co-brand-ids { display: flex; gap: 18px; font-size: 8.5px; color: #64748b; margin-top: 2px; font-family: "Inter", Arial, sans-serif; }
+  .co-brand-ids span b { color: #0f172a; font-weight: 600; margin-left: 4px; font-variant-numeric: tabular-nums; }
+`;
 
-const S = {
-  page: {
-    fontFamily: FONT,
-    fontSize: 11,
-    color: "#111",
-    background: "#fff",
-    width: "210mm",
-    minHeight: "297mm",
-    margin: "0 auto",
-    padding: "10mm 12mm",
-    boxSizing: "border-box",
-  },
+// â”€â”€ Style tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // Header
-  shopName: {
-    fontSize: 20,
-    fontWeight: 700,
-    letterSpacing: 2,
-    textAlign: "center",
-    textTransform: "uppercase",
-  },
-  shopSub: {
-    fontSize: 10,
-    textAlign: "center",
-    color: "#555",
-    marginTop: 2,
-  },
-  dividerThick: {
-    borderTop: "2.5px solid #111",
-    margin: "6px 0 2px",
-  },
-  dividerThin: {
-    borderTop: BORDER_LIGHT,
-    margin: "2px 0 6px",
-  },
-  title: {
-    fontSize: 13,
-    fontWeight: 700,
-    textAlign: "center",
-    letterSpacing: 4,
-    textTransform: "uppercase",
-    padding: "4px 0",
-    borderTop: BORDER,
-    borderBottom: BORDER,
-    background: "#f4f4f4",
-    margin: "6px 0",
-  },
+const BASE = 10;
 
-  // Info grid
-  infoTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    border: BORDER,
-    marginBottom: 8,
-  },
-  infoCell: {
-    padding: "4px 8px",
-    verticalAlign: "top",
-    fontSize: 11,
-    border: BORDER_LIGHT,
-  },
-  infoLabel: {
-    fontWeight: 700,
-    fontSize: 10,
-    color: "#444",
-    whiteSpace: "nowrap",
-    paddingRight: 4,
-    display: "inline-block",
-    minWidth: 70,
-  },
-  infoValue: {
-    fontSize: 11,
-  },
+const th = (extra = {}) => ({
+  fontFamily: FONT,
+  borderLeft: '1px solid #bbb', borderTop: '1px solid #aaa', borderBottom: '1px solid #aaa', borderRight: 'none',
+  padding: '4px 5px', fontSize: 8.5, fontWeight: 700,
+  background: '#fff', textAlign: 'center', whiteSpace: 'nowrap', lineHeight: 1.3,
+  ...extra,
+});
+const th0 = (extra = {}) => th({ borderLeft: 'none', ...extra });
 
-  // Items table
-  itemTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    border: BORDER,
-    marginBottom: 8,
-  },
-  th: {
-    background: "#eee",
-    fontWeight: 700,
-    fontSize: 10,
-    textAlign: "center",
-    padding: "4px 5px",
-    border: BORDER,
-    whiteSpace: "nowrap",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  td: {
-    fontSize: 10.5,
-    padding: "5px 5px",
-    border: BORDER_LIGHT,
-    verticalAlign: "top",
-  },
-  tdRight: {
-    fontSize: 10.5,
-    padding: "5px 5px",
-    border: BORDER_LIGHT,
-    verticalAlign: "top",
-    textAlign: "right",
-    fontVariantNumeric: "tabular-nums",
-  },
-  emptyRow: {
-    height: 22,
-    border: BORDER_LIGHT,
-  },
+const td = (extra = {}) => ({
+  fontFamily: FONT,
+  borderLeft: '1px solid #e0e0e0', borderTop: 'none', borderBottom: 'none', borderRight: 'none',
+  padding: '4px 5px', fontSize: BASE, verticalAlign: 'middle', lineHeight: 1.35,
+  ...extra,
+});
+const td0 = (extra = {}) => td({ borderLeft: 'none', ...extra });
 
-  // Footer rows
-  footerTable: {
-    width: "100%",
-    borderCollapse: "collapse",
-    border: BORDER,
-    marginTop: 6,
-  },
-  footerCell: {
-    padding: "6px 10px",
-    border: BORDER_LIGHT,
-    fontSize: 10.5,
-    verticalAlign: "top",
-  },
-  signCell: {
-    padding: "28px 10px 6px",
-    border: BORDER_LIGHT,
-    fontSize: 10,
-    verticalAlign: "bottom",
-    textAlign: "center",
-    color: "#444",
-  },
+const totCell = (extra = {}) => ({
+  ...td(extra),
+  fontWeight: 700, background: '#f5f5f5',
+  borderTop: '1px solid #aaa', borderBottom: '1px solid #aaa',
+});
+const totCell0 = (extra = {}) => totCell({ borderLeft: 'none', ...extra });
 
-  note: {
-    fontSize: 9,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 6,
-    fontStyle: "italic",
-  },
-};
+// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// ─── InfoRow helper ───────────────────────────────────────────────────────────
-
-const InfoRow = ({ label, value }) => (
-  <div style={{ marginBottom: 3 }}>
-    <span style={S.infoLabel}>{label}</span>
-    <span style={S.infoValue}>{value || "—"}</span>
-  </div>
-);
-
-// ─── Print Component ──────────────────────────────────────────────────────────
-
-const CustomerOrderPrint = ({ data }) => {
-  // Guarantee items is an array
+const CustomerOrderPrint = ({ data = {}, company = {} }) => {
   const items = Array.isArray(data.items) ? data.items : [];
 
-  // Empty filler rows so the table always has at least 8 lines
-  const MIN_ROWS = 8;
-  const fillerCount = Math.max(0, MIN_ROWS - items.length);
+  const totalPcs = items.reduce((s, r) => s + (parseInt(r.pcs)  || 0), 0);
+  const totalWt  = items.reduce((s, r) => s + (parseFloat(r.gw) || 0), 0);
 
-  const goldRateFixed = data.fix_gold_rate && (data.rate_14kt || data.rate_18kt || data.rate_22kt);
+  const { name = '', legal_name = '', address = '', phone = '', email = '', pan = '', cin = '', gstin = '',
+          bis_logo_url = '', company_logo_url = '' } = company;
+
+  const showGoldRates = data.fix_gold_rate && (data.rate_14kt || data.rate_18kt || data.rate_22kt);
+  const showAdvance   = data.advance_amt || data.est_amount;
 
   return (
-    <div style={S.page}>
+    <div style={{ padding: '14mm', maxWidth: 700, margin: '0 auto', fontFamily: FONT }}>
 
-      {/* ── Shop letterhead ────────────────────────────────────────────── */}
-      <div style={S.shopName}>{data.retail_name || "JEWEL INDIA"}</div>
-      {(() => {
-        const addressLine = [data.retail_address_line1, data.retail_address_line2, data.retail_address_line3]
-          .filter(Boolean).join(", ");
-        const cityLine = [
-          [data.retail_city, data.retail_pincode].filter(Boolean).join(" – "),
-          data.retail_state,
-        ].filter(Boolean).join(", ");
-        const contactLine = [
-          data.retail_phone ? `Ph: ${data.retail_phone}` : "",
-          data.retail_email ? `Email: ${data.retail_email}` : "",
-        ].filter(Boolean).join("  |  ");
-        return (
-          <>
-            {addressLine && <div style={S.shopSub}>{addressLine}</div>}
-            {cityLine && <div style={S.shopSub}>{cityLine}</div>}
-            {contactLine && <div style={S.shopSub}>{contactLine}</div>}
-            {data.retail_gstin && (
-              <div style={S.shopSub}>GSTIN: {data.retail_gstin}</div>
-            )}
-          </>
-        );
-      })()}
-      <div style={S.dividerThick} />
-      <div style={S.dividerThin} />
+      {/* â”€â”€ Font + CSS â”€â”€ */}
+      <link rel="stylesheet" href={FONTS_HREF} />
+      <style>{CO_CSS}</style>
 
-      {/* ── Document title ─────────────────────────────────────────────── */}
-      <div style={S.title}>ORDER MEMO</div>
+      {/* â”€â”€ Company header â”€â”€ */}
+      <div className="co-hdr">
+        <div className={bis_logo_url ? 'co-bis' : 'co-bis placeholder'}>
+          {bis_logo_url
+            ? <img src={bis_logo_url} alt="BIS Hallmark" />
+            : <span>BIS<br />HALLMARK</span>}
+        </div>
+        <div className="co-brand-block">
+          {name && <div className="co-brand">{name}</div>}
+          {legal_name && <div className="co-brand-sub" style={{ fontSize: 11, fontWeight: 600, color: '#0f172a' }}>{legal_name}</div>}
+          {address && <div className="co-brand-sub">{address}</div>}
+          {(phone || email) && (
+            <div className="co-brand-sub">
+              {phone && <>Phone <strong>{phone}</strong></>}
+              {phone && email && <> &nbsp;Â·&nbsp; </>}
+              {email && <>Email <strong>{email}</strong></>}
+            </div>
+          )}
+          {(gstin || pan || cin) && (
+            <div className="co-brand-ids">
+              {gstin && <span>GSTIN<b>{gstin}</b></span>}
+              {pan   && <span>PAN<b>{pan}</b></span>}
+              {cin   && <span>CIN<b>{cin}</b></span>}
+            </div>
+          )}
+        </div>
+        <div className={company_logo_url ? 'co-logo' : 'co-logo placeholder'}>
+          {company_logo_url
+            ? <img src={company_logo_url} alt="Logo" />
+            : <span>COMPANY<br />LOGO</span>}
+        </div>
+      </div>
 
-      {/* ── Customer & Order info ──────────────────────────────────────── */}
-      <table style={S.infoTable}>
-        <tbody>
-          <tr>
-            {/* Left: customer */}
-            <td style={{ ...S.infoCell, width: "52%" }}>
-              <InfoRow label="Customer"   value={data.ldgr_code_name} />
-              <InfoRow label="Phone"      value={data.ldgr_mobile} />
-            </td>
-            {/* Right: order meta */}
-            <td style={S.infoCell}>
-              <InfoRow label="Order No."  value={data.order_no} />
-              <InfoRow label="Date"       value={fmtDate(data.date1)} />
-              <InfoRow label="Del. Date"  value={fmtDate(data.delivery_date)} />
-              <InfoRow label="Nature"     value={NATURE_LABELS[data.nature] || data.nature} />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      {/* â”€â”€ Document title â”€â”€ */}
+      <div style={{ textAlign: 'center', padding: '9px 0 7px', borderBottom: '1px solid #e2e8f0', marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 4, textTransform: 'uppercase', color: '#0f172a', fontFamily: FONT }}>
+          Customer Order
+        </div>
+      </div>
 
-      {/* ── Items table ────────────────────────────────────────────────── */}
-      <table style={S.itemTable}>
+      {/* â”€â”€ Order details + Customer â”€â”€ */}
+      <div style={{ display: 'flex', marginBottom: 10 }}>
+        <div style={{ flex: 1, padding: '7px 9px', border: '1px solid #ccc', borderRight: 'none', fontSize: 9, lineHeight: 1.9, fontFamily: FONT }}>
+          <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 1, color: '#888', textTransform: 'uppercase', marginBottom: 3 }}>Customer</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 1 }}>{data.ldgr_code_name || 'â€”'}</div>
+          {data.ldgr_mobile && (
+            <div>
+              <span style={{ color: '#777', display: 'inline-block', minWidth: 60 }}>Mobile</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>{data.ldgr_mobile}</span>
+            </div>
+          )}
+          {(data.salesman_1_name || data.salesman_2_name) && (
+            <div>
+              <span style={{ color: '#777', display: 'inline-block', minWidth: 60 }}>Salesman</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                {[data.salesman_1_name, data.salesman_2_name].filter(Boolean).join(' / ')}
+              </span>
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1, padding: '7px 9px', border: '1px solid #ccc', fontSize: 9, lineHeight: 1.9, fontFamily: FONT }}>
+          <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 1, color: '#888', textTransform: 'uppercase', marginBottom: 3 }}>Order Details</div>
+          {[
+            ['Order No',      data.order_no],
+            ['Order Date',    fmtDate(data.date1)],
+            ['Delivery Date', fmtDate(data.delivery_date)],
+          ].map(([lbl, val]) => (
+            <div key={lbl}>
+              <span style={{ color: '#777', display: 'inline-block', minWidth: 76 }}>{lbl}</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>{val || 'â€”'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* â”€â”€ Fixed gold rates (only when fix_gold_rate = true) â”€â”€ */}
+      {showGoldRates && (
+        <div style={{
+          display: 'flex', alignItems: 'baseline', gap: 18,
+          padding: '6px 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0',
+          marginBottom: 10, fontVariantNumeric: 'tabular-nums', fontFamily: FONT,
+        }}>
+          <span style={{ fontSize: 7.5, letterSpacing: '1.4px', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Fixed Gold Rates</span>
+          {data.rate_14kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>14K &nbsp;â‚¹ {Number(data.rate_14kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_14kt && data.rate_18kt ? <span style={{ color: '#cbd5e1' }}>Â·</span> : null}
+          {data.rate_18kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>18K &nbsp;â‚¹ {Number(data.rate_18kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_18kt && data.rate_22kt ? <span style={{ color: '#cbd5e1' }}>Â·</span> : null}
+          {data.rate_22kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>22K &nbsp;â‚¹ {Number(data.rate_22kt).toLocaleString('en-IN')} / gm</span> : null}
+        </div>
+      )}
+
+      {/* â”€â”€ Advance / value summary â”€â”€ */}
+      {showAdvance && (
+        <div style={{ display: 'flex', border: '1px solid #e2e8f0', borderRadius: 4, marginBottom: 10, overflow: 'hidden', background: '#f8fafc' }}>
+          {[
+            { lbl: 'Estimated Value',   val: fmtAmt(data.est_amount),        color: '#0f172a' },
+            { lbl: 'Advance Received',  val: fmtAmt(data.advance_amt),       color: '#0f172a' },
+            { lbl: 'Advance Available', val: fmtAmt(data.advance_available), color: '#166534' },
+          ].map(({ lbl, val }, i) => (
+            <div key={i} style={{
+              flex: 1, padding: '7px 10px', textAlign: 'center',
+              borderRight: i < 2 ? '1px solid #e2e8f0' : 'none',
+            }}>
+              <div style={{ fontSize: 7, letterSpacing: '1.4px', textTransform: 'uppercase', color: '#64748b', fontWeight: 700, fontFamily: FONT }}>{lbl}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginTop: 2, fontVariantNumeric: 'tabular-nums', fontFamily: FONT, color: i === 2 ? '#166534' : '#0f172a' }}>{val}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* â”€â”€ Items table â”€â”€ */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', fontFamily: FONT }}>
+        <colgroup>
+          <col style={{ width: 20  }} />{/* Sl */}
+          <col                       />{/* Item */}
+          <col style={{ width: 32  }} />{/* Purity */}
+          <col style={{ width: 26  }} />{/* Pcs */}
+          <col style={{ width: 52  }} />{/* Wt */}
+          <col style={{ width: 28  }} />{/* Size */}
+          <col style={{ width: 54  }} />{/* Making Type */}
+          <col style={{ width: 52  }} />{/* Making â‚¹ */}
+          <col                       />{/* Remarks */}
+        </colgroup>
         <thead>
           <tr>
-            <th style={{ ...S.th, width: 28 }}>Sl.</th>
-            <th style={{ ...S.th, width: 60 }}>Item Code</th>
-            <th style={{ ...S.th }}>Description</th>
-            <th style={{ ...S.th, width: 44 }}>Purity</th>
-            <th style={{ ...S.th, width: 34 }}>Pcs</th>
-            <th style={{ ...S.th, width: 50 }}>GW (g)</th>
-            <th style={{ ...S.th, width: 56 }}>Making</th>
-            <th style={{ ...S.th, width: 42 }}>Size</th>
-            <th style={{ ...S.th }}>Remarks</th>
+            <th style={th0({ textAlign: 'center' })}>Sl</th>
+            <th style={th0({ textAlign: 'left'   })}>Item</th>
+            <th style={th({  textAlign: 'center' })}>Purity</th>
+            <th style={th({  textAlign: 'center' })}>Pcs</th>
+            <th style={th({  textAlign: 'right'  })}>Wt (g)</th>
+            <th style={th({  textAlign: 'center' })}>Size</th>
+            <th style={th({  textAlign: 'center' })}>Making Type</th>
+            <th style={th({  textAlign: 'right'  })}>Making (â‚¹)</th>
+            <th style={th({  textAlign: 'left'   })}>Remarks</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((row, i) => (
-            <tr key={i}>
-              <td style={{ ...S.td, textAlign: "center" }}>{i + 1}</td>
-              <td style={{ ...S.td, fontWeight: 600 }}>{row.item_id}</td>
-              <td style={S.td}>{row.item_name || ""}</td>
-              <td style={{ ...S.td, textAlign: "center" }}>{row.purity || ""}</td>
-              <td style={{ ...S.tdRight }}>{row.pcs || ""}</td>
-              <td style={{ ...S.tdRight }}>{fmtN(row.gw)}</td>
-              <td style={{ ...S.tdRight }}>
-                {row.making_amt
-                  ? `${fmtN(row.making_amt, 2)}${row.making_type === "per_nw" ? "%" : ""}`
-                  : ""}
+          {items.map((row, idx) => (
+            <tr key={idx} style={{ borderBottom: '1px solid #efefef' }}>
+              <td style={td0({ textAlign: 'center' })}>{row.sl_no ?? idx + 1}</td>
+              <td style={td0({ textAlign: 'left'   })}>{row.item_name || row.item_id || 'â€”'}</td>
+              <td style={td({  textAlign: 'center' })}>{row.purity || 'â€”'}</td>
+              <td style={td({  textAlign: 'center' })}>{row.pcs || 'â€”'}</td>
+              <td style={td({  textAlign: 'right'  })}>{fmtWt(row.gw)}</td>
+              <td style={td({  textAlign: 'center' })}>{row.size || 'â€”'}</td>
+              <td style={td({  textAlign: 'center', fontSize: 9 })}>{MAKING_LABELS[row.making_type] || row.making_type || 'â€”'}</td>
+              <td style={td({  textAlign: 'right'  })}>
+                {row.making_amt ? Number(row.making_amt).toLocaleString('en-IN') : 'â€”'}
               </td>
-              <td style={{ ...S.td, textAlign: "center" }}>{row.size || ""}</td>
-              <td style={S.td}>{row.remarks || ""}</td>
+              <td style={td({  textAlign: 'left', fontSize: 9, color: '#555' })}>{row.remarks || ''}</td>
             </tr>
           ))}
-
-          {/* Filler blank rows */}
-          {Array.from({ length: fillerCount }).map((_, i) => (
-            <tr key={`filler-${i}`}>
-              <td style={S.emptyRow} colSpan={9}>&nbsp;</td>
-            </tr>
-          ))}
-
-          {/* Totals row */}
-          {items.length > 0 && (
-            <tr style={{ background: "#f7f7f7" }}>
-              <td colSpan={4} style={{ ...S.td, fontWeight: 700, textAlign: "right",
-                fontSize: 10, color: "#444", letterSpacing: 0.5 }}>
-                TOTAL
-              </td>
-              <td style={{ ...S.tdRight, fontWeight: 700 }}>
-                {items.reduce((s, r) => s + (parseInt(r.pcs) || 0), 0) || ""}
-              </td>
-              <td style={{ ...S.tdRight, fontWeight: 700 }}>
-                {fmtN(items.reduce((s, r) => s + (parseFloat(r.gw) || 0), 0))}
-              </td>
-              <td colSpan={3} style={S.td} />
-            </tr>
-          )}
         </tbody>
-      </table>
-
-      {/* ── Gold rate block (only when fixed) ─────────────────────────── */}
-      {goldRateFixed && (
-        <table style={{ ...S.itemTable, marginBottom: 8 }}>
-          <tbody>
-            <tr>
-              <td style={{ ...S.infoCell, fontWeight: 700, fontSize: 10,
-                letterSpacing: 0.5, textTransform: "uppercase", width: 130 }}>
-                Fixed Gold Rate
-              </td>
-              {data.rate_14kt ? (
-                <td style={S.infoCell}>
-                  <span style={S.infoLabel}>14K</span>
-                  <span>₹ {Number(data.rate_14kt).toLocaleString("en-IN")}/g</span>
-                </td>
-              ) : null}
-              {data.rate_18kt ? (
-                <td style={S.infoCell}>
-                  <span style={S.infoLabel}>18K</span>
-                  <span>₹ {Number(data.rate_18kt).toLocaleString("en-IN")}/g</span>
-                </td>
-              ) : null}
-              {data.rate_22kt ? (
-                <td style={S.infoCell}>
-                  <span style={S.infoLabel}>22K</span>
-                  <span>₹ {Number(data.rate_22kt).toLocaleString("en-IN")}/g</span>
-                </td>
-              ) : null}
-              {data.gold_rate_date && (
-                <td style={S.infoCell}>
-                  <span style={S.infoLabel}>Rate Date</span>
-                  <span>{fmtDate(data.gold_rate_date)}</span>
-                </td>
-              )}
-            </tr>
-          </tbody>
-        </table>
-      )}
-
-      {/* ── Remarks ────────────────────────────────────────────────────── */}
-      {data.remarks && (
-        <table style={{ ...S.itemTable, marginBottom: 8 }}>
-          <tbody>
-            <tr>
-              <td style={{ ...S.infoCell, fontWeight: 700, fontSize: 10,
-                letterSpacing: 0.5, textTransform: "uppercase", width: 80 }}>
-                Remarks
-              </td>
-              <td style={S.infoCell}>{data.remarks}</td>
-            </tr>
-          </tbody>
-        </table>
-      )}
-
-      {/* ── Salesperson & estimated amount ─────────────────────────────── */}
-      <table style={S.footerTable}>
-        <tbody>
+        <tfoot>
           <tr>
-            <td style={{ ...S.footerCell, width: "60%" }}>
-              <span style={{ fontWeight: 700, fontSize: 10, textTransform: "uppercase",
-                letterSpacing: 0.5 }}>Salesperson: </span>
-              {[data.salesman_1_name, data.salesman_2_name].filter(Boolean).join(" / ") || "—"}
-            </td>
-            <td style={S.footerCell}>
-              <span style={{ fontWeight: 700, fontSize: 10, textTransform: "uppercase",
-                letterSpacing: 0.5 }}>Est. Amount: </span>
-              {fmtAmt(data.est_amount) || "—"}
-            </td>
+            <td colSpan={3} style={totCell0({ textAlign: 'right' })}>Total</td>
+            <td style={totCell({ textAlign: 'center' })}>{totalPcs}</td>
+            <td style={totCell({ textAlign: 'right'  })}>{fmtWt(totalWt)}</td>
+            <td colSpan={4} style={totCell()} />
           </tr>
-        </tbody>
+        </tfoot>
       </table>
 
-      {/* ── Signature row ──────────────────────────────────────────────── */}
-      <table style={{ ...S.footerTable, marginTop: 10 }}>
-        <tbody>
-          <tr>
-            <td style={{ ...S.footerCell, fontSize: 10, color: "#555" }}>
-              E. &amp; O.E.
-            </td>
-            <td style={{ ...S.signCell, width: "34%" }}>
-              ___________________________
-              <div style={{ marginTop: 4, fontWeight: 600 }}>Customer Signature</div>
-            </td>
-            <td style={{ ...S.signCell, width: "34%" }}>
-              ___________________________
-              <div style={{ marginTop: 4, fontWeight: 600 }}>
-                For {data.retail_name || "___________"}
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* ── Footer note ────────────────────────────────────────────────── */}
-      <div style={S.note}>
-        * GST and other taxes as applicable. This is a computer-generated order memo.
+      {/* â”€â”€ Footer â”€â”€ */}
+      <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontFamily: FONT }}>
+        <div style={{ fontSize: 8, color: '#888', fontStyle: 'italic', maxWidth: '60%', lineHeight: 1.7 }}>
+          This is a preliminary order acknowledgement, not a tax invoice.<br />
+          Final billing will be done at the time of delivery.<br />
+          This is a computer-generated document.
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 110, borderTop: '1px solid #999', margin: '28px auto 0' }} />
+          <div style={{ fontSize: 8.5, color: '#555', marginTop: 3 }}>Authorised Signatory</div>
+        </div>
       </div>
 
-      {/* ── Print-only CSS injected via style tag ──────────────────────── */}
-      <style>{`
-        @page { size: A4 portrait; margin: 0; }
-        @media print {
-          body { margin: 0; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        }
-      `}</style>
     </div>
   );
 };
 
 export default CustomerOrderPrint;
+

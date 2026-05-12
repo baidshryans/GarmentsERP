@@ -213,7 +213,7 @@ def sale_return_print_data(request, pk):
         return Response({
             'note_type':        'CN',
             'company_name':     (company.company_name if company else retail.retail_name) or '',
-            'company_legal_name': (_gm.legal_name if _gm else '') or '',
+            'company_legal_name': (company.legal_name if company else '') or '',
             'company_address':  company_address,
             'company_gstin':    company_gstin,
             'company_state':    getattr(retail.state, 'name', '') if retail.state else '',

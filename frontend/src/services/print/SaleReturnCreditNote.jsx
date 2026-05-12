@@ -1,7 +1,7 @@
-import React from "react";
+﻿import React from "react";
 import { fmt, fmtDate, numberToWords } from "./printHelpers";
 
-// ── CSS (self-contained — injected into the print popup) ──────────────────────
+// â”€â”€ CSS (self-contained â€” injected into the print popup) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CN_CSS = `
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap");
 
@@ -29,7 +29,7 @@ const CN_CSS = `
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Header ── */
+/* â”€â”€ Header â”€â”€ */
 .cn-header {
   display: grid;
   grid-template-columns: 72px 1fr 80px;
@@ -63,7 +63,7 @@ const CN_CSS = `
 .cn-brand-ids { display: flex; gap: 18px; font-size: 8.5px; color: var(--muted); margin-top: 2px; justify-content: center; }
 .cn-brand-ids span b { color: var(--ink); font-weight: 600; margin-left: 3px; font-variant-numeric: tabular-nums; }
 
-/* ── Invoice head ── */
+/* â”€â”€ Invoice head â”€â”€ */
 .cn-invoice-head {
   text-align: center;
   padding: 9px 0 8px;
@@ -77,7 +77,7 @@ const CN_CSS = `
   font-size: 8px; color: var(--muted); letter-spacing: 0.3px; margin-top: 1px;
 }
 
-/* ── Party section ── */
+/* â”€â”€ Party section â”€â”€ */
 .cn-parties {
   display: grid; grid-template-columns: 1fr 1fr;
   border: 1px solid var(--rule); border-radius: 4px;
@@ -115,7 +115,7 @@ const CN_CSS = `
   padding: 2px 8px; font-size: 7.5px; color: var(--body); font-weight: 600;
 }
 
-/* ── Items table ── */
+/* â”€â”€ Items table â”€â”€ */
 table.cn-items {
   width: 100%; border-collapse: collapse;
   font-size: 8.5px; font-variant-numeric: tabular-nums;
@@ -146,7 +146,7 @@ table.cn-items tbody tr.sub td {
 }
 table.cn-items tbody tr.sub td.l { padding-left: 14px; }
 
-/* ── Bottom layout ── */
+/* â”€â”€ Bottom layout â”€â”€ */
 .cn-bottom {
   display: grid; grid-template-columns: 1.4fr 1fr;
   gap: 12px; margin-top: 6px;
@@ -163,7 +163,7 @@ table.cn-items tbody tr.sub td.l { padding-left: 14px; }
 }
 .cn-declaration b { color: var(--ink); }
 
-/* ── Totals ── */
+/* â”€â”€ Totals â”€â”€ */
 .cn-totals { font-size: 9.5px; }
 .cn-row { display: flex; justify-content: space-between; padding: 5px 0; color: var(--body); }
 .cn-row .cn-l {
@@ -174,12 +174,12 @@ table.cn-items tbody tr.sub td.l { padding-left: 14px; }
 .cn-row.bold { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
 .cn-row.bold .cn-l { color: var(--ink); font-weight: 700; }
 .cn-row.bold .cn-v { font-weight: 700; }
-.cn-row.minus .cn-l::before { content: "− "; }
+.cn-row.minus .cn-l::before { content: "âˆ’ "; }
 .cn-row.net { margin-top: 4px; border-top: 2px solid var(--ink); padding: 8px 0; }
 .cn-row.net .cn-l { color: var(--ink); font-weight: 700; font-size: 9px; }
 .cn-row.net .cn-v { font-weight: 700; }
 
-/* ── Footer ── */
+/* â”€â”€ Footer â”€â”€ */
 .cn-footer {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 16px; border-top: 1px solid var(--rule);
@@ -213,7 +213,7 @@ table.cn-items tbody tr.sub td.l { padding-left: 14px; }
 }
 `;
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function fmtAmt(n) { return fmt(n); }
 function fmt3(n) {
   if (n === null || n === undefined || n === "") return "";
@@ -235,7 +235,7 @@ export default function SaleReturnCreditNote({ data: d }) {
       <style>{CN_CSS}</style>
       <div className="cn-root">
 
-        {/* ── HEADER ── */}
+        {/* â”€â”€ HEADER â”€â”€ */}
         <div className="cn-header">
           <div className="cn-logo-box">BIS<br />Hallmark</div>
 
@@ -252,7 +252,7 @@ export default function SaleReturnCreditNote({ data: d }) {
                 {[
                   d.company_phone && <span key="ph">Phone <b>{d.company_phone}</b></span>,
                   d.company_email && <span key="em">Email <b>{d.company_email}</b></span>,
-                ].filter(Boolean).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`s${i}`} className="cn-dot"> · </span>, el], [])}
+                ].filter(Boolean).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`s${i}`} className="cn-dot"> Â· </span>, el], [])}
               </div>
             )}
             <div className="cn-brand-ids">
@@ -265,13 +265,13 @@ export default function SaleReturnCreditNote({ data: d }) {
           <div className="cn-logo-rect">Company<br />Logo</div>
         </div>
 
-        {/* ── INVOICE HEAD ── */}
+        {/* â”€â”€ INVOICE HEAD â”€â”€ */}
         <div className="cn-invoice-head">
           <div className="cn-title">Credit Note</div>
           <div className="cn-subtitle">GST Credit Note &nbsp;/&nbsp; Sales Return</div>
         </div>
 
-        {/* ── PARTY SECTION ── */}
+        {/* â”€â”€ PARTY SECTION â”€â”€ */}
         <div className="cn-parties">
           {/* Customer */}
           <div className="cn-party">
@@ -334,7 +334,7 @@ export default function SaleReturnCreditNote({ data: d }) {
           </div>
         </div>
 
-        {/* ── ITEMS TABLE ── */}
+        {/* â”€â”€ ITEMS TABLE â”€â”€ */}
         <table className="cn-items">
           <thead>
             <tr>
@@ -343,7 +343,7 @@ export default function SaleReturnCreditNote({ data: d }) {
               <th className="l">Item Description</th>
               <th className="c" style={{ width: "48px" }}>Purity</th>
               <th className="r" style={{ width: "48px" }}>Weight</th>
-              <th className="r" style={{ width: "50px" }}>Rate (₹)</th>
+              <th className="r" style={{ width: "50px" }}>Rate (â‚¹)</th>
               <th className="r" style={{ width: "52px" }}>Making</th>
               <th className="r" style={{ width: "62px" }}>Amount</th>
             </tr>
@@ -356,10 +356,10 @@ export default function SaleReturnCreditNote({ data: d }) {
                   <td className="c">{item.pcs || 1}</td>
                   <td className="l">{item.item_name}</td>
                   <td className="c">
-                    {item.purity || <span style={{ color: "var(--faint)" }}>—</span>}
+                    {item.purity || <span style={{ color: "var(--faint)" }}>â€”</span>}
                   </td>
                   <td className="r">{fmt3(item.gw)}&nbsp;g</td>
-                  <td className="r"><span style={{ color: "var(--faint)" }}>—</span></td>
+                  <td className="r"><span style={{ color: "var(--faint)" }}>â€”</span></td>
                   <td className="r">{fmtAmt(item.making)}</td>
                   <td className="r">{fmtAmt(item.amount)}</td>
                 </tr>
@@ -374,10 +374,10 @@ export default function SaleReturnCreditNote({ data: d }) {
                       <td></td>
                       <td></td>
                       <td className="l">{sub.text}</td>
-                      <td className="c">{sub.metal_purity || "—"}</td>
+                      <td className="c">{sub.metal_purity || "â€”"}</td>
                       <td className="r">{wt}</td>
                       <td className="r">{fmtAmt(sub.rate)}</td>
-                      <td className="r">—</td>
+                      <td className="r">â€”</td>
                       <td className="r">{fmtAmt(sub.amount)}</td>
                     </tr>
                   );
@@ -387,7 +387,7 @@ export default function SaleReturnCreditNote({ data: d }) {
           </tbody>
         </table>
 
-        {/* ── BOTTOM ── */}
+        {/* â”€â”€ BOTTOM â”€â”€ */}
         <div className="cn-bottom">
 
           {/* Left: words + declaration */}
@@ -446,7 +446,7 @@ export default function SaleReturnCreditNote({ data: d }) {
           </div>
         </div>
 
-        {/* ── FOOTER ── */}
+        {/* â”€â”€ FOOTER â”€â”€ */}
         <div className="cn-footer">
           <div className="cn-terms">
             <b>Terms &amp; Conditions:</b>
@@ -469,3 +469,4 @@ export default function SaleReturnCreditNote({ data: d }) {
     </>
   );
 }
+

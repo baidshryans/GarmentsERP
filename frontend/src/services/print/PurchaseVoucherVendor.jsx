@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 
 const fmt = (n, dec = 2) => {
   if (n === null || n === undefined || n === "") return "";
@@ -51,7 +51,7 @@ const PV_CSS = [
   ".pv-page:last-of-type{break-after:auto;page-break-after:auto}",
   ".pv-header{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px;padding-bottom:4px;border-bottom:1.5px solid #111}",
   ".pv-logo{height:44px;width:auto;object-fit:contain}",
-  ".pv-company-name{font-size:18px;font-weight:700;letter-spacing:.5px;line-height:1.2;text-align:center}",
+  ".pv-company-name{font-size:14px;font-weight:700;letter-spacing:.3px;line-height:1.2;text-align:center}",
   ".pv-company-sub{font-size:9.5px;color:#333;margin-top:2px;text-align:center}",
   ".pv-company-gstin{font-size:9.5px;font-weight:600;margin-top:1px;text-align:center}",
   ".pv-title-strip{display:flex;align-items:center;justify-content:space-between;padding:3px 6px;border:1px solid #111;margin-top:4px}",
@@ -100,16 +100,16 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
     <div className="pv-page">
       <style>{PV_CSS}</style>
 
-      {/* ── Header ── */}
+      {/* â”€â”€ Header â”€â”€ */}
       <div className="pv-header">
         {d.company_logo_url && <img src={d.company_logo_url} alt="logo" className="pv-logo" />}
         <div>
-          <div className="pv-company-name">{d.company_name || "JEWEL INDIA"}</div>
+          <div className="pv-company-name">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</div>
           {d.company_address && <div className="pv-company-sub">{d.company_address}</div>}
           {(d.company_phone || d.company_email) && (
             <div className="pv-company-sub">
               {d.company_phone && "Ph: " + d.company_phone}
-              {d.company_phone && d.company_email && "  ·  "}
+              {d.company_phone && d.company_email && "  Â·  "}
               {d.company_email}
             </div>
           )}
@@ -118,16 +118,16 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         {d.bis_logo_url && <img src={d.bis_logo_url} alt="BIS" className="pv-logo" />}
       </div>
 
-      {/* ── Title ── */}
+      {/* â”€â”€ Title â”€â”€ */}
       <div className="pv-title-strip">
         <div className="pv-title-side">
           {d.is_rcm ? <span style={{color:"#c00",fontWeight:700}}>RCM</span> : ""}
         </div>
-        <div className="pv-title-center">Purchase Voucher — Vendor</div>
+        <div className="pv-title-center">Purchase Voucher â€” Vendor</div>
         <div className="pv-title-side pv-title-right">Original / Duplicate</div>
       </div>
 
-      {/* ── Vendor + bill info ── */}
+      {/* â”€â”€ Vendor + bill info â”€â”€ */}
       <table className="pv-meta-table">
         <tbody>
           <tr>
@@ -186,7 +186,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         </tbody>
       </table>
 
-      {/* ── Items ── */}
+      {/* â”€â”€ Items â”€â”€ */}
       <div className="pv-items-wrap">
         <table className="pv-items-table">
           <colgroup>
@@ -204,9 +204,9 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
               <th>WT / CT</th>
               <th>Tunch%</th>
               <th>Fine WT</th>
-              <th>Rate (₹/g)</th>
-              <th>Making (₹)</th>
-              <th>Amount (₹)</th>
+              <th>Rate (â‚¹/g)</th>
+              <th>Making (â‚¹)</th>
+              <th>Amount (â‚¹)</th>
             </tr>
           </thead>
           <tbody>
@@ -235,8 +235,8 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <td>
                       {item.item_name || item.item || ""}
                       {item.barcode_txt ? <span style={{color:"#555",fontSize:"9px"}}>{" ["+item.barcode_txt+"]"}</span> : null}
-                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" · Sz "+item.size}</span> : null}
-                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" · "+item.purity}</span> : null}
+                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" Â· Sz "+item.size}</span> : null}
+                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" Â· "+item.purity}</span> : null}
                     </td>
                     <td className="pv-ctr">{item.pcs ?? ""}</td>
                     <td className="pv-num">{fmt3(item.gw)}</td>
@@ -248,7 +248,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <tr key={"s-"+idx+"-"+si} className="pv-sub-row">
                       <td></td>
                       <td style={{paddingLeft:14}}>
-                        {"↳ "}{sub.sub_item||""}
+                        {"â†³ "}{sub.sub_item||""}
                         {sub.packet ? <span style={{fontSize:"9px",color:"#666"}}>{" ["+sub.packet+"]"}</span> : null}
                       </td>
                       <td className="pv-ctr">{sub.sub_pcs||""}</td>
@@ -268,44 +268,44 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         </table>
       </div>
 
-      {/* ── Totals ── */}
+      {/* â”€â”€ Totals â”€â”€ */}
       <table className="pv-totals-table">
         <tbody>
-          {parseFloat(d.bill_value) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Item Total</td><td className="pv-total-value">₹ {fmt(d.bill_value)}</td></tr> : null}
-          {makingTotal ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Making Charges</td><td className="pv-total-value">₹ {fmt(makingTotal)}</td></tr> : null}
+          {parseFloat(d.bill_value) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Item Total</td><td className="pv-total-value">â‚¹ {fmt(d.bill_value)}</td></tr> : null}
+          {makingTotal ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Making Charges</td><td className="pv-total-value">â‚¹ {fmt(makingTotal)}</td></tr> : null}
           {parseFloat(d.discount_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Discount</td><td className="pv-total-value" style={{color:"#c00"}}>({fmt(Math.abs(d.discount_amt))})</td></tr> : null}
-          {parseFloat(d.hallmark_charge) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Hallmark Charges</td><td className="pv-total-value">₹ {fmt(d.hallmark_charge)}</td></tr> : null}
-          {parseFloat(d.freight_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Freight / Carriage</td><td className="pv-total-value">₹ {fmt(d.freight_amt)}</td></tr> : null}
-          {parseFloat(d.add_chrg_amt1) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap1||"Add. Charge 1"}</td><td className="pv-total-value">₹ {fmt(d.add_chrg_amt1)}</td></tr> : null}
-          {parseFloat(d.add_chrg_amt2) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap2||"Add. Charge 2"}</td><td className="pv-total-value">₹ {fmt(d.add_chrg_amt2)}</td></tr> : null}
-          {parseFloat(d.cgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">CGST @ 1.5%</td><td className="pv-total-value">₹ {fmt(d.cgst)}</td></tr> : null}
-          {parseFloat(d.sgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">SGST @ 1.5%</td><td className="pv-total-value">₹ {fmt(d.sgst)}</td></tr> : null}
-          {parseFloat(d.igst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">IGST @ 3.0%</td><td className="pv-total-value">₹ {fmt(d.igst)}</td></tr> : null}
-          {parseFloat(d.tcs_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">TCS</td><td className="pv-total-value">₹ {fmt(d.tcs_amt)}</td></tr> : null}
+          {parseFloat(d.hallmark_charge) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Hallmark Charges</td><td className="pv-total-value">â‚¹ {fmt(d.hallmark_charge)}</td></tr> : null}
+          {parseFloat(d.freight_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Freight / Carriage</td><td className="pv-total-value">â‚¹ {fmt(d.freight_amt)}</td></tr> : null}
+          {parseFloat(d.add_chrg_amt1) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap1||"Add. Charge 1"}</td><td className="pv-total-value">â‚¹ {fmt(d.add_chrg_amt1)}</td></tr> : null}
+          {parseFloat(d.add_chrg_amt2) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap2||"Add. Charge 2"}</td><td className="pv-total-value">â‚¹ {fmt(d.add_chrg_amt2)}</td></tr> : null}
+          {parseFloat(d.cgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">CGST @ 1.5%</td><td className="pv-total-value">â‚¹ {fmt(d.cgst)}</td></tr> : null}
+          {parseFloat(d.sgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">SGST @ 1.5%</td><td className="pv-total-value">â‚¹ {fmt(d.sgst)}</td></tr> : null}
+          {parseFloat(d.igst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">IGST @ 3.0%</td><td className="pv-total-value">â‚¹ {fmt(d.igst)}</td></tr> : null}
+          {parseFloat(d.tcs_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">TCS</td><td className="pv-total-value">â‚¹ {fmt(d.tcs_amt)}</td></tr> : null}
           {parseFloat(d.tds_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{"TDS"+(d.tds_section?" ("+d.tds_section+")":"")}</td><td className="pv-total-value" style={{color:"#c00"}}>({fmt(d.tds_amt)})</td></tr> : null}
-          {parseFloat(d.round_off) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Round Off</td><td className="pv-total-value">₹ {fmt(d.round_off)}</td></tr> : null}
+          {parseFloat(d.round_off) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Round Off</td><td className="pv-total-value">â‚¹ {fmt(d.round_off)}</td></tr> : null}
           <tr className="pv-grand-row">
             <td className="pv-total-spacer"></td>
             <td className="pv-total-label">Net Payable</td>
-            <td className="pv-total-value">₹ {fmt(grandTotal)}</td>
+            <td className="pv-total-value">â‚¹ {fmt(grandTotal)}</td>
           </tr>
         </tbody>
       </table>
 
-      {/* ── Amount in words ── */}
+      {/* â”€â”€ Amount in words â”€â”€ */}
       <div className="pv-words-row">
         <span style={{fontWeight:700}}>Amount in Words: </span>
         {numberToWords(grandTotal)}
       </div>
 
-      {/* ── Narration ── */}
+      {/* â”€â”€ Narration â”€â”€ */}
       {d.narration ? (
         <div className="pv-narr-row">
           <span style={{fontWeight:700}}>Narration: </span>{d.narration}
         </div>
       ) : null}
 
-      {/* ── Footer ── */}
+      {/* â”€â”€ Footer â”€â”€ */}
       <div className="pv-footer">
         <div className="pv-footer-left">
           {d.company_pan   ? <div><span className="pv-label">PAN:</span> {d.company_pan}</div>   : null}
@@ -314,7 +314,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
           <div style={{marginTop:2,fontSize:"9.5px",color:"#555"}}>E. &amp; O.E.</div>
         </div>
         <div className="pv-footer-right">
-          <div style={{fontSize:"9.5px",fontWeight:600,marginBottom:2}}>for {d.company_name||"JEWEL INDIA"}</div>
+          <div style={{fontSize:"9.5px",fontWeight:600,marginBottom:2}}>for {d.company_legal_name || d.company_name || "JEWEL INDIA"}</div>
           <div className="pv-sig">Authorised Signatory</div>
         </div>
       </div>
@@ -323,3 +323,4 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
 };
 
 export default PurchaseVoucherVendor;
+

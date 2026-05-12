@@ -1,4 +1,4 @@
-// frontend/src/services/print/PaymentVoucherSlip.jsx
+﻿// frontend/src/services/print/PaymentVoucherSlip.jsx
 /* eslint-disable react/prop-types */
 import { fmt, fmtDate, numberToWords, detectParty, detectMode } from "./printHelpers";
 
@@ -9,12 +9,12 @@ const PV_CSS = [
   "*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}",
   "body{background:#fff}",
 
-  /* page — A5 landscape */
+  /* page â€” A5 landscape */
   ".pv-page{font-family:Inter,Arial,sans-serif;font-size:10px;line-height:1.4;color:#111;width:210mm;min-height:148mm;margin:0 auto;padding:8mm 10mm;background:#fff;display:flex;flex-direction:column}",
 
   /* company header */
   ".pv-header{text-align:center;padding-bottom:6px;border-bottom:2px solid #111}",
-  ".pv-co-name{font-size:18px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}",
+  ".pv-co-name{font-size:14px;font-weight:700;letter-spacing:.3px}",
   ".pv-co-sub{font-size:8.5px;color:#444;margin-top:1px}",
 
   /* title strip */
@@ -69,7 +69,7 @@ const PaymentVoucherSlip = ({ data = {} }) => {
     <div className="pv-page">
       <style>{PV_CSS}</style>
 
-      {/* ── Company header ── */}
+      {/* â”€â”€ Company header â”€â”€ */}
       <div className="pv-header">
         <div className="pv-co-name">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</div>
         {d.company_address && (
@@ -78,16 +78,16 @@ const PaymentVoucherSlip = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="pv-co-sub">
             {d.company_phone && "Tel: " + d.company_phone}
-            {d.company_phone && d.company_email && "  ·  "}
+            {d.company_phone && d.company_email && "  Â·  "}
             {d.company_email}
           </div>
         )}
       </div>
 
-      {/* ── Title strip ── */}
+      {/* â”€â”€ Title strip â”€â”€ */}
       <div className="pv-title">
         <div className="pv-title-meta">
-          Vou. No.&nbsp;<strong>{d.voucher_no || "—"}</strong>
+          Vou. No.&nbsp;<strong>{d.voucher_no || "â€”"}</strong>
         </div>
         <div className="pv-title-center">Payment Voucher</div>
         <div className="pv-title-meta pv-title-right">
@@ -98,50 +98,50 @@ const PaymentVoucherSlip = ({ data = {} }) => {
         </div>
       </div>
 
-      {/* ── Paid To + Amount ── */}
+      {/* â”€â”€ Paid To + Amount â”€â”€ */}
       <div className="pv-party-row">
         <div className="pv-party">
           <div className="pv-lbl">Paid To</div>
-          <div className="pv-party-name">{party?.account || "—"}</div>
+          <div className="pv-party-name">{party?.account || "â€”"}</div>
           {party?.ref_bill_no && (
             <div className="pv-party-ref">Ref: {party.ref_bill_no}</div>
           )}
         </div>
         <div className="pv-amount-block">
           <div className="pv-lbl" style={{ textAlign: "right" }}>Amount</div>
-          <div className="pv-amount-fig">₹&nbsp;{fmt(totalAmt) || "0.00"}</div>
+          <div className="pv-amount-fig">â‚¹&nbsp;{fmt(totalAmt) || "0.00"}</div>
           <div className="pv-amount-words">{numberToWords(totalAmt)}</div>
         </div>
       </div>
 
-      {/* ── Payment details strip ── */}
+      {/* â”€â”€ Payment details strip â”€â”€ */}
       <div className="pv-details">
         <div className="pv-det-cell">
           <div className="pv-lbl">Mode</div>
-          <div className="pv-mode-badge">{mode?.label || "—"}</div>
+          <div className="pv-mode-badge">{mode?.label || "â€”"}</div>
         </div>
         <div className="pv-det-cell">
           <div className="pv-lbl">Bank / Account</div>
-          <div className="pv-det-val">{mode?.account || "—"}</div>
+          <div className="pv-det-val">{mode?.account || "â€”"}</div>
         </div>
         <div className="pv-det-cell">
           <div className="pv-lbl">Cheque / Ref. No.</div>
-          <div className="pv-det-val">{bankLine?.chq_no || "—"}</div>
+          <div className="pv-det-val">{bankLine?.chq_no || "â€”"}</div>
         </div>
         <div className="pv-det-cell">
           <div className="pv-lbl">Instrument Date</div>
-          <div className="pv-det-val">{fmtDate(bankLine?.chq_date) || "—"}</div>
+          <div className="pv-det-val">{fmtDate(bankLine?.chq_date) || "â€”"}</div>
         </div>
       </div>
 
-      {/* ── Narration (hidden when empty) ── */}
+      {/* â”€â”€ Narration (hidden when empty) â”€â”€ */}
       {d.narration && (
         <div className="pv-narr">
           <strong>Narration:</strong>&nbsp;{d.narration}
         </div>
       )}
 
-      {/* ── Footer ── */}
+      {/* â”€â”€ Footer â”€â”€ */}
       <div className="pv-footer">
         <div className="pv-footer-left">
           {d.company_pan   && <div><strong>PAN:</strong>&nbsp;{d.company_pan}</div>}
@@ -165,3 +165,4 @@ const PaymentVoucherSlip = ({ data = {} }) => {
 };
 
 export default PaymentVoucherSlip;
+

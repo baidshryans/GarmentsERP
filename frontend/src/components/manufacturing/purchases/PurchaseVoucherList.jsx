@@ -58,6 +58,7 @@ function PurchaseVoucherList({ voucherType = "" }) {
           const retail = retails.find(r => r.retail_code === retailCode) || retails[0];
           setCompanyInfo({
             company_name: c.company_name,
+            company_legal_name: c.legal_name || '',
             company_address: [c.address, c.city, c.pincode].filter(Boolean).join(', '),
             company_phone: c.phone,
             company_email: c.email,

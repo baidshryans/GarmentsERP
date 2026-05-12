@@ -191,7 +191,7 @@ class CompanyMasterSerializer(ModelSerializer):
     class Meta:
         model  = CompanyMaster
         fields = [
-            'id', 'company_name', 'pan', 'tan', 'cin',
+            'id', 'company_name', 'legal_name', 'pan', 'tan', 'cin',
             'phone', 'email', 'address', 'city', 'state', 'state_name',
             'pincode', 'website', 'bis_logo', 'company_logo',
             'created_at', 'branch_count', 'retail_count',

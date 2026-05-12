@@ -63,7 +63,7 @@ const AccountingVoucherList = () => {
             company_email: c.email,
             company_pan: c.pan,
             company_gstin:      retail?.gstin_master_str || c.gstin || "",
-            company_legal_name: retail?.gstin_legal_name || "",
+            company_legal_name: c.legal_name || "",
             company_tan: c.tan,
             company_cin: c.cin,
           });

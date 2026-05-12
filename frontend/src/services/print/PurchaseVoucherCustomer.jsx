@@ -1,24 +1,24 @@
-import React from "react";
+﻿import React from "react";
 
-/* ────────────────────────────────────────────────────────────────────────────
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    PurchaseVoucherCustomer
    ------------------------------------------------------------------
    A5-landscape, monochrome receipt format for purchases booked AGAINST a
    customer (old-gold / buyback vouchers). Designed to print on half-A4
    sheets with comfortable spacing.
 
-   Layout (top → bottom):
-     • Copy indicator     ─ ORIGINAL / DUPLICATE, plain caps, top-right
-     • Header             ─ BIS placeholder · centered company block · logo
-     • Title              ─ PURCHASE VOUCHER (CUSTOMER), centered
-     • Meta cards         ─ Voucher No · Voucher Date · Place of Supply
-     • Customer card      ─ name · address · Phone/PAN/GSTIN/State row
-     • Items table        ─ SL · Particulars · Pcs · Ct · Wt · Fine Wt
-                            · Rate · Value · Amount
-     • Totals (in-table)  ─ Subtotal · Round Off · Total Payable
-     • Narration / In Words (single lines, conditional)
-     • Sign-off           ─ Issued-by GST grid · Authorised Signatory
-     • Footer             ─ centered "computer-generated" line
+   Layout (top â†’ bottom):
+     â€¢ Copy indicator     â”€ ORIGINAL / DUPLICATE, plain caps, top-right
+     â€¢ Header             â”€ BIS placeholder Â· centered company block Â· logo
+     â€¢ Title              â”€ PURCHASE VOUCHER (CUSTOMER), centered
+     â€¢ Meta cards         â”€ Voucher No Â· Voucher Date Â· Place of Supply
+     â€¢ Customer card      â”€ name Â· address Â· Phone/PAN/GSTIN/State row
+     â€¢ Items table        â”€ SL Â· Particulars Â· Pcs Â· Ct Â· Wt Â· Fine Wt
+                            Â· Rate Â· Value Â· Amount
+     â€¢ Totals (in-table)  â”€ Subtotal Â· Round Off Â· Total Payable
+     â€¢ Narration / In Words (single lines, conditional)
+     â€¢ Sign-off           â”€ Issued-by GST grid Â· Authorised Signatory
+     â€¢ Footer             â”€ centered "computer-generated" line
 
    Data prop (merged row + companyInfo from PurchaseVoucherList):
      d.billno, d.date1, d.narration, d.bill_value, d.round_off,
@@ -28,9 +28,9 @@ import React from "react";
      d.company_name, d.company_address, d.company_phone, d.company_email,
      d.company_cin, d.company_pan, d.company_gstin, d.company_logo_url,
      d.bis_logo_url
-   ──────────────────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* ─── Helpers ─────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 const fmt = (n, dec = 2) => {
   if (n === null || n === undefined || n === "") return "";
@@ -82,7 +82,7 @@ function numberToWords(num) {
   return "Rupees " + res.trim() + " Only";
 }
 
-/* ─── Stylesheet (scoped via .pvc- prefix) ────────────────────────────── */
+/* â”€â”€â”€ Stylesheet (scoped via .pvc- prefix) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 const PVC_CSS = `
 *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -156,7 +156,7 @@ body { background: #fff; }
   letter-spacing: 2.5px; text-transform: uppercase;
 }
 
-/* Meta cards (Voucher No · Date · Place of Supply) */
+/* Meta cards (Voucher No Â· Date Â· Place of Supply) */
 .pvc-meta-strip {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -312,7 +312,7 @@ body { background: #fff; }
 }
 `;
 
-/* ─── Component ───────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 const PurchaseVoucherCustomer = ({ data = {} }) => {
   const d = data;
@@ -326,11 +326,11 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
   const roundOff   = parseFloat(d.round_off) || 0;
   const grandTotal = parseFloat(d.total_incl_gst) || (subtotal + roundOff);
 
-  /* place of supply (state · code) --------------------------------- */
+  /* place of supply (state Â· code) --------------------------------- */
   const placeOfSupply = (() => {
     const state = d.party_state || "";
     const code = d.vendor_state_code || "";
-    if (state && code) return `${state} · ${code}`;
+    if (state && code) return `${state} Â· ${code}`;
     return state || code || "";
   })();
 
@@ -343,7 +343,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
         <span className="pvc-copy-tag">Original / Duplicate</span>
       </div>
 
-      {/* Header — BIS · Company (centered) · Brand logo */}
+      {/* Header â€” BIS Â· Company (centered) Â· Brand logo */}
       <div className="pvc-header">
         <div className="left">
           {d.bis_logo_url
@@ -351,13 +351,13 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
             : <div className="pvc-logo-slot">BIS<br/>HALLMARK</div>}
         </div>
         <div className="pvc-brand">
-          <div className="pvc-h-name">{d.company_name || "JEWEL INDIA"}</div>
+          <div className="pvc-h-name">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</div>
           <div className="pvc-h-meta">
             {d.company_address && <div>{d.company_address}</div>}
             {(d.company_phone || d.company_email) && (
               <div>
                 {d.company_phone && <>Phone : {d.company_phone}</>}
-                {d.company_phone && d.company_email && <>&nbsp;&nbsp;·&nbsp;&nbsp;</>}
+                {d.company_phone && d.company_email && <>&nbsp;&nbsp;Â·&nbsp;&nbsp;</>}
                 {d.company_email && <>Email : {d.company_email}</>}
               </div>
             )}
@@ -388,7 +388,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
         </div>
         <div className="pvc-meta-card">
           <div className="pvc-label">Place of Supply</div>
-          <div className="pvc-value">{placeOfSupply || "—"}</div>
+          <div className="pvc-value">{placeOfSupply || "â€”"}</div>
         </div>
       </div>
 
@@ -442,7 +442,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
           </tr>
         </thead>
         <tbody>
-          {/* Direct sub-items (no parent) — each is its own SL row */}
+          {/* Direct sub-items (no parent) â€” each is its own SL row */}
           {directSubs.map((sub, i) => (
             <tr key={"d-" + i}>
               <td className="sl t-center">{String(i + 1).padStart(2, "0")}</td>
@@ -451,18 +451,18 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
                 {(sub.metal_purity || sub.packet) && (
                   <div className="pvc-item-sub">
                     {sub.metal_purity && <>Purity: {sub.metal_purity}</>}
-                    {sub.metal_purity && sub.packet && <> · </>}
+                    {sub.metal_purity && sub.packet && <> Â· </>}
                     {sub.packet && <>{sub.packet}</>}
                   </div>
                 )}
               </td>
-              <td className="t-center">{sub.sub_pcs || "—"}</td>
-              <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : "—"}</td>
-              <td className="t-num strong">{sub.sub_gw ? fmt3(sub.sub_gw) : "—"}</td>
-              <td className="t-num">{sub.fine_wt ? fmt3(sub.fine_wt) : "—"}</td>
-              <td className="t-num">{sub.rate ? fmt(sub.rate) : "—"}</td>
-              <td className="t-num">{sub.value ? fmt(sub.value) : "—"}</td>
-              <td className="t-num strong">{sub.value ? fmt(sub.value) : "—"}</td>
+              <td className="t-center">{sub.sub_pcs || "â€”"}</td>
+              <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : "â€”"}</td>
+              <td className="t-num strong">{sub.sub_gw ? fmt3(sub.sub_gw) : "â€”"}</td>
+              <td className="t-num">{sub.fine_wt ? fmt3(sub.fine_wt) : "â€”"}</td>
+              <td className="t-num">{sub.rate ? fmt(sub.rate) : "â€”"}</td>
+              <td className="t-num">{sub.value ? fmt(sub.value) : "â€”"}</td>
+              <td className="t-num strong">{sub.value ? fmt(sub.value) : "â€”"}</td>
             </tr>
           ))}
 
@@ -480,25 +480,25 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
                     {(item.purity || item.barcode_txt || item.size) && (
                       <div className="pvc-item-sub">
                         {item.purity && <>Purity: {item.purity}</>}
-                        {item.purity && item.barcode_txt && <> · </>}
+                        {item.purity && item.barcode_txt && <> Â· </>}
                         {item.barcode_txt && <>{item.barcode_txt}</>}
-                        {(item.purity || item.barcode_txt) && item.size && <> · </>}
+                        {(item.purity || item.barcode_txt) && item.size && <> Â· </>}
                         {item.size && <>Size {item.size}</>}
                       </div>
                     )}
                   </td>
-                  <td className="t-center">{item.pcs ?? "—"}</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num strong">{item.gw ? fmt3(item.gw) : "—"}</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num strong">{amount ? fmt(amount) : "—"}</td>
+                  <td className="t-center">{item.pcs ?? "â€”"}</td>
+                  <td className="t-num">â€”</td>
+                  <td className="t-num strong">{item.gw ? fmt3(item.gw) : "â€”"}</td>
+                  <td className="t-num">â€”</td>
+                  <td className="t-num">â€”</td>
+                  <td className="t-num">â€”</td>
+                  <td className="t-num strong">{amount ? fmt(amount) : "â€”"}</td>
                 </tr>
                 {subs.map((sub, si) => (
                   <tr key={"i-" + idx + "-s-" + si} className="subrow">
                     <td></td>
-                    <td className="particulars">↳ {sub.sub_item || ""}</td>
+                    <td className="particulars">â†³ {sub.sub_item || ""}</td>
                     <td className="t-center">{sub.sub_pcs || ""}</td>
                     <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : ""}</td>
                     <td className="t-num">{sub.sub_gw ? fmt3(sub.sub_gw) : ""}</td>
@@ -521,7 +521,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
             </tr>
           ))}
 
-          {/* Totals — integrated as bottom rows */}
+          {/* Totals â€” integrated as bottom rows */}
           <tr className="tot subtotal first">
             <td colSpan={7}></td>
             <td className="tot-label">Subtotal</td>
@@ -571,21 +571,21 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
               <div className="k">State</div>
               <div className="v">
                 {d.company_state || ""}
-                {d.company_state && d.company_state_code && " · "}
+                {d.company_state && d.company_state_code && " Â· "}
                 {d.company_state_code || ""}
               </div>
             </>)}
           </div>
         </div>
         <div className="pvc-sign">
-          <div className="for">for <span className="strong">{d.company_name || "JEWEL INDIA"}</span></div>
+          <div className="for">for <span className="strong">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</span></div>
           <div className="pvc-sig-box">Authorised Signatory</div>
         </div>
       </div>
 
       {/* Footer */}
       <div className="pvc-footer">
-        Computer-generated voucher · No physical signature required
+        Computer-generated voucher Â· No physical signature required
       </div>
     </div>
   );

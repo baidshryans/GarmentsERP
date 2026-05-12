@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit, cancelCustomerOrder, fetchPendingCustomerOrderItems } from "@/services/apiService";
+import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit, cancelCustomerOrder, fetchPendingCustomerOrderItems, fetchCompanies, fetchRetails } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,11 +22,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const DELIVERY_STATUS_OPTIONS = [
-  { value: 'pending',   label: 'Pending',              color: 'bg-violet-100 text-primary' },
-  { value: 'ready',     label: 'Ready for Delivery',   color: 'bg-sky-100 text-sky-800' },
-  { value: 'delivered', label: 'Delivered',             color: 'bg-emerald-100 text-emerald-800' },
-  { value: 'returned',  label: 'Returned',              color: 'bg-red-100 text-red-700' },
-  { value: 'cancelled', label: 'Cancelled',             color: 'bg-gray-100 text-gray-600' },
+  { value: 'pending',        label: 'Pending',              color: 'bg-violet-100 text-primary' },
+  { value: 'ready',          label: 'Ready for Delivery',   color: 'bg-sky-100 text-sky-800' },
+  { value: 'delivered',      label: 'Delivered',             color: 'bg-emerald-100 text-emerald-800' },
+  { value: 'returned',       label: 'Returned',              color: 'bg-red-100 text-red-700' },
+  { value: 'partial_return', label: 'Partial Return',        color: 'bg-orange-100 text-orange-700' },
+  { value: 'cancelled',      label: 'Cancelled',             color: 'bg-gray-100 text-gray-600' },
 ];
 
 function deliveryStatusMeta(v) {
@@ -46,7 +47,7 @@ function DeliveryDateCell({ row }) {
   const due      = new Date(delivery_date);
   const diffDays = Math.round((due - today) / 86400000);
 
-  if (delivery_status === 'delivered' || delivery_status === 'cancelled' || delivery_status === 'returned') {
+  if (delivery_status === 'delivered' || delivery_status === 'cancelled' || delivery_status === 'returned' || delivery_status === 'partial_return') {
     return <span className="text-xs text-muted-foreground">{fmtDate(delivery_date)}</span>;
   }
 
@@ -242,6 +243,7 @@ function CustomerOrderList() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [params, setParams]   = useSearchParams();
+  const [company, setCompany] = useState({});
   const [orders, setOrders]   = useState([]);
   const [overview, setOverview] = useState(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -269,6 +271,32 @@ function CustomerOrderList() {
 
   const search = params.get('search') || '';
   const sortby = params.get('sortby') || '';
+
+  // Fetch company + retail info once on mount for print header
+  useEffect(() => {
+    Promise.all([fetchCompanies(), fetchRetails()]).then(([companyRes, retailsRes]) => {
+      if (companyRes.success) {
+        const c = (companyRes.data?.results || companyRes.data || [])[0];
+        if (c) {
+          const retails = retailsRes.success ? (retailsRes.data?.results || retailsRes.data || []) : [];
+          const retailCode = sessionStorage.getItem('retail_code');
+          const retail = retails.find(r => r.retail_code === retailCode) || retails[0];
+          setCompany({
+            name:             c.company_name || '',
+            legal_name:       c.legal_name || '',
+            address:          [c.address, c.city, c.pincode].filter(Boolean).join(', '),
+            phone:            c.phone || '',
+            email:            c.email || '',
+            pan:              c.pan || '',
+            cin:              c.cin || '',
+            gstin:            retail?.gstin_master_str || '',
+            bis_logo_url:     c.bis_logo || '',
+            company_logo_url: c.company_logo || '',
+          });
+        }
+      }
+    });
+  }, []);
 
   // Load order list
   const loadOrders = useCallback(async () => {
@@ -460,7 +488,7 @@ function CustomerOrderList() {
             onClick={async () => {
               const res = await fetchCustomerOrderForEdit(row.original.id);
               if (res.success) {
-                openAndPrint(<CustomerOrder data={res.data} />);
+                openAndPrint(<CustomerOrder data={res.data} company={company} />);
               } else {
                 toast({ title: "Could not load order details for printing.", variant: "destructive" });
               }

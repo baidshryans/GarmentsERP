@@ -974,7 +974,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
-                                    "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
+                                    "voucher_no":sales_vou_instance.billno,
                                     'retail':request.retail.id,
                                     "narration":f"Sale Voucher Narration",
                                     "voucher_type":global_vars.VoucherType.sale,
@@ -1243,7 +1243,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
-                                    "voucher_no":generate_voucher_no(global_vars.VoucherType.sale, request.retail),
+                                    "voucher_no":sales_vou_instance.billno,
                                     'retail':request.retail.id,
                                     "narration":f"Sale Voucher Narration",
                                     "voucher_type":global_vars.VoucherType.sale,
@@ -1554,7 +1554,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_making_total + _sr_item_total - _sr_discount_d
 
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
-                        "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
+                        "voucher_no":sale_return_instance.billno,
                         "narration":f"Sale Return Narration",
                         "voucher_type":global_vars.VoucherType.sale_ret,
                         "retail":request.retail.id,
@@ -1692,7 +1692,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             _sr_party_credit = _sr_cgst_d + _sr_sgst_d + _sr_igst_d + _sr_tcs_d + _sr_making_total + _sr_item_total - _sr_discount_d
 
             ser = JournalEntrySerializer(data= {'date':sale_return_instance.date1.strftime('%Y-%m-%d'),
-                        "voucher_no":generate_voucher_no(global_vars.VoucherType.sale_ret, request.retail),
+                        "voucher_no":sale_return_instance.billno,
                         "narration":f"Sale Return Narration",
                         "voucher_type":global_vars.VoucherType.sale_ret,
                         "retail":request.retail.id,

@@ -440,7 +440,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
 
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                            "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                            "voucher_no":purchase_voucher_instance.billno,
                             "narration":f"Purchase Voucher {purchase_voucher_instance.billno}",
                             "voucher_type":global_vars.VoucherType.purc_sc,
                             "retail":retail.id,
@@ -610,7 +610,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             _round_off = Decimal(str(purchase_voucher_instance.round_off or 0))
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                            "voucher_no":_existing_voucher_no or generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                            "voucher_no":purchase_voucher_instance.billno,
                             "narration":f"Purchase Voucher {purchase_voucher_instance.billno}",
                             "voucher_type":global_vars.VoucherType.purc_sc,
                             "retail":retail.id,

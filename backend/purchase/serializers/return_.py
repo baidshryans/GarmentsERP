@@ -167,7 +167,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                 _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
 
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
-                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
+                "voucher_no":purchase_return_instance.billno,
                 "narration":f"Purchase Return Narration",
                 "voucher_type":global_vars.VoucherType.purc_ret,
                 "retail":retail.id,
@@ -254,7 +254,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                 _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
 
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
-                "voucher_no":generate_voucher_no(global_vars.VoucherType.purc_ret, retail),
+                "voucher_no":purchase_return_instance.billno,
                 "narration":f"Purchase Return Narration",
                 "voucher_type":global_vars.VoucherType.purc_ret,
                 "retail":retail.id,

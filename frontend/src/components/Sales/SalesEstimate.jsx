@@ -13,6 +13,11 @@ const fmt = (v, d = 3) => {
   return isNaN(n) ? "—" : n.toFixed(d);
 };
 
+const fmtINR = (v) => {
+  const n = parseFloat(v);
+  return isNaN(n) ? "—" : n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+};
+
 export default function SalesEstimate() {
   const { toast } = useToast();
   const inputRef = useRef(null);
@@ -158,7 +163,8 @@ export default function SalesEstimate() {
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold text-muted-foreground">#</th>
                   <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Barcode</th>
-                  <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Item / Purity</th>
+                  <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Item</th>
+                  <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Purity</th>
                   <th className="px-3 py-2 text-right font-semibold text-muted-foreground">Pcs</th>
                   <th className="px-3 py-2 text-right font-semibold text-muted-foreground">GW</th>
                   <th className="px-3 py-2 text-right font-semibold text-muted-foreground">NW</th>
@@ -181,20 +187,18 @@ export default function SalesEstimate() {
                       <td className="px-3 py-2 font-mono">
                         <span className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{item.barcode || item.voucher_no || "—"}</span>
                       </td>
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{item.item || "—"}</div>
-                        {item.purity && <div className="text-muted-foreground">{item.purity}K</div>}
-                      </td>
+                      <td className="px-3 py-2 font-medium">{item.item_name || item.item || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.purity || "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{item.pcs || 0}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-mono">{fmt(item.gw)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-mono">{fmt(item.nw)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-mono">{fmt(t.totalStoneCt)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmt(t.totalStoneValue, 2)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmt(t.totalMetalValue, 2)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmt(t.totalMakingValue, 2)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(t.productValue, 2)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{fmt(t.gstAmt, 2)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-primary">{fmt(t.billValue, 2)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmt(item.gw)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmt(item.nw)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmt(t.totalStoneCt)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtINR(t.totalStoneValue)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtINR(t.totalMetalValue)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtINR(t.totalMakingValue)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtINR(t.productValue)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtINR(t.gstAmt)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-primary">{fmtINR(t.billValue)}</td>
                       <td className="px-3 py-2 text-center">
                         <button onClick={() => handleRemove(item._key)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <Trash2 className="size-3.5" />
@@ -207,17 +211,17 @@ export default function SalesEstimate() {
               {/* Grand totals footer */}
               <tfoot className="bg-muted/50 border-t-2 border-border font-semibold text-xs">
                 <tr>
-                  <td colSpan={3} className="px-3 py-2 text-right text-muted-foreground">Grand Total</td>
+                  <td colSpan={4} className="px-3 py-2 text-right text-muted-foreground">Grand Total</td>
                   <td className="px-3 py-2 text-right tabular-nums">{grand.pcs}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-mono">{fmt(grand.gw)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-mono">{fmt(grand.nw)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-mono">{fmt(grand.stoneCt)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.stoneVal, 2)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.metalVal, 2)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.making, 2)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.productVal, 2)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.gstAmt, 2)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-primary">{fmt(grand.billVal, 2)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.gw)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.nw)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmt(grand.stoneCt)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtINR(grand.stoneVal)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtINR(grand.metalVal)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtINR(grand.making)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtINR(grand.productVal)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtINR(grand.gstAmt)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-primary">{fmtINR(grand.billVal)}</td>
                   <td />
                 </tr>
               </tfoot>

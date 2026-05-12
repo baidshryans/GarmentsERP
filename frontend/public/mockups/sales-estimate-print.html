@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sales Estimate — Print Mockup</title>
+<style>
+  @page { size: A4 landscape; margin: 14mm 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #111; background: #fff; }
+
+  @media screen {
+    body { background: #e5e7eb; padding: 24px; }
+    .page { background: #fff; width: 277mm; min-height: 190mm; margin: 0 auto; padding: 14mm 12mm; box-shadow: 0 4px 24px rgba(0,0,0,.18); border-radius: 4px; }
+    .controls { max-width: 277mm; margin: 0 auto 16px; display: flex; gap: 10px; }
+    .controls button { background: #1d4ed8; color: #fff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px; cursor: pointer; }
+    .controls button:hover { background: #1e40af; }
+  }
+  @media print { body { background: #fff; } .page { padding: 0; } .controls { display: none; } }
+
+  h1.est-title { text-align: center; font-size: 18px; font-weight: 700; letter-spacing: 3px; margin-bottom: 10px; }
+  .meta-bar { display: flex; justify-content: flex-end; gap: 16px; font-size: 9px; color: #555; margin-bottom: 10px; }
+
+  table.est { width: 100%; border-collapse: collapse; table-layout: auto; }
+  col.c-sl   { width: 24px; } col.c-pkt  { width: 52px; } col.c-pcs  { width: 30px; }
+  col.c-gw   { width: 46px; } col.c-nw   { width: 46px; } col.c-ct   { width: 40px; }
+  col.c-rate { width: 56px; } col.c-mval { width: 64px; } col.c-sval { width: 64px; }
+  col.c-mkv  { width: 60px; } col.c-prod { width: 68px; }
+
+  table.est thead th {
+    border: none; border-left: 1px solid #999; border-bottom: 1.5px solid #000;
+    padding: 4px 5px; font-size: 9.5px; font-weight: 700; background: #fff;
+    text-align: center; white-space: nowrap; line-height: 1.3;
+  }
+  table.est thead th:first-child { border-left: none; }
+
+  table.est td {
+    border: none; border-left: 1px solid #ddd;
+    padding: 3px 5px; font-size: 10px; vertical-align: middle; line-height: 1.35;
+  }
+  table.est td:first-child { border-left: none; }
+
+  tr.item-hdr td {
+    background: #f2f2f2; font-weight: 700; font-size: 10.5px;
+    border-top: 1px solid #bbb; border-bottom: 1px solid #bbb; border-left: 1px solid #ddd;
+  }
+  tr.item-hdr td:first-child { border-left: none; }
+
+  tr.sub-row td { background: #fff; }
+  .arrow { color: #bbb; margin-right: 4px; font-size: 9px; }
+
+  tr.subtotal-row td {
+    background: #f8f8f8; font-size: 9px;
+    border-top: 1px solid #ccc; border-left: 1px solid #ddd;
+  }
+  tr.subtotal-row td:first-child { border-left: none; }
+
+  tr.grand-total td {
+    background: #f2f2f2; font-weight: 700; font-size: 10px;
+    border-top: 1.5px solid #000; border-bottom: 1px solid #999; border-left: 1px solid #ddd;
+  }
+  tr.grand-total td:first-child { border-left: none; }
+
+  tr.gst-row td { background: #fff; font-size: 9.5px; border-left: 1px solid #ddd; }
+  tr.gst-row td:first-child { border-left: none; }
+
+  tr.bill-row td {
+    background: #fff; font-weight: 700; font-size: 12px;
+    border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; border-left: 1px solid #ddd;
+  }
+  tr.bill-row td:first-child { border-left: none; }
+
+  tr.spacer td { height: 4px; background: #fff; border: none; padding: 0; }
+
+  .r { text-align: right; } .c { text-align: center; } .l { text-align: left; }
+  .bold { font-weight: 700; } .mono { font-family: monospace; }
+  .muted { color: #555; font-size: 9px; font-weight: 400; }
+
+  .disclaimer { margin-top: 14px; font-size: 8.5px; color: #888; text-align: center; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="controls"><button onclick="window.print()">Print / Save PDF</button></div>
+<div class="page">
+
+<h1 class="est-title">ESTIMATE</h1>
+<div class="meta-bar"><span>Date: 12/05/2026</span><span>Items: 3</span></div>
+
+<table class="est">
+  <colgroup>
+    <col class="c-sl"><col><col class="c-pkt"><col class="c-pcs">
+    <col class="c-gw"><col class="c-nw"><col class="c-ct"><col class="c-rate">
+    <col class="c-mval"><col class="c-sval"><col class="c-mkv"><col class="c-prod">
+  </colgroup>
+  <thead>
+    <tr>
+      <th class="c" rowspan="2" style="vertical-align:middle">Sl</th>
+      <th class="l" rowspan="2" style="vertical-align:middle;border-left:none">Description</th>
+      <th class="l" rowspan="2" style="vertical-align:middle">Pkt</th>
+      <th class="c" rowspan="2" style="vertical-align:middle">Pcs</th>
+      <th class="c" colspan="2" style="border-bottom:1px solid #bbb">Metal (Gm)</th>
+      <th class="r" rowspan="2" style="vertical-align:middle">Ct</th>
+      <th class="r" rowspan="2" style="vertical-align:middle">Rate</th>
+      <th class="r" rowspan="2" style="vertical-align:middle">Metal Val</th>
+      <th class="r" rowspan="2" style="vertical-align:middle">Stone Val</th>
+      <th class="r" rowspan="2" style="vertical-align:middle">Making</th>
+      <th class="r" rowspan="2" style="vertical-align:middle;font-size:9px">Prod Val</th>
+    </tr>
+    <tr>
+      <th class="c">Gr. Wt.</th>
+      <th class="c">Net Wt.</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <!-- ITEM 1: Earring 14K (per_nw making) — gold rate + metal val on main row, no gold sub-row -->
+    <tr class="item-hdr">
+      <td class="c">1</td><td class="l bold">Earring · 14K</td><td></td>
+      <td class="c">2</td><td class="r mono">3.400</td><td class="r mono">3.200</td>
+      <td></td><td class="r muted">5,800</td><td class="r bold">18,560.00</td><td></td>
+      <td class="r bold">2,560.00</td><td class="r bold" style="font-size:11px">42,620.00</td>
+    </tr>
+    <tr class="sub-row">
+      <td></td><td><span class="arrow">&#8627;</span><strong>Lab Grown Diamond</strong></td>
+      <td class="l muted">LGRD-50P</td>
+      <td class="c">2</td><td></td><td></td><td class="r">1.000</td>
+      <td class="r">21,500</td><td></td><td class="r bold">21,500.00</td><td></td><td></td>
+    </tr>
+    <tr class="subtotal-row">
+      <td></td><td class="r" style="color:#777;font-style:italic">Sub-total</td><td></td>
+      <td class="c bold">2</td><td class="r bold">3.400</td><td class="r bold">3.200</td>
+      <td class="r bold">1.000</td><td></td>
+      <td class="r bold">18,560.00</td><td class="r bold">21,500.00</td>
+      <td class="r bold">2,560.00</td><td class="r bold" style="font-size:11px">42,620.00</td>
+    </tr>
+    <tr class="spacer"><td colspan="12"></td></tr>
+
+    <!-- ITEM 2: Necklace 22K (per_nw making) — gold rate + metal val on main row, no gold sub-row -->
+    <tr class="item-hdr">
+      <td class="c">2</td><td class="l bold">Necklace · 22K</td><td></td>
+      <td class="c">1</td><td class="r mono">15.600</td><td class="r mono">14.200</td>
+      <td></td><td class="r muted">6,850</td><td class="r bold">97,270.00</td><td></td>
+      <td class="r bold">15,620.00</td><td class="r bold" style="font-size:11px">1,33,150.00</td>
+    </tr>
+    <tr class="sub-row">
+      <td></td><td><span class="arrow">&#8627;</span><strong>Emerald</strong></td>
+      <td class="l muted">EMR-06</td>
+      <td class="c">6</td><td></td><td></td><td class="r">1.800</td>
+      <td class="r">8,500</td><td></td><td class="r bold">15,300.00</td><td></td><td></td>
+    </tr>
+    <tr class="sub-row">
+      <td></td><td><span class="arrow">&#8627;</span><strong>Ruby</strong></td>
+      <td class="l muted">RBY-04</td>
+      <td class="c">4</td><td></td><td></td><td class="r">0.800</td>
+      <td class="r">6,200</td><td></td><td class="r bold">4,960.00</td><td></td><td></td>
+    </tr>
+    <tr class="subtotal-row">
+      <td></td><td class="r" style="color:#777;font-style:italic">Sub-total</td><td></td>
+      <td class="c bold">1</td><td class="r bold">15.600</td><td class="r bold">14.200</td>
+      <td class="r bold">2.600</td><td></td>
+      <td class="r bold">97,270.00</td><td class="r bold">20,260.00</td>
+      <td class="r bold">15,620.00</td><td class="r bold" style="font-size:11px">1,33,150.00</td>
+    </tr>
+    <tr class="spacer"><td colspan="12"></td></tr>
+
+    <!-- ITEM 3: Bracelet 18K (val/flat making) — gold rate on main row, no gold sub-row -->
+    <tr class="item-hdr">
+      <td class="c">3</td><td class="l bold">Bracelet · 18K</td><td></td>
+      <td class="c">1</td><td class="r mono">8.200</td><td class="r mono">7.800</td>
+      <td></td><td class="r muted">5,900</td><td class="r bold">46,020.00</td><td></td>
+      <td class="r bold">7,410.00</td><td class="r bold" style="font-size:11px">80,430.00</td>
+    </tr>
+    <tr class="sub-row">
+      <td></td><td><span class="arrow">&#8627;</span><strong>Diamond</strong></td>
+      <td class="l muted">DIA-20P</td>
+      <td class="c">20</td><td></td><td></td><td class="r">0.600</td>
+      <td class="r">45,000</td><td></td><td class="r bold">27,000.00</td><td></td><td></td>
+    </tr>
+    <tr class="subtotal-row">
+      <td></td><td class="r" style="color:#777;font-style:italic">Sub-total</td><td></td>
+      <td class="c bold">1</td><td class="r bold">8.200</td><td class="r bold">7.800</td>
+      <td class="r bold">0.600</td><td></td>
+      <td class="r bold">46,020.00</td><td class="r bold">27,000.00</td>
+      <td class="r bold">7,410.00</td><td class="r bold" style="font-size:11px">80,430.00</td>
+    </tr>
+
+  </tbody>
+  <tfoot>
+    <tr class="grand-total">
+      <td colspan="2" class="c">Grand Total · 3 items</td><td></td>
+      <td class="c">4</td><td class="r">27.200</td><td class="r">25.200</td>
+      <td class="r">4.200</td><td></td>
+      <td class="r">1,61,850.00</td><td class="r">68,760.00</td>
+      <td class="r">25,590.00</td><td class="r" style="font-size:11px">2,56,200.00</td>
+    </tr>
+    <tr class="gst-row">
+      <td colspan="11" class="r" style="color:#555">GST @ 3%</td>
+      <td class="r">7,686.00</td>
+    </tr>
+    <tr class="bill-row">
+      <td colspan="11" class="r" style="font-size:11px">Total Estimate Value (incl. GST)</td>
+      <td class="r" style="font-size:13px">&#8377;&nbsp;2,63,886</td>
+    </tr>
+  </tfoot>
+</table>
+
+<div class="disclaimer">This is an estimate only. Gold rates used are the latest available market rates and may vary at the time of actual billing.</div>
+</div>
+</body>
+</html>

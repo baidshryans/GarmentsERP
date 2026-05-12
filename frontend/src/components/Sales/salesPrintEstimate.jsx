@@ -1,215 +1,164 @@
 import React from 'react';
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 const fmtN = (v, d = 3) => {
   const n = parseFloat(v);
   return isNaN(n) || n === 0 ? '' : n.toFixed(d);
 };
 
-const fmtC = (v, d = 2) => {
+const fmtC = (v, d = 0) => {
   const n = parseFloat(v);
   if (isNaN(n) || n === 0) return '';
   return n.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
 };
 
-const fmtCForce = (v, d = 2) => {
+const fmtCForce = (v, d = 0) => {
   const n = parseFloat(v) || 0;
   return n.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
 };
 
 const getItemTotals = (data) => {
-  const stoneItems = (data.main_item_set || []).filter((i) => i.item !== 'Gold');
-  const metalItem  = (data.main_item_set || []).find((i) => i.item === 'Gold');
+  const stoneItems      = (data.main_item_set || []).filter((i) => i.item !== 'Gold');
+  const metalItem       = (data.main_item_set || []).find((i) => i.item === 'Gold');
   const totalStoneCt    = stoneItems.reduce((s, i) => s + (parseFloat(i.ct)  || 0), 0);
   const totalStoneValue = stoneItems.reduce((s, i) => s + (parseFloat(i.amt) || 0), 0);
   const totalMetalValue = metalItem ? parseFloat(metalItem.amt) || 0 : 0;
   const totalOtherValue = parseFloat(data.other_chg) || 0;
   const totalMakingValue = parseFloat(data.making)   || 0;
-  const productValue = totalStoneValue + totalMetalValue + totalOtherValue + totalMakingValue;
-  const gstAmt   = productValue * 0.03;
-  const billValue = productValue + gstAmt;
-  return { stoneItems, metalItem, totalStoneCt, totalStoneValue, totalMetalValue, totalOtherValue, totalMakingValue, productValue, gstAmt, billValue };
+  const productValue    = totalStoneValue + totalMetalValue + totalOtherValue + totalMakingValue;
+  const gstAmt          = productValue * 0.03;
+  const billValue       = productValue + gstAmt;
+  return { stoneItems, metalItem, totalStoneCt, totalStoneValue, totalMetalValue,
+           totalOtherValue, totalMakingValue, productValue, gstAmt, billValue };
 };
 
-// ── style constants ───────────────────────────────────────────────────────────
+// ── Design tokens ─────────────────────────────────────────────────────────────
 
-const FONT = "'Arial', sans-serif";
-const BASE = 10;
+const FONT  = 'Arial, Helvetica, sans-serif';
+const BASE  = 10;
+// Columns: Sl | Description | Pkt | Pcs | GW | NW | Ct | Rate | Metal Val | Stone Val | Making | Prod Val
+const NCOLS = 12;
 
 const cell = (extra = {}) => ({
-  border: '1px solid #aaa',
-  padding: '3px 5px',
-  fontSize: BASE,
-  fontFamily: FONT,
-  verticalAlign: 'middle',
+  borderLeft: '1px solid #ddd', borderTop: 'none', borderBottom: 'none', borderRight: 'none',
+  padding: '3px 5px', fontSize: BASE, fontFamily: FONT, verticalAlign: 'middle', lineHeight: 1.35,
   ...extra,
 });
+const cell0 = (extra = {}) => cell({ borderLeft: 'none', ...extra });
+
+const th = (extra = {}) => ({
+  borderLeft: '1px solid #bbb', borderTop: '1px solid #aaa', borderBottom: '1px solid #aaa', borderRight: 'none',
+  padding: '4px 5px', fontSize: 9.5, fontWeight: 700, fontFamily: FONT,
+  background: '#fff', textAlign: 'center', whiteSpace: 'nowrap', lineHeight: 1.3,
+  ...extra,
+});
+const th0 = (extra = {}) => th({ borderLeft: 'none', ...extra });
 
 const hdrCell = (extra = {}) => ({
-  border: '1px solid #555',
-  padding: '3px 5px',
-  fontSize: BASE,
-  fontWeight: 700,
-  fontFamily: FONT,
-  background: '#e8e8e8',
-  textAlign: 'center',
-  verticalAlign: 'middle',
-  whiteSpace: 'nowrap',
-  ...extra,
+  ...cell(extra),
+  background: '#f2f2f2', fontWeight: 700, fontSize: BASE + 0.5,
+  borderTop: '1px solid #bbb', borderBottom: '1px solid #bbb',
 });
+const hdrCell0 = (extra = {}) => hdrCell({ borderLeft: 'none', ...extra });
 
-const itemHdr = (extra = {}) => ({
-  border: '1px solid #888',
-  padding: '4px 6px',
-  fontSize: BASE + 1,
-  fontWeight: 700,
-  fontFamily: FONT,
-  background: '#f0f0f0',
-  verticalAlign: 'middle',
-  ...extra,
+const subTotCell = (extra = {}) => ({
+  ...cell(extra),
+  background: '#f8f8f8', fontSize: 9, borderTop: '1px solid #ccc',
 });
+const subTotCell0 = (extra = {}) => subTotCell({ borderLeft: 'none', ...extra });
 
-// ── Column definitions ────────────────────────────────────────────────────────
-// Total 13 cols; widths are relative hints — browser distributes rest.
-const COLS = [
-  { key: 'sl',       label: 'Sl',           w: 22,  align: 'center' },
-  { key: 'desc',     label: 'Description',  w: null, align: 'left'   },
-  { key: 'pcs',      label: 'Pcs',          w: 28,  align: 'center' },
-  { key: 'gw',       label: 'GW (g)',       w: 44,  align: 'right'  },
-  { key: 'nw',       label: 'NW (g)',       w: 44,  align: 'right'  },
-  { key: 'ct',       label: 'Ct',           w: 38,  align: 'right'  },
-  { key: 'rate',     label: 'Rate',         w: 54,  align: 'right'  },
-  { key: 'metalval', label: 'Metal Val',    w: 60,  align: 'right'  },
-  { key: 'stoneval', label: 'Stone Val',    w: 60,  align: 'right'  },
-  { key: 'mkrate',   label: 'Mkng Rate',    w: 52,  align: 'right'  },
-  { key: 'mkval',    label: 'Mkng Val',     w: 58,  align: 'right'  },
-  { key: 'prodval',  label: 'Prod Val',     w: 62,  align: 'right'  },
-];
-const NCOLS = COLS.length;
+const gtCell = (extra = {}) => ({
+  ...cell(extra),
+  background: '#f2f2f2', fontWeight: 700, fontSize: BASE,
+  borderTop: '1px solid #aaa', borderBottom: '1px solid #bbb',
+});
+const gtCell0 = (extra = {}) => gtCell({ borderLeft: 'none', ...extra });
 
-// ── Blank sub-row cell ────────────────────────────────────────────────────────
+const gstCell  = (extra = {}) => ({ ...cell(extra),  background: '#fff', fontSize: 9.5 });
+const gstCell0 = (extra = {}) => gstCell({ borderLeft: 'none', ...extra });
 
-const BC = ({ w, style }) => (
-  <td style={{ ...cell({ width: w, ...style }), borderColor: '#ccc' }} />
-);
+const billCell  = (extra = {}) => ({
+  ...cell(extra), background: '#fff', fontWeight: 700, fontSize: BASE,
+  borderTop: '1px solid #aaa', borderBottom: '1px solid #aaa',
+});
+const billCell0 = (extra = {}) => billCell({ borderLeft: 'none', ...extra });
 
 // ── Per-barcode block ─────────────────────────────────────────────────────────
 
-const ItemBlock = ({ data, idx }) => {
+const ItemBlock = ({ data, idx, totalItems }) => {
   const t = getItemTotals(data);
 
-  const makingLabel = [
-    data.making_rate ? `₹${fmtCForce(data.making_rate)}` : null,
-    data.making_type || null,
-  ].filter(Boolean).join(' / ');
+  const purityLabel = data.purity_name || (data.purity ? `${data.purity}K` : '');
+  const itemLabel   = [data.item_name || data.item, purityLabel].filter(Boolean).join(' · ');
+
+  // Gold rate from the metal sub-item, formatted for display
+  const goldRate = t.metalItem?.rate
+    ? parseFloat(t.metalItem.rate).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+    : '';
 
   return (
     <>
-      {/* ── Barcode header row ─── */}
+      {/* ── Main item row — gold rate, metal val, making and product value ── */}
       <tr>
-        <td style={itemHdr({ textAlign: 'center', width: COLS[0].w })}>{idx + 1}</td>
-        <td colSpan={NCOLS - 1} style={itemHdr({ textAlign: 'left' })}>
-          <span style={{ fontFamily: 'monospace', fontSize: BASE + 1 }}>
-            {data.barcode || data.voucher_no || '—'}
-          </span>
-          {' '}
-          <span style={{ fontWeight: 400, color: '#333' }}>
-            {data.item}{data.purity_name ? ` · ${data.purity_name}` : data.purity ? ` · ${data.purity}K` : ''}
-          </span>
-          <span style={{ float: 'right', fontWeight: 400, fontSize: BASE, color: '#444' }}>
-            {data.pcs ? `${data.pcs} Pcs` : ''}
-            {data.gw  ? `  ·  GW: ${fmtN(data.gw)} g` : ''}
-            {data.nw  ? `  ·  NW: ${fmtN(data.nw)} g` : ''}
-          </span>
-        </td>
+        <td style={hdrCell0({ textAlign: 'center', width: 24 })}>{idx + 1}</td>
+        <td style={hdrCell({ textAlign: 'left' })}>{itemLabel}</td>
+        <td style={hdrCell()} />
+        <td style={hdrCell({ textAlign: 'center' })}>{data.pcs || ''}</td>
+        <td style={hdrCell({ textAlign: 'right', fontFamily: FONT })}>{fmtN(data.gw)}</td>
+        <td style={hdrCell({ textAlign: 'right', fontFamily: FONT })}>{fmtN(data.nw)}</td>
+        <td style={hdrCell()} />
+        <td style={hdrCell({ textAlign: 'right' })}>{goldRate}</td>
+        <td style={hdrCell({ textAlign: 'right' })}>{fmtC(t.totalMetalValue)}</td>
+        <td style={hdrCell()} />
+        <td style={hdrCell({ textAlign: 'right' })}>{fmtC(t.totalMakingValue)}</td>
+        <td style={hdrCell({ textAlign: 'right', fontSize: BASE + 1 })}>{fmtCForce(t.productValue)}</td>
       </tr>
 
-      {/* ── Metal (Gold) row ─── */}
-      {t.metalItem && (
-        <tr>
-          <BC w={COLS[0].w} />
-          <td style={cell({ textAlign: 'left', color: '#333' })}>
-            <span style={{ color: '#999', marginRight: 4 }}>↳</span>
-            <strong>Gold</strong>
-            {t.metalItem.purity ? ` (${t.metalItem.purity})` : ''}
-            {t.metalItem.packet ? <span style={{ color: '#666', fontSize: BASE - 1 }}> · Pkt: {t.metalItem.packet}</span> : ''}
-          </td>
-          <td style={cell({ textAlign: 'center' })}>{t.metalItem.pcs || ''}</td>
-          <td style={cell({ textAlign: 'right' })}>{fmtN(t.metalItem.gw)}</td>
-          <td style={cell({ textAlign: 'right' })}></td>
-          <td style={cell({ textAlign: 'right', fontStyle: 'italic', color: '#555' })}>
-            {fmtN(t.metalItem.ct)}
-          </td>
-          <td style={cell({ textAlign: 'right' })}>{fmtC(t.metalItem.rate, 0)}</td>
-          <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtC(t.metalItem.amt)}</td>
-          <td style={cell({ textAlign: 'right' })}></td>
-          <td style={cell({ textAlign: 'right' })}></td>
-          <td style={cell({ textAlign: 'right' })}></td>
-          <td style={cell({ textAlign: 'right' })}></td>
-        </tr>
-      )}
-
-      {/* ── Stone / other sub-item rows ─── */}
+      {/* ── Stone / other sub-item rows ── */}
       {t.stoneItems.map((si, i) => (
         <tr key={i}>
-          <BC w={COLS[0].w} />
-          <td style={cell({ textAlign: 'left', color: '#333' })}>
-            <span style={{ color: '#999', marginRight: 4 }}>↳</span>
-            <strong>{si.item_name || si.item}</strong>
-            {si.purity ? ` (${si.purity})` : ''}
-            {si.packet ? <span style={{ color: '#666', fontSize: BASE - 1 }}> · Pkt: {si.packet}</span> : ''}
+          <td style={cell0()} />
+          <td style={cell({ textAlign: 'left' })}>
+                        {si.item_name || si.item}
+            {si.purity
+              ? <span style={{ color: '#888', fontSize: 9 }}> ({si.purity})</span>
+              : null}
           </td>
+          <td style={cell({ textAlign: 'left', fontSize: 9, color: '#555' })}>{si.packet || ''}</td>
           <td style={cell({ textAlign: 'center' })}>{si.pcs || ''}</td>
-          <td style={cell({ textAlign: 'right' })}>{fmtN(si.gw)}</td>
-          <td style={cell({ textAlign: 'right' })}></td>
+          <td style={cell({ textAlign: 'right', fontFamily: FONT })}>{fmtN(si.gw)}</td>
+          <td style={cell()} />
           <td style={cell({ textAlign: 'right' })}>{fmtN(si.ct)}</td>
           <td style={cell({ textAlign: 'right' })}>{fmtC(si.rate, 0)}</td>
-          <td style={cell({ textAlign: 'right' })}></td>
-          <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtC(si.amt)}</td>
-          <td style={cell({ textAlign: 'right' })}></td>
-          <td style={cell({ textAlign: 'right' })}></td>
-          <td style={cell({ textAlign: 'right' })}></td>
+          <td style={cell()} />
+          <td style={cell({ textAlign: 'right' })}>{fmtC(si.amt)}</td>
+          <td style={cell()} />
+          <td style={cell()} />
         </tr>
       ))}
 
-      {/* ── Making charges row ─── */}
-      {t.totalMakingValue > 0 && (
+      {/* ── Per-item subtotal — hidden when only 1 item (same as grand total) ── */}
+      {totalItems > 1 && (
         <tr>
-          <BC w={COLS[0].w} />
-          <td style={cell({ textAlign: 'left', color: '#555', fontStyle: 'italic' })}>
-            <span style={{ color: '#999', marginRight: 4 }}>↳</span>
-            Making Charges
-          </td>
-          <td style={cell()}></td>
-          <td style={cell()}></td>
-          <td style={cell()}></td>
-          <td style={cell()}></td>
-          <td style={cell()}></td>
-          <td style={cell()}></td>
-          <td style={cell()}></td>
-          <td style={cell({ textAlign: 'right', fontSize: BASE - 1, color: '#555' })}>{makingLabel}</td>
-          <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtC(t.totalMakingValue)}</td>
-          <td style={cell()}></td>
+          <td style={subTotCell0()} />
+          <td style={subTotCell({ textAlign: 'right', color: '#777', fontStyle: 'italic' })}>Sub-total</td>
+          <td style={subTotCell()} />
+          <td style={subTotCell({ textAlign: 'center', fontWeight: 700 })}>{data.pcs || ''}</td>
+          <td style={subTotCell({ textAlign: 'right', fontWeight: 700 })}>{fmtN(data.gw)}</td>
+          <td style={subTotCell({ textAlign: 'right', fontWeight: 700 })}>{fmtN(data.nw)}</td>
+          <td style={subTotCell({ textAlign: 'right', fontWeight: 700 })}>{fmtN(t.totalStoneCt)}</td>
+          <td style={subTotCell()} />
+          <td style={subTotCell({ textAlign: 'right', fontWeight: 700 })}>{fmtC(t.totalMetalValue)}</td>
+          <td style={subTotCell({ textAlign: 'right', fontWeight: 700 })}>{fmtC(t.totalStoneValue)}</td>
+          <td style={subTotCell({ textAlign: 'right', fontWeight: 700 })}>{fmtC(t.totalMakingValue)}</td>
+          <td style={subTotCell({ textAlign: 'right', fontWeight: 700, fontSize: BASE + 1 })}>{fmtCForce(t.productValue)}</td>
         </tr>
       )}
 
-      {/* ── Per-item subtotal row ─── */}
-      <tr style={{ background: '#fafafa' }}>
-        <BC w={COLS[0].w} style={{ borderColor: '#aaa' }} />
-        <td style={cell({ textAlign: 'right', fontSize: BASE - 1, color: '#555', fontStyle: 'italic' })}>
-          Sub-total
-        </td>
-        <td style={cell({ textAlign: 'center', fontWeight: 600 })}>{data.pcs || ''}</td>
-        <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtN(data.gw)}</td>
-        <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtN(data.nw)}</td>
-        <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtN(t.totalStoneCt) || ''}</td>
-        <td style={cell()}></td>
-        <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtC(t.totalMetalValue)}</td>
-        <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtC(t.totalStoneValue)}</td>
-        <td style={cell()}></td>
-        <td style={cell({ textAlign: 'right', fontWeight: 600 })}>{fmtC(t.totalMakingValue)}</td>
-        <td style={cell({ textAlign: 'right', fontWeight: 700, fontSize: BASE + 1 })}>{fmtCForce(t.productValue)}</td>
+      {/* Spacer between barcodes */}
+      <tr>
+        <td colSpan={NCOLS} style={{ height: 4, border: 'none', padding: 0 }} />
       </tr>
     </>
   );
@@ -218,10 +167,6 @@ const ItemBlock = ({ data, idx }) => {
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export const MultiEstimatePrint = ({ items = [] }) => {
-  const currentDate = new Date().toLocaleDateString('en-IN', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  });
-
   const grand = items.reduce(
     (acc, item) => {
       const t = getItemTotals(item);
@@ -241,86 +186,96 @@ export const MultiEstimatePrint = ({ items = [] }) => {
     { pcs: 0, gw: 0, nw: 0, stoneCt: 0, stoneVal: 0, metalVal: 0, making: 0, productVal: 0, gstAmt: 0, billVal: 0 }
   );
 
-  const footerCell = (extra = {}) => ({
-    border: '1px solid #555',
-    padding: '4px 6px',
-    fontSize: BASE,
-    fontFamily: FONT,
-    fontWeight: 700,
-    background: '#e8e8e8',
-    verticalAlign: 'middle',
-    ...extra,
-  });
-
   return (
-    <div style={{ padding: '16px 20px', maxWidth: 900, margin: '0 auto', fontFamily: FONT }}>
+    <div style={{ padding: '16px 20px', maxWidth: 960, margin: '0 auto', fontFamily: FONT }}>
 
-      {/* Date line */}
-      <div style={{ textAlign: 'right', fontSize: BASE, marginBottom: 10, color: '#555' }}>
-        Date: {currentDate}&nbsp;&nbsp;·&nbsp;&nbsp;Items: {items.length}
-      </div>
+      {/* ESTIMATE heading */}
+      <h1 style={{
+        textAlign: 'center', fontSize: 18, fontWeight: 700,
+        fontFamily: FONT, letterSpacing: 3, marginBottom: 10,
+      }}>
+        ESTIMATE
+      </h1>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
-        {/* Column width hints */}
+
+      {/* Main table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', fontFamily: FONT }}>
         <colgroup>
-          {COLS.map((c) => (
-            <col key={c.key} style={c.w ? { width: c.w } : {}} />
-          ))}
+          <col style={{ width: 24  }} />{/* Sl */}
+          <col                       />{/* Description — flexible */}
+          <col style={{ width: 62  }} />{/* Packet No */}
+          <col style={{ width: 30  }} />{/* Pcs */}
+          <col style={{ width: 46  }} />{/* GW */}
+          <col style={{ width: 46  }} />{/* NW */}
+          <col style={{ width: 40  }} />{/* Ct */}
+          <col style={{ width: 56  }} />{/* Rate */}
+          <col style={{ width: 64  }} />{/* Metal Val */}
+          <col style={{ width: 64  }} />{/* Stone Val */}
+          <col style={{ width: 60  }} />{/* Making */}
+          <col style={{ width: 68  }} />{/* Prod Val */}
         </colgroup>
 
-        {/* ── Table header ── */}
         <thead>
+          {/* Row 1 — group headers */}
           <tr>
-            {COLS.map((c) => (
-              <th key={c.key} style={hdrCell({ textAlign: c.align, width: c.w || undefined })}>
-                {c.label}
-              </th>
-            ))}
+            <th rowSpan={2} style={th0({ textAlign: 'center', verticalAlign: 'middle' })}>Sl</th>
+            <th rowSpan={2} style={th0({ textAlign: 'left',   verticalAlign: 'middle' })}>Description</th>
+            <th rowSpan={2} style={th({  textAlign: 'left',   verticalAlign: 'middle' })}>Packet No</th>
+            <th rowSpan={2} style={th({  textAlign: 'center', verticalAlign: 'middle' })}>Pcs</th>
+            {/* GW + NW grouped under "Metal (Gm)" */}
+            <th colSpan={2} style={th({ textAlign: 'center', borderBottom: '1px solid #bbb' })}>Metal (Gm)</th>
+            <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle' })}>Ct</th>
+            <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle' })}>Rate</th>
+            <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle' })}>Metal Val</th>
+            <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle' })}>Stone Val</th>
+            <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle' })}>Making</th>
+            <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle', fontSize: 9 })}>Prod Val</th>
+          </tr>
+          {/* Row 2 — sub-headers for Metal (Gm) group */}
+          <tr>
+            <th style={th({ textAlign: 'center' })}>Gr. Wt.</th>
+            <th style={th({ textAlign: 'center' })}>Net Wt.</th>
           </tr>
         </thead>
 
-        {/* ── Item blocks ── */}
         <tbody>
           {items.map((item, idx) => (
-            <ItemBlock key={item._key || idx} data={item} idx={idx} />
+            <ItemBlock key={item._key || idx} data={item} idx={idx} totalItems={items.length} />
           ))}
         </tbody>
 
-        {/* ── Grand totals footer ── */}
         <tfoot>
-          {/* Grand total row */}
+          {/* Grand total */}
           <tr>
-            <td colSpan={2} style={footerCell({ textAlign: 'center' })}>
+            <td colSpan={2} style={gtCell0({ textAlign: 'center' })}>
               Grand Total · {items.length} item{items.length !== 1 ? 's' : ''}
             </td>
-            <td style={footerCell({ textAlign: 'center' })}>{grand.pcs}</td>
-            <td style={footerCell({ textAlign: 'right' })}>{fmtN(grand.gw)}</td>
-            <td style={footerCell({ textAlign: 'right' })}>{fmtN(grand.nw)}</td>
-            <td style={footerCell({ textAlign: 'right' })}>{fmtN(grand.stoneCt) || ''}</td>
-            <td style={footerCell({ textAlign: 'right' })}></td>
-            <td style={footerCell({ textAlign: 'right' })}>{fmtCForce(grand.metalVal)}</td>
-            <td style={footerCell({ textAlign: 'right' })}>{fmtCForce(grand.stoneVal)}</td>
-            <td style={footerCell({ textAlign: 'right' })}></td>
-            <td style={footerCell({ textAlign: 'right' })}>{fmtCForce(grand.making)}</td>
-            <td style={footerCell({ textAlign: 'right', fontSize: BASE + 1 })}>{fmtCForce(grand.productVal)}</td>
+            <td style={gtCell()} />
+            <td style={gtCell({ textAlign: 'center' })}>{grand.pcs}</td>
+            <td style={gtCell({ textAlign: 'right'  })}>{fmtN(grand.gw)}</td>
+            <td style={gtCell({ textAlign: 'right'  })}>{fmtN(grand.nw)}</td>
+            <td style={gtCell({ textAlign: 'right'  })}>{fmtN(grand.stoneCt)}</td>
+            <td style={gtCell()} />
+            <td style={gtCell({ textAlign: 'right'  })}>{fmtCForce(grand.metalVal)}</td>
+            <td style={gtCell({ textAlign: 'right'  })}>{fmtCForce(grand.stoneVal)}</td>
+            <td style={gtCell({ textAlign: 'right'  })}>{fmtCForce(grand.making)}</td>
+            <td style={gtCell({ textAlign: 'right', fontSize: BASE + 1 })}>{fmtCForce(grand.productVal)}</td>
           </tr>
 
-          {/* GST 3% */}
+          {/* GST @ 3% */}
           <tr>
-            <td colSpan={NCOLS - 1} style={{ ...footerCell({ textAlign: 'right', fontWeight: 400, background: '#fff' }), borderColor: '#aaa' }}>
+            <td colSpan={NCOLS - 1} style={gstCell0({ textAlign: 'right', color: '#555' })}>
               GST @ 3%
             </td>
-            <td style={footerCell({ textAlign: 'right', background: '#fff', borderColor: '#aaa' })}>
-              {fmtCForce(grand.gstAmt)}
-            </td>
+            <td style={gstCell({ textAlign: 'right' })}>{fmtCForce(grand.gstAmt)}</td>
           </tr>
 
-          {/* Bill Value */}
+          {/* Total estimate value */}
           <tr>
-            <td colSpan={NCOLS - 1} style={footerCell({ textAlign: 'right', fontSize: BASE + 2, background: '#d4edda' })}>
+            <td colSpan={NCOLS - 1} style={billCell0({ textAlign: 'right', fontSize: BASE + 1 })}>
               Total Estimate Value (incl. GST)
             </td>
-            <td style={footerCell({ textAlign: 'right', fontSize: BASE + 3, background: '#d4edda', color: '#155724' })}>
+            <td style={billCell({ textAlign: 'right', fontSize: BASE + 3 })}>
               ₹&nbsp;{fmtCForce(grand.billVal, 0)}
             </td>
           </tr>
@@ -328,8 +283,11 @@ export const MultiEstimatePrint = ({ items = [] }) => {
       </table>
 
       {/* Disclaimer */}
-      <div style={{ marginTop: 14, fontSize: BASE - 1, color: '#888', textAlign: 'center', fontStyle: 'italic' }}>
-        This is an estimate only. Gold rate used is the latest available market rate and may vary at time of billing.
+      <div style={{
+        marginTop: 14, fontSize: 8.5, color: '#888',
+        textAlign: 'center', fontStyle: 'italic', fontFamily: FONT,
+      }}>
+        This is an estimate only. Gold rates used are the latest available market rates and may vary at the time of actual billing.
       </div>
     </div>
   );

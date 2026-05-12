@@ -238,6 +238,7 @@ export const navData = {
     { title: "Outstanding Report",   url: "/accounting/outstanding",         icon: Clock            },
     { title: "Aged Receivables",     url: "/accounting/aged-receivables",    icon: Clock            },
     { title: "Advance Register",     url: "/accounting/advance-register",    icon: Clock            },
+    { title: "Unallocated Vouchers", url: "/accounting/unallocated-vouchers", icon: Clock            },
     {
       title: "Finance Reports",
       url: "#",

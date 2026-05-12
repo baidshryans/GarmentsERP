@@ -243,6 +243,112 @@ class JournalEntryViewSet(RetailBaseViewset):
             'order_no': order.order_no,
         })
 
+    from rest_framework.decorators import action as _drf_action
+    @_drf_action(detail=True, methods=['patch'], url_path='allocate-bills')
+    def allocate_bills(self, request, pk=None):
+        """
+        Post-facto bill allocation for RCPT/PMNT vouchers.
+        Body: { "kind": "sales"|"purchase", "allocations": [{"bill_id": pk, "amount": "100.00"}, ...] }
+        Finds unallocated party legs, splits them per invoice, and updates due_amt.
+        """
+        from decimal import Decimal as _D
+        from django.db.models import Q as _Q
+        from ..models import VoucherDetail as _VD, ReferenceBills as _RB
+
+        voucher = self.get_object()
+        kind = request.data.get('kind')
+        allocations = request.data.get('allocations', [])
+
+        if not allocations:
+            return Response({'detail': 'No allocations provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if kind == 'sales' and voucher.voucher_type not in ('RCPT', 'RCPT-SALE'):
+            return Response({'detail': 'Sales allocation requires a RCPT/RCPT-SALE voucher.'}, status=status.HTTP_400_BAD_REQUEST)
+        if kind == 'purchase' and voucher.voucher_type != 'PMNT':
+            return Response({'detail': 'Purchase allocation requires a PMNT voucher.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            if kind == 'sales':
+                from sales.models import SalesVou as _SV
+                unalloc_lines = list(voucher.transactions.filter(
+                    credit__gt=0, ref_sales_vou__isnull=True,
+                ).filter(_Q(ref_bill_no='') | _Q(ref_bill_no__isnull=True)))
+                total_unalloc = sum(l.credit for l in unalloc_lines)
+                alloc_total = sum(_D(str(a['amount'])) for a in allocations)
+                if alloc_total > total_unalloc + _D('0.01'):
+                    return Response({'detail': f'Allocation ₹{alloc_total} exceeds unallocated ₹{total_unalloc}.'}, status=status.HTTP_400_BAD_REQUEST)
+                party_acct = unalloc_lines[0].account if unalloc_lines else None
+                if not party_acct:
+                    return Response({'detail': 'No unallocated party lines found on this voucher.'}, status=status.HTTP_400_BAD_REQUEST)
+                _VD.objects.filter(id__in=[l.id for l in unalloc_lines]).delete()
+                for alloc in allocations:
+                    amt = _D(str(alloc['amount']))
+                    if amt <= 0:
+                        continue
+                    try:
+                        sv = _SV.objects.select_for_update().get(pk=alloc['bill_id'], retail=voucher.retail)
+                    except _SV.DoesNotExist:
+                        raise ValidationError(f"Invoice id={alloc['bill_id']} not found.")
+                    if amt > sv.due_amt + _D('0.01'):
+                        raise ValidationError(f"Allocation ₹{amt} exceeds outstanding ₹{sv.due_amt} on {sv.billno}.")
+                    vd = _VD.objects.create(
+                        voucher_main=voucher, voucher_no=voucher.voucher_no,
+                        voucher_type=voucher.voucher_type, account=party_acct,
+                        debit=_D('0'), credit=amt,
+                        ref_sales_vou=sv, ref_bill_no=sv.billno,
+                    )
+                    _RB.objects.create(ldgr=party_acct, voucher=voucher, amount=amt, ref_bill=vd, ref_bill_txt=sv.billno)
+                    sv.due_amt = max(_D('0'), sv.due_amt - amt)
+                    sv.save(update_fields=['due_amt'])
+                remainder = total_unalloc - alloc_total
+                if remainder > _D('0.005'):
+                    _VD.objects.create(
+                        voucher_main=voucher, voucher_no=voucher.voucher_no,
+                        voucher_type=voucher.voucher_type, account=party_acct,
+                        debit=_D('0'), credit=remainder, ref_bill_no='',
+                    )
+            else:
+                from purchase.models import PurchaseVoucher as _PV
+                unalloc_lines = list(voucher.transactions.filter(
+                    debit__gt=0, ref_purchase_vou__isnull=True,
+                ).filter(_Q(ref_bill_no='') | _Q(ref_bill_no__isnull=True)))
+                total_unalloc = sum(l.debit for l in unalloc_lines)
+                alloc_total = sum(_D(str(a['amount'])) for a in allocations)
+                if alloc_total > total_unalloc + _D('0.01'):
+                    return Response({'detail': f'Allocation ₹{alloc_total} exceeds unallocated ₹{total_unalloc}.'}, status=status.HTTP_400_BAD_REQUEST)
+                party_acct = unalloc_lines[0].account if unalloc_lines else None
+                if not party_acct:
+                    return Response({'detail': 'No unallocated party lines found on this voucher.'}, status=status.HTTP_400_BAD_REQUEST)
+                _VD.objects.filter(id__in=[l.id for l in unalloc_lines]).delete()
+                for alloc in allocations:
+                    amt = _D(str(alloc['amount']))
+                    if amt <= 0:
+                        continue
+                    try:
+                        pv = _PV.objects.select_for_update().get(pk=alloc['bill_id'], retail=voucher.retail)
+                    except _PV.DoesNotExist:
+                        raise ValidationError(f"Purchase invoice id={alloc['bill_id']} not found.")
+                    if amt > pv.due_amt + _D('0.01'):
+                        raise ValidationError(f"Allocation ₹{amt} exceeds outstanding ₹{pv.due_amt} on {pv.billno}.")
+                    vd = _VD.objects.create(
+                        voucher_main=voucher, voucher_no=voucher.voucher_no,
+                        voucher_type=voucher.voucher_type, account=party_acct,
+                        debit=amt, credit=_D('0'),
+                        ref_purchase_vou=pv, ref_bill_no=pv.billno,
+                    )
+                    _RB.objects.create(ldgr=party_acct, voucher=voucher, amount=amt, ref_bill=vd, ref_bill_txt=pv.billno)
+                    pv.due_amt = max(_D('0'), pv.due_amt - amt)
+                    pv.save(update_fields=['due_amt'])
+                remainder = total_unalloc - alloc_total
+                if remainder > _D('0.005'):
+                    _VD.objects.create(
+                        voucher_main=voucher, voucher_no=voucher.voucher_no,
+                        voucher_type=voucher.voucher_type, account=party_acct,
+                        debit=remainder, credit=_D('0'), ref_bill_no='',
+                    )
+
+        return Response({'detail': 'Allocations saved.', 'voucher_id': voucher.id})
+
     def perform_create(self, serializer):
         with transaction.atomic():
             serializer.save(retail=self.request.retail)
@@ -474,6 +580,93 @@ class NextCNDNNumberView(APIView):
         retail = request.retail
         next_no = peek_next_bill_number(retail, note_type)
         return Response({'next_no': next_no})
+
+class UnallocatedVouchersView(APIView):
+    """
+    GET /accounting/api/unallocated-vouchers/?type=receipt|payment
+    Receipt: RCPT/RCPT-SALE with customer_order=NULL and at least one credit
+             line that has no ref_sales_vou (i.e., not yet matched to an invoice).
+    Payment: PMNT with at least one debit line that has no ref_purchase_vou.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.db.models import Q
+        vtype = request.query_params.get('type', 'receipt')
+        retail = request.retail
+
+        if vtype == 'receipt':
+            qs = (
+                VoucherMain.objects
+                .filter(
+                    retail=retail,
+                    voucher_type__in=['RCPT', 'RCPT-SALE'],
+                    status='posted',
+                    customer_order__isnull=True,
+                    transactions__credit__gt=0,
+                    transactions__ref_sales_vou__isnull=True,
+                )
+                .prefetch_related('transactions__account')
+                .distinct()
+                .order_by('-date', '-id')
+            )
+            rows = []
+            for v in qs:
+                credit_lines = [
+                    t for t in v.transactions.all()
+                    if t.credit > 0 and not t.ref_sales_vou_id
+                ]
+                unalloc = sum(t.credit for t in credit_lines)
+                if unalloc <= 0:
+                    continue
+                party_line = credit_lines[0] if credit_lines else None
+                rows.append({
+                    'id': v.id,
+                    'voucher_no': v.voucher_no,
+                    'date': v.date.isoformat(),
+                    'amount': float(v.amount),
+                    'unallocated_amount': float(unalloc),
+                    'party': party_line.account.ac_name if party_line else '',
+                    'party_id': party_line.account.id if party_line else None,
+                    'narration': v.narration or '',
+                })
+        else:
+            qs = (
+                VoucherMain.objects
+                .filter(
+                    retail=retail,
+                    voucher_type='PMNT',
+                    status='posted',
+                    transactions__debit__gt=0,
+                    transactions__ref_purchase_vou__isnull=True,
+                )
+                .prefetch_related('transactions__account')
+                .distinct()
+                .order_by('-date', '-id')
+            )
+            rows = []
+            for v in qs:
+                debit_lines = [
+                    t for t in v.transactions.all()
+                    if t.debit > 0 and not t.ref_purchase_vou_id
+                ]
+                unalloc = sum(t.debit for t in debit_lines)
+                if unalloc <= 0:
+                    continue
+                party_line = debit_lines[0] if debit_lines else None
+                rows.append({
+                    'id': v.id,
+                    'voucher_no': v.voucher_no,
+                    'date': v.date.isoformat(),
+                    'amount': float(v.amount),
+                    'unallocated_amount': float(unalloc),
+                    'party': party_line.account.ac_name if party_line else '',
+                    'party_id': party_line.account.id if party_line else None,
+                    'narration': v.narration or '',
+                })
+
+        return Response(rows)
+
 
 class UnlinkedReceiptsView(APIView):
     """

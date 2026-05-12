@@ -106,6 +106,7 @@ const DayBook                    = lazy(() => import("./components/FinancialAcco
 const OutstandingReport          = lazy(() => import("./components/FinancialAccounting/reports/OutstandingReport"));
 const AgedReceivables            = lazy(() => import("./components/FinancialAccounting/reports/AgedReceivables"));
 const AdvanceRegister            = lazy(() => import("./components/FinancialAccounting/reports/AdvanceRegister"));
+const UnallocatedVouchers        = lazy(() => import("./components/FinancialAccounting/UnallocatedVouchers"));
 const CreditDebitNoteList        = lazy(() => import("./components/FinancialAccounting/CreditDebitNoteList"));
 const CreditDebitNoteAdd         = lazy(() => import("./components/FinancialAccounting/CreditDebitNoteAdd"));
 const BankReconciliation         = lazy(() => import("./components/FinancialAccounting/BankReconciliation"));
@@ -282,6 +283,7 @@ const appRoutes = [
   { path: "accounting/outstanding",               heading: "Outstanding Report",       component: <OutstandingReport /> },
   { path: "accounting/aged-receivables",          heading: "Aged Receivables / Payables", component: <AgedReceivables /> },
   { path: "accounting/advance-register",          heading: "Advance Register",         component: <AdvanceRegister /> },
+  { path: "accounting/unallocated-vouchers",      heading: "Unallocated Vouchers",     component: <UnallocatedVouchers /> },
   { path: "accounting/credit-debit-notes",         heading: "Credit / Debit Notes",     component: <CreditDebitNoteList /> },
   { path: "accounting/credit-debit-notes/add",     heading: "New Credit / Debit Note",  component: <CreditDebitNoteAdd /> },
   { path: "accounting/credit-debit-notes/:id",     heading: "Credit / Debit Note",      component: <CreditDebitNoteAdd /> },

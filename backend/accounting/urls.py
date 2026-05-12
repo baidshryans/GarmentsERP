@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/aged-receivables/', views.AgedReceivablesView.as_view(), name='aged-receivables'),
     path('api/advance-register/', views.AdvanceRegisterView.as_view(), name='advance-register'),
     path('api/unlinked-receipts/', views.UnlinkedReceiptsView.as_view(), name='unlinked-receipts'),
+    path('api/unallocated-vouchers/', views.UnallocatedVouchersView.as_view(), name='unallocated-vouchers'),
     path('api/gc/',views.GoldCashConversionView.as_view()),
     path('api/gc-no/',views.get_next_gc_no),
     path('api/vou-no/<str:type>/',views.get_next_vou_no),

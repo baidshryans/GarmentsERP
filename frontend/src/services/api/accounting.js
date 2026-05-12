@@ -651,3 +651,24 @@ export async function releaseReceiptFromOrder(voucherId) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+export async function fetchUnallocatedVouchers(type = 'receipt') {
+  try {
+    const response = await apiClient.get(`/accounting/api/unallocated-vouchers/?type=${type}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function allocateVoucherBills(voucherId, kind, allocations) {
+  try {
+    const response = await apiClient.patch(
+      `/accounting/api/journal/${voucherId}/allocate-bills/`,
+      { kind, allocations }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

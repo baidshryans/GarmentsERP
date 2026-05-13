@@ -16,7 +16,7 @@ import { isValidDateRange } from "@/lib/dateRange";
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtDate(d) {
-  if (!d) return "—";
+  if (!d) return "�";
   const dt = new Date(d);
   return dt.toLocaleDateString("en-GB").replaceAll("/", "-");
 }
@@ -33,7 +33,7 @@ function DaysChip({ dueDate, completed }) {
   const diff  = Math.round((due - today) / 86400000); // days
 
   if (completed) {
-    return <span className="text-xs text-muted-foreground">—</span>;
+    return <span className="text-xs text-muted-foreground">�</span>;
   }
   if (diff < 0) {
     return (
@@ -119,7 +119,7 @@ function KarigarJobWorkReport() {
         const r = row.original;
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="font-medium text-sm">{r.issue_slip?.issue_slip_no ?? "—"}</span>
+            <span className="font-medium text-sm">{r.issue_slip?.issue_slip_no ?? "�"}</span>
             <span className="text-xs text-muted-foreground">{r.issue_slip?.issue_slip_type ?? ""}</span>
           </div>
         );
@@ -132,7 +132,7 @@ function KarigarJobWorkReport() {
     {
       header: "Karigar",
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.issue_slip?.karigar_ldgr_name ?? "—"}</span>
+        <span className="text-sm">{row.original.issue_slip?.karigar_ldgr_name ?? "�"}</span>
       ),
     },
     {
@@ -141,7 +141,7 @@ function KarigarJobWorkReport() {
         const r = row.original;
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm">{r.item?.item_name ?? "—"}</span>
+            <span className="text-sm">{r.item?.item_name ?? "�"}</span>
             {r.design_code && (
               <span className="text-xs text-muted-foreground font-mono">{r.design_code}</span>
             )}
@@ -152,7 +152,7 @@ function KarigarJobWorkReport() {
     {
       header: "Purity",
       cell: ({ row }) => (
-        <span className="text-xs font-medium">{row.original.purity?.purity_name ?? "—"}</span>
+        <span className="text-xs font-medium">{row.original.purity?.purity_name ?? "�"}</span>
       ),
     },
     {
@@ -167,20 +167,20 @@ function KarigarJobWorkReport() {
       accessorKey: "approx_wt",
       cell: ({ getValue }) => {
         const v = getValue();
-        return v ? <span className="text-sm">{Number(v).toFixed(3)}</span> : <span className="text-muted-foreground text-xs">—</span>;
+        return v ? <span className="text-sm">{Number(v).toFixed(3)}</span> : <span className="text-muted-foreground text-xs">�</span>;
       },
     },
     {
       header: "Size",
       accessorKey: "size",
-      cell: ({ getValue }) => getValue() || <span className="text-muted-foreground text-xs">—</span>,
+      cell: ({ getValue }) => getValue() || <span className="text-muted-foreground text-xs">�</span>,
     },
     {
       header: "Due Date",
       cell: ({ row }) => {
         const r = row.original;
         const due = r.due_date;
-        if (!due) return <span className="text-muted-foreground text-xs">—</span>;
+        if (!due) return <span className="text-muted-foreground text-xs">�</span>;
         const finished = r.stage === 'FINISHED';
         const over = !finished && isOverdue(due);
         return (
@@ -237,7 +237,7 @@ function KarigarJobWorkReport() {
       header: "Remarks",
       accessorKey: "remarks",
       cell: ({ getValue }) => (
-        <span className="text-xs text-muted-foreground">{getValue() || "—"}</span>
+        <span className="text-xs text-muted-foreground">{getValue() || "�"}</span>
       ),
     },
   ];
@@ -283,7 +283,7 @@ function KarigarJobWorkReport() {
           </Select>
         </div>
         <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
+          {loading ? "Loading�" : "Refresh"}
         </Button>
       </div>
 

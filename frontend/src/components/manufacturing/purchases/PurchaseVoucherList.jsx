@@ -159,7 +159,7 @@ const totalPages = data?.data?.total_pages ?? 1;
       accessorKey: "bill_value",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "�";
       },
     },
     {
@@ -168,23 +168,23 @@ const totalPages = data?.data?.total_pages ?? 1;
       id: "tax",
       cell: ({ row }) => {
         const tax = parseFloat(row.original.cgst || 0) + parseFloat(row.original.sgst || 0) + parseFloat(row.original.igst || 0);
-        return tax > 0 ? tax.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+        return tax > 0 ? tax.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "�";
       },
     },
     {
       header: "GW",
       accessorKey: "total_gw",
-      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "—",
+      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "�",
     },
     {
       header: "NW",
       accessorKey: "total_nw",
-      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "—",
+      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "�",
     },
     {
       header: "Stone Wt",
       accessorKey: "total_stone_wt",
-      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "—",
+      cell: ({ getValue }) => getValue() != null ? parseFloat(getValue()).toFixed(3) : "�",
     },
   ];
 
@@ -266,7 +266,7 @@ const totalPages = data?.data?.total_pages ?? 1;
         <>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={30}>
-            {/* Panel header — matches ERP border-b style, no gradient */}
+            {/* Panel header � matches ERP border-b style, no gradient */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b bg-background">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Purchase Details</p>
@@ -300,20 +300,20 @@ const totalPages = data?.data?.total_pages ?? 1;
                     {(details.purchasevoucherdetails_set || []).filter(d => !d.main_item).map((detail, dIdx) => (
                       <TableRow key={`direct-${dIdx}`} className={`hover:bg-accent/40 transition-colors ${dIdx % 2 === 1 ? "bg-muted/20" : ""}`}>
                         <TableCell className="px-3 py-2 text-xs font-medium text-center">{(details.purchasevoucheritems_set?.length || 0) + dIdx + 1}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{detail.date || details.date1 || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs">{detail.packet || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs font-semibold text-foreground">{detail.sub_item || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs text-center">{detail.sub_pcs ?? "—"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{detail.date || details.date1 || "�"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs">{detail.packet || "�"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs font-semibold text-foreground">{detail.sub_item || "�"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.sub_pcs ?? "�"}</TableCell>
                         <TableCell className="px-3 py-2 text-xs text-center">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs text-center font-medium">{detail.sub_gw || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs text-center">{detail.metal_purity || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs text-center">{detail.fine_wt || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs text-center">{detail.rate || "—"}</TableCell>
-                        <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center font-medium">{detail.sub_gw || "�"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.metal_purity || "�"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.fine_wt || "�"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center">{detail.rate || "�"}</TableCell>
+                        <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">�</TableCell>
                         <TableCell className="px-3 py-2 text-xs text-center font-medium text-foreground">
-                          {detail.value != null ? Number(detail.value).toLocaleString("en-IN") : "—"}
+                          {detail.value != null ? Number(detail.value).toLocaleString("en-IN") : "�"}
                         </TableCell>
-                        <TableCell className="px-2 py-2 text-muted-foreground text-center">—</TableCell>
+                        <TableCell className="px-2 py-2 text-muted-foreground text-center">�</TableCell>
                       </TableRow>
                     ))}
                     {details.purchasevoucheritems_set.map((item, idx) => (
@@ -322,17 +322,17 @@ const totalPages = data?.data?.total_pages ?? 1;
                         <TableRow className={`hover:bg-accent/40 transition-colors ${idx % 2 === 1 ? "bg-muted/20" : ""}`}>
                           <TableCell className="px-3 py-2 text-xs font-medium text-center">{idx + 1}</TableCell>
                           <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{item.date}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">—</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">�</TableCell>
                           <TableCell className="px-3 py-2 text-xs font-semibold text-foreground">{item.item_name || item.item}</TableCell>
                           <TableCell className="px-3 py-2 text-xs text-center">{item.pcs}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-center font-medium">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-center">{item.purity || "—"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-center">{item.making_amt || "—"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">—</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">�</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center font-medium">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center">{item.purity || "�"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">�</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center">{item.making_amt || "�"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-center text-muted-foreground">�</TableCell>
                           <TableCell className="px-3 py-2 text-xs text-center font-medium text-foreground">
-                            {item.item_value != null ? Number(item.item_value).toLocaleString("en-IN") : "—"}
+                            {item.item_value != null ? Number(item.item_value).toLocaleString("en-IN") : "�"}
                           </TableCell>
                           <TableCell className="px-2 py-2 text-center">
                             <Button
@@ -346,24 +346,24 @@ const totalPages = data?.data?.total_pages ?? 1;
                           </TableCell>
                         </TableRow>
 
-                        {/* Sub-detail rows — indented, subtler */}
+                        {/* Sub-detail rows � indented, subtler */}
                         {item.purchasevoucherdetails_set?.map((detail, sub_id) => (
                           <TableRow key={sub_id} className="bg-muted/10 hover:bg-muted/30 transition-colors border-l-2 border-l-border">
                             <TableCell className="px-3 py-1.5 text-xs text-muted-foreground text-center">{detail.sl_no}</TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground">—</TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs">{detail.packet || "—"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground">�</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs">{detail.packet || "�"}</TableCell>
                             <TableCell className="px-3 py-1.5 text-xs text-muted-foreground pl-5">{detail.sub_item}</TableCell>
                             <TableCell className="px-3 py-1.5 text-xs text-center">{detail.sub_pcs}</TableCell>
                             <TableCell className="px-3 py-1.5 text-xs text-center">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs text-center font-medium">{detail.sub_gw || "—"}</TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.metal_purity || "—"}</TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.fine_wt || "—"}</TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.rate || "—"}</TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs text-center text-muted-foreground">—</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center font-medium">{detail.sub_gw || "�"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.metal_purity || "�"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.fine_wt || "�"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center">{detail.rate || "�"}</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-center text-muted-foreground">�</TableCell>
                             <TableCell className="px-3 py-1.5 text-xs text-center font-medium">
-                              {detail.value != null ? Number(detail.value).toLocaleString("en-IN") : "—"}
+                              {detail.value != null ? Number(detail.value).toLocaleString("en-IN") : "�"}
                             </TableCell>
-                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground">—</TableCell>
+                            <TableCell className="px-3 py-1.5 text-xs text-muted-foreground">�</TableCell>
                           </TableRow>
                         ))}
                       </React.Fragment>

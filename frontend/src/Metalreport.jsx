@@ -17,7 +17,7 @@ const purityLabel = (p) => {
 };
 
 function fmtDate(d) {
-  if (!d) return "—";
+  if (!d) return "�";
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return dt.toLocaleDateString("en-GB").replaceAll("/", "-");
@@ -49,7 +49,7 @@ export default function KarigarMetalLedger() {
   const [data, setData]         = useState([]);
   const [loading, setLoading]   = useState(false);
 
-  // Load filter sources — KARIGARS ONLY (role=KR)
+  // Load filter sources � KARIGARS ONLY (role=KR)
   useEffect(() => {
     apiClient.get("/contacts/api/ledger/?role=KR&page_size=500")
       .then((res) => {
@@ -261,7 +261,7 @@ export default function KarigarMetalLedger() {
                         <React.Fragment key={`${karigar.id}-${purity}`}>
                           <tr className="bg-violet-50/60 border-t border-violet-100">
                             <td colSpan={9} className="px-3 py-1.5 text-xs font-semibold text-primary">
-                              {karigar.ac_name} — {purityLabel(purity)}
+                              {karigar.ac_name} � {purityLabel(purity)}
                             </td>
                           </tr>
                           <tr className="bg-gray-50/60 border-t border-gray-100">

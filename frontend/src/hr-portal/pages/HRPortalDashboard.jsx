@@ -25,7 +25,7 @@ export default function HRPortalDashboard() {
     <div className="space-y-6">
       <div className="rounded-lg border bg-card p-5">
         <h2 className="text-lg font-semibold">Welcome, {emp.full_name || "Employee"}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{emp.designation} {emp.department ? `· ${emp.department}` : ""}</p>
+        <p className="text-sm text-muted-foreground mt-1">{emp.designation} {emp.department ? `� ${emp.department}` : ""}</p>
         <p className="text-xs text-muted-foreground mt-0.5">Employee Code: {emp.employee_code}</p>
       </div>
 

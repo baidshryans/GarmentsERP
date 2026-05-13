@@ -171,7 +171,7 @@ export default function PacketWiseStoneReport() {
                         {/* Item filter (Type S) */}
                         <div className="flex flex-col gap-1">
                             <Label className="text-xs font-medium">
-                                Items (Type S) <span className="text-muted-foreground">— {selectedItems.length || "all"}</span>
+                                Items (Type S) <span className="text-muted-foreground">� {selectedItems.length || "all"}</span>
                             </Label>
                             <div className="border border-border rounded-lg max-h-44 overflow-y-auto bg-background p-2 space-y-1.5">
                                 <div className="flex items-center gap-2">
@@ -196,12 +196,12 @@ export default function PacketWiseStoneReport() {
                         {/* Packet filter (filtered by selected items) */}
                         <div className="flex flex-col gap-1">
                             <Label className="text-xs font-medium">
-                                Packets <span className="text-muted-foreground">— {selectedPackets.length || "all"}</span>
+                                Packets <span className="text-muted-foreground">� {selectedPackets.length || "all"}</span>
                             </Label>
                             <div className="border border-border rounded-lg max-h-44 overflow-y-auto bg-background p-2 space-y-1.5">
                                 {packetsLoading && (
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <Loader2 className="size-3 animate-spin" /> Loading…
+                                        <Loader2 className="size-3 animate-spin" /> Loading�
                                     </div>
                                 )}
                                 {!packetsLoading && (
@@ -259,7 +259,7 @@ export default function PacketWiseStoneReport() {
                 <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
                     <div className="text-sm font-semibold">
                         Packet Wise Stone Report
-                        {searched && <span className="ml-2 text-xs font-normal text-muted-foreground">{fromDate} — {toDate}</span>}
+                        {searched && <span className="ml-2 text-xs font-normal text-muted-foreground">{fromDate} � {toDate}</span>}
                     </div>
                     <span className="text-xs text-muted-foreground">{processed.length} packets</span>
                 </div>

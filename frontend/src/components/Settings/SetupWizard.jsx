@@ -197,7 +197,7 @@ export default function SetupWizard() {
     return () => window.removeEventListener("beforeunload", handler);
   }, []);
 
-  // Load status on mount — also auto-seed states if missing
+  // Load status on mount � also auto-seed states if missing
   useEffect(() => {
     (async () => {
       let res = await getSetupStatus();
@@ -289,7 +289,7 @@ export default function SetupWizard() {
       fetchStates().then(async (r) => {
         const list = r.success ? (Array.isArray(r.data) ? r.data : (r.data?.results || [])) : [];
         if (list.length === 0) {
-          // States not in DB yet — seed them, then fetch again
+          // States not in DB yet � seed them, then fetch again
           await seedStates();
           const r2 = await fetchStates();
           if (r2.success) {
@@ -523,7 +523,7 @@ export default function SetupWizard() {
               {completed.has("company") ? (
                 <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
                   <CheckCircle2 className="size-4" />
-                  Company created — 7 operational ledgers (Discount, Round Off, Hallmark, Making Charges, etc.) auto-generated.
+                  Company created � 7 operational ledgers (Discount, Round Off, Hallmark, Making Charges, etc.) auto-generated.
                 </div>
               ) : (
                 <>
@@ -640,7 +640,7 @@ export default function SetupWizard() {
               {completed.has("gstin") ? (
                 <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
                   <CheckCircle2 className="size-4" />
-                  GSTIN created — 6 GST register ledgers (Input/Output CGST, SGST, IGST) auto-generated.
+                  GSTIN created � 6 GST register ledgers (Input/Output CGST, SGST, IGST) auto-generated.
                 </div>
               ) : (
                 <>
@@ -729,7 +729,7 @@ export default function SetupWizard() {
               {completed.has("retail") && (
                 <div className="flex items-center gap-2 text-green-700 text-sm font-medium">
                   <CheckCircle2 className="size-4" />
-                  {setupStatus?.retails_count} retail(s) already exist — step complete. Click Next to continue.
+                  {setupStatus?.retails_count} retail(s) already exist � step complete. Click Next to continue.
                 </div>
               )}
               {!completed.has("retail") && (
@@ -866,7 +866,7 @@ export default function SetupWizard() {
           {step.key === "fiscal" && (
             <div className="flex flex-col gap-5">
               <p className="text-sm text-muted-foreground">
-                Create one or more financial years. In India the FY typically runs <strong>1 Apr – 31 Mar</strong>.
+                Create one or more financial years. In India the FY typically runs <strong>1 Apr � 31 Mar</strong>.
                 The first year you create becomes the active FY. You can add past or future years too.
               </p>
 

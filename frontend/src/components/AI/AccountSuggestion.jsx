@@ -3,7 +3,7 @@ import { Lightbulb, CheckCircle, X, Loader2 } from "lucide-react";
 import { suggestAccounts } from "@/services/apiService";
 
 /**
- * AccountSuggestion — shown below the narration field in journal entry forms.
+ * AccountSuggestion � shown below the narration field in journal entry forms.
  *
  * Props:
  *   narration (string): current narration value from the form
@@ -69,7 +69,7 @@ export default function AccountSuggestion({ narration, voucherType = "JRNL", amo
       {status === "loading" && (
         <div className="flex items-center gap-2 text-primary">
           <Loader2 size={13} className="animate-spin" />
-          <span className="text-xs">Getting account suggestion…</span>
+          <span className="text-xs">Getting account suggestion�</span>
         </div>
       )}
 

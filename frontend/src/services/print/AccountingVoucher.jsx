@@ -1,7 +1,7 @@
 ﻿import React from "react";
 import { fmt, fmtDate, numberToWords, isGst, isRcpt, isPmnt, detectParty, detectMode } from "./printHelpers";
 
-/* â”€â”€â”€ voucher type helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── voucher type helpers ────────────────────────────────────────────────── */
 
 const VOUCHER_TITLES = {
   "RCPT-SALE": "Receipt Voucher",
@@ -12,7 +12,7 @@ const VOUCHER_TITLES = {
   "JRNL":      "Journal Voucher",
 };
 
-/* â”€â”€â”€ CSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── CSS ─────────────────────────────────────────────────────────────────── */
 
 const FONTS = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
 
@@ -92,7 +92,7 @@ const AV_CSS = [
   "@media print{@page{size:A4;margin:0}body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}.av-page{padding:10mm 12mm}}"
 ].join("\n");
 
-/* â”€â”€â”€ component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── component ───────────────────────────────────────────────────────────── */
 
 const AccountingVoucher = ({ data = {} }) => {
   const d           = data;
@@ -122,7 +122,7 @@ const AccountingVoucher = ({ data = {} }) => {
     <div className="av-page">
       <style>{AV_CSS}</style>
 
-      {/* â”€â”€ Company header â”€â”€ */}
+      {/* ── Company header ── */}
       <div className="av-header">
         {d.company_logo_url && (
           <img src={d.company_logo_url} alt="" style={{height:40,marginBottom:4,objectFit:"contain"}} />
@@ -132,25 +132,25 @@ const AccountingVoucher = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="av-co-sub">
             {d.company_phone && "Tel: " + d.company_phone}
-            {d.company_phone && d.company_email && "  ·  "}
+            {d.company_phone && d.company_email && "  �  "}
             {d.company_email}
           </div>
         )}
         {d.company_gstin && <div className="av-co-gstin">GSTIN: {d.company_gstin}</div>}
       </div>
 
-      {/* â”€â”€ Title strip â”€â”€ */}
+      {/* ── Title strip ── */}
       <div className="av-title">
         <span className="av-title-side">&nbsp;</span>
         <span className="av-title-text">{title}</span>
         <span className="av-title-side av-title-right">Original / Duplicate</span>
       </div>
 
-      {/* â”€â”€ Voucher no + date â”€â”€ */}
+      {/* ── Voucher no + date ── */}
       <div className="av-info">
         <div className="av-info-cell">
           <div className="av-info-lbl">Voucher No.</div>
-          <div className="av-info-val">{d.voucher_no || "—"}</div>
+          <div className="av-info-val">{d.voucher_no || "�"}</div>
         </div>
         <div className="av-info-cell">
           <div className="av-info-lbl">Date</div>
@@ -158,7 +158,7 @@ const AccountingVoucher = ({ data = {} }) => {
         </div>
       </div>
 
-      {/* â”€â”€ Party strip (PMNT / RCPT only) â”€â”€ */}
+      {/* ── Party strip (PMNT / RCPT only) ── */}
       {showParty && party && (
         <div className="av-party-strip">
           <div>
@@ -181,33 +181,33 @@ const AccountingVoucher = ({ data = {} }) => {
         </div>
       )}
 
-      {/* â”€â”€ Cheque details â”€â”€ */}
+      {/* ── Cheque details ── */}
       {bankLines.length > 0 && (
         <div className="av-chq-strip">
           {bankLines.map((b, i) => (
             <React.Fragment key={i}>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Drawn On</div>
-                <div className="av-chq-val">{b.party_bank_name || "—"}</div>
+                <div className="av-chq-val">{b.party_bank_name || "�"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Cheque / Card No.</div>
-                <div className="av-chq-val">{b.chq_no || "—"}</div>
+                <div className="av-chq-val">{b.chq_no || "�"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Cheque Date</div>
-                <div className="av-chq-val">{fmtDate(b.chq_date) || "—"}</div>
+                <div className="av-chq-val">{fmtDate(b.chq_date) || "�"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Account</div>
-                <div className="av-chq-val">{b.account || "—"}</div>
+                <div className="av-chq-val">{b.account || "�"}</div>
               </div>
             </React.Fragment>
           ))}
         </div>
       )}
 
-      {/* â”€â”€ Entries table â”€â”€ */}
+      {/* ── Entries table ── */}
       <div className="av-tbl-wrap">
         <table className="av-tbl">
           <colgroup>
@@ -268,20 +268,20 @@ const AccountingVoucher = ({ data = {} }) => {
         </table>
       </div>
 
-      {/* â”€â”€ Total row â”€â”€ */}
+      {/* ── Total row ── */}
       <div className="av-total-row" style={{display:"grid",gridTemplateColumns:"60% 20% 20%"}}>
         <div className="av-total-lbl" style={{padding:"5px 8px",fontWeight:700,textAlign:"right",borderRight:"1px solid #ddd",fontSize:11}}>
           Total
         </div>
         <div className="av-total-num" style={{padding:"5px 8px",borderRight:"1px solid #ddd",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
-          {totalDr > 0 ? "₹Â " + fmt(totalDr) : ""}
+          {totalDr > 0 ? "₹ " + fmt(totalDr) : ""}
         </div>
         <div className="av-total-num" style={{padding:"5px 8px",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
-          {totalCr > 0 ? "₹Â " + fmt(totalCr) : ""}
+          {totalCr > 0 ? "₹ " + fmt(totalCr) : ""}
         </div>
       </div>
 
-      {/* â”€â”€ Amount in words â”€â”€ */}
+      {/* ── Amount in words ── */}
       {netAmt > 0 && (
         <div className="av-words">
           <span style={{fontWeight:700}}>Amount in Words:&nbsp;</span>
@@ -289,14 +289,14 @@ const AccountingVoucher = ({ data = {} }) => {
         </div>
       )}
 
-      {/* â”€â”€ Narration â”€â”€ */}
+      {/* ── Narration ── */}
       {d.narration && (
         <div className="av-narr">
           <span style={{fontWeight:700}}>Narration:&nbsp;</span>{d.narration}
         </div>
       )}
 
-      {/* â”€â”€ Footer â”€â”€ */}
+      {/* ── Footer ── */}
       <div className="av-footer">
         <div className="av-footer-left">
           {d.company_pan   && <div><strong>PAN:</strong>&nbsp;{d.company_pan}</div>}

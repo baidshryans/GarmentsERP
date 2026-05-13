@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 
-// â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 const FONT = '"Inter", Arial, Helvetica, sans-serif';
 
@@ -38,7 +38,7 @@ const PO_HDR_CSS = `
 `;
 
 const fmtDate = (val) => {
-  if (!val) return 'â€”';
+  if (!val) return '—';
   const d = new Date(val);
   if (isNaN(d)) return val;
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -46,10 +46,10 @@ const fmtDate = (val) => {
 
 const fmtWt = (v) => {
   const n = parseFloat(v);
-  return isNaN(n) || n === 0 ? 'â€”' : n.toFixed(3);
+  return isNaN(n) || n === 0 ? '—' : n.toFixed(3);
 };
 
-// â”€â”€ Shared style tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Shared style tokens ───────────────────────────────────────────────────────
 
 const BASE = 10;
 
@@ -77,7 +77,7 @@ const totCell = (extra = {}) => ({
 });
 const totCell0 = (extra = {}) => totCell({ borderLeft: 'none', ...extra });
 
-// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main component ────────────────────────────────────────────────────────────
 
 export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
   const totalPcs = rows.reduce((s, r) => s + (parseInt(r.pcs) || 0), 0);
@@ -89,11 +89,11 @@ export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
   return (
     <div style={{ padding: '14mm', maxWidth: 700, margin: '0 auto', fontFamily: FONT }}>
 
-      {/* â”€â”€ Font + header CSS â”€â”€ */}
+      {/* ── Font + header CSS ── */}
       <link rel="stylesheet" href={FONTS_HREF} />
       <style>{PO_HDR_CSS}</style>
 
-      {/* â”€â”€ Company header (matches Sales Invoice layout) â”€â”€ */}
+      {/* ── Company header (matches Sales Invoice layout) ── */}
       <div className="po-hdr">
         <div className={bis_logo_url ? 'po-bis' : 'po-bis placeholder'}>
           {bis_logo_url
@@ -106,7 +106,7 @@ export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
           {(phone || email) && (
             <div className="po-brand-sub">
               {phone && <>Phone <strong>{phone}</strong></>}
-              {phone && email && <> &nbsp;Â·&nbsp; </>}
+              {phone && email && <> &nbsp;·&nbsp; </>}
               {email && <>Email <strong>{email}</strong></>}
             </div>
           )}
@@ -125,14 +125,14 @@ export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
         </div>
       </div>
 
-      {/* â”€â”€ PO title + type badge â”€â”€ */}
+      {/* ── PO title + type badge ── */}
       <div style={{ textAlign: 'center', marginTop: 10, marginBottom: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 4, textTransform: 'uppercase', color: '#0f172a', fontFamily: FONT }}>
           PURCHASE ORDER
         </div>
       </div>
 
-      {/* â”€â”€ Order details + Supplier â”€â”€ */}
+      {/* ── Order details + Supplier ── */}
       <div style={{ display: 'flex', marginBottom: 10 }}>
         <div style={{
           flex: 1, padding: '6px 8px', border: '1px solid #ccc',
@@ -143,7 +143,7 @@ export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
           </div>
           <div>
             <span style={{ color: '#777', width: 50, display: 'inline-block' }}>PO No</span>
-            <span style={{ fontWeight: 700 }}>{po?.po_no || 'â€”'}</span>
+            <span style={{ fontWeight: 700 }}>{po?.po_no || '—'}</span>
           </div>
           <div>
             <span style={{ color: '#777', width: 50, display: 'inline-block' }}>Date</span>
@@ -157,11 +157,11 @@ export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
           <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 1, color: '#888', textTransform: 'uppercase', marginBottom: 2 }}>
             Supplier / Karigar
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, fontFamily: FONT }}>{po?.ldgr_name || 'â€”'}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, fontFamily: FONT }}>{po?.ldgr_name || '—'}</div>
         </div>
       </div>
 
-      {/* â”€â”€ Items table (9 columns â€” Status removed) â”€â”€ */}
+      {/* ── Items table (9 columns — Status removed) ── */}
       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', fontFamily: FONT }}>
         <colgroup>
           <col style={{ width: 20  }} />{/* Sl */}
@@ -189,16 +189,16 @@ export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
         </thead>
         <tbody>
           {rows.map((row, idx) => {
-            const itemName = row._co_display?.item_name || row.item_name || row.item || 'â€”';
+            const itemName = row._co_display?.item_name || row.item_name || row.item || '—';
             return (
               <tr key={idx} style={{ borderBottom: '1px solid #efefef' }}>
                 <td style={td0({ textAlign: 'center' })}>{row.po_sl_no ?? idx + 1}</td>
                 <td style={td0({ textAlign: 'left'   })}>{itemName}</td>
-                <td style={td({  textAlign: 'center' })}>{row.purity || 'â€”'}</td>
-                <td style={td({  textAlign: 'center' })}>{row.pcs || 'â€”'}</td>
+                <td style={td({  textAlign: 'center' })}>{row.purity || '—'}</td>
+                <td style={td({  textAlign: 'center' })}>{row.pcs || '—'}</td>
                 <td style={td({  textAlign: 'right'  })}>{fmtWt(row.approx_wt)}</td>
-                <td style={td({  textAlign: 'center' })}>{row.design_code || 'â€”'}</td>
-                <td style={td({  textAlign: 'center' })}>{row.size || 'â€”'}</td>
+                <td style={td({  textAlign: 'center' })}>{row.design_code || '—'}</td>
+                <td style={td({  textAlign: 'center' })}>{row.size || '—'}</td>
                 <td style={td({  textAlign: 'center' })}>{fmtDate(row.due_date)}</td>
                 <td style={td({  textAlign: 'left', fontSize: 9, color: '#555' })}>{row.remarks || ''}</td>
               </tr>
@@ -215,7 +215,7 @@ export const PurchaseOrderPrint = ({ po, rows = [], company = {} }) => {
         </tfoot>
       </table>
 
-      {/* â”€â”€ Footer â”€â”€ */}
+      {/* ── Footer ── */}
       <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontFamily: FONT }}>
         <div style={{ fontSize: 8, color: '#888', fontStyle: 'italic', maxWidth: '60%', lineHeight: 1.7 }}>
           Please ensure all items are hallmarked as per BIS standards.<br />

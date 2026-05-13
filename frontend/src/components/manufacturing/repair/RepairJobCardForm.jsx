@@ -242,7 +242,7 @@ export default function RepairJobCardForm() {
           <ArrowLeft className="size-4" />
         </Link>
         <h1 className="text-lg font-semibold">
-          {isNew ? "New Repair Job Card" : `Repair Job Card — ${rjcNo}`}
+          {isNew ? "New Repair Job Card" : `Repair Job Card � ${rjcNo}`}
         </h1>
         {!isNew && (
           <span className={`ml-2 px-2 py-0.5 rounded-full text-[11px] font-medium ${STATUS_COLOR[status] ?? ""}`}>
@@ -269,12 +269,12 @@ export default function RepairJobCardForm() {
           </Field>
         </div>
 
-        {/* Customer — searchable */}
+        {/* Customer � searchable */}
         <div className="grid grid-cols-3 gap-4 mt-4">
           <div className="col-span-2">
             <Field label="Customer *">
               <Input
-                placeholder="Search customer…"
+                placeholder="Search customer�"
                 value={customerSearch}
                 onChange={(e) => { setCustomerSearch(e.target.value); setCustomerId(""); }}
               />
@@ -309,7 +309,7 @@ export default function RepairJobCardForm() {
             <Select value={itemId || "__none__"} onValueChange={(v) => setItemId(v === "__none__" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">— None —</SelectItem>
+                <SelectItem value="__none__">� None �</SelectItem>
                 {items.map((it) => (
                   <SelectItem key={it.id} value={String(it.id)}>{it.item_name}</SelectItem>
                 ))}
@@ -320,7 +320,7 @@ export default function RepairJobCardForm() {
             <Select value={purityId || "__none__"} onValueChange={(v) => setPurityId(v === "__none__" ? "" : v)}>
               <SelectTrigger><SelectValue placeholder="Select purity" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">— None —</SelectItem>
+                <SelectItem value="__none__">� None �</SelectItem>
                 {purities.map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>{p.purity}</SelectItem>
                 ))}
@@ -335,7 +335,7 @@ export default function RepairJobCardForm() {
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the repair work required…"
+              placeholder="Describe the repair work required�"
             />
           </Field>
         </div>
@@ -396,10 +396,10 @@ export default function RepairJobCardForm() {
               <tbody>
                 {karigarLinks.map((lk) => (
                   <tr key={lk.id} className="border-b last:border-0">
-                    <td className="py-1 font-mono">{lk.karigar_issue_no ?? "—"}</td>
-                    <td className="py-1">{lk.karigar_name ?? "—"}</td>
-                    <td className="py-1 font-mono">{lk.karigar_receive_no ?? "—"}</td>
-                    <td className="py-1 tabular-nums">{lk.returned_gw ? parseFloat(lk.returned_gw).toFixed(3) : "—"}</td>
+                    <td className="py-1 font-mono">{lk.karigar_issue_no ?? "�"}</td>
+                    <td className="py-1">{lk.karigar_name ?? "�"}</td>
+                    <td className="py-1 font-mono">{lk.karigar_receive_no ?? "�"}</td>
+                    <td className="py-1 tabular-nums">{lk.returned_gw ? parseFloat(lk.returned_gw).toFixed(3) : "�"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -467,7 +467,7 @@ export default function RepairJobCardForm() {
       {/* ── Save button ───────────────────────────────────────────────── */}
       <div className="flex gap-3">
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? "Saving…" : isNew ? "Create Job Card" : "Save Changes"}
+          {saving ? "Saving�" : isNew ? "Create Job Card" : "Save Changes"}
         </Button>
         {!isNew && (
           <Button variant="outline" onClick={handlePrint} className="gap-1.5">

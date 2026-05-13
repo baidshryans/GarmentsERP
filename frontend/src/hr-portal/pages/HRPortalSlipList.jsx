@@ -37,7 +37,7 @@ export default function HRPortalSlipList() {
             <div>
               <p className="font-medium">{MONTHS[s.month]} {s.year}</p>
               <p className="text-sm text-muted-foreground">
-                Gross: ₹{Number(s.gross_salary).toLocaleString("en-IN")} &nbsp;·&nbsp;
+                Gross: ₹{Number(s.gross_salary).toLocaleString("en-IN")} &nbsp;�&nbsp;
                 Net: ₹{Number(s.net_salary).toLocaleString("en-IN")}
               </p>
             </div>

@@ -103,7 +103,7 @@ export function AppSidebar({ ...props }) {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        {/* Module nav groups — filtered by license */}
+        {/* Module nav groups � filtered by license */}
         {sections.map(({ label, items }) => (
           <NavMain key={label} items={items} label={label} />
         ))}

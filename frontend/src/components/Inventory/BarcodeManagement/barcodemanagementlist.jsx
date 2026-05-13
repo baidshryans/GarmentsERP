@@ -47,7 +47,7 @@ const BarcodeManagementList = () => {
         created_date: new Date().toISOString().split("T")[0],
         barcodedetails_set: [],
       },
-      // Sub-item entry fields (not submitted — used for inline entry)
+      // Sub-item entry fields (not submitted � used for inline entry)
       detail: { packet: "", item: "", pcs: "", ct: "", gw: "", rate: "", amt: "" },
     },
   });
@@ -152,7 +152,7 @@ const BarcodeManagementList = () => {
       fetchReceiveItemsForBarcode(sl_no, rec_slip_no)
         .then((r) => {
           if (r.success) {
-            // Purity Select races with purityData load — stash for re-apply effect
+            // Purity Select races with purityData load � stash for re-apply effect
             pvPurityRef.current = r.data.purity || null;
             const formData = {
               ...r.data,
@@ -212,7 +212,7 @@ const BarcodeManagementList = () => {
             const d = response.data;
             if (d.stk_status === false) setIsReadOnly(true);
             // Capture gold/metal sub-item (no packet) into the ref so it can be
-            // re-injected on submit — and filter it out of the editable list
+            // re-injected on submit � and filter it out of the editable list
             // (its weight lives in NW and its purity mirrors the main item).
             const allDetails = d.barcodedetails_set || [];
             pvGoldItemRef.current = allDetails.find((r) => !r.packet) || null;
@@ -241,14 +241,14 @@ const BarcodeManagementList = () => {
   const onSubmit = () => {
     const form_data = { ...getValues("form") };
 
-    // Stone / accessory sub-items — purity is always null for non-gold items
+    // Stone / accessory sub-items � purity is always null for non-gold items
     const stoneDetails = (form_data.barcodedetails_set || []).map((d) => ({
       ...d,
       barcode_text: form_data.barcode,
       purity: null,
     }));
 
-    // Gold sub-item — re-inject with NW as weight and main-item purity
+    // Gold sub-item � re-inject with NW as weight and main-item purity
     // (rate is fetched live at sale time). The item must always be the
     // raw "Gold" item, not the main finished-product item.
     const nw = parseFloat(form_data.nw) || 0;
@@ -521,7 +521,7 @@ const BarcodeManagementList = () => {
                     </datalist>
                   </TableCell>
                   <TableCell className="p-1.5">
-                    <span className="text-xs text-muted-foreground truncate block">{item_name || "—"}</span>
+                    <span className="text-xs text-muted-foreground truncate block">{item_name || "�"}</span>
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Controller
@@ -676,7 +676,7 @@ const BarcodeManagementList = () => {
                     </datalist>
                   </TableCell>
                   <TableCell className="p-1.5">
-                    <span className="text-xs text-muted-foreground truncate block">{detailItemDisplay || "—"}</span>
+                    <span className="text-xs text-muted-foreground truncate block">{detailItemDisplay || "�"}</span>
                   </TableCell>
                   <TableCell className="p-1.5">
                     <Input type="number" className="h-8 text-sm text-right"

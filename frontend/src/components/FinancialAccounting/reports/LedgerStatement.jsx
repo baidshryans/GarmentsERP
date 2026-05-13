@@ -14,7 +14,7 @@ const today = new Date().toISOString().split("T")[0];
 const fmt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 const balLabel = (v) => {
   const n = Number(v);
-  if (n === 0) return "—";
+  if (n === 0) return "�";
   return `${fmt(Math.abs(n))} ${n >= 0 ? "Dr" : "Cr"}`;
 };
 const toDdMm = (s) => {
@@ -202,7 +202,7 @@ export default function LedgerStatement() {
       .map((r, i) => `<section${i > 0 ? ' style="page-break-before:always"' : ""}>${buildReportTableHtml(r)}</section>`)
       .join("");
     const title = usable.length === 1
-      ? `Ledger Statement — ${usable[0].ledger_name}`
+      ? `Ledger Statement � ${usable[0].ledger_name}`
       : `Ledger Statements (${usable.length} ledgers)`;
     printReport({
       title,
@@ -263,7 +263,7 @@ export default function LedgerStatement() {
             <Search className="absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
             <Input
               className="h-9 pl-8 text-sm"
-              placeholder="Search by name, mobile, phone…"
+              placeholder="Search by name, mobile, phone�"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onFocus={() => {
@@ -283,7 +283,7 @@ export default function LedgerStatement() {
               className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg"
             >
               {searchLoading ? (
-                <div className="px-3 py-4 text-xs text-muted-foreground">Searching…</div>
+                <div className="px-3 py-4 text-xs text-muted-foreground">Searching�</div>
               ) : suggestions.length === 0 ? (
                 <div className="px-3 py-4 text-xs text-muted-foreground">No results found.</div>
               ) : (

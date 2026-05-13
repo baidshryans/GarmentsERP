@@ -280,7 +280,7 @@ const GoldIssue = () => {
                 setValue("form.karigar_ldgr_name", opt.ac_name)
                 setValue("form.karigar_ldgr", opt.id)
               }}
-              placeholder="Search karigar…"
+              placeholder="Search karigar�"
             />
             <input type="hidden" {...register("form.karigar_ldgr")} />
 

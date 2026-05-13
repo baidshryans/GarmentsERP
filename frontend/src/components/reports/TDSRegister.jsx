@@ -133,7 +133,7 @@ export default function TDSRegister() {
               <SelectItem value="all">All Sections</SelectItem>
               {sections.map((s) => (
                 <SelectItem key={s.id} value={s.section_code}>
-                  {s.section_code} — {s.description}
+                  {s.section_code} � {s.description}
                 </SelectItem>
               ))}
             </SelectContent>

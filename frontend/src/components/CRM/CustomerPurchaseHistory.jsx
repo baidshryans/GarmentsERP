@@ -141,7 +141,7 @@ export default function CustomerPurchaseHistory() {
               className="fixed z-50 bg-white border border-gray-200 rounded shadow-lg overflow-y-auto"
               style={{ top: dropdownRect.top, left: dropdownRect.left, width: dropdownRect.width, maxHeight: 240 }}
             >
-              {searchLoading && <div className="px-3 py-2 text-xs text-gray-400">Searching…</div>}
+              {searchLoading && <div className="px-3 py-2 text-xs text-gray-400">Searching�</div>}
               {suggestions.map((s) => (
                 <div
                   key={s.id}
@@ -165,7 +165,7 @@ export default function CustomerPurchaseHistory() {
           <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} className="w-36" />
         </div>
         <Button onClick={handleFetch} disabled={!selectedLedger || loading}>
-          {loading ? "Loading…" : "Fetch History"}
+          {loading ? "Loading�" : "Fetch History"}
         </Button>
       </div>
 

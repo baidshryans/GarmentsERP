@@ -122,7 +122,7 @@ const SalesReturnAdd = () => {
   const [mainItemDisplay, setMainItemDisplay]     = useState("");
   const [detailItemDisplay, setDetailItemDisplay] = useState("");
   const [detailItem, setDetailItem]               = useState(null); // resolved item object for sub-item
-  // Original bill metadata — stored when a ref bill is fetched
+  // Original bill metadata � stored when a ref bill is fetched
   const [origBillMeta, setOrigBillMeta]           = useState({ mrp: 0, discount: 0, id: null, gst_billno: "", billno: "" });
   const [isPartialReturn, setIsPartialReturn]     = useState(false);
 
@@ -195,7 +195,7 @@ const SalesReturnAdd = () => {
   // ── Packet → auto-fill item ────────────────────────────────────────────────
   useEffect(() => {
     if (!detailPacket) {
-      // Packet cleared — reset only if it had previously set the item
+      // Packet cleared � reset only if it had previously set the item
       if (itemLockedByPacket) {
         setDetailItem(null);
         setDetailItemDisplay("");
@@ -235,7 +235,7 @@ const SalesReturnAdd = () => {
 
     let amount = 0;
     if (isRawItem && tunch > 0) {
-      // Gold: fine weight (gw × tunch/100) × rate
+      // Gold: fine weight (gw � tunch/100) � rate
       amount = gw * (tunch / 100) * rate;
     } else if (detailItem?.uom === "Ct") {
       amount = ct * rate;
@@ -252,7 +252,7 @@ const SalesReturnAdd = () => {
     const itemAmount = (item) => {
       const a = parseFloat(item.amount || 0);
       if (a > 0) return a;
-      // Main item amount is 0/null — sum sub-item amounts instead
+      // Main item amount is 0/null � sum sub-item amounts instead
       return (item.salereturndetails_set || []).reduce((ss, d) => ss + parseFloat(d.amount || 0), 0);
     };
     const mrp      = rs.reduce((s, item) => s + itemAmount(item), 0);
@@ -376,7 +376,7 @@ const SalesReturnAdd = () => {
     if (e.key === "Tab") { e.preventDefault(); handleAddMainItem(); }
   };
 
-  // ── Manual sub-item — linked by sl_no to manual main items in rs ──────────
+  // ── Manual sub-item � linked by sl_no to manual main items in rs ──────────
   const manualItems = rs.map((r, i) => ({ r, i })).filter(({ r }) => r.sale_billno === null);
 
   const handleAddDetail = () => {
@@ -542,7 +542,7 @@ const SalesReturnAdd = () => {
           </Field>
           <Field label="Bill No">
             <div className="flex h-10 items-center px-3 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold">
-              {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+              {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>}
             </div>
             <input type="hidden" {...register("form.billno", { required: true })} />
           </Field>
@@ -555,7 +555,7 @@ const SalesReturnAdd = () => {
             </div>
           </Field>
           <Field label="Customer">
-            <Input list="party_list" placeholder="Type to search…" {...register("form.ldgr_name")}
+            <Input list="party_list" placeholder="Type to search�" {...register("form.ldgr_name")}
               onChange={(e) => {
                 const sel = customers.find((c) => c.ac_name === e.target.value);
                 if (sel) setValue("form.ldgr", sel.id);
@@ -602,7 +602,7 @@ const SalesReturnAdd = () => {
                         <TableCell className="px-4 py-2 border text-xs">{item.barcode}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.item_name || mainItemData.find(m => m.short_code === item.item)?.item_name || item.item}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.pcs}</TableCell>
-                        <TableCell className="px-4 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
+                        <TableCell className="px-4 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.making}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs font-medium">{item.amount}</TableCell>
                       </TableRow>
@@ -632,8 +632,8 @@ const SalesReturnAdd = () => {
         {/* ══ SECTION 3: Manual Items ═════════════════════════════════════════ */}
         <SectionHeader number="3" title="Manual Items (No Barcode)" />
 
-        {/* Step 1 — Main Item */}
-        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">Step 1 — Main Item</p>
+        {/* Step 1 � Main Item */}
+        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">Step 1 � Main Item</p>
         <p className="text-xs text-gray-400 mb-2">
           Fill in the jewellery piece details, then press <kbd className="px-1 py-0.5 bg-gray-100 border rounded font-mono text-gray-600">Tab</kbd> on Remarks to add.
         </p>
@@ -694,13 +694,13 @@ const SalesReturnAdd = () => {
           </Table>
         </div>
 
-        {/* Step 2 — Sub-Items */}
-        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">Step 2 — Sub-Items / Material Details</p>
+        {/* Step 2 � Sub-Items */}
+        <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">Step 2 � Sub-Items / Material Details</p>
         <p className="text-xs text-gray-400 mb-2">
           Enter <strong>Sl No</strong> to attach to a specific manual item above (e.g. 1 = first manual item).
           Press <kbd className="px-1 py-0.5 bg-gray-100 border rounded font-mono text-gray-600">Tab</kbd> on Amount to add.
-          {itemLockedByPacket && <span className="ml-2 text-primary font-medium">Packet active — item auto-filled.</span>}
-          {packetLockedByItem && <span className="ml-2 text-primary font-medium">Item active — packet disabled.</span>}
+          {itemLockedByPacket && <span className="ml-2 text-primary font-medium">Packet active � item auto-filled.</span>}
+          {packetLockedByItem && <span className="ml-2 text-primary font-medium">Item active � packet disabled.</span>}
         </p>
         <div className="overflow-x-auto mb-6">
           <Table className="w-full table-fixed border-collapse">
@@ -724,7 +724,7 @@ const SalesReturnAdd = () => {
                   <Input type="number" min="1" placeholder="1" {...register("details.sl_no")} className="text-center" />
                 </TableCell>
 
-                {/* Packet — hidden when item is active */}
+                {/* Packet � hidden when item is active */}
                 {!packetLockedByItem && (
                   <TableCell className="w-28 px-3 py-2 border">
                     <Input
@@ -739,7 +739,7 @@ const SalesReturnAdd = () => {
                   </TableCell>
                 )}
 
-                {/* Item — disabled when packet is active; only type-R items in datalist */}
+                {/* Item � disabled when packet is active; only type-R items in datalist */}
                 <TableCell className="w-40 px-3 py-2 border">
                   <Input
                     list="detail_item_list"
@@ -771,7 +771,7 @@ const SalesReturnAdd = () => {
                   <Input type="number" step="0.001" {...register("details.gw")} placeholder="GW" />
                 </TableCell>
 
-                {/* Metal Purity — only for raw items entered without a packet */}
+                {/* Metal Purity � only for raw items entered without a packet */}
                 {showMetalPurity && (
                   <TableCell className="w-28 px-3 py-2 border">
                     <Controller name="details.metal_purity" control={control}
@@ -862,7 +862,7 @@ const SalesReturnAdd = () => {
                         </TableCell>
                       </TableRow>
 
-                      {/* ── Sub-item rows — same 15 columns, blanks for main-item-only fields ── */}
+                      {/* ── Sub-item rows � same 15 columns, blanks for main-item-only fields ── */}
                       {item.salereturndetails_set?.map((detail, detailIdx) => {
                         const detailItemType = detail.item_type || mainItemData.find(m => m.short_code === detail.item)?.item_type;
                         const isGold = detailItemType === "R";

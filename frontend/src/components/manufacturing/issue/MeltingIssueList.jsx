@@ -87,7 +87,7 @@ function MeltingIssueList() {
       accessorKey: "meltingissuedetail_set",
       cell: ({ row }) => {
         const details = row.original.meltingissuedetail_set || [];
-        if (details.length === 0) return <span className="text-gray-400">—</span>;
+        if (details.length === 0) return <span className="text-gray-400">�</span>;
         return (
           <div className="space-y-0.5">
             {details.map((d, i) => (
@@ -105,7 +105,7 @@ function MeltingIssueList() {
       cell: ({ row }) => {
         const details = row.original.meltingissuedetail_set || [];
         const total = details.reduce((sum, d) => sum + parseFloat(d.gw || 0), 0);
-        return total > 0 ? total.toFixed(3) : "—";
+        return total > 0 ? total.toFixed(3) : "�";
       },
     },
   ];

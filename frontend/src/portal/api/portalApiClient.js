@@ -18,7 +18,7 @@ portalApiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 — redirect to portal login
+// Handle 401 � redirect to portal login
 portalApiClient.interceptors.response.use(
   (response) => response,
   (error) => {

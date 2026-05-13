@@ -20,7 +20,7 @@ import { renderErrorTree } from "../../../Utils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const fmt3 = (v) => (v != null && v !== "" ? parseFloat(v).toFixed(3) : "—");
+const fmt3 = (v) => (v != null && v !== "" ? parseFloat(v).toFixed(3) : "�");
 const sumField = (rows, field) =>
   rows.reduce((acc, r) => acc + (parseFloat(r[field]) || 0), 0);
 
@@ -106,7 +106,7 @@ const MergeBarcode = () => {
       return;
     }
 
-    // Purity — taken from first barcode (all are guaranteed same purity)
+    // Purity � taken from first barcode (all are guaranteed same purity)
     // BarcodeMainSerializer uses SlugRelatedField(slug_field="purity"), so purity is the string value (e.g. "22KT")
     const puritySlug = rs[0].purity ?? "";
     setValue("form.purity", puritySlug);
@@ -167,7 +167,7 @@ const MergeBarcode = () => {
       }
       const detail = res.data;
 
-      // Purity validation — all merged barcodes must share the same purity
+      // Purity validation � all merged barcodes must share the same purity
       if (rs.length > 0) {
         const existingPurity = String(rs[0].purity ?? "");
         const newPurity      = String(detail.purity ?? "");
@@ -237,7 +237,7 @@ const MergeBarcode = () => {
 
   // ── Derived display helpers ────────────────────────────────────────────────
   // purity is already the slug string (e.g. "22KT") from the serializer
-  const purityLabel = (slug) => slug || "—";
+  const purityLabel = (slug) => slug || "�";
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -260,7 +260,7 @@ const MergeBarcode = () => {
                 onKeyDown={handleKeyDownBarcode}
                 type="text"
                 {...register("form.old_barcode")}
-                placeholder={barcodeLoading ? "Looking up…" : "Scan / type barcode, press Enter"}
+                placeholder={barcodeLoading ? "Looking up�" : "Scan / type barcode, press Enter"}
                 className="w-72"
                 autoComplete="off"
                 disabled={barcodeLoading}
@@ -336,18 +336,18 @@ const MergeBarcode = () => {
                               <tbody>
                                 {row.barcodedetails_set.map((d, di) => (
                                   <tr key={di} className="border-t border-border/20">
-                                    <td className="px-2 py-1">{d.item || "—"}</td>
-                                    <td className="px-2 py-1">{d.packet || "—"}</td>
-                                    <td className="px-2 py-1">{d.purity || "—"}</td>
-                                    <td className="px-2 py-1 text-right tabular-nums">{d.pcs ?? "—"}</td>
+                                    <td className="px-2 py-1">{d.item || "�"}</td>
+                                    <td className="px-2 py-1">{d.packet || "�"}</td>
+                                    <td className="px-2 py-1">{d.purity || "�"}</td>
+                                    <td className="px-2 py-1 text-right tabular-nums">{d.pcs ?? "�"}</td>
                                     <td className="px-2 py-1 text-right tabular-nums">
                                       {d.ct != null ? parseFloat(d.ct).toFixed(3)
                                         : d.gw != null ? parseFloat(d.gw).toFixed(3)
-                                        : "—"}
+                                        : "�"}
                                     </td>
-                                    <td className="px-2 py-1">{d.uom || "—"}</td>
-                                    <td className="px-2 py-1 text-right tabular-nums">{d.rate ?? "—"}</td>
-                                    <td className="px-2 py-1 text-right tabular-nums">{d.amt ?? "—"}</td>
+                                    <td className="px-2 py-1">{d.uom || "�"}</td>
+                                    <td className="px-2 py-1 text-right tabular-nums">{d.rate ?? "�"}</td>
+                                    <td className="px-2 py-1 text-right tabular-nums">{d.amt ?? "�"}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -415,19 +415,19 @@ const MergeBarcode = () => {
                   <tbody>
                     {mergedSubitems.map((d, i) => (
                       <tr key={i} className={`border-t border-primary/10 ${i % 2 === 1 ? "bg-primary/5" : ""}`}>
-                        <td className="px-3 py-2">{d.item || "—"}</td>
-                        <td className="px-3 py-2">{d.packet || "—"}</td>
-                        <td className="px-3 py-2">{d.purity || "—"}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{d.pcs ?? "—"}</td>
+                        <td className="px-3 py-2">{d.item || "�"}</td>
+                        <td className="px-3 py-2">{d.packet || "�"}</td>
+                        <td className="px-3 py-2">{d.purity || "�"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{d.pcs ?? "�"}</td>
                         <td className="px-3 py-2 text-right tabular-nums">
                           {d.ct != null ? parseFloat(d.ct).toFixed(3)
                             : d.gw != null ? parseFloat(d.gw).toFixed(3)
-                            : "—"}
+                            : "�"}
                         </td>
-                        <td className="px-3 py-2">{d.uom || "—"}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{d.rate ?? "—"}</td>
+                        <td className="px-3 py-2">{d.uom || "�"}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{d.rate ?? "�"}</td>
                         <td className="px-3 py-2 text-right tabular-nums">
-                          {d.amt != null ? parseFloat(d.amt).toFixed(2) : "—"}
+                          {d.amt != null ? parseFloat(d.amt).toFixed(2) : "�"}
                         </td>
                       </tr>
                     ))}
@@ -445,19 +445,19 @@ const MergeBarcode = () => {
           </h6>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {/* New barcode — read-only, auto-generated */}
+            {/* New barcode � read-only, auto-generated */}
             <FieldContainer>
               <Label className="text-xs text-nowrap">New Barcode</Label>
               <Input
                 type="text"
-                value={watch("form.barcode") || "Auto-generating…"}
+                value={watch("form.barcode") || "Auto-generating�"}
                 readOnly
                 className="bg-muted cursor-not-allowed font-mono text-sm"
               />
               <input type="hidden" {...register("form.barcode")} />
             </FieldContainer>
 
-            {/* Purity — auto-set from merged barcodes */}
+            {/* Purity � auto-set from merged barcodes */}
             <FieldContainer>
               <Label className="text-xs text-nowrap">Purity</Label>
               <Input
@@ -470,7 +470,7 @@ const MergeBarcode = () => {
               <input type="hidden" {...register("form.purity")} />
             </FieldContainer>
 
-            {/* Pcs — auto-summed */}
+            {/* Pcs � auto-summed */}
             <FieldContainer>
               <Label className="text-xs text-nowrap">Pcs</Label>
               <Input
@@ -483,7 +483,7 @@ const MergeBarcode = () => {
               <input type="hidden" {...register("form.pcs")} />
             </FieldContainer>
 
-            {/* Gross Wt — auto-summed */}
+            {/* Gross Wt � auto-summed */}
             <FieldContainer>
               <Label className="text-xs text-nowrap">Gross Wt (g)</Label>
               <Input
@@ -496,7 +496,7 @@ const MergeBarcode = () => {
               <input type="hidden" {...register("form.gw")} />
             </FieldContainer>
 
-            {/* Net Wt — auto-summed */}
+            {/* Net Wt � auto-summed */}
             <FieldContainer>
               <Label className="text-xs text-nowrap">Net Wt (g)</Label>
               <Input
@@ -509,7 +509,7 @@ const MergeBarcode = () => {
               <input type="hidden" {...register("form.nw")} />
             </FieldContainer>
 
-            {/* Item — M type only */}
+            {/* Item � M type only */}
             <FieldContainer>
               <Label className="text-xs text-nowrap">Item</Label>
               <Input list="item_list" {...register("form.item")} placeholder="Item code" className="text-sm" />
@@ -532,7 +532,7 @@ const MergeBarcode = () => {
               <Input type="number" {...register("form.making_val")} className="text-sm text-right" />
             </FieldContainer>
 
-            {/* Making Type — Select */}
+            {/* Making Type � Select */}
             <FieldContainer>
               <Label className="text-xs text-nowrap">Making Type</Label>
               <Controller

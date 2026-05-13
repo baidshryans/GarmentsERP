@@ -378,7 +378,7 @@ export default function CRMAutomation() {
               {saving
                 ? <RefreshCw className="size-4 animate-spin" />
                 : <Save className="size-4" />}
-              {saving ? "Saving…" : "Save Settings"}
+              {saving ? "Saving�" : "Save Settings"}
             </Button>
 
             <Button
@@ -391,7 +391,7 @@ export default function CRMAutomation() {
               {testing
                 ? <RefreshCw className="size-4 animate-spin" />
                 : <PlayCircle className="size-4 text-green-600" />}
-              {testing ? "Sending…" : "Send Now (Test)"}
+              {testing ? "Sending�" : "Send Now (Test)"}
             </Button>
 
             <p className="text-xs text-muted-foreground">
@@ -413,7 +413,7 @@ export default function CRMAutomation() {
           </div>
 
           {logsLoading ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">Loading…</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">Loading�</p>
           ) : logs.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               <p className="font-medium">No send history yet</p>
@@ -436,7 +436,7 @@ export default function CRMAutomation() {
                   {logs.map(log => (
                     <TableRow key={log.id} className="hover:bg-muted/20">
                       <TableCell className="px-3 py-2 font-medium text-sm">{log.customer_name}</TableCell>
-                      <TableCell className="px-3 py-2 text-sm font-mono">{log.mobile || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-sm font-mono">{log.mobile || "�"}</TableCell>
                       <TableCell className="px-3 py-2 text-sm capitalize">{log.occasion}</TableCell>
                       <TableCell className="px-3 py-2 text-sm text-muted-foreground">
                         {new Date(log.sent_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
@@ -445,7 +445,7 @@ export default function CRMAutomation() {
                         <StatusChip status={log.status} />
                       </TableCell>
                       <TableCell className="px-3 py-2 text-xs text-muted-foreground max-w-xs truncate">
-                        {log.error_message || "—"}
+                        {log.error_message || "�"}
                       </TableCell>
                     </TableRow>
                   ))}

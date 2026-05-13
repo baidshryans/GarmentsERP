@@ -44,10 +44,10 @@ export function LoginForm() {
           navigate("/settings/setup", { replace: true });
         }
       } else {
-        // Status check failed — go to setup wizard which will auto-detect state
+        // Status check failed � go to setup wizard which will auto-detect state
         navigate("/settings/setup", { replace: true });
       }
-      // No window.location.reload() — navigate() alone handles the routing.
+      // No window.location.reload() � navigate() alone handles the routing.
       // A hard reload destroys React state and triggers a burst of API calls
       // that can fail during first-time setup (no retail configured yet),
       // causing the 401 interceptor to strip the token and redirect to /login.

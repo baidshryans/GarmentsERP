@@ -14,6 +14,6 @@ export function useEditDirty({ id, isDirty }) {
   const markTableDirty = useCallback(() => setTableDirty(true), []);
   const resetTableDirty = useCallback(() => setTableDirty(false), []);
   const saveLabel = (saving) =>
-    saving ? (isEdit ? "Updating…" : "Saving…") : isEdit ? "Update" : "Save";
+    saving ? (isEdit ? "Updating�" : "Saving�") : isEdit ? "Update" : "Save";
   return { isEdit, dirty, canSave, saveLabel, markTableDirty, resetTableDirty };
 }

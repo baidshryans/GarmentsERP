@@ -526,7 +526,7 @@ const RawSalesReturn = () => {
               options={ledgers}
               value={ledgers.find((l) => String(l.id) === String(watch("form.ldgr")))?.ac_name ?? ""}
               onSelect={(opt) => setValue("form.ldgr", opt.id)}
-              placeholder="Search customer…"
+              placeholder="Search customer�"
             />
             <input type="hidden" {...register("form.ldgr", { required: true })} />
           </FieldContainer>
@@ -776,7 +776,7 @@ const RawSalesReturn = () => {
                   <TableCell className="w-28 px-4 py-2 border">{item.item}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.pcs}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                  <TableCell className="w-28 px-4 py-2 border">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
+                  <TableCell className="w-28 px-4 py-2 border">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.making}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.making_type}</TableCell>
                   <TableCell className="w-28 px-4 py-2 border">{item.purity}</TableCell>

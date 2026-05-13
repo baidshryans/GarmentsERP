@@ -27,7 +27,7 @@ function SectionCard({ title, subtitle, action, children, className = "" }) {
         <div className="flex items-center gap-2">
           <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
           <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">{title}</h3>
-          {subtitle ? <span className="text-xs text-muted-foreground">· {subtitle}</span> : null}
+          {subtitle ? <span className="text-xs text-muted-foreground">� {subtitle}</span> : null}
         </div>
         {action ? <div>{action}</div> : null}
       </div>
@@ -38,7 +38,7 @@ function SectionCard({ title, subtitle, action, children, className = "" }) {
 
 const fmt3 = (v) => {
   const n = parseFloat(v);
-  return Number.isFinite(n) ? n.toFixed(3) : "—";
+  return Number.isFinite(n) ? n.toFixed(3) : "�";
 };
 const fmt0 = (v) => {
   const n = parseFloat(v);
@@ -109,7 +109,7 @@ const HallmarkReceive = () => {
     return () => { cancelled = true; };
   }, [id, replace, setValue]);
 
-  // Issue picker — choose a hallmark issue, then load its items into the table
+  // Issue picker � choose a hallmark issue, then load its items into the table
   const pickIssue = (iss) => {
     setValue("form.issue_slip_no", iss.issue_slip_no || iss.id);
     setValue("form.hallmark_center", iss.hallmark_center || "");
@@ -168,7 +168,7 @@ const HallmarkReceive = () => {
   const groupedItems = useMemo(() => {
     const map = new Map();
     tableSnapshot.forEach((it, idx) => {
-      const key = it.source_receive_slip || it._receive_slip_no || "—";
+      const key = it.source_receive_slip || it._receive_slip_no || "�";
       if (!map.has(key)) {
         map.set(key, {
           slip: key,
@@ -227,18 +227,18 @@ const HallmarkReceive = () => {
               <Input type="date" {...register("form.date1")} required />
             </FieldContainer>
 
-            {/* Receive Slip No — auto-generated, read-only, violet pill (matches Sales Voucher billno) */}
+            {/* Receive Slip No � auto-generated, read-only, violet pill (matches Sales Voucher billno) */}
             <FieldContainer>
               <Label className="text-nowrap">Receive Slip No</Label>
               <div className="flex items-center gap-2 flex-1">
                 <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate h-9">
-                  {receiveSlipNo || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+                  {receiveSlipNo || <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>}
                 </span>
                 <input type="hidden" {...register("form.receive_slip_no", { required: true })} />
               </div>
             </FieldContainer>
 
-            {/* Issue Slip No — searchable combo box (dropdown is fixed-positioned, capped at max-h-60) */}
+            {/* Issue Slip No � searchable combo box (dropdown is fixed-positioned, capped at max-h-60) */}
             <FieldContainer>
               <Label htmlFor="issue_slip_no" className="text-nowrap">Issue Slip No <span className="text-red-500">*</span></Label>
               <div className="flex items-center gap-1.5">
@@ -249,7 +249,7 @@ const HallmarkReceive = () => {
                     searchKeys={["hallmark_center_name"]}
                     value={issueSlipDisplay ?? ""}
                     onSelect={(opt) => pickIssue(opt)}
-                    placeholder="Search hallmark issue slip…"
+                    placeholder="Search hallmark issue slip�"
                   />
                 </div>
                 {issueSlipDisplay ? (
@@ -286,7 +286,7 @@ const HallmarkReceive = () => {
           title="Issued items"
           subtitle={
             tableSnapshot.length > 0
-              ? `${tableSnapshot.length} item${tableSnapshot.length === 1 ? "" : "s"} from ${groupedItems.length} receive${groupedItems.length === 1 ? "" : "s"} · enter HUID per piece`
+              ? `${tableSnapshot.length} item${tableSnapshot.length === 1 ? "" : "s"} from ${groupedItems.length} receive${groupedItems.length === 1 ? "" : "s"} � enter HUID per piece`
               : "Pick an issue slip above to load items"
           }
         >
@@ -298,7 +298,7 @@ const HallmarkReceive = () => {
             <div className="overflow-x-auto">
               <Table className="w-full text-[12.5px] border-collapse">
                 <TableBody>
-                  {/* Header — grouped */}
+                  {/* Header � grouped */}
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={5} className="px-3 py-2.5 border bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase tracking-wider text-center">Issued piece</TableCell>
                     <TableCell colSpan={3} className="px-3 py-2.5 border bg-slate-100 text-slate-600 text-[11px] font-semibold uppercase tracking-wider text-center">Stone / sub-item</TableCell>
@@ -324,9 +324,9 @@ const HallmarkReceive = () => {
                         <TableCell colSpan={11} className="px-4 py-2.5 border-y-2 border-y-[hsl(242_30%_86%)] bg-[hsl(242_40%_96%)] text-[hsl(242_64%_38%)] text-[12.5px]">
                           <span className="text-[11px] uppercase tracking-wider font-semibold mr-2">▸ Receive</span>
                           <span className="font-semibold">{group.slip}</span>
-                          {group.karigar ? <span className="mx-1.5 text-slate-400">·</span> : null}
+                          {group.karigar ? <span className="mx-1.5 text-slate-400">�</span> : null}
                           {group.karigar ? <span>{group.karigar}</span> : null}
-                          {group.date ? <span className="mx-1.5 text-slate-400">·</span> : null}
+                          {group.date ? <span className="mx-1.5 text-slate-400">�</span> : null}
                           {group.date ? <span>{group.date}</span> : null}
                         </TableCell>
                       </TableRow>
@@ -340,11 +340,11 @@ const HallmarkReceive = () => {
                           <>
                             <TableCell rowSpan={span} className="px-3 py-2.5 border text-center font-semibold align-middle">{row.sl_no || idx + 1}</TableCell>
                             <TableCell rowSpan={span} className="px-3 py-2.5 border align-middle">
-                              <div className="font-medium">{row.item_name || row.item || "—"}</div>
+                              <div className="font-medium">{row.item_name || row.item || "�"}</div>
                               {row.item_name && row.item ? <div className="text-[11px] text-muted-foreground font-mono">{row.item}</div> : null}
                             </TableCell>
                             <TableCell rowSpan={span} className="px-3 py-2.5 border align-middle">
-                              {row.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{row.purity}</span> : "—"}
+                              {row.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{row.purity}</span> : "�"}
                             </TableCell>
                             <TableCell rowSpan={span} className="px-3 py-2.5 border text-right tabular-nums align-middle">{fmt0(row.pcs)}</TableCell>
                             <TableCell rowSpan={span} className="px-3 py-2.5 border text-right tabular-nums align-middle font-medium">{fmt3(row.nw)}</TableCell>
@@ -386,8 +386,8 @@ const HallmarkReceive = () => {
                           ? subItems.map((sub, sIdx) => (
                               <TableRow key={`${idx}-${sIdx}`} className={`hover:bg-slate-50/60 ${isRejected ? "bg-rose-50/40" : ""}`}>
                                 {renderMain(sIdx)}
-                                <TableCell className="px-3 py-2 border">{sub.item || sub.metal_purity || "—"}</TableCell>
-                                <TableCell className="px-3 py-2 border">{sub.packet || "—"}</TableCell>
+                                <TableCell className="px-3 py-2 border">{sub.item || sub.metal_purity || "�"}</TableCell>
+                                <TableCell className="px-3 py-2 border">{sub.packet || "�"}</TableCell>
                                 <TableCell className="px-3 py-2 border text-right tabular-nums bg-[hsl(220_30%_97.5%)] whitespace-nowrap">
                                   {fmt0(sub.pcs)} / {fmt3(sub.ct)} / {fmt3(sub.gw)}
                                 </TableCell>
@@ -397,9 +397,9 @@ const HallmarkReceive = () => {
                           : (
                             <TableRow key={idx} className={`hover:bg-slate-50/60 ${isRejected ? "bg-rose-50/40" : ""}`}>
                               {renderMain(0)}
-                              <TableCell className="px-3 py-2 border text-slate-400">—</TableCell>
-                              <TableCell className="px-3 py-2 border text-slate-400">—</TableCell>
-                              <TableCell className="px-3 py-2 border text-slate-400">—</TableCell>
+                              <TableCell className="px-3 py-2 border text-slate-400">�</TableCell>
+                              <TableCell className="px-3 py-2 border text-slate-400">�</TableCell>
+                              <TableCell className="px-3 py-2 border text-slate-400">�</TableCell>
                               {renderResult(0)}
                             </TableRow>
                           );
@@ -409,7 +409,7 @@ const HallmarkReceive = () => {
 
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={3} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-center font-semibold">
-                      Total · {tableSnapshot.length} item{tableSnapshot.length === 1 ? "" : "s"}
+                      Total � {tableSnapshot.length} item{tableSnapshot.length === 1 ? "" : "s"}
                     </TableCell>
                     <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt0(totals.pcs)}</TableCell>
                     <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt3(totals.nw)}</TableCell>

@@ -68,7 +68,7 @@ export default function PurchaseAttachments({ purchaseId, billNo }) {
         </button>
       </SheetTrigger>
       <SheetContent side="right" className="flex flex-col">
-        <SheetHeader><SheetTitle>Bill Attachments — {billNo}</SheetTitle></SheetHeader>
+        <SheetHeader><SheetTitle>Bill Attachments � {billNo}</SheetTitle></SheetHeader>
         <div className="flex flex-col gap-4 flex-1 mt-4 overflow-y-auto">
           {attachments.length < MAX_FILES && (
             <label className="flex items-center gap-2 justify-center border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:bg-muted/30 transition-colors">

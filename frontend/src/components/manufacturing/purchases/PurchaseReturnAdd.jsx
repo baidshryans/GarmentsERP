@@ -382,7 +382,7 @@ const PurchaseReturnAdd = () => {
             <div className="flex items-center gap-2 flex-1">
               <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || (
-                  <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>
+                  <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>
                 )}
               </span>
               <input type="hidden" {...register("form.billno", { required: true })} />
@@ -557,7 +557,7 @@ const PurchaseReturnAdd = () => {
                 <TableCell className="w-16 px-3 py-2 border">
                   <Input type="number" placeholder="#" {...register("details.sl_no")} />
                 </TableCell>
-                {/* sub_item hidden — auto-filled from packet, see detailPacket watch above */}
+                {/* sub_item hidden � auto-filled from packet, see detailPacket watch above */}
                 <input type="hidden" {...register("details.sub_item")} />
                 <TableCell className="w-20 px-3 py-2 border">
                   <Input type="number" {...register("details.sub_pcs")} />
@@ -666,7 +666,7 @@ const PurchaseReturnAdd = () => {
                     <TableCell className="px-3 py-2 border text-xs">{item.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs"></TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.purity}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making_type}</TableCell>
@@ -692,12 +692,12 @@ const PurchaseReturnAdd = () => {
                         <TableCell className="px-3 py-2 border text-xs"></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_pcs}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{detail.sub_gw != null ? parseFloat(detail.sub_gw).toFixed(3) : "—"}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{detail.sub_gw != null ? parseFloat(detail.sub_gw).toFixed(3) : "�"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.metal_purity}</TableCell>
                         <TableCell className="px-3 py-2 border" colSpan={3}></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.loss}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.tunch}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{(detail.sub_gw && detail.tunch) ? (parseFloat(detail.sub_gw) * parseFloat(detail.tunch) / 100).toFixed(3) : "—"}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{(detail.sub_gw && detail.tunch) ? (parseFloat(detail.sub_gw) * parseFloat(detail.tunch) / 100).toFixed(3) : "�"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.value}</TableCell>
                       </TableRow>
                     ))}

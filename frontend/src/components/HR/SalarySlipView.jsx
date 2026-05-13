@@ -1,5 +1,5 @@
 /**
- * Pure presentational salary slip — accepts `slip` and `company` props.
+ * Pure presentational salary slip � accepts `slip` and `company` props.
  * Shared between the ERP (SalaryProcessingPage) and the HR Employee Portal.
  */
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export default function SalarySlipView({ slip, company }) {
         <div className="text-center border-b pb-3 mb-4">
           <h1 className="text-xl font-bold">{company?.name || "Company"}</h1>
           {company?.address && <p className="text-xs text-gray-500">{company.address}</p>}
-          <h2 className="mt-1 text-base font-semibold">Salary Slip — {period}</h2>
+          <h2 className="mt-1 text-base font-semibold">Salary Slip � {period}</h2>
         </div>
 
         {/* Employee Details */}

@@ -6,7 +6,7 @@ import { DataTable } from '@/table';
 import { fetchRfidTagList, assignRfidTag } from '@/services/apiService';
 
 /**
- * RfidTagAssign — Link RFID EPC tags to barcode items.
+ * RfidTagAssign � Link RFID EPC tags to barcode items.
  *
  * Workflow:
  *  1. Search for a barcode by barcode number or item name.
@@ -70,7 +70,7 @@ export default function RfidTagAssign() {
       cell: ({ getValue }) => getValue() ? (
         <span className="font-mono text-xs text-green-700">{getValue()}</span>
       ) : (
-        <span className="text-muted-foreground text-xs">—</span>
+        <span className="text-muted-foreground text-xs">�</span>
       ),
     },
   ];
@@ -103,10 +103,10 @@ export default function RfidTagAssign() {
           <div>
             <p className="text-xs text-muted-foreground mb-1">Selected barcode</p>
             <p className="font-mono font-semibold">{selected.barcode}</p>
-            <p className="text-sm text-muted-foreground">{selected.item} — {selected.purity}</p>
+            <p className="text-sm text-muted-foreground">{selected.item} � {selected.purity}</p>
           </div>
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-muted-foreground block mb-1">RFID Tag (EPC) — scan or type</label>
+            <label className="text-xs text-muted-foreground block mb-1">RFID Tag (EPC) � scan or type</label>
             <Input
               ref={tagRef}
               value={tagInput}

@@ -175,7 +175,7 @@ const AccountCreate = () => {
         if (response.success) {
             toast({
                 title: isEdit ? "Account group updated." : "Account group created.",
-                description: `${payload.code} — ${payload.name}`,
+                description: `${payload.code} � ${payload.name}`,
             });
             setTimeout(() => navigate('/accounting/account-tree'), 800);
         } else {
@@ -210,7 +210,7 @@ const AccountCreate = () => {
                     {!isSystemGroup && (
                         <Button type="submit" form="accountForm" disabled={isSubmitting || (isEdit && !isDirty)}
                             className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
-                            {isSubmitting ? (isEdit ? 'Updating…' : 'Saving…') : isEdit ? 'Update Group' : 'Save Group'}
+                            {isSubmitting ? (isEdit ? 'Updating�' : 'Saving�') : isEdit ? 'Update Group' : 'Save Group'}
                         </Button>
                     )}
                 </div>
@@ -219,7 +219,7 @@ const AccountCreate = () => {
             {/* ── System group banner ─────────────────────────────────────── */}
             {isSystemGroup && (
                 <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 mb-6 text-sm text-amber-800">
-                    <strong>System group — read only.</strong> This account group was created during initial setup and cannot be modified.
+                    <strong>System group � read only.</strong> This account group was created during initial setup and cannot be modified.
                 </div>
             )}
 
@@ -275,7 +275,7 @@ const AccountCreate = () => {
                         </Field>
                     </div>
 
-                    {/* ── Parent Group — sheet tree picker ─────────────────── */}
+                    {/* ── Parent Group � sheet tree picker ─────────────────── */}
                     <Field label="Parent Group" hint="Leave empty to create a top-level group">
                         <Controller
                             name="parent"
@@ -299,7 +299,7 @@ const AccountCreate = () => {
                                                     <span className="text-gray-700 truncate">{selected.name}</span>
                                                 </>
                                             ) : (
-                                                <span className="text-gray-400">— Top-level group —</span>
+                                                <span className="text-gray-400">� Top-level group �</span>
                                             )}
                                             <ChevronRight className="w-3.5 h-3.5 text-gray-300 ml-auto shrink-0" />
                                         </button>
@@ -356,7 +356,7 @@ const AccountCreate = () => {
                     </Button>
                     <Button type="submit" form="accountForm" disabled={isSubmitting}
                         className="h-10 px-6 bg-primary hover:bg-primary text-white font-semibold shadow-sm">
-                        {isSubmitting ? 'Saving…' : isEdit ? 'Update Group' : 'Save Group'}
+                        {isSubmitting ? 'Saving�' : isEdit ? 'Update Group' : 'Save Group'}
                     </Button>
                 </div>
             )}

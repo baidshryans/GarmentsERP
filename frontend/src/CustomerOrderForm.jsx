@@ -21,7 +21,7 @@ import { arrayToObject } from "./Utils";
 import { renderErrorTree } from "./Utils";
 import { useF4Submit } from "@/hooks/useF4Submit";
 
-/* â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── helpers ─────────────────────────────────────────────── */
 function SectionCard({ title, children, className = "", action }) {
   return (
     <div className={`bg-white border border-border rounded-xl overflow-hidden shadow-sm ${className}`}>
@@ -55,7 +55,7 @@ const DELIVERY_STATUS_LABELS = {
   cancelled: { label: "Cancelled", className: "bg-red-50 text-red-600 border-red-200" },
 };
 
-/* â”€â”€â”€ component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── component ────────────────────────────────────────────── */
 const CustomerOrderForm = () => {
   const defaultTableValues = {
     item_id: "", item_name: "", purity: "", pcs: 0, gw: 0,
@@ -229,7 +229,7 @@ const CustomerOrderForm = () => {
       toast({
         title: "Unknown item",
         description: code
-          ? `â€œ${code}â€ is not in the item master. Please pick an item from the list.`
+          ? `“${code}” is not in the item master. Please pick an item from the list.`
           : "Please select an item before adding the row.",
         variant: "destructive",
       });
@@ -249,11 +249,11 @@ const CustomerOrderForm = () => {
 
   const statusInfo = DELIVERY_STATUS_LABELS[delivery_status] ?? DELIVERY_STATUS_LABELS.pending;
 
-  /* â”€â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ─── render ─────────────────────────────────────────────── */
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 space-y-4">
 
-      {/* â”€â”€ Breadcrumb â”€â”€ */}
+      {/* ── Breadcrumb ── */}
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <button
           type="button"
@@ -273,7 +273,7 @@ const CustomerOrderForm = () => {
         )}
       </div>
 
-      {/* â”€â”€ Page header â”€â”€ */}
+      {/* ── Page header ── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground tracking-tight">
@@ -300,7 +300,7 @@ const CustomerOrderForm = () => {
             className="min-w-24 cursor-pointer"
           >
             {submitting
-              ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />{id ? "Updatingâ€¦" : "Savingâ€¦"}</>
+              ? <><Loader2 className="size-3.5 mr-1.5 animate-spin" />{id ? "Updating…" : "Saving…"}</>
               : (id ? "Update Order" : "Save Order")
             }
           </Button>
@@ -309,13 +309,13 @@ const CustomerOrderForm = () => {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
-        {/* â”€â”€ Card 1: Order Reference â”€â”€ */}
+        {/* ── Card 1: Order Reference ── */}
         <SectionCard title="Order Reference">
           <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
             <Field label="Order No">
               <span className="inline-flex items-center px-3 h-9 rounded-md bg-primary/5 border border-primary/20 text-primary text-sm font-semibold truncate">
                 {watch("form.order_no") || (
-                  <span className="text-primary/50 text-xs font-normal">Auto-generatingâ€¦</span>
+                  <span className="text-primary/50 text-xs font-normal">Auto-generating…</span>
                 )}
               </span>
               <input type="hidden" {...register("form.order_no")} />
@@ -378,10 +378,10 @@ const CustomerOrderForm = () => {
           </div>
         </SectionCard>
 
-        {/* â”€â”€ Card 2: Customer & Sales â”€â”€ */}
+        {/* ── Card 2: Customer & Sales ── */}
         <SectionCard title="Customer & Sales">
           <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
-            {/* Party â€” spans 2 cols */}
+            {/* Party — spans 2 cols */}
             <div className="col-span-2">
               <Field label="Party Name" required>
                 <div className="flex gap-2">
@@ -391,7 +391,7 @@ const CustomerOrderForm = () => {
                       labelKey="ac_name"
                       searchKeys={["mobile1", "mobile2", "phone1"]}
                       value={watch("form.ldgr_code_name") ?? ""}
-                      placeholder="Search by name or phoneâ€¦"
+                      placeholder="Search by name or phone…"
                       onInputChange={(val) => {
                         setValue("form.ldgr_code_name", val);
                         if (!val) setValue("form.ldgr", "");
@@ -408,7 +408,7 @@ const CustomerOrderForm = () => {
                             <div className="text-sm text-foreground">{opt.ac_name}</div>
                             {(phone || place) && (
                               <div className="text-[11px] text-muted-foreground mt-0.5">
-                                {phone}{phone && place ? " Â· " : ""}{place}
+                                {phone}{phone && place ? " · " : ""}{place}
                               </div>
                             )}
                           </div>
@@ -429,13 +429,13 @@ const CustomerOrderForm = () => {
                 {(() => {
                   const sel = customers.find(c => String(c.id) === String(watch("form.ldgr")));
                   if (!sel) return null;
-                  const phone = [sel.mobile1, sel.mobile2, sel.phone1].filter(Boolean).join(" Â· ");
+                  const phone = [sel.mobile1, sel.mobile2, sel.phone1].filter(Boolean).join(" · ");
                   const address = [sel.add1, sel.add2, sel.city, sel.state, sel.pincode].filter(Boolean).join(", ");
                   if (!phone && !address) return null;
                   return (
                     <div className="mt-1.5 px-2.5 py-1.5 border border-border rounded-md bg-muted/30 text-[11px] text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 leading-snug">
-                      {phone && <span>ðŸ“ž {phone}</span>}
-                      {address && <span>ðŸ“ {address}</span>}
+                      {phone && <span>📞 {phone}</span>}
+                      {address && <span>📍 {address}</span>}
                     </div>
                   );
                 })()}
@@ -475,7 +475,7 @@ const CustomerOrderForm = () => {
                   <Select onValueChange={field.onChange} value={field.value ?? ""}>
                     <SelectTrigger className="cursor-pointer"><SelectValue placeholder="Optional" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">â€” None â€”</SelectItem>
+                      <SelectItem value="__none__">— None —</SelectItem>
                       {salespersonData.map((sp, i) => (
                         <SelectItem key={`sp2-${i}`} value={`${sp.id}`}>{sp.salesperson_name}</SelectItem>
                       ))}
@@ -633,7 +633,7 @@ const CustomerOrderForm = () => {
                               size="icon"
                               variant="ghost"
                               className="size-6"
-                              title={r.amount_applied > 0 ? "Cannot release — advance already applied to a bill" : "Release to on-account"}
+                              title={r.amount_applied > 0 ? "Cannot release � advance already applied to a bill" : "Release to on-account"}
                               disabled={r.amount_applied > 0 || linkingId === r.id}
                               onClick={async () => {
                                 setLinkingId(r.id);
@@ -661,7 +661,7 @@ const CustomerOrderForm = () => {
           </div>
         </SectionCard>
 
-        {/* â”€â”€ Card 3: Gold Rate â”€â”€ */}
+        {/* ── Card 3: Gold Rate ── */}
         <SectionCard title="Gold Rate">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex items-center gap-2.5 h-9 px-3 rounded-md border border-border bg-muted/20 cursor-pointer select-none">
@@ -689,17 +689,17 @@ const CustomerOrderForm = () => {
               <Field label="Rate Date" className="w-36">
                 <Input type="date" {...register("form.gold_rate_date")} disabled={!fix_gold_rate} />
               </Field>
-              <Field label="14K (â‚¹/g)" className="w-28">
+              <Field label="14K (₹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_14kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="18K (â‚¹/g)" className="w-28">
+              <Field label="18K (₹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_18kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="22K (â‚¹/g)" className="w-28">
+              <Field label="22K (₹/g)" className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_22kt", { valueAsNumber: true })}
                 />
@@ -708,7 +708,7 @@ const CustomerOrderForm = () => {
           </div>
         </SectionCard>
 
-        {/* â”€â”€ Card 4: Item Details â”€â”€ */}
+        {/* ── Card 4: Item Details ── */}
         <SectionCard
           title="Item Details"
           action={
@@ -732,7 +732,7 @@ const CustomerOrderForm = () => {
               </TableHeader>
 
               <TableBody>
-                {/* â”€â”€ Input row â”€â”€ */}
+                {/* ── Input row ── */}
                 <TableRow className="bg-primary/[0.03] border-b-2 border-primary/10 align-top">
                   <TableCell className="px-3 py-2 w-16" />
                   <TableCell className="px-2 py-2">
@@ -741,7 +741,7 @@ const CustomerOrderForm = () => {
                       labelKey="short_code"
                       searchKeys={["item_name"]}
                       value={watch("table.item_id") ?? ""}
-                      placeholder="Search itemâ€¦"
+                      placeholder="Search item…"
                       className="text-sm"
                       onInputChange={(val) => {
                         setValue("table.item_id", val);
@@ -815,7 +815,7 @@ const CustomerOrderForm = () => {
                       <Input
                         type="text"
                         className="h-8 text-sm"
-                        placeholder="Remarks â€” Tabâ†¹ to add"
+                        placeholder="Remarks — Tab↹ to add"
                         onKeyDown={handleKeyDown}
                         {...register("table.remarks")}
                       />
@@ -823,7 +823,7 @@ const CustomerOrderForm = () => {
                   </TableCell>
                 </TableRow>
 
-                {/* â”€â”€ Added rows â”€â”€ */}
+                {/* ── Added rows ── */}
                 {rs.map((row, index) => {
                   const locked = row.lock_state && row.lock_state !== 'unlocked';
                   return (
@@ -901,7 +901,7 @@ const CustomerOrderForm = () => {
           </div>
         </SectionCard>
 
-        {/* â”€â”€ Bottom action bar â”€â”€ */}
+        {/* ── Bottom action bar ── */}
         <div className="flex items-center justify-between gap-3 pt-1 pb-6">
           <div>
             {id && watch("form.is_cancellable") && (
@@ -911,8 +911,8 @@ const CustomerOrderForm = () => {
                 className="border-amber-300 text-amber-700 hover:bg-amber-50 cursor-pointer"
                 onClick={async () => {
                   const warnings = [];
-                  if (watch("form.has_in_production_items")) warnings.push("â€¢ Some items are still in production with a karigar or supplier.");
-                  if (watch("form.has_advance"))             warnings.push("â€¢ Advance receipts will remain on the customer's ledger as a credit.");
+                  if (watch("form.has_in_production_items")) warnings.push("• Some items are still in production with a karigar or supplier.");
+                  if (watch("form.has_advance"))             warnings.push("• Advance receipts will remain on the customer's ledger as a credit.");
                   const orderNo = watch("form.order_no") || id;
                   const msg = `Cancel order ${orderNo}?` + (warnings.length ? `\n\n${warnings.join("\n")}` : "");
                   if (!window.confirm(msg)) return;
@@ -944,7 +944,7 @@ const CustomerOrderForm = () => {
               className="min-w-28 cursor-pointer"
             >
               {submitting
-                ? <><Loader2 className="size-4 mr-2 animate-spin" />{id ? "Updatingâ€¦" : "Savingâ€¦"}</>
+                ? <><Loader2 className="size-4 mr-2 animate-spin" />{id ? "Updating…" : "Saving…"}</>
                 : (id ? "Update Order" : "Save Order")
               }
             </Button>

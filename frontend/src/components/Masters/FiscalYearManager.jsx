@@ -41,7 +41,7 @@ function FiscalYearManager() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // Auto-fill dates when fy_code changes (e.g., "25-26" → Apr 2025 – Mar 2026)
+  // Auto-fill dates when fy_code changes (e.g., "25-26" → Apr 2025 � Mar 2026)
   const handleFyCodeChange = (value) => {
     setFormData(prev => ({ ...prev, fy_code: value }));
     const match = value.match(/^(\d{2})-(\d{2})$/);
@@ -234,7 +234,7 @@ function FiscalYearManager() {
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {new Date(fy.fy_start).toLocaleDateString('en-GB')} — {new Date(fy.fy_end).toLocaleDateString('en-GB')}
+                    {new Date(fy.fy_start).toLocaleDateString('en-GB')} � {new Date(fy.fy_end).toLocaleDateString('en-GB')}
                     {fy.closed_at && (
                       <span className="ml-2 text-red-400">
                         (Closed on {new Date(fy.closed_at).toLocaleDateString('en-GB')})

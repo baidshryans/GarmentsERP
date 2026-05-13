@@ -86,7 +86,7 @@ export default function SchemePaymentForm() {
         <CardHeader>
           <CardTitle>Record Scheme Payment</CardTitle>
           <CardDescription>
-            {enrollment.enrollment_no} — {enrollment.customer_name} — {enrollment.scheme_name}
+            {enrollment.enrollment_no} � {enrollment.customer_name} � {enrollment.scheme_name}
             <br />
             Installment #{enrollment.payments_made + 1} of {enrollment.scheme_type === "LUMPSUM" ? "1" : enrollment.payments_made + enrollment.remaining_installments}
           </CardDescription>

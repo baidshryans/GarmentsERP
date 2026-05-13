@@ -24,13 +24,13 @@ import { isValidDateRange } from "@/lib/dateRange";
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmtDate(d) {
-  if (!d) return "—";
+  if (!d) return "�";
   const [y, m, day] = d.split("-");
   return `${day}-${m}-${y}`;
 }
 
 function fmtGw(val) {
-  if (val == null) return "—";
+  if (val == null) return "�";
   return Number(val).toFixed(3) + " g";
 }
 
@@ -96,7 +96,7 @@ function IssueRow({ row }) {
                 <tbody>
                   {row.details.map((d, i) => (
                     <tr key={i} className="border-b last:border-0">
-                      <td className="py-1 pr-3 font-mono">{d.item || "—"}</td>
+                      <td className="py-1 pr-3 font-mono">{d.item || "�"}</td>
                       <td className="py-1 pr-3 text-right">{d.pcs}</td>
                       <td className="py-1 pr-3 text-right">{Number(d.ct).toFixed(3)}</td>
                       <td className="py-1 pr-3 text-right font-semibold">{Number(d.gw).toFixed(3)}</td>
@@ -169,8 +169,8 @@ function ReceiveRow({ row }) {
                 <tbody>
                   {row.details.map((d, i) => (
                     <tr key={i} className="border-b last:border-0">
-                      <td className="py-1 pr-3 font-mono text-blue-600">{d.issue_billno || "—"}</td>
-                      <td className="py-1 pr-3 font-mono">{d.item || "—"}</td>
+                      <td className="py-1 pr-3 font-mono text-blue-600">{d.issue_billno || "�"}</td>
+                      <td className="py-1 pr-3 font-mono">{d.item || "�"}</td>
                       <td className="py-1 pr-3 text-right">{d.pcs}</td>
                       <td className="py-1 pr-3 text-right font-semibold">{Number(d.gw).toFixed(3)}</td>
                       <td className="py-1 pr-3 text-right text-red-600">{Number(d.loss_per).toFixed(3)}</td>
@@ -178,7 +178,7 @@ function ReceiveRow({ row }) {
                       <td className="py-1 pr-3">{d.metal_purity}</td>
                       <td className="py-1 pr-3">{d.conv_purity}</td>
                       <td className="py-1 pr-3 text-right font-semibold text-green-700">{Number(d.conv_nw).toFixed(3)}</td>
-                      <td className="py-1 text-muted-foreground">{d.remarks || "—"}</td>
+                      <td className="py-1 text-muted-foreground">{d.remarks || "�"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -283,7 +283,7 @@ function RefineryReport() {
               <SelectValue placeholder="All Refiners" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">— All Refiners —</SelectItem>
+              <SelectItem value="__all__">� All Refiners �</SelectItem>
               {refiners.map(r => (
                 <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
               ))}
@@ -292,7 +292,7 @@ function RefineryReport() {
         </div>
         <Button onClick={load} disabled={loading} className="gap-2">
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          {loading ? "Loading…" : "Refresh"}
+          {loading ? "Loading�" : "Refresh"}
         </Button>
       </div>
 
@@ -474,7 +474,7 @@ function RefineryReport() {
             ) : (
               <>
                 <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm text-amber-800 font-medium">
-                  {pending.length} issue(s) awaiting return from refiner — {Number(summary.pending_gw ?? 0).toFixed(3)} g outstanding
+                  {pending.length} issue(s) awaiting return from refiner � {Number(summary.pending_gw ?? 0).toFixed(3)} g outstanding
                 </div>
                 <Table>
                   <TableHeader>

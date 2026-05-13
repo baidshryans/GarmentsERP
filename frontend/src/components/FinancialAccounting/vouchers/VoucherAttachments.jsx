@@ -90,7 +90,7 @@ export default function VoucherAttachments({ voucherId, voucherNo }) {
 
       <SheetContent side="right" className="flex flex-col">
         <SheetHeader>
-          <SheetTitle>Attachments — {voucherNo}</SheetTitle>
+          <SheetTitle>Attachments � {voucherNo}</SheetTitle>
         </SheetHeader>
 
         <div className="flex flex-col gap-4 flex-1 mt-4 overflow-y-auto">

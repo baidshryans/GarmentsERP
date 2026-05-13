@@ -10,12 +10,12 @@ import { MultiEstimatePrint } from "./salesPrintEstimate";
 
 const fmt = (v, d = 3) => {
   const n = parseFloat(v);
-  return isNaN(n) ? "—" : n.toFixed(d);
+  return isNaN(n) ? "�" : n.toFixed(d);
 };
 
 const fmtINR = (v) => {
   const n = parseFloat(v);
-  return isNaN(n) ? "—" : n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return isNaN(n) ? "�" : n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 export default function SalesEstimate() {
@@ -129,7 +129,7 @@ export default function SalesEstimate() {
               ref={inputRef}
               value={barcodeInput}
               onChange={(e) => setBarcodeInput(e.target.value)}
-              placeholder="Scan or type barcode…"
+              placeholder="Scan or type barcode�"
               autoFocus
               className="h-9"
               disabled={loading}
@@ -137,7 +137,7 @@ export default function SalesEstimate() {
           </div>
           <Button type="submit" disabled={loading || !barcodeInput.trim()} className="h-9 bg-primary hover:bg-primary text-white">
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4 mr-1" />}
-            {loading ? "Loading…" : "Add"}
+            {loading ? "Loading�" : "Add"}
           </Button>
         </form>
         <p className="text-xs text-muted-foreground mt-2">Press Enter or click Add after each barcode. Duplicate barcodes are ignored.</p>
@@ -147,7 +147,7 @@ export default function SalesEstimate() {
       {items.length > 0 && (
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
-            <span className="text-sm font-semibold">Added Items · {items.length}</span>
+            <span className="text-sm font-semibold">Added Items � {items.length}</span>
             <Button
               variant="ghost"
               size="sm"
@@ -185,10 +185,10 @@ export default function SalesEstimate() {
                     <tr key={item._key} className="border-b border-border hover:bg-muted/20 transition-colors">
                       <td className="px-3 py-2 text-muted-foreground">{idx + 1}</td>
                       <td className="px-3 py-2 font-mono">
-                        <span className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{item.barcode || item.voucher_no || "—"}</span>
+                        <span className="bg-muted px-1.5 py-0.5 rounded text-[11px]">{item.barcode || item.voucher_no || "�"}</span>
                       </td>
-                      <td className="px-3 py-2 font-medium">{item.item_name || item.item || "—"}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{item.purity || "—"}</td>
+                      <td className="px-3 py-2 font-medium">{item.item_name || item.item || "�"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.purity || "�"}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{item.pcs || 0}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmt(item.gw)}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{fmt(item.nw)}</td>

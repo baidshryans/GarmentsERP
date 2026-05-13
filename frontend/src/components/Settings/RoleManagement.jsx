@@ -234,13 +234,13 @@ export default function RoleManagement() {
         <div className="mt-3 flex flex-col gap-1">
           <Input
             className="h-7 text-xs"
-            placeholder="New role name…"
+            placeholder="New role name�"
             value={newRoleName}
             onChange={(e) => setNewRoleName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreateRole()}
           />
           <Button size="sm" className="h-7 text-xs w-full" onClick={handleCreateRole} disabled={creating || !newRoleName.trim()}>
-            <Plus className="size-3 mr-1" /> {creating ? "Creating…" : "Add Role"}
+            <Plus className="size-3 mr-1" /> {creating ? "Creating�" : "Add Role"}
           </Button>
         </div>
       </div>
@@ -291,7 +291,7 @@ export default function RoleManagement() {
                   size="sm" className="h-7 text-xs gap-1"
                   onClick={handleSave} disabled={saving}
                 >
-                  <Save className="size-3" /> {saving ? "Saving…" : "Save Permissions"}
+                  <Save className="size-3" /> {saving ? "Saving�" : "Save Permissions"}
                 </Button>
               </div>
             </div>

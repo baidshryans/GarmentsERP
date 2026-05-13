@@ -4,10 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 /**
- * BillSummaryPanel — a clean, card-style bill summary aligned to the right.
+ * BillSummaryPanel � a clean, card-style bill summary aligned to the right.
  *
  * Props:
- *   rows          — Array of row descriptors:
+ *   rows          � Array of row descriptors:
  *     { label, field, editable?, isTotal?, isSeparator?, step?, isEditableTotal? }
  *     - editable:       shows a compact number input (user can type)
  *     - isTotal:        renders with highlighted total styling
@@ -15,10 +15,10 @@ import { Button } from '@/components/ui/button';
  *     - step:           step attribute for editable inputs (default "0.01")
  *     - isEditableTotal: when true AND autoCalcTotal prop is true, renders an
  *                        editable input + Calculator button instead of read-only
- *   register      — react-hook-form register function
- *   watch         — react-hook-form watch function
- *   autoCalcTotal — boolean; enables the editable-total + Calculate button
- *   onAutoCalc    — callback fired when the Calculate button is clicked
+ *   register      � react-hook-form register function
+ *   watch         � react-hook-form watch function
+ *   autoCalcTotal � boolean; enables the editable-total + Calculate button
+ *   onAutoCalc    � callback fired when the Calculate button is clicked
  */
 const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTotal = false, onAutoCalc }) => {
   return (

@@ -19,7 +19,7 @@ const fmt = (v) =>
     : '0.00';
 
 const fmtDate = (d) => {
-  if (!d) return '—';
+  if (!d) return '�';
   return new Date(d).toLocaleDateString('en-IN');
 };
 
@@ -265,7 +265,7 @@ function LedgerRows({ groupId, startDate, endDate, onLedgerClick, grossCredit = 
   if (loading) return (
     <tr>
       <td colSpan={3} className="py-2 text-xs text-muted-foreground" style={{ paddingLeft: 56 }}>
-        <Loader2 className="inline size-3 animate-spin mr-1.5" />Loading…
+        <Loader2 className="inline size-3 animate-spin mr-1.5" />Loading�
       </td>
     </tr>
   );
@@ -327,7 +327,7 @@ function TransactionModal({ ledger, startDate, endDate, onClose }) {
         <div className="overflow-auto flex-1">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground text-sm gap-2">
-              <Loader2 className="size-4 animate-spin" /> Loading transactions…
+              <Loader2 className="size-4 animate-spin" /> Loading transactions�
             </div>
           ) : txns.length === 0 ? (
             <p className="text-center py-16 text-muted-foreground text-sm">No transactions in this period.</p>
@@ -345,8 +345,8 @@ function TransactionModal({ ledger, startDate, endDate, onClose }) {
                   <tr key={i} className="hover:bg-accent/30 transition-colors">
                     <td className="px-4 py-2 text-muted-foreground whitespace-nowrap text-xs">{fmtDate(t.voucher_main__date)}</td>
                     <td className="px-4 py-2 tabular-nums text-xs">{t.voucher_main__voucher_no}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{t.voucher_main__voucher_type || '—'}</td>
-                    <td className="px-4 py-2 text-muted-foreground max-w-[180px] truncate text-xs">{t.voucher_main__narration || '—'}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">{t.voucher_main__voucher_type || '�'}</td>
+                    <td className="px-4 py-2 text-muted-foreground max-w-[180px] truncate text-xs">{t.voucher_main__narration || '�'}</td>
                     <td className="px-4 py-2 text-right tabular-nums text-xs text-rose-600">{Number(t.debit) > 0 ? fmt(t.debit) : ''}</td>
                     <td className="px-4 py-2 text-right tabular-nums text-xs text-emerald-600">{Number(t.credit) > 0 ? fmt(t.credit) : ''}</td>
                   </tr>
@@ -397,7 +397,7 @@ function PrintModal({ onClose, onPrint }) {
             className="w-full text-left px-4 py-3 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50 cursor-pointer"
           >
             <p className="text-sm font-medium text-foreground">Groups only</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Collapsed — group totals, no individual ledgers</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Collapsed � group totals, no individual ledgers</p>
           </button>
 
           <button
@@ -409,7 +409,7 @@ function PrintModal({ onClose, onPrint }) {
               <p className="text-sm font-medium text-foreground">Full detail</p>
               {preparing === 'expanded' && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Expanded — includes all ledger balances under each group</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Expanded � includes all ledger balances under each group</p>
           </button>
         </div>
 
@@ -645,7 +645,7 @@ export default function ProfitLossCal() {
       {loading && !data && (
         <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
           <Loader2 className="size-5 animate-spin" />
-          <span className="text-sm">Loading…</span>
+          <span className="text-sm">Loading�</span>
         </div>
       )}
 

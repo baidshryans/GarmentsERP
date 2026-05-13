@@ -15,12 +15,12 @@ export async function getLedgers({ search = "", page = 1, ordering = "", type = 
 
     // Use role-based filtering so a ledger with multiple roles (e.g. a
     // Dealer who is also a Customer) appears in both filtered lists.
-    // Empty string means "all ledgers" — skip the filter entirely.
+    // Empty string means "all ledgers" � skip the filter entirely.
     if (type) {
       params.append("role", type);          // supports comma-separated: "DL,SD,KR"
     }
 
-    // Account-group code filter — e.g. "INC-DIR-SAL" or "EXP-DIR-PUR"
+    // Account-group code filter � e.g. "INC-DIR-SAL" or "EXP-DIR-PUR"
     if (ac_group_code) {
       params.append("ac_group_code", ac_group_code);
     }
@@ -134,7 +134,7 @@ export async function getLedger(id) {
   }
 }
 
-// Fetch all ledgers (no type filter, no pagination) — for pickers
+// Fetch all ledgers (no type filter, no pagination) � for pickers
 export async function getLedgerList(params = {}) {
   try {
     const response = await apiClient.get('/contacts/api/ledger/', { params: { page_size: 10000, ...params } });
@@ -145,7 +145,7 @@ export async function getLedgerList(params = {}) {
   }
 }
 
-// Alias — same endpoint as getAccountGroup
+// Alias � same endpoint as getAccountGroup
 export async function fetchParentAccount() {
   try {
     const response = await apiClient.get("/accounting/api/accounts/");

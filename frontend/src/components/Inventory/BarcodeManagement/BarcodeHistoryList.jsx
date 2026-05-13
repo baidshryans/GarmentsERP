@@ -122,13 +122,13 @@ export default function BarcodeHistoryList() {
             labelKey="barcode"
             searchKeys={["barcode"]}
             value={selectedBarcode}
-            placeholder="Search barcode…"
+            placeholder="Search barcode�"
             onInputChange={setBarcodeSearch}
             onSelect={(opt) => setSelectedBarcode(opt.barcode)}
           />
         </div>
         <Button size="sm" onClick={handleShow} disabled={!selectedBarcode || loading}>
-          {loading ? "Loading…" : "Show"}
+          {loading ? "Loading�" : "Show"}
         </Button>
         <Button size="sm" variant="outline" onClick={handleClear} disabled={!hasSearched && !selectedBarcode}>
           Clear

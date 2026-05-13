@@ -82,7 +82,7 @@ const IT_BLOCK_DEFAULT_RATE = {
     BOOKS: 100, INTANG: 25,
 };
 
-// Hints shown on hover — examples of ledgers that belong under each account group
+// Hints shown on hover � examples of ledgers that belong under each account group
 const GROUP_HINTS = {
     'CA-CSH':     'e.g. Cash, Petty Cash',
     'CA-BNK':     'e.g. HDFC Bank, Kotak Bank, SBI Current A/c',
@@ -200,7 +200,7 @@ function suggestGroupCode(ledgerName) {
 // Roles that cannot be combined with any other role
 const EXCLUSIVE_ROLES = new Set(['CA', 'BA', 'INC', 'EXP']);
 
-// ─── Role metadata — icons, descriptions, grouping ──────────────────────────
+// ─── Role metadata � icons, descriptions, grouping ──────────────────────────
 
 const ROLE_META = {
     CO:  { Icon: User,           group: 'party',   desc: 'Retail buyer'                    },
@@ -557,7 +557,7 @@ const LedgerForm = () => {
                 }
 
                 if (id) {
-                    displayNameTouched.current = true; // editing — never auto-override
+                    displayNameTouched.current = true; // editing � never auto-override
                     const { data } = await getLedger(id);
                     // Determine if shipping address differs from billing
                     const shipDiffers = (
@@ -592,7 +592,7 @@ const LedgerForm = () => {
                         ship_pincode: data.ship_pincode || data.pincode || '',
                         ship_state:   data.ship_state   || data.state   || 'none',
                     });
-                    // Load existing roles — skip the role-based b2b auto-set on this render
+                    // Load existing roles � skip the role-based b2b auto-set on this render
                     skipB2bAutoset.current = true;
                     setLedgerRoles(data.roles || []);
                 }
@@ -607,10 +607,10 @@ const LedgerForm = () => {
 
 
     const validatePhone    = makePhoneValidator();
-    const validatePAN      = (v) => !v || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v)       || 'Invalid PAN — expected format: ABCDE1234F';
-    const validateGST      = (v) => !v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9]{1}Z[0-9A-Z]{1}$/.test(v) || 'Invalid GST — expected format: 22AAAAA0000A1Z5';
+    const validatePAN      = (v) => !v || /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(v)       || 'Invalid PAN � expected format: ABCDE1234F';
+    const validateGST      = (v) => !v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[0-9]{1}Z[0-9A-Z]{1}$/.test(v) || 'Invalid GST � expected format: 22AAAAA0000A1Z5';
     const validateAadhar   = (v) => !v || /^[0-9]{12}$/.test(v)                        || 'Aadhar must be exactly 12 digits';
-    const validatePassport = (v) => !v || /^[A-Z][0-9]{7}$/.test(v)                    || 'Invalid passport — expected format: A1234567';
+    const validatePassport = (v) => !v || /^[A-Z][0-9]{7}$/.test(v)                    || 'Invalid passport � expected format: A1234567';
 
     useF4Submit(() => handleSubmit(onSubmit)());
 
@@ -659,7 +659,7 @@ const LedgerForm = () => {
 
                 // FA reclassification success notices
                 if (response.data?.fa_record_created) {
-                    toast({ title: "Fixed Asset registered", description: "A Fixed Asset record has been created — view it in Fixed Assets → Asset Master." });
+                    toast({ title: "Fixed Asset registered", description: "A Fixed Asset record has been created � view it in Fixed Assets → Asset Master." });
                 } else if (response.data?.fa_record_deleted) {
                     toast({ title: "Fixed Asset removed", description: "The Fixed Asset record has been deleted. The ledger has been moved to the new group." });
                 } else {
@@ -717,7 +717,7 @@ const LedgerForm = () => {
     const handleRoleToggle = async (roleCode, checked) => {
         setRoleLoading(roleCode);
         if (id) {
-            // Edit mode — call API immediately
+            // Edit mode � call API immediately
             const res = checked
                 ? await addLedgerRole(id, roleCode)
                 : await removeLedgerRole(id, roleCode);
@@ -728,7 +728,7 @@ const LedgerForm = () => {
                 toast({ title: "Role update failed", description: String(msg), variant: "destructive" });
             }
         } else {
-            // Create mode — manage locally; will be sent on first save
+            // Create mode � manage locally; will be sent on first save
             setLedgerRoles(prev => {
                 let next;
                 if (checked) {
@@ -816,7 +816,7 @@ const LedgerForm = () => {
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <SelectTrigger className={triggerCls}><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="none">— None —</SelectItem>
+                                        <SelectItem value="none">� None �</SelectItem>
                                         <SelectItem value="shri">Shri</SelectItem>
                                         <SelectItem value="smt">Smt.</SelectItem>
                                         <SelectItem value="ms">Ms.</SelectItem>
@@ -919,7 +919,7 @@ const LedgerForm = () => {
                         </Field>
                     </div>
 
-                    {/* ── Roles — select role BEFORE account group ── */}
+                    {/* ── Roles � select role BEFORE account group ── */}
                     {types.length > 0 && (() => {
                         // Render in a fixed order: 7 party roles first, then 5 account roles = 12 cards, 4 per row
                         const orderedCodes = ['CO','DL','KR','VD','REF','MLT','HM','CA','BA','INC','EXP','OTH'];
@@ -999,7 +999,7 @@ const LedgerForm = () => {
                                     </p>
                                 </div>
 
-                                {/* 12 cards in a 4-column grid — 3 rows of 4 */}
+                                {/* 12 cards in a 4-column grid � 3 rows of 4 */}
                                 <div className="grid grid-cols-4 gap-2">
                                     {allOrdered.map(t => <RoleCard key={t.code} t={t} />)}
                                 </div>
@@ -1011,7 +1011,7 @@ const LedgerForm = () => {
                                     </p>
                                 )}
 
-                                {/* Primary role selector — only shown when 2+ roles are active */}
+                                {/* Primary role selector � only shown when 2+ roles are active */}
                                 {activeRoleCodes.length >= 2 && (
                                     <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100">
                                         <span className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
@@ -1047,7 +1047,7 @@ const LedgerForm = () => {
                         );
                     })()}
 
-                    {/* ── Account Group — own row, directly after roles (cause → effect) ── */}
+                    {/* ── Account Group � own row, directly after roles (cause → effect) ── */}
                     <div className="border-t border-gray-100 pt-4">
                         <div className="flex items-center justify-between mb-2">
                             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
@@ -1055,7 +1055,7 @@ const LedgerForm = () => {
                             </p>
                             {groupAutoFilled && (
                                 <span className="text-[10px] text-violet-500 font-medium flex items-center gap-1">
-                                    <CheckCircle2 className="size-3" /> Auto-set from role — you can override
+                                    <CheckCircle2 className="size-3" /> Auto-set from role � you can override
                                 </span>
                             )}
                         </div>
@@ -1086,7 +1086,7 @@ const LedgerForm = () => {
                                                     <span className="text-gray-700 font-medium truncate">{selected.name}</span>
                                                 </>
                                             ) : (
-                                                <span className="text-gray-400">Select group…</span>
+                                                <span className="text-gray-400">Select group�</span>
                                             )}
                                             <ChevronRight className="w-3.5 h-3.5 text-gray-300 ml-auto shrink-0" />
                                         </button>
@@ -1118,7 +1118,7 @@ const LedgerForm = () => {
                                                                 type="text"
                                                                 value={groupSearch}
                                                                 onChange={e => setGroupSearch(e.target.value)}
-                                                                placeholder="Search groups…"
+                                                                placeholder="Search groups�"
                                                                 className="w-full h-9 pl-8 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:border-violet-400"
                                                                 autoFocus
                                                             />
@@ -1181,7 +1181,7 @@ const LedgerForm = () => {
                         </div>
                     </div>
 
-                    {/* ── CRM dates — separate, lower-priority row ── */}
+                    {/* ── CRM dates � separate, lower-priority row ── */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-5 pt-2">
                         <Field label="Birthday">
                             <Input className={inputCls} type="date" {...register("dob")} />
@@ -1255,7 +1255,7 @@ const LedgerForm = () => {
                                     >
                                         <SelectTrigger className={triggerCls}><SelectValue placeholder="Select state" /></SelectTrigger>
                                         <SelectContent className="max-h-60 overflow-y-auto">
-                                            <SelectItem value="none">— Select —</SelectItem>
+                                            <SelectItem value="none">� Select �</SelectItem>
                                             {states.map((s) => (
                                                 <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
                                             ))}
@@ -1318,7 +1318,7 @@ const LedgerForm = () => {
                                             <Select onValueChange={field.onChange} value={field.value || 'none'}>
                                                 <SelectTrigger className={triggerCls}><SelectValue placeholder="Select state" /></SelectTrigger>
                                                 <SelectContent className="max-h-60 overflow-y-auto">
-                                                    <SelectItem value="none">— Select —</SelectItem>
+                                                    <SelectItem value="none">� Select �</SelectItem>
                                                     {states.map((s) => (
                                                         <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
                                                     ))}
@@ -1338,13 +1338,13 @@ const LedgerForm = () => {
                         </p>
                         <div className="grid grid-cols-3 gap-5 mb-5">
                             <Field label="Phone 1">
-                                <Input className={inputCls} type="tel" {...register("phone1")} placeholder="—" />
+                                <Input className={inputCls} type="tel" {...register("phone1")} placeholder="�" />
                             </Field>
                             <Field label="Phone 2">
-                                <Input className={inputCls} type="tel" {...register("phone2")} placeholder="—" disabled={!watch("phone1")} />
+                                <Input className={inputCls} type="tel" {...register("phone2")} placeholder="�" disabled={!watch("phone1")} />
                             </Field>
                             <Field label="Phone 3">
-                                <Input className={inputCls} type="tel" {...register("phone3")} placeholder="—" disabled={!watch("phone2")} />
+                                <Input className={inputCls} type="tel" {...register("phone3")} placeholder="�" disabled={!watch("phone2")} />
                             </Field>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -1421,7 +1421,7 @@ const LedgerForm = () => {
                             <Input className={`${inputCls} uppercase`} {...register("dl_no")} placeholder="DL number" />
                         </Field>
                         <Field label="Remarks">
-                            <Input className={inputCls} spellCheck={spellCheckEnabled} {...register("remarks")} placeholder="Any additional notes…" />
+                            <Input className={inputCls} spellCheck={spellCheckEnabled} {...register("remarks")} placeholder="Any additional notes�" />
                         </Field>
                     </div>
 
@@ -1460,11 +1460,11 @@ const LedgerForm = () => {
                                 <Field label="TDS Section">
                                     <Controller name="tds_section" control={control} render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value}>
-                                            <SelectTrigger className={triggerCls}><SelectValue placeholder="Select section…" /></SelectTrigger>
+                                            <SelectTrigger className={triggerCls}><SelectValue placeholder="Select section�" /></SelectTrigger>
                                             <SelectContent>
                                                 {tdsSections.map(s => (
                                                     <SelectItem key={s.id} value={String(s.id)}>
-                                                        {s.section_code} — {s.description}
+                                                        {s.section_code} � {s.description}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -1475,7 +1475,7 @@ const LedgerForm = () => {
                                 <Field label="Deductor Type">
                                     <Controller name="tds_deductor_type" control={control} render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value}>
-                                            <SelectTrigger className={triggerCls}><SelectValue placeholder="Select…" /></SelectTrigger>
+                                            <SelectTrigger className={triggerCls}><SelectValue placeholder="Select�" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="IND">Individual / HUF</SelectItem>
                                                 <SelectItem value="CO">Company / Firm</SelectItem>
@@ -1488,7 +1488,7 @@ const LedgerForm = () => {
 
                         {watch('tds_applicable') && !watch('pan') && (
                             <p className="text-xs text-amber-600 mt-2">
-                                ⚠ No PAN on file — higher TDS rate (20%) will apply. Add PAN in Compliance & KYC section.
+                                ⚠ No PAN on file � higher TDS rate (20%) will apply. Add PAN in Compliance & KYC section.
                             </p>
                         )}
                     </SectionCard>
@@ -1509,7 +1509,7 @@ const LedgerForm = () => {
             {/* ── FA Details Modal (Expense → FA reclassification) ──────────── */}
             <Dialog open={faModalOpen} onOpenChange={(open) => {
                 if (!open) {
-                    // User dismissed modal — reset pending group so picker reverts
+                    // User dismissed modal � reset pending group so picker reverts
                     setPendingFaGroup(null);
                 }
                 setFaModalOpen(open);
@@ -1582,7 +1582,7 @@ const LedgerForm = () => {
                                     }}
                                 >
                                     <SelectTrigger className="h-10 text-sm border-gray-200 focus:border-violet-400">
-                                        <SelectValue placeholder="Select category…" />
+                                        <SelectValue placeholder="Select category�" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {(FA_GROUP_IT_BLOCKS[pendingFaGroup?.code] ?? []).map(opt => (
@@ -1616,7 +1616,7 @@ const LedgerForm = () => {
                                     ))}
                                 </div>
                                 <p className="text-[10px] text-gray-400">
-                                    {faDetails.depreciation_method === 'WDV' ? 'Written Down Value — rate applied on book value' : 'Straight Line Method — equal charge each year'}
+                                    {faDetails.depreciation_method === 'WDV' ? 'Written Down Value � rate applied on book value' : 'Straight Line Method � equal charge each year'}
                                 </p>
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -1642,7 +1642,7 @@ const LedgerForm = () => {
                             </label>
                             <textarea
                                 rows={2}
-                                placeholder="Optional notes about this asset…"
+                                placeholder="Optional notes about this asset�"
                                 value={faDetails.description}
                                 onChange={e => setFaDetails(d => ({ ...d, description: e.target.value }))}
                                 className="w-full px-3 py-2 text-sm rounded-md border border-gray-200 focus:outline-none focus:border-violet-400 resize-none"

@@ -93,14 +93,14 @@ function DeliveryDateBadge({ dateStr, isOverdue, daysOverdue }) {
     return (
       <span className="flex items-center gap-1 text-xs font-medium text-red-600">
         <AlertTriangle size={11} />
-        {formatted} · {daysOverdue}d overdue
+        {formatted} � {daysOverdue}d overdue
       </span>
     );
   }
   if (days !== null && days <= 3) {
     return (
       <span className="text-xs font-medium text-orange-500">
-        {formatted} · due in {days}d
+        {formatted} � due in {days}d
       </span>
     );
   }
@@ -126,13 +126,13 @@ function KanbanCard({ order, col, onMove }) {
           {order.order_no}
         </Link>
         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${col.badgeBg}`}>
-          {order.nature || "—"}
+          {order.nature || "�"}
         </span>
       </div>
 
       {/* Customer */}
       <p className="text-sm font-medium text-gray-800 leading-tight truncate" title={order.ldgr_name}>
-        {order.ldgr_name || "—"}
+        {order.ldgr_name || "�"}
       </p>
 
       {/* Delivery date */}
@@ -180,7 +180,7 @@ function KanbanCard({ order, col, onMove }) {
 function KanbanColumn({ col, orders, onMove }) {
   return (
     <div className={`flex flex-col rounded-xl border border-gray-200 min-w-0 border-t-[3px] ${col.accent}`}>
-      {/* Column header — clean, neutral */}
+      {/* Column header � clean, neutral */}
       <div className="bg-white px-4 py-3 flex items-center justify-between shrink-0 border-b border-gray-100">
         <div className="flex items-center gap-2.5">
           <span className={`w-2.5 h-2.5 rounded-full ${col.dot}`} />
@@ -255,7 +255,7 @@ export default function CustomerOrderKanban() {
     );
   }, [orders, search]);
 
-  /* Auto-move orders to correct column based on item states — only once per order */
+  /* Auto-move orders to correct column based on item states � only once per order */
   useEffect(() => {
     if (loading) return;
     orders.forEach((order) => {

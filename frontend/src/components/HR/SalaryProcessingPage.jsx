@@ -115,11 +115,11 @@ export default function SalaryProcessingPage() {
           <Input className="w-24" type="number" value={year} onChange={e => setYear(e.target.value)} />
         </div>
         <Button variant="outline" onClick={loadEmployees} disabled={loading}>
-          {loading ? "Loading…" : "Load Employees"}
+          {loading ? "Loading�" : "Load Employees"}
         </Button>
         {rows.length > 0 && (
           <Button onClick={handleGenerate} disabled={generating}>
-            {generating ? "Generating…" : `Generate Selected (${selected.length})`}
+            {generating ? "Generating�" : `Generate Selected (${selected.length})`}
           </Button>
         )}
       </div>
@@ -170,7 +170,7 @@ export default function SalaryProcessingPage() {
                         {slip.status}
                       </button>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">�</span>
                     )}
                   </TableCell>
                   <TableCell>

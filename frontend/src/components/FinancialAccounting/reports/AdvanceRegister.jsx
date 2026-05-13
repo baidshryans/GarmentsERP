@@ -55,7 +55,7 @@ export default function AdvanceRegister() {
         <div className="flex-1 min-w-[240px] max-w-sm relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder="Search order no or party…"
+            placeholder="Search order no or party�"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-9"
@@ -143,7 +143,7 @@ export default function AdvanceRegister() {
                   </td>
                   <td className="px-4 py-2 text-right font-medium">₹{fmt(r.received)}</td>
                   <td className="px-4 py-2 text-right text-emerald-700">
-                    {r.reconciled > 0 ? `₹${fmt(r.reconciled)}` : "—"}
+                    {r.reconciled > 0 ? `₹${fmt(r.reconciled)}` : "�"}
                   </td>
                   <td className="px-4 py-2 text-right font-bold text-primary">
                     ₹{fmt(r.remaining)}

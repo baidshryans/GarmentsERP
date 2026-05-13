@@ -9,9 +9,9 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 const today = new Date().toISOString().split("T")[0];
 
 const BUCKETS = [
-  { key: "0_30", label: "0–30 days" },
-  { key: "31_60", label: "31–60 days" },
-  { key: "61_90", label: "61–90 days" },
+  { key: "0_30", label: "0�30 days" },
+  { key: "31_60", label: "31�60 days" },
+  { key: "61_90", label: "61�90 days" },
   { key: "above_90", label: "90+ days" },
 ];
 
@@ -105,9 +105,9 @@ export default function OutstandingReport() {
               <thead>
                 <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-2.5 text-left font-semibold">Party</th>
-                  <th className="px-4 py-2.5 text-right font-semibold">0–30</th>
-                  <th className="px-4 py-2.5 text-right font-semibold">31–60</th>
-                  <th className="px-4 py-2.5 text-right font-semibold">61–90</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">0�30</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">31�60</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">61�90</th>
                   <th className="px-4 py-2.5 text-right font-semibold">90+</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Total</th>
                 </tr>
@@ -133,17 +133,17 @@ export default function OutstandingReport() {
                           : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
                         <span className="font-medium">{party.name}</span>
                       </td>
-                      <td className={`px-4 py-2.5 text-right ${bucketColor("0_30")}`}>{Number(party["0_30"]) > 0 ? fmt(party["0_30"]) : "—"}</td>
-                      <td className={`px-4 py-2.5 text-right ${bucketColor("31_60")}`}>{Number(party["31_60"]) > 0 ? fmt(party["31_60"]) : "—"}</td>
-                      <td className={`px-4 py-2.5 text-right ${bucketColor("61_90")}`}>{Number(party["61_90"]) > 0 ? fmt(party["61_90"]) : "—"}</td>
-                      <td className={`px-4 py-2.5 text-right ${bucketColor("above_90")}`}>{Number(party["above_90"]) > 0 ? fmt(party["above_90"]) : "—"}</td>
+                      <td className={`px-4 py-2.5 text-right ${bucketColor("0_30")}`}>{Number(party["0_30"]) > 0 ? fmt(party["0_30"]) : "�"}</td>
+                      <td className={`px-4 py-2.5 text-right ${bucketColor("31_60")}`}>{Number(party["31_60"]) > 0 ? fmt(party["31_60"]) : "�"}</td>
+                      <td className={`px-4 py-2.5 text-right ${bucketColor("61_90")}`}>{Number(party["61_90"]) > 0 ? fmt(party["61_90"]) : "�"}</td>
+                      <td className={`px-4 py-2.5 text-right ${bucketColor("above_90")}`}>{Number(party["above_90"]) > 0 ? fmt(party["above_90"]) : "�"}</td>
                       <td className="px-4 py-2.5 text-right font-semibold">{fmt(party.total)}</td>
                     </tr>
                     {expanded[party.name] && party.bills.map((bill, j) => (
                       <tr key={j} className="border-t border-border/40 bg-muted/10 text-xs">
                         <td className="px-8 py-1.5 text-muted-foreground">{bill.bill_no}</td>
                         <td colSpan={4} className="px-4 py-1.5 text-muted-foreground">
-                          {bill.date} · {bill.age_days} days old · Bill: ₹{fmt(bill.total_amount)}
+                          {bill.date} � {bill.age_days} days old � Bill: ₹{fmt(bill.total_amount)}
                         </td>
                         <td className="px-4 py-1.5 text-right font-medium">₹{fmt(bill.due_amount)}</td>
                       </tr>

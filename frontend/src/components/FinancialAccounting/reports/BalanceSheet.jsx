@@ -17,47 +17,47 @@ const today = new Date().toISOString().split("T")[0];
 
 const fmt = (v) => {
   const n = Number(v);
-  if (!n) return "—";
+  if (!n) return "�";
   return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-// Fine-gold gram formatter — 3 decimals, no Indian-lakh grouping (gold weights
-// are typically shown 0.001g precision). "—" when null/zero/no rate available.
+// Fine-gold gram formatter � 3 decimals, no Indian-lakh grouping (gold weights
+// are typically shown 0.001g precision). "�" when null/zero/no rate available.
 const fmtGrams = (v) => {
-  if (v === null || v === undefined) return "—";
+  if (v === null || v === undefined) return "�";
   const n = Number(v);
-  if (!n) return "—";
+  if (!n) return "�";
   return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 };
 
 // Positive = debit balance, negative = credit balance (our Dr-Cr convention)
 // side: "assets" (normal=debit) | "liabilities" (normal=credit)
-// Returns { text, anomalous } — anomalous balances shown in parentheses
+// Returns { text, anomalous } � anomalous balances shown in parentheses
 function bsBalDisplay(balance, side) {
   const n = Number(balance);
-  if (n === 0) return { text: "—", anomalous: false };
+  if (n === 0) return { text: "�", anomalous: false };
   const anomalous = side === "assets" ? n < 0 : n > 0;
   return { text: anomalous ? `(${fmt(n)})` : fmt(n), anomalous };
 }
 
 function bsGoldDisplay(grams, side) {
-  if (grams === null || grams === undefined) return { text: "—", anomalous: false };
+  if (grams === null || grams === undefined) return { text: "�", anomalous: false };
   const n = Number(grams);
-  if (!n) return { text: "—", anomalous: false };
+  if (!n) return { text: "�", anomalous: false };
   const anomalous = side === "assets" ? n < 0 : n > 0;
   return { text: anomalous ? `(${fmtGrams(n)} g)` : `${fmtGrams(n)} g`, anomalous };
 }
 
 const balLabel = (v) => {
   const n = Number(v);
-  if (n === 0) return "—";
+  if (n === 0) return "�";
   return `${fmt(n)} ${n >= 0 ? "Dr" : "Cr"}`;
 };
 
 const gramsLabel = (v) => {
-  if (v === null || v === undefined) return "—";
+  if (v === null || v === undefined) return "�";
   const n = Number(v);
-  if (!n) return "—";
+  if (!n) return "�";
   return `${fmtGrams(n)} g ${n >= 0 ? "Dr" : "Cr"}`;
 };
 
@@ -97,7 +97,7 @@ function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) 
           <div>
             <p className="font-semibold text-foreground text-sm">How the fine-gold rate was calculated</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Σ value (₹) ÷ Σ fine grams · Window: {data?.fy_start} → {data?.end_date}
+              Σ value (₹) � Σ fine grams � Window: {data?.fy_start} → {data?.end_date}
             </p>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1.5 hover:bg-accent rounded-lg cursor-pointer">
@@ -108,7 +108,7 @@ function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) 
         <div className="overflow-auto flex-1 p-4 space-y-4">
           {loading && (
             <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-              <Loader2 className="size-4 animate-spin" /> Loading breakdown…
+              <Loader2 className="size-4 animate-spin" /> Loading breakdown�
             </div>
           )}
           {error && <p className="text-center py-16 text-destructive text-sm">{error}</p>}
@@ -128,7 +128,7 @@ function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) 
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Fine-Gold Rate</p>
                   <p className="text-base font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-                    {data.fine_gold_rate ? `₹ ${num(data.fine_gold_rate)} / g` : "—"}
+                    {data.fine_gold_rate ? `₹ ${num(data.fine_gold_rate)} / g` : "�"}
                   </p>
                 </div>
               </div>
@@ -175,7 +175,7 @@ function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) 
                                 <tr key={i} className={i % 2 ? "bg-muted/10" : ""}>
                                   <td className="px-3 py-1.5">{r.label}</td>
                                   <td className="px-3 py-1.5 text-muted-foreground">
-                                    {r.ref || "—"}{r.date ? ` · ${r.date}` : ""}
+                                    {r.ref || "�"}{r.date ? ` � ${r.date}` : ""}
                                   </td>
                                   <td className="px-3 py-1.5">{r.purity} <span className="text-muted-foreground">({num(r.gw_per, 2)}%)</span></td>
                                   <td className="px-3 py-1.5 text-right tabular-nums">{num(r.gw, 3)}</td>
@@ -194,8 +194,8 @@ function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) 
               })}
 
               <p className="text-[11px] text-muted-foreground italic">
-                Formula: fine-gold rate = Σ(value) / Σ(gw × purity% / 100). Each row contributes
-                its value to the numerator and gw × purity% / 100 fine grams to the denominator.
+                Formula: fine-gold rate = Σ(value) / Σ(gw � purity% / 100). Each row contributes
+                its value to the numerator and gw � purity% / 100 fine grams to the denominator.
               </p>
             </>
           )}
@@ -259,7 +259,7 @@ function LedgerModal({ groupId, groupName, endDate, unit, sideType, onClose }) {
         <div className="overflow-auto flex-1">
           {loading && (
             <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-              <Loader2 className="size-4 animate-spin" /> Loading…
+              <Loader2 className="size-4 animate-spin" /> Loading�
             </div>
           )}
           {error && <p className="text-center py-16 text-destructive text-sm">{error}</p>}
@@ -554,7 +554,7 @@ export default function BalanceSheet() {
   }, [data, assetsTotal]);
 
   const fmtRatio = (v, suffix = "") =>
-    v == null ? "—" : `${v.toFixed(2)}${suffix}`;
+    v == null ? "�" : `${v.toFixed(2)}${suffix}`;
 
   const handlePrint = () => {
     if (!data) return;
@@ -594,7 +594,7 @@ export default function BalanceSheet() {
     const [y, m, d] = (endDate || "").split("-");
     const ddmmyyyy  = y && m && d ? `${d}-${m}-${y}` : endDate;
     const scopeLabel = scope === "all"
-      ? " (Combined — All Retails)"
+      ? " (Combined � All Retails)"
       : selectedRetailIds.length === 1
         ? ""
         : ` (${selectedRetailIds.length} retails)`;
@@ -705,7 +705,7 @@ export default function BalanceSheet() {
       {/* ── Financial ratio tiles (derived from the balance sheet) ────────── */}
       {data && !loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Current Ratio — liquidity */}
+          {/* Current Ratio � liquidity */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <Droplets className="size-3.5" aria-hidden="true" /> Current Ratio
@@ -716,9 +716,9 @@ export default function BalanceSheet() {
               ratios.currentRatio >= 1   ? "text-amber-600 dark:text-amber-400"   :
               "text-rose-600 dark:text-rose-400"
             }`}>
-              {fmtRatio(ratios.currentRatio, "×")}
+              {fmtRatio(ratios.currentRatio, "�")}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Current Assets ÷ Current Liabilities</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Current Assets � Current Liabilities</p>
           </div>
 
           {/* Working Capital */}
@@ -732,10 +732,10 @@ export default function BalanceSheet() {
             }`}>
               ₹ {fmt(Math.abs(ratios.workingCapital))}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">₹ {fmtCompact(Math.abs(ratios.workingCapital))} · CA − CL</p>
+            <p className="text-xs text-muted-foreground mt-0.5">₹ {fmtCompact(Math.abs(ratios.workingCapital))} � CA − CL</p>
           </div>
 
-          {/* Debt-to-Equity — leverage */}
+          {/* Debt-to-Equity � leverage */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <Scale className="size-3.5" aria-hidden="true" /> Debt-to-Equity
@@ -746,12 +746,12 @@ export default function BalanceSheet() {
               ratios.debtToEquity <= 2 ? "text-amber-600 dark:text-amber-400"   :
               "text-rose-600 dark:text-rose-400"
             }`}>
-              {fmtRatio(ratios.debtToEquity, "×")}
+              {fmtRatio(ratios.debtToEquity, "�")}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Debt ÷ Equity</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Debt � Equity</p>
           </div>
 
-          {/* Return on Assets — profitability */}
+          {/* Return on Assets � profitability */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <TrendingUp className="size-3.5" aria-hidden="true" /> Return on Assets
@@ -761,9 +761,9 @@ export default function BalanceSheet() {
               ratios.roa >= 0 ? "text-emerald-600 dark:text-emerald-400"
                               : "text-rose-600 dark:text-rose-400"
             }`}>
-              {ratios.roa == null ? "—" : `${ratios.roa.toFixed(2)}%`}
+              {ratios.roa == null ? "�" : `${ratios.roa.toFixed(2)}%`}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">Net {ratios.netProfit >= 0 ? "Profit" : "Loss"} ÷ Total Assets</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Net {ratios.netProfit >= 0 ? "Profit" : "Loss"} � Total Assets</p>
           </div>
         </div>
       )}
@@ -778,7 +778,7 @@ export default function BalanceSheet() {
 
       {data && !loading && (
         <p className="text-[11px] text-muted-foreground -mt-1 print:hidden">
-          Balance Sheet as on {asOnLabel}{scope === "all" ? " · Combined (all retails)" : selectedRetailIds.length > 1 ? ` · ${selectedRetailIds.length} retails` : ""}. Click any account to see its ledgers.
+          Balance Sheet as on {asOnLabel}{scope === "all" ? " � Combined (all retails)" : selectedRetailIds.length > 1 ? ` � ${selectedRetailIds.length} retails` : ""}. Click any account to see its ledgers.
         </p>
       )}
 
@@ -787,7 +787,7 @@ export default function BalanceSheet() {
           <div className="text-xs px-3 py-2 rounded-md border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300 flex items-center gap-2 print:hidden">
             <Coins className="size-3.5 flex-shrink-0" aria-hidden="true" />
             <span className="flex-1">
-              Showing balances in fine gold (24K). Conversion rate: <strong>₹ {fmt(data.fine_gold_rate)} / g</strong> — derived from gold flows since FY start.
+              Showing balances in fine gold (24K). Conversion rate: <strong>₹ {fmt(data.fine_gold_rate)} / g</strong> � derived from gold flows since FY start.
             </span>
             <button
               type="button"
@@ -800,7 +800,7 @@ export default function BalanceSheet() {
         ) : (
           <p className="text-xs px-3 py-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300 flex items-center gap-1.5 print:hidden">
             <Coins className="size-3.5" aria-hidden="true" />
-            No gold flows in this fiscal year — fine-gold rate cannot be derived.
+            No gold flows in this fiscal year � fine-gold rate cannot be derived.
           </p>
         )
       )}

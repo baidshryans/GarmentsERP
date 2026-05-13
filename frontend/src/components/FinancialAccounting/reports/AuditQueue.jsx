@@ -222,7 +222,7 @@ export default function AuditQueue() {
           </Select>
         </div>
 
-        {/* Voucher type filter — appears after report is loaded */}
+        {/* Voucher type filter � appears after report is loaded */}
         {availableTypes.length > 0 && (
           <div className="flex flex-col gap-1">
             <Label className="text-xs">Voucher Type</Label>
@@ -253,7 +253,7 @@ export default function AuditQueue() {
             <Textarea
               rows={1}
               className="text-sm resize-none"
-              placeholder="e.g. Verified against physical records…"
+              placeholder="e.g. Verified against physical records�"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -262,13 +262,13 @@ export default function AuditQueue() {
             {anyUnaudited && (
               <Button size="sm" className="gap-1.5 h-9" onClick={handleMark} disabled={saving}>
                 <ShieldCheck className="size-4" />
-                {saving ? "Saving…" : `Mark ${selected.size} Audited`}
+                {saving ? "Saving�" : `Mark ${selected.size} Audited`}
               </Button>
             )}
             {anyAudited && (
               <Button size="sm" variant="outline" className="gap-1.5 h-9" onClick={handleUnmark} disabled={saving}>
                 <ShieldOff className="size-4" />
-                {saving ? "Saving…" : `Unmark ${selected.size}`}
+                {saving ? "Saving�" : `Unmark ${selected.size}`}
               </Button>
             )}
           </div>
@@ -291,7 +291,7 @@ export default function AuditQueue() {
             <span>
               {visibleVouchers.length}
               {vtFilter !== "all" && ` of ${allVouchers.length}`}
-              {" "}voucher(s) — {report.from_date} to {report.to_date}
+              {" "}voucher(s) � {report.from_date} to {report.to_date}
             </span>
             <div className="flex items-center gap-3">
               {allIds.length > 0 && (
@@ -346,7 +346,7 @@ export default function AuditQueue() {
                 {v.attachments?.length > 0 && (
                   <button
                     type="button"
-                    title={`${v.attachments.length} attachment(s) — click to expand`}
+                    title={`${v.attachments.length} attachment(s) � click to expand`}
                     onClick={() => toggle(v.id)}
                     className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground shrink-0"
                   >
@@ -359,7 +359,7 @@ export default function AuditQueue() {
                 {v.is_audited ? (
                   <span className="flex items-center gap-1 text-[11px] font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-full border border-green-200 dark:border-green-700 shrink-0">
                     <CheckCircle2 className="size-3" />
-                    {v.audited_by} · {v.audited_at}
+                    {v.audited_by} � {v.audited_at}
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700 shrink-0">

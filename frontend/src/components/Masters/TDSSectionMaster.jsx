@@ -116,8 +116,8 @@ export default function TDSSectionMasterPage() {
     setForm(emptyForm);
   };
 
-  const fmtRate = (v) => v != null ? `${parseFloat(v).toFixed(3)}%` : "—";
-  const fmtAmt = (v) => v != null ? `₹${parseFloat(v).toLocaleString('en-IN')}` : "—";
+  const fmtRate = (v) => v != null ? `${parseFloat(v).toFixed(3)}%` : "�";
+  const fmtAmt = (v) => v != null ? `₹${parseFloat(v).toLocaleString('en-IN')}` : "�";
 
   const columns = [
     {

@@ -145,7 +145,7 @@ export default function UnallocatedVouchers() {
             <>
               <SheetHeader>
                 <SheetTitle>
-                  Allocate {selected._kind === "receipt" ? "Receipt" : "Payment"} — {selected.voucher_no}
+                  Allocate {selected._kind === "receipt" ? "Receipt" : "Payment"} � {selected.voucher_no}
                 </SheetTitle>
                 <div className="text-sm text-muted-foreground space-y-0.5 mt-1">
                   <div><span className="font-medium">Party:</span> {selected.party}</div>
@@ -211,7 +211,7 @@ export default function UnallocatedVouchers() {
                     onClick={handleAllocateBills}
                     disabled={!allocations.length || saving}
                   >
-                    {saving ? "Saving…" : "Save Allocations"}
+                    {saving ? "Saving�" : "Save Allocations"}
                   </Button>
                 </section>
               </div>
@@ -250,7 +250,7 @@ function VoucherTable({ rows, loading, onRefresh, onAllocate, kind }) {
         <TableBody>
           {loading && (
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground py-8">Loading…</TableCell>
+              <TableCell colSpan={7} className="text-center text-muted-foreground py-8">Loading�</TableCell>
             </TableRow>
           )}
           {!loading && rows.length === 0 && (

@@ -61,12 +61,12 @@ function StockJournalPrintView({ data }) {
             <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
               <td style={{ ...tdStyle, textAlign: "center" }}>{i + 1}</td>
               <td style={{ ...tdStyle, textAlign: "center" }}>{r.doc_type}</td>
-              <td style={{ ...tdStyle, textAlign: "center" }}>{r.packet || "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "center" }}>{r.item || "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "center" }}>{r.metal_purity || "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>{r.pcs ?? "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>{r.ct  != null ? parseFloat(r.ct).toFixed(3) : "—"}</td>
-              <td style={{ ...tdStyle, textAlign: "right" }}>{r.gw  != null ? parseFloat(r.gw).toFixed(3) : "—"}</td>
+              <td style={{ ...tdStyle, textAlign: "center" }}>{r.packet || "�"}</td>
+              <td style={{ ...tdStyle, textAlign: "center" }}>{r.item || "�"}</td>
+              <td style={{ ...tdStyle, textAlign: "center" }}>{r.metal_purity || "�"}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>{r.pcs ?? "�"}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>{r.ct  != null ? parseFloat(r.ct).toFixed(3) : "�"}</td>
+              <td style={{ ...tdStyle, textAlign: "right" }}>{r.gw  != null ? parseFloat(r.gw).toFixed(3) : "�"}</td>
               <td style={{ ...tdStyle, textAlign: "right" }}>{r.loss != null ? parseFloat(r.loss).toFixed(3) : 0}</td>
             </tr>
           ))}

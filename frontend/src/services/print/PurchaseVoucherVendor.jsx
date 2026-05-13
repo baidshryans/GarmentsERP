@@ -100,7 +100,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
     <div className="pv-page">
       <style>{PV_CSS}</style>
 
-      {/* â”€â”€ Header â”€â”€ */}
+      {/* ── Header ── */}
       <div className="pv-header">
         {d.company_logo_url && <img src={d.company_logo_url} alt="logo" className="pv-logo" />}
         <div>
@@ -109,7 +109,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
           {(d.company_phone || d.company_email) && (
             <div className="pv-company-sub">
               {d.company_phone && "Ph: " + d.company_phone}
-              {d.company_phone && d.company_email && "  ·  "}
+              {d.company_phone && d.company_email && "  �  "}
               {d.company_email}
             </div>
           )}
@@ -118,16 +118,16 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         {d.bis_logo_url && <img src={d.bis_logo_url} alt="BIS" className="pv-logo" />}
       </div>
 
-      {/* â”€â”€ Title â”€â”€ */}
+      {/* ── Title ── */}
       <div className="pv-title-strip">
         <div className="pv-title-side">
           {d.is_rcm ? <span style={{color:"#c00",fontWeight:700}}>RCM</span> : ""}
         </div>
-        <div className="pv-title-center">Purchase Voucher — Vendor</div>
+        <div className="pv-title-center">Purchase Voucher � Vendor</div>
         <div className="pv-title-side pv-title-right">Original / Duplicate</div>
       </div>
 
-      {/* â”€â”€ Vendor + bill info â”€â”€ */}
+      {/* ── Vendor + bill info ── */}
       <table className="pv-meta-table">
         <tbody>
           <tr>
@@ -186,7 +186,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         </tbody>
       </table>
 
-      {/* â”€â”€ Items â”€â”€ */}
+      {/* ── Items ── */}
       <div className="pv-items-wrap">
         <table className="pv-items-table">
           <colgroup>
@@ -235,8 +235,8 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <td>
                       {item.item_name || item.item || ""}
                       {item.barcode_txt ? <span style={{color:"#555",fontSize:"9px"}}>{" ["+item.barcode_txt+"]"}</span> : null}
-                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" · Sz "+item.size}</span> : null}
-                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" · "+item.purity}</span> : null}
+                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" � Sz "+item.size}</span> : null}
+                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" � "+item.purity}</span> : null}
                     </td>
                     <td className="pv-ctr">{item.pcs ?? ""}</td>
                     <td className="pv-num">{fmt3(item.gw)}</td>
@@ -248,7 +248,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <tr key={"s-"+idx+"-"+si} className="pv-sub-row">
                       <td></td>
                       <td style={{paddingLeft:14}}>
-                        {"â†³ "}{sub.sub_item||""}
+                        {"↳ "}{sub.sub_item||""}
                         {sub.packet ? <span style={{fontSize:"9px",color:"#666"}}>{" ["+sub.packet+"]"}</span> : null}
                       </td>
                       <td className="pv-ctr">{sub.sub_pcs||""}</td>
@@ -268,7 +268,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         </table>
       </div>
 
-      {/* â”€â”€ Totals â”€â”€ */}
+      {/* ── Totals ── */}
       <table className="pv-totals-table">
         <tbody>
           {parseFloat(d.bill_value) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Item Total</td><td className="pv-total-value">₹ {fmt(d.bill_value)}</td></tr> : null}
@@ -292,20 +292,20 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         </tbody>
       </table>
 
-      {/* â”€â”€ Amount in words â”€â”€ */}
+      {/* ── Amount in words ── */}
       <div className="pv-words-row">
         <span style={{fontWeight:700}}>Amount in Words: </span>
         {numberToWords(grandTotal)}
       </div>
 
-      {/* â”€â”€ Narration â”€â”€ */}
+      {/* ── Narration ── */}
       {d.narration ? (
         <div className="pv-narr-row">
           <span style={{fontWeight:700}}>Narration: </span>{d.narration}
         </div>
       ) : null}
 
-      {/* â”€â”€ Footer â”€â”€ */}
+      {/* ── Footer ── */}
       <div className="pv-footer">
         <div className="pv-footer-left">
           {d.company_pan   ? <div><span className="pv-label">PAN:</span> {d.company_pan}</div>   : null}

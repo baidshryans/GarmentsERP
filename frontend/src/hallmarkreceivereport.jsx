@@ -13,7 +13,7 @@ import { isValidDateRange } from "@/lib/dateRange";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function fmtDate(d) {
-  if (!d) return "—";
+  if (!d) return "�";
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return dt.toLocaleDateString("en-GB").replaceAll("/", "-");
@@ -100,7 +100,7 @@ export default function HallmarkReceiveReport() {
             slip:   rec.receive_slip_no,
             date:   rec.date1,
             sl:     it.sl_no,
-            huid:   it.huid || "—",
+            huid:   it.huid || "�",
             pcs:    it.pcs,
             gw:     it.gw,
             nw:     it.nw,
@@ -184,7 +184,7 @@ export default function HallmarkReceiveReport() {
             <span className="text-sm font-semibold">Hallmark Receive Summary</span>
           </div>
           <span className="text-xs text-gray-500">
-            {summary.rows} rows · {summary.centers} centers
+            {summary.rows} rows � {summary.centers} centers
           </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-5 text-xs gap-3">

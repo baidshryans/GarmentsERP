@@ -232,7 +232,7 @@ export default function QuotationAdd() {
       const purityVal = d.purity ? String(d.purity).replace("K", "") : "";
       const gRate = goldRateForPurity(purityVal, rate18kt, rate22kt, rate24kt, rate14kt);
 
-      // B2B tunch: compute fine weight; gold_amount derives from fine_wt × 24K rate
+      // B2B tunch: compute fine weight; gold_amount derives from fine_wt � 24K rate
       const tunchResult = b2bPricelist
         ? computeB2BFineWt(b2bPricelist, purities, purityVal, parseFloat(d.nw) || 0, rate24kt)
         : null;
@@ -494,7 +494,7 @@ export default function QuotationAdd() {
             Cancel
           </Button>
           <Button onClick={() => handleSave(false)} disabled={saving} className="h-9 gap-1.5">
-            <Save className="size-4" /> {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Draft" : "Save Draft")}
+            <Save className="size-4" /> {saving ? (id ? "Updating�" : "Saving�") : (id ? "Update Draft" : "Save Draft")}
           </Button>
           <Button onClick={() => handleSave(true)} disabled={saving} className="h-9 gap-1.5 bg-primary">
             <Printer className="size-4" /> {id ? "Update & Print" : "Save & Print"}
@@ -524,7 +524,7 @@ export default function QuotationAdd() {
           <div className="flex flex-col gap-1 col-span-2">
             <Label className="text-xs">Salesperson</Label>
             <Select value={salesPerson} onValueChange={setSalesPerson}>
-              <SelectTrigger className="h-9"><SelectValue placeholder="Select…" /></SelectTrigger>
+              <SelectTrigger className="h-9"><SelectValue placeholder="Select�" /></SelectTrigger>
               <SelectContent>
                 {salespersons.map((sp) => (
                   <SelectItem key={sp.id} value={String(sp.id)}>{sp.salesperson_name}</SelectItem>
@@ -537,9 +537,9 @@ export default function QuotationAdd() {
         {/* Gold rates display */}
         <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
           <span>Gold Rates:</span>
-          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">14K: {rate14kt || "—"}</span>
-          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">18K: {rate18kt || "—"}</span>
-          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">22K: {rate22kt || "—"}</span>
+          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">14K: {rate14kt || "�"}</span>
+          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">18K: {rate18kt || "�"}</span>
+          <span className="font-mono bg-muted px-1.5 py-0.5 rounded">22K: {rate22kt || "�"}</span>
           {b2bPricelist && (
             <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
               B2B Pricelist: {b2bPricelist.name}
@@ -571,11 +571,11 @@ export default function QuotationAdd() {
                   if (res.success && res.data) setB2bPricelist(res.data);
                 }
               }}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="Select customer…" /></SelectTrigger>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Select customer�" /></SelectTrigger>
                 <SelectContent>
                   <div className="px-2 pb-2">
                     <Input
-                      placeholder="Search…"
+                      placeholder="Search�"
                       value={partySearch}
                       onChange={(e) => setPartySearch(e.target.value)}
                       className="h-8"
@@ -591,7 +591,7 @@ export default function QuotationAdd() {
           ) : (
             <div className="flex flex-col gap-1 flex-1 max-w-md">
               <Label className="text-xs">Party Name</Label>
-              <Input value={partyName} onChange={(e) => setPartyName(e.target.value)} placeholder="Walk-in party name…" className="h-9" />
+              <Input value={partyName} onChange={(e) => setPartyName(e.target.value)} placeholder="Walk-in party name�" className="h-9" />
             </div>
           )}
 
@@ -613,7 +613,7 @@ export default function QuotationAdd() {
               ref={inputRef}
               value={barcodeInput}
               onChange={(e) => setBarcodeInput(e.target.value)}
-              placeholder="Scan or type barcode…"
+              placeholder="Scan or type barcode�"
               autoFocus
               className="h-10 text-base font-mono"
               disabled={scanning}
@@ -621,7 +621,7 @@ export default function QuotationAdd() {
           </div>
           <Button type="submit" disabled={scanning || !barcodeInput.trim()} className="h-10 gap-1.5">
             {scanning ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-            {scanning ? "Loading…" : "Add"}
+            {scanning ? "Loading�" : "Add"}
           </Button>
           <span className="text-xs text-muted-foreground pb-2">Press Enter after each scan</span>
         </form>
@@ -704,7 +704,7 @@ export default function QuotationAdd() {
                           )}
                         </td>
                         <td className="px-2 py-2">
-                          <div className="font-semibold">{item.design_code || "—"}</div>
+                          <div className="font-semibold">{item.design_code || "�"}</div>
                           <div className="font-mono text-muted-foreground text-[10px]">{item.barcode_text}</div>
                         </td>
                         <td className="px-2 py-2">{item.item_name}</td>
@@ -812,7 +812,7 @@ export default function QuotationAdd() {
           {/* Remarks */}
           <div className="px-5 py-3 border-t border-border flex items-center gap-4">
             <Label className="text-xs text-muted-foreground whitespace-nowrap">Remarks</Label>
-            <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Any notes…" className="h-8 max-w-md" />
+            <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Any notes�" className="h-8 max-w-md" />
           </div>
         </div>
       )}

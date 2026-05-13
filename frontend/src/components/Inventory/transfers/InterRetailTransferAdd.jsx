@@ -114,7 +114,7 @@ export default function InterRetailTransferAdd() {
           <Button size="sm" variant="outline" onClick={() => navigate("/inventory/inter-retail-transfer")}>Cancel</Button>
           <Button size="sm" onClick={save} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            {saving ? (isEdit ? "Updating…" : "Saving…") : (isEdit ? "Update Draft" : "Save Draft")}
+            {saving ? (isEdit ? "Updating�" : "Saving�") : (isEdit ? "Update Draft" : "Save Draft")}
           </Button>
         </div>
       </div>
@@ -136,7 +136,7 @@ export default function InterRetailTransferAdd() {
           <select value={form.from_retail}
                   onChange={(e) => setForm((f) => ({ ...f, from_retail: e.target.value }))}
                   className="h-9 rounded-md border border-border bg-background px-2 text-sm">
-            <option value="">Select…</option>
+            <option value="">Select�</option>
             {retails.map((r) => <option key={r.id} value={r.id}>{r.retail_name}</option>)}
           </select>
         </div>
@@ -145,7 +145,7 @@ export default function InterRetailTransferAdd() {
           <select value={form.to_retail}
                   onChange={(e) => setForm((f) => ({ ...f, to_retail: e.target.value }))}
                   className="h-9 rounded-md border border-border bg-background px-2 text-sm">
-            <option value="">Select…</option>
+            <option value="">Select�</option>
             {retails.filter((r) => String(r.id) !== String(form.from_retail)).map((r) =>
               <option key={r.id} value={r.id}>{r.retail_name}</option>)}
           </select>
@@ -180,7 +180,7 @@ export default function InterRetailTransferAdd() {
                     <select value={ln.item}
                             onChange={(e) => updateLine(i, { item: e.target.value })}
                             className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm">
-                      <option value="">Select item…</option>
+                      <option value="">Select item�</option>
                       {items.map((opt) => (
                         <option key={opt.id} value={opt.id}>
                           [{opt.item_type}] {opt.item_name}

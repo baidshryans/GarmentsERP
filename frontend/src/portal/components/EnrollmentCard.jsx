@@ -84,7 +84,7 @@ export default function EnrollmentCard({ enrollment }) {
 
         {e.status === "MATURED" && (
           <p className="text-xs text-blue-700 font-medium mt-2 text-center">
-            Ready for Redemption — Visit the shop
+            Ready for Redemption � Visit the shop
           </p>
         )}
       </CardContent>

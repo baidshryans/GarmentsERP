@@ -97,7 +97,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                     </span>
                 )}
 
-                {/* Edit / Delete actions — visible on row hover */}
+                {/* Edit / Delete actions � visible on row hover */}
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     {node.can_be_deleted ? (
                         <Link
@@ -110,7 +110,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                     ) : (
                         <span
                             className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
-                            title="System group — cannot be modified"
+                            title="System group � cannot be modified"
                         >
                             <Pencil className="size-4" />
                         </span>
@@ -128,10 +128,10 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                             className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
                             title={
                                 node.ledger_count > 0
-                                    ? `${node.ledger_count} ledger(s) assigned — reassign first`
+                                    ? `${node.ledger_count} ledger(s) assigned � reassign first`
                                     : hasChildren
-                                    ? 'Has sub-groups — delete them first'
-                                    : 'System group — cannot delete'
+                                    ? 'Has sub-groups � delete them first'
+                                    : 'System group � cannot delete'
                             }
                         >
                             <Trash2 className="size-4" />
@@ -225,8 +225,8 @@ const AccountTree = () => {
                     <h1 className="text-2xl font-bold tracking-tight">Chart of Accounts</h1>
                     <p className="text-sm text-muted-foreground mt-1">
                         {loading
-                            ? 'Loading…'
-                            : `${treeData.length} root groups · ${total} total · ${ledgerTotal} ledgers assigned`
+                            ? 'Loading�'
+                            : `${treeData.length} root groups � ${total} total � ${ledgerTotal} ledgers assigned`
                         }
                     </p>
                 </div>
@@ -255,7 +255,7 @@ const AccountTree = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                     <Pencil className="size-3 text-muted-foreground/40" />
-                    Greyed edit = system group — cannot be modified
+                    Greyed edit = system group � cannot be modified
                 </span>
                 <span className="flex items-center gap-1.5">
                     <Trash2 className="size-3 text-muted-foreground/40" />

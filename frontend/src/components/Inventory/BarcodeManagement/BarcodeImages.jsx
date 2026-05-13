@@ -67,7 +67,7 @@ export default function BarcodeImages({ barcodeId, barcodeText, open, onOpenChan
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="right" className="flex flex-col w-[420px] sm:max-w-[420px]">
           <SheetHeader>
-            <SheetTitle>Images — {barcodeText}</SheetTitle>
+            <SheetTitle>Images � {barcodeText}</SheetTitle>
           </SheetHeader>
           <div className="flex flex-col gap-4 flex-1 mt-4 overflow-y-auto">
             {/* Upload area */}

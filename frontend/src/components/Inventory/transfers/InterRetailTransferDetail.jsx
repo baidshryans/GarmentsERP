@@ -53,7 +53,7 @@ export default function InterRetailTransferDetail() {
     else setError(typeof res.error === "string" ? res.error : (res.error?.detail || JSON.stringify(res.error)));
   };
 
-  if (loading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading…</div>;
+  if (loading) return <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Loading�</div>;
   if (!v) return <div className="text-sm text-destructive">{error || "Not found."}</div>;
 
   const totalValue = (v.items || []).reduce((s, it) => s + Number(it.transfer_value || 0), 0);
@@ -73,7 +73,7 @@ export default function InterRetailTransferDetail() {
               <span className="font-mono">{v.voucher_no}</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium uppercase ${STATUS_STYLES[v.status] || "bg-muted"}`}>{v.status}</span>
             </h2>
-            <p className="text-xs text-muted-foreground">Transfer Date: {v.transfer_date}{v.received_at && ` · Received: ${new Date(v.received_at).toLocaleString()}`}</p>
+            <p className="text-xs text-muted-foreground">Transfer Date: {v.transfer_date}{v.received_at && ` � Received: ${new Date(v.received_at).toLocaleString()}`}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -176,7 +176,7 @@ export default function InterRetailTransferDetail() {
       )}
       {isInTransit && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          Stock is in transit — still attributed to the source retail in closing-stock calculations.
+          Stock is in transit � still attributed to the source retail in closing-stock calculations.
         </p>
       )}
     </div>

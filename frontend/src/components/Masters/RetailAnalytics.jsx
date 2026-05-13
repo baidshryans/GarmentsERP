@@ -21,7 +21,7 @@ import { fetchRetailAnalytics } from "@/services/apiService";
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(v) {
-  if (v === null || v === undefined) return "—";
+  if (v === null || v === undefined) return "�";
   return Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
@@ -52,7 +52,7 @@ function LeaderboardRow({ rank, name, total, max, accent }) {
     <tr className="border-b border-border hover:bg-muted/40 transition-colors">
       <td className="px-4 py-3 w-10 text-xs font-semibold text-muted-foreground">#{rank}</td>
       <td className="px-4 py-3">
-        <p className="text-sm font-medium">{name || "—"}</p>
+        <p className="text-sm font-medium">{name || "�"}</p>
       </td>
       <td className="px-4 py-3">
         <div className="flex flex-col gap-1">
@@ -73,7 +73,7 @@ function Leaderboard({ title, icon: Icon, rows, accent, emptyText }) {
       <div className="px-4 py-3 bg-muted/40 border-b border-border flex items-center gap-2">
         <Icon className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold">{title}</span>
-        <span className="ml-auto text-[11px] text-muted-foreground">Current month · ₹</span>
+        <span className="ml-auto text-[11px] text-muted-foreground">Current month � ₹</span>
       </div>
       {rows.length === 0 ? (
         <div className="py-10 text-center text-sm text-muted-foreground">{emptyText}</div>
@@ -172,8 +172,8 @@ export default function RetailAnalytics() {
             <h1 className="text-base font-bold leading-tight">{retail.retail_name}</h1>
             <p className="text-[11px] text-muted-foreground">
               {retail.retail_code}
-              {retail.branch_name ? ` · ${retail.branch_name}` : ""}
-              {retail.active_fy_code ? ` · FY ${retail.active_fy_code}` : ""}
+              {retail.branch_name ? ` � ${retail.branch_name}` : ""}
+              {retail.active_fy_code ? ` � FY ${retail.active_fy_code}` : ""}
               {retail.is_exhibition ? (
                 <span className="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">
                   <Zap className="size-2.5" />Exhibition

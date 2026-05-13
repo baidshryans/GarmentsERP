@@ -40,7 +40,7 @@ export function RetailScopePicker({
     scope === "all"
       ? "All retails (combined)"
       : selectedIds.length === 0
-        ? "Select retails…"
+        ? "Select retails�"
         : selectedIds.length === 1
           ? (retails.find((r) => r.id === selectedIds[0])?.retail_name || `#${selectedIds[0]}`)
           : `${selectedIds.length} retails selected`;
@@ -111,7 +111,7 @@ export function RetailScopePicker({
  * Append retail scope params to an existing URLSearchParams object.
  *
  *   scope "all"      → ?combined=true
- *   scope "selected" → ?retail_ids=<id>&retail_ids=<id>…
+ *   scope "selected" → ?retail_ids=<id>&retail_ids=<id>�
  *
  * Returns the same URLSearchParams for chainability.
  */

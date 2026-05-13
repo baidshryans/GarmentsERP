@@ -3,7 +3,7 @@ import { Paperclip, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { parseInvoice } from "@/services/apiService";
 
 /**
- * InvoiceUpload — a small "Parse Invoice" button for PurchaseVoucher forms.
+ * InvoiceUpload � a small "Parse Invoice" button for PurchaseVoucher forms.
  *
  * Props:
  *   onExtracted(data): called with the parsed invoice JSON when successful.

@@ -64,16 +64,16 @@ const DetailSubRow = ({ det }) => (
     <td style={subCell}></td>
     <td style={subCell}></td>
     <td style={subCell}></td>
-    {/* Quality/Size — show packet name */}
+    {/* Quality/Size � show packet name */}
     <td style={{ ...subCell, textAlign: "left", paddingLeft: 8, fontStyle: "italic" }}>
       {det.packet_name}
     </td>
-    {/* Diamond columns — only if is_diamond */}
+    {/* Diamond columns � only if is_diamond */}
     <td style={subCell}>{det.is_diamond ? det.pcs || "" : ""}</td>
     <td style={subCell}>{det.is_diamond ? fmtN(det.wt) : ""}</td>
     <td style={subCell}>{det.is_diamond ? fmtI(det.rate) : ""}</td>
     <td style={subCell}>{det.is_diamond ? fmtI(det.amount) : ""}</td>
-    {/* Stone columns — only if not diamond */}
+    {/* Stone columns � only if not diamond */}
     <td style={subCell}>{!det.is_diamond ? det.pcs || "" : ""}</td>
     <td style={subCell}>{!det.is_diamond ? fmtN(det.wt) : ""}</td>
     <td style={subCell}>{!det.is_diamond ? fmtI(det.rate) : ""}</td>
@@ -115,7 +115,7 @@ const ItemRow = ({ item, baseUrl }) => {
             <img src={imgSrc} alt="" style={{ width: 55, height: 55, objectFit: "cover", borderRadius: 3 }} />
           ) : (
             <div style={{ width: 55, height: 55, background: "#f5f5f5", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: "#aaa" }}>
-              {item.design_code || "—"}
+              {item.design_code || "�"}
             </div>
           )}
           <div style={{ fontSize: 8, fontWeight: 600, textAlign: "center", marginTop: 2 }}>{item.design_code}</div>
@@ -128,14 +128,14 @@ const ItemRow = ({ item, baseUrl }) => {
         <TD right>{fmtN(item.nw)}</TD>
         <TD right>{fmtI(item.gold_rate)}</TD>
         <TD right bold>{fmtI(item.gold_amount)}</TD>
-        {/* Quality/Size — aggregate on main row */}
+        {/* Quality/Size � aggregate on main row */}
         <TD></TD>
-        {/* Diamond — aggregate */}
+        {/* Diamond � aggregate */}
         <TD right bold>{item.total_diamond_pcs || ""}</TD>
         <TD right bold>{fmtN(item.total_diamond_wt)}</TD>
         <TD right></TD>
         <TD right bold>{fmtI(item.total_diamond_amt)}</TD>
-        {/* Stone — aggregate */}
+        {/* Stone � aggregate */}
         <TD right>{item.total_stone_pcs || ""}</TD>
         <TD right>{fmtN(item.total_stone_wt)}</TD>
         <TD right></TD>
@@ -165,7 +165,7 @@ export default function QuotationPrint({ data }) {
     ? new Date(data.date1).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
     : new Date().toLocaleDateString("en-IN");
 
-  const partyName = data.ldgr_name || data.party_name || "—";
+  const partyName = data.ldgr_name || data.party_name || "�";
 
   // Grand totals
   const grand = items.reduce(
@@ -239,7 +239,7 @@ export default function QuotationPrint({ data }) {
         </div>
         <div style={{ textAlign: "right", fontSize: 12 }}>
           <div>
-            <strong>NO :</strong>&nbsp;&nbsp; {data.quotation_no || "—"}
+            <strong>NO :</strong>&nbsp;&nbsp; {data.quotation_no || "�"}
           </div>
           <div>
             <strong>Date :</strong>&nbsp;&nbsp; {currentDate}

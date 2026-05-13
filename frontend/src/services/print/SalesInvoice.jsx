@@ -1,13 +1,13 @@
 ﻿import React from "react";
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-   SalesInvoice — minimal modern Tax Invoice print format.
+/* ────────────────────────────────────────────────────────────────────────────
+   SalesInvoice � minimal modern Tax Invoice print format.
    Renders a one-page A4 invoice using the same `data` prop produced by
    SalesVoucherList. Designed to be opened in a fresh window for printing
    (browser native print, no PDF library).
-   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+   ──────────────────────────────────────────────────────────────────────────── */
 
-/* â”€â”€â”€ Number / date helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── Number / date helpers ──────────────────────────────────────────────── */
 
 const fmt = (n, dec = 2) => {
   if (n === null || n === undefined || n === "") return "";
@@ -65,7 +65,7 @@ function numberToWords(num) {
   return "Rupees " + res.trim() + " Only";
 }
 
-/* â”€â”€â”€ Indian state lookup (abbrev or full name â†’ { name, code }) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── Indian state lookup (abbrev or full name → { name, code }) ─────────── */
 
 const STATE_MAP = (() => {
   const rows = [
@@ -125,7 +125,7 @@ const resolveState = (value, fallbackCode) => {
   return { name: raw, code, label: raw + (code ? ` (${code})` : "") };
 };
 
-/* â”€â”€â”€ Stylesheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── Stylesheet ──────────────────────────────────────────────────────────── */
 
 const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap";
@@ -450,12 +450,12 @@ table.si-items tbody tr.sub td.l {
 }
 `;
 
-/* â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─── Component ───────────────────────────────────────────────────────────── */
 
 /* Row-budget paginator. Splits blocks across pages such that:
-     â€¢ the LAST page reserves room for the bottom block (purchase / buy-back /
+     • the LAST page reserves room for the bottom block (purchase / buy-back /
        payment / totals / signatures), so it gets at most `lastBudget` rows
-     â€¢ all other pages can take up to `normalBudget` rows
+     • all other pages can take up to `normalBudget` rows
    Each "block" is a parent item + its (already filtered) sub-rows kept
    together; `block.rows` is `1 + subs.length`. */
 function paginateBlocks(blocks, lastBudget = 8, normalBudget = 28) {
@@ -505,9 +505,9 @@ const SalesInvoice = ({ data = {} }) => {
   );
 
   /* Normalise metal-rate input. Accepts:
-       â€¢ d.metal_rates as an array of { label, rate }
-       â€¢ d.metal_rate_str as a single string ("14K @ 9200" / "14K : 9,200")
-       â€¢ d.metal_rate_str as a comma- or pipe-separated list of such strings
+       • d.metal_rates as an array of { label, rate }
+       • d.metal_rate_str as a single string ("14K @ 9200" / "14K : 9,200")
+       • d.metal_rate_str as a comma- or pipe-separated list of such strings
      For each item, if `rate` is missing but `label` contains a number,
      split the label into purity + rate so the renderer can emit
      "<purity> : ₹ <rate> / gm" consistently. */
@@ -551,12 +551,12 @@ const SalesInvoice = ({ data = {} }) => {
     <div className="si-id">
       <div className="si-l">{label}</div>
       <div className={`si-v${value ? "" : " empty"}`} style={mono ? { fontVariantNumeric: "tabular-nums" } : undefined}>
-        {value || "—"}
+        {value || "�"}
       </div>
     </div>
   );
 
-  /* â”€â”€ Repeated section renderers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── Repeated section renderers ─────────────────────────────────────── */
 
   const renderHeader = () => (
     <div className="si-hdr">
@@ -576,7 +576,7 @@ const SalesInvoice = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="si-brand-sub">
             {d.company_phone && <>Phone <strong>{d.company_phone}</strong></>}
-            {d.company_phone && d.company_email && <>&nbsp; ·&nbsp; </>}
+            {d.company_phone && d.company_email && <>&nbsp; �&nbsp; </>}
             {d.company_email && <>Email <strong>{d.company_email}</strong></>}
           </div>
         )}
@@ -601,7 +601,7 @@ const SalesInvoice = ({ data = {} }) => {
       <div className="si-title">Tax Invoice</div>
       <div className="si-meta">
         <span className="si-num">{d.gst_billno || d.billno || ""}</span>
-        <span className="si-sep">·</span>
+        <span className="si-sep">�</span>
         <span className="si-date">{fmtDate(d.date1)}</span>
       </div>
     </div>
@@ -650,7 +650,7 @@ const SalesInvoice = ({ data = {} }) => {
               )}
             </span>
           ))
-        : <span className="si-r" style={{ color: "var(--faint)" }}>—</span>}
+        : <span className="si-r" style={{ color: "var(--faint)" }}>�</span>}
     </div>
   );
 
@@ -711,7 +711,7 @@ const SalesInvoice = ({ data = {} }) => {
               {b.subs.map((sub, si) => (
                 <tr className="sub" key={si}>
                   <td className="c"></td>
-                  <td className="l" colSpan={4}>â†³ {sub.text}</td>
+                  <td className="l" colSpan={4}>↳ {sub.text}</td>
                   <td>{sub.gw ? fmt(sub.gw, 3) : ""}</td>
                   <td></td>
                   <td>{sub.rate ? fmtInt(sub.rate) : ""}</td>
@@ -744,13 +744,13 @@ const SalesInvoice = ({ data = {} }) => {
               <span className="si-v">
                 {d.purchase_total != null && d.purchase_total !== ""
                   ? <>₹ {fmtInt(d.purchase_total)}</>
-                  : "—"}
+                  : "�"}
               </span>
             </div>
             {d.purchase_voucher_ref && (
               <div className="si-src">
-                From Purchase Voucher · {d.purchase_voucher_ref}
-                {d.purchase_voucher_date && <> · {fmtDate(d.purchase_voucher_date)}</>}
+                From Purchase Voucher � {d.purchase_voucher_ref}
+                {d.purchase_voucher_date && <> � {fmtDate(d.purchase_voucher_date)}</>}
               </div>
             )}
           </div>
@@ -763,8 +763,8 @@ const SalesInvoice = ({ data = {} }) => {
             <div className="si-col">
               <div className="si-t">Stones</div>
               <div className="si-v">
-                {d.buyback_stones_l1 || "Lab Grown Diamonds — 30%"}<br/>
-                {d.buyback_stones_l2 || "Precious Col. Stone — 25%, Imitation — 100%"}
+                {d.buyback_stones_l1 || "Lab Grown Diamonds � 30%"}<br/>
+                {d.buyback_stones_l2 || "Precious Col. Stone � 25%, Imitation � 100%"}
               </div>
             </div>
             <div className="si-col">
@@ -822,9 +822,9 @@ const SalesInvoice = ({ data = {} }) => {
   const renderSignaturesAndTerms = () => (
     <div className="si-footer">
       <div className="si-terms">
-        <div>â€¢&nbsp; Goods sold and delivered from <b>{(d.delivered_from || "Kolkata").toUpperCase()}</b> showroom.</div>
-        <div>â€¢&nbsp; Subject to <b>{(d.jurisdiction || "Kolkata").toUpperCase()}</b> jurisdiction only.</div>
-        <div>â€¢&nbsp; All disputes are to be settled in writing within 7 days of delivery.</div>
+        <div>•&nbsp; Goods sold and delivered from <b>{(d.delivered_from || "Kolkata").toUpperCase()}</b> showroom.</div>
+        <div>•&nbsp; Subject to <b>{(d.jurisdiction || "Kolkata").toUpperCase()}</b> jurisdiction only.</div>
+        <div>•&nbsp; All disputes are to be settled in writing within 7 days of delivery.</div>
       </div>
       <div className="si-sig-row">
         <div className="si-sig">

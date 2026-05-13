@@ -108,7 +108,7 @@ export default function RawMaterialTransactionsList() {
             <Label className="text-xs">Search (item name / bill no)</Label>
             <Input
               className="h-9"
-              placeholder="Search…"
+              placeholder="Search�"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -135,7 +135,7 @@ export default function RawMaterialTransactionsList() {
             <Input type="date" className="h-9" value={toDate} onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} />
           </div>
           <Button size="sm" onClick={handleSearch} disabled={loading} className="h-9">
-            {loading ? "Loading…" : "Search"}
+            {loading ? "Loading�" : "Search"}
           </Button>
           {data.length > 0 && (
             <Button size="sm" variant="outline" onClick={() => exportCSV(data)} className="h-9 ml-auto">

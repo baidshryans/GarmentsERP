@@ -252,7 +252,7 @@ useEffect(() => {
       ? { customer_order_item: row.customer_order_item, _co_display: row._co_display }
       : null;
     reset({ form: getValues('form'), table: row });
-    // Preserve the row's own Sl No in the input — don't let the rs-change
+    // Preserve the row's own Sl No in the input � don't let the rs-change
     // effect overwrite it with max+1.
     skipAutoSlNoRef.current = true;
     setRows((prev) => prev.filter((_, i) => i !== index));
@@ -350,7 +350,7 @@ useEffect(() => {
     // Re-attach CO-linkage if this is an edit-cycle add-back.
     const merged = editingMetaRef.current ? { ...table, ...editingMetaRef.current } : table;
     // Customer-Order POs must only be populated via the "Pick from Customer
-    // Orders" dialog — manual Tab-add of arbitrary items would bypass the
+    // Orders" dialog � manual Tab-add of arbitrary items would bypass the
     // CO-linkage contract and let stock items sneak into a CO-type PO.
     const poType = getValues('form.po_type');
     if (poType === 'Customer Order' && !merged.customer_order_item) {
@@ -361,7 +361,7 @@ useEffect(() => {
       });
       return;
     }
-    // Required-field guard — item, purity, pcs, and approx_wt must all be
+    // Required-field guard � item, purity, pcs, and approx_wt must all be
     // populated before a row can enter the grid.
     const missing = [];
     if (!merged.item || String(merged.item).trim() === "") missing.push("Main Item");
@@ -378,7 +378,7 @@ useEffect(() => {
       });
       return;
     }
-    // Due date — if present, must be strictly after today.
+    // Due date � if present, must be strictly after today.
     if (merged.due_date) {
       const dueStr = String(merged.due_date);
       const todayStr = new Date().toISOString().split("T")[0];
@@ -391,7 +391,7 @@ useEffect(() => {
         return;
       }
     }
-    // Block duplicate CO items — the same customer_order_item must not appear twice.
+    // Block duplicate CO items � the same customer_order_item must not appear twice.
     if (merged.customer_order_item && rs.some(r => r.customer_order_item === merged.customer_order_item)) {
       toast({
         title: "Item already in this PO",
@@ -400,7 +400,7 @@ useEffect(() => {
       });
       return;
     }
-    // Block duplicate Sl No — each line must have a unique serial number.
+    // Block duplicate Sl No � each line must have a unique serial number.
     const slNoNum = Number(merged.po_sl_no);
     if (!slNoNum || Number.isNaN(slNoNum)) {
       toast({
@@ -504,7 +504,7 @@ useEffect(() => {
             <Field label="PO No">
               <span className="inline-flex items-center px-3 h-9 rounded-md bg-primary/5 border border-primary/20 text-primary text-sm font-semibold truncate">
                 {watch("form.po_no") || (
-                  <span className="text-primary/50 text-xs font-normal">Auto-generating…</span>
+                  <span className="text-primary/50 text-xs font-normal">Auto-generating�</span>
                 )}
               </span>
               <input type="hidden" {...register("form.po_no")} />
@@ -518,7 +518,7 @@ useEffect(() => {
                   setValue("form.ldgr_name", opt.ac_name);
                   setValue("form.ldgr", opt.id);
                 }}
-                placeholder="Search vendor…"
+                placeholder="Search vendor�"
                 tabIndex={1}
                 autoFocus
               />
@@ -556,7 +556,7 @@ useEffect(() => {
               />
               {rs.length > 0 && (
                 <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                  Locked — remove all items to change type.
+                  Locked � remove all items to change type.
                 </p>
               )}
             </Field>
@@ -612,9 +612,9 @@ useEffect(() => {
                   <TableCell className="px-2 py-2 w-20">
                     <Input type="number" className="h-8 text-sm" tabIndex={4} {...register("table.po_sl_no")} />
                   </TableCell>
-                  {/* Source — only auto-set when item is pulled from a Customer Order; blank for manual rows */}
+                  {/* Source � only auto-set when item is pulled from a Customer Order; blank for manual rows */}
                   <TableCell className="px-2 py-2 w-40 align-middle">
-                    <span className="text-xs text-muted-foreground italic">—</span>
+                    <span className="text-xs text-muted-foreground italic">�</span>
                   </TableCell>
                   <TableCell className="px-2 py-2 w-24">
                     <Input type="text" className="h-8 text-sm" tabIndex={5} {...register("table.design_code")} />
@@ -623,7 +623,7 @@ useEffect(() => {
                     <Input
                       list="item_list"
                       className="h-8 text-sm"
-                      placeholder="Search item…"
+                      placeholder="Search item�"
                       tabIndex={6}
                       {...register("table.item")}
                     />
@@ -673,7 +673,7 @@ useEffect(() => {
                     <Input
                       type="text"
                       className="h-8 text-sm"
-                      placeholder="Remarks — Tab↹ to add"
+                      placeholder="Remarks � Tab↹ to add"
                       tabIndex={12}
                       onKeyDown={handleKeyDown}
                       {...register("table.remarks")}
@@ -704,31 +704,31 @@ useEffect(() => {
                         </button>
                       </div>
                     </TableCell>
-                    {/* PO Sl No — always bold, always singular */}
+                    {/* PO Sl No � always bold, always singular */}
                     <TableCell className="px-3 py-2 text-sm tabular-nums font-semibold text-foreground">
                       {row.po_sl_no}
                     </TableCell>
-                    {/* Source — coloured pill showing the linked Customer Order, or em-dash for stock/manual rows */}
+                    {/* Source � coloured pill showing the linked Customer Order, or em-dash for stock/manual rows */}
                     <TableCell className="px-3 py-2 w-44">
                       {row._co_display ? (
                         <div
                           className="inline-flex flex-col gap-0.5 max-w-full rounded-md border border-violet-200 bg-violet-50 px-2 py-1 leading-tight"
-                          title={`Linked to Customer Order ${row._co_display.co_no}\nCustomer: ${row._co_display.customer_name ?? ''}\nCO Sl No: ${row._co_display.sl_no ?? '—'}${row._co_display.co_date ? `\nCO Date: ${row._co_display.co_date}` : ''}`}
+                          title={`Linked to Customer Order ${row._co_display.co_no}\nCustomer: ${row._co_display.customer_name ?? ''}\nCO Sl No: ${row._co_display.sl_no ?? '�'}${row._co_display.co_date ? `\nCO Date: ${row._co_display.co_date}` : ''}`}
                         >
                           <span className="flex items-center gap-1 text-[11px] font-semibold text-violet-800 truncate">
                             <Link2 className="size-3 shrink-0" />
                             {row._co_display.co_no}
                           </span>
                           <span className="text-[10px] text-violet-700/80 truncate">
-                            {row._co_display.customer_name ?? '—'} · Sl {row._co_display.sl_no ?? '—'}
+                            {row._co_display.customer_name ?? '�'} � Sl {row._co_display.sl_no ?? '�'}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground">�</span>
                       )}
                     </TableCell>
                     <TableCell className="px-3 py-2 text-sm tabular-nums">
-                      {row.design_code || <span className="text-muted-foreground">—</span>}
+                      {row.design_code || <span className="text-muted-foreground">�</span>}
                     </TableCell>
                     <TableCell className="px-3 py-2 min-w-[240px]">
                       {(() => {
@@ -756,8 +756,8 @@ useEffect(() => {
                     <TableCell className="px-3 py-2 text-sm tabular-nums text-right">{row.pcs}</TableCell>
                     <TableCell className="px-3 py-2 text-sm tabular-nums text-right">{row.approx_wt}</TableCell>
                     <TableCell className="px-3 py-2 text-sm tabular-nums">{row.size}</TableCell>
-                    <TableCell className="px-3 py-2 text-sm">{row.due_date || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="px-3 py-2 text-sm text-muted-foreground min-w-[220px]">{row.remarks || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2 text-sm">{row.due_date || <span className="text-muted-foreground">�</span>}</TableCell>
+                    <TableCell className="px-3 py-2 text-sm text-muted-foreground min-w-[220px]">{row.remarks || <span className="text-muted-foreground">�</span>}</TableCell>
                   </TableRow>
                 ))}
 
@@ -791,7 +791,7 @@ useEffect(() => {
             Cancel
           </Button>
           <Button type="submit" className="min-w-28 cursor-pointer" disabled={saving || !canSave}>
-            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Order" : "Save Order")}
+            {saving ? (id ? "Updating�" : "Saving�") : (id ? "Update Order" : "Save Order")}
           </Button>
         </div>
       </form>
@@ -804,7 +804,7 @@ useEffect(() => {
           </DialogHeader>
 
           <Input
-            placeholder="Search customer, CO #, item…"
+            placeholder="Search customer, CO #, item�"
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
             className="mb-1"
@@ -848,17 +848,17 @@ useEffect(() => {
                           className="cursor-pointer"
                         />
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 font-medium">{p.customer_name || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 font-medium">{p.customer_name || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "�"}</TableCell>
                       <TableCell className="px-3 py-2 text-center">{p.sl_no}</TableCell>
-                      <TableCell className="px-3 py-2 font-medium">{p.item_name || p.item || "—"}</TableCell>
-                      <TableCell className="px-3 py-2">{p.purity || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "—"}</TableCell>
-                      <TableCell className="px-3 py-2">{p.size || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-muted-foreground">{p.remarks || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 font-medium">{p.item_name || p.item || "�"}</TableCell>
+                      <TableCell className="px-3 py-2">{p.purity || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "�"}</TableCell>
+                      <TableCell className="px-3 py-2">{p.size || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-muted-foreground">{p.remarks || "�"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

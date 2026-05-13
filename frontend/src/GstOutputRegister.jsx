@@ -23,7 +23,7 @@ const STATE_NAMES = {
   DN:"Dadra and Nagar Haveli", DD:"Daman and Diu", DL:"Delhi",
   LA:"Ladakh", LD:"Lakshadweep", PY:"Puducherry",
 };
-const stateName = (code) => STATE_NAMES[(code || '').toUpperCase()] || code || '—';
+const stateName = (code) => STATE_NAMES[(code || '').toUpperCase()] || code || '�';
 
 const GstOutputRegister = () => {
   const printRef = useRef(null);
@@ -114,7 +114,7 @@ const GstOutputRegister = () => {
         tfoot tr { font-weight: bold; background: #f9f9f9; }
         h2 { font-size: 13px; margin-bottom: 6px; }
       </style></head><body>
-      <h2>GST Output Register — ${startDate} to ${endDate}</h2>
+      <h2>GST Output Register � ${startDate} to ${endDate}</h2>
       ${content}
       </body></html>`);
     win.document.close();
@@ -185,7 +185,7 @@ const GstOutputRegister = () => {
       {!loading && data && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
-            <span>{rows.length} transaction(s) — {formatDate(startDate)} to {formatDate(endDate)}</span>
+            <span>{rows.length} transaction(s) � {formatDate(startDate)} to {formatDate(endDate)}</span>
           </div>
 
           <div className="rounded-lg border border-border overflow-hidden" ref={printRef}>
@@ -236,21 +236,21 @@ const GstOutputRegister = () => {
                           {item.type === 'SALE' ? 'TAX INVOICE' : 'CREDIT NOTE'}
                         </span>
                       </td>
-                      <td className="px-2 py-1.5 border-r border-border/50 font-mono text-xs">{item.gst_billno || item.billno || '—'}</td>
+                      <td className="px-2 py-1.5 border-r border-border/50 font-mono text-xs">{item.gst_billno || item.billno || '�'}</td>
                       <td className="px-2 py-1.5 border-r border-border/50 max-w-36 truncate">{item.partyname}</td>
-                      <td className="px-2 py-1.5 border-r border-border/50 font-mono text-xs">{item.gstin || '—'}</td>
-                      <td className="px-2 py-1.5 border-r border-border/50">{item.pan || '—'}</td>
-                      <td className="px-2 py-1.5 border-r border-border/50 font-mono">{item.hsn || '—'}</td>
-                      <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{item.sale_gw ? fmt3(item.sale_gw) : '—'}</td>
-                      <td className="px-2 py-1.5 border-r border-border/50">{item.uom || '—'}</td>
+                      <td className="px-2 py-1.5 border-r border-border/50 font-mono text-xs">{item.gstin || '�'}</td>
+                      <td className="px-2 py-1.5 border-r border-border/50">{item.pan || '�'}</td>
+                      <td className="px-2 py-1.5 border-r border-border/50 font-mono">{item.hsn || '�'}</td>
+                      <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{item.sale_gw ? fmt3(item.sale_gw) : '�'}</td>
+                      <td className="px-2 py-1.5 border-r border-border/50">{item.uom || '�'}</td>
                       <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{fmt(item.taxableamount)}</td>
-                      <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{item.discount_amt ? fmt(item.discount_amt) : '—'}</td>
+                      <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{item.discount_amt ? fmt(item.discount_amt) : '�'}</td>
                       <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{fmt(item.cgst_amt)}</td>
                       <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{fmt(item.sgst_amt)}</td>
                       <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{fmt(item.igst_amt)}</td>
                       <td className="px-2 py-1.5 border-r border-border/50 text-right tabular-nums">{fmt(item.billvalue)}</td>
                       <td className="px-2 py-1.5 border-r border-border/50">{stateName(item.placeofsupply)}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums">{item.add_less ? fmt(item.add_less) : '—'}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{item.add_less ? fmt(item.add_less) : '�'}</td>
                     </tr>
                   ))}
                 </tbody>

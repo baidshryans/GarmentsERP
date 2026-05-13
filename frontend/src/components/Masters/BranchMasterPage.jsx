@@ -149,7 +149,7 @@ export default function BranchMasterPage() {
       accessorKey: "company_name",
       cell: ({ row }) => row.original.company_name
         ? <span className="text-xs text-primary font-medium">{row.original.company_name}</span>
-        : <span className="text-xs text-gray-300">—</span>,
+        : <span className="text-xs text-gray-300">�</span>,
     },
     {
       header: "Retail Locations",
@@ -193,10 +193,10 @@ export default function BranchMasterPage() {
                   onValueChange={(v) => setForm((f) => ({ ...f, company: v === "__none__" ? null : Number(v) }))}
                 >
                   <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Select company…" />
+                    <SelectValue placeholder="Select company�" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— No company —</SelectItem>
+                    <SelectItem value="__none__">� No company �</SelectItem>
                     {companies.map((c) => (
                       <SelectItem key={c.id} value={String(c.id)}>{c.company_name}</SelectItem>
                     ))}

@@ -79,7 +79,7 @@ export default function AppsPage() {
               >
                 {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
               </span>
-              {" · "}
+              {" � "}
               Valid until{" "}
               <span className="font-medium text-gray-700">
                 {new Date(subscription.end_date).toLocaleDateString("en-IN", {

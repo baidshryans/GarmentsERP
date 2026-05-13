@@ -20,7 +20,7 @@ const fmt3 = (n) => (parseFloat(n) || 0).toFixed(3);
 const fmt2 = (n) => (parseFloat(n) || 0).toFixed(2);
 
 const fmtDate = (d) => {
-  if (!d) return "—";
+  if (!d) return "�";
   return new Date(d).toLocaleDateString("en-GB", {
     day: "2-digit", month: "2-digit", year: "numeric",
   });
@@ -58,11 +58,11 @@ export default function RepairJobCardPrint({ data = {} }) {
               <Row label="RJC No"    value={d.rjc_no}          />
               <Row label="Date"      value={fmtDate(d.date1)}   />
               <Row label="Customer"  value={d.customer_name}    />
-              <Row label="Mobile"    value={d.customer_mobile || "—"} />
+              <Row label="Mobile"    value={d.customer_mobile || "�"} />
             </td>
             <td style={{ width: "50%", verticalAlign: "top", paddingLeft: "16px" }}>
-              <Row label="Item"      value={d.item_name || "—"}   />
-              <Row label="Purity"    value={d.purity_name || "—"} />
+              <Row label="Item"      value={d.item_name || "�"}   />
+              <Row label="Purity"    value={d.purity_name || "�"} />
               <Row label="Exp. Delivery" value={fmtDate(d.expected_delivery_date)} />
               <Row label="Status"    value={STATUS_LABELS[d.status] || d.status} />
             </td>
@@ -112,7 +112,7 @@ export default function RepairJobCardPrint({ data = {} }) {
                   <Td center>{s.pcs}</Td>
                   <Td center>{fmt3(s.ct)}</Td>
                   <Td>{s.remarks}</Td>
-                  <Td center>{s.returned ? "✓" : "—"}</Td>
+                  <Td center>{s.returned ? "✓" : "�"}</Td>
                 </tr>
               ))}
             </tbody>
@@ -134,10 +134,10 @@ export default function RepairJobCardPrint({ data = {} }) {
               </tr>
               {karigarLinks.map((lk) => (
                 <tr key={lk.id}>
-                  <Td>{lk.karigar_issue_no || "—"}</Td>
-                  <Td>{lk.karigar_name || "—"}</Td>
-                  <Td>{lk.karigar_receive_no || "—"}</Td>
-                  <Td center>{lk.returned_gw ? fmt3(lk.returned_gw) : "—"}</Td>
+                  <Td>{lk.karigar_issue_no || "�"}</Td>
+                  <Td>{lk.karigar_name || "�"}</Td>
+                  <Td>{lk.karigar_receive_no || "�"}</Td>
+                  <Td center>{lk.returned_gw ? fmt3(lk.returned_gw) : "�"}</Td>
                 </tr>
               ))}
             </tbody>
@@ -246,7 +246,7 @@ function Row({ label, value }) {
   return (
     <div style={{ display: "flex", marginBottom: "3px" }}>
       <span style={{ fontWeight: "bold", width: "150px", flexShrink: 0 }}>{label}:</span>
-      <span>{value || "—"}</span>
+      <span>{value || "�"}</span>
     </div>
   );
 }
@@ -262,7 +262,7 @@ function Th({ children }) {
 function Td({ children, center, style: s }) {
   return (
     <td style={{ border: "1px solid #ccc", padding: "4px 8px", textAlign: center ? "center" : "left", fontSize: "11px", ...s }}>
-      {children ?? "—"}
+      {children ?? "�"}
     </td>
   );
 }

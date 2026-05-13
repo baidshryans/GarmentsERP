@@ -263,7 +263,7 @@ const AddJournal = () => {
       const isDebit   = groupRows.some(r => parseFloat(r.debit  || 0) > 0);
       const totalAmt  = groupRows.reduce((s, r) => s + parseFloat(r.debit || 0) + parseFloat(r.credit || 0), 0);
 
-      // Rebuild allocations — skip "on account" rows (bill_id is null / ref_bill_no is empty)
+      // Rebuild allocations � skip "on account" rows (bill_id is null / ref_bill_no is empty)
       const restoredAllocations = groupRows
         .filter(r => r.bill_id && r.ref_bill_no)
         .map(r => ({
@@ -407,7 +407,7 @@ const AddJournal = () => {
         if (journal_type === 'RCPT' && rowCredit > 0) {
           toast({
             title: "Invalid entry",
-            description: `${row.account} is a Cash/Bank account — it can only be debited in a Receipt voucher.`,
+            description: `${row.account} is a Cash/Bank account � it can only be debited in a Receipt voucher.`,
             variant: "destructive",
           });
           e.preventDefault();
@@ -416,7 +416,7 @@ const AddJournal = () => {
         if (journal_type === 'PMNT' && rowDebit > 0) {
           toast({
             title: "Invalid entry",
-            description: `${row.account} is a Cash/Bank account — it can only be credited in a Payment voucher.`,
+            description: `${row.account} is a Cash/Bank account � it can only be credited in a Payment voucher.`,
             variant: "destructive",
           });
           e.preventDefault();
@@ -621,14 +621,14 @@ const AddJournal = () => {
                     const diff = Math.round((totalDebit - totalCredit) * 100) / 100;
 
                     if (diff > 0.01) {
-                      // Need a credit entry — skip only when Cash/Bank in RCPT
+                      // Need a credit entry � skip only when Cash/Bank in RCPT
                       // (which must be debited, not credited)
                       const canCredit = !(optIsCashBank && journal_type === "RCPT");
                       if (canCredit && !getValues("table.credit")) {
                         setValue("table.credit", String(diff));
                       }
                     } else if (diff < -0.01) {
-                      // Need a debit entry — skip only when Cash/Bank in PMNT
+                      // Need a debit entry � skip only when Cash/Bank in PMNT
                       // (which must be credited, not debited)
                       const canDebit = !(optIsCashBank && journal_type === "PMNT");
                       if (canDebit && !getValues("table.debit")) {
@@ -658,7 +658,7 @@ const AddJournal = () => {
                 </TableCell>
               )}
               <TableCell className="w-28 px-4 py-2 border">
-                {/* PMNT: Cash/Bank can only be credited — block debit entry */}
+                {/* PMNT: Cash/Bank can only be credited � block debit entry */}
                 {isCashBankLedger && journal_type === "PMNT" ? (
                   <div className="flex flex-col gap-0.5">
                     <Input type="number" disabled value="" className="bg-gray-100 cursor-not-allowed opacity-60" tabIndex={-1} />
@@ -673,7 +673,7 @@ const AddJournal = () => {
                 )}
               </TableCell>
               <TableCell className="w-28 px-4 py-2 border">
-                {/* RCPT: Cash/Bank can only be debited — block credit entry */}
+                {/* RCPT: Cash/Bank can only be debited � block credit entry */}
                 {isCashBankLedger && journal_type === "RCPT" ? (
                   <div className="flex flex-col gap-0.5">
                     <Input type="number" disabled value="" className="bg-gray-100 cursor-not-allowed opacity-60" tabIndex={-1} />
@@ -682,7 +682,7 @@ const AddJournal = () => {
                 ) : (
                   <div className="flex flex-col gap-0.5">
                     <Input type="number" {...register("table.credit")} onKeyDown={(e) => handleKeyDown(e)} />
-                    {/* Balance cap indicator — shown only for PMNT Cash/Bank */}
+                    {/* Balance cap indicator � shown only for PMNT Cash/Bank */}
                     {isCashBankLedger && journal_type === "PMNT" && (
                       <span className={`text-[10px] font-medium leading-tight ${
                         cashBankBalance === null
@@ -692,7 +692,7 @@ const AddJournal = () => {
                             : "text-green-600"
                       }`}>
                         {cashBankBalance === null
-                          ? "Fetching balance…"
+                          ? "Fetching balance�"
                           : `Available: ₹${cashBankBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
                       </span>
                     )}
@@ -794,7 +794,7 @@ const AddJournal = () => {
                 if (tableRows.length > 0) {
                   setValue("table.transactions.0.account", debitAccount);
                 } else {
-                  // No rows yet — just store as a hint; user can add manually
+                  // No rows yet � just store as a hint; user can add manually
                 }
               }}
             />
@@ -811,7 +811,7 @@ const AddJournal = () => {
               ({(savedAttachments.length + pendingFiles.length)}/3)
             </span>
             {!savedVoucherId && pendingFiles.length > 0 && (
-              <span className="text-xs text-amber-600 font-normal">— will upload when saved</span>
+              <span className="text-xs text-amber-600 font-normal">� will upload when saved</span>
             )}
           </h3>
 
@@ -850,7 +850,7 @@ const AddJournal = () => {
             );
           })}
 
-          {/* Pending files (new voucher — queued for upload) */}
+          {/* Pending files (new voucher � queued for upload) */}
           {pendingFiles.map((file, i) => (
             <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-dashed border-amber-300 bg-amber-50/40 mb-2">
               <FileText className="size-4 text-amber-600 shrink-0" />
@@ -872,7 +872,7 @@ const AddJournal = () => {
             <label className="flex items-center gap-2 justify-center border-2 border-dashed border-border rounded-lg p-3 cursor-pointer hover:bg-muted/30 transition-colors mt-1">
               <Upload className="size-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {uploadingFiles ? "Uploading…" : "Click to attach a file"}
+                {uploadingFiles ? "Uploading�" : "Click to attach a file"}
               </span>
               <input
                 type="file"
@@ -882,7 +882,7 @@ const AddJournal = () => {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   if (savedVoucherId) {
-                    // Voucher already exists — upload immediately
+                    // Voucher already exists � upload immediately
                     setUploadingFiles(true);
                     const res = await uploadVoucherAttachment(savedVoucherId, file);
                     if (res.success) {
@@ -898,7 +898,7 @@ const AddJournal = () => {
                     }
                     setUploadingFiles(false);
                   } else {
-                    // New voucher — queue locally
+                    // New voucher � queue locally
                     setPendingFiles((p) => [...p, file]);
                   }
                   e.target.value = "";
@@ -914,7 +914,7 @@ const AddJournal = () => {
             Cancel
           </Button>
           <Button type="submit" className="bg-primary hover:bg-primary text-white" disabled={saving || uploadingFiles || !canSave}>
-            {uploadingFiles ? "Uploading files…" : saveLabel(saving)}
+            {uploadingFiles ? "Uploading files�" : saveLabel(saving)}
           </Button>
         </div>
       </form>

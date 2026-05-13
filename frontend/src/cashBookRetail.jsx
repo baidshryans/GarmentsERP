@@ -119,7 +119,7 @@ export default function CashBookRetail() {
     </table>`;
 
     printReport({
-      title: `Cash Book — ${ledgerName}`,
+      title: `Cash Book � ${ledgerName}`,
       subtitle: `${fromDate} to ${toDate}`,
       html,
     });

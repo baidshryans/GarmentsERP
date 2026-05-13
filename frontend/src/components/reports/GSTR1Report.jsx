@@ -231,7 +231,7 @@ export default function GSTR1Report() {
     <div className="p-4 flex flex-col gap-5">
       {/* Info */}
       <div className="text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-        <strong>GSTR-1</strong> — Statement of outward supplies filed monthly or quarterly. Due by the 11th of the following month.
+        <strong>GSTR-1</strong> � Statement of outward supplies filed monthly or quarterly. Due by the 11th of the following month.
         This report classifies invoices into B2B, B2CL, and B2CS as required by the GST portal.
       </div>
 
@@ -281,7 +281,7 @@ export default function GSTR1Report() {
             </div>
             <div className="text-xs">
               <span className="text-muted-foreground">GSTIN: </span>
-              <strong className="font-mono">{data.retail_gstin || "—"}</strong>
+              <strong className="font-mono">{data.retail_gstin || "�"}</strong>
             </div>
             <div className="text-xs">
               <span className="text-muted-foreground">B2B Invoices: </span>
@@ -297,24 +297,24 @@ export default function GSTR1Report() {
             </div>
           </div>
 
-          <Section title="4A — B2B: Supplies to Registered Dealers" badge={data.b2b?.length}>
+          <Section title="4A � B2B: Supplies to Registered Dealers" badge={data.b2b?.length}>
             <B2BTable data={data.b2b} />
           </Section>
 
-          <Section title="5 — B2CL: Large B2C Inter-State Invoices (≥₹2.5L)" badge={data.b2cl?.length}>
+          <Section title="5 � B2CL: Large B2C Inter-State Invoices (≥₹2.5L)" badge={data.b2cl?.length}>
             <B2CLTable data={data.b2cl} />
           </Section>
 
-          <Section title="7 — B2CS: Small B2C Invoices (Consolidated)" badge={data.b2cs?.length}>
+          <Section title="7 � B2CS: Small B2C Invoices (Consolidated)" badge={data.b2cs?.length}>
             <B2CSTable data={data.b2cs} />
           </Section>
 
-          <Section title="9B — CDNR: Credit Notes (Registered Customers)" badge={data.cdnr?.length}>
+          <Section title="9B � CDNR: Credit Notes (Registered Customers)" badge={data.cdnr?.length}>
             <CDNRTable data={data.cdnr} />
           </Section>
 
           {data.cdnur?.length > 0 && (
-            <Section title="9B — CDNUR: Credit Notes (Unregistered Customers)" badge={data.cdnur?.length}>
+            <Section title="9B � CDNUR: Credit Notes (Unregistered Customers)" badge={data.cdnur?.length}>
               <p className="text-xs text-muted-foreground">{data.cdnur.length} credit notes for unregistered customers.</p>
             </Section>
           )}

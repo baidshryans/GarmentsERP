@@ -5,7 +5,7 @@ export const FieldContainer = ({ children }) => {
 
   const childArray = React.Children.toArray(children);
 
-  // Only wire up htmlFor/id when there is a direct <Input> sibling —
+  // Only wire up htmlFor/id when there is a direct <Input> sibling �
   // for Select / Controller children we skip it to avoid a dangling `for`
   // attribute that would trigger a different browser warning.
   const hasDirectInput = childArray.some(
@@ -20,7 +20,7 @@ export const FieldContainer = ({ children }) => {
 
         const dn = child.type?.displayName ?? '';
 
-        // Inject htmlFor into the Label — only when a matching Input exists
+        // Inject htmlFor into the Label � only when a matching Input exists
         if (hasDirectInput && (dn === 'Label' || dn === 'LabelPrimitive.Root')) {
           return React.cloneElement(child, { key: idx, htmlFor: uid });
         }

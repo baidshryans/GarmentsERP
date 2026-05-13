@@ -176,9 +176,9 @@ export default function FixedAssetMasterPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <F label="IT Act Block Category">
                     <Select value={form.it_block_category || "__none__"} onValueChange={v => onSelectBlock(v)}>
-                      <SelectTrigger><SelectValue placeholder="— None (custom) —" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="� None (custom) �" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">— None (custom) —</SelectItem>
+                        <SelectItem value="__none__">� None (custom) �</SelectItem>
                         {blockRates.map(b => (
                           <SelectItem key={b.key} value={b.key}>{b.label} ({b.rate}%)</SelectItem>
                         ))}
@@ -190,8 +190,8 @@ export default function FixedAssetMasterPage() {
                     <Select value={form.depreciation_method} onValueChange={v => set("depreciation_method", v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="WDV">WDV — Written Down Value (IT Act)</SelectItem>
-                        <SelectItem value="SLM">SLM — Straight Line (Companies Act)</SelectItem>
+                        <SelectItem value="WDV">WDV � Written Down Value (IT Act)</SelectItem>
+                        <SelectItem value="SLM">SLM � Straight Line (Companies Act)</SelectItem>
                       </SelectContent>
                     </Select>
                   </F>
@@ -206,7 +206,7 @@ export default function FixedAssetMasterPage() {
                 </div>
               </section>
 
-              {/* Asset ledger info — auto-created, read-only */}
+              {/* Asset ledger info � auto-created, read-only */}
               <section className="space-y-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accounting Ledgers</h3>
                 <div className="flex items-start gap-2 rounded-md bg-muted/50 border px-3 py-2">
@@ -225,7 +225,7 @@ export default function FixedAssetMasterPage() {
               </section>
 
               <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? "Saving…" : editId ? "Update Asset" : "Create Asset"}
+                {saving ? "Saving�" : editId ? "Update Asset" : "Create Asset"}
               </Button>
             </div>
           </SheetContent>

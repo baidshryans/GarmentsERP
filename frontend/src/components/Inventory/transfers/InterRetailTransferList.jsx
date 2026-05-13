@@ -120,7 +120,7 @@ export default function InterRetailTransferList() {
           <tbody className="divide-y divide-border/40">
             {vouchers.length === 0 && (
               <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground text-sm">
-                {loading ? "Loading…" : "No transfers found."}
+                {loading ? "Loading�" : "No transfers found."}
               </td></tr>
             )}
             {vouchers.map((v) => {

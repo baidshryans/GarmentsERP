@@ -303,7 +303,7 @@ const StockJournal = () => {
                 <TableRow className="bg-blue-50/40">
                   <TableCell className="px-2 py-1.5 border" />
 
-                  {/* Packet — hidden when item (type R) is active */}
+                  {/* Packet � hidden when item (type R) is active */}
                   <TableCell className="px-2 py-1.5 border min-w-[140px]">
                     {itemActive ? (
                       <span className="text-xs text-muted-foreground italic px-1">N/A (item mode)</span>
@@ -314,7 +314,7 @@ const StockJournal = () => {
                         value={tablePacket}
                         onSelect={handlePacketSelect}
                         onInputChange={handlePacketInputChange}
-                        placeholder="Packet…"
+                        placeholder="Packet�"
                       />
                     )}
                   </TableCell>
@@ -328,11 +328,11 @@ const StockJournal = () => {
                       onSelect={handleItemSelect}
                       onInputChange={handleItemInputChange}
                       disabled={packetActive}
-                      placeholder={packetActive ? "(auto-filled)" : "Item…"}
+                      placeholder={packetActive ? "(auto-filled)" : "Item�"}
                     />
                   </TableCell>
 
-                  {/* Metal Purity — hidden when packet is active */}
+                  {/* Metal Purity � hidden when packet is active */}
                   <TableCell className="px-2 py-1.5 border min-w-[130px]">
                     {packetActive ? (
                       <span className="text-xs text-muted-foreground italic px-1">N/A (packet mode)</span>
@@ -375,7 +375,7 @@ const StockJournal = () => {
                     />
                   </TableCell>
 
-                  {/* Stone Pcs — hidden when item (type R) is active */}
+                  {/* Stone Pcs � hidden when item (type R) is active */}
                   <TableCell className="px-2 py-1.5 border w-24">
                     {itemActive ? (
                       <span className="text-xs text-muted-foreground italic px-1">N/A</span>
@@ -448,9 +448,9 @@ const StockJournal = () => {
                         />
                       </div>
                     </TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center font-mono text-xs">{item.packet || "—"}</TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center font-mono text-xs">{item.item || "—"}</TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center text-xs">{item.metal_purity || "—"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center font-mono text-xs">{item.packet || "�"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center font-mono text-xs">{item.item || "�"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center text-xs">{item.metal_purity || "�"}</TableCell>
                     <TableCell className="px-3 py-1.5 border text-center">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                         item.doc_type === "Issue"
@@ -460,10 +460,10 @@ const StockJournal = () => {
                         {item.doc_type}
                       </span>
                     </TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center tabular-nums">{item.pcs || "—"}</TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center tabular-nums">{item.ct != null ? Number(item.ct).toFixed(3) : "—"}</TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center tabular-nums font-semibold">{item.gw   || "—"}</TableCell>
-                    <TableCell className="px-3 py-1.5 border text-center tabular-nums text-orange-600">{item.loss || "—"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center tabular-nums">{item.pcs || "�"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center tabular-nums">{item.ct != null ? Number(item.ct).toFixed(3) : "�"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center tabular-nums font-semibold">{item.gw   || "�"}</TableCell>
+                    <TableCell className="px-3 py-1.5 border text-center tabular-nums text-orange-600">{item.loss || "�"}</TableCell>
                   </TableRow>
                 ))}
 
@@ -492,7 +492,7 @@ const StockJournal = () => {
             <Input
               type="text"
               {...register("form.remarks")}
-              placeholder="Enter any remarks or narration…"
+              placeholder="Enter any remarks or narration�"
               className="max-w-xl"
             />
           </FieldContainer>

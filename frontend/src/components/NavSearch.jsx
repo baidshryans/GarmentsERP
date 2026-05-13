@@ -97,13 +97,13 @@ export function NavSearch({ className = "" }) {
         title="Search navigation (Ctrl+K)"
       >
         <Search className="w-3.5 h-3.5 shrink-0" />
-        <span className="hidden sm:inline text-xs">Search…</span>
+        <span className="hidden sm:inline text-xs">Search�</span>
         <kbd className="hidden sm:inline ml-1 px-1 py-0.5 text-[10px] rounded bg-muted text-muted-foreground border border-border font-mono leading-none">
           Ctrl K
         </kbd>
       </button>
 
-      {/* Modal overlay — portalled to body to escape TopMenuBar's stacking context */}
+      {/* Modal overlay � portalled to body to escape TopMenuBar's stacking context */}
       {open && createPortal(
         <div
           className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] bg-black/40 backdrop-blur-sm"
@@ -121,7 +121,7 @@ export function NavSearch({ className = "" }) {
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setActiveIndex(0) }}
                 onKeyDown={handleKey}
-                placeholder="Search menus…"
+                placeholder="Search menus�"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
               <kbd className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border font-mono">Esc</kbd>
@@ -131,7 +131,7 @@ export function NavSearch({ className = "" }) {
             <div className="max-h-80 overflow-y-auto py-1">
               {query.trim() === "" && (
                 <p className="text-xs text-muted-foreground text-center py-6">
-                  Start typing to search all menus…
+                  Start typing to search all menus�
                 </p>
               )}
               {query.trim() !== "" && results.length === 0 && (
@@ -155,7 +155,7 @@ export function NavSearch({ className = "" }) {
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium">{item.title}</span>
                     <span className="ml-2 text-xs text-muted-foreground">
-                      {item.parent ? `${item.section} › ${item.parent}` : item.section}
+                      {item.parent ? `${item.section} � ${item.parent}` : item.section}
                     </span>
                   </div>
                 </button>

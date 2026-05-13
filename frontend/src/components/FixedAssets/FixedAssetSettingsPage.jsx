@@ -35,8 +35,8 @@ export default function FixedAssetSettingsPage() {
       <div className="rounded-lg border p-4 space-y-1 bg-muted/30">
         <p className="text-sm font-medium">How these ledgers are used</p>
         <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
-          <li><strong>Depreciation Expense:</strong> Debited when depreciation is approved (P&L — Indirect Expenses)</li>
-          <li><strong>Accumulated Depreciation:</strong> Credited when depreciation is approved (Balance Sheet — contra-asset under Fixed Assets)</li>
+          <li><strong>Depreciation Expense:</strong> Debited when depreciation is approved (P&L � Indirect Expenses)</li>
+          <li><strong>Accumulated Depreciation:</strong> Credited when depreciation is approved (Balance Sheet � contra-asset under Fixed Assets)</li>
           <li>Individual assets can override these defaults in the Asset Master.</li>
         </ul>
       </div>
@@ -48,9 +48,9 @@ export default function FixedAssetSettingsPage() {
             value={form.default_depreciation_expense_ldgr ? String(form.default_depreciation_expense_ldgr) : "__none__"}
             onValueChange={v => set("default_depreciation_expense_ldgr", v === "__none__" ? "" : v)}
           >
-            <SelectTrigger><SelectValue placeholder="Select ledger…" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Select ledger�" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">— None —</SelectItem>
+              <SelectItem value="__none__">� None �</SelectItem>
               {ledgers.map(l => <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -63,9 +63,9 @@ export default function FixedAssetSettingsPage() {
             value={form.default_accum_depreciation_ldgr ? String(form.default_accum_depreciation_ldgr) : "__none__"}
             onValueChange={v => set("default_accum_depreciation_ldgr", v === "__none__" ? "" : v)}
           >
-            <SelectTrigger><SelectValue placeholder="Select ledger…" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Select ledger�" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">— None —</SelectItem>
+              <SelectItem value="__none__">� None �</SelectItem>
               {ledgers.map(l => <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -74,7 +74,7 @@ export default function FixedAssetSettingsPage() {
       </div>
 
       <Button onClick={handleSave} disabled={saving}>
-        {saving ? "Saving…" : "Save Settings"}
+        {saving ? "Saving�" : "Save Settings"}
       </Button>
     </div>
   );

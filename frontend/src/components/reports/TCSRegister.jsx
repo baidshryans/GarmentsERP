@@ -127,7 +127,7 @@ export default function TCSRegister() {
     <div className="p-4 flex flex-col gap-5">
       {/* Info strip */}
       <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-        <strong>Section 206C(1H)</strong> — TCS is collected by the seller on receipt of sale
+        <strong>Section 206C(1H)</strong> � TCS is collected by the seller on receipt of sale
         consideration exceeding ₹50 lakh from a buyer in a financial year. Rate: 0.1% (1% without PAN).
       </div>
 
@@ -166,7 +166,7 @@ export default function TCSRegister() {
               <SelectItem value="all">All Sections</SelectItem>
               {sections.map((s) => (
                 <SelectItem key={s.id} value={s.section_code}>
-                  {s.section_code} — {s.description}
+                  {s.section_code} � {s.description}
                 </SelectItem>
               ))}
             </SelectContent>

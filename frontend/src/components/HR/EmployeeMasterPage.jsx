@@ -131,7 +131,7 @@ export default function EmployeeMasterPage() {
             </SheetHeader>
             <div className="mt-4 space-y-6 pb-6">
 
-              {/* User Account — create only */}
+              {/* User Account � create only */}
               {!editingId && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -210,7 +210,7 @@ export default function EmployeeMasterPage() {
               </section>
 
               <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? "Saving…" : editingId ? "Update Employee" : "Create Employee"}
+                {saving ? "Saving�" : editingId ? "Update Employee" : "Create Employee"}
               </Button>
             </div>
           </SheetContent>

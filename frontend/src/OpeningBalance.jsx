@@ -74,7 +74,7 @@ const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
                         {initial ? 'Edit Opening Balance' : 'Add Opening Balance'}
                     </p>
                     <p className="text-xs text-primary mt-0.5">
-                        FY {activeFyCode} · Enter debit or credit opening amount
+                        FY {activeFyCode} � Enter debit or credit opening amount
                     </p>
                 </div>
             </div>
@@ -90,7 +90,7 @@ const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
                                 value={selected?.ac_name || ''}
                                 onSelect={opt => field.onChange(String(opt.id))}
                                 onInputChange={handleSearch}
-                                placeholder="Type to search ledger…"
+                                placeholder="Type to search ledger�"
                             />
                         );
                     }} />
@@ -133,7 +133,7 @@ const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
                 <Button type="submit" disabled={isSubmitting || (!!initial && !isDirty)}
                     className="flex-1 bg-primary hover:bg-primary text-white font-semibold">
-                    {isSubmitting ? (initial ? 'Updating…' : 'Saving…') : initial ? 'Update' : 'Save'}
+                    {isSubmitting ? (initial ? 'Updating�' : 'Saving�') : initial ? 'Update' : 'Save'}
                 </Button>
                 <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
             </div>
@@ -220,7 +220,7 @@ const OpeningBalance = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Opening Balances</h1>
                     <p className="text-sm text-gray-400 mt-1">
-                        {loading ? 'Loading…' : `${balances.length} record${balances.length !== 1 ? 's' : ''}`}
+                        {loading ? 'Loading�' : `${balances.length} record${balances.length !== 1 ? 's' : ''}`}
                     </p>
                 </div>
                 <div className="flex gap-3 mt-1">
@@ -345,14 +345,14 @@ const OpeningBalance = () => {
                                                 <span className="text-green-700 font-medium">
                                                     ₹{Number(row.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                 </span>
-                                            ) : <span className="text-gray-300">—</span>}
+                                            ) : <span className="text-gray-300">�</span>}
                                         </td>
                                         <td className="px-4 py-3 text-right tabular-nums">
                                             {Number(row.credit) > 0 ? (
                                                 <span className="text-red-600 font-medium">
                                                     ₹{Number(row.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                 </span>
-                                            ) : <span className="text-gray-300">—</span>}
+                                            ) : <span className="text-gray-300">�</span>}
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

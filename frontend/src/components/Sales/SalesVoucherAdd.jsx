@@ -188,7 +188,7 @@ const SalesVoucherAdd = () => {
   const [packets, setPackets] = useState([]);
   const [purityData, setPurityData] = useState([]);
   const [retailStateCode, setRetailStateCode] = useState("");
-  const [goldRates, setGoldRates] = useState({});  // { "22KT": 4600, "24KT": 5000, … }
+  const [goldRates, setGoldRates] = useState({});  // { "22KT": 4600, "24KT": 5000, � }
   const [exhibitions, setExhibitions] = useState([]);
   const [isExhibitionRetail, setIsExhibitionRetail] = useState(false);
   const [autoCalcEnabled, setAutoCalcEnabled] = useState(false);
@@ -228,7 +228,7 @@ const SalesVoucherAdd = () => {
   const detailRate     = watch("details.rate");
   const detailPurity   = watch("details.metal_purity");
 
-  // Helper: compute value from rate × qty based on UOM
+  // Helper: compute value from rate � qty based on UOM
   const computeValue = (rate, uom, pcs, ct, gw) => {
     const r = parseFloat(rate) || 0;
     if (uom === "Pcs") return +(r * (parseFloat(pcs) || 0)).toFixed(2);
@@ -240,7 +240,7 @@ const SalesVoucherAdd = () => {
   // Auto-load item + rate when packet changes; lock/unlock item field
   useEffect(() => {
     if (!detailPacket) {
-      // Packet cleared — only reset if it was previously set by a packet
+      // Packet cleared � only reset if it was previously set by a packet
       if (detailItem) {
         setDetailItem(null);
         setDetailItemDisplay("");
@@ -384,7 +384,7 @@ const SalesVoucherAdd = () => {
       });
 
       // Fetch system settings, bank ledgers, active offer, AND the voucher being edited
-      // all in parallel — the voucher fetch no longer waits for the other calls to finish.
+      // all in parallel � the voucher fetch no longer waits for the other calls to finish.
       const [sysSettings, bankLedgersRes, offerRes, voucherResponse] = await Promise.all([
         fetchSystemSettings(),
         getLedgers({ type: "BA", page: 1 }),
@@ -437,7 +437,7 @@ const SalesVoucherAdd = () => {
           if (data.salesvouitemdetails_set?.length) {
             setRows(data.salesvouitemdetails_set);
           }
-          // Restore old gold purchase link (still sequential — needs ldgr from voucher data)
+          // Restore old gold purchase link (still sequential � needs ldgr from voucher data)
           if (data.old_gold_purchase && data.ldgr) {
             fetchCustomerPurchasesByLedger(data.ldgr).then(res => {
               if (res.success) {
@@ -553,7 +553,7 @@ const SalesVoucherAdd = () => {
 
       // Calculate making_value based on making_type
       // - 'val'    → flat amount entered by user
-      // - 'per_nw' → NW of gold × (making% / 100) × gold rate for that purity
+      // - 'per_nw' → NW of gold � (making% / 100) � gold rate for that purity
       const making     = parseFloat(row.making) || 0;
       const makingType = row.making_type || '';
       const purity     = row.purity || '';
@@ -699,7 +699,7 @@ const SalesVoucherAdd = () => {
   const handleBlur = async () => {
     if (barcodeFetchingRef.current) return;          // guard against double-fire
     const { barcode, hsn } = getValues();
-    if (!barcode?.trim()) return;   // blank barcode is fine — manual items don't need one
+    if (!barcode?.trim()) return;   // blank barcode is fine � manual items don't need one
 
     // Prevent duplicate barcodes in the same bill
     const existing = getValues("salesvouitem_set") || [];
@@ -879,7 +879,7 @@ const SalesVoucherAdd = () => {
       const cashAmt = parseFloat(data.cash || 0);
       if (cashAmt > 200000) {
         toast({
-          title: "⚠️ Cash Limit Exceeded — Section 269ST",
+          title: "⚠️ Cash Limit Exceeded � Section 269ST",
           description: `Cash of ₹${cashAmt.toLocaleString("en-IN")} exceeds the ₹2,00,000 limit. Accepting this amount in cash is a violation of Section 269ST of the Income Tax Act and carries a 100% penalty. Please collect via cheque/bank transfer.`,
           variant: "destructive",
         });
@@ -932,7 +932,7 @@ const SalesVoucherAdd = () => {
 
   // ── Apply Best Discount (retail pricelist vs active offer) ───────────────
   const applyBestDiscount = () => {
-    // Offers never apply to B2B customers — they have their own pricelist
+    // Offers never apply to B2B customers � they have their own pricelist
     if (b2bPricelist) return;
     if (!retailDiscountPricelist && !activeOffer) return;
 
@@ -966,7 +966,7 @@ const SalesVoucherAdd = () => {
         if (rule) {
           const makingVal = parseFloat(item.making_value || 0);
           if (rule.making_type === 'flat') {
-            // discount = standard making - offer making (flat ₹/g × nw)
+            // discount = standard making - offer making (flat ₹/g � nw)
             const offerMaking = parseFloat(rule.making_value) * parseFloat(item.nw || 0);
             offerDiscount += Math.max(0, makingVal - offerMaking);
           } else if (rule.making_type === 'discount') {
@@ -1028,12 +1028,12 @@ const SalesVoucherAdd = () => {
         <SectionHeader number="1" title="Bill Details" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
-          {/* Bill No — auto-generated, read-only */}
+          {/* Bill No � auto-generated, read-only */}
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
               <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>}
               </span>
               <input type="hidden" {...register("form.billno", { required: true })} />
             </div>
@@ -1085,7 +1085,7 @@ const SalesVoucherAdd = () => {
                   setB2bPricelist(plRes.success && plRes.data ? plRes.data : null);
                   setRetailDiscountPricelist(rdplRes.success && rdplRes.data ? rdplRes.data : null);
                 }}
-                placeholder="Search customer…"
+                placeholder="Search customer�"
               />
               <Link
                 to={`/crm/ledger/add/?next=${encodeURIComponent(location.pathname)}`}
@@ -1151,7 +1151,7 @@ const SalesVoucherAdd = () => {
                           strokeDasharray={circ} strokeDashoffset={offset}
                           strokeLinecap="round" transform="rotate(-90 16 16)"/>
                       </svg>
-                      {isAtLimit ? 'Cash limit reached' : `${fmt(cash_received)} / ${fmt(limit)} · ${fmt(remaining)} left`}
+                      {isAtLimit ? 'Cash limit reached' : `${fmt(cash_received)} / ${fmt(limit)} � ${fmt(remaining)} left`}
                     </span>
                   );
                 })()}
@@ -1165,7 +1165,7 @@ const SalesVoucherAdd = () => {
               <Label className="text-nowrap">GST Bill No</Label>
               <div className="flex items-center gap-2 flex-1">
                 <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                  {watch("form.gst_billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+                  {watch("form.gst_billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>}
                 </span>
                 <input type="hidden" {...register("form.gst_billno", { required: enableGstBill })} />
               </div>
@@ -1232,7 +1232,7 @@ const SalesVoucherAdd = () => {
           </FieldContainer>
         </div>
 
-        {/* Exhibition Profile row — only visible when this retail is marked as an exhibition retail */}
+        {/* Exhibition Profile row � only visible when this retail is marked as an exhibition retail */}
         {isExhibitionRetail && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
             <FieldContainer>
@@ -1245,7 +1245,7 @@ const SalesVoucherAdd = () => {
                   >
                     <SelectTrigger><SelectValue placeholder="None (regular retail)" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">— None (regular retail) —</SelectItem>
+                      <SelectItem value="__none__">� None (regular retail) �</SelectItem>
                       {exhibitions.map(e => (
                         <SelectItem key={e.id} value={String(e.id)}>
                           {e.name}{e.is_active ? " ★" : ""}
@@ -1295,13 +1295,13 @@ const SalesVoucherAdd = () => {
                       }}
                     >
                       <SelectTrigger className="h-9 text-sm bg-white">
-                        <SelectValue placeholder="Select order…" />
+                        <SelectValue placeholder="Select order�" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">— No order linked —</SelectItem>
+                        <SelectItem value="__none__">� No order linked �</SelectItem>
                         {customerOrders.map(o => (
                           <SelectItem key={o.id} value={String(o.id)}>
-                            {o.order_no} · ₹{parseFloat(o.advance_available ?? o.advance_amt ?? 0).toLocaleString('en-IN')} available
+                            {o.order_no} � ₹{parseFloat(o.advance_available ?? o.advance_amt ?? 0).toLocaleString('en-IN')} available
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1352,7 +1352,7 @@ const SalesVoucherAdd = () => {
               </div>
             )}
 
-            {/* On-account credits — only shown when no order is linked */}
+            {/* On-account credits � only shown when no order is linked */}
             {!selectedOrder && (loadingOnAccount || onAccountReceipts.length > 0) && (
               <div className="mt-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -1360,7 +1360,7 @@ const SalesVoucherAdd = () => {
                 </p>
                 {loadingOnAccount ? (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="size-3 animate-spin" /> Loading…
+                    <Loader2 className="size-3 animate-spin" /> Loading�
                   </div>
                 ) : (
                   <div className="rounded-md border border-border overflow-hidden">
@@ -1435,13 +1435,13 @@ const SalesVoucherAdd = () => {
                       }}
                     >
                       <SelectTrigger className="h-9 text-sm bg-white">
-                        <SelectValue placeholder="Select purchase…" />
+                        <SelectValue placeholder="Select purchase�" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__none__">— No old gold linked —</SelectItem>
+                        <SelectItem value="__none__">� No old gold linked �</SelectItem>
                         {customerPurchases.map(p => (
                           <SelectItem key={p.id} value={String(p.id)}>
-                            {p.billno} · ₹{parseFloat(p.available_balance || 0).toLocaleString('en-IN')} available
+                            {p.billno} � ₹{parseFloat(p.available_balance || 0).toLocaleString('en-IN')} available
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1494,14 +1494,14 @@ const SalesVoucherAdd = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
           <FieldContainer>
             <Label className="text-nowrap">HSN Code</Label>
-            {/* When items exist, Radix Select is disabled and never opens — SelectValue
+            {/* When items exist, Radix Select is disabled and never opens � SelectValue
                 cannot resolve the label. Render a plain disabled Input instead. */}
             {watchFields?.length > 0 ? (
               <Input
                 disabled
                 value={(() => {
                   const match = hsns.find(h => h.hsn_no === hsn_current);
-                  return match ? `${match.hsn_no} — ${match.description || ''}`.trim() : (hsn_current || '');
+                  return match ? `${match.hsn_no} � ${match.description || ''}`.trim() : (hsn_current || '');
                 })()}
               />
             ) : (
@@ -1632,7 +1632,7 @@ const SalesVoucherAdd = () => {
           </Table>
         </div>
 
-        {/* ══ 3. MANUAL ITEMS — hidden until checkbox is ticked ═══════════ */}
+        {/* ══ 3. MANUAL ITEMS � hidden until checkbox is ticked ═══════════ */}
         <div className="flex items-center gap-3 mb-3">
           <SectionHeader number="3" title="Manual Items (No Barcode)" />
           <label className="flex items-center gap-2 cursor-pointer select-none ml-2">
@@ -1650,7 +1650,7 @@ const SalesVoucherAdd = () => {
 
         {/* ── 3a. Main Item Entry ─────────────────────────────────────────── */}
         <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
-          Step 1 — Main Item (Jewellery Piece)
+          Step 1 � Main Item (Jewellery Piece)
         </p>
         <p className="text-xs text-gray-400 mb-2">
           Enter the jewellery item, then press <kbd className="px-1 py-0.5 bg-gray-100 border rounded font-mono text-gray-600">Tab</kbd> on Remarks to add it and move to sub-items.
@@ -1727,7 +1727,7 @@ const SalesVoucherAdd = () => {
                 <TableCell className="w-24 px-3 py-2 border">
                   <Input type="number" step="0.01" placeholder="0.00" {...register("mainItem.value")} />
                 </TableCell>
-                {/* Remarks — Tab triggers add */}
+                {/* Remarks � Tab triggers add */}
                 <TableCell className="w-32 px-3 py-2 border">
                   <Input placeholder="Remarks" {...register("mainItem.remarks")} onKeyDown={handleKeyDownMainItem} />
                 </TableCell>
@@ -1738,7 +1738,7 @@ const SalesVoucherAdd = () => {
 
         {/* ── 3b. Sub-Item / Details Entry ────────────────────────────────── */}
         <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
-          Step 2 — Sub-Items / Material Details
+          Step 2 � Sub-Items / Material Details
         </p>
         <p className="text-xs text-gray-400 mb-2">
           Sub-items are added to the <span className="font-medium">last main item</span> in the list below.
@@ -1853,13 +1853,13 @@ const SalesVoucherAdd = () => {
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.item}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.item_desc}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.pcs}</TableCell>
-                      <TableCell className="px-3 py-2 border" />{/* Ct — not on main item */}
+                      <TableCell className="px-3 py-2 border" />{/* Ct � not on main item */}
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{Number(mainItem.gw || 0).toFixed(3)}</TableCell>
                       {/* Loss/Tunch/Fine Wt/Rate blank for main item */}
                       <TableCell className="px-3 py-2 border" />
                       <TableCell className="px-3 py-2 border" />
                       <TableCell className="px-3 py-2 border" />
-                      <TableCell className="px-3 py-2 border" />{/* Rate — not on main item */}
+                      <TableCell className="px-3 py-2 border" />{/* Rate � not on main item */}
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.making}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.discount}</TableCell>
                       <TableCell className="px-3 py-2 border text-xs font-bold text-sky-800">{mainItem.value}</TableCell>
@@ -1957,7 +1957,7 @@ const SalesVoucherAdd = () => {
                       register("bank.ledger").onChange(e);
                     }}
                   >
-                    <option value="">— Select Bank A/C —</option>
+                    <option value="">� Select Bank A/C �</option>
                     {bankLedgers.map(l => (
                       <option key={l.id} value={l.id}>{l.ac_name}</option>
                     ))}

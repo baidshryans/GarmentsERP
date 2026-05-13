@@ -8,10 +8,10 @@ import { isValidDateRange } from "@/lib/dateRange";
 
 function fmt(v, dec = 3) {
   const n = parseFloat(v);
-  return isNaN(n) ? "—" : n.toFixed(dec);
+  return isNaN(n) ? "�" : n.toFixed(dec);
 }
 function fmtDate(d) {
-  if (!d) return "—";
+  if (!d) return "�";
   return new Date(d).toLocaleDateString("en-IN");
 }
 
@@ -56,7 +56,7 @@ export default function BarcodeSplitReport() {
     const tableEl = document.querySelector("#split-report-table");
     if (!tableEl) return;
     const win = window.open("", "_blank", "width=900,height=600");
-    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Split Report ${fromDate} – ${toDate}</title>
+    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Split Report ${fromDate} � ${toDate}</title>
 <style>
   body { font-family: sans-serif; font-size: 11px; padding: 16px; }
   h2 { font-size: 14px; margin-bottom: 4px; }
@@ -69,7 +69,7 @@ export default function BarcodeSplitReport() {
   @media print { @page { margin: 10mm; size: landscape; } }
 </style></head><body>
 <h2>Barcode Split Report</h2>
-<p>${fromDate} — ${toDate} &nbsp;·&nbsp; ${rows.length} record${rows.length !== 1 ? "s" : ""}</p>
+<p>${fromDate} � ${toDate} &nbsp;�&nbsp; ${rows.length} record${rows.length !== 1 ? "s" : ""}</p>
 ${tableEl.outerHTML}
 </body></html>`);
     win.document.close();
@@ -81,13 +81,13 @@ ${tableEl.outerHTML}
     const headers = ["Date","Old Barcode","Old Item","Old Pcs","Old GW","Old NW","New Barcode","New Item","New Pcs","New GW","New NW"];
     const csvRows = rows.map((r) => [
       fmtDate(r.date1),
-      r.old_barcode?.barcode ?? "—",
-      r.old_barcode?.item?.item_name ?? "—",
+      r.old_barcode?.barcode ?? "�",
+      r.old_barcode?.item?.item_name ?? "�",
       r.old_barcode?.pcs ?? "",
       fmt(r.old_barcode?.gw),
       fmt(r.old_barcode?.nw),
-      r.new_barcode?.barcode ?? "—",
-      r.new_barcode?.item?.item_name ?? "—",
+      r.new_barcode?.barcode ?? "�",
+      r.new_barcode?.item?.item_name ?? "�",
       r.new_barcode?.pcs ?? "",
       fmt(r.new_barcode?.gw),
       fmt(r.new_barcode?.nw),
@@ -148,7 +148,7 @@ ${tableEl.outerHTML}
             <span className="font-semibold text-sm">Barcode Split Report</span>
             {searched && (
               <span className="ml-2 text-xs text-muted-foreground">
-                {fromDate} — {toDate} · {rows.length} record{rows.length !== 1 ? "s" : ""}
+                {fromDate} � {toDate} � {rows.length} record{rows.length !== 1 ? "s" : ""}
               </span>
             )}
           </div>
@@ -212,21 +212,21 @@ ${tableEl.outerHTML}
                   {/* Old barcode columns */}
                   <TD className="bg-amber-50/20">
                     <span className="font-mono text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">
-                      {row.old_barcode?.barcode ?? "—"}
+                      {row.old_barcode?.barcode ?? "�"}
                     </span>
                   </TD>
-                  <TD className="bg-amber-50/20">{row.old_barcode?.item?.item_name ?? "—"}</TD>
-                  <TD className="text-right bg-amber-50/20">{row.old_barcode?.pcs ?? "—"}</TD>
+                  <TD className="bg-amber-50/20">{row.old_barcode?.item?.item_name ?? "�"}</TD>
+                  <TD className="text-right bg-amber-50/20">{row.old_barcode?.pcs ?? "�"}</TD>
                   <TD className="text-right font-mono text-xs bg-amber-50/20">{fmt(row.old_barcode?.gw)}</TD>
                   <TD className="text-right font-mono text-xs bg-amber-50/20 border-r border-border">{fmt(row.old_barcode?.nw)}</TD>
                   {/* New barcode columns */}
                   <TD className="bg-violet-50/20">
                     <span className="font-mono text-xs bg-violet-100 text-primary px-1.5 py-0.5 rounded">
-                      {row.new_barcode?.barcode ?? "—"}
+                      {row.new_barcode?.barcode ?? "�"}
                     </span>
                   </TD>
-                  <TD className="bg-violet-50/20">{row.new_barcode?.item?.item_name ?? "—"}</TD>
-                  <TD className="text-right bg-violet-50/20">{row.new_barcode?.pcs ?? "—"}</TD>
+                  <TD className="bg-violet-50/20">{row.new_barcode?.item?.item_name ?? "�"}</TD>
+                  <TD className="text-right bg-violet-50/20">{row.new_barcode?.pcs ?? "�"}</TD>
                   <TD className="text-right font-mono text-xs bg-violet-50/20">{fmt(row.new_barcode?.gw)}</TD>
                   <TD className="text-right font-mono text-xs bg-violet-50/20">{fmt(row.new_barcode?.nw)}</TD>
                 </tr>

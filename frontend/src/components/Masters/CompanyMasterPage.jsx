@@ -326,7 +326,7 @@ export default function CompanyMasterPage() {
                     <p className="text-xs text-red-500 mt-0.5">{cinError}</p>
                   )}
                   <p className="text-[11px] text-muted-foreground">
-                    Format: L/U · 5 digits · state (2 letters) · 4 digits · company type (3 letters) · 6 digits
+                    Format: L/U � 5 digits � state (2 letters) � 4 digits � company type (3 letters) � 6 digits
                   </p>
                 </div>
               </div>
@@ -459,10 +459,10 @@ export default function CompanyMasterPage() {
               </div>
             </div>
 
-            {/* Branding — logos used on printed invoices */}
+            {/* Branding � logos used on printed invoices */}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">
-                Branding · Invoice Print
+                Branding � Invoice Print
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <LogoField
@@ -568,7 +568,7 @@ function LogoField({ label, hint, fileValue, existingUrl, onChange, onClear }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label className="text-xs">
-        {label} <span className="text-muted-foreground font-normal">· {hint}</span>
+        {label} <span className="text-muted-foreground font-normal">� {hint}</span>
       </Label>
       <div className="flex items-stretch gap-3 rounded-md border border-border p-2 bg-muted/20">
         <div className="flex items-center justify-center w-20 h-20 rounded border border-dashed border-border bg-background overflow-hidden flex-shrink-0">

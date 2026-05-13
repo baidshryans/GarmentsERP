@@ -37,7 +37,7 @@ const emptyForm = {
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 function fmt(v) {
-  if (v === null || v === undefined || v === "") return "—";
+  if (v === null || v === undefined || v === "") return "�";
   return Number(v).toLocaleString("en-IN");
 }
 
@@ -227,7 +227,7 @@ export default function KarigarMakingPage() {
       header: "Loss Rate (%)",
       accessorKey: "loss_rate",
       cell: ({ getValue }) => (
-        <span className="font-mono text-sm">{getValue() ?? "—"}</span>
+        <span className="font-mono text-sm">{getValue() ?? "�"}</span>
       ),
     },
   ];
@@ -442,7 +442,7 @@ export default function KarigarMakingPage() {
           <Hammer className="size-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No making rates defined yet.</p>
           <p className="text-xs text-muted-foreground">
-            Add a rate for each karigar–item–purity combination to set their default making charges.
+            Add a rate for each karigar�item�purity combination to set their default making charges.
           </p>
           <Button
             size="sm"

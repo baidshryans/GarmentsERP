@@ -200,7 +200,7 @@ export default function RetailMasterPage() {
       header: "Branch",
       cell: ({ row }) => row.original.branch_name
         ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-primary">{row.original.branch_name}</span>
-        : <span className="text-xs text-muted-foreground">—</span>,
+        : <span className="text-xs text-muted-foreground">�</span>,
     },
   ];
 
@@ -263,10 +263,10 @@ export default function RetailMasterPage() {
                     <SelectValue placeholder="Select GSTIN" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">— No GSTIN —</SelectItem>
+                    <SelectItem value="__none__">� No GSTIN �</SelectItem>
                     {gstins.map((g) => (
                       <SelectItem key={g.id} value={String(g.id)}>
-                        {g.gstin}{g.legal_name ? ` — ${g.legal_name}` : ""}
+                        {g.gstin}{g.legal_name ? ` � ${g.legal_name}` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

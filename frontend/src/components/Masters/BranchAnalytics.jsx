@@ -18,7 +18,7 @@ import { fetchBranchAnalytics } from "@/services/apiService";
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(v) {
-  if (v === null || v === undefined) return "—";
+  if (v === null || v === undefined) return "�";
   return Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
@@ -56,7 +56,7 @@ function RetailRow({ stat, maxMonth }) {
           </div>
           <div>
             <p className="text-sm font-medium">{stat.retail_name}</p>
-            <p className="text-[11px] text-muted-foreground">{stat.retail_code}{stat.active_fy_code ? ` · FY ${stat.active_fy_code}` : ""}</p>
+            <p className="text-[11px] text-muted-foreground">{stat.retail_code}{stat.active_fy_code ? ` � FY ${stat.active_fy_code}` : ""}</p>
           </div>
         </div>
       </td>
@@ -156,8 +156,8 @@ export default function BranchAnalytics() {
           <div>
             <h1 className="text-base font-bold leading-tight">{branch.branch_name}</h1>
             <p className="text-[11px] text-muted-foreground">
-              {branch.branch_code} · {branch.retail_count} retail location{branch.retail_count !== 1 ? "s" : ""}
-              {branch.description ? ` · ${branch.description}` : ""}
+              {branch.branch_code} � {branch.retail_count} retail location{branch.retail_count !== 1 ? "s" : ""}
+              {branch.description ? ` � ${branch.description}` : ""}
             </p>
           </div>
         </div>

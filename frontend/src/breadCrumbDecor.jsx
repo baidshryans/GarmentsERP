@@ -110,7 +110,7 @@ function splitGlued(s) {
       i += 1;
     }
   }
-  // If no dictionary word was matched at all, the word is unknown — return as-is
+  // If no dictionary word was matched at all, the word is unknown � return as-is
   // so it title-cases cleanly instead of producing garbled pairs like "Qu Ot At Io N"
   if (!anyDictMatch) return [lower];
   // merge lone chars

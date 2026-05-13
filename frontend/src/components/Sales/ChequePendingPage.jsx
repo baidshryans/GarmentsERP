@@ -74,7 +74,7 @@ export default function ChequePendingPage() {
       </p>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">Loading�</p>
       ) : cheques.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
           No pending cheques.
@@ -105,7 +105,7 @@ export default function ChequePendingPage() {
                   <TableCell className="font-mono text-xs">{c.chq_no}</TableCell>
                   <TableCell className="text-xs">{c.chq_date}</TableCell>
                   <TableCell className="text-xs">{c.bank_name}</TableCell>
-                  <TableCell className="text-xs">{c.deposit_bank_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                  <TableCell className="text-xs">{c.deposit_bank_name || <span className="text-muted-foreground">�</span>}</TableCell>
                   <TableCell>
                     <Button size="sm" variant="outline" onClick={() => openDeposit(c)}>
                       Deposit
@@ -148,7 +148,7 @@ export default function ChequePendingPage() {
                   value={form.bank_ledger_id}
                   onChange={e => setForm(f => ({ ...f, bank_ledger_id: e.target.value }))}
                 >
-                  <option value="">— Select Bank Account —</option>
+                  <option value="">� Select Bank Account �</option>
                   {bankLedgers.map(l => (
                     <option key={l.id} value={String(l.id)}>{l.ac_name}</option>
                   ))}
@@ -164,7 +164,7 @@ export default function ChequePendingPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelected(null)}>Cancel</Button>
             <Button onClick={handleDeposit} disabled={saving}>
-              {saving ? "Processing…" : "Confirm Deposit"}
+              {saving ? "Processing�" : "Confirm Deposit"}
             </Button>
           </DialogFooter>
         </DialogContent>

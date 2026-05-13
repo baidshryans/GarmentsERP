@@ -208,7 +208,7 @@ const IssueToAssay = () => {
 
                     <Field label="Bill No">
                         <div className="text-sm font-mono px-3 py-2 bg-gray-50 rounded border border-gray-200 h-9 flex items-center">
-                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating…</span>}
+                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating�</span>}
                         </div>
                     </Field>
 
@@ -220,7 +220,7 @@ const IssueToAssay = () => {
                                 setValue("form.ldgr_name", opt.ac_name)
                                 setValue("form.ldgr", opt.id)
                             }}
-                            placeholder="Search melting house…"
+                            placeholder="Search melting house�"
                             autoFocus
                         />
                         <input type="hidden" {...register("form.ldgr")} />
@@ -232,7 +232,7 @@ const IssueToAssay = () => {
                     <div className="flex flex-wrap items-end gap-3">
                         <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
                             <Label className="text-xs font-medium text-gray-600">
-                                Source Melting Receive <span className="text-gray-400 font-normal">(optional — auto-fills rows)</span>
+                                Source Melting Receive <span className="text-gray-400 font-normal">(optional � auto-fills rows)</span>
                             </Label>
                             <Controller
                                 name="form.melt_recv"
@@ -248,13 +248,13 @@ const IssueToAssay = () => {
                                             <SelectValue placeholder={
                                                 availableReceives.length === 0
                                                     ? "No available melting receives"
-                                                    : "Select a melting receive to reference…"
+                                                    : "Select a melting receive to reference�"
                                             } />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {availableReceives.map((r) => (
                                                 <SelectItem key={r.billno} value={r.billno}>
-                                                    {r.billno} — {r.ldgr_name} — {r.date1}
+                                                    {r.billno} � {r.ldgr_name} � {r.date1}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>

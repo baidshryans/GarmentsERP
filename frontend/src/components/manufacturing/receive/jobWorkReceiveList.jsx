@@ -260,7 +260,7 @@ const KarigarReceive = () => {
                     const muted = "text-slate-400";
                     const fmt = (n, dp) => {
                       const num = parseFloat(n);
-                      if (!Number.isFinite(num)) return "—";
+                      if (!Number.isFinite(num)) return "�";
                       return dp === 0 ? String(Math.round(num)) : num.toFixed(dp);
                     };
                     const totals = {
@@ -291,17 +291,17 @@ const KarigarReceive = () => {
                             {subIdx === 0 && (
                               <>
                                 <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-center font-semibold align-middle">{idx + 1}</TableCell>
-                                <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border align-middle font-medium">{detail.item || '—'}</TableCell>
+                                <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border align-middle font-medium">{detail.item || '�'}</TableCell>
                                 <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border align-middle">
-                                  {detail.purity ? <span className="inline-block px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{detail.purity}</span> : '—'}
+                                  {detail.purity ? <span className="inline-block px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{detail.purity}</span> : '�'}
                                 </TableCell>
                                 <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-right tabular-nums align-middle">{fmt(detail.pcs, 0)}</TableCell>
                                 <TableCell rowSpan={subRows.length} className="px-3 py-2.5 border text-right tabular-nums align-middle">{fmt(detail.gw, 3)}</TableCell>
                               </>
                             )}
                             <TableCell className="px-3 py-2.5 border text-center">{item.sl_no ?? ''}</TableCell>
-                            <TableCell className="px-3 py-2.5 border">{item.item || '—'}</TableCell>
-                            <TableCell className="px-3 py-2.5 border">{item.packet || '—'}</TableCell>
+                            <TableCell className="px-3 py-2.5 border">{item.item || '�'}</TableCell>
+                            <TableCell className="px-3 py-2.5 border">{item.packet || '�'}</TableCell>
                             <TableCell className={cls(num('issue_pcs'), stageA)}>{fmt(item.issue_pcs, 0)}</TableCell>
                             <TableCell className={cls(num('issue_ct'), stageA)}>{fmt(item.issue_ct, 3)}</TableCell>
                             <TableCell className={cls(num('issue_gw'), stageA)}>{fmt(item.issue_gw, 3)}</TableCell>
@@ -351,7 +351,7 @@ const KarigarReceive = () => {
                       const lossT = (val, base) => `${tCell} ${base} ${val > 0 ? lossText : ""}`;
                       rendered.push(
                         <TableRow key="totals" className="hover:bg-transparent">
-                          <TableCell colSpan={8} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-center font-semibold">Total · {subItemCount} sub-item{subItemCount === 1 ? '' : 's'}</TableCell>
+                          <TableCell colSpan={8} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-center font-semibold">Total � {subItemCount} sub-item{subItemCount === 1 ? '' : 's'}</TableCell>
                           <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.issue_pcs, 0)}</TableCell>
                           <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.issue_ct, 3)}</TableCell>
                           <TableCell className={`${tCell} ${stageA}`}>{fmt(totals.issue_gw, 3)}</TableCell>

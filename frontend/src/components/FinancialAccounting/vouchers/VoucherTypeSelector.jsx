@@ -37,7 +37,7 @@ const VOUCHER_TYPES = [
     label: "Journal",
     shortcut: "J",
     icon: BookOpen,
-    description: "General accounting entries — adjustments, provisions, depreciation, and corrections.",
+    description: "General accounting entries � adjustments, provisions, depreciation, and corrections.",
     color: "text-primary",
     bg: "bg-violet-50 hover:bg-violet-100 border-violet-200",
     iconBg: "bg-violet-100",

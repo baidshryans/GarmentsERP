@@ -67,7 +67,7 @@ export default function GSTR3BReport() {
     <div className="p-4 flex flex-col gap-5">
       {/* Info */}
       <div className="text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-        <strong>GSTR-3B</strong> — Monthly self-declaration summary return. Due by the 20th of the following month.
+        <strong>GSTR-3B</strong> � Monthly self-declaration summary return. Due by the 20th of the following month.
         Shows outward supplies, ITC claimed, and net tax payable.
       </div>
 
@@ -129,7 +129,7 @@ export default function GSTR3BReport() {
           {/* Table 3.1 */}
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="px-4 py-2.5 bg-muted/40 text-sm font-semibold border-b border-border">
-              Table 3.1 — Outward Taxable Supplies (Net of Returns)
+              Table 3.1 � Outward Taxable Supplies (Net of Returns)
             </div>
             <table className="w-full">
               <thead>
@@ -157,10 +157,10 @@ export default function GSTR3BReport() {
             </table>
           </div>
 
-          {/* Table 4 — ITC */}
+          {/* Table 4 � ITC */}
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="px-4 py-2.5 bg-muted/40 text-sm font-semibold border-b border-border">
-              Table 4 — Eligible Input Tax Credit (ITC)
+              Table 4 � Eligible Input Tax Credit (ITC)
             </div>
             <table className="w-full">
               <thead>
@@ -174,7 +174,7 @@ export default function GSTR3BReport() {
               </thead>
               <tbody>
                 <GSTRow
-                  label="(A) ITC Available — Inputs from purchases with GST suppliers"
+                  label="(A) ITC Available � Inputs from purchases with GST suppliers"
                   igst={data['4']?.itc_igst}
                   cgst={data['4']?.itc_cgst}
                   sgst={data['4']?.itc_sgst}
@@ -186,7 +186,7 @@ export default function GSTR3BReport() {
           {/* Net Tax Summary */}
           <div className="rounded-lg border border-border overflow-hidden">
             <div className="px-4 py-2.5 bg-muted/40 text-sm font-semibold border-b border-border">
-              Table 6.1 — Payment of Tax
+              Table 6.1 � Payment of Tax
             </div>
             <div className="p-4">
               <table className="w-full text-sm">

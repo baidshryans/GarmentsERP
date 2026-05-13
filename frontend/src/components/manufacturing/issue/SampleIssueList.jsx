@@ -60,7 +60,7 @@ export default function SampleIssueList() {
   };
 
   const fmtDate = (s) => {
-    if (!s) return "—";
+    if (!s) return "�";
     try {
       return new Date(s).toLocaleDateString("en-GB").replaceAll("/", "-");
     } catch {
@@ -97,12 +97,12 @@ export default function SampleIssueList() {
     {
       header: "Bill No",
       accessorKey: "billno",
-      cell: ({ getValue }) => <span className="font-medium">{getValue() || "—"}</span>,
+      cell: ({ getValue }) => <span className="font-medium">{getValue() || "�"}</span>,
     },
     {
       header: "Karigar",
       accessorKey: "karigar_ldgr_name",
-      cell: ({ getValue }) => getValue() || "—",
+      cell: ({ getValue }) => getValue() || "�",
     },
     {
       header: "Items",
@@ -115,7 +115,7 @@ export default function SampleIssueList() {
       header: "Remarks",
       accessorKey: "remarks",
       cell: ({ getValue }) => (
-        <span className="text-muted-foreground text-sm">{getValue() || "—"}</span>
+        <span className="text-muted-foreground text-sm">{getValue() || "�"}</span>
       ),
     },
   ];

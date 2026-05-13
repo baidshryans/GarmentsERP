@@ -47,10 +47,10 @@ export default function GSTR2BReconcile() {
     : [];
 
   const fmt = (v) =>
-    v == null ? "—" : parseFloat(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    v == null ? "�" : parseFloat(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 
   const diffCell = (v) => {
-    if (v == null) return <span className="text-gray-400">—</span>;
+    if (v == null) return <span className="text-gray-400">�</span>;
     const n = parseFloat(v);
     if (Math.abs(n) < 0.01) return <span className="text-green-600">0.00</span>;
     return <span className={n > 0 ? "text-red-500" : "text-amber-600"}>{n > 0 ? "+" : ""}{fmt(v)}</span>;
@@ -78,7 +78,7 @@ export default function GSTR2BReconcile() {
           className="flex items-center gap-2"
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-          {loading ? "Reconciling…" : "Upload & Reconcile"}
+          {loading ? "Reconciling�" : "Upload & Reconcile"}
         </Button>
         <input ref={inputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleFile} />
       </div>
@@ -166,14 +166,14 @@ export default function GSTR2BReconcile() {
                           </span>
                         </td>
                         <td className="px-2 py-1.5 font-mono">{r.supplier_gstin}</td>
-                        <td className="px-2 py-1.5">{r.supplier_name || <span className="text-gray-400">—</span>}</td>
+                        <td className="px-2 py-1.5">{r.supplier_name || <span className="text-gray-400">�</span>}</td>
                         <td className="px-2 py-1.5 font-mono">{r.invoice_no_2b}</td>
                         <td className="px-2 py-1.5">{r.invoice_date_2b}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(r.val_2b)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(r.cgst_2b)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(r.sgst_2b)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(r.igst_2b)}</td>
-                        <td className="px-2 py-1.5 font-mono">{r.our_billno || <span className="text-gray-400">—</span>}</td>
+                        <td className="px-2 py-1.5 font-mono">{r.our_billno || <span className="text-gray-400">�</span>}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(r.our_cgst)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(r.our_sgst)}</td>
                         <td className="px-2 py-1.5 text-right">{fmt(r.our_igst)}</td>

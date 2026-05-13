@@ -37,7 +37,7 @@ const Field = ({ label, children, unit }) => (
 // ── Read-only computed value display ────────────────────────────────────────
 const ComputedValue = ({ value, prefix = "" }) => (
   <div className="flex items-center px-3 py-2 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-[120px]">
-    {prefix}{value || "—"}
+    {prefix}{value || "�"}
   </div>
 );
 
@@ -102,7 +102,7 @@ const CashGoldConversion = () => {
       <Input
         list={listId}
         onChange={onChange}
-        placeholder="Select or type party…"
+        placeholder="Select or type party�"
         className="bg-white"
         required
       />
@@ -139,7 +139,7 @@ const CashGoldConversion = () => {
         <SectionHeader icon={Coins} title="Cash to Gold Conversion" subtitle="Credit cash, issue gold" />
 
         <form onSubmit={handleCG(onCGSubmit)}>
-          {/* Row 1 – meta */}
+          {/* Row 1 � meta */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
             <Field label="Bill No">
               <Input
@@ -163,7 +163,7 @@ const CashGoldConversion = () => {
             </div>
           </div>
 
-          {/* Row 2 – transaction fields */}
+          {/* Row 2 � transaction fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
             <Field label="Fine Weight" unit="gm">
               <Input
@@ -208,7 +208,7 @@ const CashGoldConversion = () => {
         <SectionHeader icon={Banknote} title="Gold to Cash Conversion" subtitle="Receive gold, debit cash" />
 
         <form onSubmit={handleGC(onGCSubmit)}>
-          {/* Row 1 – meta */}
+          {/* Row 1 � meta */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
             <Field label="Bill No">
               <Input
@@ -232,7 +232,7 @@ const CashGoldConversion = () => {
             </div>
           </div>
 
-          {/* Row 2 – transaction fields */}
+          {/* Row 2 � transaction fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
             <Field label="Cash Amount (₹)">
               <Input

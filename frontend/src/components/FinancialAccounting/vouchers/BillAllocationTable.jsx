@@ -13,7 +13,7 @@ import { FileText, RefreshCw } from "lucide-react";
  * payment/receipt amount across one or more bills.
  *
  * Props
- *  - ledgerId      (required) — the party ledger id (vendor for PMNT, customer for RCPT)
+ *  - ledgerId      (required) � the party ledger id (vendor for PMNT, customer for RCPT)
  *  - kind          'sales' (RCPT) | 'purchase' (PMNT)
  *  - partyAmount   total amount posted to the party leg of this voucher
  *  - allocations   [{bill_id, billno, amount}, ...]  (controlled value)
@@ -133,13 +133,13 @@ export default function BillAllocationTable({
           <ol className="list-decimal list-inside space-y-0.5">
             <li>Select the {kind === "purchase" ? "vendor / supplier" : "customer"} account and enter the {kind === "purchase" ? "payment (Debit)" : "receipt (Credit)"} amount in the row above.</li>
             <li>Enter how much of that amount applies to each bill below, or use <strong>Auto-fill (FIFO)</strong> to fill oldest bills first.</li>
-            <li>Press <kbd className="px-1 py-0.5 rounded bg-violet-100 font-mono">Tab</kbd> from the amount field to commit — one row per bill is added, with any remainder posted <em>on account</em>.</li>
+            <li>Press <kbd className="px-1 py-0.5 rounded bg-violet-100 font-mono">Tab</kbd> from the amount field to commit � one row per bill is added, with any remainder posted <em>on account</em>.</li>
           </ol>
         </div>
       )}
 
       {loading ? (
-        <div className="text-xs text-gray-500 py-3">Loading…</div>
+        <div className="text-xs text-gray-500 py-3">Loading�</div>
       ) : bills.length === 0 ? (
         <div className="text-xs text-gray-500 py-3">
           No outstanding bills for this ledger.
@@ -207,7 +207,7 @@ export default function BillAllocationTable({
         </div>
         {overAllocated && (
           <span className="ml-auto text-[11px] font-semibold text-rose-600">
-            ⚠ Allocation exceeds the party amount — fix before saving
+            ⚠ Allocation exceeds the party amount � fix before saving
           </span>
         )}
       </div>

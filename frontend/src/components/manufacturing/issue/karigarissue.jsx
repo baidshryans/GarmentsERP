@@ -343,7 +343,7 @@ const KarigarIssue = () => {
       // Re-attach CO-linkage if this is an edit-cycle add-back.
       const merged = editingMetaRef.current ? { ...table, ...editingMetaRef.current } : table;
 
-      // Require item, purity, and pcs — remarks is optional
+      // Require item, purity, and pcs � remarks is optional
       if (!merged.item) {
         toast({ title: "Main Item is required", variant: "destructive" });
         return;
@@ -357,7 +357,7 @@ const KarigarIssue = () => {
         return;
       }
 
-      // Block duplicate CO items — the same customer_order_item must not appear twice.
+      // Block duplicate CO items � the same customer_order_item must not appear twice.
       if (merged.customer_order_item && rs.some(r => r.customer_order_item === merged.customer_order_item)) {
         toast({
           title: "Item already in this job work",
@@ -416,7 +416,7 @@ const KarigarIssue = () => {
             Cancel
           </Button>
           <Button size="sm" onClick={handleSubmit(onSubmit)} className="min-w-24 cursor-pointer" disabled={saving || !canSave}>
-            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Job Work" : "Save Job Work")}
+            {saving ? (id ? "Updating�" : "Saving�") : (id ? "Update Job Work" : "Save Job Work")}
           </Button>
         </div>
       </div>
@@ -433,7 +433,7 @@ const KarigarIssue = () => {
 
             <Field label="Slip No">
               <span className="inline-flex items-center px-3 h-9 rounded-md bg-primary/5 border border-primary/20 text-primary text-sm font-semibold truncate">
-                {watch("form.issue_slip_no") || <span className="text-primary/50 text-xs font-normal">Auto-generating…</span>}
+                {watch("form.issue_slip_no") || <span className="text-primary/50 text-xs font-normal">Auto-generating�</span>}
               </span>
               <input type="hidden" {...register("form.issue_slip_no")} />
             </Field>
@@ -459,7 +459,7 @@ const KarigarIssue = () => {
                 )}
               />
               {rs.length > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Locked — remove all items to change type.</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">Locked � remove all items to change type.</p>
               )}
             </Field>
 
@@ -471,7 +471,7 @@ const KarigarIssue = () => {
                   setValue("form.karigar_ldgr_name", opt.ac_name);
                   setValue("form.karigar_ldgr", opt.id);
                 }}
-                placeholder="Search karigar…"
+                placeholder="Search karigar�"
                 autoFocus={!id}
               />
               <input type="hidden" {...register("form.karigar_ldgr")} />
@@ -541,7 +541,7 @@ const KarigarIssue = () => {
                           setValue("table.item", opt.short_code);
                           setTableItemLabel(opt.item_name);
                         }}
-                        placeholder="Search item…"
+                        placeholder="Search item�"
                         className="h-8 text-sm"
                       />
                     </div>
@@ -591,18 +591,18 @@ const KarigarIssue = () => {
                       </div>
                     </TableCell>
                     <TableCell className="px-3 py-2 font-semibold tabular-nums">{row.issue_sl_no ?? index + 1}</TableCell>
-                    <TableCell className="px-3 py-2">{row.design_code || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="px-3 py-2">{row.design_code || <span className="text-muted-foreground">�</span>}</TableCell>
                     <TableCell className="px-3 py-2">
                       {row.item
                         ? (mainItemData.find(i => i.short_code === row.item)?.item_name ?? row.item)
-                        : <span className="text-muted-foreground">—</span>}
+                        : <span className="text-muted-foreground">�</span>}
                     </TableCell>
-                    <TableCell className="px-3 py-2">{row.purity || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="px-3 py-2 tabular-nums">{row.pcs ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="px-3 py-2 tabular-nums">{row.approx_wt ?? <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="px-3 py-2">{row.size || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="px-3 py-2">{row.due_date || <span className="text-muted-foreground">—</span>}</TableCell>
-                    <TableCell className="px-3 py-2 text-muted-foreground">{row.remarks || "—"}</TableCell>
+                    <TableCell className="px-3 py-2">{row.purity || <span className="text-muted-foreground">�</span>}</TableCell>
+                    <TableCell className="px-3 py-2 tabular-nums">{row.pcs ?? <span className="text-muted-foreground">�</span>}</TableCell>
+                    <TableCell className="px-3 py-2 tabular-nums">{row.approx_wt ?? <span className="text-muted-foreground">�</span>}</TableCell>
+                    <TableCell className="px-3 py-2">{row.size || <span className="text-muted-foreground">�</span>}</TableCell>
+                    <TableCell className="px-3 py-2">{row.due_date || <span className="text-muted-foreground">�</span>}</TableCell>
+                    <TableCell className="px-3 py-2 text-muted-foreground">{row.remarks || "�"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -620,7 +620,7 @@ const KarigarIssue = () => {
           </DialogHeader>
 
           <Input
-            placeholder="Search customer, CO #, item…"
+            placeholder="Search customer, CO #, item�"
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
             className="mb-1"
@@ -664,17 +664,17 @@ const KarigarIssue = () => {
                           className="cursor-pointer"
                         />
                       </TableCell>
-                      <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 font-medium">{p.customer_name || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 font-medium">{p.customer_name || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "�"}</TableCell>
                       <TableCell className="px-3 py-2 text-center">{p.sl_no}</TableCell>
-                      <TableCell className="px-3 py-2 font-medium">{p.item_name || p.item || "—"}</TableCell>
-                      <TableCell className="px-3 py-2">{p.purity || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "—"}</TableCell>
-                      <TableCell className="px-3 py-2">{p.size || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "—"}</TableCell>
-                      <TableCell className="px-3 py-2 text-muted-foreground">{p.remarks || "—"}</TableCell>
+                      <TableCell className="px-3 py-2 font-medium">{p.item_name || p.item || "�"}</TableCell>
+                      <TableCell className="px-3 py-2">{p.purity || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "�"}</TableCell>
+                      <TableCell className="px-3 py-2">{p.size || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "�"}</TableCell>
+                      <TableCell className="px-3 py-2 text-muted-foreground">{p.remarks || "�"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

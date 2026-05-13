@@ -109,7 +109,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
           {(d.company_phone || d.company_email) && (
             <div className="pv-company-sub">
               {d.company_phone && "Ph: " + d.company_phone}
-              {d.company_phone && d.company_email && "  Â·  "}
+              {d.company_phone && d.company_email && "  ·  "}
               {d.company_email}
             </div>
           )}
@@ -123,7 +123,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         <div className="pv-title-side">
           {d.is_rcm ? <span style={{color:"#c00",fontWeight:700}}>RCM</span> : ""}
         </div>
-        <div className="pv-title-center">Purchase Voucher â€” Vendor</div>
+        <div className="pv-title-center">Purchase Voucher — Vendor</div>
         <div className="pv-title-side pv-title-right">Original / Duplicate</div>
       </div>
 
@@ -204,9 +204,9 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
               <th>WT / CT</th>
               <th>Tunch%</th>
               <th>Fine WT</th>
-              <th>Rate (â‚¹/g)</th>
-              <th>Making (â‚¹)</th>
-              <th>Amount (â‚¹)</th>
+              <th>Rate (₹/g)</th>
+              <th>Making (₹)</th>
+              <th>Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
@@ -235,8 +235,8 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <td>
                       {item.item_name || item.item || ""}
                       {item.barcode_txt ? <span style={{color:"#555",fontSize:"9px"}}>{" ["+item.barcode_txt+"]"}</span> : null}
-                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" Â· Sz "+item.size}</span> : null}
-                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" Â· "+item.purity}</span> : null}
+                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" · Sz "+item.size}</span> : null}
+                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" · "+item.purity}</span> : null}
                     </td>
                     <td className="pv-ctr">{item.pcs ?? ""}</td>
                     <td className="pv-num">{fmt3(item.gw)}</td>
@@ -271,23 +271,23 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
       {/* â”€â”€ Totals â”€â”€ */}
       <table className="pv-totals-table">
         <tbody>
-          {parseFloat(d.bill_value) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Item Total</td><td className="pv-total-value">â‚¹ {fmt(d.bill_value)}</td></tr> : null}
-          {makingTotal ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Making Charges</td><td className="pv-total-value">â‚¹ {fmt(makingTotal)}</td></tr> : null}
+          {parseFloat(d.bill_value) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Item Total</td><td className="pv-total-value">₹ {fmt(d.bill_value)}</td></tr> : null}
+          {makingTotal ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Making Charges</td><td className="pv-total-value">₹ {fmt(makingTotal)}</td></tr> : null}
           {parseFloat(d.discount_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Discount</td><td className="pv-total-value" style={{color:"#c00"}}>({fmt(Math.abs(d.discount_amt))})</td></tr> : null}
-          {parseFloat(d.hallmark_charge) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Hallmark Charges</td><td className="pv-total-value">â‚¹ {fmt(d.hallmark_charge)}</td></tr> : null}
-          {parseFloat(d.freight_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Freight / Carriage</td><td className="pv-total-value">â‚¹ {fmt(d.freight_amt)}</td></tr> : null}
-          {parseFloat(d.add_chrg_amt1) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap1||"Add. Charge 1"}</td><td className="pv-total-value">â‚¹ {fmt(d.add_chrg_amt1)}</td></tr> : null}
-          {parseFloat(d.add_chrg_amt2) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap2||"Add. Charge 2"}</td><td className="pv-total-value">â‚¹ {fmt(d.add_chrg_amt2)}</td></tr> : null}
-          {parseFloat(d.cgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">CGST @ 1.5%</td><td className="pv-total-value">â‚¹ {fmt(d.cgst)}</td></tr> : null}
-          {parseFloat(d.sgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">SGST @ 1.5%</td><td className="pv-total-value">â‚¹ {fmt(d.sgst)}</td></tr> : null}
-          {parseFloat(d.igst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">IGST @ 3.0%</td><td className="pv-total-value">â‚¹ {fmt(d.igst)}</td></tr> : null}
-          {parseFloat(d.tcs_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">TCS</td><td className="pv-total-value">â‚¹ {fmt(d.tcs_amt)}</td></tr> : null}
+          {parseFloat(d.hallmark_charge) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Hallmark Charges</td><td className="pv-total-value">₹ {fmt(d.hallmark_charge)}</td></tr> : null}
+          {parseFloat(d.freight_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Freight / Carriage</td><td className="pv-total-value">₹ {fmt(d.freight_amt)}</td></tr> : null}
+          {parseFloat(d.add_chrg_amt1) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap1||"Add. Charge 1"}</td><td className="pv-total-value">₹ {fmt(d.add_chrg_amt1)}</td></tr> : null}
+          {parseFloat(d.add_chrg_amt2) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{d.add_chrg_cap2||"Add. Charge 2"}</td><td className="pv-total-value">₹ {fmt(d.add_chrg_amt2)}</td></tr> : null}
+          {parseFloat(d.cgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">CGST @ 1.5%</td><td className="pv-total-value">₹ {fmt(d.cgst)}</td></tr> : null}
+          {parseFloat(d.sgst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">SGST @ 1.5%</td><td className="pv-total-value">₹ {fmt(d.sgst)}</td></tr> : null}
+          {parseFloat(d.igst) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">IGST @ 3.0%</td><td className="pv-total-value">₹ {fmt(d.igst)}</td></tr> : null}
+          {parseFloat(d.tcs_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">TCS</td><td className="pv-total-value">₹ {fmt(d.tcs_amt)}</td></tr> : null}
           {parseFloat(d.tds_amt) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">{"TDS"+(d.tds_section?" ("+d.tds_section+")":"")}</td><td className="pv-total-value" style={{color:"#c00"}}>({fmt(d.tds_amt)})</td></tr> : null}
-          {parseFloat(d.round_off) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Round Off</td><td className="pv-total-value">â‚¹ {fmt(d.round_off)}</td></tr> : null}
+          {parseFloat(d.round_off) ? <tr><td className="pv-total-spacer"></td><td className="pv-total-label">Round Off</td><td className="pv-total-value">₹ {fmt(d.round_off)}</td></tr> : null}
           <tr className="pv-grand-row">
             <td className="pv-total-spacer"></td>
             <td className="pv-total-label">Net Payable</td>
-            <td className="pv-total-value">â‚¹ {fmt(grandTotal)}</td>
+            <td className="pv-total-value">₹ {fmt(grandTotal)}</td>
           </tr>
         </tbody>
       </table>

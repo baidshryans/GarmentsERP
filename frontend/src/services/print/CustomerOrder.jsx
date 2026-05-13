@@ -8,7 +8,7 @@ const FONTS_HREF =
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap';
 
 const fmtDate = (val) => {
-  if (!val) return 'â€”';
+  if (!val) return '—';
   const d = new Date(val);
   if (isNaN(d)) return val;
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -16,13 +16,13 @@ const fmtDate = (val) => {
 
 const fmtWt = (v) => {
   const n = parseFloat(v);
-  return isNaN(n) || n === 0 ? 'â€”' : n.toFixed(3);
+  return isNaN(n) || n === 0 ? '—' : n.toFixed(3);
 };
 
 const fmtAmt = (v) => {
   const n = parseFloat(v);
-  if (isNaN(n) || n === 0) return 'â€”';
-  return 'â‚¹ ' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  if (isNaN(n) || n === 0) return '—';
+  return '₹ ' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 };
 
 const MAKING_LABELS = {
@@ -125,7 +125,7 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
           {(phone || email) && (
             <div className="co-brand-sub">
               {phone && <>Phone <strong>{phone}</strong></>}
-              {phone && email && <> &nbsp;Â·&nbsp; </>}
+              {phone && email && <> &nbsp;·&nbsp; </>}
               {email && <>Email <strong>{email}</strong></>}
             </div>
           )}
@@ -155,7 +155,7 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
       <div style={{ display: 'flex', marginBottom: 10 }}>
         <div style={{ flex: 1, padding: '7px 9px', border: '1px solid #ccc', borderRight: 'none', fontSize: 9, lineHeight: 1.9, fontFamily: FONT }}>
           <div style={{ fontSize: 7.5, fontWeight: 700, letterSpacing: 1, color: '#888', textTransform: 'uppercase', marginBottom: 3 }}>Customer</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 1 }}>{data.ldgr_code_name || 'â€”'}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 1 }}>{data.ldgr_code_name || '—'}</div>
           {data.ldgr_mobile && (
             <div>
               <span style={{ color: '#777', display: 'inline-block', minWidth: 60 }}>Mobile</span>
@@ -180,7 +180,7 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
           ].map(([lbl, val]) => (
             <div key={lbl}>
               <span style={{ color: '#777', display: 'inline-block', minWidth: 76 }}>{lbl}</span>
-              <span style={{ fontWeight: 600, color: '#0f172a' }}>{val || 'â€”'}</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>{val || '—'}</span>
             </div>
           ))}
         </div>
@@ -194,11 +194,11 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
           marginBottom: 10, fontVariantNumeric: 'tabular-nums', fontFamily: FONT,
         }}>
           <span style={{ fontSize: 7.5, letterSpacing: '1.4px', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Fixed Gold Rates</span>
-          {data.rate_14kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>14K &nbsp;â‚¹ {Number(data.rate_14kt).toLocaleString('en-IN')} / gm</span> : null}
-          {data.rate_14kt && data.rate_18kt ? <span style={{ color: '#cbd5e1' }}>Â·</span> : null}
-          {data.rate_18kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>18K &nbsp;â‚¹ {Number(data.rate_18kt).toLocaleString('en-IN')} / gm</span> : null}
-          {data.rate_18kt && data.rate_22kt ? <span style={{ color: '#cbd5e1' }}>Â·</span> : null}
-          {data.rate_22kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>22K &nbsp;â‚¹ {Number(data.rate_22kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_14kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>14K &nbsp;₹ {Number(data.rate_14kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_14kt && data.rate_18kt ? <span style={{ color: '#cbd5e1' }}>·</span> : null}
+          {data.rate_18kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>18K &nbsp;₹ {Number(data.rate_18kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_18kt && data.rate_22kt ? <span style={{ color: '#cbd5e1' }}>·</span> : null}
+          {data.rate_22kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>22K &nbsp;₹ {Number(data.rate_22kt).toLocaleString('en-IN')} / gm</span> : null}
         </div>
       )}
 
@@ -231,7 +231,7 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
           <col style={{ width: 52  }} />{/* Wt */}
           <col style={{ width: 28  }} />{/* Size */}
           <col style={{ width: 54  }} />{/* Making Type */}
-          <col style={{ width: 52  }} />{/* Making â‚¹ */}
+          <col style={{ width: 52  }} />{/* Making ₹ */}
           <col                       />{/* Remarks */}
         </colgroup>
         <thead>
@@ -243,7 +243,7 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
             <th style={th({  textAlign: 'right'  })}>Wt (g)</th>
             <th style={th({  textAlign: 'center' })}>Size</th>
             <th style={th({  textAlign: 'center' })}>Making Type</th>
-            <th style={th({  textAlign: 'right'  })}>Making (â‚¹)</th>
+            <th style={th({  textAlign: 'right'  })}>Making (₹)</th>
             <th style={th({  textAlign: 'left'   })}>Remarks</th>
           </tr>
         </thead>
@@ -251,14 +251,14 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
           {items.map((row, idx) => (
             <tr key={idx} style={{ borderBottom: '1px solid #efefef' }}>
               <td style={td0({ textAlign: 'center' })}>{row.sl_no ?? idx + 1}</td>
-              <td style={td0({ textAlign: 'left'   })}>{row.item_name || row.item_id || 'â€”'}</td>
-              <td style={td({  textAlign: 'center' })}>{row.purity || 'â€”'}</td>
-              <td style={td({  textAlign: 'center' })}>{row.pcs || 'â€”'}</td>
+              <td style={td0({ textAlign: 'left'   })}>{row.item_name || row.item_id || '—'}</td>
+              <td style={td({  textAlign: 'center' })}>{row.purity || '—'}</td>
+              <td style={td({  textAlign: 'center' })}>{row.pcs || '—'}</td>
               <td style={td({  textAlign: 'right'  })}>{fmtWt(row.gw)}</td>
-              <td style={td({  textAlign: 'center' })}>{row.size || 'â€”'}</td>
-              <td style={td({  textAlign: 'center', fontSize: 9 })}>{MAKING_LABELS[row.making_type] || row.making_type || 'â€”'}</td>
+              <td style={td({  textAlign: 'center' })}>{row.size || '—'}</td>
+              <td style={td({  textAlign: 'center', fontSize: 9 })}>{MAKING_LABELS[row.making_type] || row.making_type || '—'}</td>
               <td style={td({  textAlign: 'right'  })}>
-                {row.making_amt ? Number(row.making_amt).toLocaleString('en-IN') : 'â€”'}
+                {row.making_amt ? Number(row.making_amt).toLocaleString('en-IN') : '—'}
               </td>
               <td style={td({  textAlign: 'left', fontSize: 9, color: '#555' })}>{row.remarks || ''}</td>
             </tr>

@@ -132,7 +132,7 @@ const AccountingVoucher = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="av-co-sub">
             {d.company_phone && "Tel: " + d.company_phone}
-            {d.company_phone && d.company_email && "  Â·  "}
+            {d.company_phone && d.company_email && "  ·  "}
             {d.company_email}
           </div>
         )}
@@ -150,7 +150,7 @@ const AccountingVoucher = ({ data = {} }) => {
       <div className="av-info">
         <div className="av-info-cell">
           <div className="av-info-lbl">Voucher No.</div>
-          <div className="av-info-val">{d.voucher_no || "â€”"}</div>
+          <div className="av-info-val">{d.voucher_no || "—"}</div>
         </div>
         <div className="av-info-cell">
           <div className="av-info-lbl">Date</div>
@@ -188,19 +188,19 @@ const AccountingVoucher = ({ data = {} }) => {
             <React.Fragment key={i}>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Drawn On</div>
-                <div className="av-chq-val">{b.party_bank_name || "â€”"}</div>
+                <div className="av-chq-val">{b.party_bank_name || "—"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Cheque / Card No.</div>
-                <div className="av-chq-val">{b.chq_no || "â€”"}</div>
+                <div className="av-chq-val">{b.chq_no || "—"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Cheque Date</div>
-                <div className="av-chq-val">{fmtDate(b.chq_date) || "â€”"}</div>
+                <div className="av-chq-val">{fmtDate(b.chq_date) || "—"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Account</div>
-                <div className="av-chq-val">{b.account || "â€”"}</div>
+                <div className="av-chq-val">{b.account || "—"}</div>
               </div>
             </React.Fragment>
           ))}
@@ -220,8 +220,8 @@ const AccountingVoucher = ({ data = {} }) => {
             <tr>
               <th style={{textAlign:"center"}}>Sl.</th>
               <th style={{textAlign:"left"}}>Particulars</th>
-              <th style={{textAlign:"right"}}>Debit (â‚¹)</th>
-              <th style={{textAlign:"right"}}>Credit (â‚¹)</th>
+              <th style={{textAlign:"right"}}>Debit (₹)</th>
+              <th style={{textAlign:"right"}}>Credit (₹)</th>
             </tr>
           </thead>
           <tbody>
@@ -274,10 +274,10 @@ const AccountingVoucher = ({ data = {} }) => {
           Total
         </div>
         <div className="av-total-num" style={{padding:"5px 8px",borderRight:"1px solid #ddd",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
-          {totalDr > 0 ? "â‚¹Â " + fmt(totalDr) : ""}
+          {totalDr > 0 ? "₹Â " + fmt(totalDr) : ""}
         </div>
         <div className="av-total-num" style={{padding:"5px 8px",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
-          {totalCr > 0 ? "â‚¹Â " + fmt(totalCr) : ""}
+          {totalCr > 0 ? "₹Â " + fmt(totalCr) : ""}
         </div>
       </div>
 

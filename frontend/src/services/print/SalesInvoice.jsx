@@ -1,7 +1,7 @@
 ﻿import React from "react";
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-   SalesInvoice â€” minimal modern Tax Invoice print format.
+   SalesInvoice — minimal modern Tax Invoice print format.
    Renders a one-page A4 invoice using the same `data` prop produced by
    SalesVoucherList. Designed to be opened in a fresh window for printing
    (browser native print, no PDF library).
@@ -510,7 +510,7 @@ const SalesInvoice = ({ data = {} }) => {
        â€¢ d.metal_rate_str as a comma- or pipe-separated list of such strings
      For each item, if `rate` is missing but `label` contains a number,
      split the label into purity + rate so the renderer can emit
-     "<purity> : â‚¹ <rate> / gm" consistently. */
+     "<purity> : ₹ <rate> / gm" consistently. */
   const parseRateString = (s) => {
     if (!s) return null;
     const m = String(s).match(/^\s*(.+?)\s*[@:]\s*([\d.,]+)\s*$/);
@@ -551,7 +551,7 @@ const SalesInvoice = ({ data = {} }) => {
     <div className="si-id">
       <div className="si-l">{label}</div>
       <div className={`si-v${value ? "" : " empty"}`} style={mono ? { fontVariantNumeric: "tabular-nums" } : undefined}>
-        {value || "â€”"}
+        {value || "—"}
       </div>
     </div>
   );
@@ -576,7 +576,7 @@ const SalesInvoice = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="si-brand-sub">
             {d.company_phone && <>Phone <strong>{d.company_phone}</strong></>}
-            {d.company_phone && d.company_email && <>&nbsp; Â·&nbsp; </>}
+            {d.company_phone && d.company_email && <>&nbsp; ·&nbsp; </>}
             {d.company_email && <>Email <strong>{d.company_email}</strong></>}
           </div>
         )}
@@ -601,7 +601,7 @@ const SalesInvoice = ({ data = {} }) => {
       <div className="si-title">Tax Invoice</div>
       <div className="si-meta">
         <span className="si-num">{d.gst_billno || d.billno || ""}</span>
-        <span className="si-sep">Â·</span>
+        <span className="si-sep">·</span>
         <span className="si-date">{fmtDate(d.date1)}</span>
       </div>
     </div>
@@ -646,11 +646,11 @@ const SalesInvoice = ({ data = {} }) => {
             <span key={i} className="si-r">
               {r.label}
               {r.rate !== "" && r.rate !== undefined && r.rate !== null && (
-                <> : â‚¹ {fmtInt(r.rate)} / gm</>
+                <> : ₹ {fmtInt(r.rate)} / gm</>
               )}
             </span>
           ))
-        : <span className="si-r" style={{ color: "var(--faint)" }}>â€”</span>}
+        : <span className="si-r" style={{ color: "var(--faint)" }}>—</span>}
     </div>
   );
 
@@ -743,14 +743,14 @@ const SalesInvoice = ({ data = {} }) => {
               <span className="si-l">Total Purchase Amount</span>
               <span className="si-v">
                 {d.purchase_total != null && d.purchase_total !== ""
-                  ? <>â‚¹ {fmtInt(d.purchase_total)}</>
-                  : "â€”"}
+                  ? <>₹ {fmtInt(d.purchase_total)}</>
+                  : "—"}
               </span>
             </div>
             {d.purchase_voucher_ref && (
               <div className="si-src">
-                From Purchase Voucher Â· {d.purchase_voucher_ref}
-                {d.purchase_voucher_date && <> Â· {fmtDate(d.purchase_voucher_date)}</>}
+                From Purchase Voucher · {d.purchase_voucher_ref}
+                {d.purchase_voucher_date && <> · {fmtDate(d.purchase_voucher_date)}</>}
               </div>
             )}
           </div>
@@ -763,8 +763,8 @@ const SalesInvoice = ({ data = {} }) => {
             <div className="si-col">
               <div className="si-t">Stones</div>
               <div className="si-v">
-                {d.buyback_stones_l1 || "Lab Grown Diamonds â€” 30%"}<br/>
-                {d.buyback_stones_l2 || "Precious Col. Stone â€” 25%, Imitation â€” 100%"}
+                {d.buyback_stones_l1 || "Lab Grown Diamonds — 30%"}<br/>
+                {d.buyback_stones_l2 || "Precious Col. Stone — 25%, Imitation — 100%"}
               </div>
             </div>
             <div className="si-col">
@@ -788,11 +788,11 @@ const SalesInvoice = ({ data = {} }) => {
           <div className="si-pay-row">
             <div className="si-pay">
               <span className="si-pl">Bank</span>
-              <span className="si-pv">â‚¹ {fmtInt(d.bank_total || 0)}</span>
+              <span className="si-pv">₹ {fmtInt(d.bank_total || 0)}</span>
             </div>
             <div className="si-pay">
               <span className="si-pl">Cash</span>
-              <span className="si-pv">â‚¹ {fmtInt(d.cash || 0)}</span>
+              <span className="si-pv">₹ {fmtInt(d.cash || 0)}</span>
             </div>
           </div>
           <div className="si-words">
@@ -814,7 +814,7 @@ const SalesInvoice = ({ data = {} }) => {
         )}
         <div className="si-row bold"><span className="si-l">Total After Tax</span><span className="si-v">{fmtInt(d.total_bill_value)}</span></div>
         <div className="si-row"><span className="si-l">Less: Advance Amount</span><span className="si-v">{fmtInt(d.advance_deducted || 0)}</span></div>
-        <div className="si-row net"><span className="si-l">Net Receivable</span><span className="si-v">â‚¹ {fmtInt(d.net_receivable)}</span></div>
+        <div className="si-row net"><span className="si-l">Net Receivable</span><span className="si-v">₹ {fmtInt(d.net_receivable)}</span></div>
       </div>
     </div>
   );

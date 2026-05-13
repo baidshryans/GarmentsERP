@@ -1,7 +1,7 @@
 ﻿import React from "react";
 import { fmt, fmtDate, numberToWords } from "./printHelpers";
 
-// â”€â”€ CSS (self-contained â€” injected into the print popup) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€ CSS (self-contained — injected into the print popup) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const CN_CSS = `
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap");
 
@@ -252,7 +252,7 @@ export default function SaleReturnCreditNote({ data: d }) {
                 {[
                   d.company_phone && <span key="ph">Phone <b>{d.company_phone}</b></span>,
                   d.company_email && <span key="em">Email <b>{d.company_email}</b></span>,
-                ].filter(Boolean).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`s${i}`} className="cn-dot"> Â· </span>, el], [])}
+                ].filter(Boolean).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`s${i}`} className="cn-dot"> · </span>, el], [])}
               </div>
             )}
             <div className="cn-brand-ids">
@@ -343,7 +343,7 @@ export default function SaleReturnCreditNote({ data: d }) {
               <th className="l">Item Description</th>
               <th className="c" style={{ width: "48px" }}>Purity</th>
               <th className="r" style={{ width: "48px" }}>Weight</th>
-              <th className="r" style={{ width: "50px" }}>Rate (â‚¹)</th>
+              <th className="r" style={{ width: "50px" }}>Rate (₹)</th>
               <th className="r" style={{ width: "52px" }}>Making</th>
               <th className="r" style={{ width: "62px" }}>Amount</th>
             </tr>
@@ -356,10 +356,10 @@ export default function SaleReturnCreditNote({ data: d }) {
                   <td className="c">{item.pcs || 1}</td>
                   <td className="l">{item.item_name}</td>
                   <td className="c">
-                    {item.purity || <span style={{ color: "var(--faint)" }}>â€”</span>}
+                    {item.purity || <span style={{ color: "var(--faint)" }}>—</span>}
                   </td>
                   <td className="r">{fmt3(item.gw)}&nbsp;g</td>
-                  <td className="r"><span style={{ color: "var(--faint)" }}>â€”</span></td>
+                  <td className="r"><span style={{ color: "var(--faint)" }}>—</span></td>
                   <td className="r">{fmtAmt(item.making)}</td>
                   <td className="r">{fmtAmt(item.amount)}</td>
                 </tr>
@@ -374,10 +374,10 @@ export default function SaleReturnCreditNote({ data: d }) {
                       <td></td>
                       <td></td>
                       <td className="l">{sub.text}</td>
-                      <td className="c">{sub.metal_purity || "â€”"}</td>
+                      <td className="c">{sub.metal_purity || "—"}</td>
                       <td className="r">{wt}</td>
                       <td className="r">{fmtAmt(sub.rate)}</td>
-                      <td className="r">â€”</td>
+                      <td className="r">—</td>
                       <td className="r">{fmtAmt(sub.amount)}</td>
                     </tr>
                   );

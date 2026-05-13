@@ -9,7 +9,7 @@ const PV_CSS = [
   "*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}",
   "body{background:#fff}",
 
-  /* page â€” A5 landscape */
+  /* page — A5 landscape */
   ".pv-page{font-family:Inter,Arial,sans-serif;font-size:10px;line-height:1.4;color:#111;width:210mm;min-height:148mm;margin:0 auto;padding:8mm 10mm;background:#fff;display:flex;flex-direction:column}",
 
   /* company header */
@@ -78,7 +78,7 @@ const PaymentVoucherSlip = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="pv-co-sub">
             {d.company_phone && "Tel: " + d.company_phone}
-            {d.company_phone && d.company_email && "  Â·  "}
+            {d.company_phone && d.company_email && "  ·  "}
             {d.company_email}
           </div>
         )}
@@ -87,7 +87,7 @@ const PaymentVoucherSlip = ({ data = {} }) => {
       {/* â”€â”€ Title strip â”€â”€ */}
       <div className="pv-title">
         <div className="pv-title-meta">
-          Vou. No.&nbsp;<strong>{d.voucher_no || "â€”"}</strong>
+          Vou. No.&nbsp;<strong>{d.voucher_no || "—"}</strong>
         </div>
         <div className="pv-title-center">Payment Voucher</div>
         <div className="pv-title-meta pv-title-right">
@@ -102,14 +102,14 @@ const PaymentVoucherSlip = ({ data = {} }) => {
       <div className="pv-party-row">
         <div className="pv-party">
           <div className="pv-lbl">Paid To</div>
-          <div className="pv-party-name">{party?.account || "â€”"}</div>
+          <div className="pv-party-name">{party?.account || "—"}</div>
           {party?.ref_bill_no && (
             <div className="pv-party-ref">Ref: {party.ref_bill_no}</div>
           )}
         </div>
         <div className="pv-amount-block">
           <div className="pv-lbl" style={{ textAlign: "right" }}>Amount</div>
-          <div className="pv-amount-fig">â‚¹&nbsp;{fmt(totalAmt) || "0.00"}</div>
+          <div className="pv-amount-fig">₹&nbsp;{fmt(totalAmt) || "0.00"}</div>
           <div className="pv-amount-words">{numberToWords(totalAmt)}</div>
         </div>
       </div>
@@ -118,19 +118,19 @@ const PaymentVoucherSlip = ({ data = {} }) => {
       <div className="pv-details">
         <div className="pv-det-cell">
           <div className="pv-lbl">Mode</div>
-          <div className="pv-mode-badge">{mode?.label || "â€”"}</div>
+          <div className="pv-mode-badge">{mode?.label || "—"}</div>
         </div>
         <div className="pv-det-cell">
           <div className="pv-lbl">Bank / Account</div>
-          <div className="pv-det-val">{mode?.account || "â€”"}</div>
+          <div className="pv-det-val">{mode?.account || "—"}</div>
         </div>
         <div className="pv-det-cell">
           <div className="pv-lbl">Cheque / Ref. No.</div>
-          <div className="pv-det-val">{bankLine?.chq_no || "â€”"}</div>
+          <div className="pv-det-val">{bankLine?.chq_no || "—"}</div>
         </div>
         <div className="pv-det-cell">
           <div className="pv-lbl">Instrument Date</div>
-          <div className="pv-det-val">{fmtDate(bankLine?.chq_date) || "â€”"}</div>
+          <div className="pv-det-val">{fmtDate(bankLine?.chq_date) || "—"}</div>
         </div>
       </div>
 

@@ -75,7 +75,7 @@ const GstInputRegister = () => {
         tfoot tr { font-weight: bold; background: #f9f9f9; }
         h2 { font-size: 14px; margin-bottom: 8px; }
       </style></head><body>
-      <h2>GST Input Register � ${startDate} to ${endDate}</h2>
+      <h2>GST Input Register — ${startDate} to ${endDate}</h2>
       ${content}
       </body></html>`);
     win.document.close();
@@ -216,7 +216,7 @@ const GstInputRegister = () => {
         <div className="flex flex-col gap-3">
           {data.length > 0 && (
             <p className="text-sm text-muted-foreground px-1">
-              {data.length} record(s) � {formatDate(startDate)} to {formatDate(endDate)}
+              {data.length} record(s) — {formatDate(startDate)} to {formatDate(endDate)}
             </p>
           )}
 
@@ -259,10 +259,10 @@ const GstInputRegister = () => {
                       >
                         <td className="px-3 py-2 border-r border-border/50">{formatDate(row.date)}</td>
                         <td className="px-3 py-2 border-r border-border/50">{row.bill_no}</td>
-                        <td className="px-3 py-2 border-r border-border/50">{row.ref_no || '�'}</td>
+                        <td className="px-3 py-2 border-r border-border/50">{row.ref_no || '—'}</td>
                         <td className="px-3 py-2 border-r border-border/50 max-w-32 truncate">{row.party_name}</td>
-                        <td className="px-3 py-2 border-r border-border/50">{row.gstin || '�'}</td>
-                        <td className="px-3 py-2 border-r border-border/50">{row.pan || '�'}</td>
+                        <td className="px-3 py-2 border-r border-border/50">{row.gstin || '—'}</td>
+                        <td className="px-3 py-2 border-r border-border/50">{row.pan || '—'}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.taxable_amount)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.bill_value)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.goods_value)}</td>
@@ -271,7 +271,7 @@ const GstInputRegister = () => {
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.cgst)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.igst)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.utgst)}</td>
-                        <td className="px-3 py-2 text-right">{row.add_less || '�'}</td>
+                        <td className="px-3 py-2 text-right">{row.add_less || '—'}</td>
                       </tr>
                     ))
                   )}
@@ -288,7 +288,7 @@ const GstInputRegister = () => {
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.cgst)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.igst)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.utgst)}</td>
-                      <td className="px-3 py-2.5 text-right text-sm">�</td>
+                      <td className="px-3 py-2.5 text-right text-sm">—</td>
                     </tr>
                   </tfoot>
                 )}

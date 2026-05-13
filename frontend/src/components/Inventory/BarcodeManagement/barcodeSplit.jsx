@@ -514,7 +514,7 @@ const BarcodeSplit = () => {
         <div className="mt-5 space-y-6">
             <form id="orderForm" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-                {/* ══ SECTION 1 � Source Barcode ══════════════════════════════════ */}
+                {/* ══ SECTION 1 – Source Barcode ══════════════════════════════════ */}
                 <div className="p-6 shadow-sm rounded-xl bg-white border border-gray-100">
                     <SectionHeader icon={ScanBarcode} title="Source Barcode" subtitle="Scan or type the barcode to split" />
 
@@ -526,7 +526,7 @@ const BarcodeSplit = () => {
                                 onKeyDown={handleKeyDownBarcode}
                                 type="text"
                                 {...register("form.old_barcode")}
-                                placeholder="Scan or type barcode�"
+                                placeholder="Scan or type barcode…"
                                 className="h-9 w-56 bg-white"
                             />
                             <datalist id="barcode_list">
@@ -567,7 +567,7 @@ const BarcodeSplit = () => {
                                                 <td className="px-2 py-1.5 text-gray-500">{item.item_name}</td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</td>
+                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
                                                 <td className="px-2 py-1.5">{item.purity}</td>
                                                 <td className="px-2 py-1.5">{item.making_val}</td>
                                                 <td className="px-2 py-1.5">{item.making_type}</td>
@@ -575,13 +575,13 @@ const BarcodeSplit = () => {
                                             </tr>
                                             {item.barcodedetails_set?.map((detail, di) => (
                                                 <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
-                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "�"}</td>
+                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.item}</td>
                                                     <td className="px-2 py-1 text-xs"></td>
                                                     <td className="px-2 py-1 text-xs">{detail.pcs}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "�"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "�"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.purity || "�"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.purity || "—"}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.rate}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.uom}</td>
                                                     <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
@@ -595,9 +595,9 @@ const BarcodeSplit = () => {
                     )}
                 </div>
 
-                {/* ══ SECTION 2 � New Barcode Entry ═══════════════════════════════ */}
+                {/* ══ SECTION 2 – New Barcode Entry ═══════════════════════════════ */}
                 <div className="p-6 shadow-sm rounded-xl bg-white border border-gray-100">
-                    <SectionHeader icon={Scissors} title="New Barcode Entry" subtitle="Define split barcodes � press Tab on last field to add row" />
+                    <SectionHeader icon={Scissors} title="New Barcode Entry" subtitle="Define split barcodes — press Tab on last field to add row" />
 
                     {/* Main Item */}
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Main Item</p>
@@ -608,7 +608,7 @@ const BarcodeSplit = () => {
                                 list="item_list"
                                 {...register("table.item")}
                                 className="h-9 w-36 bg-white text-sm"
-                                placeholder="Item code�"
+                                placeholder="Item code…"
                             />
                             <datalist id="item_list">
                                 {mainItemData.map((item, index) => (
@@ -618,7 +618,7 @@ const BarcodeSplit = () => {
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-gray-500">Barcode</Label>
-                            <Input type="text" {...register("table.barcode")} className="h-9 w-44 bg-white text-sm font-mono" placeholder="Auto-generated�" />
+                            <Input type="text" {...register("table.barcode")} className="h-9 w-44 bg-white text-sm font-mono" placeholder="Auto-generated…" />
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-gray-500">Purity</Label>
@@ -709,7 +709,7 @@ const BarcodeSplit = () => {
                                             list="packet_list"
                                             {...register("table.details.packet")}
                                             className="h-9 text-sm bg-white w-28 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            placeholder="Packet�"
+                                            placeholder="Packet…"
                                             disabled={packetDisabledByItem}
                                         />
                                         <datalist id="packet_list">
@@ -723,7 +723,7 @@ const BarcodeSplit = () => {
                                             list="sub_item_list"
                                             {...register("table.details.item")}
                                             className="h-9 text-sm bg-white w-28 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            placeholder="Item�"
+                                            placeholder="Item…"
                                             disabled={itemDisabledByPacket}
                                         />
                                         <datalist id="sub_item_list">
@@ -760,7 +760,7 @@ const BarcodeSplit = () => {
                     </div>
                 </div>
 
-                {/* ══ SECTION 3 � New Barcodes Preview ═══════════════════════════ */}
+                {/* ══ SECTION 3 – New Barcodes Preview ═══════════════════════════ */}
                 {rs.length > 0 && (
                     <div className="p-6 shadow-sm rounded-xl bg-white border border-gray-100">
                         <SectionHeader icon={Plus} title="New Barcodes" subtitle="Split barcodes to be created" />
@@ -791,7 +791,7 @@ const BarcodeSplit = () => {
                                                 <td className="px-2 py-1.5 text-gray-500">{item.item_name}</td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</td>
+                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
                                                 <td className="px-2 py-1.5">{item.purity}</td>
                                                 <td className="px-2 py-1.5">{item.making_val}</td>
                                                 <td className="px-2 py-1.5">{item.making_type}</td>
@@ -817,13 +817,13 @@ const BarcodeSplit = () => {
                                             </tr>
                                             {item.barcodedetails_set?.map((detail, di) => (
                                                 <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
-                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "�"}</td>
+                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.item}</td>
                                                     <td className="px-2 py-1 text-xs"></td>
                                                     <td className="px-2 py-1 text-xs">{detail.pcs}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "�"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "�"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.purity || "�"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.purity || "—"}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.rate}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.uom}</td>
                                                     <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>

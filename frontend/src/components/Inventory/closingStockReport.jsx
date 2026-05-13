@@ -34,7 +34,7 @@ const fmt   = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 
 const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const fmtK  = (v) => { const n = Number(v); if (n >= 1e7) return (n/1e7).toFixed(2)+"Cr"; if (n >= 1e5) return (n/1e5).toFixed(2)+"L"; return fmt(n); };
 const isNonZero = (v) => Math.abs(Number(v)) > 0.001;
-const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "�";
+const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 /* ─── KPI Card ──────────────────────────────────────────────────────────── */
 function KpiCard({ icon: Icon, label, value, sub }) {
@@ -87,7 +87,7 @@ const ClickTd = ({ children, className = "", onClick, active = false }) => (
   </td>
 );
 
-const Dash = () => <span className="text-muted-foreground/25">�</span>;
+const Dash = () => <span className="text-muted-foreground/25">—</span>;
 
 /* ─── Loading skeleton ──────────────────────────────────────────────────── */
 function LoadingSkeleton() {
@@ -153,7 +153,7 @@ function TxnModal({ drill, asOnDate, onClose }) {
           <div>
             <p className="font-semibold text-foreground text-sm">{drill?.item_name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {TXN_LABELS[drill?.txn_type]} � up to {fmtDate(asOnDate)}
+              {TXN_LABELS[drill?.txn_type]} · up to {fmtDate(asOnDate)}
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-accent rounded-lg transition-colors">
@@ -165,7 +165,7 @@ function TxnModal({ drill, asOnDate, onClose }) {
         <div className="overflow-auto flex-1">
           {loading && (
             <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-              <Loader2 className="size-4 animate-spin" /> Loading�
+              <Loader2 className="size-4 animate-spin" /> Loading…
             </div>
           )}
           {error && (
@@ -191,7 +191,7 @@ function TxnModal({ drill, asOnDate, onClose }) {
                   <tr key={i} className="hover:bg-accent/30 transition-colors">
                     <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtDate(v.date)}</td>
                     <td className="px-3 py-2 font-medium text-foreground">{v.voucher_no}</td>
-                    <td className="px-3 py-2 text-muted-foreground max-w-[180px] truncate">{v.party || "�"}</td>
+                    <td className="px-3 py-2 text-muted-foreground max-w-[180px] truncate">{v.party || "—"}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{isNonZero(v.gw) ? fmtWt(v.gw) : <Dash />}</td>
                     {showCt  && <td className="px-3 py-2 text-right tabular-nums">{isNonZero(v.ct) ? fmtWt(v.ct) : <Dash />}</td>}
                     {showAmt && <td className="px-3 py-2 text-right tabular-nums font-medium">{isNonZero(v.amount) ? fmt(v.amount) : <Dash />}</td>}
@@ -391,7 +391,7 @@ export default function ClosingStockTable() {
                     {scope === "all"
                       ? "All retails (combined)"
                       : selectedRetailIds.length === 0
-                        ? <span className="text-muted-foreground">Select retails�</span>
+                        ? <span className="text-muted-foreground">Select retails…</span>
                         : selectedRetailIds.length === 1
                           ? (retails.find((r) => r.id === selectedRetailIds[0])?.retail_name || `#${selectedRetailIds[0]}`)
                           : `${selectedRetailIds.length} retails selected`}
@@ -448,7 +448,7 @@ export default function ClosingStockTable() {
             aria-label="Show closing stock report"
           >
             {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <BarChart3 className="size-3.5" aria-hidden="true" />}
-            {loading ? "Loading�" : "Show Report"}
+            {loading ? "Loading…" : "Show Report"}
           </Button>
         </div>
         {data && (
@@ -581,7 +581,7 @@ export default function ClosingStockTable() {
                         </div>
                       </td>
 
-                      {/* Opening � not drillable (opening stock from op_stk records, not vouchers) */}
+                      {/* Opening — not drillable (opening stock from op_stk records, not vouchers) */}
                       <Td>{isNonZero(d.opening_gw)  ? fmtWt(d.opening_gw)  : <Dash/>}</Td>
                       <Td>{isNonZero(d.opening_ct)  ? fmtWt(d.opening_ct)  : <Dash/>}</Td>
                       <Td>{isNonZero(d.opening_amt) ? fmt(d.opening_amt)   : <Dash/>}</Td>
@@ -615,7 +615,7 @@ export default function ClosingStockTable() {
                       {/* Wtd Avg Rate */}
                       <Td className="font-mono text-muted-foreground">{fmtWt(d.weighted_avg_rate)}</Td>
 
-                      {/* Closing � derived, not drillable */}
+                      {/* Closing — derived, not drillable */}
                       <Td className="bg-primary/5 font-medium">{isNonZero(d.closing_gw) ? fmtWt(d.closing_gw) : <Dash/>}</Td>
                       <Td className="bg-primary/5 font-medium">{isNonZero(d.closing_ct) ? fmtWt(d.closing_ct) : <Dash/>}</Td>
                       <Td className="bg-primary/5 font-bold text-primary">{fmt(d.closing_amt)}</Td>

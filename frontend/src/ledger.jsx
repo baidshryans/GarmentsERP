@@ -62,7 +62,7 @@ const Ledger = () => {
           {row.original.is_system ? (
             <span
               className="p-1.5 rounded text-muted-foreground/30 cursor-not-allowed"
-              title="System ledger � cannot be deleted"
+              title="System ledger — cannot be deleted"
             >
               <Trash2 className="size-4" />
             </span>
@@ -100,7 +100,7 @@ const Ledger = () => {
       id: "roles",
       cell: ({ row }) => {
         const roles = row.original.roles || [];
-        if (!roles.length) return <span className="text-muted-foreground">�</span>;
+        if (!roles.length) return <span className="text-muted-foreground">—</span>;
         return (
           <div className="flex flex-wrap gap-1">
             {roles.map((r, i) => (
@@ -121,7 +121,7 @@ const Ledger = () => {
         return (
           <div className="flex flex-col leading-tight">
             {parent && <span className="text-xs text-muted-foreground">{parent}</span>}
-            <span className="italic">{group || "�"}</span>
+            <span className="italic">{group || "—"}</span>
           </div>
         );
       },

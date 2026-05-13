@@ -189,7 +189,7 @@ export default function UserManagement() {
         </div>
       ),
     },
-    { header: "Name", cell: ({ row }) => `${row.original.first_name} ${row.original.last_name}`.trim() || "�" },
+    { header: "Name", cell: ({ row }) => `${row.original.first_name} ${row.original.last_name}`.trim() || "—" },
     { header: "Email", accessorKey: "email" },
     {
       header: "Status",
@@ -281,7 +281,7 @@ export default function UserManagement() {
       {/* ── Edit User Sheet ── */}
       <Sheet open={sheet === "edit"} onOpenChange={(open) => !open && setSheet(null)}>
         <SheetContent aria-describedby={undefined} className="w-[400px] sm:w-[480px] overflow-y-auto">
-          <SheetHeader><SheetTitle>Edit User � {selected?.username}</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>Edit User — {selected?.username}</SheetTitle></SheetHeader>
           <div className="grid grid-cols-2 gap-3 py-4">
             <div>
               <Label className="text-xs">First Name</Label>
@@ -322,7 +322,7 @@ export default function UserManagement() {
       {/* ── Assign Role Sheet ── */}
       <Sheet open={sheet === "role"} onOpenChange={(open) => !open && setSheet(null)}>
         <SheetContent aria-describedby={undefined} className="w-[400px] sm:w-[480px] overflow-y-auto">
-          <SheetHeader><SheetTitle>Assign Role � {selected?.username}</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>Assign Role — {selected?.username}</SheetTitle></SheetHeader>
           <div className="py-4 flex flex-col gap-3">
             <Label className="text-xs text-muted-foreground block">
               Choose the role that defines what this user can view, create, edit, and delete.
@@ -332,10 +332,10 @@ export default function UserManagement() {
               onValueChange={(v) => setForm((f) => ({ ...f, role_id: v === "__none__" ? null : Number(v) }))}
             >
               <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="� No role �" />
+                <SelectValue placeholder="— No role —" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">� No role (access denied) �</SelectItem>
+                <SelectItem value="__none__">— No role (access denied) —</SelectItem>
                 {roles.map((r) => (
                   <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
                 ))}
@@ -358,7 +358,7 @@ export default function UserManagement() {
       {/* ── Assign Retail Sheet ── */}
       <Sheet open={sheet === "retail"} onOpenChange={(open) => !open && setSheet(null)}>
         <SheetContent aria-describedby={undefined} className="w-[400px] sm:w-[480px] overflow-y-auto">
-          <SheetHeader><SheetTitle>Assign Retails � {selected?.username}</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>Assign Retails — {selected?.username}</SheetTitle></SheetHeader>
           <div className="py-4 flex flex-col gap-4">
             <div>
               <Label className="text-xs text-muted-foreground mb-2 block">Select retails this user can access:</Label>
@@ -383,10 +383,10 @@ export default function UserManagement() {
                   onValueChange={(v) => setForm((f) => ({ ...f, default_retail_id: v === "__none__" ? null : Number(v) }))}
                 >
                   <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="� None �" />
+                    <SelectValue placeholder="— None —" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">� None �</SelectItem>
+                    <SelectItem value="__none__">— None —</SelectItem>
                     {retails
                       .filter((r) => (form.retail_ids || []).includes(r.id))
                       .map((r) => (

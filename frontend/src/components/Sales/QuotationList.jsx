@@ -166,7 +166,7 @@ export default function QuotationList() {
       header: "Valid Until",
       accessorKey: "valid_until",
       cell: ({ row }) => {
-        if (!row.original.valid_until) return "�";
+        if (!row.original.valid_until) return "—";
         const d = new Date(row.original.valid_until);
         const isExpired = d < new Date();
         return (
@@ -221,7 +221,7 @@ export default function QuotationList() {
       {/* Filters + Actions row */}
       <div className="flex flex-wrap items-center gap-2">
         <Input
-          placeholder="Search quotation no, party�"
+          placeholder="Search quotation no, party…"
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
           className="h-9 max-w-xs"

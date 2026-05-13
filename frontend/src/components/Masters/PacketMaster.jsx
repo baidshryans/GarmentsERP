@@ -500,7 +500,7 @@ export default function PacketMaster() {
           {/* Pagination controls */}
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}�{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+              Showing {filtered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
             </span>
             <div className="flex items-center gap-2">
               <Button

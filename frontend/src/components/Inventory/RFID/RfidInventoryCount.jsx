@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { submitRfidCount } from '@/services/apiService';
 
 /**
- * RfidInventoryCount � RFID bulk inventory count session.
+ * RfidInventoryCount — RFID bulk inventory count session.
  *
  * Workflow:
  *  1. Paste tag IDs from your RFID reader software (one per line or comma-separated),
  *     OR connect a USB HID RFID reader that types tag IDs followed by Enter.
- *  2. Click "Run Count" � the system compares scanned tags against current stock.
+ *  2. Click "Run Count" — the system compares scanned tags against current stock.
  *  3. Review Matched / Missing / Unexpected tabs.
  *  4. Optionally save the session for audit trail.
  */
@@ -72,7 +72,7 @@ export default function RfidInventoryCount() {
         {/* Live reader input */}
         <div>
           <label className="text-xs text-muted-foreground block mb-1">
-            USB HID Reader � focus here and scan tags one by one
+            USB HID Reader — focus here and scan tags one by one
           </label>
           <Input
             value={liveTag}
@@ -98,7 +98,7 @@ export default function RfidInventoryCount() {
       {/* Bulk paste area */}
       <div>
         <label className="text-xs text-muted-foreground block mb-1">
-          Tag list � paste from reader software (one per line or comma-separated)
+          Tag list — paste from reader software (one per line or comma-separated)
         </label>
         <Textarea
           value={tagText}
@@ -193,8 +193,8 @@ export default function RfidInventoryCount() {
                       {activeTab !== 'unexpected' && (
                         <>
                           <td className="px-3 py-2 font-mono">{row.barcode}</td>
-                          <td className="px-3 py-2">{row.item || '�'}</td>
-                          <td className="px-3 py-2">{row.purity || '�'}</td>
+                          <td className="px-3 py-2">{row.item || '—'}</td>
+                          <td className="px-3 py-2">{row.purity || '—'}</td>
                           <td className="px-3 py-2 text-right">{row.gw?.toFixed(3)}</td>
                         </>
                       )}

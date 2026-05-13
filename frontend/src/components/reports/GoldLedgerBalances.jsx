@@ -24,7 +24,7 @@ const fyStart = (() => {
 
 function fmt(val, decimals = 3) {
   const n = parseFloat(val);
-  if (isNaN(n) || n === 0) return "�";
+  if (isNaN(n) || n === 0) return "—";
   return n.toFixed(decimals);
 }
 
@@ -170,7 +170,7 @@ const TD = ({ children, className = "" }) => (
 );
 
 function ClosingBadge({ value }) {
-  if (value === 0 || isNaN(value)) return <span className="text-muted-foreground text-xs">�</span>;
+  if (value === 0 || isNaN(value)) return <span className="text-muted-foreground text-xs">—</span>;
   if (value < 0) {
     return (
       <span className="inline-flex items-center gap-0.5 bg-green-50 text-green-700 border border-green-200 rounded px-1.5 py-0.5 text-[11px] font-semibold whitespace-nowrap">
@@ -341,14 +341,14 @@ export default function GoldLedgerBalances() {
           )}
         </div>
 
-        {/* Filter bar � single compact row */}
+        {/* Filter bar — single compact row */}
         <div className="px-4 py-3 flex flex-wrap items-center gap-2">
 
           {/* Karigar multi-select */}
           <FilterDropdown label="Karigar" badge={karigarBadge} icon={Users}>
             <div className="p-2 border-b border-border">
               <Input
-                placeholder="Search karigar�"
+                placeholder="Search karigar…"
                 value={karigarSearch}
                 onChange={(e) => setKarigarSearch(e.target.value)}
                 className="h-7 text-xs"
@@ -456,7 +456,7 @@ export default function GoldLedgerBalances() {
               {loading
                 ? <Loader2 className="size-4 mr-1.5 animate-spin" />
                 : <Search className="size-4 mr-1.5" />}
-              {loading ? "Loading�" : "Generate"}
+              {loading ? "Loading…" : "Generate"}
             </Button>
             {hasData && (
               <Button variant="outline" className="h-9" onClick={() => window.print()}>
@@ -469,7 +469,7 @@ export default function GoldLedgerBalances() {
 
         {/* Helper text */}
         <div className="px-5 pb-2.5 text-[10px] text-muted-foreground/70">
-          Opening balance calculated <em>as on</em> From Date � Period movements shown between From → To
+          Opening balance calculated <em>as on</em> From Date · Period movements shown between From → To
         </div>
       </div>
 
@@ -477,9 +477,9 @@ export default function GoldLedgerBalances() {
       {hasData && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCard icon={Users}            iconClass="bg-primary/10 text-primary"       label="Karigars"         value={data.length}                                    sub={`${purityKeys.length} purit${purityKeys.length !== 1 ? "ies" : "y"}`} />
-          <KpiCard icon={ArrowUpFromLine}  iconClass="bg-amber-100 text-amber-600"      label="Total Issued"     value={kpiIssued   > 0 ? kpiIssued.toFixed(3)   : "�"} sub="grams issued in period" />
-          <KpiCard icon={ArrowDownToLine} iconClass="bg-green-100 text-green-600"      label="Total Received"   value={kpiReceived > 0 ? kpiReceived.toFixed(3) : "�"} sub="net weight returned" />
-          <KpiCard icon={TrendingDown}     iconClass={kpiDrTotal > 0 ? "bg-amber-100 text-amber-600" : "bg-muted text-muted-foreground"} label="Net Outstanding" value={kpiDrTotal > 0 ? kpiDrTotal.toFixed(3) : "�"} sub="gold with karigars (Dr)" />
+          <KpiCard icon={ArrowUpFromLine}  iconClass="bg-amber-100 text-amber-600"      label="Total Issued"     value={kpiIssued   > 0 ? kpiIssued.toFixed(3)   : "—"} sub="grams issued in period" />
+          <KpiCard icon={ArrowDownToLine} iconClass="bg-green-100 text-green-600"      label="Total Received"   value={kpiReceived > 0 ? kpiReceived.toFixed(3) : "—"} sub="net weight returned" />
+          <KpiCard icon={TrendingDown}     iconClass={kpiDrTotal > 0 ? "bg-amber-100 text-amber-600" : "bg-muted text-muted-foreground"} label="Net Outstanding" value={kpiDrTotal > 0 ? kpiDrTotal.toFixed(3) : "—"} sub="gold with karigars (Dr)" />
         </div>
       )}
 
@@ -566,7 +566,7 @@ export default function GoldLedgerBalances() {
                       if (!pd) return (
                         <React.Fragment key={key}>
                           {[...Array(6)].map((_, i) => (
-                            <TD key={i} className={i === 0 ? "border-l border-violet-200 text-muted-foreground/40" : "text-muted-foreground/40"}>�</TD>
+                            <TD key={i} className={i === 0 ? "border-l border-violet-200 text-muted-foreground/40" : "text-muted-foreground/40"}>—</TD>
                           ))}
                         </React.Fragment>
                       );
@@ -612,11 +612,11 @@ export default function GoldLedgerBalances() {
 
           {/* Legend */}
           <div className="px-5 py-3 border-t border-border bg-muted/10 flex flex-wrap gap-x-5 gap-y-1.5 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-muted-foreground/40 inline-block" /><strong>Opening</strong> � balance as on From Date</span>
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400 inline-block" /><strong>Issued</strong> � gold issued in period</span>
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-green-400 inline-block" /><strong>Received</strong> � net weight returned</span>
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-red-400 inline-block" /><strong>Wastage</strong> � wastage on receive</span>
-            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-blue-400 inline-block" /><strong>Add Wt</strong> � additional weight</span>
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-muted-foreground/40 inline-block" /><strong>Opening</strong> — balance as on From Date</span>
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400 inline-block" /><strong>Issued</strong> — gold issued in period</span>
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-green-400 inline-block" /><strong>Received</strong> — net weight returned</span>
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-red-400 inline-block" /><strong>Wastage</strong> — wastage on receive</span>
+            <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-blue-400 inline-block" /><strong>Add Wt</strong> — additional weight</span>
             <span className="flex items-center gap-1.5"><span className="inline-flex items-center bg-amber-50 text-amber-700 border border-amber-200 rounded px-1 text-[9px] font-semibold">Dr</span> gold outstanding</span>
             <span className="flex items-center gap-1.5"><span className="inline-flex items-center bg-green-50 text-green-700 border border-green-200 rounded px-1 text-[9px] font-semibold">Cr</span> over-received</span>
           </div>

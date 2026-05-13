@@ -7,7 +7,7 @@ import { fetchSubcontractorLedger, getLedgers } from "@/services/apiService";
 import Select from "react-select";
 
 /**
- * Subcontractor Ledger � three stacked accounts for a karigar:
+ * Subcontractor Ledger — three stacked accounts for a karigar:
  *   1. Finished / Semi-finished account  (pieces out vs receive in, weight-based)
  *   2. Raw Gold account                   (gold issued vs incremental returned, pure-wt)
  *   3. Labour summary                     (making charges per receive)
@@ -58,7 +58,7 @@ export default function SubcontractorLedger() {
           <Label>To</Label>
           <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
         </div>
-        <Button onClick={run} disabled={!karigar || loading}>{loading ? "Loading�" : "Run"}</Button>
+        <Button onClick={run} disabled={!karigar || loading}>{loading ? "Loading…" : "Run"}</Button>
         <Button variant="secondary" onClick={() => window.print()}>Print</Button>
       </div>
 

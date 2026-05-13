@@ -226,7 +226,7 @@ export async function fetchOutstandingBills(ledgerId, kind) {
 /**
  * Aged Receivables / Aged Payables report.
  * kind: 'sales' (receivable) | 'purchase' (payable)
- * Returns: { as_of, kind, rows: [{ldgr_id, ldgr_name, b0_30, b31_60, b61_90, b90_plus, total, bills:[�]}], totals: {�} }
+ * Returns: { as_of, kind, rows: [{ldgr_id, ldgr_name, b0_30, b31_60, b61_90, b90_plus, total, bills:[…]}], totals: {…} }
  */
 export async function fetchAgedReceivables(kind = "sales") {
   try {
@@ -241,8 +241,8 @@ export async function fetchAgedReceivables(kind = "sales") {
 }
 
 /**
- * Advance Register � every CustomerOrder with an advance receipt.
- * Returns: { rows: [{order_id, order_no, date, ldgr_name, status, received, reconciled, remaining}], totals: {�} }
+ * Advance Register — every CustomerOrder with an advance receipt.
+ * Returns: { rows: [{order_id, order_no, date, ldgr_name, status, received, reconciled, remaining}], totals: {…} }
  */
 export async function fetchAdvanceRegister() {
   try {

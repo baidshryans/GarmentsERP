@@ -57,10 +57,10 @@ export default function LedgerDocuments({ ledgerId, ledgerName, pendingDocs = []
     if (!file) return;
 
     if (isPending) {
-      // Pending mode � just queue
+      // Pending mode — just queue
       const updated = [...pendingDocs, { file, docType }];
       onPendingChange?.(updated);
-      toast({ title: `"${file.name}" queued � will upload after saving.` });
+      toast({ title: `"${file.name}" queued — will upload after saving.` });
       if (fileRef.current) fileRef.current.value = "";
       return;
     }
@@ -108,7 +108,7 @@ export default function LedgerDocuments({ ledgerId, ledgerName, pendingDocs = []
         </button>
       </SheetTrigger>
       <SheetContent side="right" className="flex flex-col">
-        <SheetHeader><SheetTitle>Documents � {ledgerName || "New Ledger"}</SheetTitle></SheetHeader>
+        <SheetHeader><SheetTitle>Documents — {ledgerName || "New Ledger"}</SheetTitle></SheetHeader>
 
         {isPending && (
           <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mt-2">
@@ -149,7 +149,7 @@ export default function LedgerDocuments({ ledgerId, ledgerName, pendingDocs = []
               <FileText className="size-5 text-muted-foreground shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium truncate block">{entry.file.name}</span>
-                <span className="text-[10px] text-muted-foreground">{typeLabel(entry.docType)} � pending</span>
+                <span className="text-[10px] text-muted-foreground">{typeLabel(entry.docType)} — pending</span>
               </div>
               <Button size="icon" variant="ghost" className="size-7 text-destructive hover:text-destructive" onClick={() => removePending(i)}>
                 <Trash2 className="size-4" />
@@ -170,7 +170,7 @@ export default function LedgerDocuments({ ledgerId, ledgerName, pendingDocs = []
                 </a>
                 <span className="text-[10px] text-muted-foreground">
                   {typeLabel(doc.document_type)}
-                  {doc.uploaded_at && ` � ${new Date(doc.uploaded_at).toLocaleDateString("en-GB")}`}
+                  {doc.uploaded_at && ` — ${new Date(doc.uploaded_at).toLocaleDateString("en-GB")}`}
                 </span>
               </div>
               <Button size="icon" variant="ghost" className="size-7 text-destructive hover:text-destructive" onClick={() => handleDelete(doc.id)}>

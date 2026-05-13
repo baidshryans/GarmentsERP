@@ -139,7 +139,7 @@ export default function BankReconciliation() {
     <div className="p-4 flex flex-col gap-5">
       {/* Info */}
       <div className="text-xs text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
-        <strong>Bank Reconciliation</strong> � Compare your bank ledger (book entries) with the actual bank statement.
+        <strong>Bank Reconciliation</strong> — Compare your bank ledger (book entries) with the actual bank statement.
         Select a bank statement row and a book entry, then click <strong>Match</strong> to link them.
         Unmatched entries on either side indicate discrepancies.
       </div>
@@ -305,7 +305,7 @@ export default function BankReconciliation() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Book Entries (Ledger)</h3>
-                <span className="text-xs text-muted-foreground">{bookRows.length} entries � Dr ₹{fmt(totalBookDebit)} / Cr ₹{fmt(totalBookCredit)}</span>
+                <span className="text-xs text-muted-foreground">{bookRows.length} entries · Dr ₹{fmt(totalBookDebit)} / Cr ₹{fmt(totalBookCredit)}</span>
               </div>
 
               <div className="overflow-x-auto rounded-lg border border-border">
@@ -357,7 +357,7 @@ export default function BankReconciliation() {
           {(selStmt || selBook) && (
             <div className="flex items-center gap-3 p-3 rounded-lg border border-violet-200 bg-violet-50">
               <span className="text-xs text-primary">
-                {selStmt ? "1 statement entry selected" : "No statement selected"} �{" "}
+                {selStmt ? "1 statement entry selected" : "No statement selected"} ·{" "}
                 {selBook ? "1 book entry selected" : "No book entry selected"}
               </span>
               <Button

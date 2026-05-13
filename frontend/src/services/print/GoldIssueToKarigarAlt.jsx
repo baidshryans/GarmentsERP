@@ -34,7 +34,7 @@ const GoldIssueToKarigarAlt = ({ data = {} }) => {
         {(d?.company_phone || d?.company_email) && (
           <div className="gi-company-line">
             {d.company_phone && <>Ph: {d.company_phone}</>}
-            {d.company_phone && d.company_email && <>&nbsp;&nbsp;�&nbsp;&nbsp;</>}
+            {d.company_phone && d.company_email && <>&nbsp;&nbsp;·&nbsp;&nbsp;</>}
             {d.company_email && <>Email: {d.company_email}</>}
           </div>
         )}
@@ -53,7 +53,7 @@ const GoldIssueToKarigarAlt = ({ data = {} }) => {
       <div className="gi-meta-row">
         <div className="gi-meta-block">
           <span className="gi-label">Voucher No.</span>
-          <span>{d?.billno || "�"}</span>
+          <span>{d?.billno || "—"}</span>
         </div>
         <div className="gi-meta-block">
           <span className="gi-label">Date</span>
@@ -61,7 +61,7 @@ const GoldIssueToKarigarAlt = ({ data = {} }) => {
         </div>
         <div className="gi-meta-block">
           <span className="gi-label">Slip Type</span>
-          <span>{d?.slip_type || "�"}</span>
+          <span>{d?.slip_type || "—"}</span>
         </div>
       </div>
 
@@ -70,17 +70,17 @@ const GoldIssueToKarigarAlt = ({ data = {} }) => {
         <div className="gi-karigar-cell">
           <div className="gi-field">
             <span className="gi-label">Karigar</span>
-            <span>{d?.karigar_ldgr_name || "�"}</span>
+            <span>{d?.karigar_ldgr_name || "—"}</span>
           </div>
           <div className="gi-field">
             <span className="gi-label">Address</span>
-            <span>{d?.karigar_address || "�"}</span>
+            <span>{d?.karigar_address || "—"}</span>
           </div>
         </div>
         <div className="gi-karigar-cell gi-karigar-right">
           <div className="gi-field">
             <span className="gi-label">Ref. Job No.</span>
-            <span>{d?.karigargoldissue_set?.[0]?.ref_job_no?.issue_slip_no || d?.karigargoldissue_set?.[0]?.ref_job_no?.po_no || "�"}</span>
+            <span>{d?.karigargoldissue_set?.[0]?.ref_job_no?.issue_slip_no || d?.karigargoldissue_set?.[0]?.ref_job_no?.po_no || "—"}</span>
           </div>
         </div>
       </div>
@@ -103,12 +103,12 @@ const GoldIssueToKarigarAlt = ({ data = {} }) => {
           {items.length > 0 ? items.map((item, idx) => (
             <tr key={item.id || idx}>
               <td className="gi-ctr">{item.sl_no || idx + 1}</td>
-              <td>{item.item || "�"}</td>
-              <td className="gi-ctr">{item.metal_purity || "�"}</td>
+              <td>{item.item || "—"}</td>
+              <td className="gi-ctr">{item.metal_purity || "—"}</td>
               <td className="gi-right">{fmt3(item.item_gw)}</td>
               <td className="gi-right">{fmt3(item.item_gw)}</td>
               <td className="gi-right">{fmt3(item.alloy_wt)}</td>
-              <td className="gi-ctr">{item.conv_purity || "�"}</td>
+              <td className="gi-ctr">{item.conv_purity || "—"}</td>
               <td className="gi-right">{fmt3(item.conv_wt)}</td>
             </tr>
           )) : (

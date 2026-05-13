@@ -17,7 +17,7 @@ const purityLabel = (p) => {
 };
 
 function fmtDate(d) {
-  if (!d) return "�";
+  if (!d) return "—";
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return dt.toLocaleDateString("en-GB").replaceAll("/", "-");
@@ -273,11 +273,11 @@ export default function IDGenerationReport() {
                       <td className="px-3 py-2 text-right">{r.pcs || 0}</td>
                       <td className="px-3 py-2 text-right">{num(r.gw)}</td>
                       <td className="px-3 py-2 text-right">{num(r.nw)}</td>
-                      <td className="px-3 py-2">{artisanNameById[r.kr_code] || "�"}</td>
+                      <td className="px-3 py-2">{artisanNameById[r.kr_code] || "—"}</td>
                       <td className="px-3 py-2 text-right">{stonePcs || ""}</td>
                       <td className="px-3 py-2 text-right">{stoneCt ? num(stoneCt) : ""}</td>
                       <td className="px-3 py-2 text-right">{r.making_val ? `${r.making_val}` : ""}</td>
-                      <td className="px-3 py-2 text-gray-500">{r.created_by || "�"}</td>
+                      <td className="px-3 py-2 text-gray-500">{r.created_by || "—"}</td>
                     </tr>
                   );
                 })}

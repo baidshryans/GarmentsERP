@@ -126,10 +126,10 @@ function VendorMultiSelect({ vendors, selected, onChange }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-72" align="start">
-        {/* Search box � stop dropdown from closing on click */}
+        {/* Search box — stop dropdown from closing on click */}
         <div className="px-2 py-1.5" onPointerDown={(e) => e.stopPropagation()}>
           <Input
-            placeholder="Search vendors�"
+            placeholder="Search vendors…"
             className="h-8 text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -205,7 +205,7 @@ function EmptyState() {
 // ─── compact vendor name for chart axis ──────────────────────────────────────
 
 function shortName(name, maxLen = 18) {
-  return name.length > maxLen ? name.slice(0, maxLen - 1) + '�' : name;
+  return name.length > maxLen ? name.slice(0, maxLen - 1) + '…' : name;
 }
 
 // ─── main component ───────────────────────────────────────────────────────────
@@ -279,7 +279,7 @@ export default function VendorComparisonReport() {
       sortedRows.filter((v) => v.avg_days_to_sell > 0).length
     : 0;
 
-  // Chart data � top 10 vendors by total_purchases (descending)
+  // Chart data — top 10 vendors by total_purchases (descending)
   const chartData = [...(data?.vendors ?? [])]
     .sort((a, b) => b.total_purchases - a.total_purchases)
     .slice(0, 10)
@@ -354,7 +354,7 @@ export default function VendorComparisonReport() {
               disabled={loading}
               className="h-9 bg-indigo-600 hover:bg-indigo-700 text-white px-5 flex-shrink-0"
             >
-              {loading ? 'Loading�' : 'Apply'}
+              {loading ? 'Loading…' : 'Apply'}
             </Button>
           </div>
         </div>
@@ -397,7 +397,7 @@ export default function VendorComparisonReport() {
             />
             <SummaryCard
               title="Avg Days to Sell"
-              value={avgDays > 0 ? fmtDays(avgDays) : '�'}
+              value={avgDays > 0 ? fmtDays(avgDays) : '—'}
               icon={Users}
               sub="sold items only"
             />
@@ -518,7 +518,7 @@ export default function VendorComparisonReport() {
                 </div>
                 <p className="text-[10px] text-slate-400 mt-2">
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />≥70% good
-                  <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mx-1 ml-3" />40�70% moderate
+                  <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mx-1 ml-3" />40–70% moderate
                   <span className="inline-block w-2 h-2 rounded-full bg-red-500 mx-1 ml-3" />&lt;40% low
                 </p>
               </div>
@@ -529,7 +529,7 @@ export default function VendorComparisonReport() {
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-700">
-                Vendor Comparison � {sortedRows.length} vendor{sortedRows.length !== 1 ? 's' : ''}
+                Vendor Comparison — {sortedRows.length} vendor{sortedRows.length !== 1 ? 's' : ''}
               </p>
               {activeVendor && (
                 <button
@@ -646,7 +646,7 @@ export default function VendorComparisonReport() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right text-slate-500 text-sm">
-                          {row.avg_days_to_sell > 0 ? fmtDays(row.avg_days_to_sell) : '�'}
+                          {row.avg_days_to_sell > 0 ? fmtDays(row.avg_days_to_sell) : '—'}
                         </TableCell>
                       </TableRow>
                     );

@@ -441,7 +441,7 @@ function LedgerTxnModal({ ledger, fromDate, toDate, combined, onClose }) {
         <div className="flex-1 overflow-auto p-4">
           {loading && (
             <div className="flex items-center justify-center py-10 text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading�
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading…
             </div>
           )}
           {error && <div className="text-sm text-destructive py-4">{error}</div>}

@@ -1,4 +1,4 @@
-// frontend/src/services/apiService.js � barrel re-export
+// frontend/src/services/apiService.js — barrel re-export
 // All domain modules re-exported so existing imports keep working.
 // New code: import directly from "@/services/api/<domain>"
 export * from "./api/userauth";

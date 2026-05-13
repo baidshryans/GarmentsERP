@@ -87,7 +87,7 @@ function AssayReceiveList() {
       accessorKey: "assayreceivedetail_set",
       cell: ({ row }) => {
         const details = row.original.assayreceivedetail_set || [];
-        if (details.length === 0) return <span className="text-gray-400">�</span>;
+        if (details.length === 0) return <span className="text-gray-400">—</span>;
         return (
           <div className="space-y-0.5">
             {details.map((d, i) => (
@@ -107,7 +107,7 @@ function AssayReceiveList() {
         const total = details
           .filter((d) => d.is_cornet)
           .reduce((sum, d) => sum + parseFloat(d.conv_nw || 0), 0);
-        return total > 0 ? <span className="text-amber-600 font-semibold">{total.toFixed(3)}</span> : "�";
+        return total > 0 ? <span className="text-amber-600 font-semibold">{total.toFixed(3)}</span> : "—";
       },
     },
     {
@@ -116,7 +116,7 @@ function AssayReceiveList() {
       cell: ({ row }) => {
         const details = row.original.assayreceivedetail_set || [];
         const total = details.reduce((sum, d) => sum + parseFloat(d.conv_nw || 0), 0);
-        return total > 0 ? total.toFixed(3) : "�";
+        return total > 0 ? total.toFixed(3) : "—";
       },
     },
   ];

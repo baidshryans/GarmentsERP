@@ -92,7 +92,7 @@ export function NavUser({
               try {
                 const { callLogout } = await import("@/services/apiService");
                 await callLogout();
-              } catch (err) { /* swallow � token cleanup still happens below */ }
+              } catch (err) { /* swallow — token cleanup still happens below */ }
               sessionStorage.clear();
               sessionStorage.removeItem("erpSetupComplete");
               window.location.reload();

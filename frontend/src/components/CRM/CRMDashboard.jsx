@@ -144,7 +144,7 @@ function CRMDashboard() {
   const todayRows    = (data?.today    ?? []).filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
   const upcomingRows = (data?.upcoming ?? []).filter(r => !search || r.name.toLowerCase().includes(search.toLowerCase()));
 
-  // Send All Today � opens each wa_url with a small delay between tabs
+  // Send All Today — opens each wa_url with a small delay between tabs
   const handleSendAll = () => {
     const withUrls = todayRows.filter(r => r.wa_url);
     if (!withUrls.length) {
@@ -154,7 +154,7 @@ function CRMDashboard() {
     withUrls.forEach((row, i) => {
       setTimeout(() => window.open(row.wa_url, "_blank"), i * 350);
     });
-    toast({ title: `Opening ${withUrls.length} WhatsApp chat(s)�`, description: "Allow pop-ups if your browser blocks them." });
+    toast({ title: `Opening ${withUrls.length} WhatsApp chat(s)…`, description: "Allow pop-ups if your browser blocks them." });
   };
 
   return (
@@ -176,7 +176,7 @@ function CRMDashboard() {
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Search customer</Label>
           <Input
-            placeholder="Type a name�"
+            placeholder="Type a name…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-52"
@@ -200,7 +200,7 @@ function CRMDashboard() {
         </div>
         <Button onClick={load} disabled={loading} variant="outline" className="gap-2 h-9">
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          {loading ? "Loading�" : "Refresh"}
+          {loading ? "Loading…" : "Refresh"}
         </Button>
       </div>
 

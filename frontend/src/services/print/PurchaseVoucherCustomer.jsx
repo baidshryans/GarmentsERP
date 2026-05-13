@@ -9,15 +9,15 @@
 
    Layout (top → bottom):
      • Copy indicator     ─ ORIGINAL / DUPLICATE, plain caps, top-right
-     • Header             ─ BIS placeholder � centered company block � logo
+     • Header             ─ BIS placeholder · centered company block · logo
      • Title              ─ PURCHASE VOUCHER (CUSTOMER), centered
-     • Meta cards         ─ Voucher No � Voucher Date � Place of Supply
-     • Customer card      ─ name � address � Phone/PAN/GSTIN/State row
-     • Items table        ─ SL � Particulars � Pcs � Ct � Wt � Fine Wt
-                            � Rate � Value � Amount
-     • Totals (in-table)  ─ Subtotal � Round Off � Total Payable
+     • Meta cards         ─ Voucher No · Voucher Date · Place of Supply
+     • Customer card      ─ name · address · Phone/PAN/GSTIN/State row
+     • Items table        ─ SL · Particulars · Pcs · Ct · Wt · Fine Wt
+                            · Rate · Value · Amount
+     • Totals (in-table)  ─ Subtotal · Round Off · Total Payable
      • Narration / In Words (single lines, conditional)
-     • Sign-off           ─ Issued-by GST grid � Authorised Signatory
+     • Sign-off           ─ Issued-by GST grid · Authorised Signatory
      • Footer             ─ centered "computer-generated" line
 
    Data prop (merged row + companyInfo from PurchaseVoucherList):
@@ -156,7 +156,7 @@ body { background: #fff; }
   letter-spacing: 2.5px; text-transform: uppercase;
 }
 
-/* Meta cards (Voucher No � Date � Place of Supply) */
+/* Meta cards (Voucher No · Date · Place of Supply) */
 .pvc-meta-strip {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -326,11 +326,11 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
   const roundOff   = parseFloat(d.round_off) || 0;
   const grandTotal = parseFloat(d.total_incl_gst) || (subtotal + roundOff);
 
-  /* place of supply (state � code) --------------------------------- */
+  /* place of supply (state · code) --------------------------------- */
   const placeOfSupply = (() => {
     const state = d.party_state || "";
     const code = d.vendor_state_code || "";
-    if (state && code) return `${state} � ${code}`;
+    if (state && code) return `${state} · ${code}`;
     return state || code || "";
   })();
 
@@ -343,7 +343,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
         <span className="pvc-copy-tag">Original / Duplicate</span>
       </div>
 
-      {/* Header � BIS � Company (centered) � Brand logo */}
+      {/* Header — BIS · Company (centered) · Brand logo */}
       <div className="pvc-header">
         <div className="left">
           {d.bis_logo_url
@@ -357,7 +357,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
             {(d.company_phone || d.company_email) && (
               <div>
                 {d.company_phone && <>Phone : {d.company_phone}</>}
-                {d.company_phone && d.company_email && <>&nbsp;&nbsp;�&nbsp;&nbsp;</>}
+                {d.company_phone && d.company_email && <>&nbsp;&nbsp;·&nbsp;&nbsp;</>}
                 {d.company_email && <>Email : {d.company_email}</>}
               </div>
             )}
@@ -388,7 +388,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
         </div>
         <div className="pvc-meta-card">
           <div className="pvc-label">Place of Supply</div>
-          <div className="pvc-value">{placeOfSupply || "�"}</div>
+          <div className="pvc-value">{placeOfSupply || "—"}</div>
         </div>
       </div>
 
@@ -442,7 +442,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
           </tr>
         </thead>
         <tbody>
-          {/* Direct sub-items (no parent) � each is its own SL row */}
+          {/* Direct sub-items (no parent) — each is its own SL row */}
           {directSubs.map((sub, i) => (
             <tr key={"d-" + i}>
               <td className="sl t-center">{String(i + 1).padStart(2, "0")}</td>
@@ -451,18 +451,18 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
                 {(sub.metal_purity || sub.packet) && (
                   <div className="pvc-item-sub">
                     {sub.metal_purity && <>Purity: {sub.metal_purity}</>}
-                    {sub.metal_purity && sub.packet && <> � </>}
+                    {sub.metal_purity && sub.packet && <> · </>}
                     {sub.packet && <>{sub.packet}</>}
                   </div>
                 )}
               </td>
-              <td className="t-center">{sub.sub_pcs || "�"}</td>
-              <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : "�"}</td>
-              <td className="t-num strong">{sub.sub_gw ? fmt3(sub.sub_gw) : "�"}</td>
-              <td className="t-num">{sub.fine_wt ? fmt3(sub.fine_wt) : "�"}</td>
-              <td className="t-num">{sub.rate ? fmt(sub.rate) : "�"}</td>
-              <td className="t-num">{sub.value ? fmt(sub.value) : "�"}</td>
-              <td className="t-num strong">{sub.value ? fmt(sub.value) : "�"}</td>
+              <td className="t-center">{sub.sub_pcs || "—"}</td>
+              <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : "—"}</td>
+              <td className="t-num strong">{sub.sub_gw ? fmt3(sub.sub_gw) : "—"}</td>
+              <td className="t-num">{sub.fine_wt ? fmt3(sub.fine_wt) : "—"}</td>
+              <td className="t-num">{sub.rate ? fmt(sub.rate) : "—"}</td>
+              <td className="t-num">{sub.value ? fmt(sub.value) : "—"}</td>
+              <td className="t-num strong">{sub.value ? fmt(sub.value) : "—"}</td>
             </tr>
           ))}
 
@@ -480,25 +480,25 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
                     {(item.purity || item.barcode_txt || item.size) && (
                       <div className="pvc-item-sub">
                         {item.purity && <>Purity: {item.purity}</>}
-                        {item.purity && item.barcode_txt && <> � </>}
+                        {item.purity && item.barcode_txt && <> · </>}
                         {item.barcode_txt && <>{item.barcode_txt}</>}
-                        {(item.purity || item.barcode_txt) && item.size && <> � </>}
+                        {(item.purity || item.barcode_txt) && item.size && <> · </>}
                         {item.size && <>Size {item.size}</>}
                       </div>
                     )}
                   </td>
-                  <td className="t-center">{item.pcs ?? "�"}</td>
-                  <td className="t-num">�</td>
-                  <td className="t-num strong">{item.gw ? fmt3(item.gw) : "�"}</td>
-                  <td className="t-num">�</td>
-                  <td className="t-num">�</td>
-                  <td className="t-num">�</td>
-                  <td className="t-num strong">{amount ? fmt(amount) : "�"}</td>
+                  <td className="t-center">{item.pcs ?? "—"}</td>
+                  <td className="t-num">—</td>
+                  <td className="t-num strong">{item.gw ? fmt3(item.gw) : "—"}</td>
+                  <td className="t-num">—</td>
+                  <td className="t-num">—</td>
+                  <td className="t-num">—</td>
+                  <td className="t-num strong">{amount ? fmt(amount) : "—"}</td>
                 </tr>
                 {subs.map((sub, si) => (
                   <tr key={"i-" + idx + "-s-" + si} className="subrow">
                     <td></td>
-                    <td className="particulars">↳ {sub.sub_item || ""}</td>
+                    <td className="particulars">â†³ {sub.sub_item || ""}</td>
                     <td className="t-center">{sub.sub_pcs || ""}</td>
                     <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : ""}</td>
                     <td className="t-num">{sub.sub_gw ? fmt3(sub.sub_gw) : ""}</td>
@@ -521,7 +521,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
             </tr>
           ))}
 
-          {/* Totals � integrated as bottom rows */}
+          {/* Totals — integrated as bottom rows */}
           <tr className="tot subtotal first">
             <td colSpan={7}></td>
             <td className="tot-label">Subtotal</td>
@@ -571,7 +571,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
               <div className="k">State</div>
               <div className="v">
                 {d.company_state || ""}
-                {d.company_state && d.company_state_code && " � "}
+                {d.company_state && d.company_state_code && " · "}
                 {d.company_state_code || ""}
               </div>
             </>)}
@@ -585,7 +585,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
 
       {/* Footer */}
       <div className="pvc-footer">
-        Computer-generated voucher � No physical signature required
+        Computer-generated voucher · No physical signature required
       </div>
     </div>
   );

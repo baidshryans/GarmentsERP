@@ -454,7 +454,7 @@ const StoneIssue = () => {
             <Label>Issue Slip No</Label>
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate h-9">
-                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>}
+                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
               </span>
               <input type="hidden" {...register("form.billno")} />
             </div>
@@ -505,7 +505,7 @@ const StoneIssue = () => {
                 setValue("form.karigar_ldgr_name", opt.ac_name);
                 setValue("form.karigar_ldgr", opt.id);
               }}
-              placeholder="Search karigar�"
+              placeholder="Search karigar…"
             />
             <input type="hidden" {...register("form.karigar_ldgr")} />
           </div>
@@ -520,7 +520,7 @@ const StoneIssue = () => {
                 setSelectedJobItem(null);
                 loadJobItems(opt.id);
               }}
-              placeholder={`Search ${slip_type === "Purchase Order" ? "purchase order" : "job order"}�`}
+              placeholder={`Search ${slip_type === "Purchase Order" ? "purchase order" : "job order"}…`}
             />
             <input type="hidden" {...register("form.ref_job_object_id")} />
           </div>
@@ -534,7 +534,7 @@ const StoneIssue = () => {
             <span>Pick Item to Issue Stones Against</span>
             {selectedJobItem && rs.length > 0 && (
               <span className="text-xs text-muted-foreground font-normal">
-                Locked � clear stones to switch
+                Locked — clear stones to switch
               </span>
             )}
           </div>
@@ -565,10 +565,10 @@ const StoneIssue = () => {
                   }`}
                 >
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs font-semibold text-muted-foreground">Sl No � {it.job_sl_no}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">Sl No · {it.job_sl_no}</span>
                     {isSelected && <span className="text-xs font-semibold text-primary">✓ Selected</span>}
                   </div>
-                  <div className="font-semibold text-foreground">{it.item_name || "�"}</div>
+                  <div className="font-semibold text-foreground">{it.item_name || "—"}</div>
                   <div className="text-xs text-muted-foreground mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5">
                     <span>Pcs: <span className="text-foreground">{it.pcs}</span></span>
                     <span>Wt: <span className="text-foreground">{it.approx_wt}</span></span>
@@ -593,7 +593,7 @@ const StoneIssue = () => {
 
         {(balanceLoading || packetBalance) && (
           <div className="px-4 py-2 border-b bg-muted/40 text-xs flex flex-wrap items-center gap-x-6 gap-y-1">
-            {balanceLoading && <span className="text-muted-foreground italic">Fetching packet balance�</span>}
+            {balanceLoading && <span className="text-muted-foreground italic">Fetching packet balance…</span>}
             {packetBalance?.error && (
               <span className="text-red-600 font-medium">{packetBalance.error}</span>
             )}
@@ -606,7 +606,7 @@ const StoneIssue = () => {
               return (
                 <>
                   <span className="font-medium">
-                    {packetBalance.pckt_no} � {packetBalance.item_name} <span className="uppercase text-muted-foreground">({packetBalance.uom || "�"})</span>
+                    {packetBalance.pckt_no} · {packetBalance.item_name} <span className="uppercase text-muted-foreground">({packetBalance.uom || "—"})</span>
                   </span>
                   <span>Pcs: <span className="font-semibold tabular-nums">{fmt(packetBalance.balance_pcs - issued.pcs)}</span> <span className="text-muted-foreground">/ {fmt(packetBalance.balance_pcs)}</span></span>
                   {showCt && <span>Ct: <span className="font-semibold tabular-nums">{fmt(packetBalance.balance_ct - issued.ct)}</span> <span className="text-muted-foreground">/ {fmt(packetBalance.balance_ct)}</span></span>}
@@ -649,7 +649,7 @@ const StoneIssue = () => {
                       setValue("table.packet", val);
                       if (!val) handlePacketChange("");
                     }}
-                    placeholder="Search packet�"
+                    placeholder="Search packet…"
                     className="h-8"
                   />
                   <input type="hidden" {...register("table.packet")} />
@@ -715,8 +715,8 @@ const StoneIssue = () => {
                     <TableCell className="py-2 px-2">{row.packet}</TableCell>
                     <TableCell className="py-2 px-2">{row.item}</TableCell>
                     <TableCell className="py-2 px-2 text-right tabular-nums">{row.pcs}</TableCell>
-                    <TableCell className="py-2 px-2 text-right tabular-nums">{row.ct != null ? parseFloat(row.ct).toFixed(3) : "�"}</TableCell>
-                    <TableCell className="py-2 px-2 text-right tabular-nums">{row.gw != null ? parseFloat(row.gw).toFixed(3) : "�"}</TableCell>
+                    <TableCell className="py-2 px-2 text-right tabular-nums">{row.ct != null ? parseFloat(row.ct).toFixed(3) : "—"}</TableCell>
+                    <TableCell className="py-2 px-2 text-right tabular-nums">{row.gw != null ? parseFloat(row.gw).toFixed(3) : "—"}</TableCell>
                     <TableCell className="py-2 px-2 text-right tabular-nums">{row.rate}</TableCell>
                     <TableCell className="py-2 px-2 text-right tabular-nums">{Number(row.taxable_value || 0).toFixed(2)}</TableCell>
                     <TableCell className="py-2 px-2 truncate max-w-[8rem]">{row.remarks}</TableCell>

@@ -225,7 +225,7 @@ export default function BarcodeStockReport() {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Barcode Stock Report � As on ${fmtDate(asOnDate)}</title>
+  <title>Barcode Stock Report — As on ${fmtDate(asOnDate)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 11px; color: #1e293b; padding: 16px; }
@@ -430,14 +430,14 @@ export default function BarcodeStockReport() {
           <DialogHeader>
             <DialogTitle>
               {drill
-                ? `${COLUMN_LABELS[drill.column] || drill.column} � ${drill.item.short_code}${
-                    drill.item.item_name ? ` � ${drill.item.item_name}` : ""
+                ? `${COLUMN_LABELS[drill.column] || drill.column} — ${drill.item.short_code}${
+                    drill.item.item_name ? ` · ${drill.item.item_name}` : ""
                   }`
                 : ""}
             </DialogTitle>
             <DialogDescription>
               As on {asOnDate}
-              {drill ? ` � ${drill.rows.length} barcode${drill.rows.length !== 1 ? "s" : ""}` : ""}
+              {drill ? ` · ${drill.rows.length} barcode${drill.rows.length !== 1 ? "s" : ""}` : ""}
             </DialogDescription>
           </DialogHeader>
 

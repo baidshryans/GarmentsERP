@@ -84,7 +84,7 @@ export default function SchemeEnrollmentForm() {
                 <SelectContent>
                   {schemes.map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>
-                      {s.scheme_code} � {s.name} ({s.scheme_type})
+                      {s.scheme_code} — {s.name} ({s.scheme_type})
                     </SelectItem>
                   ))}
                 </SelectContent>

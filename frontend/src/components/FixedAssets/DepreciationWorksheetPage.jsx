@@ -165,7 +165,7 @@ export default function DepreciationWorksheetPage() {
           </div>
           <Button onClick={handleGenerate} disabled={generating} size="sm">
             <Calculator className="size-4 mr-1.5" />
-            {generating ? "Calculating�" : "Generate Suggestion"}
+            {generating ? "Calculating…" : "Generate Suggestion"}
           </Button>
           <p className="text-xs text-muted-foreground">
             This will compute depreciation for all active assets. No journal entry is created until you approve.
@@ -242,7 +242,7 @@ export default function DepreciationWorksheetPage() {
               </Button>
               <Button size="sm" onClick={handleApprove} disabled={approving}>
                 <CheckCircle className="size-4 mr-1" />
-                {approving ? "Posting�" : "Approve & Post Journal Entry"}
+                {approving ? "Posting…" : "Approve & Post Journal Entry"}
               </Button>
             </div>
           </div>
@@ -286,8 +286,8 @@ export default function DepreciationWorksheetPage() {
                           {s.status}
                         </span>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{s.voucher_no || "�"}</TableCell>
-                      <TableCell className="text-xs">{s.approved_by_name || "�"}</TableCell>
+                      <TableCell className="font-mono text-xs">{s.voucher_no || "—"}</TableCell>
+                      <TableCell className="text-xs">{s.approved_by_name || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -300,7 +300,7 @@ export default function DepreciationWorksheetPage() {
   );
 }
 
-/** Inline editable amount input � debounced save on blur */
+/** Inline editable amount input — debounced save on blur */
 function AmountInput({ value, overridden, onChange }) {
   const [local, setLocal] = useState(String(value));
 

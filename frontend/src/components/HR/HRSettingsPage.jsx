@@ -47,13 +47,13 @@ export default function HRSettingsPage() {
 
   const getLedgerName = (id) => {
     const l = ledgers.find(l => String(l.id) === String(id));
-    return l ? l.ac_name : id ? `Ledger #${id}` : "�";
+    return l ? l.ac_name : id ? `Ledger #${id}` : "—";
   };
 
   return (
     <TooltipProvider>
       <div className="p-4 max-w-xl space-y-6">
-        <h2 className="text-lg font-semibold">HR Settings � Salary Ledger Mapping</h2>
+        <h2 className="text-lg font-semibold">HR Settings — Salary Ledger Mapping</h2>
         <p className="text-sm text-muted-foreground">
           Map each payroll component to an accounting ledger. These ledgers are used when a salary slip is approved to create the journal entry.
         </p>
@@ -76,7 +76,7 @@ export default function HRSettingsPage() {
                       <Lock className="size-3 text-amber-500 cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      Cannot change � salary slips have been approved using this ledger.
+                      Cannot change — salary slips have been approved using this ledger.
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -88,10 +88,10 @@ export default function HRSettingsPage() {
               ) : (
                 <Select value={form[key] ? String(form[key]) : "__none__"} onValueChange={v => set(key, v === "__none__" ? "" : v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select ledger�" />
+                    <SelectValue placeholder="Select ledger…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">� None �</SelectItem>
+                    <SelectItem value="__none__">— None —</SelectItem>
                     {ledgers.map(l => (
                       <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>
                     ))}
@@ -104,7 +104,7 @@ export default function HRSettingsPage() {
 
         {!locked && (
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving�" : "Save Settings"}
+            {saving ? "Saving…" : "Save Settings"}
           </Button>
         )}
       </div>

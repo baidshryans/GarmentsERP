@@ -84,7 +84,7 @@ export default function ExhibitionMaster() {
     setToggling(row.id);
     const res = row.is_active ? await deactivateExhibition(row.id) : await activateExhibition(row.id);
     if (res.success) {
-      toast({ title: row.is_active ? "Exhibition deactivated" : "Exhibition activated � invoices will now use this address & GSTIN" });
+      toast({ title: row.is_active ? "Exhibition deactivated" : "Exhibition activated — invoices will now use this address & GSTIN" });
       load();
     } else {
       toast({ title: "Error", description: String(res.error), variant: "destructive" });
@@ -135,14 +135,14 @@ export default function ExhibitionMaster() {
         : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground">Inactive</span>,
     },
     { header: "Exhibition Name", accessorKey: "name" },
-    { header: "GSTIN", accessorKey: "gstin", cell: ({ getValue }) => <span className="font-mono text-xs">{getValue() || "�"}</span> },
-    { header: "State", accessorKey: "state_name", cell: ({ getValue }) => getValue() || "�" },
-    { header: "City", accessorKey: "city", cell: ({ getValue }) => getValue() || "�" },
+    { header: "GSTIN", accessorKey: "gstin", cell: ({ getValue }) => <span className="font-mono text-xs">{getValue() || "—"}</span> },
+    { header: "State", accessorKey: "state_name", cell: ({ getValue }) => getValue() || "—" },
+    { header: "City", accessorKey: "city", cell: ({ getValue }) => getValue() || "—" },
     {
       header: "Period",
       cell: ({ row }) => {
         const { start_date, end_date } = row.original;
-        if (!start_date && !end_date) return "�";
+        if (!start_date && !end_date) return "—";
         return `${start_date || "?"} → ${end_date || "?"}`;
       },
     },
@@ -231,7 +231,7 @@ export default function ExhibitionMaster() {
                 <Select value={form.state || "__none__"} onValueChange={(v) => handleSelect("state", v)}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Select state" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">� Select state �</SelectItem>
+                    <SelectItem value="__none__">— Select state —</SelectItem>
                     {states.map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

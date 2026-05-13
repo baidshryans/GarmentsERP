@@ -338,7 +338,7 @@ export const navData = {
   ],
 }
 
-/** Flat array consumed by TopMenuBar � one entry per top-level nav group.
+/** Flat array consumed by TopMenuBar — one entry per top-level nav group.
  *  `parts` lets multiple license keys merge under one visible section. */
 export const navSections = [
   { label: "Setup",                parts: [{ key: "navMain0",          items: navData.navMain0 }] },

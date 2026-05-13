@@ -420,7 +420,7 @@ export default function SampleIssue() {
             <Label htmlFor="si-slipno">Issue Slip No</Label>
             <div id="si-slipno" className="flex items-center gap-2">
               <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                {billno || <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>}
+                {billno || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
               </span>
             </div>
           </div>
@@ -434,12 +434,12 @@ export default function SampleIssue() {
               options={karigars}
               value={karigarName}
               onSelect={(opt) => { setKarigarId(opt.id); setKarigarName(opt.ac_name); }}
-              placeholder="Search vendor / karigar�"
+              placeholder="Search vendor / karigar…"
             />
           </div>
           <div>
             <Label htmlFor="si-remarks">Remarks</Label>
-            <Input id="si-remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional notes�" />
+            <Input id="si-remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional notes…" />
           </div>
         </div>
       </div>
@@ -463,13 +463,13 @@ export default function SampleIssue() {
               <SearchableComboBox
                 options={krSlips.map((s) => ({
                   ...s,
-                  _label: `${s.receive_slip_no} � ${s.karigar_ldgr_name}${s.date1 ? ` � ${s.date1}` : ""}`,
+                  _label: `${s.receive_slip_no} · ${s.karigar_ldgr_name}${s.date1 ? ` · ${s.date1}` : ""}`,
                 }))}
                 labelKey="_label"
                 value={sourceInput}
                 onSelect={(opt) => setSourceInput(opt.receive_slip_no)}
                 onInputChange={(v) => setSourceInput(v)}
-                placeholder="Pick or type slip no� (suffix ok)"
+                placeholder="Pick or type slip no… (suffix ok)"
               />
             </div>
           ) : sourceType === "PV" ? (
@@ -477,19 +477,19 @@ export default function SampleIssue() {
               <SearchableComboBox
                 options={pvBills.map((p) => ({
                   ...p,
-                  _label: `${p.billno} � ${p.ldgr_name}${p.date1 ? ` � ${p.date1}` : ""}`,
+                  _label: `${p.billno} · ${p.ldgr_name}${p.date1 ? ` · ${p.date1}` : ""}`,
                 }))}
                 labelKey="_label"
                 value={sourceInput}
                 onSelect={(opt) => setSourceInput(opt.billno)}
                 onInputChange={(v) => setSourceInput(v)}
-                placeholder="Pick or type bill no� (suffix ok)"
+                placeholder="Pick or type bill no… (suffix ok)"
               />
             </div>
           ) : (
             <Input
               className="w-64"
-              placeholder="Scan / enter barcode�"
+              placeholder="Scan / enter barcode…"
               value={sourceInput}
               onChange={(e) => setSourceInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleFetch())}
@@ -497,7 +497,7 @@ export default function SampleIssue() {
           )}
           <Button type="button" variant="secondary" onClick={handleFetch} disabled={sourceLoading}>
             <Download size={14} className="mr-1" />
-            {sourceLoading ? "Loading�" : "Fetch"}
+            {sourceLoading ? "Loading…" : "Fetch"}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
@@ -647,7 +647,7 @@ export default function SampleIssue() {
             <span><span className="text-muted-foreground">GW</span> <strong>{totals.gw.toFixed(3)}</strong></span>
             {totals.subPcs > 0 && (
               <>
-                <span className="text-muted-foreground">�</span>
+                <span className="text-muted-foreground">·</span>
                 <span><span className="text-muted-foreground">Sub Pcs</span> <strong>{totals.subPcs}</strong></span>
                 <span><span className="text-muted-foreground">Sub Ct</span> <strong>{totals.subCt.toFixed(3)}</strong></span>
                 <span><span className="text-muted-foreground">Sub GW</span> <strong>{totals.subGw.toFixed(3)}</strong></span>

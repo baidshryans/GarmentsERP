@@ -13,7 +13,7 @@ import { isValidDateRange } from "@/lib/dateRange";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function fmtDate(d) {
-  if (!d) return "�";
+  if (!d) return "—";
   const dt = new Date(d);
   return dt.toLocaleDateString("en-GB").replaceAll("/", "-");
 }
@@ -102,8 +102,8 @@ function KarigarStoneTransactions() {
           date: h.date1,
           billno: h.billno,
           karigar: h.karigar_ldgr_name,
-          slip_no: it.ref_slip_no || "�",
-          item: it.item_name || it.item || "�",
+          slip_no: it.ref_slip_no || "—",
+          item: it.item_name || it.item || "—",
           pcs: it.pcs,
           ct: it.ct,
           gw: it.gw,
@@ -125,7 +125,7 @@ function KarigarStoneTransactions() {
           date: h.date1,
           billno: h.billno,
           karigar: h.karigar_ldgr_name,
-          item: it.item_name || it.item || "�",
+          item: it.item_name || it.item || "—",
           ret_pcs: it.return_pcs,
           ret_ct: it.return_ct,
           ret_gw: it.return_gw,

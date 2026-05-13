@@ -8,10 +8,10 @@ import { fetchStockMatchingReport } from "@/services/apiService";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, RefreshCw, FileText, Tag, PackageX } from "lucide-react";
 
-// Format a number to 3 decimals � blank stays blank.
+// Format a number to 3 decimals — blank stays blank.
 const fmt = (v) => {
   const n = parseFloat(v);
-  return isNaN(n) ? "�" : n.toFixed(3);
+  return isNaN(n) ? "—" : n.toFixed(3);
 };
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -77,7 +77,7 @@ const StockMatchingReport = () => {
             <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 text-sm" />
           </div>
           <div className="space-y-1">
-            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Tolerance (�)</Label>
+            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Tolerance (±)</Label>
             <Input
               type="number" step="0.001" min="0"
               value={tolerance}
@@ -96,7 +96,7 @@ const StockMatchingReport = () => {
           </label>
           <Button type="submit" disabled={loading} className="h-9 cursor-pointer">
             {loading ? (
-              <><RefreshCw className="size-4 mr-1.5 animate-spin" /> Loading�</>
+              <><RefreshCw className="size-4 mr-1.5 animate-spin" /> Loading…</>
             ) : (
               <><RefreshCw className="size-4 mr-1.5" /> Refresh</>
             )}
@@ -138,7 +138,7 @@ const StockMatchingReport = () => {
       {/* ─── Bills list ─── */}
       {loading ? (
         <div className="rounded-lg border bg-card p-12 text-center text-sm text-muted-foreground">
-          Loading reconciliation�
+          Loading reconciliation…
         </div>
       ) : bills.length === 0 ? (
         <div className="rounded-lg border bg-card p-12 text-center text-sm text-muted-foreground">
@@ -156,8 +156,8 @@ const StockMatchingReport = () => {
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-semibold font-mono truncate">{b.billno}</span>
                     <span className="text-[11px] text-muted-foreground truncate">
-                      {b.date || "�"}
-                      {b.vendor ? <> � {b.vendor}</> : null}
+                      {b.date || "—"}
+                      {b.vendor ? <> · {b.vendor}</> : null}
                     </span>
                   </div>
                 </div>
@@ -191,7 +191,7 @@ const StockMatchingReport = () => {
                   <TableBody>
                     {b.items.map((it) => (
                       <TableRow key={it.item_id} className={it.row_issue ? "bg-rose-50/40" : "hover:bg-muted/20"}>
-                        <TableCell className="font-medium">{it.item_name || "�"}</TableCell>
+                        <TableCell className="font-medium">{it.item_name || "—"}</TableCell>
                         <TableCell className="text-right tabular-nums">{fmt(it.stock_ct)}</TableCell>
                         <TableCell className="text-right tabular-nums">{fmt(it.barcode_ct)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-semibold ${it.diff_ct ? "text-rose-700" : "text-emerald-700"}`}>
@@ -227,7 +227,7 @@ const StockMatchingReport = () => {
                     {b.barcodes.map((bc) => {
                       const chipBase =
                         "inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-mono transition-colors duration-150";
-                      const tooltip = `${bc.item_name || bc.item || "Item"}\n${bc.pcs ?? 0} pcs � ${(bc.gw ?? 0).toFixed(3)} g${bc.created_date ? "\nCreated " + bc.created_date : ""}${bc.stk_status ? "" : "\nNot in stock"}`;
+                      const tooltip = `${bc.item_name || bc.item || "Item"}\n${bc.pcs ?? 0} pcs · ${(bc.gw ?? 0).toFixed(3)} g${bc.created_date ? "\nCreated " + bc.created_date : ""}${bc.stk_status ? "" : "\nNot in stock"}`;
                       return bc.stk_status ? (
                         <Link
                           key={bc.id}
@@ -253,7 +253,7 @@ const StockMatchingReport = () => {
                 )}
               </div>
               <div className="px-4 py-1.5 text-[11px] text-muted-foreground bg-muted/20 border-t">
-                Differences within �{tolerance} are ignored.
+                Differences within ±{tolerance} are ignored.
               </div>
             </div>
           ))}

@@ -377,7 +377,7 @@ const RetToRetstockTransfer = () => {
                 <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                     <SendHorizontal className="size-4 mt-0.5 shrink-0" />
                     <div>
-                        <span className="font-semibold">Transfer dispatched � read only. </span>
+                        <span className="font-semibold">Transfer dispatched — read only. </span>
                         <span>This transfer has been marked as sent. The receiving retail can accept it from the transfers list.</span>
                     </div>
                 </div>
@@ -540,14 +540,14 @@ const RetToRetstockTransfer = () => {
                                         <tr key={index} className="hover:bg-muted/20 transition-colors">
                                             <td className="px-4 py-2.5 text-xs text-muted-foreground">{index + 1}</td>
                                             <td className="px-4 py-2.5 font-mono text-xs text-primary">{row.barcode}</td>
-                                            <td className="px-4 py-2.5 text-xs">{row.item_name || row.item || '�'}</td>
-                                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{row.purity || '�'}</td>
-                                            <td className="px-4 py-2.5 text-xs text-right">{row.pcs || '�'}</td>
+                                            <td className="px-4 py-2.5 text-xs">{row.item_name || row.item || '—'}</td>
+                                            <td className="px-4 py-2.5 text-xs text-muted-foreground">{row.purity || '—'}</td>
+                                            <td className="px-4 py-2.5 text-xs text-right">{row.pcs || '—'}</td>
                                             <td className="px-4 py-2.5 text-xs text-right font-medium">
-                                                {row.gw ? parseFloat(row.gw).toFixed(3) : '�'}
+                                                {row.gw ? parseFloat(row.gw).toFixed(3) : '—'}
                                             </td>
                                             <td className="px-4 py-2.5 text-xs text-right">
-                                                {row.nw ? parseFloat(row.nw).toFixed(3) : '�'}
+                                                {row.nw ? parseFloat(row.nw).toFixed(3) : '—'}
                                             </td>
                                             {!isSent && (
                                                 <td className="px-4 py-2.5">
@@ -591,7 +591,7 @@ const RetToRetstockTransfer = () => {
                             className="bg-primary hover:bg-primary text-white"
                             disabled={rs.length === 0 || saving || !canSave}
                         >
-                            {saving ? (id ? "Updating�" : "Saving�") : (id ? "Update Transfer" : "Save Transfer")}
+                            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Transfer" : "Save Transfer")}
                         </Button>
                     )}
                 </div>

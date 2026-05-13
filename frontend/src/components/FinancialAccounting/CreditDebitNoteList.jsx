@@ -76,7 +76,7 @@ export default function CreditDebitNoteList() {
         <div className="flex-1 min-w-[240px] max-w-sm relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder="Search note no, party, reason�"
+            placeholder="Search note no, party, reason…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-9"
@@ -161,7 +161,7 @@ export default function CreditDebitNoteList() {
                   <td className="px-4 py-2 text-muted-foreground">{n.date}</td>
                   <td className="px-4 py-2">{n.ldgr_name}</td>
                   <td className="px-4 py-2 font-mono text-muted-foreground">
-                    {n.ref_bill_no || "�"}
+                    {n.ref_bill_no || "—"}
                   </td>
                   <td className="px-4 py-2 text-muted-foreground truncate max-w-[200px]">
                     {n.reason}

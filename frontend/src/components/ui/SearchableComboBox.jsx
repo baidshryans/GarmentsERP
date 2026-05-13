@@ -6,19 +6,19 @@ import { cn } from "@/lib/utils"
  * Searchable combo box with keyboard navigation.
  *
  * Keyboard:
- *   ArrowDown / ArrowUp  � navigate the suggestion list
- *   Tab                  � select highlighted item AND move focus to next field
- *   Enter                � select highlighted item (stay in field)
- *   Escape               � close dropdown
+ *   ArrowDown / ArrowUp  — navigate the suggestion list
+ *   Tab                  — select highlighted item AND move focus to next field
+ *   Enter                — select highlighted item (stay in field)
+ *   Escape               — close dropdown
  *
  * Props:
- *   options        {Array}    � array of objects to search through
- *   labelKey       {string}   � property to display as text (default "ac_name")
- *   searchKeys     {Array}    � additional keys to search across (default [])
- *   value          {string}   � controlled display value (sync from watch())
- *   onSelect       {fn(opt)}  � called when user selects an option
- *   onInputChange  {fn(val)}  � optional: called on every keystroke (for server-side search)
- *   renderOption   {fn(opt)}  � optional: custom renderer for each row in the dropdown
+ *   options        {Array}    — array of objects to search through
+ *   labelKey       {string}   — property to display as text (default "ac_name")
+ *   searchKeys     {Array}    — additional keys to search across (default [])
+ *   value          {string}   — controlled display value (sync from watch())
+ *   onSelect       {fn(opt)}  — called when user selects an option
+ *   onInputChange  {fn(val)}  — optional: called on every keystroke (for server-side search)
+ *   renderOption   {fn(opt)}  — optional: custom renderer for each row in the dropdown
  *   placeholder    {string}
  *   className      {string}
  *   disabled       {bool}
@@ -32,7 +32,7 @@ export const SearchableComboBox = forwardRef(function SearchableComboBox({
   onSelect,
   onInputChange,
   renderOption,
-  placeholder = "Search�",
+  placeholder = "Search…",
   className = "",
   disabled = false,
   autoFocus = false,

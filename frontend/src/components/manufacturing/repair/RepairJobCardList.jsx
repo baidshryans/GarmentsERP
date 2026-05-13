@@ -113,7 +113,7 @@ export default function RepairJobCardList() {
       cell: ({ getValue }) =>
         getValue()
           ? new Date(getValue()).toLocaleDateString("en-GB").replaceAll("/", "-")
-          : "�",
+          : "—",
     },
     {
       header: "Status",
@@ -136,7 +136,7 @@ export default function RepairJobCardList() {
         <div className="flex flex-wrap items-center gap-2 flex-1">
           <Input
             className="max-w-xs"
-            placeholder="Search RJC no / customer�"
+            placeholder="Search RJC no / customer…"
             value={search}
             onChange={(e) => {
               setPage(1);

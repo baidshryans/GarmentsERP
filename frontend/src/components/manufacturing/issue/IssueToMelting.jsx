@@ -169,7 +169,7 @@ const IssueToMelting = () => {
 
                     <Field label="Bill No">
                         <div className="text-sm font-mono px-3 py-2 bg-gray-50 rounded border border-gray-200 h-9 flex items-center">
-                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating�</span>}
+                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating…</span>}
                         </div>
                     </Field>
 
@@ -181,7 +181,7 @@ const IssueToMelting = () => {
                                 setValue("form.ldgr_name", opt.ac_name)
                                 setValue("form.ldgr", opt.id)
                             }}
-                            placeholder="Search melting house�"
+                            placeholder="Search melting house…"
                             autoFocus
                         />
                         <input type="hidden" {...register("form.ldgr")} />

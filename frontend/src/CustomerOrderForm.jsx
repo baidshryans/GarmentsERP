@@ -633,7 +633,7 @@ const CustomerOrderForm = () => {
                               size="icon"
                               variant="ghost"
                               className="size-6"
-                              title={r.amount_applied > 0 ? "Cannot release � advance already applied to a bill" : "Release to on-account"}
+                              title={r.amount_applied > 0 ? "Cannot release — advance already applied to a bill" : "Release to on-account"}
                               disabled={r.amount_applied > 0 || linkingId === r.id}
                               onClick={async () => {
                                 setLinkingId(r.id);

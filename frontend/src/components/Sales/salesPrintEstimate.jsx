@@ -90,7 +90,7 @@ const ItemBlock = ({ data, idx, totalItems }) => {
   const t = getItemTotals(data);
 
   const purityLabel = data.purity_name || (data.purity ? `${data.purity}K` : '');
-  const itemLabel   = [data.item_name || data.item, purityLabel].filter(Boolean).join(' � ');
+  const itemLabel   = [data.item_name || data.item, purityLabel].filter(Boolean).join(' · ');
 
   // Gold rate from the metal sub-item, formatted for display
   const goldRate = t.metalItem?.rate
@@ -99,7 +99,7 @@ const ItemBlock = ({ data, idx, totalItems }) => {
 
   return (
     <>
-      {/* ── Main item row � gold rate, metal val, making and product value ── */}
+      {/* ── Main item row — gold rate, metal val, making and product value ── */}
       <tr>
         <td style={hdrCell0({ textAlign: 'center', width: 24 })}>{idx + 1}</td>
         <td style={hdrCell({ textAlign: 'left' })}>{itemLabel}</td>
@@ -138,7 +138,7 @@ const ItemBlock = ({ data, idx, totalItems }) => {
         </tr>
       ))}
 
-      {/* ── Per-item subtotal � hidden when only 1 item (same as grand total) ── */}
+      {/* ── Per-item subtotal — hidden when only 1 item (same as grand total) ── */}
       {totalItems > 1 && (
         <tr>
           <td style={subTotCell0()} />
@@ -202,7 +202,7 @@ export const MultiEstimatePrint = ({ items = [] }) => {
       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto', fontFamily: FONT }}>
         <colgroup>
           <col style={{ width: 24  }} />{/* Sl */}
-          <col                       />{/* Description � flexible */}
+          <col                       />{/* Description — flexible */}
           <col style={{ width: 62  }} />{/* Packet No */}
           <col style={{ width: 30  }} />{/* Pcs */}
           <col style={{ width: 46  }} />{/* GW */}
@@ -216,7 +216,7 @@ export const MultiEstimatePrint = ({ items = [] }) => {
         </colgroup>
 
         <thead>
-          {/* Row 1 � group headers */}
+          {/* Row 1 — group headers */}
           <tr>
             <th rowSpan={2} style={th0({ textAlign: 'center', verticalAlign: 'middle' })}>Sl</th>
             <th rowSpan={2} style={th0({ textAlign: 'left',   verticalAlign: 'middle' })}>Description</th>
@@ -231,7 +231,7 @@ export const MultiEstimatePrint = ({ items = [] }) => {
             <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle' })}>Making</th>
             <th rowSpan={2} style={th({  textAlign: 'right',  verticalAlign: 'middle', fontSize: 9 })}>Prod Val</th>
           </tr>
-          {/* Row 2 � sub-headers for Metal (Gm) group */}
+          {/* Row 2 — sub-headers for Metal (Gm) group */}
           <tr>
             <th style={th({ textAlign: 'center' })}>Gr. Wt.</th>
             <th style={th({ textAlign: 'center' })}>Net Wt.</th>
@@ -248,7 +248,7 @@ export const MultiEstimatePrint = ({ items = [] }) => {
           {/* Grand total */}
           <tr>
             <td colSpan={2} style={gtCell0({ textAlign: 'center' })}>
-              Grand Total � {items.length} item{items.length !== 1 ? 's' : ''}
+              Grand Total · {items.length} item{items.length !== 1 ? 's' : ''}
             </td>
             <td style={gtCell()} />
             <td style={gtCell({ textAlign: 'center' })}>{grand.pcs}</td>

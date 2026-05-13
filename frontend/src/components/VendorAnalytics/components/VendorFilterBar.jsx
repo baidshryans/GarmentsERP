@@ -85,7 +85,7 @@ export default function VendorFilterBar({ onApply, loading = false }) {
           onValueChange={(val) => handleChange('vendor_id', val)}
         >
           <SelectTrigger className="w-44">
-            <SelectValue placeholder="Select vendor�" />
+            <SelectValue placeholder="Select vendor…" />
           </SelectTrigger>
           <SelectContent>
             {vendors.map((v) => (

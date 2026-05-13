@@ -31,7 +31,7 @@ import {
 const SECTIONS = {
   "/setup": {
     title: "Setup & Masters",
-    description: "Configure master data used across the ERP � items, groups, fiscal years, retails and more.",
+    description: "Configure master data used across the ERP — items, groups, fiscal years, retails and more.",
     items: [
       { title: "Item Group",          url: "/setup/item-group",        icon: Layers,           desc: "Organise inventory items into groups" },
       { title: "Packet Group",        url: "/setup/packet-group",      icon: Package,          desc: "Group stone / loose packets" },
@@ -45,7 +45,7 @@ const SECTIONS = {
       { title: "TCS Sections",        url: "/setup/tcs-section",       icon: ReceiptTextIcon,  desc: "TCS section codes" },
       { title: "Chart of Accounts",   url: "/accounting/account-tree", icon: BookOpen,         desc: "Account hierarchy and groups" },
       { title: "Exhibitions",         url: "/setup/exhibitions",       icon: Tag,              desc: "Exhibition profiles for events" },
-      { title: "Company",             url: "/setup/company",           icon: Building2,        desc: "Legal entity � PAN, TAN, contact, address" },
+      { title: "Company",             url: "/setup/company",           icon: Building2,        desc: "Legal entity — PAN, TAN, contact, address" },
       { title: "Karigar Making",      url: "/setup/karigar-making",    icon: Hammer,           desc: "Making rate master per karigar" },
       { title: "Import Master Data",  url: "/setup/import-data",       icon: Upload,           desc: "Bulk CSV import for master tables" },
     ],
@@ -53,7 +53,7 @@ const SECTIONS = {
 
   "/crm": {
     title: "CRM",
-    description: "Customer relationship management � ledgers, occasions and more.",
+    description: "Customer relationship management — ledgers, occasions and more.",
     items: [
       { title: "Ledger",                url: "/crm/ledger",    icon: BookOpen, desc: "Manage customer, dealer, karigar and other party ledgers" },
       { title: "Birthday & Anniversary", url: "/crm/occasions", icon: BookOpen, desc: "Track customer birthdays and anniversaries" },
@@ -95,7 +95,7 @@ const SECTIONS = {
   },
 
   "/manufacturing/issue": {
-    title: "Manufacturing � Issue",
+    title: "Manufacturing — Issue",
     description: "Issue raw materials and jobs to karigars and external processors.",
     items: [
       { title: "Job Work",        url: "/manufacturing/issue/jobwork",        icon: Hammer,   desc: "Issue job work to karigar" },
@@ -107,7 +107,7 @@ const SECTIONS = {
   },
 
   "/manufacturing/receive": {
-    title: "Manufacturing � Receive",
+    title: "Manufacturing — Receive",
     description: "Record returns and finished goods received from karigars and processors.",
     items: [
       { title: "Job Work Receive",  url: "/manufacturing/receive/jobworkreceive/",  icon: PackageCheckIcon, desc: "Receive finished items from karigar" },
@@ -118,7 +118,7 @@ const SECTIONS = {
   },
 
   "/manufacturing/reports": {
-    title: "Manufacturing � Reports",
+    title: "Manufacturing — Reports",
     description: "Manufacturing reports and analytics.",
     items: [
       { title: "Karigar Stone Transactions", url: "/manufacturing/reports/karigarstonetxns", icon: Package, desc: "" },
@@ -126,7 +126,7 @@ const SECTIONS = {
       { title: "Hallmark Receive",          url: "/manufacturing/reports/hallmarkreceive",   icon: Tag,     desc: "" },
       { title: "Hallmark Issue",            url: "/manufacturing/reports/hmissue",           icon: Tag,     desc: "" },
       { title: "Finished Item Receive",     url: "/manufacturing/reports/finisheditemrec",   icon: Package, desc: "" },
-      { title: "Karigar � Job Work",        url: "/manufacturing/reports/karigar-jobwork",   icon: Hammer,  desc: "" },
+      { title: "Karigar – Job Work",        url: "/manufacturing/reports/karigar-jobwork",   icon: Hammer,  desc: "" },
       { title: "Refinery Report",           url: "/manufacturing/reports/refinery",          icon: Package, desc: "" },
     ],
   },
@@ -155,7 +155,7 @@ const SECTIONS = {
   },
 
   "/accounting/reports": {
-    title: "Accounting � Reports",
+    title: "Accounting — Reports",
     description: "Financial, GST and tax reports.",
     items: [
       { title: "Financial Ratios",          url: "/accounting/reports/financial-ratios",      icon: DollarSign,      desc: "" },
@@ -224,7 +224,7 @@ const SECTIONS = {
   },
 
   "/inventory/reports": {
-    title: "Inventory � Reports",
+    title: "Inventory — Reports",
     description: "Inventory, stock and barcode reports.",
     items: [
       { title: "Id Generation",           url: "/inventory/reports/idgen",              icon: FileBarChartIcon, desc: "" },

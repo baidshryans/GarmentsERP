@@ -1,7 +1,7 @@
 ﻿import React from "react";
 import { fmt, fmtDate, numberToWords } from "./printHelpers";
 
-// ── CSS (self-contained � injected into the print popup) ──────────────────────
+// ── CSS (self-contained — injected into the print popup) ──────────────────────
 const CN_CSS = `
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap");
 
@@ -174,7 +174,7 @@ table.cn-items tbody tr.sub td.l { padding-left: 14px; }
 .cn-row.bold { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
 .cn-row.bold .cn-l { color: var(--ink); font-weight: 700; }
 .cn-row.bold .cn-v { font-weight: 700; }
-.cn-row.minus .cn-l::before { content: "− "; }
+.cn-row.minus .cn-l::before { content: "âˆ’ "; }
 .cn-row.net { margin-top: 4px; border-top: 2px solid var(--ink); padding: 8px 0; }
 .cn-row.net .cn-l { color: var(--ink); font-weight: 700; font-size: 9px; }
 .cn-row.net .cn-v { font-weight: 700; }
@@ -252,7 +252,7 @@ export default function SaleReturnCreditNote({ data: d }) {
                 {[
                   d.company_phone && <span key="ph">Phone <b>{d.company_phone}</b></span>,
                   d.company_email && <span key="em">Email <b>{d.company_email}</b></span>,
-                ].filter(Boolean).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`s${i}`} className="cn-dot"> � </span>, el], [])}
+                ].filter(Boolean).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`s${i}`} className="cn-dot"> · </span>, el], [])}
               </div>
             )}
             <div className="cn-brand-ids">
@@ -356,10 +356,10 @@ export default function SaleReturnCreditNote({ data: d }) {
                   <td className="c">{item.pcs || 1}</td>
                   <td className="l">{item.item_name}</td>
                   <td className="c">
-                    {item.purity || <span style={{ color: "var(--faint)" }}>�</span>}
+                    {item.purity || <span style={{ color: "var(--faint)" }}>—</span>}
                   </td>
                   <td className="r">{fmt3(item.gw)}&nbsp;g</td>
-                  <td className="r"><span style={{ color: "var(--faint)" }}>�</span></td>
+                  <td className="r"><span style={{ color: "var(--faint)" }}>—</span></td>
                   <td className="r">{fmtAmt(item.making)}</td>
                   <td className="r">{fmtAmt(item.amount)}</td>
                 </tr>
@@ -374,10 +374,10 @@ export default function SaleReturnCreditNote({ data: d }) {
                       <td></td>
                       <td></td>
                       <td className="l">{sub.text}</td>
-                      <td className="c">{sub.metal_purity || "�"}</td>
+                      <td className="c">{sub.metal_purity || "—"}</td>
                       <td className="r">{wt}</td>
                       <td className="r">{fmtAmt(sub.rate)}</td>
-                      <td className="r">�</td>
+                      <td className="r">—</td>
                       <td className="r">{fmtAmt(sub.amount)}</td>
                     </tr>
                   );

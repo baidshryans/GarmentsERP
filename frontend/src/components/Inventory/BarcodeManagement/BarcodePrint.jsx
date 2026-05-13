@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 
 /**
- * BarcodePrint � Printable label sheet for one or more barcodes.
+ * BarcodePrint — Printable label sheet for one or more barcodes.
  *
  * Usage:
  *   /inventory/barcode-print?ids=1,2,3   → print multiple labels
@@ -142,7 +142,7 @@ export default function BarcodePrint() {
 
   useEffect(() => {
     if (!ids.length) { setLoading(false); return; }
-    // Fetch with id filter � backend supports ?ids=1,2,3 or individual fetches
+    // Fetch with id filter — backend supports ?ids=1,2,3 or individual fetches
     // We use the list endpoint with id__in filter
     fetchBarcodeList({ ids: ids.join(","), page_size: ids.length + 10 }).then((res) => {
       if (res.success) {
@@ -196,7 +196,7 @@ export default function BarcodePrint() {
         }
       `}</style>
 
-      {/* Toolbar � hidden on print */}
+      {/* Toolbar — hidden on print */}
       <div className="no-print flex items-center gap-3 px-6 py-3 border-b border-border bg-muted/30">
         <span className="text-sm font-medium">
           {barcodes.length} label{barcodes.length !== 1 ? "s" : ""} ready to print

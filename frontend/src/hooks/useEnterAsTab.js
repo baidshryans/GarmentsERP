@@ -14,7 +14,7 @@ import { useEffect, useRef } from "react";
  * Usage:
  *   const formRef = useRef(null);
  *   useEnterAsTab(formRef);
- *   return <form ref={formRef}>�</form>;
+ *   return <form ref={formRef}>…</form>;
  *
  * Or attach to any container div that wraps the form fields.
  */

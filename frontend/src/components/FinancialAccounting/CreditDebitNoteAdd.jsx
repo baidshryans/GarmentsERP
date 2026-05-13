@@ -186,7 +186,7 @@ export default function CreditDebitNoteAdd() {
         ) : (
           <div className="relative">
             <Input
-              placeholder={`Search ${noteType === "CN" ? "customer" : "vendor"}�`}
+              placeholder={`Search ${noteType === "CN" ? "customer" : "vendor"}…`}
               value={ldgrSearch}
               onChange={(e) => setLdgrSearch(e.target.value)}
               className="h-9"
@@ -267,7 +267,7 @@ export default function CreditDebitNoteAdd() {
         ) : (
           <div className="relative">
             <Input
-              placeholder="Search ledger (e.g. Discount Allowed, Sales Rebate)�"
+              placeholder="Search ledger (e.g. Discount Allowed, Sales Rebate)…"
               value={adjSearch}
               onChange={(e) => setAdjSearch(e.target.value)}
               className="h-9"
@@ -293,7 +293,7 @@ export default function CreditDebitNoteAdd() {
       <div className="flex flex-col gap-1">
         <Label className="text-xs">Reason</Label>
         <Textarea
-          placeholder="Quality allowance, rate difference, overbilling correction�"
+          placeholder="Quality allowance, rate difference, overbilling correction…"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           className="min-h-[60px]"

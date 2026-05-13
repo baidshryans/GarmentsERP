@@ -81,7 +81,7 @@ export default function SchemeStatement() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>{e.enrollment_no} � {e.customer_name}</CardTitle>
+            <CardTitle>{e.enrollment_no} — {e.customer_name}</CardTitle>
             <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[e.status] || ""}`}>{e.status}</span>
           </div>
         </CardHeader>
@@ -118,7 +118,7 @@ export default function SchemeStatement() {
           )}
           {!benefit?.gold_benefit && e.months_completed < 6 && (
             <p className="mt-4 text-sm text-muted-foreground">
-              No benefit yet � minimum 6 months required.
+              No benefit yet — minimum 6 months required.
             </p>
           )}
 

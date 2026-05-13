@@ -12,7 +12,7 @@ import { PackageCheck, Filter } from "lucide-react";
 import { isValidDateRange } from "@/lib/dateRange";
 
 function fmtDate(d) {
-  if (!d) return "�";
+  if (!d) return "—";
   const dt = new Date(d);
   if (isNaN(dt)) return d;
   return dt.toLocaleDateString("en-GB").replaceAll("/", "-");
@@ -168,7 +168,7 @@ export default function FinishedItemReceiveReport() {
             <span className="text-sm font-semibold">Finished Item Receive Summary</span>
           </div>
           <span className="text-xs text-gray-500">
-            {summary.rows} rows � {summary.karigars} karigars
+            {summary.rows} rows · {summary.karigars} karigars
           </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-5 text-xs gap-3">
@@ -223,8 +223,8 @@ export default function FinishedItemReceiveReport() {
                 ) : items.map((r) => (
                   <tr key={r.id} className="border-t border-gray-100 hover:bg-gray-50">
                     <td className="px-3 py-2 whitespace-nowrap">{fmtDate(r.receive_date)}</td>
-                    <td className="px-3 py-2 font-medium">{r.receive_slip || "�"}</td>
-                    <td className="px-3 py-2">{r.karigar_name || "�"}</td>
+                    <td className="px-3 py-2 font-medium">{r.receive_slip || "—"}</td>
+                    <td className="px-3 py-2">{r.karigar_name || "—"}</td>
                     <td className="px-3 py-2">{r.item}</td>
                     <td className="px-3 py-2">{r.purity}{typeof r.purity === "number" ? "" : "K"}</td>
                     <td className="px-3 py-2 text-right">{r.pcs}</td>

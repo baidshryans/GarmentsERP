@@ -137,7 +137,7 @@ export default function SaleApprovalRegister() {
       {/* Print-only header */}
       <div className="hidden print:block mb-2">
         <h1 className="text-lg font-bold">Sale Approval Register</h1>
-        <p className="text-xs">From {fromDate} to {toDate}{spFilter ? ` � Salesperson: ${(salespersons.find((s) => String(s.id) === String(spFilter)) || {}).salesperson_name || ""}` : ""} � Status: {statusFilter === "pending" ? "Pending only" : "All approvals"}</p>
+        <p className="text-xs">From {fromDate} to {toDate}{spFilter ? ` · Salesperson: ${(salespersons.find((s) => String(s.id) === String(spFilter)) || {}).salesperson_name || ""}` : ""} · Status: {statusFilter === "pending" ? "Pending only" : "All approvals"}</p>
       </div>
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-end print:hidden">
@@ -172,7 +172,7 @@ export default function SaleApprovalRegister() {
           </Select>
         </div>
         <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          {loading ? "Loading�" : "Refresh"}
+          {loading ? "Loading…" : "Refresh"}
         </Button>
         <Button
           size="sm"

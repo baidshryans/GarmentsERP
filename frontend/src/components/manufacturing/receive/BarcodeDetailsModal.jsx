@@ -48,9 +48,9 @@ const BarcodeDetailsModal = ({ isOpen, onClose, receiveSlipNo, slNo, detail }) =
   };
 
   const formatValue = (value, decimals = 3) => {
-    if (value === null || value === undefined) return "�";
+    if (value === null || value === undefined) return "—";
     const num = parseFloat(value);
-    if (!Number.isFinite(num)) return "�";
+    if (!Number.isFinite(num)) return "—";
     return decimals === 0 ? Math.round(num).toString() : num.toFixed(decimals);
   };
 
@@ -59,7 +59,7 @@ const BarcodeDetailsModal = ({ isOpen, onClose, receiveSlipNo, slNo, detail }) =
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg">
-            Barcode Details � {receiveSlipNo}
+            Barcode Details — {receiveSlipNo}
           </DialogTitle>
           <DialogDescription>
             Barcodes created against this receive slip item
@@ -91,7 +91,7 @@ const BarcodeDetailsModal = ({ isOpen, onClose, receiveSlipNo, slNo, detail }) =
                       {barcode.barcode}
                     </p>
                     <p className="text-xs text-gray-500">
-                      Created: {barcode.created_date ? new Date(barcode.created_date).toLocaleDateString('en-GB').replaceAll('/', '-') : "�"}
+                      Created: {barcode.created_date ? new Date(barcode.created_date).toLocaleDateString('en-GB').replaceAll('/', '-') : "—"}
                     </p>
                   </div>
                   <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -107,11 +107,11 @@ const BarcodeDetailsModal = ({ isOpen, onClose, receiveSlipNo, slNo, detail }) =
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-xs text-gray-500 uppercase">Item</p>
-                    <p className="font-medium">{barcode.item_name || barcode.item || "�"}</p>
+                    <p className="font-medium">{barcode.item_name || barcode.item || "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase">Purity</p>
-                    <p className="font-medium">{barcode.purity_name || barcode.purity || "�"}</p>
+                    <p className="font-medium">{barcode.purity_name || barcode.purity || "—"}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase">Pieces</p>
@@ -146,8 +146,8 @@ const BarcodeDetailsModal = ({ isOpen, onClose, receiveSlipNo, slNo, detail }) =
                           className="bg-white p-2 rounded border border-gray-200 text-xs"
                         >
                           <div className="flex justify-between items-center">
-                            <span className="font-medium">{detail.item || detail.item_name || "�"}</span>
-                            <span className="text-gray-500">{detail.packet || "�"}</span>
+                            <span className="font-medium">{detail.item || detail.item_name || "—"}</span>
+                            <span className="text-gray-500">{detail.packet || "—"}</span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-gray-600 mt-1 text-[10px]">
                             <span>Pcs: {formatValue(detail.pcs, 0)}</span>

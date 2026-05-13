@@ -3,12 +3,12 @@
  * the browser print dialog (which allows saving as PDF).
  *
  * @param {Object}  opts
- * @param {string}  opts.title       � Report heading printed at the top
- * @param {string}  [opts.subtitle]  � Optional line below the title (e.g. date range)
- * @param {string}  opts.html        � The inner HTML of the report body (usually a <table>)
- * @param {boolean} [opts.landscape] � If true, prints in landscape orientation (default: portrait)
- * @param {string}  [opts.company]   � Company name shown above the title (falls back to blank if not provided)
- * @param {string}  [opts.extraCss]  � Additional CSS injected into the print stylesheet
+ * @param {string}  opts.title       — Report heading printed at the top
+ * @param {string}  [opts.subtitle]  — Optional line below the title (e.g. date range)
+ * @param {string}  opts.html        — The inner HTML of the report body (usually a <table>)
+ * @param {boolean} [opts.landscape] — If true, prints in landscape orientation (default: portrait)
+ * @param {string}  [opts.company]   — Company name shown above the title (falls back to blank if not provided)
+ * @param {string}  [opts.extraCss]  — Additional CSS injected into the print stylesheet
  */
 export function printReport({ title, subtitle, html, landscape = false, company = "", extraCss = "" }) {
   const win = window.open("", "_blank", "width=900,height=700");
@@ -222,7 +222,7 @@ export function printReport({ title, subtitle, html, landscape = false, company 
     setTimeout(() => {
       win.focus();
       win.print();
-      // Don't auto-close � let user review / re-print
+      // Don't auto-close — let user review / re-print
     }, 400);
   };
 }

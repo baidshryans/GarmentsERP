@@ -138,7 +138,7 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
               disabled={hasOrder}
               onClick={() => setStep("to-order")}
               className="text-left p-3 rounded border hover:bg-violet-50/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-start gap-3"
-              title={hasOrder ? "Already assigned to an order � release first" : ""}
+              title={hasOrder ? "Already assigned to an order — release first" : ""}
             >
               <ArrowRightCircle className="text-primary mt-0.5" size={20} />
               <div>
@@ -172,7 +172,7 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
               <Button onClick={handleTransferToUnbarcoded} disabled={submitting}>
-                {submitting ? "Transferring�" : "Confirm Transfer"}
+                {submitting ? "Transferring…" : "Confirm Transfer"}
               </Button>
             </div>
           </>
@@ -181,14 +181,14 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
         {step === "to-order" && (
           <>
             <Input
-              placeholder="Search by order no / party / item�"
+              placeholder="Search by order no / party / item…"
               value={orderSearch}
               onChange={(e) => setOrderSearch(e.target.value)}
               className="mb-2"
             />
             <div className="border rounded max-h-72 overflow-auto divide-y text-sm">
               {loadingOrders ? (
-                <div className="p-4 text-center text-muted-foreground text-xs">Loading�</div>
+                <div className="p-4 text-center text-muted-foreground text-xs">Loading…</div>
               ) : orders.length === 0 ? (
                 <div className="p-4 text-center text-muted-foreground text-xs">No open orders found.</div>
               ) : (
@@ -203,9 +203,9 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
                     <div>
                       <div className="font-medium">#{o.order_no || o.id}</div>
                       <div className="text-xs text-muted-foreground">
-                        {o.party_name || o.ldgr_name || "�"}
-                        {o.date1 ? ` � ${o.date1}` : ""}
-                        {o.delivery_status ? ` � ${o.delivery_status}` : ""}
+                        {o.party_name || o.ldgr_name || "—"}
+                        {o.date1 ? ` · ${o.date1}` : ""}
+                        {o.delivery_status ? ` · ${o.delivery_status}` : ""}
                       </div>
                     </div>
                     <ArrowRightCircle className="text-primary" size={18} />

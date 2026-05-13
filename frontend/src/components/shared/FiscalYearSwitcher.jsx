@@ -66,7 +66,7 @@ export function FiscalYearSwitcher() {
               <SidebarMenuButton size="sm" className="h-9 px-3">
                 <CalendarDays className="size-4 text-primary shrink-0" />
                 <span className="flex-1 text-xs font-semibold text-sidebar-foreground truncate">
-                  FY {activeFy?.fy_code || '�'}
+                  FY {activeFy?.fy_code || '—'}
                 </span>
                 {activeFy?.is_closed && <Lock className="size-3 text-red-400 shrink-0" />}
                 <ChevronsUpDown className="w-3.5 h-3.5 text-sidebar-foreground/40 shrink-0" />

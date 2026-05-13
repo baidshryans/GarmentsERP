@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 function fmt(v, type = 'number') {
-  if (v === undefined || v === null) return '�';
+  if (v === undefined || v === null) return '—';
   if (type === 'currency') return `₹${Number(v).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
   if (type === 'pct') return `${Number(v).toFixed(1)}%`;
   if (type === 'days') return `${Number(v).toFixed(1)}d`;
@@ -115,7 +115,7 @@ export default function VendorDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <KPICard
                 title="Best Design"
-                value={perf.best_design || '�'}
+                value={perf.best_design || '—'}
                 color="border-green-500"
                 navigateTo="/vendor-analytics/design-performance"
                 navParams={{ vendor_id: vendorId }}

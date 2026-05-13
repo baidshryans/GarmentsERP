@@ -27,7 +27,7 @@ export default function PaymentTimeline({ payments }) {
           <div className="flex-1 pb-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">
-                #{p.installment_number} � {inr(p.amount)}
+                #{p.installment_number} — {inr(p.amount)}
               </p>
               <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                 {MODE_LABELS[p.payment_mode] || p.payment_mode}

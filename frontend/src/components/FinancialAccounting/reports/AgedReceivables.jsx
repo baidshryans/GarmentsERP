@@ -9,9 +9,9 @@ const fmt = (v) =>
   Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const BUCKETS = [
-  { key: "b0_30",    label: "0�30 days",  color: "text-emerald-700" },
-  { key: "b31_60",   label: "31�60 days", color: "text-primary" },
-  { key: "b61_90",   label: "61�90 days", color: "text-amber-600" },
+  { key: "b0_30",    label: "0–30 days",  color: "text-emerald-700" },
+  { key: "b31_60",   label: "31–60 days", color: "text-primary" },
+  { key: "b61_90",   label: "61–90 days", color: "text-amber-600" },
   { key: "b90_plus", label: "90+ days",   color: "text-rose-600" },
 ];
 
@@ -156,7 +156,7 @@ export default function AgedReceivables() {
                     <td className="px-4 py-2 font-medium">{r.ldgr_name}</td>
                     {BUCKETS.map((b) => (
                       <td key={b.key} className={`px-4 py-2 text-right ${b.color}`}>
-                        {r[b.key] > 0 ? `₹${fmt(r[b.key])}` : "�"}
+                        {r[b.key] > 0 ? `₹${fmt(r[b.key])}` : "—"}
                       </td>
                     ))}
                     <td className="px-4 py-2 text-right font-bold">₹{fmt(r.total)}</td>

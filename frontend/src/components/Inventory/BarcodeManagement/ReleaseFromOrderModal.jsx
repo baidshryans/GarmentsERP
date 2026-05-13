@@ -99,7 +99,7 @@ export default function ReleaseFromOrderModal({ open, barcode, onClose, onReleas
               className="mt-1"
             />
             <div>
-              <div className="text-sm font-medium">Release � I'll place a new order</div>
+              <div className="text-sm font-medium">Release — I'll place a new order</div>
               <div className="text-xs text-gray-500">
                 Keeps the original order open; item lifecycle flags are reset so staff can reassign.
               </div>

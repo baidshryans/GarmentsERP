@@ -163,7 +163,7 @@ export default function PortalEnrollment() {
             onClick={() => navigate(`/portal/pay/${e.enrollment_no}`)}
           >
             <CreditCard className="size-4 mr-1" />
-            Pay Installment #{e.payments_made + 1} � {inr(e.installment_amount)}
+            Pay Installment #{e.payments_made + 1} — {inr(e.installment_amount)}
           </Button>
         </div>
       )}

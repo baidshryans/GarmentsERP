@@ -9,7 +9,7 @@ const ForbiddenPage = () => {
         <div className="flex flex-col items-center justify-center h-screen text-center space-y-4">
             <h1 className="text-4xl font-bold">403 - Forbidden</h1>
             <p className="text-lg text-muted-foreground">
-                Sorry, you don�t have permission to access this page.
+                Sorry, you don’t have permission to access this page.
             </p>
             <Button onClick={() => navigate("/")} variant="outline">
                 Go Back to Home

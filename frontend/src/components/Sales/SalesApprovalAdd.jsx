@@ -247,7 +247,7 @@ const SalesApprovalAdd = () => {
               <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || (
                   <span className="text-violet-400 text-xs font-normal">
-                    Auto-generating�
+                    Auto-generating…
                   </span>
                 )}
               </span>
@@ -271,7 +271,7 @@ const SalesApprovalAdd = () => {
                 setValue("form.ldgr_name", opt.ac_name)
                 setValue("form.ldgr", opt.id)
               }}
-              placeholder="Search customer�"
+              placeholder="Search customer…"
             />
             <input type="hidden" {...register("form.ldgr")} />
           </FieldContainer>
@@ -401,7 +401,7 @@ const SalesApprovalAdd = () => {
         <div className="overflow-x-auto rounded-lg border border-gray-100 mb-6">
           <Table>
             <TableBody>
-              {/* Header row � Packet comes right after Item (col 3) */}
+              {/* Header row — Packet comes right after Item (col 3) */}
               <TableRow className="bg-violet-50">
                 {["Barcode","Item","Packet","Pcs","CT","GW","Making","Making Type",
                   "Purity","Tunch","Rate","Amount"].map((h) => (
@@ -425,8 +425,8 @@ const SalesApprovalAdd = () => {
                   <TableRow className="bg-violet-50/60">
                     <TableCell className="px-3 py-1 border text-xs">{field?.barcode}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs font-medium">{field?.item}</TableCell>
-                    {/* Packet � col 3 */}
-                    <TableCell className="px-3 py-1 border text-xs text-center">�</TableCell>
+                    {/* Packet — col 3 */}
+                    <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.pcs}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{Number(field?.ct || 0).toFixed(3)}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.gw}</TableCell>
@@ -441,7 +441,7 @@ const SalesApprovalAdd = () => {
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.making_type}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.purity}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.tunch}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">�</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
                     <TableCell className="px-3 py-1 border">
                       <Input
                         type="number"
@@ -457,7 +457,7 @@ const SalesApprovalAdd = () => {
                     <TableRow key={idx} className="bg-gray-50">
                       <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border text-xs pl-6">{detail?.item}</TableCell>
-                      {/* Packet � col 3 */}
+                      {/* Packet — col 3 */}
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.packet}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.pcs}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{Number(detail?.ct || 0).toFixed(3)}</TableCell>

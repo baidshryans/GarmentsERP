@@ -328,7 +328,7 @@ export async function fetchOrderItem(id, slNo) {
   }
 }
 
-// ── Delete � Issues ───────────────────────────────────────────────────────────
+// ── Delete — Issues ───────────────────────────────────────────────────────────
 
 export const deleteJobWorkIssue = async (id, toast) => {
   const result = await deleteResource("manufacturing/api/karigar-issue-vs", id);
@@ -365,7 +365,7 @@ export const deleteAssayIssue = async (id, toast) => {
   handleDelete(result, toast, "Assay issue deleted successfully.");
 };
 
-// ── Delete � Receives ─────────────────────────────────────────────────────────
+// ── Delete — Receives ─────────────────────────────────────────────────────────
 
 export const deleteJobWorkReceive = async (id, toast) => {
   const result = await deleteResource("manufacturing/api/karigar-receive", id);

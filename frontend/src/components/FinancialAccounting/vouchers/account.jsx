@@ -4,7 +4,7 @@ import { useF4Submit } from "@/hooks/useF4Submit";
 import { fetchDuePayments, fetchDuePaymentsSale } from "@/services/apiService";
 
 const fmtDate = (d) => {
-  if (!d) return "�";
+  if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB").replaceAll("/", "-");
 };
 
@@ -111,7 +111,7 @@ const Account = () => {
       </h2>
 
       {loading ? (
-        <p style={{ color: "#888", fontSize: "14px" }}>Loading outstanding bills�</p>
+        <p style={{ color: "#888", fontSize: "14px" }}>Loading outstanding bills…</p>
       ) : bills.length === 0 ? (
         <p style={{ color: "#888", fontSize: "14px" }}>
           No outstanding bills found for this party.

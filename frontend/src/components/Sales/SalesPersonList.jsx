@@ -64,7 +64,7 @@ function SalesPersonList() {
     setLoading(false);
   };
 
-  // Load ledgers lazily � only when the sheet is opened for the first time
+  // Load ledgers lazily — only when the sheet is opened for the first time
   const loadLedgers = async () => {
     if (ledgers.length > 0) return; // already loaded
     const ldgrRes = await getLedgerList();
@@ -163,7 +163,7 @@ function SalesPersonList() {
     },
     { header: "#", cell: ({ row }) => row.index + 1 },
     { header: "Name",   accessorKey: "salesperson_name" },
-    { header: "Retail", accessorKey: "retail", cell: ({ getValue }) => retailMap[getValue()] || "�" },
+    { header: "Retail", accessorKey: "retail", cell: ({ getValue }) => retailMap[getValue()] || "—" },
     {
       header: "Commission",
       cell: ({ row }) => {
@@ -175,7 +175,7 @@ function SalesPersonList() {
             <span className="font-medium">{rate}% on {r.commission_on}</span>
             <span className="text-muted-foreground">
               {r.deduct_discount ? "After discount" : "Before discount"}
-              {r.apply_on_b2b ? "" : " � Skip B2B"}
+              {r.apply_on_b2b ? "" : " · Skip B2B"}
             </span>
           </div>
         );
@@ -246,9 +246,9 @@ function SalesPersonList() {
                   : "Leave empty to auto-create a \"Commission Payable\" ledger"}
               </p>
               <Select value={form.ledger} onValueChange={v => setField("ledger", v === "__auto__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="� Auto-create �" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="— Auto-create —" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__auto__">� Auto-create (Sales Commission) �</SelectItem>
+                  <SelectItem value="__auto__">— Auto-create (Sales Commission) —</SelectItem>
                   {ledgers.map(l => (
                     <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>
                   ))}
@@ -292,7 +292,7 @@ function SalesPersonList() {
                 <div className="flex items-center justify-between rounded-lg border px-3 py-2">
                   <div>
                     <p className="text-sm font-medium">Deduct Discount Before Commission</p>
-                    <p className="text-xs text-muted-foreground">If checked, commission = (Value − Discount) � Rate%</p>
+                    <p className="text-xs text-muted-foreground">If checked, commission = (Value − Discount) × Rate%</p>
                   </div>
                   <button
                     type="button"

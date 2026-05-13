@@ -34,7 +34,7 @@ export default function SettingsPage() {
       <Section title="General" icon={<Settings className="size-4" />}>
         <SettingRow
           title="ERP Setup Wizard"
-          description="Run the initial setup flow � seed account groups, create retails, configure TDS/TCS, upload masters."
+          description="Run the initial setup flow — seed account groups, create retails, configure TDS/TCS, upload masters."
         >
           <Button
             size="sm"
@@ -211,10 +211,10 @@ function CommissionLedgerCard() {
       <div className="flex gap-2 items-center max-w-md">
         <Select value={selected} onValueChange={v => setSelected(v)}>
           <SelectTrigger>
-            <SelectValue placeholder="� Select expense ledger �" />
+            <SelectValue placeholder="— Select expense ledger —" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__none__">� None (disable JV creation) �</SelectItem>
+            <SelectItem value="__none__">— None (disable JV creation) —</SelectItem>
             {ledgers.map(l => (
               <SelectItem key={l.id} value={String(l.id)}>
                 {l.ac_name}
@@ -223,7 +223,7 @@ function CommissionLedgerCard() {
           </SelectContent>
         </Select>
         <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving�" : "Save"}
+          {saving ? "Saving…" : "Save"}
         </Button>
       </div>
       {ledgers.length === 0 && (
@@ -541,7 +541,7 @@ function AttachmentStorageCard() {
 
       {loading ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="size-3.5 animate-spin" /> Loading�
+          <Loader2 className="size-3.5 animate-spin" /> Loading…
         </div>
       ) : (
         <>
@@ -829,7 +829,7 @@ function ResetErpCard() {
         <div className="flex-1">
           <p className="text-sm font-medium text-red-800">Reset ERP</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            This will permanently delete <strong>all transactional and master data</strong> � vouchers,
+            This will permanently delete <strong>all transactional and master data</strong> — vouchers,
             ledgers, purchases, sales, inventory, account groups, and more. User accounts, roles, and
             permissions will be preserved. This action <strong>cannot be undone</strong>.
           </p>

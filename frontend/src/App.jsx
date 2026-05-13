@@ -363,7 +363,7 @@ const appRoutes = [
   { path: "purchase/list/",                        heading: "Purchase Voucher List",  component: <PurchaseVoucherList /> },
   { path: "purchase/add/",                         heading: "Add Purchase Voucher",   component: <PurchaseVoucher /> },
   { path: "purchase/:id",                          heading: "Edit Purchase Voucher",  component: <PurchaseVoucher /> },
-  // Legacy aliases � kept for backward compatibility
+  // Legacy aliases — kept for backward compatibility
   { path: "purchase/purchasevoucher/list/",        heading: "Purchase Voucher List",  component: <PurchaseVoucherList /> },
   { path: "purchase/purchasevoucher/list/add/",    heading: "Add Purchase Voucher",   component: <PurchaseVoucher /> },
   { path: "purchase/purchasevoucher/list/:id",     heading: "Edit Purchase Voucher",  component: <PurchaseVoucher /> },
@@ -492,14 +492,14 @@ const appRoutes = [
   { path: "sales",                      heading: "Sales",                   component: <SectionIndexPage /> },
   { path: "purchase",                   heading: "Purchases",               component: <SectionIndexPage /> },
   { path: "manufacturing",             heading: "Manufacturing",            component: <SectionIndexPage /> },
-  { path: "manufacturing/issue",       heading: "Manufacturing � Issue",    component: <SectionIndexPage /> },
-  { path: "manufacturing/receive",     heading: "Manufacturing � Receive",  component: <SectionIndexPage /> },
-  { path: "manufacturing/reports",     heading: "Manufacturing � Reports",  component: <SectionIndexPage /> },
+  { path: "manufacturing/issue",       heading: "Manufacturing — Issue",    component: <SectionIndexPage /> },
+  { path: "manufacturing/receive",     heading: "Manufacturing — Receive",  component: <SectionIndexPage /> },
+  { path: "manufacturing/reports",     heading: "Manufacturing — Reports",  component: <SectionIndexPage /> },
   { path: "accounting",               heading: "Financial Accounting",      component: <SectionIndexPage /> },
-  { path: "accounting/reports",        heading: "Accounting � Reports",     component: <SectionIndexPage /> },
+  { path: "accounting/reports",        heading: "Accounting — Reports",     component: <SectionIndexPage /> },
   { path: "inventory",                heading: "Inventory",                 component: <SectionIndexPage /> },
   { path: "inventory/barcodemanagement", heading: "Barcode Management",     component: <SectionIndexPage /> },
-  { path: "inventory/reports",         heading: "Inventory � Reports",      component: <SectionIndexPage /> },
+  { path: "inventory/reports",         heading: "Inventory — Reports",      component: <SectionIndexPage /> },
   { path: "scheme",                   heading: "Gold Schemes",             component: <SectionIndexPage /> },
 
   // ── Breadcrumb redirect shims (intermediate paths with no own UI) ─────────
@@ -531,7 +531,7 @@ function App() {
 
         {/* Protected root */}
         <Route path="/" element={<ProtectedRoute element={<Page />} />}>
-          {/* Dashboard � index route */}
+          {/* Dashboard — index route */}
           <Route index element={<ProtectedRoute element={<Dashboard />} />} />
           {appRoutes.map(({ path, heading, component }) => (
             <Route
@@ -553,13 +553,13 @@ function App() {
 
         {/* Public route */}
         <Route path="login" element={<LoginPage />} />
-        {/* Forbidden page � rendered on 403 redirect from apiClient */}
+        {/* Forbidden page — rendered on 403 redirect from apiClient */}
         <Route path="forbidden" element={<ForbiddenPage />} />
 
         {/* Customer Portal (standalone, separate from ERP auth) */}
         <Route path="portal/*" element={<PortalApp />} />
 
-        {/* HR Employee Portal (uses ERP Token auth � employees are Django Users) */}
+        {/* HR Employee Portal (uses ERP Token auth — employees are Django Users) */}
         <Route path="hr-portal/*" element={<HRPortalApp />} />
       </Routes>
     </Suspense>

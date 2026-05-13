@@ -132,7 +132,7 @@ const AccountingVoucher = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="av-co-sub">
             {d.company_phone && "Tel: " + d.company_phone}
-            {d.company_phone && d.company_email && "  �  "}
+            {d.company_phone && d.company_email && "  ·  "}
             {d.company_email}
           </div>
         )}
@@ -150,7 +150,7 @@ const AccountingVoucher = ({ data = {} }) => {
       <div className="av-info">
         <div className="av-info-cell">
           <div className="av-info-lbl">Voucher No.</div>
-          <div className="av-info-val">{d.voucher_no || "�"}</div>
+          <div className="av-info-val">{d.voucher_no || "—"}</div>
         </div>
         <div className="av-info-cell">
           <div className="av-info-lbl">Date</div>
@@ -188,19 +188,19 @@ const AccountingVoucher = ({ data = {} }) => {
             <React.Fragment key={i}>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Drawn On</div>
-                <div className="av-chq-val">{b.party_bank_name || "�"}</div>
+                <div className="av-chq-val">{b.party_bank_name || "—"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Cheque / Card No.</div>
-                <div className="av-chq-val">{b.chq_no || "�"}</div>
+                <div className="av-chq-val">{b.chq_no || "—"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Cheque Date</div>
-                <div className="av-chq-val">{fmtDate(b.chq_date) || "�"}</div>
+                <div className="av-chq-val">{fmtDate(b.chq_date) || "—"}</div>
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Account</div>
-                <div className="av-chq-val">{b.account || "�"}</div>
+                <div className="av-chq-val">{b.account || "—"}</div>
               </div>
             </React.Fragment>
           ))}

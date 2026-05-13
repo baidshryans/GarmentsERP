@@ -316,7 +316,7 @@ export default function DayBook() {
       {report && !loading && (
         <div className="flex flex-col gap-3">
           <div className="text-sm text-muted-foreground px-1">
-            Day Book � {report.from_date} to {report.to_date}
+            Day Book — {report.from_date} to {report.to_date}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 [&>*]:min-w-0">

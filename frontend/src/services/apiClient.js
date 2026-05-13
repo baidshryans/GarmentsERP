@@ -33,7 +33,7 @@ apiClient.interceptors.request.use(
     }
 
     // Always set X-RETAIL-ID if available (required by backend middleware)
-    // Skip during setup wizard � retail may not exist yet (fresh install / rollback)
+    // Skip during setup wizard — retail may not exist yet (fresh install / rollback)
     const isSetupPage = window.location.pathname.startsWith('/settings/setup');
     if (retail_code && !isSetupPage) {
       config.headers['X-RETAIL-ID'] = retail_code;
@@ -51,7 +51,7 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Don't redirect during setup wizard or login � those pages handle errors themselves
+    // Don't redirect during setup wizard or login — those pages handle errors themselves
     const path = window.location.pathname;
     const isSetupOrLogin = path.startsWith("/settings/setup") || path === "/login" || path === "/config";
 

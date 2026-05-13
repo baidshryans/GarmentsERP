@@ -27,7 +27,7 @@ function SectionCard({ title, subtitle, action, children, className = "" }) {
         <div className="flex items-center gap-2">
           <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
           <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">{title}</h3>
-          {subtitle ? <span className="text-xs text-muted-foreground">� {subtitle}</span> : null}
+          {subtitle ? <span className="text-xs text-muted-foreground">· {subtitle}</span> : null}
         </div>
         {action ? <div>{action}</div> : null}
       </div>
@@ -38,7 +38,7 @@ function SectionCard({ title, subtitle, action, children, className = "" }) {
 
 const fmt3 = (v) => {
   const n = parseFloat(v);
-  return Number.isFinite(n) ? n.toFixed(3) : "�";
+  return Number.isFinite(n) ? n.toFixed(3) : "—";
 };
 const fmt0 = (v) => {
   const n = parseFloat(v);
@@ -248,7 +248,7 @@ const HallmarkIssue = () => {
   const groupedItems = useMemo(() => {
     const map = new Map();
     tableSnapshot.forEach((it, idx) => {
-      const key = it._receive_slip_no || "�";
+      const key = it._receive_slip_no || "—";
       if (!map.has(key)) {
         map.set(key, {
           slip: key,
@@ -318,7 +318,7 @@ const HallmarkIssue = () => {
 
         {/* Step 1: Add items from karigar receives */}
         <SectionCard
-          title="Step 1 � Add items from karigar receives"
+          title="Step 1 · Add items from karigar receives"
           subtitle={`${filteredReceives.length} receive${filteredReceives.length === 1 ? "" : "s"} available`}
           action={
             <div className="flex items-center gap-2">
@@ -326,7 +326,7 @@ const HallmarkIssue = () => {
                 <Search className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   className="h-8 w-56 pl-7 text-xs"
-                  placeholder="Search karigar / slip / item�"
+                  placeholder="Search karigar / slip / item…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -365,14 +365,14 @@ const HallmarkIssue = () => {
                       </button>
                       <span className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">Receive</span>
                       <span className="font-medium">{slip}</span>
-                      <span className="text-xs text-muted-foreground">�</span>
+                      <span className="text-xs text-muted-foreground">·</span>
                       <span className="text-xs text-muted-foreground">{recv.date1}</span>
-                      <span className="text-xs text-muted-foreground">�</span>
-                      <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{recv.karigar_ldgr_name || "�"}</span>
+                      <span className="text-xs text-muted-foreground">·</span>
+                      <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{recv.karigar_ldgr_name || "—"}</span>
                     </div>
                     <div className="text-xs text-muted-foreground tabular-nums">
-                      {items.length} item{items.length === 1 ? "" : "s"} � {fmt0(pcsTotal)} pc � {fmt3(gwTotal)} g
-                      {pickedHere > 0 ? <span className="ml-2 text-primary font-medium">� {pickedHere} selected</span> : null}
+                      {items.length} item{items.length === 1 ? "" : "s"} · {fmt0(pcsTotal)} pc · {fmt3(gwTotal)} g
+                      {pickedHere > 0 ? <span className="ml-2 text-primary font-medium">· {pickedHere} selected</span> : null}
                     </div>
                   </div>
                   {expanded ? (
@@ -400,7 +400,7 @@ const HallmarkIssue = () => {
                           const key = `${slip}::${it.sl_no}`;
                           const alreadyAdded = addedReceiveSls.has(it.receive_sl);
                           const picked = pickedKeys.has(key);
-                          const displayName = it.item_name || it.item || "�";
+                          const displayName = it.item_name || it.item || "—";
                           return (
                             <TableRow key={it.receive_sl ?? `${slip}-${it.sl_no}`} className={alreadyAdded ? "opacity-50" : "hover:bg-slate-50/60"}>
                               <TableCell className="px-3 py-2 border text-center">
@@ -418,7 +418,7 @@ const HallmarkIssue = () => {
                                 {it.item_name && it.item ? <div className="text-[11px] text-muted-foreground font-mono">{it.item}</div> : null}
                               </TableCell>
                               <TableCell className="px-3 py-2 border">
-                                {it.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{it.purity}</span> : "�"}
+                                {it.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{it.purity}</span> : "—"}
                               </TableCell>
                               <TableCell className="px-3 py-2 border text-right tabular-nums">{fmt0(it.pcs)}</TableCell>
                               <TableCell className="px-3 py-2 border text-right tabular-nums">{fmt3(it.gw)}</TableCell>
@@ -444,7 +444,7 @@ const HallmarkIssue = () => {
 
         {/* Step 2: Items on this slip */}
         <SectionCard
-          title="Step 2 � Items on this slip"
+          title="Step 2 · Items on this slip"
           subtitle={
             tableSnapshot.length > 0
               ? `${tableSnapshot.length} item${tableSnapshot.length === 1 ? "" : "s"} from ${groupedItems.length} receive${groupedItems.length === 1 ? "" : "s"}`
@@ -475,9 +475,9 @@ const HallmarkIssue = () => {
                       <TableCell colSpan={10} className="px-4 py-2.5 border-y-2 border-y-[hsl(242_30%_86%)] bg-[hsl(242_40%_96%)] text-[hsl(242_64%_38%)] text-[12.5px]">
                         <span className="text-[11px] uppercase tracking-wider font-semibold mr-2">▸ Receive</span>
                         <span className="font-semibold">{group.slip}</span>
-                        {group.karigar ? <span className="mx-1.5 text-slate-400">�</span> : null}
+                        {group.karigar ? <span className="mx-1.5 text-slate-400">·</span> : null}
                         {group.karigar ? <span>{group.karigar}</span> : null}
-                        {group.date ? <span className="mx-1.5 text-slate-400">�</span> : null}
+                        {group.date ? <span className="mx-1.5 text-slate-400">·</span> : null}
                         {group.date ? <span>{group.date}</span> : null}
                       </TableCell>
                     </TableRow>
@@ -495,14 +495,14 @@ const HallmarkIssue = () => {
                                   </button>
                                 </TableCell>
                                 <TableCell rowSpan={span} className="px-3 py-2.5 border text-center font-semibold align-middle">{row.sl_no || row._idx + 1}</TableCell>
-                                <TableCell rowSpan={span} className="px-3 py-2.5 border align-middle font-medium">{row.item_name || row.item || "�"}</TableCell>
+                                <TableCell rowSpan={span} className="px-3 py-2.5 border align-middle font-medium">{row.item_name || row.item || "—"}</TableCell>
                                 <TableCell rowSpan={span} className="px-3 py-2.5 border align-middle">
-                                  {row.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{row.purity}</span> : "�"}
+                                  {row.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{row.purity}</span> : "—"}
                                 </TableCell>
                               </>
                             ) : null}
-                            <TableCell className="px-3 py-2.5 border">{sub.item || sub.metal_purity || "�"}</TableCell>
-                            <TableCell className="px-3 py-2.5 border">{sub.packet || "�"}</TableCell>
+                            <TableCell className="px-3 py-2.5 border">{sub.item || sub.metal_purity || "—"}</TableCell>
+                            <TableCell className="px-3 py-2.5 border">{sub.packet || "—"}</TableCell>
                             <TableCell className="px-3 py-2.5 border text-right tabular-nums bg-[hsl(220_30%_97.5%)]">{fmt0(sub.pcs)}</TableCell>
                             <TableCell className="px-3 py-2.5 border text-right tabular-nums bg-[hsl(220_30%_97.5%)]">{fmt3(sub.ct)}</TableCell>
                             <TableCell className="px-3 py-2.5 border text-right tabular-nums bg-[hsl(220_30%_97.5%)]">{fmt3(sub.gw)}</TableCell>
@@ -519,14 +519,14 @@ const HallmarkIssue = () => {
                             </button>
                           </TableCell>
                           <TableCell className="px-3 py-2.5 border text-center font-semibold">{row.sl_no || row._idx + 1}</TableCell>
-                          <TableCell className="px-3 py-2.5 border font-medium">{row.item_name || row.item || "�"}</TableCell>
+                          <TableCell className="px-3 py-2.5 border font-medium">{row.item_name || row.item || "—"}</TableCell>
                           <TableCell className="px-3 py-2.5 border">
-                            {row.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{row.purity}</span> : "�"}
+                            {row.purity ? <span className="inline-flex px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{row.purity}</span> : "—"}
                           </TableCell>
-                          <TableCell className="px-3 py-2.5 border text-slate-400">�</TableCell>
-                          <TableCell className="px-3 py-2.5 border text-slate-400">�</TableCell>
+                          <TableCell className="px-3 py-2.5 border text-slate-400">—</TableCell>
+                          <TableCell className="px-3 py-2.5 border text-slate-400">—</TableCell>
                           <TableCell className="px-3 py-2.5 border text-right tabular-nums">{fmt0(row.pcs)}</TableCell>
-                          <TableCell className="px-3 py-2.5 border text-slate-400">�</TableCell>
+                          <TableCell className="px-3 py-2.5 border text-slate-400">—</TableCell>
                           <TableCell className="px-3 py-2.5 border text-right tabular-nums">{fmt3(row.gw)}</TableCell>
                           <TableCell className="px-3 py-2.5 border text-right tabular-nums font-medium">{fmt3(row.nw)}</TableCell>
                         </TableRow>
@@ -537,7 +537,7 @@ const HallmarkIssue = () => {
 
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={6} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-center font-semibold">
-                    Total � {tableSnapshot.length} item{tableSnapshot.length === 1 ? "" : "s"} from {groupedItems.length} receive{groupedItems.length === 1 ? "" : "s"}
+                    Total · {tableSnapshot.length} item{tableSnapshot.length === 1 ? "" : "s"} from {groupedItems.length} receive{groupedItems.length === 1 ? "" : "s"}
                   </TableCell>
                   <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt0(slipTotals.pcs)}</TableCell>
                   <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)]"></TableCell>

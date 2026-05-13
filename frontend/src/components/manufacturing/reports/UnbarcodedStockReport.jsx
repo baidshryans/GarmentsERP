@@ -279,7 +279,7 @@ export default function UnbarcodedStockReport() {
             <Input
               value={filters.design_code}
               onChange={(e) => update("design_code")(e.target.value)}
-              placeholder="Contains�"
+              placeholder="Contains…"
             />
           </div>
 
@@ -288,7 +288,7 @@ export default function UnbarcodedStockReport() {
             <Input
               value={filters.label}
               onChange={(e) => update("label")(e.target.value)}
-              placeholder="Contains�"
+              placeholder="Contains…"
             />
           </div>
 
@@ -358,7 +358,7 @@ export default function UnbarcodedStockReport() {
             <X className="h-4 w-4 mr-1" /> Reset
           </Button>
           <Button onClick={fetchData} disabled={loading}>
-            {loading ? "Loading�" : "Apply"}
+            {loading ? "Loading…" : "Apply"}
           </Button>
         </div>
       </div>

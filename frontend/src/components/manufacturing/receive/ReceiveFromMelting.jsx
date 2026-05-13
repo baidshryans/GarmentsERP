@@ -149,7 +149,7 @@ const ReceiveFromMelting = () => {
 
                     <Field label="Bill No">
                         <div className="text-sm font-mono px-3 py-2 bg-gray-50 rounded border border-gray-200 h-9 flex items-center max-w-[170px]">
-                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating�</span>}
+                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating…</span>}
                         </div>
                     </Field>
 
@@ -227,7 +227,7 @@ const ReceiveFromMelting = () => {
                                         <TableCell className="px-3 py-1.5 font-mono text-xs">{item.issue_no}</TableCell>
                                         <TableCell className="px-3 py-1.5">{item.item}</TableCell>
                                         <TableCell className="px-3 py-1.5">{item.metal_purity}</TableCell>
-                                        <TableCell className="px-3 py-1.5 text-right">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</TableCell>
+                                        <TableCell className="px-3 py-1.5 text-right">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
 
                                         <TableCell className="px-2 py-1">
                                             <Controller

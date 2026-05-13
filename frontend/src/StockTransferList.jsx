@@ -105,7 +105,7 @@ const StockTransferList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Load in-transit barcodes (lazy � on first tab switch) ──
+  // ── Load in-transit barcodes (lazy — on first tab switch) ──
   const loadInTransit = useCallback(async () => {
     setLoadingIntransit(true);
     const result = await fetchInTransitBarcodes();
@@ -203,9 +203,9 @@ const StockTransferList = () => {
       header: "From → To",
       cell: ({ row }) => (
         <span className="flex items-center gap-1 text-xs">
-          <span className="text-muted-foreground">{row.original.from_retail_name || "�"}</span>
+          <span className="text-muted-foreground">{row.original.from_retail_name || "—"}</span>
           <ArrowRight className="size-3 text-muted-foreground/50 shrink-0" />
-          <span className="font-medium">{row.original.to_retail_name || "�"}</span>
+          <span className="font-medium">{row.original.to_retail_name || "—"}</span>
         </span>
       ),
     },
@@ -221,7 +221,7 @@ const StockTransferList = () => {
             {items.length > 3 && (
               <span className="text-[10px] text-muted-foreground">+{items.length - 3} more</span>
             )}
-            {items.length === 0 && <span className="text-[10px] text-muted-foreground">�</span>}
+            {items.length === 0 && <span className="text-[10px] text-muted-foreground">—</span>}
           </div>
         );
       },
@@ -230,7 +230,7 @@ const StockTransferList = () => {
       header: "GW (g)",
       cell: ({ row }) => {
         const total = (row.original.stocktransfermain_set ?? []).reduce((s, i) => s + (parseFloat(i.gw) || 0), 0);
-        return total > 0 ? total.toFixed(3) : "�";
+        return total > 0 ? total.toFixed(3) : "—";
       },
     },
   ];
@@ -246,26 +246,26 @@ const StockTransferList = () => {
     },
     { header: "Item", accessorKey: "item_name",
       cell: ({ row }) => (
-        <span className="text-xs">{row.original.item_name || row.original.item_code || "�"}</span>
+        <span className="text-xs">{row.original.item_name || row.original.item_code || "—"}</span>
       ),
     },
     { header: "Purity", accessorKey: "purity",
-      cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{getValue() || "�"}</span>,
+      cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{getValue() || "—"}</span>,
     },
     { header: "Pcs", accessorKey: "pcs",
-      cell: ({ getValue }) => <span className="text-xs text-right block">{getValue() || "�"}</span>,
+      cell: ({ getValue }) => <span className="text-xs text-right block">{getValue() || "—"}</span>,
     },
     { header: "GW (g)", accessorKey: "gw",
       cell: ({ getValue }) => (
         <span className="text-xs font-medium text-right block">
-          {getValue() ? parseFloat(getValue()).toFixed(3) : "�"}
+          {getValue() ? parseFloat(getValue()).toFixed(3) : "—"}
         </span>
       ),
     },
     { header: "NW (g)", accessorKey: "nw",
       cell: ({ getValue }) => (
         <span className="text-xs text-right block">
-          {getValue() ? parseFloat(getValue()).toFixed(3) : "�"}
+          {getValue() ? parseFloat(getValue()).toFixed(3) : "—"}
         </span>
       ),
     },
@@ -273,9 +273,9 @@ const StockTransferList = () => {
       header: "From → To",
       cell: ({ row }) => (
         <span className="flex items-center gap-1 text-xs whitespace-nowrap">
-          <span className="text-muted-foreground">{row.original.from_retail_name || "�"}</span>
+          <span className="text-muted-foreground">{row.original.from_retail_name || "—"}</span>
           <ArrowRight className="size-3 text-muted-foreground/50 shrink-0" />
-          <span className="font-medium">{row.original.to_retail_name || "�"}</span>
+          <span className="font-medium">{row.original.to_retail_name || "—"}</span>
         </span>
       ),
     },
@@ -287,7 +287,7 @@ const StockTransferList = () => {
           <div className="text-muted-foreground">
             {row.original.transfer_date
               ? new Date(row.original.transfer_date).toLocaleDateString("en-GB").replaceAll("/", "-")
-              : "�"}
+              : "—"}
           </div>
         </div>
       ),

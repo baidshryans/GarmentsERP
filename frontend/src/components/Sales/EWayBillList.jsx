@@ -171,7 +171,7 @@ export default function EWayBillList() {
         }
         return (
           <div className="flex items-center gap-1">
-            <span className="font-mono text-xs">{b.eway_bill_no || "�"}</span>
+            <span className="font-mono text-xs">{b.eway_bill_no || "—"}</span>
             {b.status !== "CANCELLED" && (
               <button
                 onClick={() => { setEditingId(b.id); setEbnInput(b.eway_bill_no || ""); }}
@@ -189,7 +189,7 @@ export default function EWayBillList() {
       header: "Source",
       cell: ({ row }) => (
         <div className="text-xs">
-          <div className="font-mono text-primary">{row.original.source_billno || "�"}</div>
+          <div className="font-mono text-primary">{row.original.source_billno || "—"}</div>
           <div className="text-muted-foreground">{row.original.source_type || ""}</div>
         </div>
       ),
@@ -197,24 +197,24 @@ export default function EWayBillList() {
     {
       header: "Party",
       accessorKey: "party_name",
-      cell: ({ getValue }) => <span className="text-xs">{getValue() || "�"}</span>,
+      cell: ({ getValue }) => <span className="text-xs">{getValue() || "—"}</span>,
     },
     {
       header: "Vehicle",
       accessorKey: "vehicle_no",
-      cell: ({ getValue }) => <span className="text-xs font-mono">{getValue() || "�"}</span>,
+      cell: ({ getValue }) => <span className="text-xs font-mono">{getValue() || "—"}</span>,
     },
     {
       header: "Transporter",
       accessorKey: "transporter_name",
-      cell: ({ getValue }) => <span className="text-xs">{getValue() || "�"}</span>,
+      cell: ({ getValue }) => <span className="text-xs">{getValue() || "—"}</span>,
     },
     {
       header: "Distance (km)",
       accessorKey: "trans_distance",
       cell: ({ getValue }) => {
         const v = getValue();
-        return <span className="text-xs text-right block">{v != null && v !== '' ? v : "�"}</span>;
+        return <span className="text-xs text-right block">{v != null && v !== '' ? v : "—"}</span>;
       },
     },
     {
@@ -222,7 +222,7 @@ export default function EWayBillList() {
       accessorKey: "generated_date",
       cell: ({ getValue }) => {
         const d = getValue();
-        if (!d) return "�";
+        if (!d) return "—";
         return <span className="text-xs text-muted-foreground">{new Date(d).toLocaleDateString("en-GB").replaceAll("/", "-")}</span>;
       },
     },

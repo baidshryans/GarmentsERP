@@ -185,12 +185,12 @@ export default function OpeningStockForm() {
           labelKey="item_name"
           searchKeys={["short_code"]}
           value={form.item_name}
-          placeholder="Search item�"
+          placeholder="Search item…"
           onSelect={(opt) => set({ item: String(opt.id), item_name: opt.item_name })}
         />
       </div>
 
-      {/* Karigar / Customer � only for KR and CO */}
+      {/* Karigar / Customer — only for KR and CO */}
       {(form.type === "KR" || form.type === "CO") && (
         <div className="mb-4">
           <Label className="mb-1 block">{partyLabel} *</Label>
@@ -198,7 +198,7 @@ export default function OpeningStockForm() {
             options={ledgers}
             labelKey="ac_name"
             value={form.ldgr_name}
-            placeholder={`Search ${partyLabel.toLowerCase()}�`}
+            placeholder={`Search ${partyLabel.toLowerCase()}…`}
             onInputChange={setLedgerSearch}
             onSelect={(opt) => set({ ldgr: String(opt.id), ldgr_name: opt.ac_name })}
           />
@@ -212,7 +212,7 @@ export default function OpeningStockForm() {
           options={purities}
           labelKey="purity"
           value={form.purity_label}
-          placeholder="Select purity�"
+          placeholder="Select purity…"
           onSelect={(opt) => set({ purity: String(opt.id), purity_label: opt.purity })}
         />
       </div>
@@ -260,7 +260,7 @@ export default function OpeningStockForm() {
           options={packets}
           labelKey="pckt_no"
           value={form.packet_label}
-          placeholder="Select packet�"
+          placeholder="Select packet…"
           onSelect={(opt) => {
               const patch = { packet: String(opt.id), packet_label: opt.pckt_no };
               if (opt.stone_item_id && opt.stone_item_name) {
@@ -277,7 +277,7 @@ export default function OpeningStockForm() {
       <div className="flex gap-3">
         <Button onClick={handleSave} disabled={saving}>
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {saving ? (isEdit ? "Updating�" : "Saving�") : (isEdit ? "Update" : "Save")}
+          {saving ? (isEdit ? "Updating…" : "Saving…") : (isEdit ? "Update" : "Save")}
         </Button>
         <Button variant="outline" onClick={() => navigate("/inventory/opening-stock")}>
           Cancel

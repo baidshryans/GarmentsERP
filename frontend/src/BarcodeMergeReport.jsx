@@ -8,10 +8,10 @@ import { isValidDateRange } from "@/lib/dateRange";
 
 function fmt(v, dec = 3) {
   const n = parseFloat(v);
-  return isNaN(n) ? "�" : n.toFixed(dec);
+  return isNaN(n) ? "—" : n.toFixed(dec);
 }
 function fmtDate(d) {
-  if (!d) return "�";
+  if (!d) return "—";
   return new Date(d).toLocaleDateString("en-IN");
 }
 
@@ -56,13 +56,13 @@ export default function BarcodeMergeReport() {
     const headers = ["Date","Old Barcode","Old Item","Old Pcs","Old GW","Old NW","New Barcode","New Item","New Pcs","New GW","New NW"];
     const csvRows = rows.map((r) => [
       fmtDate(r.date1),
-      r.old_barcode?.barcode ?? "�",
-      r.old_barcode?.item?.item_name ?? "�",
+      r.old_barcode?.barcode ?? "—",
+      r.old_barcode?.item?.item_name ?? "—",
       r.old_barcode?.pcs ?? "",
       fmt(r.old_barcode?.gw),
       fmt(r.old_barcode?.nw),
-      r.new_barcode?.barcode ?? "�",
-      r.new_barcode?.item?.item_name ?? "�",
+      r.new_barcode?.barcode ?? "—",
+      r.new_barcode?.item?.item_name ?? "—",
       r.new_barcode?.pcs ?? "",
       fmt(r.new_barcode?.gw),
       fmt(r.new_barcode?.nw),
@@ -81,7 +81,7 @@ export default function BarcodeMergeReport() {
     const tableEl = document.querySelector("#merge-report-table");
     if (!tableEl) return;
     const win = window.open("", "_blank", "width=900,height=600");
-    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Merge Report ${fromDate} � ${toDate}</title>
+    win.document.write(`<!DOCTYPE html><html><head><title>Barcode Merge Report ${fromDate} – ${toDate}</title>
 <style>
   body { font-family: sans-serif; font-size: 11px; padding: 16px; }
   h2 { font-size: 14px; margin-bottom: 4px; }
@@ -94,7 +94,7 @@ export default function BarcodeMergeReport() {
   @media print { @page { margin: 10mm; size: landscape; } }
 </style></head><body>
 <h2>Barcode Merge Report</h2>
-<p>${fromDate} � ${toDate} &nbsp;�&nbsp; ${rows.length} record${rows.length !== 1 ? "s" : ""}</p>
+<p>${fromDate} — ${toDate} &nbsp;·&nbsp; ${rows.length} record${rows.length !== 1 ? "s" : ""}</p>
 ${tableEl.outerHTML}
 </body></html>`);
     win.document.close();
@@ -147,7 +147,7 @@ ${tableEl.outerHTML}
             <span className="font-semibold text-sm">Barcode Merge Report</span>
             {searched && (
               <span className="ml-2 text-xs text-muted-foreground">
-                {fromDate} � {toDate} � {rows.length} record{rows.length !== 1 ? "s" : ""}
+                {fromDate} — {toDate} · {rows.length} record{rows.length !== 1 ? "s" : ""}
               </span>
             )}
           </div>
@@ -202,21 +202,21 @@ ${tableEl.outerHTML}
                   {/* Old (source) barcode */}
                   <TD>
                     <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
-                      {row.old_barcode?.barcode ?? "�"}
+                      {row.old_barcode?.barcode ?? "—"}
                     </span>
                   </TD>
-                  <TD>{row.old_barcode?.item?.item_name ?? "�"}</TD>
-                  <TD className="text-right">{row.old_barcode?.pcs ?? "�"}</TD>
+                  <TD>{row.old_barcode?.item?.item_name ?? "—"}</TD>
+                  <TD className="text-right">{row.old_barcode?.pcs ?? "—"}</TD>
                   <TD className="text-right font-mono text-xs">{fmt(row.old_barcode?.gw)}</TD>
                   <TD className="text-right font-mono text-xs border-r border-border">{fmt(row.old_barcode?.nw)}</TD>
                   {/* New (merged) barcode */}
                   <TD>
                     <span className="font-mono text-xs bg-green-50 text-green-800 px-1.5 py-0.5 rounded">
-                      {row.new_barcode?.barcode ?? "�"}
+                      {row.new_barcode?.barcode ?? "—"}
                     </span>
                   </TD>
-                  <TD>{row.new_barcode?.item?.item_name ?? "�"}</TD>
-                  <TD className="text-right">{row.new_barcode?.pcs ?? "�"}</TD>
+                  <TD>{row.new_barcode?.item?.item_name ?? "—"}</TD>
+                  <TD className="text-right">{row.new_barcode?.pcs ?? "—"}</TD>
                   <TD className="text-right font-mono text-xs">{fmt(row.new_barcode?.gw)}</TD>
                   <TD className="text-right font-mono text-xs">{fmt(row.new_barcode?.nw)}</TD>
                 </tr>

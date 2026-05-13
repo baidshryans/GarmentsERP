@@ -24,7 +24,7 @@ function SectionCard({ title, children, className = "", action, subtitle }) {
         <div className="flex items-center gap-2">
           <span className="w-0.5 h-4 rounded-full bg-primary inline-block" />
           <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">{title}</h3>
-          {subtitle ? <span className="text-xs text-muted-foreground">� {subtitle}</span> : null}
+          {subtitle ? <span className="text-xs text-muted-foreground">· {subtitle}</span> : null}
         </div>
         {action ? <div>{action}</div> : null}
       </div>
@@ -185,7 +185,7 @@ function modifyData(data) {
       data.data.sl_no = sl
       data.data.ref_job_no = ref_job_no_id || matchingSerial?.job_id || null;
       data.data.ref_job_sl_no = matchingSerial?.id || null;
-      data.data._source_label = `Job � ${ref_job_no} � Sl ${sl_no}`;
+      data.data._source_label = `Job · ${ref_job_no} · Sl ${sl_no}`;
       data.data.details = stone_details
         .map(detail => {
           // Calculate amount based on UOM
@@ -279,7 +279,7 @@ function modifyData(data) {
       ref_sample_issue: ref_sample_issue_id,
       ref_sample_issue_item: itm.id,
       sample_piece_gw: itm.piece_gw || 0,
-      _source_label: `Sample � ${getValues("form.ref_sample_issue_billno") || ""} � Sl ${ref_sample_sl_no}`,
+      _source_label: `Sample · ${getValues("form.ref_sample_issue_billno") || ""} · Sl ${ref_sample_sl_no}`,
     };
     append(row);
     markTableDirty();
@@ -573,7 +573,7 @@ function modifyData(data) {
                   setValue("form.karigar_ldgr_name", opt.ac_name)
                   setValue("form.karigar_ldgr", opt.id)
                 }}
-                placeholder="Search karigar�"
+                placeholder="Search karigar…"
               />
               <input type="hidden" {...register("form.karigar_ldgr")} />
             </FieldContainer>
@@ -738,13 +738,13 @@ function modifyData(data) {
                     <div className="flex items-center gap-1.5">
                       <span>{field.sl_no}</span>
                       {locked && (
-                        <span title="Barcoded � cannot be edited" className="inline-flex items-center text-[10px] font-medium text-amber-700 bg-amber-100 border border-amber-200 rounded px-1 py-0.5 leading-none">🔒 Barcoded</span>
+                        <span title="Barcoded — cannot be edited" className="inline-flex items-center text-[10px] font-medium text-amber-700 bg-amber-100 border border-amber-200 rounded px-1 py-0.5 leading-none">🔒 Barcoded</span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell className="px-2 py-1.5 border text-[11px] text-muted-foreground">
                     {field._source_label
-                      || (field.ref_job_sl_no ? "Job" : (field.ref_sample_issue_item ? "Sample" : "�"))}
+                      || (field.ref_job_sl_no ? "Job" : (field.ref_sample_issue_item ? "Sample" : "—"))}
                   </TableCell>
                   <TableCell className="px-2 py-1.5 border text-xs">{field.item}</TableCell>
                   <TableCell className="px-2 py-1.5 border text-xs">
@@ -822,12 +822,12 @@ function modifyData(data) {
 
         <SectionCard
           title="Stone Detail"
-          subtitle="Read-only � populated from the linked job order"
+          subtitle="Read-only — populated from the linked job order"
         >
         <div className="overflow-x-auto -mx-2">
         <Table className="w-full text-[12.5px] border-collapse stone-detail-table">
           <TableBody>
-            {/* Group header row � stage names with subtle alternating violet bands */}
+            {/* Group header row — stage names with subtle alternating violet bands */}
             <TableRow className="hover:bg-transparent">
               <TableCell colSpan={3} className="px-3 py-2.5 border bg-slate-100"></TableCell>
               <TableCell colSpan={3} className="px-3 py-2.5 border text-center text-[11px] font-semibold uppercase tracking-wider bg-[hsl(242_64%_95%)] text-[hsl(242_64%_38%)]">Issued</TableCell>
@@ -837,7 +837,7 @@ function modifyData(data) {
               <TableCell colSpan={2} className="px-3 py-2.5 border bg-slate-100"></TableCell>
             </TableRow>
 
-            {/* Sub-header row � Pcs / Ct / Gw with the same alternating bands */}
+            {/* Sub-header row — Pcs / Ct / Gw with the same alternating bands */}
             <TableRow className="hover:bg-transparent bg-slate-50">
               <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Sno</TableCell>
               <TableCell className="px-3 py-2 border text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Packet</TableCell>
@@ -881,10 +881,10 @@ function modifyData(data) {
                   <TableRow key={`group-${parentField.id ?? parentIndex}`} className="hover:bg-transparent">
                     <TableCell colSpan={17} className="px-4 py-2.5 border-y-2 border-y-[hsl(242_30%_86%)] bg-[hsl(242_40%_96%)] text-[hsl(242_64%_38%)] text-[12.5px]">
                       <span className="text-[11px] uppercase tracking-wider font-semibold mr-2">Received piece #{parentIndex + 1}</span>
-                      <span className="font-semibold">{parentField.item || "�"}</span>
-                      {parentField.purity ? <span className="mx-1.5 text-slate-400">�</span> : null}
+                      <span className="font-semibold">{parentField.item || "—"}</span>
+                      {parentField.purity ? <span className="mx-1.5 text-slate-400">·</span> : null}
                       {parentField.purity ? <span>{parentField.purity}</span> : null}
-                      {headerGw ? <span className="mx-1.5 text-slate-400">�</span> : null}
+                      {headerGw ? <span className="mx-1.5 text-slate-400">·</span> : null}
                       {headerGw ? <span className="tabular-nums">{Number(headerGw).toFixed(3)} g</span> : null}
                     </TableCell>
                   </TableRow>
@@ -899,7 +899,7 @@ function modifyData(data) {
                   const v = (name, dp) => {
                     const raw = watch(`table.${parentIndex}.details.${childIndex}.${name}`);
                     const num = parseFloat(raw);
-                    if (!Number.isFinite(num)) return "�";
+                    if (!Number.isFinite(num)) return "—";
                     return dp === 0 ? String(Math.round(num)) : num.toFixed(dp);
                   };
                   const issuePcs = numAt("issue_pcs"), issueCt = numAt("issue_ct"), issueGw = numAt("issue_gw");
@@ -920,8 +920,8 @@ function modifyData(data) {
                   rendered.push(
                     <TableRow key={childField.id} className="hover:bg-slate-50/60">
                       <TableCell className="px-3 py-2.5 border">{childField.sl_no}</TableCell>
-                      <TableCell className="px-3 py-2.5 border">{childField.packet || "�"}</TableCell>
-                      <TableCell className="px-3 py-2.5 border">{childField.item || "�"}</TableCell>
+                      <TableCell className="px-3 py-2.5 border">{childField.packet || "—"}</TableCell>
+                      <TableCell className="px-3 py-2.5 border">{childField.item || "—"}</TableCell>
                       <TableCell className={cls(issuePcs, stageA)}>{v("issue_pcs", 0)}</TableCell>
                       <TableCell className={cls(issueCt, stageA)}>{v("issue_ct", 3)}</TableCell>
                       <TableCell className={cls(issueGw, stageA)}>{v("issue_gw", 3)}</TableCell>
@@ -945,7 +945,7 @@ function modifyData(data) {
                 const fmt = (n, dp) => (dp === 0 ? String(Math.round(n)) : n.toFixed(dp));
                 rendered.push(
                   <TableRow key="stone-totals" className="hover:bg-transparent">
-                    <TableCell colSpan={3} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] font-semibold text-slate-900">Total � {stoneCount} stone{stoneCount === 1 ? "" : "s"}</TableCell>
+                    <TableCell colSpan={3} className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] font-semibold text-slate-900">Total · {stoneCount} stone{stoneCount === 1 ? "" : "s"}</TableCell>
                     <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.issue_pcs, 0)}</TableCell>
                     <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.issue_ct, 3)}</TableCell>
                     <TableCell className="px-3 py-2.5 border-t-2 border-t-[hsl(242_30%_86%)] bg-[hsl(242_35%_94%)] text-right tabular-nums font-semibold">{fmt(totals.issue_gw, 3)}</TableCell>
@@ -1038,7 +1038,7 @@ function modifyData(data) {
         <div className="flex justify-end items-center gap-2 pt-2">
           <Button type="button" variant="outline" size="sm" onClick={() => window.history.back()}>Cancel</Button>
           <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving || !canSave}>
-            {saving ? (id ? "Updating�" : "Saving�") : (id ? "Update Receive" : "Save Receive")}
+            {saving ? (id ? "Updating…" : "Saving…") : (id ? "Update Receive" : "Save Receive")}
           </Button>
         </div>
       </form>

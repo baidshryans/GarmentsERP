@@ -91,7 +91,7 @@ export function RetailSwitcher() {
               <SidebarMenuButton size="sm" className="h-9 px-3">
                 <Building2 className="size-4 text-primary shrink-0" />
                 <span className="flex-1 text-xs font-semibold text-sidebar-foreground truncate">
-                  {active?.retail_name || '�'}
+                  {active?.retail_name || '—'}
                 </span>
                 <ChevronsUpDown className="w-3.5 h-3.5 text-sidebar-foreground/40 shrink-0" />
               </SidebarMenuButton>

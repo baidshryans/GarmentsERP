@@ -148,8 +148,8 @@ export default function SalesOfferPage() {
       ),
     },
     { header: "Offer Name", accessorKey: "name" },
-    { header: "Start Date", accessorKey: "start_date", cell: ({ row }) => row.original.start_date || "�" },
-    { header: "End Date",   accessorKey: "end_date",   cell: ({ row }) => row.original.end_date   || "�" },
+    { header: "Start Date", accessorKey: "start_date", cell: ({ row }) => row.original.start_date || "—" },
+    { header: "End Date",   accessorKey: "end_date",   cell: ({ row }) => row.original.end_date   || "—" },
     {
       header: "Diamond Disc %",
       accessorKey: "diamond_discount_pct",
@@ -286,7 +286,7 @@ export default function SalesOfferPage() {
           <h2 className="text-lg font-semibold">Sales Offers</h2>
           <p className="text-xs text-muted-foreground">
             Company-wide promotional offers. Only one offer can be active at a time.
-            Offers apply to retail customers only � B2B customers use their own pricelist.
+            Offers apply to retail customers only — B2B customers use their own pricelist.
           </p>
         </div>
         <Button size="sm" className="gap-1.5" onClick={openAdd}>

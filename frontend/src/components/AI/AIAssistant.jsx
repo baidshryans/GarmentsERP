@@ -70,7 +70,7 @@ const WELCOME_MESSAGE = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hi! I'm your Jewel India ERP assistant. Ask me anything about your business data � sales, purchases, stock, ledger balances, gold rates, and more.",
+    "Hi! I'm your Jewel India ERP assistant. Ask me anything about your business data — sales, purchases, stock, ledger balances, gold rates, and more.",
 };
 
 export default function AIAssistant() {
@@ -216,7 +216,7 @@ export default function AIAssistant() {
               </button>
             </div>
             <p className="text-[10px] text-gray-400 text-center mt-1">
-              Press Enter to send � Shift+Enter for new line
+              Press Enter to send · Shift+Enter for new line
             </p>
           </div>
         </div>

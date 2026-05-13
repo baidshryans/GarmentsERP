@@ -105,10 +105,10 @@ export default function SalaryStructurePage() {
         <h2 className="text-lg font-semibold">Salary Structure</h2>
         <div className="flex-1 max-w-xs">
           <Select value={selectedEmp} onValueChange={setSelectedEmp}>
-            <SelectTrigger><SelectValue placeholder="Select employee�" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Select employee…" /></SelectTrigger>
             <SelectContent>
               {employees.map(e => (
-                <SelectItem key={e.id} value={String(e.id)}>{e.employee_code} � {e.full_name}</SelectItem>
+                <SelectItem key={e.id} value={String(e.id)}>{e.employee_code} — {e.full_name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -190,7 +190,7 @@ export default function SalaryStructurePage() {
                 <span className="font-semibold">₹{gross(form).toLocaleString("en-IN")}</span>
               </div>
               <Button onClick={saveStructure} disabled={saving} className="w-full">
-                {saving ? "Saving�" : "Save Earnings → Next"}
+                {saving ? "Saving…" : "Save Earnings → Next"}
               </Button>
             </div>
           )}
@@ -211,7 +211,7 @@ export default function SalaryStructurePage() {
               <EF label="TDS Monthly (₹)" type="number" value={config.tds_monthly} onChange={v => setC("tds_monthly", v)} />
               <EF label="Advance Recovery (₹)" type="number" value={config.advance_recovery} onChange={v => setC("advance_recovery", v)} />
               <Button onClick={saveConfig} disabled={saving} className="w-full">
-                {saving ? "Saving�" : "Save Deduction Config"}
+                {saving ? "Saving…" : "Save Deduction Config"}
               </Button>
             </div>
           )}

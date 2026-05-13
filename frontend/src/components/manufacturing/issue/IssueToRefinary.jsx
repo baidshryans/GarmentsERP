@@ -126,7 +126,7 @@ const IssueToRefinary = () => {
 
         const detailKey = sourceType === "melting" ? "meltingreceivedetail_set" : "assayreceivedetail_set";
         const details = receive[detailKey] || [];
-        // Skip cornet rows � cornet is already fine gold, bypasses the refinery.
+        // Skip cornet rows — cornet is already fine gold, bypasses the refinery.
         const newRows = details
             .filter((d) => !d.is_cornet)
             .map((d) => ({
@@ -224,7 +224,7 @@ const IssueToRefinary = () => {
 
                     <Field label="Bill No">
                         <div className="text-sm font-mono px-3 py-2 bg-gray-50 rounded border border-gray-200 h-9 flex items-center">
-                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating�</span>}
+                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating…</span>}
                         </div>
                     </Field>
 
@@ -236,7 +236,7 @@ const IssueToRefinary = () => {
                                 setValue("form.ldgr_name", opt.ac_name)
                                 setValue("form.ldgr", opt.id)
                             }}
-                            placeholder="Search refinery�"
+                            placeholder="Search refinery…"
                             autoFocus
                         />
                         <input type="hidden" {...register("form.ldgr")} />
@@ -250,7 +250,7 @@ const IssueToRefinary = () => {
                             <Label className="text-xs font-medium text-gray-600">Source Receive (optional)</Label>
                             <Select value={sourceType} onValueChange={setSourceType}>
                                 <SelectTrigger className="h-9 text-sm">
-                                    <SelectValue placeholder="� None �" />
+                                    <SelectValue placeholder="— None —" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="melting">Melting Receive</SelectItem>
@@ -272,7 +272,7 @@ const IssueToRefinary = () => {
                                 <SelectContent>
                                     {sourceOptions.map((o) => (
                                         <SelectItem key={o.id} value={String(o.id)}>
-                                            {o.billno} � {o.ldgr_name} � {o.date1}
+                                            {o.billno} — {o.ldgr_name} — {o.date1}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -290,7 +290,7 @@ const IssueToRefinary = () => {
                         </Button>
                     </div>
                     <p className="text-[11px] text-gray-500 mt-2">
-                        Loads rows from the selected melting or assay receive (cornet rows are skipped � cornet bypasses the refinery).
+                        Loads rows from the selected melting or assay receive (cornet rows are skipped — cornet bypasses the refinery).
                     </p>
                 </div>
 
@@ -305,7 +305,7 @@ const IssueToRefinary = () => {
                             <col style={{width:"72px"}} />   {/* pcs */}
                             <col style={{width:"90px"}} />   {/* ct */}
                             <col style={{width:"90px"}} />   {/* gw */}
-                            <col />                          {/* remarks � fills remaining */}
+                            <col />                          {/* remarks — fills remaining */}
                         </colgroup>
                         <TableHeader>
                             <TableRow className="bg-violet-100 text-primary">

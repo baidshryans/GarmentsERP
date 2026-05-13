@@ -82,7 +82,7 @@ export default function OpeningStockList() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading�</p>
+        <p className="text-sm text-gray-500">Loading…</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
@@ -130,16 +130,16 @@ export default function OpeningStockList() {
                       </button>
                     </td>
                     <td className="px-3 py-2 border border-gray-200 text-gray-500">
-                      {row.packet_label || "�"}
+                      {row.packet_label || "—"}
                     </td>
                     {(activeTab === "KR" || activeTab === "CO") && (
-                      <td className="px-3 py-2 border border-gray-200">{row.ldgr_name || "�"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{row.ldgr_name || "—"}</td>
                     )}
                     <td className="px-3 py-2 border border-gray-200">{row.item_name}</td>
-                    <td className="px-3 py-2 border border-gray-200">{row.purity_label || "�"}</td>
-                    <td className="px-3 py-2 border border-gray-200 text-right">{row.pcs ?? "�"}</td>
-                    <td className="px-3 py-2 border border-gray-200 text-right">{row.gw != null ? Number(row.gw).toFixed(3) : "�"}</td>
-                    <td className="px-3 py-2 border border-gray-200 text-right">{row.ct != null ? Number(row.ct).toFixed(3) : "�"}</td>
+                    <td className="px-3 py-2 border border-gray-200">{row.purity_label || "—"}</td>
+                    <td className="px-3 py-2 border border-gray-200 text-right">{row.pcs ?? "—"}</td>
+                    <td className="px-3 py-2 border border-gray-200 text-right">{row.gw != null ? Number(row.gw).toFixed(3) : "—"}</td>
+                    <td className="px-3 py-2 border border-gray-200 text-right">{row.ct != null ? Number(row.ct).toFixed(3) : "—"}</td>
                   </tr>
                 ))
               )}

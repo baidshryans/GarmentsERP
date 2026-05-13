@@ -228,7 +228,7 @@ export default function BarcodeBulkOps() {
                 <SelectItem value="__all__">All items</SelectItem>
                 {items.map((it) => (
                   <SelectItem key={it.short_code} value={it.short_code}>
-                    {it.short_code} � {it.item_name}
+                    {it.short_code} — {it.item_name}
                   </SelectItem>
                 ))}
               </SelectContent>

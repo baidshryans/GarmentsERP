@@ -230,7 +230,7 @@ function SalesVoucherList() {
       accessorKey: "total_gw",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "�";
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
       },
     },
     {
@@ -238,7 +238,7 @@ function SalesVoucherList() {
       accessorKey: "total_net_wt",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "�";
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
       },
     },
     {
@@ -246,7 +246,7 @@ function SalesVoucherList() {
       accessorKey: "total_diamond_ct",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "�";
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
       },
     },
     {
@@ -254,7 +254,7 @@ function SalesVoucherList() {
       accessorKey: "discount",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "�";
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
       },
     },
     {
@@ -262,7 +262,7 @@ function SalesVoucherList() {
       accessorKey: "total_bill_value",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "�";
+        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
       },
     },
   ];
@@ -343,7 +343,7 @@ function SalesVoucherList() {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Truck className="size-5 text-orange-500" />
-              E-Way Bill � {ewayVoucher?.billno}
+              E-Way Bill — {ewayVoucher?.billno}
             </SheetTitle>
           </SheetHeader>
 

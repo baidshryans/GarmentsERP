@@ -4,13 +4,13 @@ import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, 
 import apiClient from "@/services/apiClient";
 
 const LEDGER_TYPES = [
-  { type: "CO",  label: "Customers",                hint: "ac_name, ac_group_name, salutation, dob (DD/MM/YYYY), anniversary, mobile1, pan, gst, aadhar, address�" },
-  { type: "DL",  label: "Dealers",                  hint: "ac_name, ac_group_name, dob, anniversary, mobile1, pan, gst, address�" },
-  { type: "KR",  label: "Karigar",                  hint: "ac_name, ac_group_name, mobile1, pan, gst, address�" },
-  { type: "VD",  label: "Vendors",                  hint: "ac_name, ac_group_name, mobile1, pan, gst, address�" },
-  { type: "SC",  label: "Suppliers / Sundry Creditors", hint: "ac_name, ac_group_name, mobile1, pan, gst, address�" },
-  { type: "SD",  label: "Sundry Debtors",           hint: "ac_name, ac_group_name, mobile1, pan, gst, address�" },
-  { type: "BA",  label: "Bank Accounts",            hint: "ac_name, ac_group_name, cheque_no (account number), address�" },
+  { type: "CO",  label: "Customers",                hint: "ac_name, ac_group_name, salutation, dob (DD/MM/YYYY), anniversary, mobile1, pan, gst, aadhar, address…" },
+  { type: "DL",  label: "Dealers",                  hint: "ac_name, ac_group_name, dob, anniversary, mobile1, pan, gst, address…" },
+  { type: "KR",  label: "Karigar",                  hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
+  { type: "VD",  label: "Vendors",                  hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
+  { type: "SC",  label: "Suppliers / Sundry Creditors", hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
+  { type: "SD",  label: "Sundry Debtors",           hint: "ac_name, ac_group_name, mobile1, pan, gst, address…" },
+  { type: "BA",  label: "Bank Accounts",            hint: "ac_name, ac_group_name, cheque_no (account number), address…" },
   { type: "EXP", label: "Expense Ledgers",          hint: "ac_name, ac_group_name, remarks" },
   { type: "INC", label: "Income Ledgers",           hint: "ac_name, ac_group_name, remarks" },
   { type: "OTH", label: "Others",                   hint: "ac_name, ac_group_name, address, pan, gst, remarks" },
@@ -18,7 +18,7 @@ const LEDGER_TYPES = [
 
 const TABLES = [
   { key: "hsn",            label: "HSN Master",            uploadFn: uploadHSNCSV,           hint: "Columns: hsn_no, description, hsn_type, hsn_per_cgst, hsn_per_igst",                                                              dependsOn: null },
-  { key: "item_group",     label: "Item Group Master",     uploadFn: uploadItemGroupCSV,      hint: "Columns: id (required � must match old ERP id), name (or item_group_name), short_code",                                          dependsOn: null },
+  { key: "item_group",     label: "Item Group Master",     uploadFn: uploadItemGroupCSV,      hint: "Columns: id (required — must match old ERP id), name (or item_group_name), short_code",                                          dependsOn: null },
   { key: "item",           label: "Item Master",           uploadFn: uploadItemCSV,           hint: "Columns: id, short_code, item (or item_name), item_type, uom, hsn_no, purchase_ledger, sale_ledger, show_in_pcs_report, grp",      dependsOn: "item_group" },
   { key: "packet_group",   label: "Packet Group Master",   uploadFn: uploadPacketGroupCSV,    hint: "Columns: packet_group (or packet_group_name)",                                                                                     dependsOn: "item" },
   { key: "packet",         label: "Packet Master",         uploadFn: uploadPacketCSV,         hint: "Columns: pckt_no, stone_id, rate_for_retail, rate_for_wholesale, solitare, customer, packet_group",                               dependsOn: "item" },
@@ -44,7 +44,7 @@ function ResultBadge({ result }) {
           <summary className="cursor-pointer">View errors</summary>
           <ul className="mt-1 space-y-0.5 list-disc list-inside">
             {result.errors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}
-            {result.errors.length > 20 && <li>�and {result.errors.length - 20} more</li>}
+            {result.errors.length > 20 && <li>…and {result.errors.length - 20} more</li>}
           </ul>
         </details>
       )}
@@ -99,7 +99,7 @@ function CSVUploadCard({ tableKey, label, uploadFn, hint, blockedBy, onSuccess }
           className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary hover:bg-primary text-white disabled:opacity-50 transition-colors shrink-0"
         >
           {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-          {status === "loading" ? "Uploading�" : "Upload CSV"}
+          {status === "loading" ? "Uploading…" : "Upload CSV"}
         </button>
         <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
       </div>
@@ -167,7 +167,7 @@ function LedgerUploadCard({ type, label, hint }) {
             className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
           >
             {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-            {downloading ? "�" : "Template"}
+            {downloading ? "…" : "Template"}
           </button>
           <button
             type="button"
@@ -176,7 +176,7 @@ function LedgerUploadCard({ type, label, hint }) {
             className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary hover:bg-primary text-white disabled:opacity-50 transition-colors"
           >
             {uploadStatus === "loading" ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-            {uploadStatus === "loading" ? "Uploading�" : "Upload CSV"}
+            {uploadStatus === "loading" ? "Uploading…" : "Upload CSV"}
           </button>
           <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
         </div>
@@ -288,7 +288,7 @@ function MySQLSyncCard() {
               <input
                 className={`${inputCls} pr-8`}
                 type={showPwd ? "text" : "password"}
-                placeholder="��������"
+                placeholder="••••••••"
                 value={conn.password}
                 onChange={setField("password")}
               />
@@ -325,7 +325,7 @@ function MySQLSyncCard() {
         className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-md bg-primary text-white disabled:opacity-50 transition-colors"
       >
         {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-        {status === "loading" ? "Syncing�" : "Sync Now"}
+        {status === "loading" ? "Syncing…" : "Sync Now"}
       </button>
 
       {/* Feedback */}
@@ -337,7 +337,7 @@ function MySQLSyncCard() {
       {status === "success" && results && (
         <div className="space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-green-700">
-            <CheckCircle size={13} /><span>Sync complete � connection details saved</span>
+            <CheckCircle size={13} /><span>Sync complete — connection details saved</span>
           </div>
           {Object.entries(results).map(([table, r]) => (
             <div key={table} className="bg-white rounded border border-gray-200 px-3 py-2">
@@ -378,7 +378,7 @@ function SeedSystemLedgersCard() {
         <p className="text-xs text-gray-500 mt-0.5">
           Creates any missing system ledgers (purchase, sales, expense, income, etc.).
           Run this before uploading the Item Master CSV so purchase/sale ledger names resolve correctly.
-          Safe to re-run � existing ledgers are never duplicated.
+          Safe to re-run — existing ledgers are never duplicated.
         </p>
         {status === "success" && (
           <p className="mt-2 text-xs text-green-700 flex items-center gap-1"><CheckCircle size={12} /> System ledgers up to date.</p>
@@ -394,7 +394,7 @@ function SeedSystemLedgersCard() {
         className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 transition-colors shrink-0"
       >
         {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-        {status === "loading" ? "Seeding�" : "Seed Now"}
+        {status === "loading" ? "Seeding…" : "Seed Now"}
       </button>
     </div>
   );
@@ -469,8 +469,8 @@ export default function ImportDataPage() {
           </h2>
           <p className="text-xs text-gray-500 mb-3">
             Download the template for each ledger role, fill it in from your existing records, then upload.
-            The first two rows are sample data � delete them before uploading.
-            Rows are matched by <code className="bg-gray-100 px-1 rounded">ac_name</code> � re-uploading the same file safely updates existing ledgers.
+            The first two rows are sample data — delete them before uploading.
+            Rows are matched by <code className="bg-gray-100 px-1 rounded">ac_name</code> — re-uploading the same file safely updates existing ledgers.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             {LEDGER_TYPES.map(({ type, label, hint }) => (

@@ -1,7 +1,7 @@
 ﻿import React from "react";
 
 /* ────────────────────────────────────────────────────────────────────────────
-   SalesInvoice � minimal modern Tax Invoice print format.
+   SalesInvoice — minimal modern Tax Invoice print format.
    Renders a one-page A4 invoice using the same `data` prop produced by
    SalesVoucherList. Designed to be opened in a fresh window for printing
    (browser native print, no PDF library).
@@ -551,7 +551,7 @@ const SalesInvoice = ({ data = {} }) => {
     <div className="si-id">
       <div className="si-l">{label}</div>
       <div className={`si-v${value ? "" : " empty"}`} style={mono ? { fontVariantNumeric: "tabular-nums" } : undefined}>
-        {value || "�"}
+        {value || "—"}
       </div>
     </div>
   );
@@ -576,7 +576,7 @@ const SalesInvoice = ({ data = {} }) => {
         {(d.company_phone || d.company_email) && (
           <div className="si-brand-sub">
             {d.company_phone && <>Phone <strong>{d.company_phone}</strong></>}
-            {d.company_phone && d.company_email && <>&nbsp; �&nbsp; </>}
+            {d.company_phone && d.company_email && <>&nbsp; ·&nbsp; </>}
             {d.company_email && <>Email <strong>{d.company_email}</strong></>}
           </div>
         )}
@@ -601,7 +601,7 @@ const SalesInvoice = ({ data = {} }) => {
       <div className="si-title">Tax Invoice</div>
       <div className="si-meta">
         <span className="si-num">{d.gst_billno || d.billno || ""}</span>
-        <span className="si-sep">�</span>
+        <span className="si-sep">·</span>
         <span className="si-date">{fmtDate(d.date1)}</span>
       </div>
     </div>
@@ -650,7 +650,7 @@ const SalesInvoice = ({ data = {} }) => {
               )}
             </span>
           ))
-        : <span className="si-r" style={{ color: "var(--faint)" }}>�</span>}
+        : <span className="si-r" style={{ color: "var(--faint)" }}>—</span>}
     </div>
   );
 
@@ -711,7 +711,7 @@ const SalesInvoice = ({ data = {} }) => {
               {b.subs.map((sub, si) => (
                 <tr className="sub" key={si}>
                   <td className="c"></td>
-                  <td className="l" colSpan={4}>↳ {sub.text}</td>
+                  <td className="l" colSpan={4}>â†³ {sub.text}</td>
                   <td>{sub.gw ? fmt(sub.gw, 3) : ""}</td>
                   <td></td>
                   <td>{sub.rate ? fmtInt(sub.rate) : ""}</td>
@@ -744,13 +744,13 @@ const SalesInvoice = ({ data = {} }) => {
               <span className="si-v">
                 {d.purchase_total != null && d.purchase_total !== ""
                   ? <>₹ {fmtInt(d.purchase_total)}</>
-                  : "�"}
+                  : "—"}
               </span>
             </div>
             {d.purchase_voucher_ref && (
               <div className="si-src">
-                From Purchase Voucher � {d.purchase_voucher_ref}
-                {d.purchase_voucher_date && <> � {fmtDate(d.purchase_voucher_date)}</>}
+                From Purchase Voucher · {d.purchase_voucher_ref}
+                {d.purchase_voucher_date && <> · {fmtDate(d.purchase_voucher_date)}</>}
               </div>
             )}
           </div>
@@ -763,8 +763,8 @@ const SalesInvoice = ({ data = {} }) => {
             <div className="si-col">
               <div className="si-t">Stones</div>
               <div className="si-v">
-                {d.buyback_stones_l1 || "Lab Grown Diamonds � 30%"}<br/>
-                {d.buyback_stones_l2 || "Precious Col. Stone � 25%, Imitation � 100%"}
+                {d.buyback_stones_l1 || "Lab Grown Diamonds — 30%"}<br/>
+                {d.buyback_stones_l2 || "Precious Col. Stone — 25%, Imitation — 100%"}
               </div>
             </div>
             <div className="si-col">

@@ -76,7 +76,7 @@ function BarcodeListView() {
               <SquarePen className="size-4" />
             </Link>
           ) : (
-            <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock � editing disabled">
+            <span className="p-1.5 rounded text-muted-foreground cursor-not-allowed flex items-center" title="Not in stock — editing disabled">
               <SquarePen className="size-4" />
             </span>
           )}
@@ -176,7 +176,7 @@ function BarcodeListView() {
             {orderNo ? (
               <span
                 className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 w-fit"
-                title={`Reserved for ${orderParty || "customer"} � status: ${orderStatus || "pending"}`}
+                title={`Reserved for ${orderParty || "customer"} — status: ${orderStatus || "pending"}`}
               >
                 Order #{orderNo}
               </span>

@@ -109,7 +109,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
           {(d.company_phone || d.company_email) && (
             <div className="pv-company-sub">
               {d.company_phone && "Ph: " + d.company_phone}
-              {d.company_phone && d.company_email && "  �  "}
+              {d.company_phone && d.company_email && "  ·  "}
               {d.company_email}
             </div>
           )}
@@ -123,7 +123,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
         <div className="pv-title-side">
           {d.is_rcm ? <span style={{color:"#c00",fontWeight:700}}>RCM</span> : ""}
         </div>
-        <div className="pv-title-center">Purchase Voucher � Vendor</div>
+        <div className="pv-title-center">Purchase Voucher — Vendor</div>
         <div className="pv-title-side pv-title-right">Original / Duplicate</div>
       </div>
 
@@ -235,8 +235,8 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <td>
                       {item.item_name || item.item || ""}
                       {item.barcode_txt ? <span style={{color:"#555",fontSize:"9px"}}>{" ["+item.barcode_txt+"]"}</span> : null}
-                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" � Sz "+item.size}</span> : null}
-                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" � "+item.purity}</span> : null}
+                      {item.size       ? <span style={{color:"#555",fontSize:"9px"}}>{" · Sz "+item.size}</span> : null}
+                      {item.purity     ? <span style={{color:"#555",fontSize:"9px"}}>{" · "+item.purity}</span> : null}
                     </td>
                     <td className="pv-ctr">{item.pcs ?? ""}</td>
                     <td className="pv-num">{fmt3(item.gw)}</td>
@@ -248,7 +248,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <tr key={"s-"+idx+"-"+si} className="pv-sub-row">
                       <td></td>
                       <td style={{paddingLeft:14}}>
-                        {"↳ "}{sub.sub_item||""}
+                        {"â†³ "}{sub.sub_item||""}
                         {sub.packet ? <span style={{fontSize:"9px",color:"#666"}}>{" ["+sub.packet+"]"}</span> : null}
                       </td>
                       <td className="pv-ctr">{sub.sub_pcs||""}</td>

@@ -381,7 +381,7 @@ export default function ItemMaster() {
                     <SelectItem value="__none__">-- None --</SelectItem>
                     {hsns.map((h) => (
                       <SelectItem key={h.id} value={String(h.id)}>
-                        {h.hsn_no} � {h.description}
+                        {h.hsn_no} — {h.description}
                       </SelectItem>
                     ))}
                   </SelectContent>

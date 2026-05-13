@@ -19,7 +19,7 @@ import {
 
 /* ─── helpers ─────────────────────────────────────────────── */
 
-// Per-event visual config � icon + dot colour. Keeps timeline code tidy.
+// Per-event visual config — icon + dot colour. Keeps timeline code tidy.
 const EVENT_STYLES = {
   placed:            { Icon: ClipboardList, dot: "bg-slate-400",   ring: "ring-slate-100"   },
   released_po:       { Icon: Package,       dot: "bg-amber-500",   ring: "ring-amber-100"   },
@@ -31,7 +31,7 @@ const EVENT_STYLES = {
   returned:          { Icon: RotateCcw,     dot: "bg-red-500",     ring: "ring-red-100"     },
 };
 
-// Pipeline stages � every CO item passes through these 5 milestones.
+// Pipeline stages — every CO item passes through these 5 milestones.
 // `kinds` lists the event types that satisfy each stage.
 const PIPELINE_STAGES = [
   { id: "placed",    label: "Order Placed",        Icon: ClipboardList, kinds: ["placed"] },
@@ -83,7 +83,7 @@ function StateChip({ state }) {
 }
 
 function formatDate(iso) {
-  if (!iso) return "�";
+  if (!iso) return "—";
   try {
     const d = new Date(iso);
     return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
@@ -123,7 +123,7 @@ function ItemTimeline({ item }) {
         </div>
       </div>
 
-      {/* Timeline � fixed 5-stage pipeline, future stages greyed out */}
+      {/* Timeline — fixed 5-stage pipeline, future stages greyed out */}
       <div className="px-5 py-4">
         <ol className="relative">
           {buildStageTimeline(events).map((row, i, arr) => {
@@ -201,7 +201,7 @@ function ItemTimeline({ item }) {
           })}
         </ol>
 
-        {/* Returns section � only shown when at least one returned event exists */}
+        {/* Returns section — only shown when at least one returned event exists */}
         {events.filter(e => e.kind === 'returned').length > 0 && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50/50 px-4 py-3">
             <div className="flex items-center gap-2 mb-2">
@@ -266,7 +266,7 @@ const CustomerOrderTracker = () => {
     return () => { cancelled = true; };
   }, [selectedId]);
 
-  // One-shot � honour deep link then strip the query param so a refresh
+  // One-shot — honour deep link then strip the query param so a refresh
   // doesn't silently force-select after the user clicks another order.
   useEffect(() => {
     if (presetOrderId) setSearchParams({}, { replace: true });
@@ -289,7 +289,7 @@ const CustomerOrderTracker = () => {
       <div>
         <h1 className="text-xl font-semibold text-foreground tracking-tight">Customer Order Tracker</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Follow every order from placement through delivery � no more hunting across modules.
+          Follow every order from placement through delivery — no more hunting across modules.
         </p>
       </div>
 
@@ -302,7 +302,7 @@ const CustomerOrderTracker = () => {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search CO #, customer, phone�"
+                placeholder="Search CO #, customer, phone…"
                 className="h-8 pl-8 text-sm"
               />
             </div>
@@ -310,7 +310,7 @@ const CustomerOrderTracker = () => {
           <div className="flex-1 overflow-y-auto">
             {ordersLoading ? (
               <div className="p-6 flex items-center justify-center text-muted-foreground text-xs">
-                <Loader2 className="size-4 animate-spin mr-2" /> Loading orders�
+                <Loader2 className="size-4 animate-spin mr-2" /> Loading orders…
               </div>
             ) : orders.length === 0 ? (
               <p className="p-6 text-xs text-muted-foreground text-center">No customer orders match.</p>
@@ -326,7 +326,7 @@ const CustomerOrderTracker = () => {
                       <span className="text-xs font-mono font-semibold text-foreground truncate">{o.order_no}</span>
                       <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatDate(o.date1)}</span>
                     </div>
-                    <div className="mt-0.5 text-xs text-foreground truncate">{o.ldgr_code_name || o.ldgr_name || "�"}</div>
+                    <div className="mt-0.5 text-xs text-foreground truncate">{o.ldgr_code_name || o.ldgr_name || "—"}</div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
                       <span>Due {formatDate(o.delivery_date)}</span>
                       {o.is_overdue && <span className="text-rose-600 font-semibold">Overdue</span>}
@@ -348,7 +348,7 @@ const CustomerOrderTracker = () => {
 
           {selectedId && timelineLoading && (
             <div className="bg-white border border-border rounded-xl p-10 flex items-center justify-center text-muted-foreground text-sm">
-              <Loader2 className="size-4 animate-spin mr-2" /> Loading timeline�
+              <Loader2 className="size-4 animate-spin mr-2" /> Loading timeline…
             </div>
           )}
 
@@ -371,7 +371,7 @@ const CustomerOrderTracker = () => {
                       )}
                     </div>
                     <h2 className="text-base font-semibold text-foreground mt-0.5 truncate">
-                      {timeline.order.customer_name || "�"}
+                      {timeline.order.customer_name || "—"}
                     </h2>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
                       <span>Placed {formatDate(timeline.order.date1)}</span>

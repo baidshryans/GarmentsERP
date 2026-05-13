@@ -153,7 +153,7 @@ function CommissionReport() {
             title={
               r.jv_created ? "JV already created" :
               !r.has_sp_ledger ? "No payable ledger assigned to salesperson" :
-              Number(r.net_commission) <= 0 ? "Fully reversed by returns � no commission payable" :
+              Number(r.net_commission) <= 0 ? "Fully reversed by returns — no commission payable" :
               "Select for JV creation"
             }
           />
@@ -206,7 +206,7 @@ function CommissionReport() {
       accessorKey: "reversal_amt",
       cell: ({ row }) => {
         const r = row.original;
-        if (!r.has_reversal) return <span className="text-xs text-muted-foreground">�</span>;
+        if (!r.has_reversal) return <span className="text-xs text-muted-foreground">—</span>;
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-red-600 font-medium text-xs">
@@ -300,7 +300,7 @@ function CommissionReport() {
           <Label htmlFor="inclJv" className="text-xs cursor-pointer">Show already journalised</Label>
         </div>
         <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          {loading ? "Loading�" : "Refresh"}
+          {loading ? "Loading…" : "Refresh"}
         </Button>
       </div>
 
@@ -338,7 +338,7 @@ function CommissionReport() {
           className="gap-1.5"
         >
           <BookCheck className="size-4" />
-          {creatingJV ? "Creating�" : `Create Journal Voucher${selectedCount !== 1 ? "s" : ""}`}
+          {creatingJV ? "Creating…" : `Create Journal Voucher${selectedCount !== 1 ? "s" : ""}`}
           {selectedCount > 0 && ` (${selectedCount})`}
         </Button>
       </div>

@@ -13,7 +13,7 @@ const firstOfYear = `${fy}-04-01`;
 
 const fmtCur = (v) => {
   const n = Number(v);
-  if (!n && n !== 0) return "�";
+  if (!n && n !== 0) return "—";
   return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
@@ -21,7 +21,7 @@ const fmtRatio = (v, unit) => {
   if (v === null || v === undefined) return "N/A";
   if (unit === "%") return `${v.toFixed(2)}%`;
   if (unit === "days") return `${v.toFixed(1)} days`;
-  return `${v.toFixed(2)}�`;
+  return `${v.toFixed(2)}×`;
 };
 
 const statusColor = (label, value) => {
@@ -132,7 +132,7 @@ export default function FinancialRatios() {
           </div>
         )}
         <Button onClick={fetchRatios} disabled={loading} size="sm">
-          {loading ? "Loading�" : "Generate Ratios"}
+          {loading ? "Loading…" : "Generate Ratios"}
         </Button>
       </div>
 

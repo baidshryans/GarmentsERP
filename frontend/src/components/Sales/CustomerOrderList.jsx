@@ -35,13 +35,13 @@ function deliveryStatusMeta(v) {
 }
 
 function fmtDate(d) {
-  if (!d) return '�';
+  if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB').replaceAll('/', '-');
 }
 
 function DeliveryDateCell({ row }) {
   const { delivery_date, delivery_status, is_overdue, days_overdue } = row.original;
-  if (!delivery_date) return <span className="text-xs text-muted-foreground">�</span>;
+  if (!delivery_date) return <span className="text-xs text-muted-foreground">—</span>;
 
   const today    = new Date(new Date().toDateString());
   const due      = new Date(delivery_date);
@@ -96,9 +96,9 @@ function OverdueBanner({ overview, onDismiss }) {
           {overview.overdue_orders.map(o => (
             <div key={o.id} className="flex items-center gap-2 text-xs text-red-700">
               <span className="font-mono font-medium">{o.order_no}</span>
-              <span className="text-red-400">�</span>
+              <span className="text-red-400">·</span>
               <span className="truncate">{o.customer}</span>
-              <span className="text-red-400">�</span>
+              <span className="text-red-400">·</span>
               <span className="shrink-0">due {fmtDate(o.delivery_date)}</span>
               <span className="inline-flex items-center gap-0.5 bg-red-100 text-red-700 rounded px-1 font-semibold shrink-0">
                 <AlertTriangle className="w-2.5 h-2.5" />{o.days_overdue}d
@@ -108,7 +108,7 @@ function OverdueBanner({ overview, onDismiss }) {
           ))}
           {overview.overdue_count > overview.overdue_orders.length && (
             <p className="text-xs text-red-500 italic">
-              �and {overview.overdue_count - overview.overdue_orders.length} more
+              …and {overview.overdue_count - overview.overdue_orders.length} more
             </p>
           )}
         </div>
@@ -182,7 +182,7 @@ function DeliveryUpdateSheet({ order, open, onClose, onUpdated }) {
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Truck className="size-5 text-primary" />
-            Update Delivery � {order.order_no}
+            Update Delivery — {order.order_no}
           </SheetTitle>
         </SheetHeader>
 
@@ -229,7 +229,7 @@ function DeliveryUpdateSheet({ order, open, onClose, onUpdated }) {
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1">
-            {saving ? 'Saving�' : 'Save'}
+            {saving ? 'Saving…' : 'Save'}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -345,7 +345,7 @@ function CustomerOrderList() {
     setQuickPickerTarget(target);
     setQuickPickerCo({ id: order.id, order_no: order.order_no, customer: order.ldgr_code_name });
     setQuickPickerItems(items);
-    // Pre-tick everything � the common case is "raise a PO/MO for all pending items".
+    // Pre-tick everything — the common case is "raise a PO/MO for all pending items".
     setQuickPickerSelected(new Set(items.map(i => i.co_item_id)));
     setQuickPickerOpen(true);
   };
@@ -446,8 +446,8 @@ function CustomerOrderList() {
             <button
               onClick={async () => {
                 const warnings = [];
-                if (o.has_in_production_items) warnings.push("� Some items are still in production with a karigar or supplier.");
-                if (o.has_advance)             warnings.push("� Advance receipts will remain on the customer's ledger as a credit.");
+                if (o.has_in_production_items) warnings.push("• Some items are still in production with a karigar or supplier.");
+                if (o.has_advance)             warnings.push("• Advance receipts will remain on the customer's ledger as a credit.");
                 const msg = `Cancel order ${o.order_no}?` + (warnings.length ? `\n\n${warnings.join("\n")}` : "");
                 if (!window.confirm(msg)) return;
                 const res = await cancelCustomerOrder(o.id);
@@ -472,7 +472,7 @@ function CustomerOrderList() {
             }}
             disabled={!isDeletable}
             className={`p-1.5 rounded transition-colors ${isDeletable ? 'text-red-500 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
-            title={isDeletable ? "Delete order" : "Cannot delete � a sales voucher has been raised against this order"}
+            title={isDeletable ? "Delete order" : "Cannot delete — a sales voucher has been raised against this order"}
           >
             <Trash2 className="size-4" />
           </button>
@@ -552,7 +552,7 @@ function CustomerOrderList() {
         };
         return s
           ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[s] ?? 'bg-gray-100 text-gray-700'}`}>{s}</span>
-          : <span className="text-xs text-muted-foreground">�</span>;
+          : <span className="text-xs text-muted-foreground">—</span>;
       },
     },
     {
@@ -586,7 +586,7 @@ function CustomerOrderList() {
         const d = row.original.actual_delivery_date;
         return d
           ? <span className="text-xs text-emerald-700 font-medium">{fmtDate(d)}</span>
-          : <span className="text-xs text-muted-foreground">�</span>;
+          : <span className="text-xs text-muted-foreground">—</span>;
       },
     },
     {
@@ -594,7 +594,7 @@ function CustomerOrderList() {
       accessorKey: "advance_amt",
       cell: ({ row }) => {
         const adv = parseFloat(row.original.advance_amt || 0);
-        if (adv === 0) return <span className="text-xs text-muted-foreground">�</span>;
+        if (adv === 0) return <span className="text-xs text-muted-foreground">—</span>;
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold">₹{adv.toLocaleString('en-IN')}</span>
@@ -610,7 +610,7 @@ function CustomerOrderList() {
         const v = getValue();
         return v > 0
           ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-100 text-sky-800">{v} bill{v !== 1 ? 's' : ''}</span>
-          : <span className="text-xs text-muted-foreground">�</span>;
+          : <span className="text-xs text-muted-foreground">—</span>;
       },
     },
   ];
@@ -633,12 +633,12 @@ function CustomerOrderList() {
             type="text"
             value={search}
             onChange={e => setParams({ search: e.target.value, sortby })}
-            placeholder="Search order / customer�"
+            placeholder="Search order / customer…"
             className="w-60"
           />
           <Select value={sortby} onValueChange={v => setParams({ search, sortby: v })}>
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="Sort by�" />
+              <SelectValue placeholder="Sort by…" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="date1">Date (oldest first)</SelectItem>
@@ -713,7 +713,7 @@ function CustomerOrderList() {
               {quickPickerTarget === 'PO' ? 'Create Purchase Order' : 'Create Karigar Job Work'}
               {quickPickerCo && (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  � {quickPickerCo.order_no} � {quickPickerCo.customer}
+                  — {quickPickerCo.order_no} · {quickPickerCo.customer}
                 </span>
               )}
             </DialogTitle>
@@ -746,12 +746,12 @@ function CustomerOrderList() {
                         onClick={() => toggleQuickItem(p.co_item_id)}
                       >
                         <td className="p-2"><Checkbox checked={checked} onCheckedChange={() => toggleQuickItem(p.co_item_id)} /></td>
-                        <td className="p-2">{p.sl_no ?? '�'}</td>
-                        <td className="p-2">{p.item_name || p.item || '�'}</td>
-                        <td className="p-2 text-right">{p.pcs ?? '�'}</td>
-                        <td className="p-2 text-right">{p.approx_wt ?? '�'}</td>
-                        <td className="p-2">{p.purity ?? '�'}</td>
-                        <td className="p-2">{p.due_date ? fmtDate(p.due_date) : '�'}</td>
+                        <td className="p-2">{p.sl_no ?? '—'}</td>
+                        <td className="p-2">{p.item_name || p.item || '—'}</td>
+                        <td className="p-2 text-right">{p.pcs ?? '—'}</td>
+                        <td className="p-2 text-right">{p.approx_wt ?? '—'}</td>
+                        <td className="p-2">{p.purity ?? '—'}</td>
+                        <td className="p-2">{p.due_date ? fmtDate(p.due_date) : '—'}</td>
                       </tr>
                     );
                   })}

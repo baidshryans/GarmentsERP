@@ -26,7 +26,7 @@ function DiffCell({ row }) {
   const [changes, setChanges] = useState([]);
 
   // Only UPDATE rows can have a meaningful diff
-  if (row.event_type !== "UPDATE") return <span className="text-muted-foreground">�</span>;
+  if (row.event_type !== "UPDATE") return <span className="text-muted-foreground">—</span>;
 
   async function load() {
     if (state !== "idle") return;
@@ -76,8 +76,8 @@ function DiffCell({ row }) {
           {changes.map((c, i) => (
             <tr key={i} className={i % 2 === 1 ? "bg-muted/20" : ""}>
               <td className="px-1.5 py-0.5 font-mono">{c.field}</td>
-              <td className="px-1.5 py-0.5 text-red-600 max-w-[120px] truncate" title={c.old ?? "�"}>{c.old ?? <span className="italic text-muted-foreground">null</span>}</td>
-              <td className="px-1.5 py-0.5 text-green-700 max-w-[120px] truncate" title={c.new ?? "�"}>{c.new ?? <span className="italic text-muted-foreground">null</span>}</td>
+              <td className="px-1.5 py-0.5 text-red-600 max-w-[120px] truncate" title={c.old ?? "—"}>{c.old ?? <span className="italic text-muted-foreground">null</span>}</td>
+              <td className="px-1.5 py-0.5 text-green-700 max-w-[120px] truncate" title={c.new ?? "—"}>{c.new ?? <span className="italic text-muted-foreground">null</span>}</td>
             </tr>
           ))}
         </tbody>
@@ -132,7 +132,7 @@ export default function AuditLog() {
   // ── Reverse a single transaction ──────────────────────────────────────────
   async function handleReverse(row) {
     if (!row.history_transaction_id) {
-      toast({ title: "This event has no transaction id � cannot reverse.", variant: "destructive" });
+      toast({ title: "This event has no transaction id — cannot reverse.", variant: "destructive" });
       return;
     }
     const dry = await reverseTransaction(row.history_transaction_id, true);
@@ -144,7 +144,7 @@ export default function AuditLog() {
     const blockedNote = s.blocked.length ? `\n\nBlocked: ${s.blocked.join("; ")}` : "";
     const ok = window.confirm(
       `This will revert ${s.total_changes} change(s) across ${s.affected_models.length} model(s):\n` +
-      `  � ${s.creates} re-created\n  � ${s.updates} reverted\n  � ${s.deletes} removed${blockedNote}\n\nProceed?`
+      `  • ${s.creates} re-created\n  • ${s.updates} reverted\n  • ${s.deletes} removed${blockedNote}\n\nProceed?`
     );
     if (!ok) return;
 
@@ -206,7 +206,7 @@ export default function AuditLog() {
           {/* ── Count ── */}
           <p className="text-xs text-muted-foreground">
             {data.count.toLocaleString()} event{data.count !== 1 ? "s" : ""} found
-            {data.num_pages > 1 && ` � Page ${data.page} of ${data.num_pages}`}
+            {data.num_pages > 1 && ` — Page ${data.page} of ${data.num_pages}`}
           </p>
 
           {/* ── Table ── */}
@@ -327,7 +327,7 @@ function LoginActivityTab({ toast }) {
         </div>
         <div>
           <Label className="text-xs">Username</Label>
-          <Input className="h-8 text-sm mt-1 w-36" placeholder="Search user�"
+          <Input className="h-8 text-sm mt-1 w-36" placeholder="Search user…"
             value={filters.username} onChange={(e) => sf("username", e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && apply()} />
         </div>
@@ -351,7 +351,7 @@ function LoginActivityTab({ toast }) {
 
       <p className="text-xs text-muted-foreground">
         {data.count.toLocaleString()} event{data.count !== 1 ? "s" : ""} found
-        {data.num_pages > 1 && ` � Page ${data.page} of ${data.num_pages}`}
+        {data.num_pages > 1 && ` — Page ${data.page} of ${data.num_pages}`}
       </p>
 
       {loading ? (
@@ -375,7 +375,7 @@ function LoginActivityTab({ toast }) {
                 ) : data.results.map((e, i) => (
                   <tr key={e.id} className={`border-b border-border last:border-0 hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
                     <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">{e.timestamp}</td>
-                    <td className="px-4 py-2.5 text-xs font-medium">{e.username_attempted || e.user || "�"}</td>
+                    <td className="px-4 py-2.5 text-xs font-medium">{e.username_attempted || e.user || "—"}</td>
                     <td className="px-4 py-2.5">
                       <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${e.action === "login" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-600"}`}>
                         {e.action}
@@ -386,9 +386,9 @@ function LoginActivityTab({ toast }) {
                         {e.success ? "Success" : "Failed"}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs">{e.ip_address || "�"}</td>
-                    <td className="px-4 py-2.5 text-xs">{e.retail || "�"}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[200px] truncate" title={e.user_agent}>{e.user_agent || "�"}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs">{e.ip_address || "—"}</td>
+                    <td className="px-4 py-2.5 text-xs">{e.retail || "—"}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[200px] truncate" title={e.user_agent}>{e.user_agent || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -438,9 +438,9 @@ function RestorePointsTab({ toast }) {
     if (!preview) return;
     const ok = window.confirm(
       `This will roll the system back to ${timestamp}.\n\n` +
-      `  � ${preview.summary.creates} rows re-created\n` +
-      `  � ${preview.summary.updates} rows reverted\n` +
-      `  � ${preview.summary.deletes} rows deleted\n\n` +
+      `  • ${preview.summary.creates} rows re-created\n` +
+      `  • ${preview.summary.updates} rows reverted\n` +
+      `  • ${preview.summary.deletes} rows deleted\n\n` +
       `This is destructive and affects ALL users in this retail. Proceed?`
     );
     if (!ok) return;
@@ -461,7 +461,7 @@ function RestorePointsTab({ toast }) {
       <div className="rounded-xl border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900 p-4 flex gap-3">
         <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
-          <p className="font-semibold">System Restore � destructive operation</p>
+          <p className="font-semibold">System Restore — destructive operation</p>
           <p>Rolls every audited table back to its state at the chosen timestamp. Run a preview first, review the change counts, and only then apply.</p>
         </div>
       </div>
@@ -474,11 +474,11 @@ function RestorePointsTab({ toast }) {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={runDryRun} disabled={busy}>
-            {busy ? "Calculating�" : "Preview changes"}
+            {busy ? "Calculating…" : "Preview changes"}
           </Button>
           {preview && (
             <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white" onClick={applyRestore} disabled={busy}>
-              {busy ? "Applying�" : `Apply (${preview.summary.total_changes} changes)`}
+              {busy ? "Applying…" : `Apply (${preview.summary.total_changes} changes)`}
             </Button>
           )}
         </div>

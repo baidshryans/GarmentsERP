@@ -228,7 +228,7 @@ const PurchaseVoucher = () => {
   const selectedPacketData = packets.find(p => p.pckt_no === selectedPacket);
   const detailItemData = mainItemData.find(m => m.short_code === selectedItem);
   const isRawItem = detailItemData?.item_type === "R";
-  // Show metal/gold fields only when a raw (gold) item is selected � hide when blank or stone item
+  // Show metal/gold fields only when a raw (gold) item is selected — hide when blank or stone item
   const showMetalFields = isRawItem;
   const detailMetalPurity = watch('details.metal_purity');
 
@@ -303,7 +303,7 @@ const PurchaseVoucher = () => {
       // All reference data + voucher data (when editing) are fetched in a single
       // Promise.all so every request fires simultaneously instead of sequentially.
       const [
-        /* 0 */ ,           // fetchPVNoNext � side-effect only (sets billno), result unused
+        /* 0 */ ,           // fetchPVNoNext — side-effect only (sets billno), result unused
         /* 1 */ packets,
         /* 2 */ barcodes,
         /* 3 */ customerOrders,
@@ -405,7 +405,7 @@ const PurchaseVoucher = () => {
           }
 
           // vendor_state_code is now embedded in the voucher response (first 2 digits of
-          // the vendor GSTIN) � no separate getLedger call needed.
+          // the vendor GSTIN) — no separate getLedger call needed.
           if (data.vendor_state_code) {
             setVendorStateCode(data.vendor_state_code);
           }
@@ -571,13 +571,13 @@ const PurchaseVoucher = () => {
   }, [watchedMaking, watchedMakingType]);
 
   useEffect(() => {
-    // Skip when editing a sub-item � rate/value are already set by handleEditSubItem
+    // Skip when editing a sub-item — rate/value are already set by handleEditSubItem
     if (editingSubItemRef.current) {
       editingSubItemRef.current = false; // consume the guard
       return;
     }
     if (!watchedPacketDetail) {
-      // Customer voucher entries don't use the packet field � sub-item is picked
+      // Customer voucher entries don't use the packet field — sub-item is picked
       // directly. Skip the reset so the user's typed rate / sub_item aren't wiped
       // when `packets` finishes loading after the form mounts.
       if (current_vou_type === 'Customer') {
@@ -616,7 +616,7 @@ const PurchaseVoucher = () => {
 
 
   useEffect(() => {
-    // Skip when a sub-item is being pulled into the edit row � the edit handler
+    // Skip when a sub-item is being pulled into the edit row — the edit handler
     // already sets the correct sl_no and we must not overwrite it.
     if (skipSlNoUpdateRef.current) {
       skipSlNoUpdateRef.current = false;
@@ -658,11 +658,11 @@ const PurchaseVoucher = () => {
     if (pendingDetail.sub_item) {
       const slNo = Number(pendingDetail.sl_no);
         if (!pendingDetail.sl_no || slNo <= 0) {
-        // Raw item � add back to rsRaw
+        // Raw item — add back to rsRaw
         currentRsRaw = [...currentRsRaw, pendingDetail];
         setRsRaw(currentRsRaw);
       } else {
-        // Nested sub-item � find its parent and push it back in
+        // Nested sub-item — find its parent and push it back in
         const targetIdx = currentRs.findIndex(r => r.sl_no === slNo);
         if (targetIdx >= 0) {
           currentRs = currentRs.map((row, i) => {
@@ -677,7 +677,7 @@ const PurchaseVoucher = () => {
           });
           setRows(currentRs);
         } else {
-          // sl_no doesn't match any row � fall back to rsRaw to avoid data loss
+          // sl_no doesn't match any row — fall back to rsRaw to avoid data loss
           currentRsRaw = [...currentRsRaw, pendingDetail];
           setRsRaw(currentRsRaw);
         }
@@ -722,7 +722,7 @@ const PurchaseVoucher = () => {
     const extractSlug = (obj, slugField) => {
       if (!obj) return null;
       if (typeof obj === 'string') {
-        // obj is already a string � could be slug OR full name
+        // obj is already a string — could be slug OR full name
         // Try to find matching item in reference data to extract the correct slug
         let refData = [];
         let displayField = '';
@@ -874,7 +874,7 @@ const PurchaseVoucher = () => {
     reset({ table: row, form: getValues('form'), hsn: getValues('hsn'), details: getValues('details') });
     const itemData = mainItemsM.find(m => m.short_code === row.item);
     setTableItemDisplay(itemData ? itemData.item_name : (row.item || ""));
-    // Mark row as being-edited instead of removing it � sub-items stay visible
+    // Mark row as being-edited instead of removing it — sub-items stay visible
     setRows(prev => prev.map((r, i) => i === index ? { ...r, _editing: true } : r));
     markTableDirty();
   };
@@ -898,7 +898,7 @@ const PurchaseVoucher = () => {
   };
 
   const handleEditSubItem = (rowIndex, subIndex, key) => {
-    // Prevent editing multiple sub-items at once � the first would be lost
+    // Prevent editing multiple sub-items at once — the first would be lost
     const currentDetails = getValues('details');
     if (currentDetails.sub_item) {
       toast({ title: "Finish editing the current sub-item first", description: "Press Tab to save the current sub-item before editing another.", variant: "destructive" });
@@ -993,7 +993,7 @@ const PurchaseVoucher = () => {
       if (idx < 0) {
         // If sl_no is null/empty/0, this is a raw item being re-added (e.g. after
         // handleEditRawRow cleared sl_no). Fall back to the rsRaw path instead of
-        // showing an error � this was the root cause of edited raw items being deleted.
+        // showing an error — this was the root cause of edited raw items being deleted.
         if (!vals.sl_no || Number(vals.sl_no) <= 0) {
           markTableDirty();
           setRsRaw(prev => [...prev, { ...vals }]);
@@ -1022,7 +1022,7 @@ const PurchaseVoucher = () => {
           return;
         }
         const validSlNos = rs.map(r => r.sl_no).join(", ");
-        toast({ title: `Invalid Sl No � valid numbers: ${validSlNos}` });
+        toast({ title: `Invalid Sl No — valid numbers: ${validSlNos}` });
         return;
       }
       if (idx >= 0) {
@@ -1090,7 +1090,7 @@ const PurchaseVoucher = () => {
     if (!editingRowRef.current && rs.filter(r => !r._editing).length > 0) {
       for (const row of rs.filter(r => !r._editing)) {
         const details = row.purchasevoucherdetails_set || [];
-        if (!details.length) continue; // direct item � no check needed
+        if (!details.length) continue; // direct item — no check needed
         const totalSubGW = details.reduce((sum, d) => sum + parseFloat(d.sub_gw || 0), 0);
         const itemGW = parseFloat(row.gw || 0);
         if (Math.abs(totalSubGW - itemGW) > 0.001) {
@@ -1294,7 +1294,7 @@ const PurchaseVoucher = () => {
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
               <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating�</span>}
+                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
               </span>
               <input type="hidden" {...register("form.billno")} />
             </div>
@@ -1374,7 +1374,7 @@ const PurchaseVoucher = () => {
                   if (items.length > 0) setPoPickerOpen(true);
                 }
               }}
-              placeholder={isCustomer ? "Search customer / dealer�" : "Search vendor / karigar�"}
+              placeholder={isCustomer ? "Search customer / dealer…" : "Search vendor / karigar…"}
             />
             <input type="hidden" {...register("form.ldgr", { required: true })} />
           </FieldContainer>
@@ -1384,13 +1384,13 @@ const PurchaseVoucher = () => {
             <Label className="text-nowrap">HSN code <span className="text-primary font-normal text-xs">(select to add items)</span></Label>
 
             {/* When rows exist (or editing), Radix Select never opens so SelectValue
-                can't resolve the label � render a plain disabled input instead. */}
+                can't resolve the label — render a plain disabled input instead. */}
             {rs.length > 0 ? (
               <Input
                 disabled
                 value={(() => {
                   const match = hsns.find(h => h.hsn_no === hsn_current);
-                  return match ? `${match.hsn_no} � ${match.description || ''}`.trim() : (hsn_current || '');
+                  return match ? `${match.hsn_no} — ${match.description || ''}`.trim() : (hsn_current || '');
                 })()}
               />
             ) : (
@@ -1792,23 +1792,23 @@ const PurchaseVoucher = () => {
                       {item.customer_order_item_id ? (
                         <span
                           className="inline-flex flex-col gap-0.5 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 leading-tight"
-                          title={`Customer Order ${item.co_no_display || item.order_no || ''} � Sl ${item.co_sl_no_display ?? ''}${item.customer_name_display ? ` � ${item.customer_name_display}` : ''}`}
+                          title={`Customer Order ${item.co_no_display || item.order_no || ''} · Sl ${item.co_sl_no_display ?? ''}${item.customer_name_display ? ` · ${item.customer_name_display}` : ''}`}
                         >
                           <span className="text-[11px] font-semibold text-violet-800">
-                            {item.co_no_display || item.order_no || '�'}
+                            {item.co_no_display || item.order_no || '—'}
                           </span>
                           {item.co_sl_no_display != null && (
                             <span className="text-[10px] text-violet-700/80">Sl {item.co_sl_no_display}</span>
                           )}
                         </span>
                       ) : item.po_no ? (
-                        <>{item.po_no}{item.po_sl_no ? ` � ${item.po_sl_no}` : ""}</>
-                      ) : "�"}
+                        <>{item.po_no}{item.po_sl_no ? ` · ${item.po_sl_no}` : ""}</>
+                      ) : "—"}
                     </TableCell>
 
                     <TableCell className="w-28 px-4 py-2 border">{item.pcs}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border"></TableCell>
-                    <TableCell className="w-28 px-4 py-2 border">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "�"}</TableCell>
+                    <TableCell className="w-28 px-4 py-2 border">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.size}</TableCell>
                     <TableCell className="w-28 px-4 py-2 border">{item.purity}</TableCell>
 
@@ -1857,7 +1857,7 @@ const PurchaseVoucher = () => {
                 </React.Fragment>
               ))}
 
-              {/* Direct sub-items (rsRaw) � rendered as rows in the main
+              {/* Direct sub-items (rsRaw) — rendered as rows in the main
                   table so columns stay aligned with the header above. */}
               {rsRaw.map((detail, idx) => (
                 <TableRow key={`raw-${idx}`} className="bg-white">
@@ -1944,7 +1944,7 @@ const PurchaseVoucher = () => {
             </div>
           )}
 
-          {/* Attachment panel (edit mode) � compact trigger sitting beside bill summary */}
+          {/* Attachment panel (edit mode) — compact trigger sitting beside bill summary */}
           {id && !isCustomer && (
             <div className="flex-1 rounded-lg border border-border bg-muted/20 p-4 self-stretch flex flex-col">
               <div className="flex items-center gap-2 mb-3">
@@ -1958,7 +1958,7 @@ const PurchaseVoucher = () => {
             </div>
           )}
 
-          {/* Bill Summary � ml-auto pushes it right when no attachment panel is visible */}
+          {/* Bill Summary — ml-auto pushes it right when no attachment panel is visible */}
           <div className="w-[480px] shrink-0 ml-auto">
             <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} standalone={false} />
           </div>
@@ -1981,7 +1981,7 @@ const PurchaseVoucher = () => {
           </DialogHeader>
 
           <Input
-            placeholder="Search PO #, item, purity�"
+            placeholder="Search PO #, item, purity…"
             value={poPickerSearch}
             onChange={(e) => setPoPickerSearch(e.target.value)}
             className="mb-1"
@@ -1989,7 +1989,7 @@ const PurchaseVoucher = () => {
 
           <div className="max-h-[55vh] overflow-auto rounded-md border border-border">
             {poPickerLoading ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">Loading�</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
             ) : pendingPOItems.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 No pending purchase-order items for this vendor.
@@ -2053,23 +2053,23 @@ const PurchaseVoucher = () => {
                             />
                             )}
                           </TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.po_date || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs font-mono">{p.po_no || "�"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.po_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs font-mono">{p.po_no || "—"}</TableCell>
                           <TableCell className="px-3 py-2 text-center">{p.po_sl_no}</TableCell>
                           <TableCell className="px-3 py-2">
                             <div className="flex flex-col leading-tight">
-                              <span className="font-medium">{p.item_name || p.item || "�"}</span>
+                              <span className="font-medium">{p.item_name || p.item || "—"}</span>
                               {p.item && p.item_name && p.item !== p.item_name && (
                                 <span className="text-[10px] text-muted-foreground font-mono">{p.item}</span>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="px-3 py-2">{p.purity || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "�"}</TableCell>
-                          <TableCell className="px-3 py-2">{p.size || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">{p.remarks || "�"}</TableCell>
+                          <TableCell className="px-3 py-2">{p.purity || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2">{p.size || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">{p.remarks || "—"}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -2160,7 +2160,7 @@ const PurchaseVoucher = () => {
           </DialogHeader>
 
           <Input
-            placeholder="Search CO #, customer, item, purity�"
+            placeholder="Search CO #, customer, item, purity…"
             value={coPickerSearch}
             onChange={(e) => setCoPickerSearch(e.target.value)}
             className="mb-1"
@@ -2168,7 +2168,7 @@ const PurchaseVoucher = () => {
 
           <div className="max-h-[55vh] overflow-auto rounded-md border border-border">
             {coPickerLoading ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">Loading�</div>
+              <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
             ) : pendingCOItems.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 No pending customer-order items.
@@ -2233,23 +2233,23 @@ const PurchaseVoucher = () => {
                               />
                             )}
                           </TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 font-medium">{p.customer_name || "�"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{p.co_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs font-mono">{p.co_no || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 font-medium">{p.customer_name || "—"}</TableCell>
                           <TableCell className="px-3 py-2 text-center">{p.sl_no}</TableCell>
                           <TableCell className="px-3 py-2">
                             <div className="flex flex-col leading-tight">
-                              <span className="font-medium">{p.item_name || p.item || "�"}</span>
+                              <span className="font-medium">{p.item_name || p.item || "—"}</span>
                               {p.item && p.item_name && p.item !== p.item_name && (
                                 <span className="text-[10px] text-muted-foreground font-mono">{p.item}</span>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="px-3 py-2">{p.purity || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "�"}</TableCell>
-                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">{p.remarks || "�"}</TableCell>
+                          <TableCell className="px-3 py-2">{p.purity || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.pcs ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-right tabular-nums">{p.approx_wt ?? "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs whitespace-nowrap">{p.due_date || "—"}</TableCell>
+                          <TableCell className="px-3 py-2 text-xs text-muted-foreground">{p.remarks || "—"}</TableCell>
                         </TableRow>
                       );
                     })}

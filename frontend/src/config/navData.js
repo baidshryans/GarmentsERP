@@ -15,6 +15,7 @@ import {
   Heart,
   History,
   LayoutDashboard,
+  Monitor,
   Package,
   PackageCheckIcon,
   PackageXIcon,
@@ -157,6 +158,7 @@ export const navData = {
 
   // ── Sales ──────────────────────────────────────────────────────────────────
   navMain2: [
+    { title: "POS Counter",    url: "/sales/pos",                 icon: Monitor          },
     { title: "Estimate",       url: "/sales/estimate",            icon: Calculator       },
     { title: "Quotation",     url: "/sales/quotation/list/",     icon: FileText         },
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList    },

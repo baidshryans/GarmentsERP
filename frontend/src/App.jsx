@@ -35,6 +35,7 @@ const DesignList                 = lazy(() => import("./components/Inventory/Des
 const BarcodeListView            = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeList"));
 const BarcodeSplit               = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeSplit"));
 const SalesVoucherAdd            = lazy(() => import("./components/Sales/SalesVoucherAdd"));
+const POSView                    = lazy(() => import("./components/Sales/POS/POSView"));
 const SalesReturnAdd             = lazy(() => import("./components/Sales/SalesReturnAdd"));
 const SalesApprovalAdd           = lazy(() => import("./components/Sales/SalesApprovalAdd"));
 const CustomerOrderList          = lazy(() => import("./components/Sales/CustomerOrderList"));
@@ -547,6 +548,9 @@ function App() {
           {/* Catch-all: unknown paths inside the layout redirect to home instead of blank */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
+
+        {/* POS Counter — full-screen, no sidebar */}
+        <Route path="sales/pos" element={<ProtectedRoute element={<POSView />} />} />
 
         {/* Bill selection popup (opens in new window from receipt/payment vouchers) */}
         <Route path="accountadd/:type/:id" element={<Account />} />

@@ -1,15 +1,15 @@
 import React, { useEffect, useRef } from "react";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
-import { UserSearch, X } from "lucide-react";
+import { UserSearch } from "lucide-react";
 
 /**
  * Full-screen modal shown on POS load to pick a customer before scanning.
+ * Customer selection is mandatory — cannot be dismissed without selecting.
  * Props:
  *   customers  — array of { id, ac_name, mobile1, phone1 }
  *   onSelect   — fn(opt) called when a customer is chosen
- *   onSkip     — fn() called when user dismisses without selecting (optional)
  */
-export default function CustomerSelectModal({ customers, onSelect, onSkip }) {
+export default function CustomerSelectModal({ customers, onSelect }) {
   const comboRef = useRef(null);
 
   // Auto-focus the search input when modal opens
@@ -33,15 +33,6 @@ export default function CustomerSelectModal({ customers, onSelect, onSkip }) {
               <div className="text-[12px] text-muted-foreground">Search by name or mobile number</div>
             </div>
           </div>
-          {onSkip && (
-            <button
-              onClick={onSkip}
-              className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-md p-1 transition-colors"
-              title="Skip — bill without customer"
-            >
-              <X className="size-4" />
-            </button>
-          )}
         </div>
 
         {/* Search */}
@@ -65,14 +56,6 @@ export default function CustomerSelectModal({ customers, onSelect, onSkip }) {
               </div>
             )}
           />
-          {onSkip && (
-            <button
-              onClick={onSkip}
-              className="w-full text-[13px] text-muted-foreground hover:text-foreground transition-colors py-2 border border-dashed border-border rounded-lg hover:border-muted-foreground"
-            >
-              Skip — continue without selecting a customer
-            </button>
-          )}
         </div>
 
       </div>

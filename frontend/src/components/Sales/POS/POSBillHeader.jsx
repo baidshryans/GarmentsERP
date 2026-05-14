@@ -1,21 +1,17 @@
 import React from "react";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 
-// ── small label + field wrapper ───────────────────────────────────────────────
-const Field = ({ label, children, className = "" }) => (
-  <div className={`flex flex-col gap-1 ${className}`}>
-    <label className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{label}</label>
-    {children}
-  </div>
-);
-
 const inputCls =
-  "border border-input rounded-md px-2 py-1.5 text-[13px] font-[Assistant] text-foreground bg-background outline-none " +
-  "focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors";
+  "border border-input rounded-md px-2.5 py-2 text-[13px] font-[Assistant] text-foreground bg-background outline-none " +
+  "focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors w-full";
 
 const selectCls =
-  "border border-input rounded-md px-2 py-1.5 text-[13px] font-[Assistant] text-foreground bg-background outline-none " +
-  "focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors";
+  "border border-input rounded-md px-2.5 py-2 text-[13px] font-[Assistant] text-foreground bg-background outline-none " +
+  "focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors w-full";
+
+const Label = ({ children }) => (
+  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">{children}</div>
+);
 
 export default function POSBillHeader({
   form,
@@ -31,37 +27,37 @@ export default function POSBillHeader({
 }) {
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
-  // 269ST cash limit badge
   const cashReceived = parseFloat(customerCashInfo?.cash_received) || 0;
-  const cashLimit    = 200000;
-  const cashPct      = Math.min(100, (cashReceived / cashLimit) * 100);
-  const cashOver     = cashReceived >= cashLimit;
+  const cashOver     = cashReceived >= 200000;
 
   return (
-    <div className="border-b border-border px-3 py-2.5 bg-background shrink-0">
-      <div className="flex flex-wrap gap-x-3 gap-y-2 items-end">
+    <div className="border-b border-border px-4 py-3 bg-background shrink-0">
+      <div className="flex items-end gap-3">
 
         {/* Bill No */}
-        <Field label="Bill No" className="min-w-[120px]">
+        <div className="shrink-0" style={{ width: 148 }}>
+          <Label>Bill No</Label>
           <input
-            className={`${inputCls} bg-muted text-muted-foreground w-[160px]`}
+            className={`${inputCls} bg-muted/60 text-muted-foreground`}
             value={form.billno}
             readOnly
           />
-        </Field>
+        </div>
 
         {/* Date */}
-        <Field label="Date" className="min-w-[120px]">
+        <div className="shrink-0" style={{ width: 136 }}>
+          <Label>Date</Label>
           <input
             type="date"
-            className={`${inputCls} w-[128px]`}
+            className={inputCls}
             value={form.date1}
             onChange={e => set("date1", e.target.value)}
           />
-        </Field>
+        </div>
 
-        {/* Customer */}
-        <Field label="Customer" className="min-w-[220px] flex-1">
+        {/* Customer — grows to fill available space */}
+        <div className="flex-1 min-w-0">
+          <Label>Customer</Label>
           <SearchableComboBox
             options={customers}
             labelKey="ac_name"
@@ -72,52 +68,47 @@ export default function POSBillHeader({
               onCustomerChange(opt.id);
             }}
             placeholder="Search customer…"
-            className={`${inputCls} w-full`}
+            className={inputCls}
           />
-          {/* Customer badges */}
+          {/* Badges */}
           {form.ldgr && (
-            <div className="flex flex-wrap gap-1 mt-1">
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
               {b2bPricelist && (
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                   B2B Pricelist
                 </span>
               )}
               {customerCashInfo && (
-                <span
-                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    cashOver
-                      ? "bg-red-50 text-red-700 border-red-200"
-                      : "bg-muted text-muted-foreground border-border"
-                  }`}
-                >
-                  Cash ₹{cashReceived.toLocaleString("en-IN")} / ₹2,00,000
-                  {cashOver && " ⚠️"}
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                  cashOver ? "bg-red-50 text-red-700 border-red-200" : "bg-muted text-muted-foreground border-border"
+                }`}>
+                  Cash ₹{cashReceived.toLocaleString("en-IN")} / ₹2,00,000{cashOver && " ⚠️"}
                 </span>
               )}
             </div>
           )}
-        </Field>
+        </div>
 
         {/* Place of Supply */}
-        <Field label="Place of Supply" className="min-w-[140px]">
+        <div className="shrink-0" style={{ width: 164 }}>
+          <Label>Place of Supply</Label>
           <select
-            className={`${selectCls} w-[148px]`}
+            className={selectCls}
             value={form.place_of_supply}
             onChange={e => set("place_of_supply", e.target.value)}
           >
             <option value="">Select state…</option>
             {statesData.map(s => (
-              <option key={s.code} value={s.code}>
-                {s.name}
-              </option>
+              <option key={s.code} value={s.code}>{s.name}</option>
             ))}
           </select>
-        </Field>
+        </div>
 
-        {/* HSN — dropdown from master */}
-        <Field label="HSN Code" className="min-w-[180px]">
+        {/* HSN Code */}
+        <div className="shrink-0" style={{ width: 200 }}>
+          <Label>HSN Code</Label>
           <select
-            className={`${selectCls} w-[188px]`}
+            className={selectCls}
             value={form.hsn}
             onChange={e => set("hsn", e.target.value)}
           >
@@ -128,8 +119,7 @@ export default function POSBillHeader({
               </option>
             ))}
           </select>
-        </Field>
-
+        </div>
 
       </div>
     </div>

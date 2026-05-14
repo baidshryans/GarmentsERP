@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
+import { Toaster } from "@/components/ui/toaster";
 import {
   getLedgers,
   createSalesVoucher,
@@ -219,8 +220,17 @@ export default function POSView() {
       if (data.success) {
         setBarcodeItems(prev => [...prev, data.data]);
       } else {
-        const detail = data.error?.detail || (typeof data.error === "string" ? data.error : null);
-        toast({ title: detail ? "Barcode reserved" : "Barcode not found", description: detail || JSON.stringify(data.error), variant: "destructive" });
+        const detail =
+          data.error?.detail ||
+          data.error?.non_field_errors?.[0] ||
+          (typeof data.error === "string" ? data.error : null) ||
+          "Barcode not found or not in stock";
+        const isReserved = detail?.toLowerCase().includes("reserved") || detail?.toLowerCase().includes("sold");
+        toast({
+          title: isReserved ? "Barcode already sold/reserved" : "Barcode not found",
+          description: detail,
+          variant: "destructive",
+        });
       }
     } catch (err) {
       console.error("Barcode fetch error:", err);
@@ -337,6 +347,7 @@ export default function POSView() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-muted/40 font-[Assistant]">
+      <Toaster />
 
       {/* ── Customer select modal ── */}
       {showCustomerModal && customers.length > 0 && (
@@ -345,10 +356,6 @@ export default function POSView() {
           onSelect={opt => {
             setLdgrName(opt.ac_name || "");
             handleCustomerChange(opt.id, { fromModal: true });
-          }}
-          onSkip={() => {
-            setShowCustomerModal(false);
-            setTimeout(() => itemsTableRef.current?.focusBarcode(), 80);
           }}
         />
       )}

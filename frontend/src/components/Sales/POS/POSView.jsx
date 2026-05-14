@@ -143,10 +143,8 @@ export default function POSView() {
           if (d.retail_state_code) setRetailStateCode(d.retail_state_code);
           // default HSN to first entry
           if (d.hsns?.length) {
-            setForm(prev => ({
-              ...prev,
-              hsn: d.hsns[0].hsn_no,
-            }));
+            const defaultHsn = d.hsns.find(h => h.hsn_no === "711319") || d.hsns[0];
+            setForm(prev => ({ ...prev, hsn: defaultHsn.hsn_no }));
           }
         } else {
           toast({

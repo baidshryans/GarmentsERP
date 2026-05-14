@@ -67,10 +67,10 @@ export default function POSBillHeader({
         <Field label="Customer" className="min-w-[220px] flex-1">
           <SearchableComboBox
             options={customers}
-            labelKey="ledger_name"
+            labelKey="ac_name"
             value={ldgrName || ""}
             onSelect={opt => {
-              setLdgrName(opt.ledger_name || opt.ac_name || "");
+              setLdgrName(opt.ac_name || "");
               onCustomerChange(opt.id);
             }}
             onInputChange={val => setLdgrName(val)}
@@ -110,8 +110,8 @@ export default function POSBillHeader({
           >
             <option value="">Select state…</option>
             {statesData.map(s => (
-              <option key={s.state_code || s.id} value={s.state_code || s.id}>
-                {s.state_name || s.name}
+              <option key={s.code} value={s.code}>
+                {s.name}
               </option>
             ))}
           </select>

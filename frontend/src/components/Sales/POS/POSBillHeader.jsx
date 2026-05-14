@@ -29,6 +29,8 @@ export default function POSBillHeader({
   selectedPurchase,
   onCustomerChange,
   onSelectPurchase,
+  ldgrName,
+  setLdgrName,
 }) {
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
@@ -45,7 +47,7 @@ export default function POSBillHeader({
         {/* Bill No */}
         <Field label="Bill No" className="min-w-[120px]">
           <input
-            className={`${inputCls} bg-muted text-muted-foreground w-[128px]`}
+            className={`${inputCls} bg-muted text-muted-foreground w-[160px]`}
             value={form.billno}
             readOnly
           />
@@ -64,11 +66,14 @@ export default function POSBillHeader({
         {/* Customer */}
         <Field label="Customer" className="min-w-[220px] flex-1">
           <SearchableComboBox
-            items={customers}
-            value={form.ldgr}
-            onChange={val => onCustomerChange(val)}
-            displayKey="ledger_name"
-            valueKey="id"
+            options={customers}
+            labelKey="ledger_name"
+            value={ldgrName || ""}
+            onSelect={opt => {
+              setLdgrName(opt.ledger_name || opt.ac_name || "");
+              onCustomerChange(opt.id);
+            }}
+            onInputChange={val => setLdgrName(val)}
             placeholder="Search customer…"
             className={`${inputCls} w-full`}
           />
@@ -121,7 +126,7 @@ export default function POSBillHeader({
           >
             <option value="">Select HSN…</option>
             {hsns.map(h => (
-              <option key={h.id} value={String(h.id)}>
+              <option key={h.id} value={h.hsn_no}>
                 {h.hsn_no} — {h.description}
               </option>
             ))}

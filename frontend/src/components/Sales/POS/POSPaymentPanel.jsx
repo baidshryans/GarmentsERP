@@ -114,13 +114,13 @@ export default function POSPaymentPanel({
         <div className="border-t border-muted my-1" />
         <SummaryRow label="Taxable Value" value={fmtINR(taxableValue)} />
 
-        {cgst_amt > 0 && (
+        {parseFloat(form.cgst_per) > 0 && (
           <SummaryRow label={`CGST (${form.cgst_per}%)`} value={fmtINR(cgst_amt)} />
         )}
-        {sgst_amt > 0 && (
+        {parseFloat(form.sgst_per) > 0 && (
           <SummaryRow label={`SGST (${form.sgst_per}%)`} value={fmtINR(sgst_amt)} />
         )}
-        {igst_amt > 0 && (
+        {parseFloat(form.igst_per) > 0 && (
           <SummaryRow label={`IGST (${form.igst_per}%)`} value={fmtINR(igst_amt)} />
         )}
 

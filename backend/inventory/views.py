@@ -866,7 +866,7 @@ class StockReportView(APIView):
         ]
         outflow_types = [
             'SALE', 'SALE-APP', 'TRF-RR-OUT',
-            'BAR-MER', 'BAR-SPLIT', 'BAR-TRF-UNB',
+            'BAR-MER', 'BAR-SPLIT', 'BAR-TRF-UNB', 'PURCHASE-RET',
         ]
 
         # Map trans_type values to safe annotation field names
@@ -878,6 +878,7 @@ class StockReportView(APIView):
             'SALE': 'sale', 'SALE-APP': 'sale_app',
             'TRF-RR-OUT': 'trf_rr_out', 'BAR-MER': 'bar_mer',
             'BAR-SPLIT': 'bar_split', 'BAR-TRF-UNB': 'bar_trf_unb',
+            'PURCHASE-RET': 'pur_ret',
         }
 
         annotations = {
@@ -930,6 +931,7 @@ class StockReportBarcodesView(APIView):
     OUTFLOW_COLUMNS = {
         'sale': 'SALE', 'sale_app': 'SALE-APP', 'trf_rr_out': 'TRF-RR-OUT',
         'bar_mer': 'BAR-MER', 'bar_split': 'BAR-SPLIT', 'bar_trf_unb': 'BAR-TRF-UNB',
+        'pur_ret': 'PURCHASE-RET',
     }
 
     def get(self, request):

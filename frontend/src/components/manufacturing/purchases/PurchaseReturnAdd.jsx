@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { SquarePen, Trash2 } from "lucide-react";
+import { SquarePen, Trash2, ScanBarcode, Loader2, Plus } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -29,6 +29,7 @@ import {
   fetchPurchaseReturnInitialData,
   fetchDetailsForPurchaseReturn,
 } from "@/services/apiService";
+import { fetchBarcodeDetailOnly } from "@/services/api/inventory";
 
 import { useParams, useNavigate } from "react-router-dom";
 import { FieldContainer } from "@/Utils.jsx";
@@ -65,6 +66,8 @@ const emptyTableRow = {
   making_value: 0,
   making: 0,
   remarks: "",
+  barcode: null,
+  barcode_txt: "",
   purchasereturndetails_set: [],
 };
 
@@ -135,6 +138,9 @@ const PurchaseReturnAdd = () => {
   const [mainItemData, setMainItemData] = useState([]);
   const [purityData, setPurityData] = useState([]);
   const [packets, setPackets] = useState([]);
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const barcodeFetchingRef = useRef(false);
 
   // ── Initial data load ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -332,6 +338,53 @@ const PurchaseReturnAdd = () => {
     }
   };
 
+  // ── Barcode scan ───────────────────────────────────────────────────────────
+  const handleScan = async (e) => {
+    e?.preventDefault();
+    const code = barcodeInput.trim();
+    if (!code || barcodeFetchingRef.current) return;
+
+    if (rs.some((i) => i.barcode_txt === code)) {
+      toast({ title: "Already added", description: `"${code}" is already in the list.` });
+      setBarcodeInput("");
+      return;
+    }
+
+    barcodeFetchingRef.current = true;
+    setScanning(true);
+    try {
+      const res = await fetchBarcodeDetailOnly(code);
+      if (!res.success || !res.data) {
+        toast({ title: "Barcode not found", description: `No active stock for "${code}"`, variant: "destructive" });
+        return;
+      }
+      const d = res.data;
+      const nextSl = rs.length + 1;
+      const newRow = {
+        sl_no: nextSl,
+        barcode: d.id ?? null,
+        barcode_txt: d.barcode || code,
+        item: d.item ?? "",
+        pcs: d.pcs ?? 1,
+        gw: d.gw ?? 0,
+        purity: d.purity ?? "",
+        making_type: "",
+        making_value: 0,
+        making: d.making ?? 0,
+        remarks: "",
+        purchasereturndetails_set: Array.isArray(d.main_item_set) ? d.main_item_set : [],
+      };
+      setRows((prev) => [...prev, newRow]);
+      setBarcodeInput("");
+      markTableDirty();
+    } catch (err) {
+      toast({ title: "Error", description: String(err), variant: "destructive" });
+    } finally {
+      setScanning(false);
+      barcodeFetchingRef.current = false;
+    }
+  };
+
   useF4Submit(handleSubmit(handleSubmitForm));
   useF2Navigate("/purchase/purchasereturn/list/add/");
   const formRef = useRef(null);
@@ -433,8 +486,31 @@ const PurchaseReturnAdd = () => {
           </FieldContainer>
         </div>
 
+        {/* ══ BARCODE SCANNER ═══════════════════════════════════════════════ */}
+        <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-4 mb-4">
+          <form onSubmit={handleScan} className="flex items-end gap-3">
+            <div className="flex flex-col gap-1 flex-1 max-w-sm">
+              <Label className="text-xs font-medium flex items-center gap-1.5">
+                <ScanBarcode className="size-3.5" /> Scan Barcode / RFID
+              </Label>
+              <Input
+                value={barcodeInput}
+                onChange={(e) => setBarcodeInput(e.target.value)}
+                placeholder="Scan or type barcode…"
+                className="h-10 text-base font-mono"
+                disabled={scanning}
+              />
+            </div>
+            <Button type="submit" disabled={scanning || !barcodeInput.trim()} className="h-10 gap-1.5">
+              {scanning ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              {scanning ? "Loading…" : "Add"}
+            </Button>
+            <span className="text-xs text-muted-foreground pb-2">Press Enter after each scan</span>
+          </form>
+        </div>
+
         {/* ══ SECTION 2: Add Return Item ════════════════════════════════════ */}
-        <SectionHeader number="2" title="Add Return Item" />
+        <SectionHeader number="2" title="Add Return Item (Manual)" />
         <p className="text-xs text-gray-500 mb-3">
           Enter item details, then press{" "}
           <kbd className="px-1 py-0.5 bg-gray-100 border rounded text-xs">Tab</kbd> on{" "}
@@ -626,6 +702,7 @@ const PurchaseReturnAdd = () => {
               <TableRow className="bg-violet-50">
                 <TH></TH>
                 <TH>Sl No</TH>
+                <TH className="w-28">Barcode</TH>
                 <TH>Packet</TH>
                 <TH>Item</TH>
                 <TH>Pcs</TH>
@@ -644,7 +721,7 @@ const PurchaseReturnAdd = () => {
               {rs.map((item, idx) => (
                 <React.Fragment key={idx}>
                   {/* Main item row */}
-                  <TableRow className="bg-violet-50">
+                  <TableRow className={item.barcode ? "bg-violet-50" : "bg-sky-50"}>
                     <TableCell className="px-3 py-2 border">
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-400 font-semibold mr-1">{idx + 1}</span>
@@ -662,6 +739,7 @@ const PurchaseReturnAdd = () => {
                       </div>
                     </TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.sl_no}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs font-mono">{item.barcode_txt || "—"}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs"></TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
@@ -686,8 +764,9 @@ const PurchaseReturnAdd = () => {
                             onClick={() => handleDeleteDetail(idx, detailIdx)}
                           />
                         </TableCell>
-                        {/* Detail: SL NO(↳) | PACKET | ITEM | PCS | CT | GW | PURITY | MAKING x3 | LOSS | TUNCH | FINE WT | AMOUNT */}
+                        {/* Detail: SL NO(↳) | BARCODE | PACKET | ITEM | PCS | CT | GW | PURITY | MAKING x3 | LOSS | TUNCH | FINE WT | AMOUNT */}
                         <TableCell className="px-3 py-2 border text-xs text-gray-400">↳</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs"></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.packet}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs"></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_pcs}</TableCell>

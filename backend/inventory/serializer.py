@@ -93,6 +93,7 @@ class ItemStockReportSerializer(serializers.ModelSerializer):
     bar_mer = serializers.IntegerField()
     bar_split = serializers.IntegerField()
     bar_trf_unb = serializers.IntegerField()
+    pur_ret = serializers.IntegerField()
     outflow = serializers.IntegerField()
     # Net
     stock = serializers.IntegerField()
@@ -104,7 +105,7 @@ class ItemStockReportSerializer(serializers.ModelSerializer):
             'create_pur', 'create_rec', 'sale_ret', 'sale_app_ret',
             'trf_rr_in', 'bar_mer_crt', 'bar_split_crt', 'inflow',
             'sale', 'sale_app', 'trf_rr_out',
-            'bar_mer', 'bar_split', 'bar_trf_unb', 'outflow',
+            'bar_mer', 'bar_split', 'bar_trf_unb', 'pur_ret', 'outflow',
             'stock',
         ]
 

@@ -8,6 +8,7 @@ from contacts.models import Ledger
 import global_vars
 from goldrates.models import PurityMaster
 from manufacturing.utils import create_or_update_nested
+from inventory.models import BarcodeMain, BarcodeTransaction
 from mastersconfig.models import Item, Packet
 from ..models import PurchaseReturn, PurchaseReturnItems, PurchaseReturnDetails
 
@@ -46,6 +47,7 @@ class PurchaseReturnItemsSerializer(serializers.ModelSerializer):
     # Fields related to PurchaseReturnItems model
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
+    barcode = serializers.PrimaryKeyRelatedField(queryset=BarcodeMain.objects.all(), allow_null=True, required=False)
 
     # Nested Serializer for PurchaseReturnDetails
     purchasereturndetails_set = PurchaseReturnDetailsSerializer(many=True)
@@ -63,10 +65,13 @@ class PurchaseReturnItemsSerializer(serializers.ModelSerializer):
             'making_value',
             'making',
             'remarks',
+            'barcode',
+            'barcode_txt',
             'purchasereturndetails_set',  # Nested details serializer
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
+            'barcode_txt': {'required': False, 'allow_null': True, 'allow_blank': True},
         }
 
     def create(self, validated_data):
@@ -211,6 +216,21 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         purchase_return_instance.gstin_ref  = retail.gstin_master
         purchase_return_instance.branch_ref = retail.branch
         purchase_return_instance.save()
+
+        # Record outflow transactions for barcode-scanned items
+        request = self.context.get('request')
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
+        for item_inst in item_instances:
+            if item_inst.barcode_id:
+                BarcodeTransaction.objects.create(
+                    barcode=item_inst.barcode,
+                    billno=purchase_return_instance.billno,
+                    trans_type='PURCHASE-RET',
+                    user=request.user if request else None,
+                    ip_address=ip,
+                    retail=retail,
+                )
+
         return purchase_return_instance
 
     def update(self, instance, validated_data):
@@ -294,4 +314,22 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         purchase_return_instance.gstin_ref  = retail.gstin_master
         purchase_return_instance.branch_ref = retail.branch
         purchase_return_instance.save()
+
+        # Refresh barcode outflow transactions: delete old, recreate from current items
+        request = self.context.get('request')
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
+        BarcodeTransaction.objects.filter(
+            billno=purchase_return_instance.billno, trans_type='PURCHASE-RET'
+        ).delete()
+        for item_inst in item_instances:
+            if item_inst.barcode_id:
+                BarcodeTransaction.objects.create(
+                    barcode=item_inst.barcode,
+                    billno=purchase_return_instance.billno,
+                    trans_type='PURCHASE-RET',
+                    user=request.user if request else None,
+                    ip_address=ip,
+                    retail=retail,
+                )
+
         return purchase_return_instance

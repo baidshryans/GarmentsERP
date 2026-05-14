@@ -31,6 +31,7 @@ const COLUMN_LABELS = {
   bar_mer: "Merge Consumed",
   bar_split: "Split Consumed",
   bar_trf_unb: "Barcode Unbar",
+  pur_ret: "Purchase Return",
   stock: "In Stock",
 };
 
@@ -83,7 +84,7 @@ const INFLOW_KEYS = [
 ];
 const OUTFLOW_KEYS = [
   "sale", "sale_app", "trf_rr_out",
-  "bar_mer", "bar_split", "bar_trf_unb",
+  "bar_mer", "bar_split", "bar_trf_unb", "pur_ret",
 ];
 const ALL_KEYS = ["opening", ...INFLOW_KEYS, "inflow", ...OUTFLOW_KEYS, "outflow", "stock"];
 
@@ -151,7 +152,7 @@ export default function BarcodeStockReport() {
         <th colspan="2" style="background:#f1f5f9;text-align:left">Item</th>
         <th colspan="1" style="background:#eff6ff">Opening</th>
         <th colspan="8" style="background:#f0fdf4">Inflows</th>
-        <th colspan="7" style="background:#fef2f2">Outflows</th>
+        <th colspan="8" style="background:#fef2f2">Outflows</th>
         <th colspan="1" style="background:#faf5ff">Stock</th>
       </tr>
       <tr>
@@ -172,6 +173,7 @@ export default function BarcodeStockReport() {
         <th style="background:#fef2f2">Merge</th>
         <th style="background:#fef2f2">Split</th>
         <th style="background:#fef2f2">Trf Unbar</th>
+        <th style="background:#fef2f2">Pur Ret</th>
         <th style="background:#fecaca;font-weight:700">Total</th>
         <th style="background:#f3e8ff;font-weight:700">Pcs</th>
       </tr>`;
@@ -195,6 +197,7 @@ export default function BarcodeStockReport() {
         <td style="background:#fef2f2">${v(d.bar_mer)}</td>
         <td style="background:#fef2f2">${v(d.bar_split)}</td>
         <td style="background:#fef2f2">${v(d.bar_trf_unb)}</td>
+        <td style="background:#fef2f2">${v(d.pur_ret)}</td>
         <td style="background:#fecaca;font-weight:600">${v(d.outflow)}</td>
         <td style="background:#f3e8ff;font-weight:700;font-size:13px">${v(d.stock)}</td>
       </tr>`).join("");
@@ -217,6 +220,7 @@ export default function BarcodeStockReport() {
         <td style="background:#fecaca">${v(totals.bar_mer)}</td>
         <td style="background:#fecaca">${v(totals.bar_split)}</td>
         <td style="background:#fecaca">${v(totals.bar_trf_unb)}</td>
+        <td style="background:#fecaca">${v(totals.pur_ret)}</td>
         <td style="background:#fca5a5">${v(totals.outflow)}</td>
         <td style="background:#e9d5ff;font-size:13px">${v(totals.stock)}</td>
       </tr>` : "";
@@ -307,7 +311,7 @@ export default function BarcodeStockReport() {
                   <ColGroup label="Item" span={2} className="text-left !text-[11px]" />
                   <ColGroup label="Opening" span={1} className="bg-violet-50/60" />
                   <ColGroup label="Inflows" span={8} className="bg-green-50/60" />
-                  <ColGroup label="Outflows" span={7} className="bg-red-50/60" />
+                  <ColGroup label="Outflows" span={8} className="bg-red-50/60" />
                   <ColGroup label="Stock" span={1} className="bg-primary/5" />
                 </tr>
 
@@ -333,6 +337,7 @@ export default function BarcodeStockReport() {
                   <SubHead label="Merge" className="bg-red-50/40" />
                   <SubHead label="Split" className="bg-red-50/40" />
                   <SubHead label="Trf Unbar" className="bg-red-50/40" />
+                  <SubHead label="Pur Ret" className="bg-red-50/40" />
                   <SubHead label="Total" className="bg-red-50/40 !font-semibold" />
                   {/* Stock */}
                   <SubHead label="Pcs" className="bg-primary/5 !font-semibold" />
@@ -342,7 +347,7 @@ export default function BarcodeStockReport() {
               <tbody>
                 {data.length === 0 && (
                   <tr>
-                    <td colSpan={19} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={20} className="text-center py-8 text-muted-foreground">
                       No stock data available for this date.
                     </td>
                   </tr>
@@ -379,6 +384,7 @@ export default function BarcodeStockReport() {
                     <CTd value={d.bar_mer} onClick={() => openDrill(d, "bar_mer")} className="bg-red-50/10" />
                     <CTd value={d.bar_split} onClick={() => openDrill(d, "bar_split")} className="bg-red-50/10" />
                     <CTd value={d.bar_trf_unb} onClick={() => openDrill(d, "bar_trf_unb")} className="bg-red-50/10" />
+                    <CTd value={d.pur_ret} onClick={() => openDrill(d, "pur_ret")} className="bg-red-50/10" />
                     <Td className="bg-red-50/20 font-semibold">{v(d.outflow)}</Td>
                     {/* Stock */}
                     <CTd value={d.stock} onClick={() => openDrill(d, "stock")} className="bg-primary/5 font-bold text-sm" />
@@ -409,6 +415,7 @@ export default function BarcodeStockReport() {
                     <Td className="bg-red-50/20">{v(totals.bar_mer)}</Td>
                     <Td className="bg-red-50/20">{v(totals.bar_split)}</Td>
                     <Td className="bg-red-50/20">{v(totals.bar_trf_unb)}</Td>
+                    <Td className="bg-red-50/20">{v(totals.pur_ret)}</Td>
                     <Td className="bg-red-50/30 font-bold">{v(totals.outflow)}</Td>
                     <Td className="bg-primary/5 font-bold text-sm">{v(totals.stock)}</Td>
                   </tr>

@@ -286,7 +286,8 @@ class PurchaseReturnItems(models.Model): #main item
     remarks = models.CharField(max_length=100, null=True, blank=True)
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
-
+    barcode = models.ForeignKey('inventory.BarcodeMain', on_delete=models.SET_NULL, null=True, blank=True)
+    barcode_txt = models.CharField(max_length=50, null=True, blank=True)
 
     class Meta:
         db_table="purchase_return_main"

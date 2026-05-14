@@ -115,7 +115,7 @@ class SaleVoucherLedgerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ledger
-        fields = ['id', 'ac_name', 'ac_group', 'primary_role']
+        fields = ['id', 'ac_name', 'ac_group', 'primary_role', 'mobile1', 'phone1']
 
     def get_primary_role(self, obj):
         # obj.roles.all() hits the prefetch cache — no extra query per ledger

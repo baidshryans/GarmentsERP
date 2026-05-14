@@ -83,7 +83,7 @@ export default function POSPaymentPanel({
       <div className="px-3 py-2.5 border-b border-border shrink-0">
         {customerObj ? (
           <>
-            <div className="text-[15px] font-bold text-foreground">{customerObj.ledger_name}</div>
+            <div className="text-[15px] font-bold text-foreground">{customerObj.ac_name}</div>
             <div className="text-[12px] text-muted-foreground mt-0.5 flex gap-3">
               {customerObj.phone && <span>{customerObj.phone}</span>}
               {customerObj.city && <span>{customerObj.city}</span>}
@@ -114,13 +114,13 @@ export default function POSPaymentPanel({
         <div className="border-t border-muted my-1" />
         <SummaryRow label="Taxable Value" value={fmtINR(taxableValue)} />
 
-        {cgst_amt > 0 && (
+        {parseFloat(form.cgst_per) > 0 && (
           <SummaryRow label={`CGST (${form.cgst_per}%)`} value={fmtINR(cgst_amt)} />
         )}
-        {sgst_amt > 0 && (
+        {parseFloat(form.sgst_per) > 0 && (
           <SummaryRow label={`SGST (${form.sgst_per}%)`} value={fmtINR(sgst_amt)} />
         )}
-        {igst_amt > 0 && (
+        {parseFloat(form.igst_per) > 0 && (
           <SummaryRow label={`IGST (${form.igst_per}%)`} value={fmtINR(igst_amt)} />
         )}
 

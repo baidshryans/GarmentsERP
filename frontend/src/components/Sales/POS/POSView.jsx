@@ -82,6 +82,7 @@ export default function POSView() {
   // ── UI ─────────────────────────────────────────────────────────────────────
   const [saving,     setSaving]     = useState(false);
   const [activeTab,  setActiveTab]  = useState("barcode"); // "barcode" | "manual"
+  const [ldgrName,   setLdgrName]   = useState(""); // display value for customer combobox
 
   // ── Barcode fetch guard ────────────────────────────────────────────────────
   const barcodeFetchingRef = useRef(false);
@@ -144,7 +145,7 @@ export default function POSView() {
           if (d.hsns?.length) {
             setForm(prev => ({
               ...prev,
-              hsn: String(d.hsns[0].id),
+              hsn: d.hsns[0].hsn_no,
             }));
           }
         } else {
@@ -185,7 +186,7 @@ export default function POSView() {
     setSelectedPurchase(null);
     setCustomerPurchases([]);
     setAdvanceDeducted(0);
-    if (!ldgrId) { setCustomerCashInfo(null); setB2bPricelist(null); return; }
+    if (!ldgrId) { setCustomerCashInfo(null); setB2bPricelist(null); setLdgrName(""); return; }
 
     const [cashRes, purchasesRes, b2bRes] = await Promise.all([
       fetchCustomerCashReceived(ldgrId),
@@ -262,6 +263,7 @@ export default function POSView() {
     setAdvanceDeducted(0);
     setSelectedPurchase(null);
     setCustomerCashInfo(null);
+    setLdgrName("");
     // Re-fetch bill number
     fetchSaleVoucherInitialData().then(res => {
       if (res.success) setForm(prev => ({ ...prev, billno: res.data.billno || "" }));
@@ -372,6 +374,8 @@ export default function POSView() {
             selectedPurchase={selectedPurchase}
             onCustomerChange={handleCustomerChange}
             onSelectPurchase={handleSelectPurchase}
+            ldgrName={ldgrName}
+            setLdgrName={setLdgrName}
           />
           <POSItemsTable
             barcodeItems={barcodeItems}

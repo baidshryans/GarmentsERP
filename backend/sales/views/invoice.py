@@ -987,7 +987,7 @@ def sale_voucher_initial_data(request):
 
     ledgers_qs = (Ledger.objects
                   .filter(roles__role='CO')
-                  .only('id', 'ac_name', 'ac_group')
+                  .only('id', 'ac_name', 'ac_group', 'mobile1', 'phone1')
                   .prefetch_related('roles')
                   .distinct())
     items_qs = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger').all()
@@ -1042,7 +1042,7 @@ def sale_return_initial_data(request):
     ledgers_qs = (Ledger.objects
                   .filter(roles__role='CO')
                   .select_related('ac_group')
-                  .only('id', 'ac_name', 'ac_group')
+                  .only('id', 'ac_name', 'ac_group', 'mobile1', 'phone1')
                   .prefetch_related('roles')
                   .distinct())
     items_qs = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger').all()

@@ -67,3 +67,4 @@ desktop.ini
 # Claude Code internal
 .superpowers/
 docs/superpowers/
+.worktrees/

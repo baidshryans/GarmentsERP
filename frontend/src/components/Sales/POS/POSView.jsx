@@ -377,9 +377,6 @@ export default function POSView() {
           />
           <POSItemsTable
             barcodeItems={barcodeItems}
-            manualItems={manualItems}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
             onBarcodeSubmit={handleBarcodeSubmit}
             onDeleteBarcodeItem={handleDeleteBarcodeItem}
           />

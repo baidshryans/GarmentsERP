@@ -19,6 +19,7 @@ import { renderErrorTree } from "@/Utils";
 import POSBillHeader from "./POSBillHeader";
 import POSItemsTable from "./POSItemsTable";
 import POSPaymentPanel from "./POSPaymentPanel";
+import CustomerSelectModal from "./CustomerSelectModal";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const TODAY = new Date().toISOString().split("T")[0];
@@ -80,12 +81,13 @@ export default function POSView() {
   const [b2bPricelist,        setB2bPricelist]        = useState(null);
 
   // ── UI ─────────────────────────────────────────────────────────────────────
-  const [saving,     setSaving]     = useState(false);
-  const [activeTab,  setActiveTab]  = useState("barcode"); // "barcode" | "manual"
-  const [ldgrName,   setLdgrName]   = useState(""); // display value for customer combobox
+  const [saving,           setSaving]           = useState(false);
+  const [showCustomerModal, setShowCustomerModal] = useState(true);
+  const [ldgrName,         setLdgrName]          = useState(""); // display value for customer combobox
 
-  // ── Barcode fetch guard ────────────────────────────────────────────────────
+  // ── Refs ───────────────────────────────────────────────────────────────────
   const barcodeFetchingRef = useRef(false);
+  const itemsTableRef      = useRef(null);
 
   // ── Derived bill figures ───────────────────────────────────────────────────
   const mrp          = barcodeItems.reduce((s, i) => s + parseFloat(i.amount || 0), 0);
@@ -179,12 +181,16 @@ export default function POSView() {
   }, []);
 
   // ── Customer selection ─────────────────────────────────────────────────────
-  const handleCustomerChange = useCallback(async (ldgrId) => {
+  const handleCustomerChange = useCallback(async (ldgrId, { fromModal = false } = {}) => {
     setForm(prev => ({ ...prev, ldgr: ldgrId, old_gold_purchase: null, old_gold_adjusted: 0 }));
     setSelectedPurchase(null);
     setCustomerPurchases([]);
     setAdvanceDeducted(0);
     if (!ldgrId) { setCustomerCashInfo(null); setB2bPricelist(null); setLdgrName(""); return; }
+    if (fromModal) {
+      setShowCustomerModal(false);
+      setTimeout(() => itemsTableRef.current?.focusBarcode(), 80);
+    }
 
     const [cashRes, purchasesRes, b2bRes] = await Promise.all([
       fetchCustomerCashReceived(ldgrId),
@@ -262,6 +268,7 @@ export default function POSView() {
     setSelectedPurchase(null);
     setCustomerCashInfo(null);
     setLdgrName("");
+    setShowCustomerModal(true);
     // Re-fetch bill number
     fetchSaleVoucherInitialData().then(res => {
       if (res.success) setForm(prev => ({ ...prev, billno: res.data.billno || "" }));
@@ -327,6 +334,21 @@ export default function POSView() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-muted/40 font-[Assistant]">
 
+      {/* ── Customer select modal ── */}
+      {showCustomerModal && customers.length > 0 && (
+        <CustomerSelectModal
+          customers={customers}
+          onSelect={opt => {
+            setLdgrName(opt.ac_name || "");
+            handleCustomerChange(opt.id, { fromModal: true });
+          }}
+          onSkip={() => {
+            setShowCustomerModal(false);
+            setTimeout(() => itemsTableRef.current?.focusBarcode(), 80);
+          }}
+        />
+      )}
+
       {/* Top bar */}
       <div className="h-12 bg-background border-b border-border flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
@@ -376,6 +398,7 @@ export default function POSView() {
             setLdgrName={setLdgrName}
           />
           <POSItemsTable
+            ref={itemsTableRef}
             barcodeItems={barcodeItems}
             onBarcodeSubmit={handleBarcodeSubmit}
             onDeleteBarcodeItem={handleDeleteBarcodeItem}

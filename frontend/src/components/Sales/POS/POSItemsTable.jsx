@@ -1,17 +1,22 @@
-import React, { useRef, useState } from "react";
+import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 // ── formatters ────────────────────────────────────────────────────────────────
 const fmtN  = (v, d = 3) => (parseFloat(v) || 0).toFixed(d);
 const fmtINR = v => `₹${(parseFloat(v) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
-export default function POSItemsTable({
+const POSItemsTable = forwardRef(function POSItemsTable({
   barcodeItems,
   onBarcodeSubmit,
   onDeleteBarcodeItem,
-}) {
+}, ref) {
   const [barcode, setBarcode] = useState("");
   const inputRef = useRef(null);
+
+  // Expose focusBarcode() to parent
+  useImperativeHandle(ref, () => ({
+    focusBarcode: () => inputRef.current?.focus(),
+  }));
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -134,4 +139,6 @@ export default function POSItemsTable({
       </div>
     </div>
   );
-}
+});
+
+export default POSItemsTable;

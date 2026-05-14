@@ -204,6 +204,44 @@ export default function POSView() {
     else setB2bPricelist(null);
   }, []);
 
+  // ── Item amount computation (mirrors SalesVoucherAdd recalc logic) ──────────
+  const computeItemAmount = useCallback((item) => {
+    const subItems = Array.isArray(item.main_item_set) ? item.main_item_set : [];
+
+    // Sum sub-item amounts (backend already sets live `rate` on each sub-item)
+    const subTotal = subItems.reduce((s, sub) => {
+      const rate = parseFloat(sub.rate) || 0;
+      const uom  = sub.uom || "Gm";
+      let amt;
+      if      (uom === "Ct")  amt = rate * (parseFloat(sub.ct)  || 0);
+      else if (uom === "Pcs") amt = rate * (parseFloat(sub.pcs) || 0);
+      else                    amt = rate * (parseFloat(sub.gw)  || 0);
+      return s + amt;
+    }, 0);
+
+    // Making value
+    const making     = parseFloat(item.making) || 0;
+    const makingType = item.making_type || "";
+    const purity     = item.purity || "";
+
+    // Gold rate: prefer rate embedded in gold sub-item, fall back to goldRates state
+    const goldSub  = subItems.find(s => (s.item || "").toLowerCase().includes("gold"));
+    const goldRate = parseFloat(goldSub?.rate) || parseFloat(goldRates[purity]) || 0;
+    const nw       = parseFloat(item.nw) || parseFloat(goldSub?.gw) || 0;
+
+    let makingVal;
+    if      (makingType === "val")    makingVal = making;
+    else if (makingType === "per_nw") makingVal = nw * (making / 100) * goldRate;
+    else                              makingVal = making;
+    makingVal = Math.floor(makingVal);
+
+    return {
+      ...item,
+      making_value: makingVal,
+      amount: Math.floor(subTotal + makingVal),
+    };
+  }, [goldRates]);
+
   // ── Barcode scan ───────────────────────────────────────────────────────────
   const handleBarcodeSubmit = useCallback(async (barcode) => {
     if (!barcode?.trim()) return;
@@ -218,7 +256,7 @@ export default function POSView() {
     try {
       const data = await fetchBarcodeDetail(barcode, form.hsn, form.ldgr);
       if (data.success) {
-        setBarcodeItems(prev => [...prev, data.data]);
+        setBarcodeItems(prev => [...prev, computeItemAmount(data.data)]);
       } else {
         const detail =
           data.error?.detail ||
@@ -237,7 +275,7 @@ export default function POSView() {
     } finally {
       barcodeFetchingRef.current = false;
     }
-  }, [barcodeItems, form.hsn, form.ldgr, toast]);
+  }, [barcodeItems, form.hsn, form.ldgr, toast, computeItemAmount]);
 
   const handleDeleteBarcodeItem = useCallback((index) => {
     setBarcodeItems(prev => prev.filter((_, i) => i !== index));

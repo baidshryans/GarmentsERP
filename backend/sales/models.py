@@ -223,6 +223,19 @@ class SalesVou(models.Model):
 
         return self.billno
 
+class SaleOldGoldAdjustment(models.Model):
+    """Tracks each old-gold purchase voucher adjusted against a single sale — supports N:1."""
+    sale     = models.ForeignKey('SalesVou', on_delete=models.CASCADE, related_name='old_gold_adjustments')
+    purchase = models.ForeignKey('purchase.PurchaseVoucher', on_delete=models.PROTECT, related_name='sale_adjustments')
+    amount   = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        unique_together = [('sale', 'purchase')]
+
+    def __str__(self):
+        return f"{self.sale.billno} ← {self.purchase.billno} ₹{self.amount}"
+
+
 class SalesVouItem(models.Model):
     date1= models.DateField(auto_now_add=True)
     billno = models.ForeignKey(SalesVou, on_delete=models.CASCADE)

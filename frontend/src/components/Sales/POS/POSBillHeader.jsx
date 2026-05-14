@@ -25,10 +25,7 @@ export default function POSBillHeader({
   hsns,
   customerCashInfo,
   b2bPricelist,
-  customerPurchases,
-  selectedPurchase,
   onCustomerChange,
-  onSelectPurchase,
   ldgrName,
   setLdgrName,
 }) {
@@ -133,25 +130,6 @@ export default function POSBillHeader({
           </select>
         </Field>
 
-        {/* Old Gold Link */}
-        <Field label="Old Gold Link" className="min-w-[160px]">
-          <select
-            className={`${selectCls} w-[168px] text-[12px]`}
-            value={form.old_gold_purchase || ""}
-            onChange={e => {
-              const id = e.target.value;
-              const pv = customerPurchases.find(p => String(p.id) === id) || null;
-              onSelectPurchase(pv);
-            }}
-          >
-            <option value="">— None —</option>
-            {customerPurchases.map(p => (
-              <option key={p.id} value={String(p.id)}>
-                {p.billno} — ₹{parseFloat(p.available_balance || 0).toLocaleString("en-IN")}
-              </option>
-            ))}
-          </select>
-        </Field>
 
       </div>
     </div>

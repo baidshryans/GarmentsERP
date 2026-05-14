@@ -50,16 +50,21 @@ export default function POSPaymentPanel({
   collected,
   dueAmt,
   customerCashInfo,
-  selectedPurchase,
+  // multi old-gold
+  customerPurchases,
+  ogAdjustments,
+  onAddOgAdjustment,
+  onDeleteOgAdjustment,
+  // bank
   saving,
   onAddBank,
   onDeleteBank,
-  onEditBank,
   onClear,
   onSave,
   onSaveAndPrint,
 }) {
   const [newBank, setNewBank] = useState(emptyBankRow());
+  const [newOg, setNewOg]     = useState({ purchase_id: "", amount: "" });
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
@@ -68,6 +73,18 @@ export default function POSPaymentPanel({
     onAddBank({ ...newBank });
     setNewBank(emptyBankRow());
   };
+
+  const handleAddOg = () => {
+    if (!newOg.purchase_id || !newOg.amount || Number(newOg.amount) <= 0) return;
+    const pv = customerPurchases.find(p => String(p.id) === String(newOg.purchase_id));
+    if (!pv) return;
+    onAddOgAdjustment({ purchase: pv, amount: newOg.amount });
+    setNewOg({ purchase_id: "", amount: "" });
+  };
+
+  // Available purchases — exclude those already added
+  const addedIds = new Set(ogAdjustments.map(a => String(a.purchase.id)));
+  const availablePurchases = customerPurchases.filter(p => !addedIds.has(String(p.id)));
 
   // 269ST limit
   const cashReceived = parseFloat(customerCashInfo?.cash_received) || 0;
@@ -85,8 +102,8 @@ export default function POSPaymentPanel({
           <>
             <div className="text-[15px] font-bold text-foreground">{customerObj.ac_name}</div>
             <div className="text-[12px] text-muted-foreground mt-0.5 flex gap-3">
-              {customerObj.phone && <span>{customerObj.phone}</span>}
-              {customerObj.city && <span>{customerObj.city}</span>}
+              {customerObj.mobile1 && <span>{customerObj.mobile1}</span>}
+              {customerObj.phone1 && <span>{customerObj.phone1}</span>}
             </div>
           </>
         ) : (
@@ -145,13 +162,6 @@ export default function POSPaymentPanel({
           />
         </div>
 
-        {selectedPurchase && (
-          <SummaryRow
-            label="Old Gold Adjusted"
-            value={`− ${fmtINR(oldGoldAdj)}`}
-            valueClass="text-primary"
-          />
-        )}
         {advanceDeducted > 0 && (
           <SummaryRow
             label="Advance"
@@ -166,21 +176,18 @@ export default function POSPaymentPanel({
         <div className="flex justify-between items-end gap-3">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Amount Due</div>
-            <div className="text-[28px] font-extrabold text-primary leading-none font-variant-numeric tabular-nums">
+            <div className="text-[28px] font-extrabold text-primary leading-none tabular-nums">
               {fmtINR(dueAmt)}
             </div>
           </div>
           <div className="text-right">
             <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Collected</div>
-            <div className="text-[28px] font-extrabold text-emerald-600 leading-none font-variant-numeric tabular-nums">
+            <div className="text-[28px] font-extrabold text-emerald-600 leading-none tabular-nums">
               {fmtINR(collected)}
             </div>
           </div>
         </div>
-        <div className="mt-2.5 text-[10px] text-muted-foreground">
-          Bill {fmtINR(billTotal)} · Remaining {fmtINR(dueAmt)}
-        </div>
-        <div className="h-[3px] bg-border rounded-full mt-2 overflow-hidden">
+        <div className="h-[3px] bg-border rounded-full mt-2.5 overflow-hidden">
           <div
             className="h-full bg-primary rounded-full transition-all duration-300"
             style={{ width: `${progressPct}%` }}
@@ -284,39 +291,94 @@ export default function POSPaymentPanel({
 
         <div className="border-t border-dashed border-border my-1" />
 
-        {/* Old Gold Adjusted */}
-        <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-background focus-within:border-primary transition-colors">
-          <span className="text-muted-foreground text-sm w-5 shrink-0">◈</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-semibold text-foreground">Old Gold Adjusted</div>
-            {selectedPurchase ? (
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                {selectedPurchase.billno} · Available {fmtINR(selectedPurchase.available_balance)}
-              </div>
-            ) : (
-              <div className="text-[10px] text-muted-foreground mt-0.5 italic">Link old gold in bill header</div>
-            )}
-          </div>
-          <input
-            type="number"
-            min={0}
-            max={parseFloat(selectedPurchase?.available_balance) || undefined}
-            value={form.old_gold_adjusted || ""}
-            onChange={e => setForm(prev => ({ ...prev, old_gold_adjusted: e.target.value }))}
-            placeholder="0"
-            disabled={!selectedPurchase}
-            className={`${inputCls} w-[110px] text-right text-[14px] font-bold disabled:opacity-40`}
-          />
+        {/* ── Old Gold Adjustments ── */}
+        <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+          Old Gold Adjustments
         </div>
 
+        {/* Existing adjustments */}
+        {ogAdjustments.map((adj, idx) => (
+          <div key={idx} className="flex items-center gap-2 px-3 py-2 border border-amber-200 rounded-lg bg-amber-50/60">
+            <span className="text-amber-700 text-sm w-5 shrink-0">◈</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[12px] font-semibold text-foreground">{adj.purchase.billno}</div>
+              <div className="text-[10px] text-muted-foreground">
+                Avail {fmtINR(adj.purchase.available_balance)}
+              </div>
+            </div>
+            <span className="text-[13px] font-bold text-amber-700">{fmtINR(adj.amount)}</span>
+            <button
+              onClick={() => onDeleteOgAdjustment(idx)}
+              className="text-border hover:text-destructive hover:bg-red-50 rounded p-0.5 transition-colors shrink-0"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        ))}
+
+        {/* Add old gold adjustment row */}
+        {customerPurchases.length > 0 ? (
+          <div className="border border-border rounded-lg px-3 py-2 bg-background">
+            <div className="flex gap-2">
+              <select
+                className={`${inputCls} flex-1 min-w-0 text-[12px]`}
+                value={newOg.purchase_id}
+                onChange={e => {
+                  const pv = customerPurchases.find(p => String(p.id) === e.target.value);
+                  setNewOg(prev => ({
+                    ...prev,
+                    purchase_id: e.target.value,
+                    amount: pv ? String(pv.available_balance) : "",
+                  }));
+                }}
+              >
+                <option value="">Select old gold voucher…</option>
+                {availablePurchases.map(p => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.billno} — {fmtINR(p.available_balance)} avail
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={0}
+                max={customerPurchases.find(p => String(p.id) === newOg.purchase_id)?.available_balance}
+                className={`${inputCls} w-[90px] text-right font-semibold`}
+                placeholder="Amount"
+                value={newOg.amount}
+                onChange={e => setNewOg(prev => ({ ...prev, amount: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && handleAddOg()}
+              />
+              <button
+                onClick={handleAddOg}
+                disabled={!newOg.purchase_id || !newOg.amount || Number(newOg.amount) <= 0}
+                className="shrink-0 px-2 py-1 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 disabled:opacity-40 transition-colors"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-3 py-2 border border-dashed border-border rounded-lg text-[11px] text-muted-foreground italic">
+            No old gold purchase vouchers for this customer
+          </div>
+        )}
+
+        {ogAdjustments.length > 0 && (
+          <div className="flex justify-between items-center px-1">
+            <span className="text-[11px] text-muted-foreground">Total old gold adjusted</span>
+            <span className="text-[13px] font-bold text-amber-700">{fmtINR(oldGoldAdj)}</span>
+          </div>
+        )}
+
         {/* Credit to account */}
-        <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-background focus-within:border-primary transition-colors">
+        <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-background">
           <span className="text-muted-foreground text-sm w-5 shrink-0">◻</span>
           <div className="flex-1 min-w-0">
             <div className="text-[13px] font-semibold text-foreground">Credit to Account</div>
             <div className="text-[10px] text-muted-foreground mt-0.5">Books outstanding balance to ledger</div>
           </div>
-          <div className={`w-[110px] text-right text-[14px] font-bold text-primary px-2 py-1.5`}>
+          <div className="w-[110px] text-right text-[14px] font-bold text-primary px-2 py-1.5">
             {fmtINR(dueAmt)}
           </div>
         </div>

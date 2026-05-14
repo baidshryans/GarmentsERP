@@ -75,10 +75,10 @@ export default function POSView() {
   const [advanceDeducted, setAdvanceDeducted] = useState(0);
 
   // ── Customer context ──────────────────────────────────────────────────────
-  const [customerCashInfo,    setCustomerCashInfo]    = useState(null);
-  const [customerPurchases,   setCustomerPurchases]   = useState([]);
-  const [selectedPurchase,    setSelectedPurchase]    = useState(null);
-  const [b2bPricelist,        setB2bPricelist]        = useState(null);
+  const [customerCashInfo,  setCustomerCashInfo]  = useState(null);
+  const [customerPurchases, setCustomerPurchases] = useState([]);
+  const [ogAdjustments,     setOgAdjustments]     = useState([]); // [{purchase, amount}]
+  const [b2bPricelist,      setB2bPricelist]      = useState(null);
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   const [saving,           setSaving]           = useState(false);
@@ -98,7 +98,7 @@ export default function POSView() {
   const igst_amt     = (taxableValue * (parseFloat(form.igst_per) || 0)) / 100;
   const roundOff     = parseFloat(form.round_off) || 0;
   const billTotal    = taxableValue + cgst_amt + sgst_amt + igst_amt + roundOff;
-  const oldGoldAdj   = parseFloat(form.old_gold_adjusted) || 0;
+  const oldGoldAdj   = ogAdjustments.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
   const bankPaid     = bankDetails.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
   const collected    = parseFloat(cash) + bankPaid + oldGoldAdj + advanceDeducted;
   const dueAmt       = Math.max(0, billTotal - collected);
@@ -182,8 +182,8 @@ export default function POSView() {
 
   // ── Customer selection ─────────────────────────────────────────────────────
   const handleCustomerChange = useCallback(async (ldgrId, { fromModal = false } = {}) => {
-    setForm(prev => ({ ...prev, ldgr: ldgrId, old_gold_purchase: null, old_gold_adjusted: 0 }));
-    setSelectedPurchase(null);
+    setForm(prev => ({ ...prev, ldgr: ldgrId }));
+    setOgAdjustments([]);
     setCustomerPurchases([]);
     setAdvanceDeducted(0);
     if (!ldgrId) { setCustomerCashInfo(null); setB2bPricelist(null); setLdgrName(""); return; }
@@ -247,14 +247,13 @@ export default function POSView() {
     setBankDetails(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  // ── Old gold link ──────────────────────────────────────────────────────────
-  const handleSelectPurchase = useCallback((purchase) => {
-    setSelectedPurchase(purchase);
-    setForm(prev => ({
-      ...prev,
-      old_gold_purchase: purchase?.id ?? null,
-      old_gold_adjusted: 0,
-    }));
+  // ── Old gold adjustments ───────────────────────────────────────────────────
+  const handleAddOgAdjustment = useCallback(({ purchase, amount }) => {
+    setOgAdjustments(prev => [...prev, { purchase, amount }]);
+  }, []);
+
+  const handleDeleteOgAdjustment = useCallback((index) => {
+    setOgAdjustments(prev => prev.filter((_, i) => i !== index));
   }, []);
 
   // ── Clear form ─────────────────────────────────────────────────────────────
@@ -265,7 +264,7 @@ export default function POSView() {
     setCash(0);
     setBankDetails([]);
     setAdvanceDeducted(0);
-    setSelectedPurchase(null);
+    setOgAdjustments([]);
     setCustomerCashInfo(null);
     setLdgrName("");
     setShowCustomerModal(true);
@@ -302,7 +301,12 @@ export default function POSView() {
         bank_details: bankDetails,
         cash: cashAmt,
         due_amt: parseFloat(dueAmt.toFixed(2)),
-        old_gold_purchase:  form.old_gold_purchase  || null,
+        old_gold_purchase:  null,
+        old_gold_adjusted:  oldGoldAdj,
+        old_gold_adjustments_data: ogAdjustments.map(a => ({
+          purchase_id: a.purchase.id,
+          amount: parseFloat(a.amount),
+        })),
         customer_order:     form.customer_order     || null,
         exhibition_profile: form.exhibition_profile || null,
         advance_deducted:   advanceDeducted,
@@ -390,10 +394,7 @@ export default function POSView() {
             hsns={hsns}
             customerCashInfo={customerCashInfo}
             b2bPricelist={b2bPricelist}
-            customerPurchases={customerPurchases}
-            selectedPurchase={selectedPurchase}
             onCustomerChange={handleCustomerChange}
-            onSelectPurchase={handleSelectPurchase}
             ldgrName={ldgrName}
             setLdgrName={setLdgrName}
           />
@@ -427,7 +428,10 @@ export default function POSView() {
             collected={collected}
             dueAmt={dueAmt}
             customerCashInfo={customerCashInfo}
-            selectedPurchase={selectedPurchase}
+            customerPurchases={customerPurchases}
+            ogAdjustments={ogAdjustments}
+            onAddOgAdjustment={handleAddOgAdjustment}
+            onDeleteOgAdjustment={handleDeleteOgAdjustment}
             saving={saving}
             onAddBank={handleAddBank}
             onDeleteBank={handleDeleteBank}

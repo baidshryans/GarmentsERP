@@ -657,12 +657,17 @@ def customer_purchases_for_adjustment(request):
         retail=request.retail,
         is_return=False,
     ).annotate(
-        total_adjusted=Coalesce(
+        legacy_adjusted=Coalesce(
             Sum('linked_sales_vouchers__old_gold_adjusted'),
             Value(0), output_field=DecimalField()
         ),
+        multi_adjusted=Coalesce(
+            Sum('sale_adjustments__amount'),
+            Value(0), output_field=DecimalField()
+        ),
     ).annotate(
-        available_balance=F('bill_value') - F('total_adjusted')
+        total_adjusted=F('legacy_adjusted') + F('multi_adjusted'),
+        available_balance=F('bill_value') - F('legacy_adjusted') - F('multi_adjusted'),
     ).filter(
         available_balance__gt=0
     ).values('id', 'billno', 'date1', 'bill_value', 'total_adjusted', 'available_balance')

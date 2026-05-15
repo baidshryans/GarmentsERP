@@ -103,15 +103,18 @@ function SalesReturnList() {
              {
                header: "Discount",
                accessorKey: "discount",
+               cell: ({ getValue }) => {
+                 const v = parseFloat(getValue());
+                 return isNaN(v) ? "-" : v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+               },
              },
              {
-               header: "Total bill",
+               header: "Total Bill",
                accessorKey: "total_bill_value",
                cell: ({ getValue }) => {
                  const v = parseFloat(getValue());
-                 return isNaN(v) ? "—" : v.toFixed(2);
+                 return isNaN(v) ? "-" : v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                },
-               
              },
             
            ]

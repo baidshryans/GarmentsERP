@@ -914,3 +914,41 @@ export async function fetchMainItemDetails(ref_job_no, job_sl_no) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+// ── GSTIN Master ──────────────────────────────────────────────────────────────
+
+export async function fetchGSTINMasters() {
+  try {
+    const response = await apiClient.get("mastersconfig/api/gstin/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createGSTINMaster(data) {
+  try {
+    const response = await apiClient.post("mastersconfig/api/gstin/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateGSTINMaster(id, data) {
+  try {
+    const response = await apiClient.put(`mastersconfig/api/gstin/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteGSTINMaster(id) {
+  try {
+    await apiClient.delete(`mastersconfig/api/gstin/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

@@ -51,6 +51,7 @@ export const navData = {
         { title: "Retail",             url: "/setup/retail"               },
         { title: "Exhibitions",        url: "/setup/exhibitions"          },
         { title: "Fiscal Years",       url: "/setup/fiscal-years"         },
+        { title: "GST Master",          url: "/setup/gstin"               },
       ],
     },
     {

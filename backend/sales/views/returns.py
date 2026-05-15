@@ -74,15 +74,23 @@ class SalesReturnViewset(views.RetailBaseViewset):
             )
 
     def perform_destroy(self, instance):
-        self._check_sale_return_mutable(instance, 'deleted')
         from accounting.utils import release_last_bill_number
         from sales.serializers import _refresh_order_status
+        from decimal import Decimal
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno
-        # Capture customer_order reference before deletion (FK may become null after)
+        # Capture sale voucher + customer order refs before cascade deletion
         _sv = instance.sales_voucher_ref
         _co = getattr(_sv, 'customer_order', None) if _sv else None
+        # Reverse the due_amt reduction that was applied to the original sale on create
+        if _sv and instance.total_bill_value:
+            return_total = Decimal(str(instance.total_bill_value))
+            _sv.due_amt = (_sv.due_amt or Decimal('0')) + return_total
+            _sv.save(update_fields=['due_amt'])
+        # Delete the posted accounting entry so the guard in ac_voucher won't block us
+        if instance.ac_voucher_id:
+            instance.ac_voucher.delete()
         super().perform_destroy(instance)
         release_last_bill_number(retail, 'SR', billno, fiscal_year)
         if _co:

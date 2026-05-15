@@ -714,6 +714,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'trans_doc_no',
             'trans_doc_date',
             'has_eway_bill',
+            'old_gold_adjustments_data',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},

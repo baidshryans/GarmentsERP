@@ -88,6 +88,11 @@ class SalesReturnViewset(views.RetailBaseViewset):
             return_total = Decimal(str(instance.total_bill_value))
             _sv.due_amt = (_sv.due_amt or Decimal('0')) + return_total
             _sv.save(update_fields=['due_amt'])
+        # Reverse barcode stock status: sale return set stk_status=True; deletion reverts to False
+        for _item in instance.salereturnitem_set.filter(barcode__isnull=False).select_related('barcode'):
+            if _item.barcode:
+                _item.barcode.stk_status = False
+                _item.barcode.save(update_fields=['stk_status'])
         # Delete the posted accounting entry so the guard in ac_voucher won't block us
         if instance.ac_voucher_id:
             instance.ac_voucher.delete()

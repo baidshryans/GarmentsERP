@@ -76,7 +76,13 @@ class SalesReturnViewset(views.RetailBaseViewset):
     def perform_destroy(self, instance):
         from accounting.utils import release_last_bill_number
         from sales.serializers import _refresh_order_status
+        from inventory.utils import guard_no_later_barcode_transaction
         from decimal import Decimal
+        barcode_ids = list(
+            instance.salereturnitem_set.filter(barcode__isnull=False)
+            .values_list('barcode_id', flat=True)
+        )
+        guard_no_later_barcode_transaction(barcode_ids, instance.billno)
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno

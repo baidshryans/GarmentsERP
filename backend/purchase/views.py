@@ -112,6 +112,12 @@ class PurchaseReturnViewset(RetailBaseViewset):
     def perform_destroy(self, instance):
         self._check_purchase_return_mutable(instance, 'deleted')
         from accounting.utils import release_last_bill_number
+        from inventory.utils import guard_no_later_barcode_transaction
+        barcode_ids = list(
+            instance.purchasereturnitems_set.filter(barcode__isnull=False)
+            .values_list('barcode_id', flat=True)
+        )
+        guard_no_later_barcode_transaction(barcode_ids, instance.billno)
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno
@@ -199,6 +205,12 @@ class PurchaseVoucherViewset(RetailBaseViewset):
     def perform_destroy(self, instance):
         self._check_purchase_vou_mutable(instance, 'deleted')
         from accounting.utils import release_last_bill_number
+        from inventory.utils import guard_no_later_barcode_transaction
+        barcode_ids = list(
+            instance.purchasevoucheritems_set.filter(barcode__isnull=False)
+            .values_list('barcode_id', flat=True)
+        )
+        guard_no_later_barcode_transaction(barcode_ids, instance.billno)
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno

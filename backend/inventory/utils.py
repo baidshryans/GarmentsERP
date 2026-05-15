@@ -112,3 +112,59 @@ def insert_design_records(date, design_no, main_item, pcs, gw, making, making_ty
 def generate_stock_journal_billno(retail):
     from accounting.utils import get_next_bill_number
     return get_next_bill_number(retail, "SJ")
+
+def guard_no_later_barcode_transaction(barcode_ids, current_billno):
+    """
+    Raises ValidationError if any barcode in barcode_ids has a BarcodeTransaction
+    recorded *after* the transaction logged for current_billno.
+
+    Logic:
+      - Find the most recent BarcodeTransaction for (barcode, current_billno).
+      - If a later transaction exists on that barcode from any other bill, block
+        the delete with a user-friendly message listing the affected barcodes.
+      - Silently skips barcodes that have no transaction record for current_billno
+        (legacy / pre-transaction-log data) so old records are never blocked.
+    """
+    from rest_framework.exceptions import ValidationError
+    from inventory.models import BarcodeTransaction
+
+    if not barcode_ids:
+        return
+
+    barcode_ids = list(barcode_ids)
+    blocking = []
+
+    for barcode_id in barcode_ids:
+        # Latest BarcodeTransaction recorded for this specific bill on this barcode
+        own_txn = (
+            BarcodeTransaction.objects
+            .filter(barcode_id=barcode_id, billno=current_billno)
+            .order_by('date')
+            .last()
+        )
+        if own_txn is None:
+            # No transaction log entry for this bill — skip (legacy data)
+            continue
+
+        # Most recent later transaction on this barcode from a different bill
+        later = (
+            BarcodeTransaction.objects
+            .filter(barcode_id=barcode_id, date__gt=own_txn.date)
+            .exclude(billno=current_billno)
+            .select_related('barcode')
+            .order_by('-date')
+            .first()
+        )
+        if later:
+            bc_code = later.barcode.barcode if later.barcode else f'id:{barcode_id}'
+            blocking.append(
+                f'  • {bc_code}: {later.trans_type} on bill {later.billno}'
+            )
+
+    if blocking:
+        raise ValidationError(
+            'Cannot delete — the following barcodes have later transactions and '
+            'must be reversed first:
+' + '
+'.join(blocking)
+        )

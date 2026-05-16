@@ -1851,6 +1851,9 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
 class SalesApprovalItemSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode")
+    # purity is IntegerField on model (stores PK of PurityMaster) but frontend
+    # sends the slug string (e.g. "14K"). Accept any value and resolve in validate.
+    purity = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     main_item_set = SalesApprovalItemDetailsSerializer(many=True)
 
     class Meta:
@@ -1866,6 +1869,32 @@ class SalesApprovalItemSerializer(serializers.ModelSerializer):
             'ret_status',
             'main_item_set',  # Nested details
         ]
+
+    def validate_purity(self, value):
+        """Convert purity slug string (e.g. '14K') to PurityMaster PK (integer)."""
+        if not value:
+            return 0
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            pass
+        try:
+            return PurityMaster.objects.get(purity=value).pk
+        except PurityMaster.DoesNotExist:
+            return 0
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        try:
+            purity_pk = int(rep.get('purity') or 0)
+        except (ValueError, TypeError):
+            purity_pk = 0
+        if purity_pk > 0:
+            try:
+                rep['purity'] = PurityMaster.objects.get(pk=purity_pk).purity
+            except PurityMaster.DoesNotExist:
+                rep['purity'] = str(purity_pk)
+        return rep
 
     def validate(self, attrs):
         barcode = attrs.get('barcode')

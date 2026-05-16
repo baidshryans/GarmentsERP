@@ -933,42 +933,59 @@ class CashbookReportView(APIView):
 
         opening_balance += cash_transactions_before_from_date
 
-        transactions_queryset = VoucherDetail.objects.filter(
+        # Cash-side rows for the period
+        cash_rows = list(VoucherDetail.objects.filter(
             voucher_main__date__range=(from_date, to_date),
             voucher_main__retail=request.retail,
             account=cash_ledger
-        ).select_related("voucher_main", "account").order_by("voucher_main__date").annotate(
-            # Annotate the display debit and credit based on your logic
-            # Assuming 'debit' is stored as positive for debits, and 'credit' might be negative for credits
-            # or it's simply the credit amount. Adjust 'Abs(F('credit'))' if 'credit' is always positive.
+        ).select_related("voucher_main").order_by("voucher_main__date", "voucher_main__voucher_no").annotate(
             display_debit=ExpressionWrapper(
                 Coalesce(F('debit'), 0),
                 output_field=DecimalField()
             ),
             display_credit=ExpressionWrapper(
-                Coalesce(Abs(F('credit')), 0), # Use Abs if credit is stored as negative for credit entries
+                Coalesce(Abs(F('credit')), 0),
                 output_field=DecimalField()
             )
         ).values(
+            "voucher_main_id",
             "voucher_main__date",
             "voucher_main__voucher_no",
             "voucher_main__voucher_type",
-
-            "account__ac_name",
             "display_debit",
             "display_credit",
-            "voucher_main__narration"
-        )
+            "voucher_main__narration",
+        ))
 
-        totals = transactions_queryset.aggregate(
-            total_debit=Sum('display_debit'),
-            total_credit=Sum('display_credit')
-        )
-        total_debit = totals['total_debit'] or 0
-        total_credit = totals['total_credit'] or 0
+        # Counterparty (party-ledger) names for the same vouchers
+        voucher_ids = {r["voucher_main_id"] for r in cash_rows}
+        party_map = {}
+        if voucher_ids:
+            for row in (
+                VoucherDetail.objects
+                .filter(voucher_main_id__in=voucher_ids, voucher_main__retail=request.retail)
+                .exclude(account=cash_ledger)
+                .select_related("account")
+                .values("voucher_main_id", "account__ac_name")
+            ):
+                party_map.setdefault(row["voucher_main_id"], []).append(row["account__ac_name"])
 
-        # Convert the QuerySet of dictionaries to a list of dictionaries
-        transaction_data = list(transactions_queryset)
+        total_debit = Decimal('0')
+        total_credit = Decimal('0')
+        transaction_data = []
+        for r in cash_rows:
+            parties = party_map.get(r["voucher_main_id"]) or []
+            # Deduplicate while preserving order
+            seen, uniq = set(), []
+            for p in parties:
+                if p and p not in seen:
+                    seen.add(p)
+                    uniq.append(p)
+            r["account__ac_name"] = ", ".join(uniq) if uniq else "—"
+            r.pop("voucher_main_id", None)
+            total_debit += r["display_debit"] or 0
+            total_credit += r["display_credit"] or 0
+            transaction_data.append(r)
         response_data = {
         "opening_balance": opening_balance,
         "transactions": transaction_data,

@@ -492,7 +492,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}")
                 tds_ser = JournalEntrySerializer(data={
                     'date': purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                    'voucher_no': _existing_tds_voucher_no or generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                    'voucher_no': _existing_tds_voucher_no or f"{purchase_voucher_instance.billno}/TDS",
                     'narration': f"TDS u/s {purchase_voucher_instance.tds_section.section_code} on {purchase_voucher_instance.billno}",
                     'voucher_type': global_vars.VoucherType.purc_sc,
                     'retail': retail.id,
@@ -662,7 +662,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     _raise_missing_ledger(f"TDS Payable u/s {purchase_voucher_instance.tds_section.section_code}")
                 tds_ser = JournalEntrySerializer(data={
                     'date': purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
-                    'voucher_no': _existing_tds_voucher_no or generate_voucher_no(global_vars.VoucherType.purc_sc, retail),
+                    'voucher_no': _existing_tds_voucher_no or f"{purchase_voucher_instance.billno}/TDS",
                     'narration': f"TDS u/s {purchase_voucher_instance.tds_section.section_code} on {purchase_voucher_instance.billno}",
                     'voucher_type': global_vars.VoucherType.purc_sc,
                     'retail': retail.id,

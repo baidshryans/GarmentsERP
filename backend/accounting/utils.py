@@ -171,17 +171,16 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
             if match:
                 return int(match.group(1))
 
-    # For voucher types like JRNL, PMNT, etc. that use VoucherMain
+    # Pure-accounting voucher types that bootstrap from VoucherMain.voucher_no.
+    # Document-linked types (SALE, PURC-SC, PURC-RET, SALE-RET) no longer flow
+    # through generate_voucher_no — their JV voucher_no is now reused from the
+    # source document's billno — so they're intentionally excluded here.
     voucher_type_map = {
         'JRNL': VoucherType.journal if hasattr(VoucherType, 'journal') else 'JRNL',
         'PMNT': VoucherType.pmnt if hasattr(VoucherType, 'pmnt') else 'PMNT',
         'CONTRA': VoucherType.cntr if hasattr(VoucherType, 'cntr') else 'CONTRA',
         'RCPT': VoucherType.rcpt if hasattr(VoucherType, 'rcpt') else 'RCPT',
         'RCPT-SALE': VoucherType.rcpt_sale if hasattr(VoucherType, 'rcpt_sale') else 'RCPT-SALE',
-        'SALE': VoucherType.sale if hasattr(VoucherType, 'sale') else 'SALE',
-        'PURC-RET': VoucherType.purc_ret if hasattr(VoucherType, 'purc_ret') else 'PURC-RET',
-        'PURC-SC': VoucherType.purc_sc if hasattr(VoucherType, 'purc_sc') else 'PURC-SC',
-        'SALE-RET': VoucherType.sale_ret if hasattr(VoucherType, 'sale_ret') else 'SALE-RET',
     }
     if prefix in voucher_type_map:
         vtype = voucher_type_map[prefix]

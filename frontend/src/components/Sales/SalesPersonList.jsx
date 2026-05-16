@@ -17,7 +17,6 @@ import {
   updateSalesperson,
   deleteSalesperson,
   getRetails,
-  getLedgerList,
 } from "@/services/apiService";
 
 const COMMISSION_ON_OPTIONS = [
@@ -29,7 +28,6 @@ const COMMISSION_ON_OPTIONS = [
 const BLANK_FORM = {
   salesperson_name: "",
   retail: "",
-  ledger: "",
   commission_rate: "0",
   commission_on: "overall",
   deduct_discount: true,
@@ -40,7 +38,6 @@ function SalesPersonList() {
   const { toast } = useToast();
   const [salespersons, setSalespersons] = useState([]);
   const [retails, setRetails] = useState([]);
-  const [ledgers, setLedgers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -64,13 +61,6 @@ function SalesPersonList() {
     setLoading(false);
   };
 
-  // Load ledgers lazily — only when the sheet is opened for the first time
-  const loadLedgers = async () => {
-    if (ledgers.length > 0) return; // already loaded
-    const ldgrRes = await getLedgerList();
-    if (ldgrRes.success) setLedgers(Array.isArray(ldgrRes.data) ? ldgrRes.data : ldgrRes.data?.results || []);
-  };
-
   useEffect(() => { loadData(); }, []);
 
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }));
@@ -84,7 +74,6 @@ function SalesPersonList() {
       ...BLANK_FORM,
       retail: currentRetail ? String(currentRetail.id) : "",
     });
-    loadLedgers();
     setSheet(true);
   };
 
@@ -93,13 +82,11 @@ function SalesPersonList() {
     setForm({
       salesperson_name: row.salesperson_name,
       retail:           row.retail ? String(row.retail) : "",
-      ledger:           row.ledger ? String(row.ledger) : "",
       commission_rate:  String(row.commission_rate ?? 0),
       commission_on:    row.commission_on || "overall",
       deduct_discount:  row.deduct_discount ?? true,
       apply_on_b2b:     row.apply_on_b2b   ?? false,
     });
-    loadLedgers();
     setSheet(true);
   };
 
@@ -115,8 +102,6 @@ function SalesPersonList() {
       apply_on_b2b:     form.apply_on_b2b,
     };
     if (form.retail) payload.retail = Number(form.retail);
-    if (form.ledger) payload.ledger = Number(form.ledger);
-    else             payload.ledger = null;
 
     const res = editingId
       ? await updateSalesperson(editingId, payload)
@@ -180,11 +165,6 @@ function SalesPersonList() {
           </div>
         );
       },
-    },
-    {
-      header: "Payable Ledger",
-      accessorKey: "ledger_name",
-      cell: ({ getValue }) => getValue() || <span className="text-muted-foreground text-xs">Not set</span>,
     },
   ];
 

@@ -153,16 +153,10 @@ class PacketSerializer(ModelSerializer):
         fields = "__all__"
 
 class SalesPersonMasterSerializer(ModelSerializer):
-    ledger_name = serializers.SerializerMethodField(read_only=True)
-
-    def get_ledger_name(self, obj):
-        return obj.ledger.ac_name if obj.ledger else None
-
     class Meta:
         model  = SalesPersonMaster
         fields = [
             'id', 'salesperson_name', 'retail',
-            'ledger', 'ledger_name',
             'commission_rate', 'commission_on', 'deduct_discount', 'apply_on_b2b',
         ]
 

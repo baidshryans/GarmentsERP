@@ -142,17 +142,8 @@ class ListCreateSalesPersonMaster(ListCreateAPIView):
         return SalesPersonMaster.objects.filter(retail=retail)
 
     def perform_create(self, serializer):
-        from django.db import transaction
-        from contacts.models import Ledger, LedgerRole
-        from accounting.models import Account
-
         retail = getattr(self.request, "retail", None)
-
-        with transaction.atomic():
-            # All salespersons share a single "Sales Incentive" payable ledger
-            # per retail. Look it up first; create it the first time it's needed.
-            ledger = _get_or_create_shared_incentive_ledger(retail)
-            serializer.save(retail=retail, ledger=ledger)
+        serializer.save(retail=retail)
 
 class RetrieveUpdateDestroySalesPersonMaster(RetrieveUpdateDestroyAPIView):
     serializer_class = SalesPersonMasterSerializer
@@ -165,42 +156,8 @@ class RetrieveUpdateDestroySalesPersonMaster(RetrieveUpdateDestroyAPIView):
         return SalesPersonMaster.objects.filter(retail=retail)
 
     def perform_update(self, serializer):
-        # Force every save to point at the single shared "Sales Incentive" ledger
-        # so legacy per-name ledgers can never re-attach via an edit.
         retail = getattr(self.request, 'retail', None) or serializer.instance.retail
-        ledger = _get_or_create_shared_incentive_ledger(retail)
-        serializer.save(retail=retail, ledger=ledger)
-
-
-def _get_or_create_shared_incentive_ledger(retail):
-    """Return the single 'Sales Incentive' payable ledger for this retail,
-    creating it under Sundry Creditors (SC role) the first time it's needed.
-    """
-    from contacts.models import Ledger, LedgerRole
-    from accounting.models import Account
-
-    if retail is None:
-        return None
-
-    ledger_name = "Sales Incentive"
-    ledger = (
-        Ledger.objects
-        .filter(retail_code=retail, ac_name=ledger_name)
-        .first()
-    )
-    if ledger:
-        return ledger
-
-    sc_group = Account.objects.filter(code='CL-SC').first()
-    ledger = Ledger.objects.create(
-        ac_name=ledger_name,
-        display_name=ledger_name,
-        ac_group=sc_group,
-        retail_code=retail,
-        is_system=True,
-    )
-    LedgerRole.objects.create(ledger=ledger, role='SC', is_primary=True)
-    return ledger
+        serializer.save(retail=retail)
 
 
 #--------------------------Item Group------------------------------

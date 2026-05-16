@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from mastersconfig.models import SalesPersonMaster, SalesPersonCommission, SalesPersonCommissionReversal
+from mastersconfig.ledger_utils import get_or_create_shared_incentive_ledger
 from contacts.models import LedgerRole
 
 
@@ -116,7 +117,7 @@ def commission_report(request):
             'has_reversal':     reversal_amt > 0,
             'has_reversal_jv':  has_reversal_jv,
             'deduct_discount':  sp.deduct_discount,
-            'has_sp_ledger':    sp.ledger_id is not None,
+            'has_sp_ledger':    True,  # shared "Sales Incentive" ledger is always available
             'jv_created':       jv_id is not None,
             'jv_id':            jv_id,
             'mrp':              mrp,
@@ -205,10 +206,11 @@ def commission_create_jv(request):
                 skipped.append({'voucher_id': voucher_id, 'reason': 'Not found'})
                 continue
 
-            if salesperson.ledger is None:
+            payable_ledger = get_or_create_shared_incentive_ledger(retail)
+            if payable_ledger is None:
                 skipped.append({
                     'voucher_id': voucher_id,
-                    'reason': f'No payable ledger assigned to {salesperson.salesperson_name}',
+                    'reason': 'Shared "Sales Incentive" ledger could not be resolved',
                 })
                 continue
 
@@ -239,7 +241,7 @@ def commission_create_jv(request):
                 debit=commission_amt, credit=0,
             )
             VoucherDetail.objects.create(
-                voucher_main=jv, account=salesperson.ledger,
+                voucher_main=jv, account=payable_ledger,
                 debit=0, credit=commission_amt,
             )
 
@@ -355,7 +357,7 @@ def reverse_commissions_for_return(sale_return, item_instances):
 
         commissions = SalesPersonCommission.objects.filter(
             sales_vou=sales_vou
-        ).select_related('salesperson', 'salesperson__ledger')
+        ).select_related('salesperson')
 
         for commission in commissions:
             sp   = commission.salesperson
@@ -391,12 +393,13 @@ def reverse_commissions_for_return(sale_return, item_instances):
             # Clamp to what was actually earned (guards against floating-point drift)
             reversal_amt = min(reversal_amt, float(commission.commission_amt))
 
-            # ── Reversal JV (only if original JV posted + ledgers configured) ─
+            # ── Reversal JV (only if original JV posted + expense ledger configured) ─
             reversal_jv = None
+            payable_ledger = get_or_create_shared_incentive_ledger(retail)
             if (
                 commission.journal_voucher_id
                 and retail.commission_ldgr_id
-                and sp.ledger_id
+                and payable_ledger is not None
             ):
                 fy         = retail.active_fy
                 voucher_no = get_next_bill_number(retail, 'JRNL', fy)
@@ -413,10 +416,10 @@ def reverse_commissions_for_return(sale_return, item_instances):
                     retail       = retail,
                     fiscal_year  = fy,
                 )
-                # DR salesperson payable — reverses the original CR
+                # DR shared "Sales Incentive" — reverses the original CR
                 VoucherDetail.objects.create(
                     voucher_main = reversal_jv,
-                    account      = sp.ledger,
+                    account      = payable_ledger,
                     debit        = Decimal(str(reversal_amt)),
                     credit       = Decimal('0'),
                 )

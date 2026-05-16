@@ -333,11 +333,9 @@ class SalesPersonMaster(models.Model):
     retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True)
 
     # ── Commission configuration ──────────────────────────────────────────────
-    ledger = models.ForeignKey(
-        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='salesperson_set',
-        help_text="Payable ledger for this salesperson (required to create commission JV)"
-    )
+    # NOTE: The credit-side payable ledger for commission JVs is a single shared
+    # "Sales Incentive" ledger per retail — resolved via ledger_utils
+    # (get_or_create_shared_incentive_ledger). There is no per-salesperson FK.
     commission_rate    = models.DecimalField(max_digits=6, decimal_places=3, default=0,
                                              help_text="Commission rate in %")
     commission_on      = models.CharField(max_length=10, choices=COMMISSION_ON_CHOICES, default='overall')

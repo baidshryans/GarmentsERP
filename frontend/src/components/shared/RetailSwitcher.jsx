@@ -44,6 +44,7 @@ export function RetailSwitcher() {
           if (defaultRetail) {
             sessionStorage.setItem('retail_code', defaultRetail.retail_code);
             sessionStorage.setItem('state_code', defaultRetail.state?.code ?? '');
+            sessionStorage.setItem('state_name', defaultRetail.state?.name ?? '');
             setActiveCode(defaultRetail.retail_code);
             // Reload so all API calls pick up the new X-RETAIL-ID header
             window.location.reload();
@@ -57,6 +58,7 @@ export function RetailSwitcher() {
     if (retail.retail_code === activeCode) return;
     sessionStorage.setItem('retail_code', retail.retail_code);
     sessionStorage.setItem('state_code', retail.state?.code ?? '');
+    sessionStorage.setItem('state_name', retail.state?.name ?? '');
     sessionStorage.setItem('default_country_code', retail.default_country_code || 'IN');
     setActiveCode(retail.retail_code);
     toast({

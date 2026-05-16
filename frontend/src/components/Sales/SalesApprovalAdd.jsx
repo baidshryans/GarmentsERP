@@ -121,11 +121,22 @@ const SalesApprovalAdd = () => {
       ]);
 
       if (states.success) {
-        setStatesData(states.data.results ?? states.data);
-        /* Set default place_of_supply from retail's state code */
-        const retailStateCode = sessionStorage.getItem("state_code");
-        if (retailStateCode && !id) {
-          setValue("form.place_of_supply", retailStateCode);
+        const list = states.data.results ?? states.data;
+        setStatesData(list);
+        /* Set default place_of_supply from retail's state code (fallback: by name) */
+        if (!id) {
+          const retailStateCode = sessionStorage.getItem("state_code");
+          const retailStateName = sessionStorage.getItem("state_name");
+          let match =
+            (retailStateCode && list.find((s) => `${s.code}` === `${retailStateCode}`)) ||
+            (retailStateName && list.find((s) => (s.name || "").toLowerCase() === retailStateName.toLowerCase())) ||
+            null;
+          if (match) {
+            setValue("form.place_of_supply", `${match.code}`);
+          } else if (retailStateCode) {
+            // Best-effort: still send something so backend's name/code matcher can resolve it
+            setValue("form.place_of_supply", retailStateCode);
+          }
         }
       }
       if (ledgersRes.success)    setCustomers(ledgersRes.data.results);
@@ -222,12 +233,17 @@ const SalesApprovalAdd = () => {
   /* ── barcode scan / append ── */
   const handleBarcodeBlur = async () => {
     const { barcode, hsn } = getValues();
+    if (!barcode) return;
     try {
       const data = await fetchBarcodeDetail(barcode, hsn, getValues("form.ldgr"));
-      if (data.success) append(data.data);
-      else {
+      if (data.success) {
+        append(data.data);
+        setValue("barcode", "");   // clear field for the next scan
+      } else {
         const detail = data.error?.detail || (typeof data.error === "string" ? data.error : null);
-        if (detail) console.warn("Barcode rejected:", detail);
+        if (detail) {
+          toast({ title: "Barcode rejected", description: detail });
+        }
       }
     } catch (e) {
       console.error(e);

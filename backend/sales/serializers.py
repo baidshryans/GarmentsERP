@@ -1955,11 +1955,34 @@ class SalesApprovalItemSerializer(serializers.ModelSerializer):
             create_or_update_nested(SalesApprovalItemDetailsSerializer, instance, 'main_item_set', 'main_item',SalesApprovalItemDetailsSerializer(detail_data,many=True).data)
             return instance
 
+class _StatePlaceOfSupplyField(serializers.Field):
+    """Accept state by code (e.g. '19'), state code alias (e.g. 'WB'), or
+    state name (case-insensitive). Returns a State instance or None.
+    Serializes back to State.code."""
+
+    def to_internal_value(self, value):
+        if value in (None, '', 'null', 'undefined'):
+            return None
+        value = str(value).strip()
+        qs = State.objects.all()
+        state = qs.filter(code__iexact=value).first() or qs.filter(name__iexact=value).first()
+        if not state:
+            raise serializers.ValidationError(f"Unknown state '{value}'.")
+        return state
+
+    def to_representation(self, value):
+        # `value` is a State instance (when source maps to the FK)
+        if value is None:
+            return None
+        return getattr(value, 'code', None)
+
+
 class SalesApprovalSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
     sales_person = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all())
     sales_person2 = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all(), allow_null=True)
-    place_of_supply = serializers.SlugRelatedField(queryset=State.objects.all(), slug_field='code', required=False, allow_null=True)
+    place_of_supply = _StatePlaceOfSupplyField(required=False, allow_null=True)
+    narration = serializers.CharField(required=False, allow_blank=True, allow_null=True, default='')
     items = SalesApprovalItemSerializer(many=True)
     total_bill_value = serializers.ReadOnlyField()
     total_incl_taxes = serializers.ReadOnlyField()

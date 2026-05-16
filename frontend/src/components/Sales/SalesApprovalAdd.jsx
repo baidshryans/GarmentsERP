@@ -155,18 +155,6 @@ const SalesApprovalAdd = () => {
       if (states.success) {
         const list = states.data.results ?? states.data;
         setStatesData(list);
-        /* Set default place_of_supply by matching retail's state in statesData */
-        if (!id) {
-          const match =
-            (liveStateCode && list.find((s) => `${s.code}` === `${liveStateCode}`)) ||
-            (liveStateName && list.find((s) => (s.name || "").toLowerCase() === liveStateName.toLowerCase())) ||
-            null;
-          if (match) {
-            setValue("form.place_of_supply", `${match.code}`);
-          } else if (liveStateCode) {
-            setValue("form.place_of_supply", liveStateCode);
-          }
-        }
       }
       if (ledgersRes.success)    setCustomers(ledgersRes.data.results);
       if (salesPersonRes.success) setSalesperson(salesPersonRes.data.results ?? salesPersonRes.data);
@@ -192,6 +180,24 @@ const SalesApprovalAdd = () => {
     }
     fetchData();
   }, []);
+
+  /* ── default Place of Supply once both statesData and retail-state are loaded ── */
+  useEffect(() => {
+    if (id) return;                                 // edit mode: keep stored value
+    if (!statesData.length) return;                 // dropdown not ready
+    if (getValues("form.place_of_supply")) return;  // already set / user-edited
+    if (!retailStateCode && !retailStateName) return;
+
+    const match =
+      (retailStateCode && statesData.find((s) => `${s.code}` === `${retailStateCode}`)) ||
+      (retailStateName && statesData.find((s) => (s.name || "").toLowerCase() === retailStateName.toLowerCase())) ||
+      null;
+    if (match) {
+      setValue("form.place_of_supply", `${match.code}`);
+    } else if (retailStateCode) {
+      setValue("form.place_of_supply", retailStateCode);
+    }
+  }, [id, statesData, retailStateCode, retailStateName]);
 
   /* ── auto-GST from HSN + place_of_supply ── */
   const hsn_current     = watch("hsn");

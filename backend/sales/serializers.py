@@ -1106,7 +1106,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                             'account': sales_vou_instance.ldgr.ac_name,
                                             'credit': f"{_rcpt_customer_credit:.2f}",
                                             'debit': 0,
-                                            'ref_sales_vou': sales_vou_instance,
+                                            'ref_sales_vou': sales_vou_instance.pk,
                                             'ref_bill_no': sales_vou_instance.billno,
                                         }]},
                                         context=self.context)

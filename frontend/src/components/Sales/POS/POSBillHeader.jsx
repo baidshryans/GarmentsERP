@@ -38,7 +38,7 @@ export default function POSBillHeader({
         <div className="shrink-0" style={{ width: 148 }}>
           <div className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Bill No</div>
           <input
-            className={`${inputCls} bg-primary/8 border-primary/40 text-primary font-semibold tracking-wide`}
+            className={`${inputCls} bg-primary/10 border-primary/40 text-primary font-semibold tracking-wide`}
             value={form.billno}
             readOnly
           />

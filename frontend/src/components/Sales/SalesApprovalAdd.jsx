@@ -438,9 +438,19 @@ const SalesApprovalAdd = () => {
             <TableBody>
               {/* Header row — Packet comes right after Item (col 3) */}
               <TableRow className="bg-violet-50">
-                {["Barcode","Item","Packet","Pcs","CT","GW","Making",
-                  "Purity","Rate","Amount"].map((h) => (
-                  <TableCell key={h} className="px-3 py-2 border text-xs font-semibold text-primary text-center whitespace-nowrap">
+                {[
+                  { h: "Barcode" },
+                  { h: "Item" },
+                  { h: "Packet" },
+                  { h: "Pcs" },
+                  { h: "CT" },
+                  { h: "GW" },
+                  { h: "Making", w: "w-20" },
+                  { h: "Purity" },
+                  { h: "Rate",   w: "w-20" },
+                  { h: "Amount", w: "w-36" },
+                ].map(({ h, w }) => (
+                  <TableCell key={h} className={`px-3 py-2 border text-xs font-semibold text-primary text-center whitespace-nowrap ${w || ""}`}>
                     {h}
                   </TableCell>
                 ))}

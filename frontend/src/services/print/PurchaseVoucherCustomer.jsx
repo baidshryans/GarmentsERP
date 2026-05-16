@@ -498,7 +498,7 @@ const PurchaseVoucherCustomer = ({ data = {} }) => {
                 {subs.map((sub, si) => (
                   <tr key={"i-" + idx + "-s-" + si} className="subrow">
                     <td></td>
-                    <td className="particulars">â†³ {sub.sub_item || ""}</td>
+                    <td className="particulars">↳ {sub.sub_item || ""}</td>
                     <td className="t-center">{sub.sub_pcs || ""}</td>
                     <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : ""}</td>
                     <td className="t-num">{sub.sub_gw ? fmt3(sub.sub_gw) : ""}</td>

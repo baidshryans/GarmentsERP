@@ -711,7 +711,7 @@ const SalesInvoice = ({ data = {} }) => {
               {b.subs.map((sub, si) => (
                 <tr className="sub" key={si}>
                   <td className="c"></td>
-                  <td className="l" colSpan={4}>â†³ {sub.text}</td>
+                  <td className="l" colSpan={4}>↳ {sub.text}</td>
                   <td>{sub.gw ? fmt(sub.gw, 3) : ""}</td>
                   <td></td>
                   <td>{sub.rate ? fmtInt(sub.rate) : ""}</td>

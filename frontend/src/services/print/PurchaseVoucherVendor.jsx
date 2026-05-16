@@ -248,7 +248,7 @@ const PurchaseVoucherVendor = ({ data = {} }) => {
                     <tr key={"s-"+idx+"-"+si} className="pv-sub-row">
                       <td></td>
                       <td style={{paddingLeft:14}}>
-                        {"â†³ "}{sub.sub_item||""}
+                        {"↳ "}{sub.sub_item||""}
                         {sub.packet ? <span style={{fontSize:"9px",color:"#666"}}>{" ["+sub.packet+"]"}</span> : null}
                       </td>
                       <td className="pv-ctr">{sub.sub_pcs||""}</td>

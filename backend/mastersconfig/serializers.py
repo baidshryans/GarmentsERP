@@ -560,6 +560,7 @@ class SalesOfferRuleSerializer(ModelSerializer):
         model  = SalesOfferRule
         fields = ['id', 'offer', 'purity', 'making_type', 'making_value']
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        validators = []  # see RetailDiscountPricelistRuleSerializer for rationale
 
 
 class SalesOfferSerializer(ModelSerializer):

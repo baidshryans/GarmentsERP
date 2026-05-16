@@ -130,11 +130,19 @@ const SalesApprovalAdd = () => {
       let liveStateName = sessionStorage.getItem("state_name") || "";
       if (retailsRes?.success) {
         const activeCode  = sessionStorage.getItem("retail_code") || "";
-        const locations   = retailsRes.data?.results?.[0]?.location || [];
+        const userLoc     = retailsRes.data?.results?.[0] || {};
+        const locations   = userLoc.location || [];
+        // The response can come back as either {retail_code, retail: {state:{...}}}
+        // or as a flat RetailMaster {retail_code, state:{...}} depending on
+        // depth/serializer version. Handle both.
         const activeEntry =
-          locations.find((l) => l.retail_code === activeCode) || locations[0];
-        const st = activeEntry?.retail?.state;
-        if (st) {
+          locations.find((l) => (l.retail_code || l.retail?.retail_code) === activeCode) ||
+          userLoc.default_location ||
+          locations[0] ||
+          {};
+        const retailObj = activeEntry.retail || activeEntry;
+        const st = retailObj?.state;
+        if (st && typeof st === "object") {
           liveStateCode = st.code ?? liveStateCode;
           liveStateName = st.name ?? liveStateName;
           sessionStorage.setItem("state_code", liveStateCode);

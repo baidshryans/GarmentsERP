@@ -635,6 +635,13 @@ const BarcodeManagementList = () => {
                 {/* ── Inline entry row (orange tint) ── */}
                 <TableRow className="bg-orange-50/70 border-b-2 border-orange-200">
                   <TableCell className="p-1.5">
+                    {/* + action lives in the leading action column so this row
+                         aligns with the saved-row layout (delete in col 1). */}
+                    <Button type="button" variant="ghost" size="icon" className="size-7 text-primary" onClick={handleAddSubItem}>
+                      <Plus className="size-4" />
+                    </Button>
+                  </TableCell>
+                  <TableCell className="p-1.5">
                     <Input
                       type="text" list="detail_packet_list" className="h-8 text-sm"
                       placeholder="Packet"
@@ -712,11 +719,6 @@ const BarcodeManagementList = () => {
                       onKeyDown={handleSubItemKeyDown}
                       {...register("detail.amt")}
                     />
-                  </TableCell>
-                  <TableCell className="p-1.5">
-                    <Button type="button" variant="ghost" size="icon" className="size-7 text-primary" onClick={handleAddSubItem}>
-                      <Plus className="size-4" />
-                    </Button>
                   </TableCell>
                 </TableRow>
 

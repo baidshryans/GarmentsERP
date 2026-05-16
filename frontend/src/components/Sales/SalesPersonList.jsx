@@ -154,10 +154,11 @@ function SalesPersonList() {
       cell: ({ row }) => {
         const r = row.original;
         const rate = parseFloat(r.commission_rate || 0);
-        if (rate === 0) return <span className="text-muted-foreground text-xs">None</span>;
         return (
           <div className="text-xs flex flex-col gap-0.5">
-            <span className="font-medium">{rate}% on {r.commission_on}</span>
+            <span className="font-medium">
+              {rate}% on {r.commission_on || "overall"}
+            </span>
             <span className="text-muted-foreground">
               {r.deduct_discount ? "After discount" : "Before discount"}
               {r.apply_on_b2b ? "" : " · Skip B2B"}

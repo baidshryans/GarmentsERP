@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Sum, F, Case, When, Value, DecimalField
+from django.db.models import Sum, F, Case, When, Value, DecimalField, ExpressionWrapper
 from django.core.exceptions import ObjectDoesNotExist
 
 from rest_framework import serializers, status

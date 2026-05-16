@@ -367,6 +367,7 @@ class B2BPricelistTunchSerializer(ModelSerializer):
         model  = B2BPricelistTunch
         fields = ['id', 'pricelist', 'purity', 'tunch_percent']
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        validators = []  # see RetailDiscountPricelistRuleSerializer for rationale
 
 
 class B2BPricelistMakingSerializer(ModelSerializer):
@@ -386,6 +387,7 @@ class B2BPricelistMakingSerializer(ModelSerializer):
         model  = B2BPricelistMaking
         fields = ['id', 'pricelist', 'purity', 'item', 'making_type', 'making_value']
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        validators = []  # see RetailDiscountPricelistRuleSerializer for rationale
 
 
 class B2BPricelistStoneOverrideSerializer(ModelSerializer):
@@ -400,6 +402,7 @@ class B2BPricelistStoneOverrideSerializer(ModelSerializer):
         model  = B2BPricelistStoneOverride
         fields = ['id', 'pricelist', 'packet', 'rate']
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        validators = []  # see RetailDiscountPricelistRuleSerializer for rationale
 
 
 class B2BPricelistSerializer(ModelSerializer):
@@ -501,6 +504,11 @@ class RetailDiscountPricelistRuleSerializer(ModelSerializer):
         model  = RetailDiscountPricelistRule
         fields = ['id', 'pricelist', 'purity', 'making_discount_pct', 'diamond_discount_pct']
         extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        # Skip DRF's auto-generated UniqueTogetherValidator(['pricelist','purity'])
+        # — it would force `pricelist` to be present in input even though we
+        # inject it server-side via the parent serializer's save(). The DB
+        # `unique_together` constraint still enforces uniqueness at write time.
+        validators = []
 
 
 class RetailDiscountPricelistSerializer(ModelSerializer):

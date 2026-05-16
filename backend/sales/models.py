@@ -530,18 +530,11 @@ class SalesApprovalItemDetails(models.Model):
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     gw = models.DecimalField(max_digits=10, decimal_places=3)
     metal_purity = models.CharField(max_length=10, blank=True, null=True) # can have characters also
-    tunch = models.DecimalField(max_digits=7, decimal_places=3, null=True, blank=True)
     rate = models.DecimalField(max_digits=10, decimal_places=3)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     packet = models.ForeignKey("mastersconfig.Packet", on_delete=models.SET_NULL, null=True)
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
-
-
-    @property
-    def fine_wt(self):
-        # tunch is stored as a percentage (e.g. 101 means 101%)
-        return (self.gw if self.gw else Decimal(0)) * ((self.tunch / Decimal('100')) if self.tunch else Decimal(0))
 
     class Meta:
         db_table = "sales_vou_appr_detail"

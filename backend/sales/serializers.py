@@ -1830,7 +1830,6 @@ class SaleVoucherToReturnSerializer(SalesVouSerializer):
 class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True)
-    fine_wt = serializers.ReadOnlyField()
 
     class Meta:
         model = SalesApprovalItemDetails
@@ -1841,11 +1840,9 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
             'ct',
             'gw',
             'metal_purity',
-            'tunch',
             'rate',
             'amount',
             'packet',
-            'fine_wt',  # Computed property
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},

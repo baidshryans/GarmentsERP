@@ -91,7 +91,7 @@ class SalesApprovalItemDetailsInline(nested_admin.NestedTabularInline):
     model = SalesApprovalItemDetails
     fk_name = 'main_item'
     extra = 0
-    fields = ('item', 'pcs', 'ct', 'gw', 'metal_purity', 'tunch', 'rate', 'amount', 'packet')
+    fields = ('item', 'pcs', 'ct', 'gw', 'metal_purity', 'rate', 'amount', 'packet')
 
 
 class SalesApprovalItemInline(nested_admin.NestedTabularInline):

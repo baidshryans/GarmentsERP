@@ -170,6 +170,41 @@ const SalesApprovalAdd = () => {
     setValue("form.igst_per", isLocal ? 0 : parseFloat(hsn_.igst));
   }, [hsn_current, place_of_supply, hsns]);
 
+  /* ── auto-recalc sub-item amount, main-item amount & taxable_value ── */
+  const watchedItems = watch("salesvouitem_set");
+  useEffect(() => {
+    const items = getValues("salesvouitem_set") || [];
+    let billTotal = 0;
+    items.forEach((row, i) => {
+      const subs = row.main_item_set || [];
+      let subTotal = 0;
+      subs.forEach((sub, j) => {
+        const rate = parseFloat(sub.rate) || 0;
+        const uom  = sub.uom;
+        const qty  = uom === "Ct"
+          ? (parseFloat(sub.ct)  || 0)
+          : uom === "Pcs"
+            ? (parseFloat(sub.pcs) || 0)
+            : (parseFloat(sub.gw)  || 0);
+        const amt = +(rate * qty).toFixed(2);
+        if (amt !== (parseFloat(sub.amount) || 0)) {
+          setValue(`salesvouitem_set.${i}.main_item_set.${j}.amount`, amt, { shouldDirty: false });
+        }
+        subTotal += amt;
+      });
+      const making = parseFloat(row.making) || 0;
+      const mainAmt = +(subTotal + making).toFixed(2);
+      if (mainAmt !== (parseFloat(row.amount) || 0)) {
+        setValue(`salesvouitem_set.${i}.amount`, mainAmt, { shouldDirty: false });
+      }
+      billTotal += mainAmt;
+    });
+    const tv = +billTotal.toFixed(2);
+    if (tv !== (parseFloat(getValues("form.taxable_value")) || 0)) {
+      setValue("form.taxable_value", tv, { shouldDirty: false });
+    }
+  }, [watchedItems]);
+
   /* ── computed bill summary values ── */
   const taxable_value = parseFloat(watch("form.taxable_value") || 0);
   const discount      = parseFloat(watch("form.discount")      || 0);
@@ -403,8 +438,8 @@ const SalesApprovalAdd = () => {
             <TableBody>
               {/* Header row — Packet comes right after Item (col 3) */}
               <TableRow className="bg-violet-50">
-                {["Barcode","Item","Packet","Pcs","CT","GW","Making","Making Type",
-                  "Purity","Tunch","Rate","Amount"].map((h) => (
+                {["Barcode","Item","Packet","Pcs","CT","GW","Making",
+                  "Purity","Rate","Amount"].map((h) => (
                   <TableCell key={h} className="px-3 py-2 border text-xs font-semibold text-primary text-center whitespace-nowrap">
                     {h}
                   </TableCell>
@@ -413,7 +448,7 @@ const SalesApprovalAdd = () => {
 
               {fields.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center text-sm text-gray-400 py-8">
+                  <TableCell colSpan={10} className="text-center text-sm text-gray-400 py-8">
                     Scan a barcode above to add items
                   </TableCell>
                 </TableRow>
@@ -424,7 +459,7 @@ const SalesApprovalAdd = () => {
                   {/* Main item row */}
                   <TableRow className="bg-violet-50/60">
                     <TableCell className="px-3 py-1 border text-xs">{field?.barcode}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs font-medium">{field?.item}</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs font-medium">{field?.item_name || field?.item}</TableCell>
                     {/* Packet — col 3 */}
                     <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.pcs}</TableCell>
@@ -434,21 +469,15 @@ const SalesApprovalAdd = () => {
                       <Input
                         type="number"
                         className="h-7 text-xs"
-                        {...register(`salesvouitem_set.${index}.making`)}
+                        {...register(`salesvouitem_set.${index}.making`, { valueAsNumber: true })}
                         placeholder="Making"
                       />
                     </TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">{field?.making_type}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.purity}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">{field?.tunch}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
-                    <TableCell className="px-3 py-1 border">
-                      <Input
-                        type="number"
-                        className="h-7 text-xs"
-                        {...register(`salesvouitem_set.${index}.amount`)}
-                        placeholder="Amount"
-                      />
+                    <TableCell className="px-3 py-1 border text-xs text-right tabular-nums">
+                      {fmt(watch(`salesvouitem_set.${index}.amount`) || 0)}
+                      <input type="hidden" {...register(`salesvouitem_set.${index}.amount`, { valueAsNumber: true })} />
                     </TableCell>
                   </TableRow>
 
@@ -456,38 +485,25 @@ const SalesApprovalAdd = () => {
                   {(field.main_item_set || []).map((detail, idx) => (
                     <TableRow key={idx} className="bg-gray-50">
                       <TableCell className="px-3 py-1 border" />
-                      <TableCell className="px-3 py-1 border text-xs pl-6">{detail?.item}</TableCell>
+                      <TableCell className="px-3 py-1 border text-xs pl-6">{detail?.item_name || detail?.item}</TableCell>
                       {/* Packet — col 3 */}
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.packet}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.pcs}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.gw}</TableCell>
                       <TableCell className="px-3 py-1 border" />
-                      <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.purity}</TableCell>
                       <TableCell className="px-3 py-1 border">
                         <Input
                           type="number"
                           className="h-7 text-xs"
-                          {...register(`salesvouitem_set.${index}.main_item_set.${idx}.tunch`)}
-                          placeholder="Tunch"
-                        />
-                      </TableCell>
-                      <TableCell className="px-3 py-1 border">
-                        <Input
-                          type="number"
-                          className="h-7 text-xs"
-                          {...register(`salesvouitem_set.${index}.main_item_set.${idx}.rate`)}
+                          {...register(`salesvouitem_set.${index}.main_item_set.${idx}.rate`, { valueAsNumber: true })}
                           placeholder="Rate"
                         />
                       </TableCell>
-                      <TableCell className="px-3 py-1 border">
-                        <Input
-                          type="number"
-                          className="h-7 text-xs"
-                          {...register(`salesvouitem_set.${index}.main_item_set.${idx}.amount`)}
-                          placeholder="Amount"
-                        />
+                      <TableCell className="px-3 py-1 border text-xs text-right tabular-nums">
+                        {fmt(watch(`salesvouitem_set.${index}.main_item_set.${idx}.amount`) || 0)}
+                        <input type="hidden" {...register(`salesvouitem_set.${index}.main_item_set.${idx}.amount`, { valueAsNumber: true })} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -511,7 +527,7 @@ const SalesApprovalAdd = () => {
         <div className="flex justify-end mb-6">
           <div className="w-full max-w-sm rounded-lg border border-gray-100 overflow-hidden shadow-sm">
             {[
-              { label: "Taxable Value", field: "form.taxable_value", editable: true },
+              { label: "Taxable Value", value: fmt(taxable_value) },
               { label: "Discount",      field: "form.discount",      editable: true },
               { separator: true },
               ...(cgst_per > 0 ? [{ label: `CGST @ ${cgst_per}%`, value: fmt(cgst_amt) }] : []),

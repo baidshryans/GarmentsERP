@@ -30,6 +30,7 @@ import {
   fetchCustomerOrders,
   createSalesApproval,
   getStates,
+  getRetails,
   fetchBarcodeDetail,
   fetchHSNs,
 } from "@/services/apiService";
@@ -103,12 +104,14 @@ const SalesApprovalAdd = () => {
   const [customers, setCustomers]         = useState([]);
   const [salespersonData, setSalesperson] = useState([]);
   const [hsns, setHsns]                   = useState([]);
+  const [retailStateCode, setRetailStateCode] = useState("");
+  const [retailStateName, setRetailStateName] = useState("");
 
   /* ── data fetch on mount ── */
   useEffect(() => {
     async function fetchData() {
       const [states, ledgersRes, billNoRes, mainItemRes, purityRes, hsnRes,
-             packetsRes, custOrdersRes, salesPersonRes] = await Promise.all([
+             packetsRes, custOrdersRes, salesPersonRes, retailsRes] = await Promise.all([
         getStates(),
         getLedgers({ type: "CO,VD", page_size: 10000 }),
         fetchNextSaleAppNo(),
@@ -118,24 +121,42 @@ const SalesApprovalAdd = () => {
         fetchPackets(),
         fetchCustomerOrders(),
         fetchSalesperson(),
+        getRetails(),
       ]);
+
+      /* Resolve the retail's state from the live API so we don't depend on
+         a (possibly stale or empty) sessionStorage value. */
+      let liveStateCode = sessionStorage.getItem("state_code") || "";
+      let liveStateName = sessionStorage.getItem("state_name") || "";
+      if (retailsRes?.success) {
+        const activeCode  = sessionStorage.getItem("retail_code") || "";
+        const locations   = retailsRes.data?.results?.[0]?.location || [];
+        const activeEntry =
+          locations.find((l) => l.retail_code === activeCode) || locations[0];
+        const st = activeEntry?.retail?.state;
+        if (st) {
+          liveStateCode = st.code ?? liveStateCode;
+          liveStateName = st.name ?? liveStateName;
+          sessionStorage.setItem("state_code", liveStateCode);
+          sessionStorage.setItem("state_name", liveStateName);
+        }
+      }
+      setRetailStateCode(liveStateCode);
+      setRetailStateName(liveStateName);
 
       if (states.success) {
         const list = states.data.results ?? states.data;
         setStatesData(list);
-        /* Set default place_of_supply from retail's state code (fallback: by name) */
+        /* Set default place_of_supply by matching retail's state in statesData */
         if (!id) {
-          const retailStateCode = sessionStorage.getItem("state_code");
-          const retailStateName = sessionStorage.getItem("state_name");
-          let match =
-            (retailStateCode && list.find((s) => `${s.code}` === `${retailStateCode}`)) ||
-            (retailStateName && list.find((s) => (s.name || "").toLowerCase() === retailStateName.toLowerCase())) ||
+          const match =
+            (liveStateCode && list.find((s) => `${s.code}` === `${liveStateCode}`)) ||
+            (liveStateName && list.find((s) => (s.name || "").toLowerCase() === liveStateName.toLowerCase())) ||
             null;
           if (match) {
             setValue("form.place_of_supply", `${match.code}`);
-          } else if (retailStateCode) {
-            // Best-effort: still send something so backend's name/code matcher can resolve it
-            setValue("form.place_of_supply", retailStateCode);
+          } else if (liveStateCode) {
+            setValue("form.place_of_supply", liveStateCode);
           }
         }
       }
@@ -173,10 +194,8 @@ const SalesApprovalAdd = () => {
     const hsn_ = hsns.find((h) => h.hsn_no === hsn_current);
     if (!hsn_) return;
 
-    /* Determine retail's "canonical" state code by matching sessionStorage
-       state_code or state_name against statesData (handles WB vs 19 etc.). */
-    const retailStateCode = sessionStorage.getItem("state_code") || "";
-    const retailStateName = sessionStorage.getItem("state_name") || "";
+    /* Determine retail's "canonical" state by matching its code or name
+       against statesData (handles WB vs 19 etc.). */
     const retailState =
       statesData.find((s) => `${s.code}` === `${retailStateCode}`) ||
       statesData.find((s) => (s.name || "").toLowerCase() === retailStateName.toLowerCase());
@@ -189,7 +208,7 @@ const SalesApprovalAdd = () => {
     setValue("form.sgst_per", isLocal ? parseFloat(hsn_.sgst) : 0);
     setValue("form.cgst_per", isLocal ? parseFloat(hsn_.cgst) : 0);
     setValue("form.igst_per", isLocal ? 0 : parseFloat(hsn_.igst));
-  }, [hsn_current, place_of_supply, hsns, statesData]);
+  }, [hsn_current, place_of_supply, hsns, statesData, retailStateCode, retailStateName]);
 
   /* ── auto-recalc sub-item amount, main-item amount & taxable_value ── */
   const watchedItems = watch("salesvouitem_set");

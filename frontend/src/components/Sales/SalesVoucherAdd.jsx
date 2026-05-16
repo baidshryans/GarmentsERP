@@ -938,6 +938,12 @@ const SalesVoucherAdd = () => {
 
     const items = getValues('salesvouitem_set') || [];
 
+    // Main items expose purity as `purity` (slug); sub-items expose it as
+    // `metal_purity` (added in BarcodeDetToSaleVouDetSerializer). Packet
+    // identifier on sub-items is the `packet` slug, NOT `pckt_no`.
+    const purityOf = (it) => it.metal_purity || it.purity || "";
+    const subHasPacket = (s) => !!(s.packet || s.pckt_no);
+
     // ── Retail pricelist discount ──────────────────────────────────────────
     let retailDiscount = 0;
     if (retailDiscountPricelist) {
@@ -945,11 +951,11 @@ const SalesVoucherAdd = () => {
         (retailDiscountPricelist.rules || []).map(r => [r.purity, r])
       );
       for (const item of items) {
-        const rule = ruleByPurity[item.metal_purity];
+        const rule = ruleByPurity[purityOf(item)];
         if (!rule) continue;
         retailDiscount += parseFloat(item.making_value || 0) * parseFloat(rule.making_discount_pct || 0) / 100;
         for (const sub of (item.main_item_set || [])) {
-          if (sub.pckt_no)
+          if (subHasPacket(sub))
             retailDiscount += parseFloat(sub.amount || 0) * parseFloat(rule.diamond_discount_pct || 0) / 100;
         }
       }
@@ -962,7 +968,7 @@ const SalesVoucherAdd = () => {
         (activeOffer.rules || []).map(r => [r.purity, r])
       );
       for (const item of items) {
-        const rule = offerRuleByPurity[item.metal_purity];
+        const rule = offerRuleByPurity[purityOf(item)];
         if (rule) {
           const makingVal = parseFloat(item.making_value || 0);
           if (rule.making_type === 'flat') {
@@ -975,7 +981,7 @@ const SalesVoucherAdd = () => {
         }
         // Diamond discount (offer-level, applies across all purities)
         for (const sub of (item.main_item_set || [])) {
-          if (sub.pckt_no)
+          if (subHasPacket(sub))
             offerDiscount += parseFloat(sub.amount || 0) * parseFloat(activeOffer.diamond_discount_pct || 0) / 100;
         }
       }

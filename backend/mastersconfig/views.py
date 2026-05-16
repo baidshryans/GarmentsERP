@@ -149,25 +149,29 @@ class ListCreateSalesPersonMaster(ListCreateAPIView):
         retail = getattr(self.request, "retail", None)
 
         with transaction.atomic():
-            # If no ledger was explicitly provided, auto-create a
-            # "Sales Commission Payable" ledger under Sundry Creditors
+            # If no ledger was explicitly provided, reuse the single shared
+            # "Commission Payable" ledger for this retail; create it the
+            # first time a salesperson is added.
             ledger = serializer.validated_data.get('ledger')
             if not ledger:
-                sp_name = serializer.validated_data['salesperson_name']
-                ledger_name = f"Commission Payable - {sp_name}"
-
-                sc_group = Account.objects.filter(code='CL-SC').first()
-
-                ledger = Ledger.objects.create(
-                    ac_name=ledger_name,
-                    display_name=ledger_name,
-                    ac_group=sc_group,
-                    retail_code=retail,
-                    is_system=True,
+                ledger_name = "Commission Payable"
+                ledger = (
+                    Ledger.objects
+                    .filter(retail_code=retail, ac_name=ledger_name)
+                    .first()
                 )
-                LedgerRole.objects.create(
-                    ledger=ledger, role='SC', is_primary=True,
-                )
+                if not ledger:
+                    sc_group = Account.objects.filter(code='CL-SC').first()
+                    ledger = Ledger.objects.create(
+                        ac_name=ledger_name,
+                        display_name=ledger_name,
+                        ac_group=sc_group,
+                        retail_code=retail,
+                        is_system=True,
+                    )
+                    LedgerRole.objects.create(
+                        ledger=ledger, role='SC', is_primary=True,
+                    )
 
             serializer.save(retail=retail, ledger=ledger)
 

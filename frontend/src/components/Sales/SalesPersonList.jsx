@@ -238,23 +238,8 @@ function SalesPersonList() {
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <Label>Payable Ledger</Label>
-              <p className="text-xs text-muted-foreground">
-                {editingId
-                  ? "Ledger used for commission journal vouchers"
-                  : "Leave empty to auto-create a \"Commission Payable\" ledger"}
-              </p>
-              <Select value={form.ledger} onValueChange={v => setField("ledger", v === "__auto__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="— Auto-create —" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__auto__">— Auto-create (Sales Commission) —</SelectItem>
-                  {ledgers.map(l => (
-                    <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Commission Payable ledger is now a single shared ledger per retail —
+                managed automatically on the backend, no per-salesperson picker. */}
 
             {/* Commission Section */}
             <div className="border-t pt-4 mt-2">

@@ -14,6 +14,7 @@ import {
 import { DataTable } from "@/table";
 import { SquarePen, Plus, Trash2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useF4Submit } from "@/hooks/useF4Submit";
 import {
   fetchRetailDiscountPricelists,
   createRetailDiscountPricelist,
@@ -100,6 +101,9 @@ export default function RetailDiscountPricelistPage() {
       toast({ title: "Save failed", description: JSON.stringify(res.error), variant: "destructive" });
     }
   };
+
+  // F4 saves/updates the pricelist when the form is open
+  useF4Submit(showForm ? handleSave : undefined);
 
   // ── Rule helpers ──────────────────────────────────────────────────────────
 

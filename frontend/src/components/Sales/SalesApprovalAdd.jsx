@@ -173,13 +173,23 @@ const SalesApprovalAdd = () => {
     const hsn_ = hsns.find((h) => h.hsn_no === hsn_current);
     if (!hsn_) return;
 
-    const retailState = sessionStorage.getItem("state_code");
-    const isLocal     = place_of_supply === retailState;
+    /* Determine retail's "canonical" state code by matching sessionStorage
+       state_code or state_name against statesData (handles WB vs 19 etc.). */
+    const retailStateCode = sessionStorage.getItem("state_code") || "";
+    const retailStateName = sessionStorage.getItem("state_name") || "";
+    const retailState =
+      statesData.find((s) => `${s.code}` === `${retailStateCode}`) ||
+      statesData.find((s) => (s.name || "").toLowerCase() === retailStateName.toLowerCase());
+    const selectedState =
+      statesData.find((s) => `${s.code}` === `${place_of_supply}`) ||
+      statesData.find((s) => (s.name || "").toLowerCase() === `${place_of_supply}`.toLowerCase());
+
+    const isLocal = !!(retailState && selectedState && retailState.id === selectedState.id);
 
     setValue("form.sgst_per", isLocal ? parseFloat(hsn_.sgst) : 0);
     setValue("form.cgst_per", isLocal ? parseFloat(hsn_.cgst) : 0);
     setValue("form.igst_per", isLocal ? 0 : parseFloat(hsn_.igst));
-  }, [hsn_current, place_of_supply, hsns]);
+  }, [hsn_current, place_of_supply, hsns, statesData]);
 
   /* ── auto-recalc sub-item amount, main-item amount & taxable_value ── */
   const watchedItems = watch("salesvouitem_set");

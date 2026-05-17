@@ -8,6 +8,7 @@ router.register(r'customer-orders-vs', views.CustomerOrderViewset, basename='cus
 router.register(r'sale-return', views.SalesReturnViewset)
 router.register(r'sale-voucher', views.SalesVoucherViewset)
 router.register(r'sale-approval', views.SalesApprovalViewset)
+router.register(r'sale-approval-return', views.SalesApprovalReturnViewset)
 router.register(r'quotation', views.QuotationViewset)
 app_name = "sales"
 urlpatterns = [
@@ -23,6 +24,7 @@ urlpatterns = [
     path('api/next_sv_no', views.get_next_sv_no),
     path('api/next_sr_no', views.get_next_sr_no),
     path('api/next_sa_no', views.get_next_sa_no),
+    path('api/next_sar_no', views.get_next_sar_no),
     path('api/generate-json', views.GenerateJsonView.as_view()),
     path('api/gst-input', views.GSTInputRegisterView.as_view()),
     path('api/gst-output', views.GSTOutputRegisterView.as_view()),

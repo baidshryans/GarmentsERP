@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/generate-barcode/',views.gen_barcode ),
     path('api/get-barcode-detail/<str:barcode>/<str:hsn>/',views.get_barcode ),
     path('api/get-barcode-detail/<str:barcode>/',views.get_barcode_only ),
+    path('api/get-barcode-for-return/<str:barcode>/', views.get_barcode_for_return),
     path('api/barcode-merge/',views.barcode_merge_view ),
     path('api/barcode-split/<str:old_barcode>',views.barcode_split_view ),
     path('api/closing-stock',views.ClosingStockCalculator.as_view() ),

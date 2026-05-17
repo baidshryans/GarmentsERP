@@ -891,7 +891,7 @@ class SalesApprovalViewset(views.RetailBaseViewset):
             )
 
         try:
-            ids = [int(i) for i in ids]
+            ids = list({int(i) for i in ids})  # coerce to int and deduplicate
         except (TypeError, ValueError):
             return Response(
                 {'error': 'returned_item_ids must contain integers only'},

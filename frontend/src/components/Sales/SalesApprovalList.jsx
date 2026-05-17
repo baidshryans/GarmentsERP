@@ -217,6 +217,7 @@ function SalesApprovalList() {
             </div>
           ) : (
             <SalesApprovalReturnForm
+              key={sheetApproval?.id}
               approval={sheetApproval}
               onSave={handleSheetSave}
               saving={saving}

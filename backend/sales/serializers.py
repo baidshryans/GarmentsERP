@@ -2174,7 +2174,7 @@ class SalesApprovalReturnItemSerializer(serializers.ModelSerializer):
         create_or_update_nested(
             SalesApprovalReturnItemDetailsSerializer, instance,
             'main_item_set', 'main_item',
-            SalesApprovalReturnItemDetailsSerializer(details_data, many=True).data,
+            details_data,
         )
         return instance
 

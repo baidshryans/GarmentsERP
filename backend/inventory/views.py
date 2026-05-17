@@ -88,7 +88,7 @@ def get_barcode_only(request, barcode):
     return Response(data)
 
 
-@api_view()
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_barcode_for_return(request, barcode):
     """

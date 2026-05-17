@@ -109,6 +109,7 @@ const SalesApprovalAdd = () => {
   const [retailStateCode, setRetailStateCode] = useState("");
   const [retailStateName, setRetailStateName] = useState("");
   const [goldRates, setGoldRates] = useState({});  // { "22KT": 4600, … }
+  const [posKey, setPosKey] = useState(0); // incremented to force Select remount after value is ready
 
   /* ── data fetch on mount ── */
   useEffect(() => {
@@ -193,10 +194,13 @@ const SalesApprovalAdd = () => {
           // reset() first — clears dirty flags without touching place_of_supply yet.
           reset(getValues(), { keepValues: true, keepDirty: false });
           resetTableDirty();
-          // Set place_of_supply AFTER reset so reset's internal watch() flush
-          // cannot trigger the auto-default effect and overwrite the saved value.
+          // Set place_of_supply AFTER reset, then remount the Select (posKey++)
+          // so Radix Select sees the correct value at mount time with all items
+          // already present. Radix Select does not reactively update its display
+          // when value prop changes externally — only remounting is reliable.
           if (savedPos !== null && savedPos !== undefined && savedPos !== "") {
             setValue("form.place_of_supply", `${savedPos}`);
+            setPosKey(k => k + 1);
           }
         }
       }
@@ -221,8 +225,10 @@ const SalesApprovalAdd = () => {
       null;
     if (match) {
       setValue("form.place_of_supply", `${match.code}`);
+      setPosKey(k => k + 1);
     } else if (retailStateCode) {
       setValue("form.place_of_supply", retailStateCode);
+      setPosKey(k => k + 1);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statesData, retailStateCode, retailStateName]);
@@ -483,7 +489,7 @@ const SalesApprovalAdd = () => {
                    on the placeholder even after items appear. Re-keying on
                    states-length fixes that without polluting value/onChange. */
                 <Select
-                  key={`pos-${statesData.length}`}
+                  key={`pos-${posKey}`}
                   onValueChange={field.onChange}
                   value={field.value ? `${field.value}` : ""}
                 >

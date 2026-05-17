@@ -507,7 +507,7 @@ class SalesApprovalItem(models.Model):
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
     pcs = models.IntegerField()
     gw = models.DecimalField(max_digits=10, decimal_places=3)
-    # making = models.DecimalField(max_digits=10, decimal_places = 2)
+    making = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     # making_type = models.DecimalField(max_digits=10, decimal_places = 2)
     purity = models.IntegerField()
     ret_status = models.BooleanField(default=False)

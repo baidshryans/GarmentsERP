@@ -104,6 +104,7 @@ const SalesApprovalAdd = () => {
   const [customers, setCustomers]         = useState([]);
   const [salespersonData, setSalesperson] = useState([]);
   const [hsns, setHsns]                   = useState([]);
+  const [mainItemData, setMainItemData]   = useState([]);
   const [retailStateCode, setRetailStateCode] = useState("");
   const [retailStateName, setRetailStateName] = useState("");
 
@@ -159,6 +160,7 @@ const SalesApprovalAdd = () => {
       if (ledgersRes.success)    setCustomers(ledgersRes.data.results);
       if (salesPersonRes.success) setSalesperson(salesPersonRes.data.results ?? salesPersonRes.data);
       if (hsnRes.success)        setHsns(hsnRes.data.results);
+      if (mainItemRes.success)   setMainItemData(mainItemRes.data.results ?? mainItemRes.data);
       if (billNoRes.success)     setValue("form.billno", billNoRes.data.billno);
 
       /* load edit data */
@@ -169,6 +171,12 @@ const SalesApprovalAdd = () => {
           Object.keys(d).forEach((key) => {
             if (key === "items") {
               d.items.forEach((item) => append(item));
+            } else if (key === "place_of_supply") {
+              // Only override if saved value is non-empty; otherwise let the
+              // auto-default useEffect populate from the retail's state.
+              if (d[key] !== null && d[key] !== undefined && d[key] !== "") {
+                setValue(`form.${key}`, `${d[key]}`);
+              }
             } else {
               setValue(`form.${key}`, d[key]);
             }
@@ -181,11 +189,15 @@ const SalesApprovalAdd = () => {
     fetchData();
   }, []);
 
-  /* ── default Place of Supply once both statesData and retail-state are loaded ── */
+  /* ── default Place of Supply once both statesData and retail-state are loaded ──
+     Runs in BOTH add and edit mode. In edit mode, it only fills the value when
+     the loaded approval has no saved place_of_supply (e.g. legacy records or
+     approvals saved before this field was wired up). The `if (getValues(...))
+     return` guard prevents clobbering a value the API already loaded. */
+  const watchedPos = watch("form.place_of_supply");
   useEffect(() => {
-    if (id) return;                                 // edit mode: keep stored value
     if (!statesData.length) return;                 // dropdown not ready
-    if (getValues("form.place_of_supply")) return;  // already set / user-edited
+    if (getValues("form.place_of_supply")) return;  // already set / user-edited / loaded from DB
     if (!retailStateCode && !retailStateName) return;
 
     const match =
@@ -197,7 +209,7 @@ const SalesApprovalAdd = () => {
     } else if (retailStateCode) {
       setValue("form.place_of_supply", retailStateCode);
     }
-  }, [id, statesData, retailStateCode, retailStateName]);
+  }, [statesData, retailStateCode, retailStateName, watchedPos]);
 
   /* ── auto-GST from HSN + place_of_supply ── */
   const hsn_current     = watch("hsn");
@@ -528,7 +540,11 @@ const SalesApprovalAdd = () => {
                   {/* Main item row */}
                   <TableRow className="bg-violet-50/60">
                     <TableCell className="px-3 py-1 border text-xs">{field?.barcode}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs font-medium">{field?.item_name || field?.item}</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs font-medium">
+                      {field?.item_name
+                        || mainItemData.find((m) => m.short_code === field?.item)?.item_name
+                        || field?.item}
+                    </TableCell>
                     {/* Packet — col 3 */}
                     <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.pcs}</TableCell>
@@ -554,7 +570,11 @@ const SalesApprovalAdd = () => {
                   {(field.main_item_set || []).map((detail, idx) => (
                     <TableRow key={idx} className="bg-gray-50">
                       <TableCell className="px-3 py-1 border" />
-                      <TableCell className="px-3 py-1 border text-xs pl-6">{detail?.item_name || detail?.item}</TableCell>
+                      <TableCell className="px-3 py-1 border text-xs pl-6">
+                        {detail?.item_name
+                          || mainItemData.find((m) => m.short_code === detail?.item)?.item_name
+                          || detail?.item}
+                      </TableCell>
                       {/* Packet — col 3 */}
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.packet}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.pcs}</TableCell>

@@ -1829,6 +1829,7 @@ class SaleVoucherToReturnSerializer(SalesVouSerializer):
 
 class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True)
     ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True, default=0)
     gw = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True, default=0)
@@ -1838,6 +1839,7 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'item',
+            'item_name',
             'pcs',
             'ct',
             'gw',
@@ -1852,6 +1854,7 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
 
 class SalesApprovalItemSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode")
     # purity is IntegerField on model (stores PK of PurityMaster) but frontend
     # sends the slug string (e.g. "14K"). Accept any value and resolve in validate.
@@ -1864,6 +1867,7 @@ class SalesApprovalItemSerializer(serializers.ModelSerializer):
             'id',
             'barcode',
             'item',
+            'item_name',
             'pcs',
             'gw',
             'making',

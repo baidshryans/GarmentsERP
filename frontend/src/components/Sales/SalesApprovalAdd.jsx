@@ -479,7 +479,7 @@ const SalesApprovalAdd = () => {
                    on the placeholder even after items appear. Re-keying on
                    states-length fixes that without polluting value/onChange. */
                 <Select
-                  key={`pos-${statesData.length}`}
+                  key={`pos-${statesData.length}-${field.value || ""}`}
                   onValueChange={field.onChange}
                   value={field.value ? `${field.value}` : ""}
                 >
@@ -587,15 +587,13 @@ const SalesApprovalAdd = () => {
                   <TableRow className="bg-violet-50/60">
                     <TableCell className="px-3 py-1 border text-xs">{field?.barcode}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs font-medium">
-                      {field?.item_name
-                        || mainItemData.find((m) => m.short_code === field?.item)?.item_name
-                        || field?.item}
+                      {field?.item_name || field?.item}
                     </TableCell>
                     {/* Packet — col 3 */}
                     <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.pcs}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">{Number(field?.ct || 0).toFixed(3)}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">{field?.gw}</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs text-center">{Number(field?.gw || 0).toFixed(3)}</TableCell>
                     <TableCell className="px-3 py-1 border">
                       <Input
                         type="number"
@@ -646,15 +644,17 @@ const SalesApprovalAdd = () => {
                     <TableRow key={idx} className="bg-gray-50">
                       <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border text-xs pl-6">
-                        {detail?.item_name
-                          || mainItemData.find((m) => m.short_code === detail?.item)?.item_name
-                          || detail?.item}
+                        {detail?.item_name || detail?.item}
                       </TableCell>
                       {/* Packet — col 3 */}
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.packet}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.pcs}</TableCell>
-                      <TableCell className="px-3 py-1 border text-xs text-center">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
-                      <TableCell className="px-3 py-1 border text-xs text-center">{detail?.gw}</TableCell>
+                      <TableCell className="px-3 py-1 border text-xs text-center">
+                        {detail?.ct && Number(detail.ct) !== 0 ? Number(detail.ct).toFixed(3) : "—"}
+                      </TableCell>
+                      <TableCell className="px-3 py-1 border text-xs text-center">{Number(detail?.gw || 0).toFixed(3)}</TableCell>
+                      <TableCell className="px-3 py-1 border" />
+                      <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.purity}</TableCell>
                       <TableCell className="px-3 py-1 border">

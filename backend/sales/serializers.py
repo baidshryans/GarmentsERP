@@ -1956,19 +1956,43 @@ class SalesApprovalItemSerializer(serializers.ModelSerializer):
             return instance
 
 class _StatePlaceOfSupplyField(serializers.Field):
-    """Accept state by code (e.g. '19'), state code alias (e.g. 'WB'), or
-    state name (case-insensitive). Returns a State instance or None.
-    Serializes back to State.code."""
+    """Accept a state by:
+       - State.code  (the GST numeric code, e.g. '19')
+       - State.name  (case-insensitive, e.g. 'West Bengal')
+       - 2-letter alias from STATES_OF_INDIA (e.g. 'WB' → 'West Bengal')
+    Returns a State instance. Serializes back to State.code."""
 
     def to_internal_value(self, value):
         if value in (None, '', 'null', 'undefined'):
             return None
         value = str(value).strip()
         qs = State.objects.all()
-        state = qs.filter(code__iexact=value).first() or qs.filter(name__iexact=value).first()
-        if not state:
-            raise serializers.ValidationError(f"Unknown state '{value}'.")
-        return state
+
+        # 1. Exact-code match (e.g. "19")
+        state = qs.filter(code__iexact=value).first()
+        if state:
+            return state
+
+        # 2. Exact-name match (e.g. "West Bengal")
+        state = qs.filter(name__iexact=value).first()
+        if state:
+            return state
+
+        # 3. Alias lookup via the STATES_OF_INDIA constant (e.g. "WB").
+        #    The constant lives in backend/global_vars.py as a list of
+        #    (alias, full_name) tuples used by the frontend dropdown.
+        try:
+            from global_vars import STATES_OF_INDIA
+            alias_to_name = {alias.upper(): name for alias, name in STATES_OF_INDIA}
+            mapped_name = alias_to_name.get(value.upper())
+            if mapped_name:
+                state = qs.filter(name__iexact=mapped_name).first()
+                if state:
+                    return state
+        except Exception:
+            pass
+
+        raise serializers.ValidationError(f"Unknown state '{value}'.")
 
     def to_representation(self, value):
         # `value` is a State instance (when source maps to the FK)

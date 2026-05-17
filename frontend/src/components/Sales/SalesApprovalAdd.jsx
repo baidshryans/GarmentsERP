@@ -40,6 +40,7 @@ import {
   fetchNextSaleAppNo,
   fetchSalesApprovalById,
   updateSalesApproval,
+  getGoldRate,
 } from "../../services/apiService";
 import { useEditDirty } from "@/hooks/useEditDirty";
 
@@ -104,8 +105,10 @@ const SalesApprovalAdd = () => {
   const [customers, setCustomers]         = useState([]);
   const [salespersonData, setSalesperson] = useState([]);
   const [hsns, setHsns]                   = useState([]);
+  const [mainItemData, setMainItemData]   = useState([]);
   const [retailStateCode, setRetailStateCode] = useState("");
   const [retailStateName, setRetailStateName] = useState("");
+  const [goldRates, setGoldRates] = useState({});  // { "22KT": 4600, … }
 
   /* ── data fetch on mount ── */
   useEffect(() => {
@@ -159,7 +162,18 @@ const SalesApprovalAdd = () => {
       if (ledgersRes.success)    setCustomers(ledgersRes.data.results);
       if (salesPersonRes.success) setSalesperson(salesPersonRes.data.results ?? salesPersonRes.data);
       if (hsnRes.success)        setHsns(hsnRes.data.results);
+      if (mainItemRes.success)   setMainItemData(mainItemRes.data.results ?? mainItemRes.data);
       if (billNoRes.success)     setValue("form.billno", billNoRes.data.billno);
+
+      // Fetch today's gold rates for making_value calculation (per_nw type)
+      const today = new Date().toISOString().split("T")[0];
+      getGoldRate(today).then(res => {
+        if (res.success && Array.isArray(res.data)) {
+          const rateMap = {};
+          res.data.forEach(r => { if (r.purity_name) rateMap[r.purity_name] = r.selling_rate || r.rate; });
+          setGoldRates(rateMap);
+        }
+      });
 
       /* load edit data */
       if (id) {
@@ -169,6 +183,12 @@ const SalesApprovalAdd = () => {
           Object.keys(d).forEach((key) => {
             if (key === "items") {
               d.items.forEach((item) => append(item));
+            } else if (key === "place_of_supply") {
+              // Only override if saved value is non-empty; otherwise let the
+              // auto-default useEffect populate from the retail's state.
+              if (d[key] !== null && d[key] !== undefined && d[key] !== "") {
+                setValue(`form.${key}`, `${d[key]}`);
+              }
             } else {
               setValue(`form.${key}`, d[key]);
             }
@@ -181,11 +201,15 @@ const SalesApprovalAdd = () => {
     fetchData();
   }, []);
 
-  /* ── default Place of Supply once both statesData and retail-state are loaded ── */
+  /* ── default Place of Supply once both statesData and retail-state are loaded ──
+     Runs in BOTH add and edit mode. In edit mode, it only fills the value when
+     the loaded approval has no saved place_of_supply (e.g. legacy records or
+     approvals saved before this field was wired up). The `if (getValues(...))
+     return` guard prevents clobbering a value the API already loaded. */
+  const watchedPos = watch("form.place_of_supply");
   useEffect(() => {
-    if (id) return;                                 // edit mode: keep stored value
     if (!statesData.length) return;                 // dropdown not ready
-    if (getValues("form.place_of_supply")) return;  // already set / user-edited
+    if (getValues("form.place_of_supply")) return;  // already set / user-edited / loaded from DB
     if (!retailStateCode && !retailStateName) return;
 
     const match =
@@ -197,7 +221,7 @@ const SalesApprovalAdd = () => {
     } else if (retailStateCode) {
       setValue("form.place_of_supply", retailStateCode);
     }
-  }, [id, statesData, retailStateCode, retailStateName]);
+  }, [statesData, retailStateCode, retailStateName, watchedPos]);
 
   /* ── auto-GST from HSN + place_of_supply ── */
   const hsn_current     = watch("hsn");
@@ -246,8 +270,30 @@ const SalesApprovalAdd = () => {
         }
         subTotal += amt;
       });
-      const making = parseFloat(row.making) || 0;
-      const mainAmt = +(subTotal + making).toFixed(2);
+      const making     = parseFloat(row.making) || 0;
+      const makingType = row.making_type || '';
+
+      // Derive net weight and gold rate for per_nw calculation
+      const goldSub  = (row.main_item_set || []).find(
+        s => (s.item || '').toUpperCase() === 'GOLD'
+      );
+      const nw       = parseFloat(row.gw) || (goldSub ? parseFloat(goldSub.gw) || 0 : 0);
+      const goldRate = goldSub ? (goldRates[goldSub.metal_purity] || 0) : 0;
+
+      let makingValue;
+      if (makingType === 'val') {
+        makingValue = making;
+      } else if (makingType === 'per_nw') {
+        makingValue = nw * (making / 100) * goldRate;
+      } else {
+        makingValue = making;
+      }
+      makingValue = Math.floor(makingValue);
+      if (makingValue !== (parseFloat(row.making_value) || 0)) {
+        setValue(`salesvouitem_set.${i}.making_value`, makingValue, { shouldDirty: false });
+      }
+
+      const mainAmt = +(subTotal + makingValue).toFixed(2);
       if (mainAmt !== (parseFloat(row.amount) || 0)) {
         setValue(`salesvouitem_set.${i}.amount`, mainAmt, { shouldDirty: false });
       }
@@ -257,7 +303,7 @@ const SalesApprovalAdd = () => {
     if (tv !== (parseFloat(getValues("form.taxable_value")) || 0)) {
       setValue("form.taxable_value", tv, { shouldDirty: false });
     }
-  }, [watchedItems]);
+  }, [watchedItems, goldRates]);
 
   /* ── computed bill summary values ── */
   const taxable_value = parseFloat(watch("form.taxable_value") || 0);
@@ -426,7 +472,17 @@ const SalesApprovalAdd = () => {
               name="form.place_of_supply"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
+                /* `key` forces a clean remount once statesData arrives. Radix
+                   Select picks its displayed item when `value` matches a child
+                   SelectItem AT MOUNT — if statesData is still empty when an
+                   edit-load setValue runs, no item matches and the Select stays
+                   on the placeholder even after items appear. Re-keying on
+                   states-length fixes that without polluting value/onChange. */
+                <Select
+                  key={`pos-${statesData.length}-${field.value || ""}`}
+                  onValueChange={field.onChange}
+                  value={field.value ? `${field.value}` : ""}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select State" />
                   </SelectTrigger>
@@ -505,6 +561,8 @@ const SalesApprovalAdd = () => {
                   { h: "CT" },
                   { h: "GW" },
                   { h: "Making", w: "w-20" },
+                  { h: "Mkg Type", w: "w-24" },
+                  { h: "Mkg Val", w: "w-20" },
                   { h: "Purity" },
                   { h: "Rate",   w: "w-20" },
                   { h: "Amount", w: "w-36" },
@@ -517,7 +575,7 @@ const SalesApprovalAdd = () => {
 
               {fields.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-sm text-gray-400 py-8">
+                  <TableCell colSpan={12} className="text-center text-sm text-gray-400 py-8">
                     Scan a barcode above to add items
                   </TableCell>
                 </TableRow>
@@ -528,18 +586,49 @@ const SalesApprovalAdd = () => {
                   {/* Main item row */}
                   <TableRow className="bg-violet-50/60">
                     <TableCell className="px-3 py-1 border text-xs">{field?.barcode}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs font-medium">{field?.item_name || field?.item}</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs font-medium">
+                      {field?.item_name || field?.item}
+                    </TableCell>
                     {/* Packet — col 3 */}
                     <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.pcs}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">{Number(field?.ct || 0).toFixed(3)}</TableCell>
-                    <TableCell className="px-3 py-1 border text-xs text-center">{field?.gw}</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs text-center">—</TableCell>
+                    <TableCell className="px-3 py-1 border text-xs text-center">{Number(field?.gw || 0).toFixed(3)}</TableCell>
                     <TableCell className="px-3 py-1 border">
                       <Input
                         type="number"
                         className="h-7 text-xs"
                         {...register(`salesvouitem_set.${index}.making`, { valueAsNumber: true })}
                         placeholder="Making"
+                      />
+                    </TableCell>
+                    <TableCell className="px-3 py-1 border">
+                      <Controller
+                        name={`salesvouitem_set.${index}.making_type`}
+                        control={control}
+                        render={({ field: mtField }) => (
+                          <Select
+                            onValueChange={mtField.onChange}
+                            value={mtField.value || ""}
+                          >
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue placeholder="Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="val">Value</SelectItem>
+                              <SelectItem value="per_nw">% of wt</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell className="px-3 py-1 border">
+                      <Input
+                        type="number"
+                        className="h-7 text-xs bg-muted/30"
+                        readOnly
+                        tabIndex={-1}
+                        {...register(`salesvouitem_set.${index}.making_value`, { valueAsNumber: true })}
                       />
                     </TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.purity}</TableCell>
@@ -554,12 +643,18 @@ const SalesApprovalAdd = () => {
                   {(field.main_item_set || []).map((detail, idx) => (
                     <TableRow key={idx} className="bg-gray-50">
                       <TableCell className="px-3 py-1 border" />
-                      <TableCell className="px-3 py-1 border text-xs pl-6">{detail?.item_name || detail?.item}</TableCell>
+                      <TableCell className="px-3 py-1 border text-xs pl-6">
+                        {detail?.item_name || detail?.item}
+                      </TableCell>
                       {/* Packet — col 3 */}
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.packet}</TableCell>
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.pcs}</TableCell>
-                      <TableCell className="px-3 py-1 border text-xs text-center">{Number(detail?.ct || 0).toFixed(3)}</TableCell>
-                      <TableCell className="px-3 py-1 border text-xs text-center">{detail?.gw}</TableCell>
+                      <TableCell className="px-3 py-1 border text-xs text-center">
+                        {detail?.ct && Number(detail.ct) !== 0 ? Number(detail.ct).toFixed(3) : "—"}
+                      </TableCell>
+                      <TableCell className="px-3 py-1 border text-xs text-center">{Number(detail?.gw || 0).toFixed(3)}</TableCell>
+                      <TableCell className="px-3 py-1 border" />
+                      <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border" />
                       <TableCell className="px-3 py-1 border text-xs text-center">{detail?.purity}</TableCell>
                       <TableCell className="px-3 py-1 border">

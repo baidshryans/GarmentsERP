@@ -400,7 +400,13 @@ from goldrates.models import PurityMaster
 from inventory.models import BarcodeMain, BarcodeTransaction
 from mastersconfig.models import Item, Packet, SalesPersonMaster, RetailMaster, State
 import global_vars
-from sales.models import BankDetail, SalesVou, SalesVouItem, SalesVouItemDetails, SaleReturn, SaleReturnItem, SaleReturnDetails, SalesApproval, SalesApprovalItem, SalesApprovalItemDetails, SaleOldGoldAdjustment
+from sales.models import (
+    BankDetail, SalesVou, SalesVouItem, SalesVouItemDetails,
+    SaleReturn, SaleReturnItem, SaleReturnDetails,
+    SalesApproval, SalesApprovalItem, SalesApprovalItemDetails,
+    SalesApprovalReturn, SalesApprovalReturnItem, SalesApprovalReturnItemDetails,
+    SaleOldGoldAdjustment,
+)
 
 
 class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
@@ -2124,6 +2130,118 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
                         ip_address=ip,
                         retail=request.retail
                     )
+            return instance
+
+
+# ── Sales Approval Return serializers ─────────────────────────────────────────
+
+class SalesApprovalReturnItemDetailsSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    packet = serializers.SlugRelatedField(
+        queryset=Packet.objects.all(), slug_field="pckt_no", allow_null=True,
+    )
+    ct = serializers.DecimalField(
+        max_digits=10, decimal_places=3, required=False, allow_null=True, default=0,
+    )
+    gw = serializers.DecimalField(
+        max_digits=10, decimal_places=3, required=False, allow_null=True, default=0,
+    )
+
+    class Meta:
+        model = SalesApprovalReturnItemDetails
+        fields = ['id', 'item', 'pcs', 'ct', 'gw', 'metal_purity', 'rate', 'amount', 'packet']
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        validators = []
+
+
+class SalesApprovalReturnItemSerializer(serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    barcode = serializers.SlugRelatedField(
+        queryset=BarcodeMain.objects.all(), slug_field="barcode",
+        allow_null=True, required=False,
+    )
+    approval_item = serializers.PrimaryKeyRelatedField(
+        queryset=SalesApprovalItem.objects.all(), allow_null=True, required=False,
+    )
+    purity = serializers.CharField(allow_blank=True, allow_null=True, required=False, default='')
+    main_item_set = SalesApprovalReturnItemDetailsSerializer(many=True)
+
+    class Meta:
+        model = SalesApprovalReturnItem
+        fields = [
+            'id', 'barcode', 'approval_item', 'item', 'pcs', 'gw', 'purity', 'amount',
+            'main_item_set',
+        ]
+        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        validators = []
+
+
+class SalesApprovalReturnSerializer(serializers.ModelSerializer):
+    ref_approval = serializers.PrimaryKeyRelatedField(
+        queryset=SalesApproval.objects.all(), allow_null=True, required=False,
+    )
+    items = SalesApprovalReturnItemSerializer(many=True)
+
+    class Meta:
+        model = SalesApprovalReturn
+        fields = [
+            'id', 'billno', 'date1', 'ref_approval', 'narration',
+            'retail', 'fiscal_year', 'items',
+        ]
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'billno': {'read_only': True},
+        }
+
+    def create(self, validated_data):
+        from accounting.utils import get_next_bill_number
+        with transaction.atomic():
+            items_data = validated_data.pop('items')
+            request = self.context.get('request')
+            validated_data['billno'] = get_next_bill_number(
+                request.retail, 'SAR', request.retail.active_fy,
+            )
+            sar = SalesApprovalReturn.objects.create(**validated_data)
+
+            barcode_ids = []
+            approval_item_ids = []
+            for item in items_data:
+                details_data = item.pop('main_item_set')
+                sar_item = SalesApprovalReturnItem.objects.create(billno=sar, **item)
+                for detail in details_data:
+                    SalesApprovalReturnItemDetails.objects.create(
+                        billno=sar, main_item=sar_item, **detail,
+                    )
+                if sar_item.barcode_id:
+                    barcode_ids.append(sar_item.barcode_id)
+                if sar_item.approval_item_id:
+                    approval_item_ids.append(sar_item.approval_item_id)
+
+            if barcode_ids:
+                BarcodeMain.objects.filter(id__in=barcode_ids).update(stk_status=True)
+            if approval_item_ids:
+                SalesApprovalItem.objects.filter(id__in=approval_item_ids).update(ret_status=True)
+
+            return sar
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            items_data = validated_data.pop('items', [])
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            create_or_update_nested(
+                SalesApprovalReturnItemSerializer, instance, 'items', 'billno',
+                SalesApprovalReturnItemSerializer(items_data, many=True).data,
+            )
+            # Reconcile stock and ret_status for all post-update items
+            current_items = list(instance.items.all())
+            barcode_ids = [it.barcode_id for it in current_items if it.barcode_id]
+            approval_item_ids = [it.approval_item_id for it in current_items if it.approval_item_id]
+            if barcode_ids:
+                BarcodeMain.objects.filter(id__in=barcode_ids).update(stk_status=True)
+            if approval_item_ids:
+                SalesApprovalItem.objects.filter(id__in=approval_item_ids).update(ret_status=True)
             return instance
 
 

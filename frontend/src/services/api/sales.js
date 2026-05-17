@@ -44,6 +44,62 @@ export async function fetchNextSaleAppNo() {
   }
 }
 
+export async function fetchNextSARNo() {
+  try {
+    const response = await apiClient.get(`/sales/api/next_sar_no`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("fetchNextSARNo:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSalesApprovalReturns({ search = "", page = 1, ordering = "" } = {}) {
+  try {
+    const response = await apiClient.get(`/sales/api/sale-approval-return/`, {
+      params: { search, page, ordering },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("fetchSalesApprovalReturns:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchSalesApprovalReturnById(id) {
+  try {
+    const response = await apiClient.get(`/sales/api/sale-approval-return/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("fetchSalesApprovalReturnById:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createSalesApprovalReturn(data) {
+  try {
+    const response = await apiClient.post(`/sales/api/sale-approval-return/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("createSalesApprovalReturn:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateSalesApprovalReturn(data, id) {
+  try {
+    const response = await apiClient.put(`/sales/api/sale-approval-return/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("updateSalesApprovalReturn:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteSalesApprovalReturn(id, toast) {
+  return handleDelete(`/sales/api/sale-approval-return/${id}/`, toast);
+}
+
 // ── Initial data ───────────────────────────────────────────────────────────────
 
 export async function fetchSaleVoucherInitialData() {

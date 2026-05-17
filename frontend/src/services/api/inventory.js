@@ -230,6 +230,17 @@ export async function fetchBarcodeDetailOnly(barcode, ldgr) {
   }
 }
 
+export async function fetchBarcodeForReturn(barcode) {
+  try {
+    if (!barcode) return { success: false, error: "Barcode cannot be blank" };
+    const response = await apiClient.get(`/inventory/api/get-barcode-for-return/${barcode}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("fetchBarcodeForReturn:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function updateBarcodeForEdit(data, id) {
 
   try {

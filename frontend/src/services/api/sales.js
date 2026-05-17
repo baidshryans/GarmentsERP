@@ -97,7 +97,8 @@ export async function updateSalesApprovalReturn(data, id) {
 }
 
 export async function deleteSalesApprovalReturn(id, toast) {
-  return handleDelete(`/sales/api/sale-approval-return/${id}/`, toast);
+  const result = await deleteResource("sales/api/sale-approval-return", id);
+  handleDelete(result, toast, "Sales approval return deleted successfully.");
 }
 
 // ── Initial data ───────────────────────────────────────────────────────────────

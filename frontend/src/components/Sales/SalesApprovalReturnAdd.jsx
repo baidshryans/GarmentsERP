@@ -29,8 +29,6 @@ import {
   fetchMainItem,
 } from "@/services/apiService";
 
-const today = new Date().toISOString().split("T")[0];
-
 const SalesApprovalReturnAdd = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -38,7 +36,7 @@ const SalesApprovalReturnAdd = () => {
 
   const { register, handleSubmit, control, setValue, getValues, watch } = useForm({
     defaultValues: {
-      date1: today,
+      date1: new Date().toISOString().split("T")[0],
       billno: "",
       ref_approval: null,
       narration: "",
@@ -48,7 +46,7 @@ const SalesApprovalReturnAdd = () => {
     },
   });
 
-  const { fields, append, remove, update } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove } = useFieldArray({ control, name: "items" });
 
   const [saving, setSaving] = useState(false);
   const [packets, setPackets] = useState([]);
@@ -88,7 +86,9 @@ const SalesApprovalReturnAdd = () => {
       }
     }
     init();
-  }, []);
+    // id is stable for the component lifetime (route param); append/setValue are stable RHF refs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   /* ── Ref approval search (debounced 300 ms) ── */
   const refSearch = watch("_refSearch");
@@ -143,6 +143,7 @@ const SalesApprovalReturnAdd = () => {
         purity: approvalItem.purity ?? "",
         amount: approvalItem.amount ?? 0,
         main_item_set: (approvalItem.main_item_set || []).map((d) => ({
+          _sid: d.id ?? crypto.randomUUID(),
           item: d.item,
           pcs: d.pcs,
           ct: d.ct ?? null,
@@ -172,6 +173,7 @@ const SalesApprovalReturnAdd = () => {
         purity: d.purity ?? "",
         amount: d.amount ?? 0,
         main_item_set: (d.main_item_set || []).map((sub) => ({
+          _sid: sub.id ?? crypto.randomUUID(),
           item: sub.item,
           pcs: sub.pcs ?? 1,
           ct: sub.ct ?? null,
@@ -211,7 +213,7 @@ const SalesApprovalReturnAdd = () => {
     const current = getValues(`items.${mainIdx}.main_item_set`) || [];
     setValue(`items.${mainIdx}.main_item_set`, [
       ...current,
-      { item: "", pcs: 1, ct: null, gw: null, metal_purity: "", rate: 0, amount: 0, packet: null },
+      { _sid: crypto.randomUUID(), item: "", pcs: 1, ct: null, gw: null, metal_purity: "", rate: 0, amount: 0, packet: null },
     ]);
   };
 
@@ -233,7 +235,7 @@ const SalesApprovalReturnAdd = () => {
       date1: formData.date1,
       ref_approval: formData.ref_approval ?? null,
       narration: formData.narration ?? "",
-      items: fields.map((item) => ({
+      items: (formData.items || []).map((item) => ({
         ...(item.id ? { id: item.id } : {}),
         barcode: item.barcode ?? null,
         approval_item: item.approval_item ?? null,
@@ -382,7 +384,7 @@ const SalesApprovalReturnAdd = () => {
               {...register("_barcode")}
               placeholder="Scan or type barcode then Tab/click away…"
               onBlur={handleBarcodeBlur}
-              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleBarcodeBlur())}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleBarcodeBlur(); } }}
             />
           </div>
           <Button type="button" variant="outline" onClick={addManualRow}>
@@ -497,7 +499,7 @@ const SalesApprovalReturnAdd = () => {
                             </TableHeader>
                             <TableBody>
                               {(watch(`items.${idx}.main_item_set`) || []).map((sub, si) => (
-                                <TableRow key={si}>
+                                <TableRow key={sub._sid ?? si}>
                                   <TableCell>
                                     <Input
                                       {...register(`items.${idx}.main_item_set.${si}.item`)}

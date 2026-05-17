@@ -1007,6 +1007,34 @@ class SalesApprovalReturnViewset(views.RetailBaseViewset):
     def ordering_fields(self):
         return self.serializer_class.Meta.fields
 
+    def _resolve_fiscal_year(self, retail, voucher_date):
+        """Resolve the FY for a given voucher date; fall back to retail.active_fy."""
+        from mastersconfig.models import FiscalYearMaster
+        if voucher_date:
+            fy = FiscalYearMaster.objects.filter(
+                retail=retail, fy_start__lte=voucher_date, fy_end__gte=voucher_date,
+            ).first()
+            if fy:
+                return fy
+        return getattr(retail, 'active_fy', None)
+
+    def perform_create(self, serializer):
+        """Stamp fiscal_year (and retail) on create — base class only injects retail."""
+        retail = getattr(self.request, 'retail', None)
+        if not retail:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({"retail": "Missing or invalid X-RETAIL-ID header."})
+        voucher_date = serializer.validated_data.get('date1')
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(retail=retail, fiscal_year=fiscal_year)
+
+    def perform_update(self, serializer):
+        """Keep fiscal_year in sync with the date on update."""
+        retail = serializer.instance.retail
+        voucher_date = serializer.validated_data.get('date1') or serializer.instance.date1
+        fiscal_year = self._resolve_fiscal_year(retail, voucher_date)
+        serializer.save(fiscal_year=fiscal_year)
+
     def perform_destroy(self, instance):
         from accounting.utils import release_last_bill_number
         retail = instance.retail

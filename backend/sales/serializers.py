@@ -2199,12 +2199,16 @@ class SalesApprovalReturnSerializer(serializers.ModelSerializer):
     ref_approval = serializers.PrimaryKeyRelatedField(
         queryset=SalesApproval.objects.all(), allow_null=True, required=False,
     )
+    ref_approval_billno = serializers.SerializerMethodField(read_only=True)
     items = SalesApprovalReturnItemSerializer(many=True)
+
+    def get_ref_approval_billno(self, obj):
+        return obj.ref_approval.billno if obj.ref_approval_id else None
 
     class Meta:
         model = SalesApprovalReturn
         fields = [
-            'id', 'billno', 'date1', 'ref_approval', 'narration',
+            'id', 'billno', 'date1', 'ref_approval', 'ref_approval_billno', 'narration',
             'retail', 'fiscal_year', 'items',
         ]
         extra_kwargs = {

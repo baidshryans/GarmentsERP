@@ -80,7 +80,7 @@ function SalesApprovalReturnList() {
     { header: "Bill No", accessorKey: "billno" },
     {
       header: "Ref Approval",
-      accessorKey: "ref_approval",
+      accessorKey: "ref_approval_billno",
       cell: ({ getValue }) => getValue() ?? "—",
     },
     {

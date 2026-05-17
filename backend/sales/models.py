@@ -540,6 +540,74 @@ class SalesApprovalItemDetails(models.Model):
         db_table = "sales_vou_appr_detail"
 
 
+class SalesApprovalReturn(models.Model):
+    billno = models.CharField(max_length=30)
+    date1 = models.DateField()
+    ref_approval = models.ForeignKey(
+        SalesApproval, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='returns',
+    )
+    narration = models.CharField(max_length=100, blank=True, default='')
+    retail = models.ForeignKey(
+        "mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    fiscal_year = models.ForeignKey(
+        "mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True,
+    )
+
+    class Meta:
+        db_table = "sales_vou_appr_return"
+
+
+class SalesApprovalReturnItem(models.Model):
+    billno = models.ForeignKey(
+        SalesApprovalReturn, on_delete=models.CASCADE, related_name='items',
+    )
+    barcode = models.ForeignKey(
+        BarcodeMain, on_delete=models.PROTECT, null=True, blank=True,
+    )
+    approval_item = models.ForeignKey(
+        SalesApprovalItem, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='return_items',
+    )
+    item = models.ForeignKey(Item, on_delete=models.PROTECT)
+    pcs = models.IntegerField()
+    gw = models.DecimalField(max_digits=10, decimal_places=3)
+    purity = models.CharField(max_length=10, blank=True, default='')
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    retail = models.ForeignKey(
+        "mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True,
+    )
+
+    class Meta:
+        db_table = "sales_vou_appr_return_main"
+
+
+class SalesApprovalReturnItemDetails(models.Model):
+    billno = models.ForeignKey(
+        SalesApprovalReturn, on_delete=models.CASCADE, null=True, blank=True,
+    )
+    main_item = models.ForeignKey(
+        SalesApprovalReturnItem, on_delete=models.CASCADE, related_name='main_item_set',
+    )
+    item = models.ForeignKey(Item, on_delete=models.PROTECT)
+    pcs = models.IntegerField()
+    ct = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
+    metal_purity = models.CharField(max_length=10, null=True, blank=True)
+    rate = models.DecimalField(max_digits=10, decimal_places=3)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    packet = models.ForeignKey(
+        "mastersconfig.Packet", on_delete=models.SET_NULL, null=True,
+    )
+    retail = models.ForeignKey(
+        "mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True,
+    )
+
+    class Meta:
+        db_table = "sales_vou_appr_return_detail"
+
+
 # ============= E-Way Bill Model =============
 
 class EWayBill(models.Model):

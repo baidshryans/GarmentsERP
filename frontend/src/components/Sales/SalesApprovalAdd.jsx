@@ -180,21 +180,24 @@ const SalesApprovalAdd = () => {
         const res = await fetchSalesApprovalById(id);
         if (res.success) {
           const d = res.data;
+          const savedPos = d.place_of_supply;
           Object.keys(d).forEach((key) => {
             if (key === "items") {
               d.items.forEach((item) => append(item));
             } else if (key === "place_of_supply") {
-              // Only override if saved value is non-empty; otherwise let the
-              // auto-default useEffect populate from the retail's state.
-              if (d[key] !== null && d[key] !== undefined && d[key] !== "") {
-                setValue(`form.${key}`, `${d[key]}`);
-              }
+              // Handled after reset() below — setting it here lets reset() race it.
             } else {
               setValue(`form.${key}`, d[key]);
             }
           });
+          // reset() first — clears dirty flags without touching place_of_supply yet.
           reset(getValues(), { keepValues: true, keepDirty: false });
           resetTableDirty();
+          // Set place_of_supply AFTER reset so reset's internal watch() flush
+          // cannot trigger the auto-default effect and overwrite the saved value.
+          if (savedPos !== null && savedPos !== undefined && savedPos !== "") {
+            setValue("form.place_of_supply", `${savedPos}`);
+          }
         }
       }
     }
@@ -221,7 +224,8 @@ const SalesApprovalAdd = () => {
     } else if (retailStateCode) {
       setValue("form.place_of_supply", retailStateCode);
     }
-  }, [statesData, retailStateCode, retailStateName, watchedPos]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statesData, retailStateCode, retailStateName]);
 
   /* ── auto-GST from HSN + place_of_supply ── */
   const hsn_current     = watch("hsn");
@@ -479,7 +483,7 @@ const SalesApprovalAdd = () => {
                    on the placeholder even after items appear. Re-keying on
                    states-length fixes that without polluting value/onChange. */
                 <Select
-                  key={`pos-${statesData.length}-${field.value || ""}`}
+                  key={`pos-${statesData.length}`}
                   onValueChange={field.onChange}
                   value={field.value ? `${field.value}` : ""}
                 >

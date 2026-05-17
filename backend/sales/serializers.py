@@ -2010,9 +2010,23 @@ class _StatePlaceOfSupplyField(serializers.Field):
         raise serializers.ValidationError(f"Unknown state '{value}'.")
 
     def to_representation(self, value):
-        # `value` is a State instance (when source maps to the FK)
+        # `value` is a State instance (when source maps to the FK).
+        # We return the 2-letter STATES_OF_INDIA alias (e.g. "WB") so it
+        # matches the SelectItem values that the frontend dropdown uses.
+        # The numeric State.code (e.g. "19") is only used internally in the
+        # State model, not in the STATES_OF_INDIA constant.
         if value is None:
             return None
+        state_name = getattr(value, 'name', None)
+        if state_name:
+            try:
+                from global_vars import STATES_OF_INDIA
+                for alias, name in STATES_OF_INDIA:
+                    if name.lower() == state_name.lower():
+                        return alias
+            except Exception:
+                pass
+        # Fallback: return the numeric code if no alias match found
         return getattr(value, 'code', None)
 
 

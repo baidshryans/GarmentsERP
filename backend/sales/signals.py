@@ -1,7 +1,7 @@
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 
-from .models import SalesVou, SaleReturn, SalesApprovalItem
+from .models import SalesVou, SaleReturn, SalesApprovalItem, SalesApprovalReturnItem
 
 
 @receiver(pre_delete, sender=SalesVou)
@@ -82,3 +82,12 @@ def on_sales_approval_item_delete(sender, instance, **kwargs):
     if instance.barcode_id:
         from inventory.models import BarcodeMain
         BarcodeMain.objects.filter(id=instance.barcode_id).update(stk_status=True)
+
+
+@receiver(pre_delete, sender=SalesApprovalReturnItem)
+def on_sales_approval_return_item_delete(sender, instance, **kwargs):
+    if instance.barcode_id:
+        from inventory.models import BarcodeMain
+        BarcodeMain.objects.filter(id=instance.barcode_id).update(stk_status=False)
+    if instance.approval_item_id:
+        SalesApprovalItem.objects.filter(id=instance.approval_item_id).update(ret_status=False)

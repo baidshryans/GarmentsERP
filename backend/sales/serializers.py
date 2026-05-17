@@ -2166,6 +2166,18 @@ class SalesApprovalReturnItemSerializer(serializers.ModelSerializer):
     purity = serializers.CharField(allow_blank=True, allow_null=True, required=False, default='')
     main_item_set = SalesApprovalReturnItemDetailsSerializer(many=True)
 
+    def update(self, instance, validated_data):
+        details_data = validated_data.pop('main_item_set', [])
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        create_or_update_nested(
+            SalesApprovalReturnItemDetailsSerializer, instance,
+            'main_item_set', 'main_item',
+            SalesApprovalReturnItemDetailsSerializer(details_data, many=True).data,
+        )
+        return instance
+
     class Meta:
         model = SalesApprovalReturnItem
         fields = [

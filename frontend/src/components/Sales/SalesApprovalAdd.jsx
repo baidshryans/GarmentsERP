@@ -40,6 +40,7 @@ import {
   fetchNextSaleAppNo,
   fetchSalesApprovalById,
   updateSalesApproval,
+  getGoldRate,
 } from "../../services/apiService";
 import { useEditDirty } from "@/hooks/useEditDirty";
 
@@ -107,6 +108,7 @@ const SalesApprovalAdd = () => {
   const [mainItemData, setMainItemData]   = useState([]);
   const [retailStateCode, setRetailStateCode] = useState("");
   const [retailStateName, setRetailStateName] = useState("");
+  const [goldRates, setGoldRates] = useState({});  // { "22KT": 4600, … }
 
   /* ── data fetch on mount ── */
   useEffect(() => {
@@ -162,6 +164,16 @@ const SalesApprovalAdd = () => {
       if (hsnRes.success)        setHsns(hsnRes.data.results);
       if (mainItemRes.success)   setMainItemData(mainItemRes.data.results ?? mainItemRes.data);
       if (billNoRes.success)     setValue("form.billno", billNoRes.data.billno);
+
+      // Fetch today's gold rates for making_value calculation (per_nw type)
+      const today = new Date().toISOString().split("T")[0];
+      getGoldRate(today).then(res => {
+        if (res.success && Array.isArray(res.data)) {
+          const rateMap = {};
+          res.data.forEach(r => { if (r.purity_name) rateMap[r.purity_name] = r.selling_rate || r.rate; });
+          setGoldRates(rateMap);
+        }
+      });
 
       /* load edit data */
       if (id) {
@@ -258,8 +270,30 @@ const SalesApprovalAdd = () => {
         }
         subTotal += amt;
       });
-      const making = parseFloat(row.making) || 0;
-      const mainAmt = +(subTotal + making).toFixed(2);
+      const making     = parseFloat(row.making) || 0;
+      const makingType = row.making_type || '';
+
+      // Derive net weight and gold rate for per_nw calculation
+      const goldSub  = (row.main_item_set || []).find(
+        s => (s.item || '').toUpperCase() === 'GOLD'
+      );
+      const nw       = parseFloat(row.gw) || (goldSub ? parseFloat(goldSub.gw) || 0 : 0);
+      const goldRate = goldSub ? (goldRates[goldSub.metal_purity] || 0) : 0;
+
+      let makingValue;
+      if (makingType === 'val') {
+        makingValue = making;
+      } else if (makingType === 'per_nw') {
+        makingValue = nw * (making / 100) * goldRate;
+      } else {
+        makingValue = making;
+      }
+      makingValue = Math.floor(makingValue);
+      if (makingValue !== (parseFloat(row.making_value) || 0)) {
+        setValue(`salesvouitem_set.${i}.making_value`, makingValue, { shouldDirty: false });
+      }
+
+      const mainAmt = +(subTotal + makingValue).toFixed(2);
       if (mainAmt !== (parseFloat(row.amount) || 0)) {
         setValue(`salesvouitem_set.${i}.amount`, mainAmt, { shouldDirty: false });
       }
@@ -269,7 +303,7 @@ const SalesApprovalAdd = () => {
     if (tv !== (parseFloat(getValues("form.taxable_value")) || 0)) {
       setValue("form.taxable_value", tv, { shouldDirty: false });
     }
-  }, [watchedItems]);
+  }, [watchedItems, goldRates]);
 
   /* ── computed bill summary values ── */
   const taxable_value = parseFloat(watch("form.taxable_value") || 0);
@@ -527,6 +561,8 @@ const SalesApprovalAdd = () => {
                   { h: "CT" },
                   { h: "GW" },
                   { h: "Making", w: "w-20" },
+                  { h: "Mkg Type", w: "w-24" },
+                  { h: "Mkg Val", w: "w-20" },
                   { h: "Purity" },
                   { h: "Rate",   w: "w-20" },
                   { h: "Amount", w: "w-36" },
@@ -539,7 +575,7 @@ const SalesApprovalAdd = () => {
 
               {fields.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-sm text-gray-400 py-8">
+                  <TableCell colSpan={12} className="text-center text-sm text-gray-400 py-8">
                     Scan a barcode above to add items
                   </TableCell>
                 </TableRow>
@@ -566,6 +602,35 @@ const SalesApprovalAdd = () => {
                         className="h-7 text-xs"
                         {...register(`salesvouitem_set.${index}.making`, { valueAsNumber: true })}
                         placeholder="Making"
+                      />
+                    </TableCell>
+                    <TableCell className="px-3 py-1 border">
+                      <Controller
+                        name={`salesvouitem_set.${index}.making_type`}
+                        control={control}
+                        render={({ field: mtField }) => (
+                          <Select
+                            onValueChange={mtField.onChange}
+                            value={mtField.value || ""}
+                          >
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue placeholder="Type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="val">Value</SelectItem>
+                              <SelectItem value="per_nw">% of wt</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell className="px-3 py-1 border">
+                      <Input
+                        type="number"
+                        className="h-7 text-xs bg-muted/30"
+                        readOnly
+                        tabIndex={-1}
+                        {...register(`salesvouitem_set.${index}.making_value`, { valueAsNumber: true })}
                       />
                     </TableCell>
                     <TableCell className="px-3 py-1 border text-xs text-center">{field?.purity}</TableCell>

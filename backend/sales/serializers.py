@@ -1867,6 +1867,8 @@ class SalesApprovalItemSerializer(serializers.ModelSerializer):
             'pcs',
             'gw',
             'making',
+            'making_type',
+            'making_value',
             'purity',
             'amount',
             'ret_status',

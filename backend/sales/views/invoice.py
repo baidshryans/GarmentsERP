@@ -967,6 +967,8 @@ class SalesApprovalReturnViewset(views.RetailBaseViewset):
         'ref_approval', 'retail',
     ).prefetch_related(
         'items__main_item_set',
+        'items__barcode',
+        'items__approval_item',
     ).all()
     serializer_class = SalesApprovalReturnSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]

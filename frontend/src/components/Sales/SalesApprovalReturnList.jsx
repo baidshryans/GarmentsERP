@@ -9,6 +9,7 @@ import { SquarePen, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from 'react-router-dom';
 import { useF2Navigate } from "@/hooks/useF2Navigate";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
   fetchSalesApprovalReturns,
   deleteSalesApprovalReturn,
@@ -21,11 +22,12 @@ function SalesApprovalReturnList() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [deleteId, setDeleteId] = useState(null);
 
   const search = params.get('search') || "";
   const sortby = params.get('sortby') || "";
+  const page = parseInt(params.get('page') || '1', 10);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -41,7 +43,9 @@ function SalesApprovalReturnList() {
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
-  const handleDelete = async (id) => {
+  const handleDelete = async () => {
+    const id = deleteId;
+    setDeleteId(null);
     await deleteSalesApprovalReturn(id, toast);
     fetchList();
   };
@@ -59,7 +63,7 @@ function SalesApprovalReturnList() {
             <SquarePen className="size-4" />
           </Link>
           <button
-            onClick={() => handleDelete(row.original.id)}
+            onClick={() => setDeleteId(row.original.id)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
             <Trash2 className="size-4" />
@@ -88,16 +92,17 @@ function SalesApprovalReturnList() {
   ];
 
   return (
+    <>
     <div className="p-4">
       <div className="flex justify-between mb-4 gap-2">
         <Input
           type="text"
           value={search}
-          onChange={(e) => setParams({ search: e.target.value, sortby })}
+          onChange={(e) => setParams({ search: e.target.value, sortby, page: '1' })}
           placeholder="Search bill no or ref approval…"
           className="max-w-sm"
         />
-        <Select value={sortby} onValueChange={(value) => setParams({ search, sortby: value })}>
+        <Select value={sortby} onValueChange={(value) => setParams({ search, sortby: value, page: '1' })}>
           <SelectTrigger className="max-w-xs">
             <SelectValue placeholder="Sort By" />
           </SelectTrigger>
@@ -123,7 +128,7 @@ function SalesApprovalReturnList() {
           <div className="flex justify-between items-center mt-4">
             <Button
               variant="outline"
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              onClick={() => setParams({ search, sortby, page: String(page - 1) })}
               disabled={page === 1}
             >
               Previous
@@ -131,7 +136,7 @@ function SalesApprovalReturnList() {
             <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
             <Button
               variant="outline"
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              onClick={() => setParams({ search, sortby, page: String(page + 1) })}
               disabled={page === totalPages}
             >
               Next
@@ -146,6 +151,15 @@ function SalesApprovalReturnList() {
         </>
       )}
     </div>
+
+    <ConfirmDialog
+      open={!!deleteId}
+      title="Confirm Delete"
+      description="This sales approval return will be permanently deleted."
+      onConfirm={handleDelete}
+      onCancel={() => setDeleteId(null)}
+    />
+    </>
   );
 }
 

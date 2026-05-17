@@ -874,6 +874,54 @@ class SalesApprovalViewset(views.RetailBaseViewset):
         super().perform_destroy(instance)
         release_last_bill_number(retail, 'SA', billno, fiscal_year)
 
+    @action(detail=True, methods=['post'], url_path='return-items')
+    def return_items(self, request, pk=None):
+        """
+        Mark individual SalesApprovalItem records as returned and restore
+        their barcodes to stock.
+
+        Request body: { "returned_item_ids": [1, 2, 3] }
+        """
+        approval = self.get_object()
+        ids = request.data.get('returned_item_ids', [])
+        if not isinstance(ids, list) or not ids:
+            return Response(
+                {'error': 'returned_item_ids must be a non-empty list'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            ids = [int(i) for i in ids]
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'returned_item_ids must contain integers only'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate every ID belongs to this approval
+        found = SalesApprovalItem.objects.filter(id__in=ids, billno=approval).count()
+        if found != len(ids):
+            return Response(
+                {'error': 'One or more item IDs not found on this approval'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            # Only act on items not already returned (idempotent)
+            to_return = SalesApprovalItem.objects.filter(
+                id__in=ids, billno=approval, ret_status=False
+            )
+            barcode_ids = list(to_return.values_list('barcode_id', flat=True))
+
+            to_return.update(ret_status=True)
+
+            if barcode_ids:
+                BarcodeMain.objects.filter(id__in=barcode_ids).update(stk_status=True)
+
+        approval = self.get_queryset().get(pk=approval.pk)
+        serializer = self.get_serializer(approval)
+        return Response(serializer.data)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

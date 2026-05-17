@@ -76,7 +76,15 @@ const SalesApprovalReturnAdd = () => {
           setValue("billno", d.billno);
           setValue("ref_approval", d.ref_approval ?? null);
           setValue("narration", d.narration ?? "");
-          (d.items || []).forEach((item) => append(item));
+          (d.items || []).forEach((item) =>
+            append({
+              ...item,
+              main_item_set: (item.main_item_set || []).map((sub) => ({
+                ...sub,
+                _sid: sub.id ?? crypto.randomUUID(),
+              })),
+            })
+          );
           // Restore approval preview if ref is set
           if (d.ref_approval) {
             const aRes = await fetchSalesApprovalById(d.ref_approval);

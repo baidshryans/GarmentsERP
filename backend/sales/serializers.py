@@ -1830,6 +1830,8 @@ class SaleVoucherToReturnSerializer(SalesVouSerializer):
 class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True)
+    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True, default=0)
+    gw = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True, default=0)
 
     class Meta:
         model = SalesApprovalItemDetails

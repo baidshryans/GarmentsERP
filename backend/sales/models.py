@@ -511,7 +511,7 @@ class SalesApprovalItem(models.Model):
     # making_type = models.DecimalField(max_digits=10, decimal_places = 2)
     purity = models.IntegerField()
     ret_status = models.BooleanField(default=False)
-    amount = models.IntegerField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
 
@@ -527,8 +527,8 @@ class SalesApprovalItemDetails(models.Model):
     main_item = models.ForeignKey(SalesApprovalItem, related_name='main_item_set',on_delete=models.CASCADE) # do we need to link this to item??
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
     pcs = models.IntegerField()
-    ct = models.DecimalField(max_digits=10, decimal_places=3)
-    gw = models.DecimalField(max_digits=10, decimal_places=3)
+    ct = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
+    gw = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, default=0)
     metal_purity = models.CharField(max_length=10, blank=True, null=True) # can have characters also
     rate = models.DecimalField(max_digits=10, decimal_places=3)
     amount = models.DecimalField(max_digits=10, decimal_places=2)

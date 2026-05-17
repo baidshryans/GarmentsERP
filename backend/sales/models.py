@@ -437,7 +437,7 @@ class SalesApproval(models.Model):
     ldgr = models.ForeignKey(Ledger, on_delete=models.PROTECT)
     narration = models.CharField(max_length=100)
     sales_person = models.ForeignKey(SalesPersonMaster, on_delete=models.PROTECT)
-    sales_person2 = models.ForeignKey(SalesPersonMaster, on_delete=models.PROTECT, related_name='sales_person2_for_approval')
+    sales_person2 = models.ForeignKey(SalesPersonMaster, on_delete=models.SET_NULL, null=True, blank=True, related_name='sales_person2_for_approval')
     place_of_supply = models.ForeignKey("mastersconfig.State", on_delete=models.PROTECT, null=True, blank=True)
     taxable_value = models.DecimalField(max_digits=10, decimal_places = 2)
     discount = models.DecimalField(max_digits=10, decimal_places=3)

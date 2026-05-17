@@ -2004,7 +2004,7 @@ class _StatePlaceOfSupplyField(serializers.Field):
 class SalesApprovalSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
     sales_person = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all())
-    sales_person2 = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all(), allow_null=True)
+    sales_person2 = serializers.PrimaryKeyRelatedField(queryset=SalesPersonMaster.objects.all(), allow_null=True, required=False)
     place_of_supply = _StatePlaceOfSupplyField(required=False, allow_null=True)
     narration = serializers.CharField(required=False, allow_blank=True, allow_null=True, default='')
     items = SalesApprovalItemSerializer(many=True)

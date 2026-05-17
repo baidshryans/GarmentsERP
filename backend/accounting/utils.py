@@ -125,7 +125,7 @@ def get_next_bill_number(retail, prefix, fiscal_year=None):
 def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
     """Extract the max existing number for a given prefix from the relevant model, filtered by FY date range."""
     # Import here to avoid circular imports
-    from sales.models import SalesVou, SaleReturn, SalesApproval
+    from sales.models import SalesVou, SaleReturn, SalesApproval, SalesApprovalReturn
     from inventory.models import StockJournal
     from global_vars import VoucherType
 
@@ -136,6 +136,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'SV': (SalesVou, 'billno'),
         'SR': (SaleReturn, 'billno'),
         'SA': (SalesApproval, 'billno'),
+        'SAR': (SalesApprovalReturn, 'billno'),
         'PV':  (PurchaseVoucher, 'billno'),
         'PVC': (PurchaseVoucher, 'billno'),
         'PVV': (PurchaseVoucher, 'billno'),

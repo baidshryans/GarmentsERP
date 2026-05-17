@@ -161,6 +161,19 @@ export async function fetchSalesApprovalById(id) {
   }
 }
 
+export async function returnSalesApprovalItems(id, returnedItemIds) {
+  try {
+    const response = await apiClient.post(
+      `/sales/api/sale-approval/${id}/return-items/`,
+      { returned_item_ids: returnedItemIds }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Failed to record approval return:', error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // ── Sales Return CRUD ──────────────────────────────────────────────────────────
 
 export async function createSalesReturn(data) {

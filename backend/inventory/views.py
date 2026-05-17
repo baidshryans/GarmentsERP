@@ -88,6 +88,28 @@ def get_barcode_only(request, barcode):
     return Response(data)
 
 
+@api_view()
+@permission_classes([IsAuthenticated])
+def get_barcode_for_return(request, barcode):
+    """
+    Look up a barcode for use in a SalesApprovalReturn form.
+    Unlike get_barcode_only, this does NOT filter by stk_status — the
+    barcode being returned is currently OUT (stk_status=False).
+    """
+    try:
+        obj = BarcodeMain.objects.select_related(
+            'item', 'purity',
+        ).prefetch_related('barcodedetails_set__item').get(
+            barcode=barcode,
+            retail=request.retail,
+        )
+    except BarcodeMain.DoesNotExist:
+        return Response(
+            {"detail": f"Barcode '{barcode}' not found in the current retail."},
+            status=404,
+        )
+    data = BarcodeMainToSaleVouSerializer(obj).data
+    return Response(data)
 
 
 

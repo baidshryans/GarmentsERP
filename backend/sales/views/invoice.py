@@ -26,7 +26,7 @@ from userauth import views
 
 from ..models import *
 from ..utils import DecimalEncoder
-from ..serializers import SalesApprovalSerializer, SalesVouSerializer
+from ..serializers import SalesApprovalSerializer, SalesVouSerializer, SalesApprovalReturnSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -959,6 +959,43 @@ def get_next_sa_no(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     bill_no = peek_next_bill_number(request.retail, "SA")
+    return Response({"billno": bill_no})
+
+
+class SalesApprovalReturnViewset(views.RetailBaseViewset):
+    queryset = SalesApprovalReturn.objects.select_related(
+        'ref_approval', 'retail',
+    ).prefetch_related(
+        'items__main_item_set',
+    ).all()
+    serializer_class = SalesApprovalReturnSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
+    search_fields = ['billno', 'ref_approval__billno']
+    ordering = ['-date1', '-id']
+
+    @property
+    def ordering_fields(self):
+        return self.serializer_class.Meta.fields
+
+    def perform_destroy(self, instance):
+        from accounting.utils import release_last_bill_number
+        retail = instance.retail
+        fiscal_year = instance.fiscal_year
+        billno = instance.billno
+        super().perform_destroy(instance)
+        release_last_bill_number(retail, 'SAR', billno, fiscal_year)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_next_sar_no(request):
+    from accounting.utils import peek_next_bill_number
+    if not request.retail:
+        return Response(
+            {"error": "Missing or invalid X-RETAIL-ID header"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    bill_no = peek_next_bill_number(request.retail, "SAR")
     return Response({"billno": bill_no})
 
 

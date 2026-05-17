@@ -165,8 +165,9 @@ export const navData = {
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList    },
     { title: "Sales Voucher",  url: "/sales/list/",               icon: ReceiptTextIcon  },
     { title: "Sales Return",   url: "/sales/salesreturn/list/",   icon: PackageXIcon     },
-    { title: "Sales Approval", url: "/sales/salesapproval/list/", icon: PackageCheckIcon },
-    { title: "E-Way Bills",    url: "/sales/eway-bills",            icon: FileText         },
+    { title: "Sales Approval",  url: "/sales/salesapproval/list/",        icon: PackageCheckIcon },
+    { title: "Approval Return", url: "/sales/salesapprovalreturn/list/", icon: PackageXIcon     },
+    { title: "E-Way Bills",    url: "/sales/eway-bills",                  icon: FileText         },
     { title: "Pending Cheques", url: "/sales/pending-cheques",     icon: Landmark         },
     {
       title: "Reports",

@@ -45,6 +45,8 @@ const CustomerOrderForm          = lazy(() => import("./CustomerOrderForm"));
 const SalesVoucherList           = lazy(() => import("./components/Sales/SalesVoucherList"));
 const SalesApprovalList          = lazy(() => import("./components/Sales/SalesApprovalList"));
 const SalesApprovalReturnPage    = lazy(() => import("./components/Sales/SalesApprovalReturnPage"));
+const SalesApprovalReturnList    = lazy(() => import("./components/Sales/SalesApprovalReturnList"));
+const SalesApprovalReturnAdd     = lazy(() => import("./components/Sales/SalesApprovalReturnAdd"));
 const SalesReturnList            = lazy(() => import("./components/Sales/SalesReturnList"));
 const EWayBillList               = lazy(() => import("./components/Sales/EWayBillList"));
 const ChequePendingPage          = lazy(() => import("./components/Sales/ChequePendingPage"));
@@ -409,6 +411,9 @@ const appRoutes = [
   { path: "sales/salesapproval/add/",      heading: "Add Sales Approval",   component: <SalesApprovalAdd /> },
   { path: "sales/salesapproval/:id/return", heading: "Record Return",       component: <SalesApprovalReturnPage /> },
   { path: "sales/salesapproval/:id",       heading: "Edit Sales Approval",  component: <SalesApprovalAdd /> },
+  { path: "sales/salesapprovalreturn/list/", heading: "Approval Return List",   component: <SalesApprovalReturnList /> },
+  { path: "sales/salesapprovalreturn/add/",  heading: "Add Approval Return",    component: <SalesApprovalReturnAdd /> },
+  { path: "sales/salesapprovalreturn/:id",   heading: "Edit Approval Return",   component: <SalesApprovalReturnAdd /> },
   { path: "sales/reports/commission",      heading: "Salesperson Commission Report", component: <CommissionReport /> },
   { path: "sales/reports/sales-register",  heading: "Sales Register",                 component: <SalesRegister /> },
   { path: "sales/reports/sale-approval-register", heading: "Sale Approval Register",  component: <SaleApprovalRegister /> },

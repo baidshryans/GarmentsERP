@@ -438,7 +438,17 @@ const SalesApprovalAdd = () => {
               name="form.place_of_supply"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
+                /* `key` forces a clean remount once statesData arrives. Radix
+                   Select picks its displayed item when `value` matches a child
+                   SelectItem AT MOUNT — if statesData is still empty when an
+                   edit-load setValue runs, no item matches and the Select stays
+                   on the placeholder even after items appear. Re-keying on
+                   states-length fixes that without polluting value/onChange. */
+                <Select
+                  key={`pos-${statesData.length}`}
+                  onValueChange={field.onChange}
+                  value={field.value ? `${field.value}` : ""}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select State" />
                   </SelectTrigger>

@@ -290,10 +290,10 @@ const SalesApprovalReturnAdd = () => {
     setExpandedRows((prev) => ({ ...prev, [idx]: !prev[idx] }));
 
   return (
-    <div className="p-4 max-w-5xl mx-auto space-y-6">
+    <div className="px-8 py-7 max-w-7xl mx-auto space-y-7">
       {/* ── Header section ── */}
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-6 mb-8">
           <div>
             <Label>Bill No</Label>
             <Input {...register("billno")} readOnly className="bg-muted" />
@@ -317,11 +317,11 @@ const SalesApprovalReturnAdd = () => {
               )}
             </div>
             {approvalResults.length > 0 && (
-              <div className="absolute z-10 mt-1 bg-white border rounded shadow w-full max-h-48 overflow-y-auto">
+              <div className="absolute z-10 mt-1 bg-white border rounded-lg shadow-lg w-full max-h-52 overflow-y-auto">
                 {approvalResults.map((a) => (
                   <div
                     key={a.id}
-                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                    className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer text-sm"
                     onClick={() => handleSelectApproval(a)}
                   >
                     {a.billno} — {a.ldgr_name}
@@ -338,8 +338,8 @@ const SalesApprovalReturnAdd = () => {
 
         {/* ── From linked approval: checkbox list ── */}
         {selectedApproval && (
-          <div className="border rounded p-3 mb-4 bg-slate-50">
-            <p className="text-sm font-semibold mb-2 text-slate-700">
+          <div className="border rounded-xl p-5 mb-6 bg-slate-50/70 shadow-sm">
+            <p className="text-sm font-semibold mb-3 text-slate-700">
               Items from {selectedApproval.billno} — tick to include in return:
             </p>
             <Table>
@@ -367,11 +367,11 @@ const SalesApprovalReturnAdd = () => {
                         onChange={() => toggleApprovalItem(ai)}
                       />
                     </TableCell>
-                    <TableCell className="text-xs">{ai.barcode}</TableCell>
-                    <TableCell className="text-xs">{ai.item_name || ai.item}</TableCell>
-                    <TableCell className="text-xs">{ai.gw}</TableCell>
-                    <TableCell className="text-xs">{ai.purity}</TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="text-sm font-mono">{ai.barcode}</TableCell>
+                    <TableCell className="text-sm">{ai.item_name || ai.item}</TableCell>
+                    <TableCell className="text-sm tabular-nums">{ai.gw}</TableCell>
+                    <TableCell className="text-sm">{ai.purity}</TableCell>
+                    <TableCell className="text-sm tabular-nums">
                       {Number(ai.amount || 0).toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
@@ -385,7 +385,7 @@ const SalesApprovalReturnAdd = () => {
         )}
 
         {/* ── Barcode scan ── */}
-        <div className="flex gap-2 mb-4 items-end">
+        <div className="flex gap-3 mb-6 items-end">
           <div className="flex-1">
             <Label>Scan Barcode</Label>
             <Input
@@ -402,18 +402,18 @@ const SalesApprovalReturnAdd = () => {
 
         {/* ── Items table ── */}
         {fields.length > 0 && (
-          <div className="border rounded mb-4 overflow-x-auto">
+          <div className="border rounded-xl mb-6 overflow-x-auto shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead className="w-8" />
-                  <TableHead className="text-xs font-semibold">Barcode</TableHead>
-                  <TableHead className="text-xs font-semibold">Item</TableHead>
-                  <TableHead className="text-xs font-semibold text-right">Pcs</TableHead>
-                  <TableHead className="text-xs font-semibold text-right">GW</TableHead>
-                  <TableHead className="text-xs font-semibold">Purity</TableHead>
-                  <TableHead className="text-xs font-semibold text-right">Amount</TableHead>
                   <TableHead className="w-10" />
+                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500">Barcode</TableHead>
+                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500">Item</TableHead>
+                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">Pcs</TableHead>
+                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">GW</TableHead>
+                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500">Purity</TableHead>
+                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">Amount</TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -430,7 +430,7 @@ const SalesApprovalReturnAdd = () => {
                     <React.Fragment key={field.id}>
                       <TableRow className="hover:bg-slate-50/60">
                         {/* Expand toggle — only show when there are sub-items */}
-                        <TableCell className="py-2">
+                        <TableCell className="py-3.5 pl-4">
                           {subItems.length > 0 ? (
                             <button
                               type="button"
@@ -449,20 +449,20 @@ const SalesApprovalReturnAdd = () => {
                         </TableCell>
 
                         {/* Barcode — monospace badge */}
-                        <TableCell className="py-2">
-                          <span className="font-mono text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                        <TableCell className="py-3.5">
+                          <span className="font-mono text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded tracking-wide">
                             {field.barcode ?? "—"}
                           </span>
                         </TableCell>
 
                         {/* Item */}
-                        <TableCell className="py-2">
+                        <TableCell className="py-3.5">
                           {isBarcodeItem ? (
                             /* read-only: show resolved name or short code */
                             <div>
-                              <span className="text-xs font-medium">{field.item}</span>
+                              <span className="text-sm font-medium">{field.item}</span>
                               {resolvedName && (
-                                <p className="text-[10px] text-slate-500 mt-0.5">{resolvedName}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">{resolvedName}</p>
                               )}
                             </div>
                           ) : (
@@ -470,7 +470,7 @@ const SalesApprovalReturnAdd = () => {
                               <Input
                                 {...register(`items.${idx}.item`)}
                                 list={`items-datalist-${idx}`}
-                                className="h-7 text-xs w-28"
+                                className="h-8 text-sm w-32"
                               />
                               <datalist id={`items-datalist-${idx}`}>
                                 {mainItems.map((m) => (
@@ -478,7 +478,7 @@ const SalesApprovalReturnAdd = () => {
                                 ))}
                               </datalist>
                               {resolvedName && (
-                                <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[7rem]">
+                                <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[8rem]">
                                   {resolvedName}
                                 </p>
                               )}
@@ -487,22 +487,22 @@ const SalesApprovalReturnAdd = () => {
                         </TableCell>
 
                         {/* Pcs */}
-                        <TableCell className="py-2 text-right">
+                        <TableCell className="py-3.5 text-right">
                           {isBarcodeItem ? (
-                            <span className="text-xs tabular-nums">{field.pcs}</span>
+                            <span className="text-sm tabular-nums">{field.pcs}</span>
                           ) : (
                             <Input
                               type="number"
                               {...register(`items.${idx}.pcs`)}
-                              className="h-7 text-xs w-14 text-right"
+                              className="h-8 text-sm w-16 text-right"
                             />
                           )}
                         </TableCell>
 
                         {/* GW */}
-                        <TableCell className="py-2 text-right">
+                        <TableCell className="py-3.5 text-right">
                           {isBarcodeItem ? (
-                            <span className="text-xs tabular-nums">
+                            <span className="text-sm tabular-nums">
                               {Number(field.gw || 0).toFixed(3)}
                             </span>
                           ) : (
@@ -510,28 +510,28 @@ const SalesApprovalReturnAdd = () => {
                               type="number"
                               step="0.001"
                               {...register(`items.${idx}.gw`)}
-                              className="h-7 text-xs w-20 text-right"
+                              className="h-8 text-sm w-22 text-right"
                             />
                           )}
                         </TableCell>
 
                         {/* Purity */}
-                        <TableCell className="py-2">
+                        <TableCell className="py-3.5">
                           {isBarcodeItem ? (
-                            <span className="text-xs">{field.purity || "—"}</span>
+                            <span className="text-sm">{field.purity || "—"}</span>
                           ) : (
                             <Input
                               {...register(`items.${idx}.purity`)}
-                              className="h-7 text-xs w-16"
+                              className="h-8 text-sm w-18"
                               placeholder="18K"
                             />
                           )}
                         </TableCell>
 
                         {/* Amount */}
-                        <TableCell className="py-2 text-right">
+                        <TableCell className="py-3.5 text-right">
                           {isBarcodeItem ? (
-                            <span className="text-xs tabular-nums">
+                            <span className="text-sm tabular-nums font-medium">
                               {Number(field.amount || 0).toLocaleString("en-IN", {
                                 minimumFractionDigits: 2, maximumFractionDigits: 2,
                               })}
@@ -541,13 +541,13 @@ const SalesApprovalReturnAdd = () => {
                               type="number"
                               step="0.01"
                               {...register(`items.${idx}.amount`)}
-                              className="h-7 text-xs w-24 text-right"
+                              className="h-8 text-sm w-28 text-right"
                             />
                           )}
                         </TableCell>
 
                         {/* Delete — always shown on main row so user can de-select */}
-                        <TableCell className="py-2">
+                        <TableCell className="py-3.5 pr-4">
                           <button
                             type="button"
                             onClick={() => remove(idx)}
@@ -561,18 +561,18 @@ const SalesApprovalReturnAdd = () => {
                       {/* ── Sub-items (expanded) ── */}
                       {expandedRows[idx] && subItems.length > 0 && (
                         <TableRow>
-                          <TableCell colSpan={8} className="bg-slate-50 px-3 py-2">
+                          <TableCell colSpan={8} className="bg-slate-50/80 px-6 py-4">
                             <Table>
                               <TableHeader>
-                                <TableRow className="bg-slate-100">
-                                  <TableHead className="text-xs font-semibold">Item</TableHead>
-                                  <TableHead className="text-xs font-semibold">Packet</TableHead>
-                                  <TableHead className="text-xs font-semibold text-right">Pcs</TableHead>
-                                  <TableHead className="text-xs font-semibold text-right">Ct</TableHead>
-                                  <TableHead className="text-xs font-semibold text-right">GW</TableHead>
-                                  <TableHead className="text-xs font-semibold">Metal Purity</TableHead>
-                                  <TableHead className="text-xs font-semibold text-right">Rate</TableHead>
-                                  <TableHead className="text-xs font-semibold text-right">Amount</TableHead>
+                                <TableRow className="bg-slate-100/80">
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500">Item</TableHead>
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500">Packet</TableHead>
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">Pcs</TableHead>
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">Ct</TableHead>
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">GW</TableHead>
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500">Metal Purity</TableHead>
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">Rate</TableHead>
+                                  <TableHead className="text-xs font-semibold tracking-wide uppercase text-slate-500 text-right">Amount</TableHead>
                                   {/* No action column for barcode items */}
                                   {!isBarcodeItem && <TableHead className="w-8" />}
                                 </TableRow>
@@ -585,7 +585,7 @@ const SalesApprovalReturnAdd = () => {
                                   return (
                                     <TableRow key={sub._sid ?? si} className="hover:bg-slate-50">
                                       {/* Item */}
-                                      <TableCell className="py-1.5">
+                                      <TableCell className="py-2.5">
                                         {isBarcodeItem ? (
                                           <div>
                                             <span className="text-xs font-medium">{sub.item}</span>
@@ -617,7 +617,7 @@ const SalesApprovalReturnAdd = () => {
                                       </TableCell>
 
                                       {/* Packet */}
-                                      <TableCell className="py-1.5">
+                                      <TableCell className="py-2.5">
                                         {isBarcodeItem ? (
                                           <span className="text-xs">{sub.packet || "—"}</span>
                                         ) : (
@@ -681,7 +681,7 @@ const SalesApprovalReturnAdd = () => {
                                       </TableCell>
 
                                       {/* Metal Purity */}
-                                      <TableCell className="py-1.5">
+                                      <TableCell className="py-2.5">
                                         {isBarcodeItem ? (
                                           <span className="text-xs">{sub.metal_purity || "—"}</span>
                                         ) : (
@@ -728,7 +728,7 @@ const SalesApprovalReturnAdd = () => {
 
                                       {/* Delete — hidden for barcode sub-items */}
                                       {!isBarcodeItem && (
-                                        <TableCell className="py-1.5">
+                                        <TableCell className="py-2.5">
                                           <button
                                             type="button"
                                             onClick={() => removeSubRow(idx, si)}
@@ -767,7 +767,7 @@ const SalesApprovalReturnAdd = () => {
         )}
 
         {/* ── Footer ── */}
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="flex justify-end gap-3 mt-8 pt-4 border-t">
           <Button
             type="button"
             variant="outline"

@@ -130,6 +130,11 @@ class KarigarStoneIssueSerializer(serializers.ModelSerializer):
         }
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('karigarstoneissue_set', [])
             parent_instance = KarigarStoneIssueHeader.objects.create(**validated_data)
             for item_data in detail_data:
@@ -250,6 +255,11 @@ class KarigarStoneReceiveSerializer(serializers.ModelSerializer):
                     }
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('karigarstonereceive_set', [])
             parent_instance = KarigarStoneReceiveHeader.objects.create(**validated_data)
             create_or_update_nested(
@@ -335,6 +345,11 @@ class KarigarGoldIssueSerializer(serializers.ModelSerializer):
         }
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop("karigargoldissue_set", [])
             parent_instance = KarigarGoldIssueHeader.objects.create(**validated_data)
             create_or_update_nested(
@@ -608,7 +623,11 @@ class KarigarIssueForPostSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
-    
+        if 'fiscal_year' not in validated_data:
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+            if _retail:
+                validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         with transaction.atomic():
             karigar_issue_instance = KarigarIssue.objects.create(**validated_data,bill_id=int( validated_data['issue_slip_no'].split('/')[-1]))
 
@@ -1022,6 +1041,11 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('karigarreceiveitem_set')
+        if 'fiscal_year' not in validated_data:
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+            if _retail:
+                validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         with transaction.atomic():
             karigar_receive_instance = KarigarReceive.objects.create(**validated_data,)
 
@@ -1399,6 +1423,11 @@ class HallmarkIssueForPostSerializer(serializers.ModelSerializer):
         }
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             items_data = validated_data.pop('hallmarkissueitem_set')
             hallmark_issue_instance = HallmarkIssue.objects.create(**validated_data)
             for item_data in items_data:
@@ -1515,6 +1544,11 @@ class HallmarkReceiveForPostSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             items_data = validated_data.pop('hallmarkreceiveitem_set')
             hallmark_receive_instance = HallmarkReceive.objects.create(**validated_data)
             for item_data in items_data:
@@ -1639,6 +1673,11 @@ class RefinaryIssueSerializer(serializers.ModelSerializer):
         }
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('refinaryissuedetail_set', [])
             parent_instance = RefinaryIssue.objects.create(**validated_data)
             create_or_update_nested(RefinaryIssueDetailSerializer, parent_instance, 'refinaryissuedetail_set','billno', RefinaryIssueDetailSerializer(detail_data,many=True).data )
@@ -1681,6 +1720,11 @@ class RefinaryReceiveSerializer(serializers.ModelSerializer):
         }
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('refinaryreceivedetail_set', [])
             parent_instance = RefinaryReceive.objects.create(**validated_data)
             create_or_update_nested(RefinaryReceiveDetailSerializer, parent_instance, 'refinaryreceivedetail_set',  'billno',RefinaryReceiveDetailSerializer(detail_data,many=True).data)
@@ -1725,6 +1769,11 @@ class MeltingIssueSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('meltingissuedetail_set', [])
             parent_instance = MeltingIssue.objects.create(**validated_data)
             create_or_update_nested(MeltingIssueDetailSerializer, parent_instance, 'meltingissuedetail_set', 'billno', MeltingIssueDetailSerializer(detail_data, many=True).data)
@@ -1769,6 +1818,11 @@ class MeltingReceiveSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('meltingreceivedetail_set', [])
             parent_instance = MeltingReceive.objects.create(**validated_data)
             create_or_update_nested(MeltingReceiveDetailSerializer, parent_instance, 'meltingreceivedetail_set', 'billno', MeltingReceiveDetailSerializer(detail_data, many=True).data)
@@ -1818,6 +1872,11 @@ class AssayIssueSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('assayissuedetail_set', [])
             parent_instance = AssayIssue.objects.create(**validated_data)
             create_or_update_nested(AssayIssueDetailSerializer, parent_instance, 'assayissuedetail_set', 'billno', AssayIssueDetailSerializer(detail_data, many=True).data)
@@ -1862,6 +1921,11 @@ class AssayReceiveSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('assayreceivedetail_set', [])
             parent_instance = AssayReceive.objects.create(**validated_data)
             create_or_update_nested(AssayReceiveDetailSerializer, parent_instance, 'assayreceivedetail_set', 'billno', AssayReceiveDetailSerializer(detail_data, many=True).data)
@@ -2076,6 +2140,10 @@ class RepairJobCardSerializer(serializers.ModelSerializer):
         stones_data        = validated_data.pop('stones', [])
         losses_data        = validated_data.pop('losses', [])
         karigar_links_data = validated_data.pop('karigar_links', [])
+        request = self.context.get('request')
+        _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+        if _retail:
+            validated_data.setdefault('fiscal_year', getattr(_retail, 'active_fy', None))
         with transaction.atomic():
             job_card = RepairJobCard.objects.create(**validated_data)
             for d in stones_data:

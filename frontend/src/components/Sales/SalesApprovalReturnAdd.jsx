@@ -296,7 +296,7 @@ const SalesApprovalReturnAdd = () => {
     setExpandedRows((prev) => ({ ...prev, [idx]: !prev[idx] }));
 
   return (
-    <div className="px-8 py-7 max-w-7xl mx-auto space-y-7">
+    <div className="px-8 py-7 w-full max-w-7xl mx-auto space-y-7">
       {/* ── Header section ── */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid grid-cols-2 gap-6 mb-8">

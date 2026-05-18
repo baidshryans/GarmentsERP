@@ -866,6 +866,14 @@ class SalesApprovalViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
     ordering = ['-date1', '-id']
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # ?pending_only=true → only approvals that have at least one non-returned item.
+        # Used by the "Reference Approval" dropdown in the SalesApprovalReturn form.
+        if self.request.query_params.get('pending_only', '').lower() in ('true', '1', 'yes'):
+            qs = qs.filter(items__ret_status=False).distinct()
+        return qs
+
     def _resolve_fiscal_year(self, retail, voucher_date):
         """Resolve the FY for a given voucher date; fall back to retail.active_fy."""
         from mastersconfig.models import FiscalYearMaster

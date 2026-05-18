@@ -107,7 +107,7 @@ const SalesApprovalReturnAdd = () => {
       return;
     }
     refSearchDebounce.current = setTimeout(async () => {
-      const res = await fetchSalesApproval({ search: refSearch, page: 1 });
+      const res = await fetchSalesApproval({ search: refSearch, page: 1, pendingOnly: true });
       if (res.success) setApprovalResults(res.data.results || []);
     }, 300);
     return () => clearTimeout(refSearchDebounce.current);
@@ -368,7 +368,7 @@ const SalesApprovalReturnAdd = () => {
                       />
                     </TableCell>
                     <TableCell className="text-xs">{ai.barcode}</TableCell>
-                    <TableCell className="text-xs">{ai.item}</TableCell>
+                    <TableCell className="text-xs">{ai.item_name || ai.item}</TableCell>
                     <TableCell className="text-xs">{ai.gw}</TableCell>
                     <TableCell className="text-xs">{ai.purity}</TableCell>
                     <TableCell className="text-xs">

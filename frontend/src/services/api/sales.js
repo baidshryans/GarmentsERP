@@ -169,7 +169,7 @@ export async function fetchSalesReturn({ search = "", page = 1, ordering = "" } 
   }
 }
 
-export async function fetchSalesApproval({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchSalesApproval({ search = "", page = 1, ordering = "", pendingOnly = false } = {}) {
   try {
     const params = new URLSearchParams();
 
@@ -177,6 +177,7 @@ export async function fetchSalesApproval({ search = "", page = 1, ordering = "" 
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
     params.append("page", page);
+    if (pendingOnly) params.append("pending_only", "true");
 
     const response = await apiClient.get(`/sales/api/sale-approval/?${params.toString()}`);
     return { success: true, data: response.data };

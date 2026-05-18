@@ -1858,6 +1858,21 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
             'id': {'read_only': False, 'required': False},
         }
 
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        # If metal_purity was never stored (legacy records or barcodes without
+        # sub-item purity set), derive it from the parent approval item's
+        # barcode purity — but only for metal sub-items, not diamonds/stones.
+        if not rep.get('metal_purity'):
+            try:
+                if instance.item and instance.item.item_type == 'M':
+                    purity_obj = instance.main_item.barcode.purity
+                    if purity_obj:
+                        rep['metal_purity'] = purity_obj.purity
+            except Exception:
+                pass
+        return rep
+
 class SalesApprovalItemSerializer(serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     item_name = serializers.CharField(source='item.item_name', read_only=True)

@@ -854,7 +854,9 @@ class SalesApprovalViewset(views.RetailBaseViewset):
     queryset = SalesApproval.objects.select_related(
         'ldgr', 'sales_person', 'sales_person2', 'place_of_supply', 'retail'
     ).prefetch_related(
-        'items__main_item_set'
+        'items__main_item_set',
+        'items__main_item_set__item',       # for item_type check in metal_purity fallback
+        'items__barcode__purity',            # for metal_purity fallback from parent barcode
     ).all()
     serializer_class = SalesApprovalSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]

@@ -405,204 +405,232 @@ const SalesApprovalReturnAdd = () => {
           <div className="border rounded mb-4 overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-slate-50">
                   <TableHead className="w-8" />
-                  <TableHead>Barcode</TableHead>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Pcs</TableHead>
-                  <TableHead>GW</TableHead>
-                  <TableHead>Purity</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead className="text-xs font-semibold">Barcode</TableHead>
+                  <TableHead className="text-xs font-semibold">Item</TableHead>
+                  <TableHead className="text-xs font-semibold text-right">Pcs</TableHead>
+                  <TableHead className="text-xs font-semibold text-right">GW</TableHead>
+                  <TableHead className="text-xs font-semibold">Purity</TableHead>
+                  <TableHead className="text-xs font-semibold text-right">Amount</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fields.map((field, idx) => (
-                  <React.Fragment key={field.id}>
-                    <TableRow>
-                      <TableCell>
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(idx)}
-                          className="text-slate-500"
-                        >
-                          {expandedRows[idx] ? (
-                            <ChevronDown className="size-4" />
-                          ) : (
-                            <ChevronRight className="size-4" />
-                          )}
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-xs">{field.barcode ?? "—"}</TableCell>
-                      <TableCell>
-                        <Input
-                          {...register(`items.${idx}.item`)}
-                          list={`items-datalist-${idx}`}
-                          className="h-7 text-xs w-28"
-                        />
-                        <datalist id={`items-datalist-${idx}`}>
-                          {mainItems.map((m) => (
-                            <option key={m.id} value={m.short_code}>{m.item_name}</option>
-                          ))}
-                        </datalist>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          {...register(`items.${idx}.pcs`)}
-                          className="h-7 text-xs w-16"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.001"
-                          {...register(`items.${idx}.gw`)}
-                          className="h-7 text-xs w-20"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          {...register(`items.${idx}.purity`)}
-                          className="h-7 text-xs w-16"
-                          placeholder="18K"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...register(`items.${idx}.amount`)}
-                          className="h-7 text-xs w-24"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <button
-                          type="button"
-                          onClick={() => remove(idx)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </TableCell>
-                    </TableRow>
-
-                    {/* ── Sub-items (expanded) ── */}
-                    {expandedRows[idx] && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="bg-slate-50 p-2">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Item</TableHead>
-                                <TableHead>Pcs</TableHead>
-                                <TableHead>Ct</TableHead>
-                                <TableHead>GW</TableHead>
-                                <TableHead>Metal Purity</TableHead>
-                                <TableHead>Rate</TableHead>
-                                <TableHead>Amount</TableHead>
-                                <TableHead>Packet</TableHead>
-                                <TableHead className="w-8" />
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {(watch(`items.${idx}.main_item_set`) || []).map((sub, si) => (
-                                <TableRow key={sub._sid ?? si}>
-                                  <TableCell>
-                                    <Input
-                                      {...register(`items.${idx}.main_item_set.${si}.item`)}
-                                      list={`sub-items-datalist-${idx}-${si}`}
-                                      className="h-7 text-xs w-24"
-                                    />
-                                    <datalist id={`sub-items-datalist-${idx}-${si}`}>
-                                      {mainItems.map((m) => (
-                                        <option key={m.id} value={m.short_code}>{m.item_name}</option>
-                                      ))}
-                                    </datalist>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      {...register(`items.${idx}.main_item_set.${si}.pcs`)}
-                                      className="h-7 text-xs w-14"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      step="0.001"
-                                      {...register(`items.${idx}.main_item_set.${si}.ct`)}
-                                      className="h-7 text-xs w-16"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      step="0.001"
-                                      {...register(`items.${idx}.main_item_set.${si}.gw`)}
-                                      className="h-7 text-xs w-16"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      {...register(`items.${idx}.main_item_set.${si}.metal_purity`)}
-                                      className="h-7 text-xs w-16"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      step="0.001"
-                                      {...register(`items.${idx}.main_item_set.${si}.rate`)}
-                                      className="h-7 text-xs w-20"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      {...register(`items.${idx}.main_item_set.${si}.amount`)}
-                                      className="h-7 text-xs w-20"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <select
-                                      {...register(`items.${idx}.main_item_set.${si}.packet`)}
-                                      className="h-7 text-xs border rounded px-1 w-24"
-                                    >
-                                      <option value="">—</option>
-                                      {packets.map((p) => (
-                                        <option key={p.id} value={p.pckt_no}>{p.pckt_no}</option>
-                                      ))}
-                                    </select>
-                                  </TableCell>
-                                  <TableCell>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeSubRow(idx, si)}
-                                      className="text-red-400 hover:text-red-600"
-                                    >
-                                      <Trash2 className="size-3" />
-                                    </button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                          <Button
+                {fields.map((field, idx) => {
+                  const resolvedName = mainItems.find(
+                    (m) => m.short_code === field.item
+                  )?.item_name;
+                  return (
+                    <React.Fragment key={field.id}>
+                      <TableRow className="hover:bg-slate-50/60">
+                        <TableCell className="py-2">
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="mt-1 text-xs"
-                            onClick={() => addSubRow(idx)}
+                            onClick={() => toggleExpand(idx)}
+                            className="text-slate-400 hover:text-slate-700"
                           >
-                            <Plus className="size-3 mr-1" /> Add Sub-item
-                          </Button>
+                            {expandedRows[idx] ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronRight className="size-4" />
+                            )}
+                          </button>
+                        </TableCell>
+                        {/* Barcode — monospace badge, truncated */}
+                        <TableCell className="py-2">
+                          <span className="font-mono text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                            {field.barcode ?? "—"}
+                          </span>
+                        </TableCell>
+                        {/* Item — editable short-code with resolved name below */}
+                        <TableCell className="py-2">
+                          <Input
+                            {...register(`items.${idx}.item`)}
+                            list={`items-datalist-${idx}`}
+                            className="h-7 text-xs w-28"
+                          />
+                          <datalist id={`items-datalist-${idx}`}>
+                            {mainItems.map((m) => (
+                              <option key={m.id} value={m.short_code}>{m.item_name}</option>
+                            ))}
+                          </datalist>
+                          {resolvedName && (
+                            <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[7rem]">
+                              {resolvedName}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-2 text-right">
+                          <Input
+                            type="number"
+                            {...register(`items.${idx}.pcs`)}
+                            className="h-7 text-xs w-14 text-right"
+                          />
+                        </TableCell>
+                        <TableCell className="py-2 text-right">
+                          <Input
+                            type="number"
+                            step="0.001"
+                            {...register(`items.${idx}.gw`)}
+                            className="h-7 text-xs w-20 text-right"
+                          />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Input
+                            {...register(`items.${idx}.purity`)}
+                            className="h-7 text-xs w-16"
+                            placeholder="18K"
+                          />
+                        </TableCell>
+                        <TableCell className="py-2 text-right">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            {...register(`items.${idx}.amount`)}
+                            className="h-7 text-xs w-24 text-right"
+                          />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <button
+                            type="button"
+                            onClick={() => remove(idx)}
+                            className="text-red-400 hover:text-red-600"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
                         </TableCell>
                       </TableRow>
-                    )}
-                  </React.Fragment>
-                ))}
+
+                      {/* ── Sub-items (expanded) ── */}
+                      {expandedRows[idx] && (
+                        <TableRow>
+                          <TableCell colSpan={8} className="bg-slate-50 px-3 py-2">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-slate-100">
+                                  <TableHead className="text-xs font-semibold">Item</TableHead>
+                                  <TableHead className="text-xs font-semibold">Packet</TableHead>
+                                  <TableHead className="text-xs font-semibold text-right">Pcs</TableHead>
+                                  <TableHead className="text-xs font-semibold text-right">Ct</TableHead>
+                                  <TableHead className="text-xs font-semibold text-right">GW</TableHead>
+                                  <TableHead className="text-xs font-semibold">Metal Purity</TableHead>
+                                  <TableHead className="text-xs font-semibold text-right">Rate</TableHead>
+                                  <TableHead className="text-xs font-semibold text-right">Amount</TableHead>
+                                  <TableHead className="w-8" />
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {(watch(`items.${idx}.main_item_set`) || []).map((sub, si) => {
+                                  const subName = mainItems.find(
+                                    (m) => m.short_code === sub.item
+                                  )?.item_name;
+                                  return (
+                                    <TableRow key={sub._sid ?? si} className="hover:bg-slate-50">
+                                      {/* Item + resolved name */}
+                                      <TableCell className="py-1.5">
+                                        <Input
+                                          {...register(`items.${idx}.main_item_set.${si}.item`)}
+                                          list={`sub-items-datalist-${idx}-${si}`}
+                                          className="h-7 text-xs w-24"
+                                        />
+                                        <datalist id={`sub-items-datalist-${idx}-${si}`}>
+                                          {mainItems.map((m) => (
+                                            <option key={m.id} value={m.short_code}>{m.item_name}</option>
+                                          ))}
+                                        </datalist>
+                                        {subName && (
+                                          <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[6rem]">
+                                            {subName}
+                                          </p>
+                                        )}
+                                      </TableCell>
+                                      {/* Packet — now right after Item */}
+                                      <TableCell className="py-1.5">
+                                        <select
+                                          {...register(`items.${idx}.main_item_set.${si}.packet`)}
+                                          className="h-7 text-xs border rounded px-1 w-28"
+                                        >
+                                          <option value="">—</option>
+                                          {packets.map((p) => (
+                                            <option key={p.id} value={p.pckt_no}>{p.pckt_no}</option>
+                                          ))}
+                                        </select>
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-right">
+                                        <Input
+                                          type="number"
+                                          {...register(`items.${idx}.main_item_set.${si}.pcs`)}
+                                          className="h-7 text-xs w-14 text-right"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-right">
+                                        <Input
+                                          type="number"
+                                          step="0.001"
+                                          {...register(`items.${idx}.main_item_set.${si}.ct`)}
+                                          className="h-7 text-xs w-16 text-right"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-right">
+                                        <Input
+                                          type="number"
+                                          step="0.001"
+                                          {...register(`items.${idx}.main_item_set.${si}.gw`)}
+                                          className="h-7 text-xs w-16 text-right"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="py-1.5">
+                                        <Input
+                                          {...register(`items.${idx}.main_item_set.${si}.metal_purity`)}
+                                          className="h-7 text-xs w-16"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-right">
+                                        <Input
+                                          type="number"
+                                          step="0.001"
+                                          {...register(`items.${idx}.main_item_set.${si}.rate`)}
+                                          className="h-7 text-xs w-20 text-right"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="py-1.5 text-right">
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          {...register(`items.${idx}.main_item_set.${si}.amount`)}
+                                          className="h-7 text-xs w-20 text-right"
+                                        />
+                                      </TableCell>
+                                      <TableCell className="py-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => removeSubRow(idx, si)}
+                                          className="text-red-400 hover:text-red-600"
+                                        >
+                                          <Trash2 className="size-3" />
+                                        </button>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="mt-1 text-xs"
+                              onClick={() => addSubRow(idx)}
+                            >
+                              <Plus className="size-3 mr-1" /> Add Sub-item
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

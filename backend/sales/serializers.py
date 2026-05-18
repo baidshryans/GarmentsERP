@@ -1861,24 +1861,20 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         rep = super().to_representation(instance)
         # If metal_purity was never stored (legacy records or barcodes without
-        # sub-item purity set), derive it from the parent approval item —
-        # but only for metal sub-items, not diamonds/stones.
+        # sub-item purity set), derive it from the parent SalesApprovalItem.purity
+        # (IntegerField storing PurityMaster PK) — only for metal sub-items.
         if not rep.get('metal_purity'):
             try:
-                if instance.item and instance.item.item_type == 'M':
-                    # Path 1: BarcodeMain → purity FK (may be null on many barcodes)
-                    barcode = getattr(instance.main_item, 'barcode', None)
-                    purity_obj = getattr(barcode, 'purity', None) if barcode else None
-                    if purity_obj:
-                        rep['metal_purity'] = purity_obj.purity
-                    # Path 2: SalesApprovalItem.purity stores PurityMaster PK as int
-                    if not rep.get('metal_purity'):
-                        purity_pk = getattr(instance.main_item, 'purity', None)
-                        if purity_pk:
-                            try:
-                                rep['metal_purity'] = PurityMaster.objects.get(pk=int(purity_pk)).purity
-                            except (PurityMaster.DoesNotExist, TypeError, ValueError):
-                                pass
+                item_type = getattr(getattr(instance, 'item', None), 'item_type', None)
+                if item_type == 'M' and instance.main_item_id:
+                    # Use main_item_id (raw FK column) to avoid FK-cache issues
+                    parent_purity_pk = SalesApprovalItem.objects.values_list(
+                        'purity', flat=True
+                    ).get(pk=instance.main_item_id)
+                    if parent_purity_pk:
+                        rep['metal_purity'] = PurityMaster.objects.get(
+                            pk=int(parent_purity_pk)
+                        ).purity
             except Exception:
                 pass
         return rep

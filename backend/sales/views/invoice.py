@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 from goldrates.models import PurityMaster
 from contacts.models import Ledger, LedgerRole
 from mastersconfig.models import Item
+from inventory.models import BarcodeTransaction
 from accounting.serializers import SaleVoucherLedgerSerializer
 from userauth import views
 
@@ -948,13 +949,29 @@ class SalesApprovalViewset(views.RetailBaseViewset):
             # Only act on items not already returned (idempotent)
             to_return = SalesApprovalItem.objects.filter(
                 id__in=ids, billno=approval, ret_status=False
-            )
-            barcode_ids = list(to_return.values_list('barcode_id', flat=True))
+            ).select_related('barcode')
+            items_to_return = list(to_return)
+            barcode_ids = [it.barcode_id for it in items_to_return if it.barcode_id]
 
             to_return.update(ret_status=True)
 
             if barcode_ids:
                 BarcodeMain.objects.filter(id__in=barcode_ids).update(stk_status=True)
+
+            # Audit-log each returned barcode in the barcode-wise transaction table.
+            if barcode_ids:
+                ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+                retail = getattr(request, 'retail', None)
+                for it in items_to_return:
+                    if it.barcode_id and it.barcode:
+                        BarcodeTransaction.objects.create(
+                            barcode=it.barcode,
+                            billno=approval.billno,
+                            trans_type="SALE-APP-RET",
+                            user=request.user,
+                            ip_address=ip,
+                            retail=retail,
+                        )
 
         approval = self.get_queryset().get(pk=approval.pk)
         serializer = self.get_serializer(approval)

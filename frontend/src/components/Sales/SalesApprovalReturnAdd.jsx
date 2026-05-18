@@ -418,79 +418,135 @@ const SalesApprovalReturnAdd = () => {
               </TableHeader>
               <TableBody>
                 {fields.map((field, idx) => {
+                  /* Barcode items are returned in their entirety and must not
+                     be edited. Manual rows (no barcode) remain fully editable. */
+                  const isBarcodeItem = !!field.barcode;
                   const resolvedName = mainItems.find(
                     (m) => m.short_code === field.item
                   )?.item_name;
+                  const subItems = watch(`items.${idx}.main_item_set`) || [];
+
                   return (
                     <React.Fragment key={field.id}>
                       <TableRow className="hover:bg-slate-50/60">
+                        {/* Expand toggle — only show when there are sub-items */}
                         <TableCell className="py-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleExpand(idx)}
-                            className="text-slate-400 hover:text-slate-700"
-                          >
-                            {expandedRows[idx] ? (
-                              <ChevronDown className="size-4" />
-                            ) : (
-                              <ChevronRight className="size-4" />
-                            )}
-                          </button>
+                          {subItems.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(idx)}
+                              className="text-slate-400 hover:text-slate-700"
+                            >
+                              {expandedRows[idx] ? (
+                                <ChevronDown className="size-4" />
+                              ) : (
+                                <ChevronRight className="size-4" />
+                              )}
+                            </button>
+                          ) : (
+                            <span className="size-4 inline-block" />
+                          )}
                         </TableCell>
-                        {/* Barcode — monospace badge, truncated */}
+
+                        {/* Barcode — monospace badge */}
                         <TableCell className="py-2">
                           <span className="font-mono text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
                             {field.barcode ?? "—"}
                           </span>
                         </TableCell>
-                        {/* Item — editable short-code with resolved name below */}
+
+                        {/* Item */}
                         <TableCell className="py-2">
-                          <Input
-                            {...register(`items.${idx}.item`)}
-                            list={`items-datalist-${idx}`}
-                            className="h-7 text-xs w-28"
-                          />
-                          <datalist id={`items-datalist-${idx}`}>
-                            {mainItems.map((m) => (
-                              <option key={m.id} value={m.short_code}>{m.item_name}</option>
-                            ))}
-                          </datalist>
-                          {resolvedName && (
-                            <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[7rem]">
-                              {resolvedName}
-                            </p>
+                          {isBarcodeItem ? (
+                            /* read-only: show resolved name or short code */
+                            <div>
+                              <span className="text-xs font-medium">{field.item}</span>
+                              {resolvedName && (
+                                <p className="text-[10px] text-slate-500 mt-0.5">{resolvedName}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <Input
+                                {...register(`items.${idx}.item`)}
+                                list={`items-datalist-${idx}`}
+                                className="h-7 text-xs w-28"
+                              />
+                              <datalist id={`items-datalist-${idx}`}>
+                                {mainItems.map((m) => (
+                                  <option key={m.id} value={m.short_code}>{m.item_name}</option>
+                                ))}
+                              </datalist>
+                              {resolvedName && (
+                                <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[7rem]">
+                                  {resolvedName}
+                                </p>
+                              )}
+                            </>
                           )}
                         </TableCell>
+
+                        {/* Pcs */}
                         <TableCell className="py-2 text-right">
-                          <Input
-                            type="number"
-                            {...register(`items.${idx}.pcs`)}
-                            className="h-7 text-xs w-14 text-right"
-                          />
+                          {isBarcodeItem ? (
+                            <span className="text-xs tabular-nums">{field.pcs}</span>
+                          ) : (
+                            <Input
+                              type="number"
+                              {...register(`items.${idx}.pcs`)}
+                              className="h-7 text-xs w-14 text-right"
+                            />
+                          )}
                         </TableCell>
+
+                        {/* GW */}
                         <TableCell className="py-2 text-right">
-                          <Input
-                            type="number"
-                            step="0.001"
-                            {...register(`items.${idx}.gw`)}
-                            className="h-7 text-xs w-20 text-right"
-                          />
+                          {isBarcodeItem ? (
+                            <span className="text-xs tabular-nums">
+                              {Number(field.gw || 0).toFixed(3)}
+                            </span>
+                          ) : (
+                            <Input
+                              type="number"
+                              step="0.001"
+                              {...register(`items.${idx}.gw`)}
+                              className="h-7 text-xs w-20 text-right"
+                            />
+                          )}
                         </TableCell>
+
+                        {/* Purity */}
                         <TableCell className="py-2">
-                          <Input
-                            {...register(`items.${idx}.purity`)}
-                            className="h-7 text-xs w-16"
-                            placeholder="18K"
-                          />
+                          {isBarcodeItem ? (
+                            <span className="text-xs">{field.purity || "—"}</span>
+                          ) : (
+                            <Input
+                              {...register(`items.${idx}.purity`)}
+                              className="h-7 text-xs w-16"
+                              placeholder="18K"
+                            />
+                          )}
                         </TableCell>
+
+                        {/* Amount */}
                         <TableCell className="py-2 text-right">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            {...register(`items.${idx}.amount`)}
-                            className="h-7 text-xs w-24 text-right"
-                          />
+                          {isBarcodeItem ? (
+                            <span className="text-xs tabular-nums">
+                              {Number(field.amount || 0).toLocaleString("en-IN", {
+                                minimumFractionDigits: 2, maximumFractionDigits: 2,
+                              })}
+                            </span>
+                          ) : (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              {...register(`items.${idx}.amount`)}
+                              className="h-7 text-xs w-24 text-right"
+                            />
+                          )}
                         </TableCell>
+
+                        {/* Delete — always shown on main row so user can de-select */}
                         <TableCell className="py-2">
                           <button
                             type="button"
@@ -503,7 +559,7 @@ const SalesApprovalReturnAdd = () => {
                       </TableRow>
 
                       {/* ── Sub-items (expanded) ── */}
-                      {expandedRows[idx] && (
+                      {expandedRows[idx] && subItems.length > 0 && (
                         <TableRow>
                           <TableCell colSpan={8} className="bg-slate-50 px-3 py-2">
                             <Table>
@@ -517,114 +573,188 @@ const SalesApprovalReturnAdd = () => {
                                   <TableHead className="text-xs font-semibold">Metal Purity</TableHead>
                                   <TableHead className="text-xs font-semibold text-right">Rate</TableHead>
                                   <TableHead className="text-xs font-semibold text-right">Amount</TableHead>
-                                  <TableHead className="w-8" />
+                                  {/* No action column for barcode items */}
+                                  {!isBarcodeItem && <TableHead className="w-8" />}
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {(watch(`items.${idx}.main_item_set`) || []).map((sub, si) => {
+                                {subItems.map((sub, si) => {
                                   const subName = mainItems.find(
                                     (m) => m.short_code === sub.item
                                   )?.item_name;
                                   return (
                                     <TableRow key={sub._sid ?? si} className="hover:bg-slate-50">
-                                      {/* Item + resolved name */}
+                                      {/* Item */}
                                       <TableCell className="py-1.5">
-                                        <Input
-                                          {...register(`items.${idx}.main_item_set.${si}.item`)}
-                                          list={`sub-items-datalist-${idx}-${si}`}
-                                          className="h-7 text-xs w-24"
-                                        />
-                                        <datalist id={`sub-items-datalist-${idx}-${si}`}>
-                                          {mainItems.map((m) => (
-                                            <option key={m.id} value={m.short_code}>{m.item_name}</option>
-                                          ))}
-                                        </datalist>
-                                        {subName && (
-                                          <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[6rem]">
-                                            {subName}
-                                          </p>
+                                        {isBarcodeItem ? (
+                                          <div>
+                                            <span className="text-xs font-medium">{sub.item}</span>
+                                            {subName && (
+                                              <p className="text-[10px] text-slate-500 mt-0.5">
+                                                {subName}
+                                              </p>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <Input
+                                              {...register(`items.${idx}.main_item_set.${si}.item`)}
+                                              list={`sub-items-datalist-${idx}-${si}`}
+                                              className="h-7 text-xs w-24"
+                                            />
+                                            <datalist id={`sub-items-datalist-${idx}-${si}`}>
+                                              {mainItems.map((m) => (
+                                                <option key={m.id} value={m.short_code}>{m.item_name}</option>
+                                              ))}
+                                            </datalist>
+                                            {subName && (
+                                              <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[6rem]">
+                                                {subName}
+                                              </p>
+                                            )}
+                                          </>
                                         )}
                                       </TableCell>
-                                      {/* Packet — now right after Item */}
+
+                                      {/* Packet */}
                                       <TableCell className="py-1.5">
-                                        <select
-                                          {...register(`items.${idx}.main_item_set.${si}.packet`)}
-                                          className="h-7 text-xs border rounded px-1 w-28"
-                                        >
-                                          <option value="">—</option>
-                                          {packets.map((p) => (
-                                            <option key={p.id} value={p.pckt_no}>{p.pckt_no}</option>
-                                          ))}
-                                        </select>
+                                        {isBarcodeItem ? (
+                                          <span className="text-xs">{sub.packet || "—"}</span>
+                                        ) : (
+                                          <select
+                                            {...register(`items.${idx}.main_item_set.${si}.packet`)}
+                                            className="h-7 text-xs border rounded px-1 w-28"
+                                          >
+                                            <option value="">—</option>
+                                            {packets.map((p) => (
+                                              <option key={p.id} value={p.pckt_no}>{p.pckt_no}</option>
+                                            ))}
+                                          </select>
+                                        )}
                                       </TableCell>
+
+                                      {/* Pcs */}
                                       <TableCell className="py-1.5 text-right">
-                                        <Input
-                                          type="number"
-                                          {...register(`items.${idx}.main_item_set.${si}.pcs`)}
-                                          className="h-7 text-xs w-14 text-right"
-                                        />
+                                        {isBarcodeItem ? (
+                                          <span className="text-xs tabular-nums">{sub.pcs}</span>
+                                        ) : (
+                                          <Input
+                                            type="number"
+                                            {...register(`items.${idx}.main_item_set.${si}.pcs`)}
+                                            className="h-7 text-xs w-14 text-right"
+                                          />
+                                        )}
                                       </TableCell>
+
+                                      {/* Ct */}
                                       <TableCell className="py-1.5 text-right">
-                                        <Input
-                                          type="number"
-                                          step="0.001"
-                                          {...register(`items.${idx}.main_item_set.${si}.ct`)}
-                                          className="h-7 text-xs w-16 text-right"
-                                        />
+                                        {isBarcodeItem ? (
+                                          <span className="text-xs tabular-nums">
+                                            {sub.ct && Number(sub.ct) !== 0
+                                              ? Number(sub.ct).toFixed(3)
+                                              : "—"}
+                                          </span>
+                                        ) : (
+                                          <Input
+                                            type="number"
+                                            step="0.001"
+                                            {...register(`items.${idx}.main_item_set.${si}.ct`)}
+                                            className="h-7 text-xs w-16 text-right"
+                                          />
+                                        )}
                                       </TableCell>
+
+                                      {/* GW */}
                                       <TableCell className="py-1.5 text-right">
-                                        <Input
-                                          type="number"
-                                          step="0.001"
-                                          {...register(`items.${idx}.main_item_set.${si}.gw`)}
-                                          className="h-7 text-xs w-16 text-right"
-                                        />
+                                        {isBarcodeItem ? (
+                                          <span className="text-xs tabular-nums">
+                                            {Number(sub.gw || 0).toFixed(3)}
+                                          </span>
+                                        ) : (
+                                          <Input
+                                            type="number"
+                                            step="0.001"
+                                            {...register(`items.${idx}.main_item_set.${si}.gw`)}
+                                            className="h-7 text-xs w-16 text-right"
+                                          />
+                                        )}
                                       </TableCell>
+
+                                      {/* Metal Purity */}
                                       <TableCell className="py-1.5">
-                                        <Input
-                                          {...register(`items.${idx}.main_item_set.${si}.metal_purity`)}
-                                          className="h-7 text-xs w-16"
-                                        />
+                                        {isBarcodeItem ? (
+                                          <span className="text-xs">{sub.metal_purity || "—"}</span>
+                                        ) : (
+                                          <Input
+                                            {...register(`items.${idx}.main_item_set.${si}.metal_purity`)}
+                                            className="h-7 text-xs w-16"
+                                          />
+                                        )}
                                       </TableCell>
+
+                                      {/* Rate */}
                                       <TableCell className="py-1.5 text-right">
-                                        <Input
-                                          type="number"
-                                          step="0.001"
-                                          {...register(`items.${idx}.main_item_set.${si}.rate`)}
-                                          className="h-7 text-xs w-20 text-right"
-                                        />
+                                        {isBarcodeItem ? (
+                                          <span className="text-xs tabular-nums">
+                                            {Number(sub.rate || 0).toLocaleString("en-IN")}
+                                          </span>
+                                        ) : (
+                                          <Input
+                                            type="number"
+                                            step="0.001"
+                                            {...register(`items.${idx}.main_item_set.${si}.rate`)}
+                                            className="h-7 text-xs w-20 text-right"
+                                          />
+                                        )}
                                       </TableCell>
+
+                                      {/* Amount */}
                                       <TableCell className="py-1.5 text-right">
-                                        <Input
-                                          type="number"
-                                          step="0.01"
-                                          {...register(`items.${idx}.main_item_set.${si}.amount`)}
-                                          className="h-7 text-xs w-20 text-right"
-                                        />
+                                        {isBarcodeItem ? (
+                                          <span className="text-xs tabular-nums">
+                                            {Number(sub.amount || 0).toLocaleString("en-IN", {
+                                              minimumFractionDigits: 2, maximumFractionDigits: 2,
+                                            })}
+                                          </span>
+                                        ) : (
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            {...register(`items.${idx}.main_item_set.${si}.amount`)}
+                                            className="h-7 text-xs w-20 text-right"
+                                          />
+                                        )}
                                       </TableCell>
-                                      <TableCell className="py-1.5">
-                                        <button
-                                          type="button"
-                                          onClick={() => removeSubRow(idx, si)}
-                                          className="text-red-400 hover:text-red-600"
-                                        >
-                                          <Trash2 className="size-3" />
-                                        </button>
-                                      </TableCell>
+
+                                      {/* Delete — hidden for barcode sub-items */}
+                                      {!isBarcodeItem && (
+                                        <TableCell className="py-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => removeSubRow(idx, si)}
+                                            className="text-red-400 hover:text-red-600"
+                                          >
+                                            <Trash2 className="size-3" />
+                                          </button>
+                                        </TableCell>
+                                      )}
                                     </TableRow>
                                   );
                                 })}
                               </TableBody>
                             </Table>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="mt-1 text-xs"
-                              onClick={() => addSubRow(idx)}
-                            >
-                              <Plus className="size-3 mr-1" /> Add Sub-item
-                            </Button>
+                            {/* Add Sub-item only for manual rows */}
+                            {!isBarcodeItem && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="mt-1 text-xs"
+                                onClick={() => addSubRow(idx)}
+                              >
+                                <Plus className="size-3 mr-1" /> Add Sub-item
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       )}

@@ -2274,6 +2274,26 @@ class SalesApprovalReturnSerializer(serializers.ModelSerializer):
             if approval_item_ids:
                 SalesApprovalItem.objects.filter(id__in=approval_item_ids).update(ret_status=True)
 
+            # Audit-log each returned barcode in the barcode-wise transaction table.
+            if barcode_ids:
+                ip = (
+                    request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+                    if request else None
+                )
+                for barcode_id in barcode_ids:
+                    try:
+                        barcode_obj = BarcodeMain.objects.get(id=barcode_id)
+                        BarcodeTransaction.objects.create(
+                            barcode=barcode_obj,
+                            billno=sar.billno,
+                            trans_type="SALE-APP-RET",
+                            user=request.user if request else None,
+                            ip_address=ip,
+                            retail=sar.retail,
+                        )
+                    except BarcodeMain.DoesNotExist:
+                        pass
+
             return sar
 
     def update(self, instance, validated_data):

@@ -711,6 +711,11 @@ class StockJournalSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         with transaction.atomic():
             detail_data = validated_data.pop('stockjournaldetail_set', [])
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             parent_instance = StockJournal.objects.create(**validated_data)
             create_or_update_nested(StockJournalDetailSerializer, parent_instance, 'stockjournaldetail_set', 'billno', StockJournalDetailSerializer(detail_data,many=True).data)
             return parent_instance
@@ -861,6 +866,10 @@ class StockTransferSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             from accounting.utils import get_next_bill_number
             validated_data['billno'] = get_next_bill_number(request.retail, 'RST')
+            if 'fiscal_year' not in validated_data:
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             parent_instance = StockTransfer.objects.create(**validated_data)
             create_or_update_nested(
                 StockTransferMainSerializer, parent_instance,

@@ -945,6 +945,10 @@ class CreditDebitNoteSerializer(serializers.ModelSerializer):
 
         # Create the CreditDebitNote record
         validated_data['ac_voucher'] = voucher_main
+        request = self.context.get('request')
+        _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+        if _retail:
+            validated_data.setdefault('fiscal_year', getattr(_retail, 'active_fy', None))
         note = CreditDebitNote.objects.create(**validated_data)
         return note
 

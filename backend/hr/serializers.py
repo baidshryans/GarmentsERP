@@ -88,6 +88,13 @@ class SalarySlipSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('created_at', 'updated_at')
 
+    def create(self, validated_data):
+        request = self.context.get('request')
+        _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+        if _retail:
+            validated_data.setdefault('fiscal_year', getattr(_retail, 'active_fy', None))
+        return super().create(validated_data)
+
 
 class LeaveBalanceSerializer(serializers.ModelSerializer):
     class Meta:

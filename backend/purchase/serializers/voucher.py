@@ -364,6 +364,11 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             items_data = validated_data.pop('purchasevoucheritems_set')
             direct_details_data = validated_data.pop('purchasevoucherdetails_set', [])
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             purchase_voucher_instance = PurchaseVoucher.objects.create(**validated_data)
 
             # Create related PurchaseVoucherItems and their sub-details

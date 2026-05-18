@@ -156,6 +156,11 @@ class PurchaseOrderForPostSerializer(serializers.ModelSerializer):
         with transaction.atomic():
 
             items_data = validated_data.pop('purchaseorderitems_set')
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             purchase_order_instance = PurchaseOrder.objects.create(**validated_data)
 
             # Create related PurchaseVoucherItems instances

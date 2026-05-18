@@ -129,6 +129,11 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('purchasereturnitems_set')
+        if 'fiscal_year' not in validated_data:
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+            if _retail:
+                validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         purchase_return_instance = PurchaseReturn.objects.create(**validated_data)
 
         # Create related PurchaseReturnItems instances

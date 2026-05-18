@@ -2116,7 +2116,11 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
                 item_instances.append(sale_return_item_instance)
 
                 for detail in details_data:
-                    det = SalesApprovalItemDetails.objects.create(main_item=sale_return_item_instance, **detail)
+                    det = SalesApprovalItemDetails.objects.create(
+                        billno=sale_return_instance,
+                        main_item=sale_return_item_instance,
+                        **detail,
+                    )
                     item_detail_instances.append(det)
             ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
 

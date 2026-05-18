@@ -207,7 +207,15 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         vtype = voucher_type_map[prefix]
         qs = VoucherMain.objects.filter(retail=retail, voucher_type=vtype)
         if fiscal_year:
-            qs = qs.filter(fiscal_year=fiscal_year)
+            # Include vouchers whose fiscal_year FK is correct AND legacy vouchers
+            # where fiscal_year was never stored (NULL) but the FY code appears in
+            # the voucher_no string (e.g. "RCPT/R001/26-27/00001"). This prevents
+            # UNIQUE collisions when the sequence is bootstrapped for the first time.
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(fiscal_year=fiscal_year) |
+                Q(fiscal_year__isnull=True, voucher_no__contains=fiscal_year.fy_code)
+            )
         last = qs.order_by('-voucher_no').values_list('voucher_no', flat=True).first()
         if last:
             match = re.search(r'(\d+)$', last)

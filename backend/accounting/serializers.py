@@ -445,6 +445,10 @@ class JournalEntrySerializer(serializers.Serializer):
             validated_data['voucher_no'] = generate_voucher_no(
                 type=seq_prefix, retail=retail_obj, fiscal_year=fy
             )
+            # Also persist the fiscal_year FK so bootstrap queries can find
+            # these vouchers by FY in future sequence resyncs.
+            if fy and 'fiscal_year' not in validated_data:
+                validated_data['fiscal_year'] = fy
 
         voucher_main = VoucherMain.objects.create(
             **validated_data,

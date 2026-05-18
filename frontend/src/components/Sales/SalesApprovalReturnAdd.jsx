@@ -106,12 +106,18 @@ const SalesApprovalReturnAdd = () => {
       setApprovalResults([]);
       return;
     }
+    // If an approval is already selected and the search field still holds its
+    // billno (i.e. the user hasn't typed something new), don't re-search.
+    if (selectedApproval && refSearch === selectedApproval.billno) {
+      setApprovalResults([]);
+      return;
+    }
     refSearchDebounce.current = setTimeout(async () => {
       const res = await fetchSalesApproval({ search: refSearch, page: 1, pendingOnly: true });
       if (res.success) setApprovalResults(res.data.results || []);
     }, 300);
     return () => clearTimeout(refSearchDebounce.current);
-  }, [refSearch]);
+  }, [refSearch, selectedApproval]);
 
   const handleSelectApproval = async (approval) => {
     setApprovalResults([]);

@@ -640,11 +640,12 @@ class BarcodeDetToSaleVouDetSerializer(BarcodeDetailsSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         # Use the sub-item's own purity FK when available.
-        # For metal sub-items (item_type='M') with no purity set, fall back to
-        # the parent barcode's purity passed via context — prevents null metal_purity
-        # being stored on gold sub-items when the barcode sub-item FK is null.
+        # For sub-items with no purity FK (Gold is item_type='R' — Raw, not 'M'),
+        # fall back to the parent barcode's purity string passed via context.
+        # This covers both Metal ('M') and Raw ('R') item types; stones/diamonds
+        # ('S', 'O') rarely have a purity set on BarcodeDetails so they get None.
         sub_purity = instance.purity.purity if instance.purity else None
-        if sub_purity is None and instance.item and instance.item.item_type == 'M':
+        if sub_purity is None and instance.item and instance.item.item_type in ('M', 'R'):
             sub_purity = self.context.get('purity')  # parent barcode purity string
         representation["metal_purity"] = sub_purity
         representation["item_name"] = instance.item.item_name if instance.item else None

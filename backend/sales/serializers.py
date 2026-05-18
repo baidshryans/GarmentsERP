@@ -1860,19 +1860,24 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        # If metal_purity was never stored (legacy records), derive it from the
-        # parent SalesApprovalItem.purity (IntegerField → PurityMaster PK).
-        # Applies to all sub-items — diamonds/stones set in gold mounting also
-        # carry the parent piece's metal purity.
-        if not rep.get('metal_purity') and instance.main_item_id:
+        # If metal_purity was never stored (legacy records created before the
+        # BarcodeDetToSaleVouDetSerializer fix), derive it from the BarcodeDetails
+        # row that corresponds to this sub-item:
+        #   SalesApprovalItemDetails → SalesApprovalItem → BarcodeMain → BarcodeDetails
+        # Match on barcode + item so we get the purity for this specific component.
+        if not rep.get('metal_purity') and instance.main_item_id and instance.item_id:
             try:
-                parent_purity_pk = SalesApprovalItem.objects.values_list(
-                    'purity', flat=True
+                from inventory.models import BarcodeDetails
+                barcode_id = SalesApprovalItem.objects.values_list(
+                    'barcode_id', flat=True
                 ).get(pk=instance.main_item_id)
-                if parent_purity_pk:
-                    rep['metal_purity'] = PurityMaster.objects.get(
-                        pk=int(parent_purity_pk)
-                    ).purity
+                if barcode_id:
+                    bd = BarcodeDetails.objects.select_related('purity').filter(
+                        barcode_id=barcode_id,
+                        item_id=instance.item_id,
+                    ).first()
+                    if bd and bd.purity:
+                        rep['metal_purity'] = bd.purity.purity
             except Exception:
                 pass
         return rep

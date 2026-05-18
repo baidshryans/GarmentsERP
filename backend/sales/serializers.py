@@ -1861,14 +1861,24 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         rep = super().to_representation(instance)
         # If metal_purity was never stored (legacy records or barcodes without
-        # sub-item purity set), derive it from the parent approval item's
-        # barcode purity — but only for metal sub-items, not diamonds/stones.
+        # sub-item purity set), derive it from the parent approval item —
+        # but only for metal sub-items, not diamonds/stones.
         if not rep.get('metal_purity'):
             try:
                 if instance.item and instance.item.item_type == 'M':
-                    purity_obj = instance.main_item.barcode.purity
+                    # Path 1: BarcodeMain → purity FK (may be null on many barcodes)
+                    barcode = getattr(instance.main_item, 'barcode', None)
+                    purity_obj = getattr(barcode, 'purity', None) if barcode else None
                     if purity_obj:
                         rep['metal_purity'] = purity_obj.purity
+                    # Path 2: SalesApprovalItem.purity stores PurityMaster PK as int
+                    if not rep.get('metal_purity'):
+                        purity_pk = getattr(instance.main_item, 'purity', None)
+                        if purity_pk:
+                            try:
+                                rep['metal_purity'] = PurityMaster.objects.get(pk=int(purity_pk)).purity
+                            except (PurityMaster.DoesNotExist, TypeError, ValueError):
+                                pass
             except Exception:
                 pass
         return rep

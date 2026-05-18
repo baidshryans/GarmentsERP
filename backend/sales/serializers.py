@@ -354,6 +354,11 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         with transaction.atomic():
             items_data = validated_data.pop('items')
+            if 'fiscal_year' not in validated_data:
+                request = self.context.get('request')
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             order_instance = CustomerOrder.objects.create(**validated_data)
 
             for item in items_data:
@@ -861,6 +866,10 @@ class SalesVouSerializer(serializers.ModelSerializer):
                         'old_gold_adjusted': f'Cannot adjust from {old_gold_purchase.billno} - insufficient balance.'
                     })
 
+            if 'fiscal_year' not in validated_data:
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             sales_vou_instance = SalesVou.objects.create(**validated_data)
 
             # Patch due_amt now that the instance exists (total_bill_value is a property)
@@ -1536,6 +1545,10 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             items_data = validated_data.pop('salereturnitem_set')
             request = self.context.get("request")
             validated_data['billno'] = generate_next_sale_return_no(request.retail)
+            if 'fiscal_year' not in validated_data:
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             sale_return_instance = SaleReturn.objects.create(**validated_data)
 
             item_instances = []
@@ -2106,6 +2119,10 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
             items_data = validated_data.pop('items')
             request = self.context.get("request")
             validated_data['billno'] = generate_next_sale_app_no(request.retail)
+            if 'fiscal_year' not in validated_data:
+                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+                if _retail:
+                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             sale_return_instance = SalesApproval.objects.create(**validated_data)
 
             item_instances = []
@@ -2266,6 +2283,7 @@ class SalesApprovalReturnSerializer(serializers.ModelSerializer):
             validated_data['billno'] = get_next_bill_number(
                 request.retail, 'SAR', request.retail.active_fy,
             )
+            validated_data.setdefault('fiscal_year', getattr(getattr(request, 'retail', None), 'active_fy', None))
             sar = SalesApprovalReturn.objects.create(**validated_data)
 
             barcode_ids = []
@@ -2432,6 +2450,8 @@ class QuotationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
         with transaction.atomic():
+            request = self.context.get('request')
+            validated_data.setdefault('fiscal_year', getattr(getattr(request, 'retail', None), 'active_fy', None))
             quotation = Quotation.objects.create(**validated_data)
             for item_data in items_data:
                 details_data = item_data.pop('details', [])

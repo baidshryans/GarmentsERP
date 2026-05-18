@@ -860,9 +860,7 @@ class SalesApprovalViewset(views.RetailBaseViewset):
         'items__barcode__purity',            # for metal_purity fallback from parent barcode
     ).all()
     serializer_class = SalesApprovalSerializer
-    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
-
-    search_fields = ['billno', 'ldgr__ac_name']
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
 
     @property
     def ordering_fields(self):
@@ -872,9 +870,15 @@ class SalesApprovalViewset(views.RetailBaseViewset):
     def get_queryset(self):
         qs = super().get_queryset()
         # ?pending_only=true → only approvals that have at least one non-returned item.
-        # Used by the "Reference Approval" dropdown in the SalesApprovalReturn form.
         if self.request.query_params.get('pending_only', '').lower() in ('true', '1', 'yes'):
             qs = qs.filter(items__ret_status=False).distinct()
+        # Explicit icontains search across billno and party name so that
+        # partial numbers (e.g. "00001") match regardless of prefix.
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(billno__icontains=search) | Q(ldgr__ac_name__icontains=search)
+            ).distinct()
         return qs
 
     def _resolve_fiscal_year(self, retail, voucher_date):

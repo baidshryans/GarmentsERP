@@ -98,7 +98,10 @@ def peek_next_bill_number(retail, prefix, fiscal_year=None):
 def get_next_bill_number(retail, prefix, fiscal_year=None):
     """
     O(1) voucher number generation using a sequence table.
-    Relies on transaction.atomic() for concurrency safety.
+    Uses select_for_update() to prevent concurrent duplicate generation.
+    Also resyncs the sequence against the actual DB max on every call so
+    the sequence can never fall behind real records (prevents UNIQUE errors
+    if vouchers were inserted directly or the sequence was otherwise skewed).
     Sequences reset per fiscal year so each FY starts from 00001.
     """
     fy = fiscal_year or getattr(retail, 'active_fy', None)
@@ -108,14 +111,31 @@ def get_next_bill_number(retail, prefix, fiscal_year=None):
     fy_code = fy.fy_code
 
     with transaction.atomic():
-        seq, created = BillNumberSequence.objects.get_or_create(
-            retail=retail, prefix=prefix, fiscal_year=fy,
-            defaults={'last_number': 0}
-        )
-        if created:
-            # Bootstrap: find the max existing number from the relevant model for this FY
-            max_num = _bootstrap_sequence_number(retail, prefix, fy)
-            seq.last_number = max_num
+        # Lock the sequence row to prevent concurrent duplicate generation.
+        try:
+            seq = BillNumberSequence.objects.select_for_update().get(
+                retail=retail, prefix=prefix, fiscal_year=fy
+            )
+            created = False
+        except BillNumberSequence.DoesNotExist:
+            seq, created = BillNumberSequence.objects.get_or_create(
+                retail=retail, prefix=prefix, fiscal_year=fy,
+                defaults={'last_number': 0}
+            )
+            if not created:
+                # Another thread created the row between our GET and get_or_create;
+                # re-fetch with the row lock.
+                seq = BillNumberSequence.objects.select_for_update().get(
+                    retail=retail, prefix=prefix, fiscal_year=fy
+                )
+
+        # Resync: compare stored last_number with the actual max in the DB.
+        # This repairs a stale sequence (e.g. records inserted directly, FY
+        # data copied in, or sequence table manually modified) before we
+        # increment, so we never produce a voucher_no that already exists.
+        actual_max = _bootstrap_sequence_number(retail, prefix, fy)
+        if actual_max > seq.last_number:
+            seq.last_number = actual_max
 
         seq.last_number += 1
         seq.save(update_fields=['last_number'])

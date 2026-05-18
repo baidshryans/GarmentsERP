@@ -55,6 +55,7 @@ const SalesApprovalReturnAdd = () => {
   const [selectedApproval, setSelectedApproval] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
   const refSearchDebounce = useRef(null);
+  const refSearchAbort = useRef(null);
 
   /* ── Initial data load ── */
   useEffect(() => {
@@ -98,23 +99,29 @@ const SalesApprovalReturnAdd = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  /* ── Ref approval search (debounced 300 ms) ── */
+  /* ── Ref approval search (debounced 300 ms, stale-request cancelled) ── */
   const refSearch = watch("_refSearch");
   useEffect(() => {
     clearTimeout(refSearchDebounce.current);
+    // Cancel any in-flight request from the previous keystroke
+    if (refSearchAbort.current) refSearchAbort.current.abort();
+
     if (!refSearch || refSearch.length < 1) {
       setApprovalResults([]);
       return;
     }
-    // If an approval is already selected and the search field still holds its
-    // billno (i.e. the user hasn't typed something new), don't re-search.
+    // If an approval is already selected and the field still shows its billno,
+    // the user hasn't typed a new query — don't re-search.
     if (selectedApproval && refSearch === selectedApproval.billno) {
       setApprovalResults([]);
       return;
     }
     refSearchDebounce.current = setTimeout(async () => {
+      const controller = new AbortController();
+      refSearchAbort.current = controller;
       const res = await fetchSalesApproval({ search: refSearch, page: 1, pendingOnly: true });
-      if (res.success) setApprovalResults(res.data.results || []);
+      if (!controller.signal.aborted && res.success)
+        setApprovalResults(res.data.results || []);
     }, 300);
     return () => clearTimeout(refSearchDebounce.current);
   }, [refSearch, selectedApproval]);

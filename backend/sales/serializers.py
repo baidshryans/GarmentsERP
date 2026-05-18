@@ -1860,21 +1860,19 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        # If metal_purity was never stored (legacy records or barcodes without
-        # sub-item purity set), derive it from the parent SalesApprovalItem.purity
-        # (IntegerField storing PurityMaster PK) — only for metal sub-items.
-        if not rep.get('metal_purity'):
+        # If metal_purity was never stored (legacy records), derive it from the
+        # parent SalesApprovalItem.purity (IntegerField → PurityMaster PK).
+        # Applies to all sub-items — diamonds/stones set in gold mounting also
+        # carry the parent piece's metal purity.
+        if not rep.get('metal_purity') and instance.main_item_id:
             try:
-                item_type = getattr(getattr(instance, 'item', None), 'item_type', None)
-                if item_type == 'M' and instance.main_item_id:
-                    # Use main_item_id (raw FK column) to avoid FK-cache issues
-                    parent_purity_pk = SalesApprovalItem.objects.values_list(
-                        'purity', flat=True
-                    ).get(pk=instance.main_item_id)
-                    if parent_purity_pk:
-                        rep['metal_purity'] = PurityMaster.objects.get(
-                            pk=int(parent_purity_pk)
-                        ).purity
+                parent_purity_pk = SalesApprovalItem.objects.values_list(
+                    'purity', flat=True
+                ).get(pk=instance.main_item_id)
+                if parent_purity_pk:
+                    rep['metal_purity'] = PurityMaster.objects.get(
+                        pk=int(parent_purity_pk)
+                    ).purity
             except Exception:
                 pass
         return rep

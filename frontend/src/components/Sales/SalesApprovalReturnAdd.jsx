@@ -102,7 +102,7 @@ const SalesApprovalReturnAdd = () => {
   const refSearch = watch("_refSearch");
   useEffect(() => {
     clearTimeout(refSearchDebounce.current);
-    if (!refSearch || refSearch.length < 2) {
+    if (!refSearch || refSearch.length < 1) {
       setApprovalResults([]);
       return;
     }

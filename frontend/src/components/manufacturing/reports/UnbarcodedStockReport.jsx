@@ -16,6 +16,7 @@ import {
   fetchItems,
   fetchPurity,
   getLedgers,
+  getFiscalYears,
 } from "@/services/apiService";
 
 const SOURCE_CHOICES = [
@@ -38,6 +39,7 @@ function fyDefaultDates() {
 
 export default function UnbarcodedStockReport() {
   const initialDates = useMemo(fyDefaultDates, []);
+  const [fyStartDate, setFyStartDate] = useState(initialDates.date_from);
   const [filters, setFilters] = useState({
     stk_status: "active",
     source: [],
@@ -81,6 +83,18 @@ export default function UnbarcodedStockReport() {
         setKarigars(list);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    getFiscalYears().then((res) => {
+      if (!res?.success) return;
+      const data = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
+      const activeFy = data.find((fy) => fy.is_active);
+      if (activeFy?.fy_start) {
+        setFyStartDate(activeFy.fy_start);
+        setFilters((f) => ({ ...f, date_from: activeFy.fy_start }));
+      }
+    });
   }, []);
 
   const update = (k) => (v) => setFilters((f) => ({ ...f, [k]: v }));
@@ -131,7 +145,7 @@ export default function UnbarcodedStockReport() {
       design_code: "",
       label: "",
       metal_color: "",
-      date_from: initialDates.date_from,
+      date_from: fyStartDate,
       date_to: initialDates.date_to,
       gw_min: "",
       gw_max: "",

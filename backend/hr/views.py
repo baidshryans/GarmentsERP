@@ -273,8 +273,8 @@ class ApprovePayslipView(APIView):
             if slip.tds_deducted > 0 and settings_obj.tds_payable_ldgr:
                 details.append(_detail(settings_obj.tds_payable_ldgr, credit=slip.tds_deducted))
 
-            # bulk_create_with_history so payroll voucher details land in the audit log too
-            VoucherDetail.objects.bulk_create_with_history(details, VoucherDetail)
+            # Plain bulk_create: custom audit app captures created rows via post_save signals.
+            VoucherDetail.objects.bulk_create(details)
 
             slip.voucher = voucher
             slip.status  = 'APPROVED'

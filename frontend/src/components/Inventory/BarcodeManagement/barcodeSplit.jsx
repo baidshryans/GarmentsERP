@@ -268,15 +268,10 @@ const BarcodeSplit = () => {
 
     const watchedFields = watch('form')
     useEffect(() => {
-        console.log("change ryuns")
         const form = { ...getValues('form'), rs: rs };
-
-        console.log(form)
-
         Object.keys(main_formulas).forEach((col) => {
             setValue(`form.${col}`, evaluateFormula(main_formulas[col], form));
         })
-
     }, [rs, watchedFields, calculate]);
 
     const onSubmit = (data) => {
@@ -360,20 +355,83 @@ const BarcodeSplit = () => {
     // ── Packet ↔ Item mutual exclusion in sub-items ──────────────────────────
     const watchedDetailPacket = watch("table.details.packet")
     const watchedDetailItem   = watch("table.details.item")
+    const watchedDetailCt     = watch("table.details.sub_ct")
+    const watchedDetailPcs    = watch("table.details.sub_pcs")
+    const watchedDetailGw     = watch("table.details.sub_gw")
+    const watchedDetailRate   = watch("table.details.rate")
+    const [detailUom, setDetailUom] = useState("");
 
-    // When a packet is selected, auto-fill the sub-item from the packet's stone_item_id
+    // When a packet is selected, auto-fill sub_item / rate / uom from PacketSerializer flat fields.
+    // (`stone_item_id` is the plain FK integer — the serializer exposes the joined values via
+    // `stone_item_short_code`, `stone_item_name`, `stone_item_uom`.)
     useEffect(() => {
         if (!watchedDetailPacket) return;
         const found = packets.find(p => p.pckt_no === watchedDetailPacket);
-        if (found?.stone_item_id?.short_code) {
-            setValue("table.details.item", found.stone_item_id.short_code);
+        if (!found) return;
+        if (found.stone_item_short_code) {
+            setValue("table.details.item", found.stone_item_short_code);
+        }
+        if (found.rate_for_retail != null) {
+            setValue("table.details.rate", found.rate_for_retail);
+        }
+        if (found.stone_item_uom) {
+            setDetailUom(String(found.stone_item_uom).toLowerCase());
         }
     }, [watchedDetailPacket, packets]);
 
+    // When the sub-item is typed manually (no packet), pick up its uom from the item master.
+    useEffect(() => {
+        if (watchedDetailPacket) return; // packet path already set uom
+        if (!watchedDetailItem) { setDetailUom(""); return; }
+        const it = mainItemData.find(m => m.short_code === watchedDetailItem);
+        if (it?.uom) setDetailUom(String(it.uom).toLowerCase());
+    }, [watchedDetailItem, watchedDetailPacket, mainItemData]);
+
+    // ct uom → auto-seed gw = ct × 0.2 (1 carat = 0.2 g). User can still override.
+    useEffect(() => {
+        if (detailUom !== "ct") return;
+        const ct = parseFloat(watchedDetailCt || 0);
+        if (!Number.isNaN(ct)) {
+            setValue("table.details.sub_gw", parseFloat((ct * 0.2).toFixed(3)));
+        }
+    }, [detailUom, watchedDetailCt]);
+
+    // Auto-compute value = rate × qty, where qty depends on uom.
+    useEffect(() => {
+        const rate = parseFloat(watchedDetailRate || 0);
+        let qty;
+        if (detailUom === "ct")       qty = parseFloat(watchedDetailCt  || 0);
+        else if (detailUom === "pcs") qty = parseFloat(watchedDetailPcs || 0);
+        else                          qty = parseFloat(watchedDetailGw  || 0);
+        if (!Number.isNaN(rate) && !Number.isNaN(qty)) {
+            setValue("table.details.value", parseFloat((rate * qty).toFixed(2)));
+        }
+    }, [detailUom, watchedDetailRate, watchedDetailCt, watchedDetailPcs, watchedDetailGw]);
+
     // Item is disabled (auto-filled) when a packet is chosen
     const itemDisabledByPacket  = !!watchedDetailPacket;
-    // Packet is disabled when item is typed manually (i.e. item filled but no packet)
-    const packetDisabledByItem  = !watchedDetailPacket && !!watchedDetailItem;
+    // Look up the selected sub-item to know its type — Raw (R) items have a purity but no packet,
+    // Stone (S) items go through a packet (no purity).
+    const selectedSubItemData   = mainItemData.find(m => m.short_code === watchedDetailItem);
+    const selectedSubItemType   = selectedSubItemData?.item_type || "";
+    const subItemIsRaw          = selectedSubItemType === "R";
+    const subItemIsStone        = selectedSubItemType === "S";
+    // Packet is disabled when item is typed manually OR when the typed item is Raw (R).
+    const packetDisabledByItem  = (!watchedDetailPacket && !!watchedDetailItem) || subItemIsRaw;
+
+    // Raw sub-item → clear packet, pcs, ct (these inputs are hidden for Raw),
+    // and seed metal_purity from the main item's purity if the user hasn't picked one yet.
+    const watchedMainPurity      = watch("table.purity");
+    const watchedDetailPurity    = watch("table.details.metal_purity");
+    useEffect(() => {
+        if (!subItemIsRaw) return;
+        if (watchedDetailPacket) setValue("table.details.packet", "");
+        if (watchedDetailPcs)    setValue("table.details.sub_pcs", 0);
+        if (watchedDetailCt)     setValue("table.details.sub_ct", 0);
+        if (!watchedDetailPurity && watchedMainPurity) {
+            setValue("table.details.metal_purity", watchedMainPurity);
+        }
+    }, [subItemIsRaw, watchedDetailPacket, watchedDetailPcs, watchedDetailCt, watchedMainPurity, watchedDetailPurity]);
 
     const handleKeyDown = (e) => {
         if (e.key === "Tab") {
@@ -397,7 +455,22 @@ const BarcodeSplit = () => {
                 if (!tablevalues.barcodedetails_set) {
                     tablevalues.barcodedetails_set = [];
                 }
-                tablevalues.barcodedetails_set = [...tablevalues.barcodedetails_set, vals];
+                // Remap form field names (sub_pcs/sub_ct/sub_gw/value/metal_purity) to the
+                // BarcodeDetailsSerializer field names (pcs/ct/gw/amt/purity) so both the local
+                // preview and the backend submit get the same shape.
+                const detailRow = {
+                    sl_no:    vals.sl_no,
+                    packet:   vals.packet || null,
+                    item:     vals.item,
+                    purity:   vals.metal_purity || null,
+                    pcs:      Number(vals.sub_pcs || 0),
+                    ct:       Number(vals.sub_ct  || 0),
+                    gw:       Number(vals.sub_gw  || 0),
+                    uom:      detailUom || "",
+                    rate:     Number(vals.rate    || 0),
+                    amt:      Number(vals.value   || 0),
+                };
+                tablevalues.barcodedetails_set = [...tablevalues.barcodedetails_set, detailRow];
 
                 setRows((prevData) =>
                     prevData.map((row, i) => (i === currentRowIndex ? { ...tablevalues } : row))
@@ -424,6 +497,7 @@ const BarcodeSplit = () => {
                     value: 0,
                     sl_no: vals.sl_no + 1, // Increment sl_no for next entry
                 });
+                setDetailUom("");
             }
         }
     };
@@ -548,7 +622,6 @@ const BarcodeSplit = () => {
                                     <tr>
                                         <TH>Barcode</TH>
                                         <TH>Item</TH>
-                                        <TH>Description</TH>
                                         <TH>Pcs</TH>
                                         <TH>Ct</TH>
                                         <TH>GW</TH>
@@ -563,8 +636,7 @@ const BarcodeSplit = () => {
                                         <React.Fragment key={idx}>
                                             <tr className="bg-violet-50 border-t border-violet-100">
                                                 <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
-                                                <td className="px-2 py-1.5">{item.item}</td>
-                                                <td className="px-2 py-1.5 text-gray-500">{item.item_name}</td>
+                                                <td className="px-2 py-1.5">{item.item_name || item.item}</td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
@@ -573,20 +645,22 @@ const BarcodeSplit = () => {
                                                 <td className="px-2 py-1.5">{item.making_type}</td>
                                                 <td className="px-2 py-1.5">{item.other_chg}</td>
                                             </tr>
-                                            {item.barcodedetails_set?.map((detail, di) => (
-                                                <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
-                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.item}</td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs">{detail.pcs}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.purity || "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.rate}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.uom}</td>
-                                                    <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
-                                                </tr>
-                                            ))}
+                                            {item.barcodedetails_set?.map((detail, di) => {
+                                                const subItemName = (mainItemData.find(m => m.short_code === detail.item)?.item_name) || detail.item;
+                                                return (
+                                                    <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
+                                                        <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
+                                                        <td className="px-2 py-1 text-xs">{subItemName}</td>
+                                                        <td className="px-2 py-1 text-xs">{detail.pcs}</td>
+                                                        <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
+                                                        <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
+                                                        <td className="px-2 py-1 text-xs">{detail.purity || detail.metal_purity || "—"}</td>
+                                                        <td className="px-2 py-1 text-xs">{detail.rate}</td>
+                                                        <td className="px-2 py-1 text-xs">{detail.uom}</td>
+                                                        <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </React.Fragment>
                                     ))}
                                 </tbody>
@@ -691,7 +765,7 @@ const BarcodeSplit = () => {
                                     <TH>Sl No</TH>
                                     <TH>Packet</TH>
                                     <TH>Sub Item</TH>
-                                    <TH>Description</TH>
+                                    <TH>Purity</TH>
                                     <TH>Pcs</TH>
                                     <TH>Ct</TH>
                                     <TH>GW</TH>
@@ -705,18 +779,24 @@ const BarcodeSplit = () => {
                                         <Input type="text" {...register("table.details.sl_no")} className="h-9 text-sm bg-white w-16" />
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
-                                        <Input
-                                            list="packet_list"
-                                            {...register("table.details.packet")}
-                                            className="h-9 text-sm bg-white w-28 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            placeholder="Packet…"
-                                            disabled={packetDisabledByItem}
-                                        />
-                                        <datalist id="packet_list">
-                                            {packets.map((packet, index) => (
-                                                <option key={index} value={packet.pckt_no}>{packet.pckt_no}</option>
-                                            ))}
-                                        </datalist>
+                                        {subItemIsRaw ? (
+                                            <span className="text-xs text-gray-300">—</span>
+                                        ) : (
+                                            <>
+                                                <Input
+                                                    list="packet_list"
+                                                    {...register("table.details.packet")}
+                                                    className="h-9 text-sm bg-white w-28 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    placeholder="Packet…"
+                                                    disabled={packetDisabledByItem}
+                                                />
+                                                <datalist id="packet_list">
+                                                    {packets.map((packet, index) => (
+                                                        <option key={index} value={packet.pckt_no}>{packet.pckt_no}</option>
+                                                    ))}
+                                                </datalist>
+                                            </>
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
                                         <Input
@@ -727,16 +807,48 @@ const BarcodeSplit = () => {
                                             disabled={itemDisabledByPacket}
                                         />
                                         <datalist id="sub_item_list">
-                                            {mainItemData.map((item, index) => (
-                                                <option key={index} value={item.short_code}>{item.item_name}</option>
-                                            ))}
+                                            {mainItemData
+                                                .filter(item => item.item_type === "R" || item.item_type === "S")
+                                                .map((item, index) => (
+                                                    <option key={index} value={item.short_code}>{item.item_name}</option>
+                                                ))}
                                         </datalist>
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
-                                        <Input type="number" {...register("table.details.sub_pcs")} className="h-9 text-sm bg-white w-20" placeholder="0" />
+                                        {subItemIsStone ? (
+                                            <span className="text-xs text-gray-300">—</span>
+                                        ) : (
+                                            <Controller
+                                                name="table.details.metal_purity"
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                                                        <SelectTrigger className="h-9 w-24 text-sm">
+                                                            <SelectValue placeholder="Purity" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {purityData.map((p, i) => (
+                                                                <SelectItem key={i} value={`${p.purity}`}>{p.purity}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
-                                        <Input type="number" step="0.001" {...register("table.details.sub_ct")} className="h-9 text-sm bg-white w-20" placeholder="0.000" />
+                                        {subItemIsRaw ? (
+                                            <span className="text-xs text-gray-300">—</span>
+                                        ) : (
+                                            <Input type="number" {...register("table.details.sub_pcs")} className="h-9 text-sm bg-white w-20" placeholder="0" />
+                                        )}
+                                    </td>
+                                    <td className="px-2 py-1.5 border-b border-gray-100">
+                                        {subItemIsRaw ? (
+                                            <span className="text-xs text-gray-300">—</span>
+                                        ) : (
+                                            <Input type="number" step="0.001" {...register("table.details.sub_ct")} className="h-9 text-sm bg-white w-20" placeholder="0.000" />
+                                        )}
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
                                         <Input type="number" step="0.001" {...register("table.details.sub_gw")} className="h-9 text-sm bg-white w-24" placeholder="0.000" />
@@ -771,7 +883,6 @@ const BarcodeSplit = () => {
                                     <tr>
                                         <TH>Barcode</TH>
                                         <TH>Item</TH>
-                                        <TH>Description</TH>
                                         <TH>Pcs</TH>
                                         <TH>Ct</TH>
                                         <TH>GW</TH>
@@ -783,12 +894,13 @@ const BarcodeSplit = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {rs.map((item, idx) => (
+                                    {rs.map((item, idx) => {
+                                        const parentName = (mainItemData.find(m => m.short_code === item.item)?.item_name) || item.item_name || item.item;
+                                        return (
                                         <React.Fragment key={idx}>
                                             <tr className="bg-violet-50 border-t border-violet-100">
                                                 <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
-                                                <td className="px-2 py-1.5">{item.item}</td>
-                                                <td className="px-2 py-1.5 text-gray-500">{item.item_name}</td>
+                                                <td className="px-2 py-1.5">{parentName}</td>
                                                 <td className="px-2 py-1.5">{item.pcs}</td>
                                                 <td className="px-2 py-1.5"></td>
                                                 <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
@@ -815,23 +927,26 @@ const BarcodeSplit = () => {
                                                     </div>
                                                 </td>
                                             </tr>
-                                            {item.barcodedetails_set?.map((detail, di) => (
+                                            {item.barcodedetails_set?.map((detail, di) => {
+                                                const subItemName = (mainItemData.find(m => m.short_code === detail.item)?.item_name) || detail.item;
+                                                return (
                                                 <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
                                                     <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.item}</td>
-                                                    <td className="px-2 py-1 text-xs"></td>
+                                                    <td className="px-2 py-1 text-xs">{subItemName}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.pcs}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.purity || "—"}</td>
+                                                    <td className="px-2 py-1 text-xs">{detail.purity || detail.metal_purity || "—"}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.rate}</td>
                                                     <td className="px-2 py-1 text-xs">{detail.uom}</td>
                                                     <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
                                                     <td className="px-2 py-1 text-xs"></td>
                                                 </tr>
-                                            ))}
+                                                );
+                                            })}
                                         </React.Fragment>
-                                    ))}
+                                    );
+                                })}
                                 </tbody>
                             </table>
                         </div>

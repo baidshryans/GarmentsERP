@@ -274,10 +274,9 @@ class ApproveDepreciationSuggestionView(APIView):
                     voucher_type=VoucherType.depreciation, account=accum_ldgr,
                     debit=Decimal('0'), credit=line.approved_amount,
                 ))
-            # bulk_create_with_history ensures the historical_voucherdetail
-            # rows are also written — plain bulk_create skips Django signals
-            # and the audit log would otherwise miss every depreciation posting.
-            VoucherDetail.objects.bulk_create_with_history(vd_rows, VoucherDetail)
+            # Plain bulk_create: the custom audit app captures created rows via
+            # post_save signals, so depreciation postings still land in the audit log.
+            VoucherDetail.objects.bulk_create(vd_rows)
 
             for line in lines:
                 if line.approved_amount <= 0:

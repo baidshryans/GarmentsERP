@@ -44,7 +44,7 @@ def _log_raw_txn(*, item, packet, purity, retail, trans_type, pcs=0, ct=Decimal(
 @receiver(post_save, sender=KarigarReceiveItem,
           dispatch_uid='mfg_signals.create_unbarcoded_inventory')
 def create_unbarcoded_inventory(sender, instance, created, **kwargs):
-    if created:
+    if created and not instance.unbarcoded_item_id:
         unbarcoded_data = {
             "item": instance.item,
             "item_desc": str(instance.item),
@@ -75,6 +75,20 @@ def create_unbarcoded_inventory(sender, instance, created, **kwargs):
             prev.save(update_fields=['next'])
         instance.unbarcoded_item = ubm
         instance.save()
+
+
+@receiver(post_delete, sender=KarigarReceiveItem,
+          dispatch_uid='mfg_signals.delete_unbarcoded_inventory')
+def delete_unbarcoded_inventory(sender, instance, **kwargs):
+    """When a KarigarReceiveItem is deleted, also delete the UBM it created.
+    Skip if a BarcodeMain already references the UBM (item was barcoded)."""
+    ubm_id = instance.unbarcoded_item_id
+    if not ubm_id:
+        return
+    from inventory.models import BarcodeMain
+    if BarcodeMain.objects.filter(rec_item_id=instance.pk).exists():
+        return
+    UnBarcodedMain.objects.filter(pk=ubm_id).delete()
 
 
 @receiver(post_save, sender=SampleIssueItem,

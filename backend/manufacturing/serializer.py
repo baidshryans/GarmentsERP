@@ -1047,6 +1047,14 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
             if _retail:
                 validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         with transaction.atomic():
+            slip_no = validated_data.get('receive_slip_no')
+            if slip_no and KarigarReceive.objects.filter(
+                retail=validated_data.get('retail'),
+                receive_slip_no=slip_no,
+            ).exists():
+                raise serializers.ValidationError({
+                    'receive_slip_no': f"Receive slip {slip_no} already exists."
+                })
             karigar_receive_instance = KarigarReceive.objects.create(**validated_data,)
 
             # Create related KarigarReceiveItem instances

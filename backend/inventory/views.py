@@ -2254,8 +2254,8 @@ class RawMaterialBalanceReportView(APIView):
         from django.db.models.functions import Coalesce
 
         qs = RawMaterialInventory.objects.select_related('item', 'packet', 'purity').filter(
-            retail=request.retail
-        )
+            retail=request.retail,
+        ).exclude(item__item_type='M')
 
         item_id = request.query_params.get('item')
         item_type = request.query_params.get('item_type')

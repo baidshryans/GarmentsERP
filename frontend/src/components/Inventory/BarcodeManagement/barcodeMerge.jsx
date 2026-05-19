@@ -148,19 +148,22 @@ const MergeBarcode = () => {
 
     setBarcodeLoading(true);
     try {
-      // Look up barcode in the list to verify it exists and get its ID
+      // Look up barcode in the list to verify it exists and get its ID.
+      // The list endpoint returns a paginated response: { results: [...] }
       const lookup = await fetchBarcodeByText(barcode);
-      if (!lookup.success || !lookup.data) {
+      const results = lookup.success ? (lookup.data?.results ?? []) : [];
+      const found = results.find((b) => String(b.barcode) === barcode);
+      if (!found) {
         toast({ title: "Barcode not found.", variant: "destructive" });
         return;
       }
-      if (!lookup.data.stk_status) {
+      if (!found.stk_status) {
         toast({ title: "Barcode is not in stock.", variant: "destructive" });
         return;
       }
 
       // Fetch full details (barcodedetails_set + purity)
-      const res = await fetchBarcodeForEdit(lookup.data.id);
+      const res = await fetchBarcodeForEdit(found.id);
       if (!res.success) {
         toast({ title: "Failed to load barcode details.", variant: "destructive" });
         return;

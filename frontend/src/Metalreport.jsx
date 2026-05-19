@@ -3,12 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { useToast } from "@/hooks/use-toast";
 import apiClient from "@/services/apiClient";
-import { Coins, Filter } from "lucide-react";
+import { Coins, Filter, X } from "lucide-react";
 import { isValidDateRange } from "@/lib/dateRange";
 
 const purityLabel = (p) => {
@@ -38,11 +37,12 @@ const fyStart = (() => {
 export default function KarigarMetalLedger() {
   const { toast } = useToast();
 
-  const [fromDate, setFromDate]   = useState(fyStart);
-  const [toDate, setToDate]       = useState(today);
-  const [karigarId, setKarigarId] = useState("all");
-  const [purityId, setPurityId]   = useState("all");
-  const [reportType, setReportType] = useState("main");
+  const [fromDate, setFromDate]       = useState(fyStart);
+  const [toDate, setToDate]           = useState(today);
+  const [karigarId, setKarigarId]     = useState("");      // empty = none selected
+  const [karigarName, setKarigarName] = useState("");
+  const [purityIds, setPurityIds]     = useState([]);      // multi-select
+  const [reportType, setReportType]   = useState("main");
 
   const [karigars, setKarigars] = useState([]);
   const [purities, setPurities] = useState([]);
@@ -63,7 +63,17 @@ export default function KarigarMetalLedger() {
       }).catch(() => {});
   }, []);
 
+  const togglePurity = (id) => {
+    setPurityIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  };
+
   const load = useCallback(async () => {
+    if (!karigarId) {
+      toast({ title: "Please select a karigar first.", variant: "destructive" });
+      return;
+    }
     if (!isValidDateRange(fromDate, toDate)) {
       toast({ title: "From date cannot be after To date.", variant: "destructive" });
       return;
@@ -72,8 +82,8 @@ export default function KarigarMetalLedger() {
     const params = new URLSearchParams();
     params.append("date", fromDate);
     params.append("to_date", toDate);
-    if (karigarId !== "all") params.append("ledger_ids", karigarId);
-    if (purityId  !== "all") params.append("purity_ids",  purityId);
+    params.append("ledger_ids", String(karigarId));
+    if (purityIds.length) params.append("purity_ids", purityIds.join(","));
     params.append("report_type", reportType);
 
     try {
@@ -90,9 +100,7 @@ export default function KarigarMetalLedger() {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, karigarId, purityId, reportType, toast]);
-
-  useEffect(() => { load(); }, [load]);
+  }, [fromDate, toDate, karigarId, purityIds, reportType, toast]);
 
   const totals = useMemo(() => {
     let opening = 0, issued = 0, received = 0, wastage = 0;
@@ -113,6 +121,12 @@ export default function KarigarMetalLedger() {
     return { opening, issued, received, wastage, balance: opening + issued - received - wastage };
   }, [data]);
 
+  const purityById = useMemo(() => {
+    const m = {};
+    purities.forEach((p) => { m[String(p.id)] = p; });
+    return m;
+  }, [purities]);
+
   return (
     <div className="space-y-4">
       {/* Filter bar */}
@@ -121,76 +135,121 @@ export default function KarigarMetalLedger() {
           <Filter className="size-4 text-primary" />
           <h2 className="text-sm font-semibold text-gray-800">Filters</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-          <div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+          {/* Karigar — required, searchable */}
+          <div className="md:col-span-4">
+            <Label className="text-xs">Karigar <span className="text-red-500">*</span></Label>
+            <SearchableComboBox
+              options={karigars}
+              labelKey="ac_name"
+              searchKeys={["ac_code", "mobile_number"]}
+              value={karigarName}
+              placeholder="Search karigar…"
+              onSelect={(opt) => {
+                setKarigarId(opt?.id ? String(opt.id) : "");
+                setKarigarName(opt?.ac_name || "");
+              }}
+              onInputChange={(val) => {
+                setKarigarName(val);
+                if (!val) setKarigarId("");
+              }}
+            />
+          </div>
+
+          {/* Dates */}
+          <div className="md:col-span-2">
             <Label className="text-xs">From Date</Label>
             <Input type="date" value={fromDate}
               onChange={(e) => setFromDate(e.target.value)} max={toDate || undefined} />
           </div>
-          <div>
+          <div className="md:col-span-2">
             <Label className="text-xs">To Date</Label>
             <Input type="date" value={toDate}
               onChange={(e) => setToDate(e.target.value)} min={fromDate || undefined} />
           </div>
-          <div>
-            <Label className="text-xs">Karigar</Label>
-            <Select value={karigarId} onValueChange={setKarigarId}>
-              <SelectTrigger><SelectValue placeholder="All karigars" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Karigars</SelectItem>
-                {karigars.map((k) => (
-                  <SelectItem key={k.id} value={String(k.id)}>{k.ac_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Purity</Label>
-            <Select value={purityId} onValueChange={setPurityId}>
-              <SelectTrigger><SelectValue placeholder="All purities" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Purities</SelectItem>
-                {purities.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>{purityLabel(p.purity)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
+
+          {/* Report Type — toggle */}
+          <div className="md:col-span-2">
             <Label className="text-xs">Report Type</Label>
-            <Select value={reportType} onValueChange={setReportType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="main">Main</SelectItem>
-                <SelectItem value="sample">Sample</SelectItem>
-              </SelectContent>
-            </Select>
+            <Tabs value={reportType} onValueChange={setReportType}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="main">Main</TabsTrigger>
+                <TabsTrigger value="sample">Sample</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
-          <div className="flex items-end">
-            <Button className="w-full" onClick={load} disabled={loading}>
-              {loading ? "Loading..." : "Apply Filters"}
+
+          {/* Apply */}
+          <div className="md:col-span-2">
+            <Button className="w-full" onClick={load} disabled={loading || !karigarId}>
+              {loading ? "Loading…" : "Apply Filters"}
             </Button>
+          </div>
+
+          {/* Purity multi-select chips */}
+          <div className="md:col-span-12">
+            <Label className="text-xs">Purities (leave empty for all)</Label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {purities.map((p) => {
+                const id = String(p.id);
+                const active = purityIds.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => togglePurity(id)}
+                    className={`px-2.5 py-1 rounded-full border text-xs transition ${
+                      active
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-gray-700 border-gray-300 hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {purityLabel(p.purity)}
+                    {active && <X className="inline size-3 ml-1 -mt-0.5" />}
+                  </button>
+                );
+              })}
+              {purityIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPurityIds([])}
+                  className="px-2.5 py-1 rounded-full border border-gray-300 text-xs text-gray-500 hover:text-red-600 hover:border-red-300"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Empty-state */}
+      {!karigarId && !loading && (
+        <div className="bg-white border border-dashed border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+          Select a karigar above to load the metal ledger.
+        </div>
+      )}
+
       {/* Summary */}
-      <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 text-primary">
-            <Coins className="size-4" />
-            <span className="text-sm font-semibold">Karigar Metal Ledger ({reportType})</span>
+      {karigarId && (
+        <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-primary">
+              <Coins className="size-4" />
+              <span className="text-sm font-semibold">Karigar Metal Ledger ({reportType})</span>
+            </div>
+            <span className="text-xs text-gray-500">{data.length} karigars</span>
           </div>
-          <span className="text-xs text-gray-500">{data.length} karigars</span>
+          <div className="grid grid-cols-2 sm:grid-cols-5 text-xs gap-3">
+            <div><div className="text-gray-500">Opening (g)</div><div className="font-semibold">{num(totals.opening)}</div></div>
+            <div><div className="text-gray-500">Issued (g)</div><div className="font-semibold">{num(totals.issued)}</div></div>
+            <div><div className="text-gray-500">Received (g)</div><div className="font-semibold">{num(totals.received)}</div></div>
+            <div><div className="text-gray-500">Wastage (g)</div><div className="font-semibold text-amber-600">{num(totals.wastage)}</div></div>
+            <div><div className="text-gray-500">Net Balance (g)</div><div className="font-semibold">{num(totals.balance)}</div></div>
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 text-xs gap-3">
-          <div><div className="text-gray-500">Opening (g)</div><div className="font-semibold">{num(totals.opening)}</div></div>
-          <div><div className="text-gray-500">Issued (g)</div><div className="font-semibold">{num(totals.issued)}</div></div>
-          <div><div className="text-gray-500">Received (g)</div><div className="font-semibold">{num(totals.received)}</div></div>
-          <div><div className="text-gray-500">Wastage (g)</div><div className="font-semibold text-amber-600">{num(totals.wastage)}</div></div>
-          <div><div className="text-gray-500">Net Balance (g)</div><div className="font-semibold">{num(totals.balance)}</div></div>
-        </div>
-      </div>
+      )}
 
       {/* Loading skeletons */}
       {loading && (
@@ -202,7 +261,7 @@ export default function KarigarMetalLedger() {
       )}
 
       {/* Table */}
-      {!loading && (
+      {!loading && karigarId && (
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
             <Coins className="size-4 text-primary" />
@@ -233,9 +292,12 @@ export default function KarigarMetalLedger() {
                 ) : data.map((karigar) => (
                   <React.Fragment key={karigar.id}>
                     {Object.entries(karigar.per_purity || {}).map(([purity, pd]) => {
-                      if (purityId !== "all") {
-                        const sel = purities.find((p) => String(p.id) === purityId);
-                        if (sel && String(sel.purity) !== String(purity)) return null;
+                      if (purityIds.length) {
+                        const matchesSelected = purityIds.some((pid) => {
+                          const p = purityById[pid];
+                          return p && String(p.purity).toLowerCase() === String(purity).toLowerCase();
+                        });
+                        if (!matchesSelected) return null;
                       }
                       const txns = [];
                       (pd.karigar_gold_issues_after_date || []).forEach((iss) =>

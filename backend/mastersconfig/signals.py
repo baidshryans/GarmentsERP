@@ -396,6 +396,11 @@ def _model_has_retail_fk(model):
 
 @receiver(pre_save)
 def auto_fill_retail(sender, instance, **kwargs):
+    # Skip the audit log — audit.signals fills retail explicitly from the
+    # request-scoped audit context; auto-inference would only produce noisy
+    # warnings on system events (logins, cron) that legitimately have no retail.
+    if sender._meta.label == 'audit.AuditEvent':
+        return
     # Skip models without a retail FK to RetailMaster
     if not _model_has_retail_fk(sender):
         return

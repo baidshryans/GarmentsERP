@@ -6,18 +6,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
   Search, ChevronLeft, ChevronRight, RefreshCw, Undo2,
-  History, AlertTriangle, LogIn, Loader2,
+  History, AlertTriangle, LogIn, Loader2, ChevronRight as ChevRight, ChevronDown,
 } from "lucide-react";
 import {
   fetchAuditLog, reverseTransaction, restoreToPoint,
-  fetchLoginLog, fetchAuditDetail,
+  fetchLoginLog, fetchAuditDetail, fetchAuditCorrelation,
 } from "@/services/apiService";
 import { isValidDateRange } from "@/lib/dateRange";
 
 const EVENT_STYLE = {
-  CREATE: "bg-green-50 text-green-700",
-  UPDATE: "bg-blue-50  text-blue-700",
-  DELETE: "bg-red-50   text-red-700",
+  CREATE:       "bg-green-50  text-green-700",
+  UPDATE:       "bg-blue-50   text-blue-700",
+  DELETE:       "bg-red-50    text-red-700",
+  RESTORE:      "bg-purple-50 text-purple-700",
+  LOGIN:        "bg-slate-50  text-slate-700",
+  LOGOUT:       "bg-slate-50  text-slate-700",
+  LOGIN_FAILED: "bg-amber-50  text-amber-700",
+  BULK:         "bg-indigo-50 text-indigo-700",
 };
 
 // ── Diff cell: fetches old/new on first click, then shows inline table ────────
@@ -94,6 +99,28 @@ export default function AuditLog() {
   const [filters, setFilters] = useState({
     from_date: "", to_date: "", model: "", page: 1,
   });
+  // correlation_id → { state: 'idle'|'loading'|'done'|'error', children: [] }
+  const [expanded, setExpanded] = useState({});
+
+  async function toggleExpand(row) {
+    const cid = row.history_transaction_id;
+    if (!cid) return;
+    const cur = expanded[cid];
+    if (cur && cur.state === "done") {
+      // collapse
+      setExpanded((p) => { const n = { ...p }; delete n[cid]; return n; });
+      return;
+    }
+    setExpanded((p) => ({ ...p, [cid]: { state: "loading", children: [] } }));
+    const res = await fetchAuditCorrelation(cid);
+    if (res.success) {
+      // Drop the parent row from the children list; we already show it.
+      const kids = (res.data.results || []).filter((c) => c.history_id !== row.history_id);
+      setExpanded((p) => ({ ...p, [cid]: { state: "done", children: kids } }));
+    } else {
+      setExpanded((p) => ({ ...p, [cid]: { state: "error", children: [] } }));
+    }
+  }
 
   const load = useCallback(async (f = filters) => {
     setLoading(true);
@@ -160,7 +187,7 @@ export default function AuditLog() {
   return (
     <div className="p-4 flex flex-col gap-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-base font-semibold">Audit Log</h1>
+        <h1 className="text-base font-semibold">Audit Events</h1>
         <div className="flex items-center gap-1 rounded-md border p-0.5 bg-muted/30">
           <Button size="sm" variant={tab === "log" ? "default" : "ghost"} className="h-7 text-xs" onClick={() => setTab("log")}>
             <History className="size-3.5 mr-1" /> Activity
@@ -218,8 +245,8 @@ export default function AuditLog() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted/50 border-b border-border">
-                      {["Date & Time", "User", "Action", "Model", "Record", "Changed", ""].map((h) => (
-                        <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-2.5">
+                      {["", "Date & Time", "User", "Retail", "Action", "Model", "Record", "Changed", ""].map((h, i) => (
+                        <th key={i} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-4 py-2.5">
                           {h}
                         </th>
                       ))}
@@ -227,35 +254,92 @@ export default function AuditLog() {
                   </thead>
                   <tbody>
                     {data.results.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center py-8 text-muted-foreground text-sm">No events found.</td></tr>
-                    ) : data.results.map((e, i) => (
-                      <tr key={e.id} className={`border-b border-border last:border-0 hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
-                        <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">{e.datetime}</td>
-                        <td className="px-4 py-2.5 text-xs font-medium">{e.user}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${EVENT_STYLE[e.event_type] || ""}`}>
-                            {e.event_type}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 font-mono text-xs">
-                          <span className="text-muted-foreground">{e.app}.</span>{e.model}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs max-w-[200px] truncate" title={e.object_repr}>
-                          {e.object_repr}
-                        </td>
-                        <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[280px]">
-                          <DiffCell row={e} />
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          {e.history_transaction_id && (
-                            <Button size="sm" variant="ghost" className="h-7 text-xs"
-                              onClick={() => handleReverse(e)} title="Reverse this operation">
-                              <Undo2 className="size-3.5" />
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                      <tr><td colSpan={9} className="text-center py-8 text-muted-foreground text-sm">No events found.</td></tr>
+                    ) : data.results.flatMap((e, i) => {
+                      const cid    = e.history_transaction_id;
+                      const exp    = cid ? expanded[cid] : null;
+                      const isOpen = exp && (exp.state === "loading" || exp.state === "done" || exp.state === "error");
+                      const parentRow = (
+                        <tr key={e.id} className={`border-b border-border last:border-0 hover:bg-accent/30 transition-colors ${i % 2 === 1 ? "bg-muted/10" : ""}`}>
+                          <td className="px-2 py-2.5">
+                            {cid ? (
+                              <button
+                                onClick={() => toggleExpand(e)}
+                                className="text-muted-foreground hover:text-foreground"
+                                title={isOpen ? "Collapse" : "Show child events in this transaction"}
+                              >
+                                {exp?.state === "loading" ? <Loader2 className="size-3.5 animate-spin" />
+                                  : isOpen ? <ChevronDown className="size-3.5" />
+                                  : <ChevRight className="size-3.5" />}
+                              </button>
+                            ) : null}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">{e.datetime}</td>
+                          <td className="px-4 py-2.5 text-xs font-medium" title={e.user_id ? `User #${e.user_id}` : "No user"}>
+                            {e.user || <span className="italic text-muted-foreground">System</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs" title={e.retail_id ? `Retail #${e.retail_id}` : "No retail"}>
+                            {e.retail || <span className="italic text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${EVENT_STYLE[e.event_type] || "bg-muted text-muted-foreground"}`}>
+                              {e.event_type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 font-mono text-xs">
+                            {e.app ? (
+                              <><span className="text-muted-foreground">{e.app}.</span>{e.model}</>
+                            ) : (
+                              <span className="text-muted-foreground italic">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs max-w-[200px] truncate" title={e.object_repr}>
+                            {e.object_repr || <span className="text-muted-foreground italic">—</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-muted-foreground max-w-[280px]">
+                            <DiffCell row={e} />
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {cid && (e.event_type === "CREATE" || e.event_type === "UPDATE" || e.event_type === "DELETE") && (
+                              <Button size="sm" variant="ghost" className="h-7 text-xs"
+                                onClick={() => handleReverse(e)} title="Reverse this transaction">
+                                <Undo2 className="size-3.5" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                      if (!isOpen) return [parentRow];
+                      const kids = exp.state === "done" ? exp.children : [];
+                      const childRows = exp.state === "error" ? [(
+                        <tr key={`${e.id}-err`} className="bg-red-50/40 border-b border-border">
+                          <td colSpan={9} className="px-12 py-2 text-[11px] text-red-600">Failed to load child events.</td>
+                        </tr>
+                      )] : kids.length === 0 && exp.state === "done" ? [(
+                        <tr key={`${e.id}-empty`} className="bg-muted/10 border-b border-border">
+                          <td colSpan={9} className="px-12 py-2 text-[11px] text-muted-foreground italic">No other events in this transaction.</td>
+                        </tr>
+                      )] : kids.map((c, ci) => (
+                        <tr key={`${e.id}-${c.id}`} className="bg-muted/15 border-b border-border">
+                          <td className="px-2 py-1.5"></td>
+                          <td className="px-4 py-1.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                            <span className="mr-2">↳</span>{c.datetime}
+                          </td>
+                          <td className="px-4 py-1.5 text-[11px] text-muted-foreground">{c.user || "System"}</td>
+                          <td className="px-4 py-1.5 text-[11px] text-muted-foreground">{c.retail || "—"}</td>
+                          <td className="px-4 py-1.5">
+                            <span className={`px-1 py-0.5 rounded text-[10px] font-semibold ${EVENT_STYLE[c.event_type] || "bg-muted text-muted-foreground"}`}>{c.event_type}</span>
+                          </td>
+                          <td className="px-4 py-1.5 font-mono text-[11px]">
+                            {c.app ? <><span className="text-muted-foreground">{c.app}.</span>{c.model}</> : "—"}
+                          </td>
+                          <td className="px-4 py-1.5 text-[11px] max-w-[200px] truncate" title={c.object_repr}>{c.object_repr || "—"}</td>
+                          <td className="px-4 py-1.5 text-[11px] text-muted-foreground max-w-[280px]"><DiffCell row={c} /></td>
+                          <td></td>
+                        </tr>
+                      ));
+                      return [parentRow, ...childRows];
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -87,6 +87,7 @@ const OUTFLOW_KEYS = [
   "bar_mer", "bar_split", "bar_trf_unb", "pur_ret",
 ];
 const ALL_KEYS = ["opening", ...INFLOW_KEYS, "inflow", ...OUTFLOW_KEYS, "outflow", "stock"];
+const ALL_KEYS_WITH_COUNT = ALL_KEYS.flatMap((k) => [k, `${k}_count`]);
 
 export default function BarcodeStockReport() {
   const [asOnDate, setAsOnDate] = useState(today);
@@ -94,9 +95,13 @@ export default function BarcodeStockReport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [drill, setDrill] = useState(null); // { item, column, rows, loading, error }
+  const [metric, setMetric] = useState("pcs"); // "pcs" | "barcodes"
+
+  const k = (base) => (metric === "pcs" ? base : `${base}_count`);
+  const metricLabel = metric === "pcs" ? "Pcs" : "Barcodes";
 
   const openDrill = async (item, column) => {
-    const count = item[column] || 0;
+    const count = item[column] || item[`${column}_count`] || 0;
     if (!count) return;
     setDrill({ item, column, rows: [], loading: true, error: "" });
     const res = await fetchBarcodeStockReportBarcodes({
@@ -131,10 +136,10 @@ export default function BarcodeStockReport() {
 
   const totals = data?.reduce(
     (acc, d) => {
-      for (const k of ALL_KEYS) acc[k] += d[k] || 0;
+      for (const key of ALL_KEYS_WITH_COUNT) acc[key] += d[key] || 0;
       return acc;
     },
-    Object.fromEntries(ALL_KEYS.map((k) => [k, 0]))
+    Object.fromEntries(ALL_KEYS_WITH_COUNT.map((key) => [key, 0]))
   );
 
   const v = (n) => (n ? n : "-");
@@ -158,7 +163,7 @@ export default function BarcodeStockReport() {
       <tr>
         <th style="text-align:left">Code</th>
         <th style="text-align:left">Name</th>
-        <th style="background:#eff6ff">Pcs</th>
+        <th style="background:#eff6ff">${metricLabel}</th>
         <th style="background:#f0fdf4">Purchase</th>
         <th style="background:#f0fdf4">Kar Rec</th>
         <th style="background:#f0fdf4">Sale Ret</th>
@@ -175,54 +180,54 @@ export default function BarcodeStockReport() {
         <th style="background:#fef2f2">Trf Unbar</th>
         <th style="background:#fef2f2">Pur Ret</th>
         <th style="background:#fecaca;font-weight:700">Total</th>
-        <th style="background:#f3e8ff;font-weight:700">Pcs</th>
+        <th style="background:#f3e8ff;font-weight:700">${metricLabel}</th>
       </tr>`;
 
     const dataRows = data.map((d, i) => `
       <tr style="${i % 2 === 1 ? "background:#f8fafc" : ""}">
         <td style="text-align:left;font-weight:600">${d.short_code}</td>
         <td style="text-align:left">${d.item_name || d.short_code}</td>
-        <td style="background:#eff6ff">${v(d.opening)}</td>
-        <td style="background:#f0fdf4">${v(d.create_pur)}</td>
-        <td style="background:#f0fdf4">${v(d.create_rec)}</td>
-        <td style="background:#f0fdf4">${v(d.sale_ret)}</td>
-        <td style="background:#f0fdf4">${v(d.sale_app_ret)}</td>
-        <td style="background:#f0fdf4">${v(d.trf_rr_in)}</td>
-        <td style="background:#f0fdf4">${v(d.bar_mer_crt)}</td>
-        <td style="background:#f0fdf4">${v(d.bar_split_crt)}</td>
-        <td style="background:#dcfce7;font-weight:600">${v(d.inflow)}</td>
-        <td style="background:#fef2f2">${v(d.sale)}</td>
-        <td style="background:#fef2f2">${v(d.sale_app)}</td>
-        <td style="background:#fef2f2">${v(d.trf_rr_out)}</td>
-        <td style="background:#fef2f2">${v(d.bar_mer)}</td>
-        <td style="background:#fef2f2">${v(d.bar_split)}</td>
-        <td style="background:#fef2f2">${v(d.bar_trf_unb)}</td>
-        <td style="background:#fef2f2">${v(d.pur_ret)}</td>
-        <td style="background:#fecaca;font-weight:600">${v(d.outflow)}</td>
-        <td style="background:#f3e8ff;font-weight:700;font-size:13px">${v(d.stock)}</td>
+        <td style="background:#eff6ff">${v(d[k("opening")])}</td>
+        <td style="background:#f0fdf4">${v(d[k("create_pur")])}</td>
+        <td style="background:#f0fdf4">${v(d[k("create_rec")])}</td>
+        <td style="background:#f0fdf4">${v(d[k("sale_ret")])}</td>
+        <td style="background:#f0fdf4">${v(d[k("sale_app_ret")])}</td>
+        <td style="background:#f0fdf4">${v(d[k("trf_rr_in")])}</td>
+        <td style="background:#f0fdf4">${v(d[k("bar_mer_crt")])}</td>
+        <td style="background:#f0fdf4">${v(d[k("bar_split_crt")])}</td>
+        <td style="background:#dcfce7;font-weight:600">${v(d[k("inflow")])}</td>
+        <td style="background:#fef2f2">${v(d[k("sale")])}</td>
+        <td style="background:#fef2f2">${v(d[k("sale_app")])}</td>
+        <td style="background:#fef2f2">${v(d[k("trf_rr_out")])}</td>
+        <td style="background:#fef2f2">${v(d[k("bar_mer")])}</td>
+        <td style="background:#fef2f2">${v(d[k("bar_split")])}</td>
+        <td style="background:#fef2f2">${v(d[k("bar_trf_unb")])}</td>
+        <td style="background:#fef2f2">${v(d[k("pur_ret")])}</td>
+        <td style="background:#fecaca;font-weight:600">${v(d[k("outflow")])}</td>
+        <td style="background:#f3e8ff;font-weight:700;font-size:13px">${v(d[k("stock")])}</td>
       </tr>`).join("");
 
     const totalsRow = totals ? `
       <tr style="background:#e2e8f0;font-weight:700;border-top:2px solid #94a3b8">
         <td colspan="2" style="text-align:left">Total</td>
-        <td style="background:#dbeafe">${v(totals.opening)}</td>
-        <td style="background:#bbf7d0">${v(totals.create_pur)}</td>
-        <td style="background:#bbf7d0">${v(totals.create_rec)}</td>
-        <td style="background:#bbf7d0">${v(totals.sale_ret)}</td>
-        <td style="background:#bbf7d0">${v(totals.sale_app_ret)}</td>
-        <td style="background:#bbf7d0">${v(totals.trf_rr_in)}</td>
-        <td style="background:#bbf7d0">${v(totals.bar_mer_crt)}</td>
-        <td style="background:#bbf7d0">${v(totals.bar_split_crt)}</td>
-        <td style="background:#86efac">${v(totals.inflow)}</td>
-        <td style="background:#fecaca">${v(totals.sale)}</td>
-        <td style="background:#fecaca">${v(totals.sale_app)}</td>
-        <td style="background:#fecaca">${v(totals.trf_rr_out)}</td>
-        <td style="background:#fecaca">${v(totals.bar_mer)}</td>
-        <td style="background:#fecaca">${v(totals.bar_split)}</td>
-        <td style="background:#fecaca">${v(totals.bar_trf_unb)}</td>
-        <td style="background:#fecaca">${v(totals.pur_ret)}</td>
-        <td style="background:#fca5a5">${v(totals.outflow)}</td>
-        <td style="background:#e9d5ff;font-size:13px">${v(totals.stock)}</td>
+        <td style="background:#dbeafe">${v(totals[k("opening")])}</td>
+        <td style="background:#bbf7d0">${v(totals[k("create_pur")])}</td>
+        <td style="background:#bbf7d0">${v(totals[k("create_rec")])}</td>
+        <td style="background:#bbf7d0">${v(totals[k("sale_ret")])}</td>
+        <td style="background:#bbf7d0">${v(totals[k("sale_app_ret")])}</td>
+        <td style="background:#bbf7d0">${v(totals[k("trf_rr_in")])}</td>
+        <td style="background:#bbf7d0">${v(totals[k("bar_mer_crt")])}</td>
+        <td style="background:#bbf7d0">${v(totals[k("bar_split_crt")])}</td>
+        <td style="background:#86efac">${v(totals[k("inflow")])}</td>
+        <td style="background:#fecaca">${v(totals[k("sale")])}</td>
+        <td style="background:#fecaca">${v(totals[k("sale_app")])}</td>
+        <td style="background:#fecaca">${v(totals[k("trf_rr_out")])}</td>
+        <td style="background:#fecaca">${v(totals[k("bar_mer")])}</td>
+        <td style="background:#fecaca">${v(totals[k("bar_split")])}</td>
+        <td style="background:#fecaca">${v(totals[k("bar_trf_unb")])}</td>
+        <td style="background:#fecaca">${v(totals[k("pur_ret")])}</td>
+        <td style="background:#fca5a5">${v(totals[k("outflow")])}</td>
+        <td style="background:#e9d5ff;font-size:13px">${v(totals[k("stock")])}</td>
       </tr>` : "";
 
     const html = `<!DOCTYPE html>
@@ -247,7 +252,7 @@ export default function BarcodeStockReport() {
   </style>
 </head>
 <body>
-  <h2>Barcode Wise Stock Report</h2>
+  <h2>Barcode Wise Stock Report (${metricLabel})</h2>
   <p class="sub">As on ${fmtDate(asOnDate)} &nbsp;|&nbsp; ${data.length} item${data.length !== 1 ? "s" : ""}</p>
   <table>
     <thead>${headerRow}</thead>
@@ -279,6 +284,31 @@ export default function BarcodeStockReport() {
         <Button size="sm" onClick={fetchReport} disabled={loading} className="h-9">
           {loading ? "Loading..." : "Show"}
         </Button>
+        <div className="flex flex-col gap-1">
+          <Label className="text-xs">Show</Label>
+          <div className="flex items-center gap-1 h-9 p-1 rounded-md border border-border bg-background">
+            {[
+              { key: "pcs", label: "Pcs" },
+              { key: "barcodes", label: "Barcodes" },
+            ].map((opt) => {
+              const active = metric === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => setMetric(opt.key)}
+                  className={`px-3 h-7 rounded text-xs font-medium transition-colors ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent/40"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <Button
           size="sm"
           variant="outline"
@@ -320,7 +350,7 @@ export default function BarcodeStockReport() {
                   <SubHead label="Code" className="text-left !font-semibold w-20" />
                   <SubHead label="Name" className="text-left !font-semibold w-32" />
                   {/* Opening */}
-                  <SubHead label="Pcs" className="bg-violet-50/40" />
+                  <SubHead label={metricLabel} className="bg-violet-50/40" />
                   {/* Inflows */}
                   <SubHead label="Purchase" className="bg-green-50/40" />
                   <SubHead label="Kar Rec" className="bg-green-50/40" />
@@ -340,7 +370,7 @@ export default function BarcodeStockReport() {
                   <SubHead label="Pur Ret" className="bg-red-50/40" />
                   <SubHead label="Total" className="bg-red-50/40 !font-semibold" />
                   {/* Stock */}
-                  <SubHead label="Pcs" className="bg-primary/5 !font-semibold" />
+                  <SubHead label={metricLabel} className="bg-primary/5 !font-semibold" />
                 </tr>
               </thead>
 
@@ -367,27 +397,27 @@ export default function BarcodeStockReport() {
                       {d.item_name || d.short_code}
                     </td>
                     {/* Opening */}
-                    <CTd value={d.opening} onClick={() => openDrill(d, "opening")} className="bg-violet-50/20 font-medium" />
+                    <CTd value={d[k("opening")]} onClick={() => openDrill(d, "opening")} className="bg-violet-50/20 font-medium" />
                     {/* Inflows */}
-                    <CTd value={d.create_pur} onClick={() => openDrill(d, "create_pur")} className="bg-green-50/10" />
-                    <CTd value={d.create_rec} onClick={() => openDrill(d, "create_rec")} className="bg-green-50/10" />
-                    <CTd value={d.sale_ret} onClick={() => openDrill(d, "sale_ret")} className="bg-green-50/10" />
-                    <CTd value={d.sale_app_ret} onClick={() => openDrill(d, "sale_app_ret")} className="bg-green-50/10" />
-                    <CTd value={d.trf_rr_in} onClick={() => openDrill(d, "trf_rr_in")} className="bg-green-50/10" />
-                    <CTd value={d.bar_mer_crt} onClick={() => openDrill(d, "bar_mer_crt")} className="bg-green-50/10" />
-                    <CTd value={d.bar_split_crt} onClick={() => openDrill(d, "bar_split_crt")} className="bg-green-50/10" />
-                    <Td className="bg-green-50/20 font-semibold">{v(d.inflow)}</Td>
+                    <CTd value={d[k("create_pur")]} onClick={() => openDrill(d, "create_pur")} className="bg-green-50/10" />
+                    <CTd value={d[k("create_rec")]} onClick={() => openDrill(d, "create_rec")} className="bg-green-50/10" />
+                    <CTd value={d[k("sale_ret")]} onClick={() => openDrill(d, "sale_ret")} className="bg-green-50/10" />
+                    <CTd value={d[k("sale_app_ret")]} onClick={() => openDrill(d, "sale_app_ret")} className="bg-green-50/10" />
+                    <CTd value={d[k("trf_rr_in")]} onClick={() => openDrill(d, "trf_rr_in")} className="bg-green-50/10" />
+                    <CTd value={d[k("bar_mer_crt")]} onClick={() => openDrill(d, "bar_mer_crt")} className="bg-green-50/10" />
+                    <CTd value={d[k("bar_split_crt")]} onClick={() => openDrill(d, "bar_split_crt")} className="bg-green-50/10" />
+                    <Td className="bg-green-50/20 font-semibold">{v(d[k("inflow")])}</Td>
                     {/* Outflows */}
-                    <CTd value={d.sale} onClick={() => openDrill(d, "sale")} className="bg-red-50/10" />
-                    <CTd value={d.sale_app} onClick={() => openDrill(d, "sale_app")} className="bg-red-50/10" />
-                    <CTd value={d.trf_rr_out} onClick={() => openDrill(d, "trf_rr_out")} className="bg-red-50/10" />
-                    <CTd value={d.bar_mer} onClick={() => openDrill(d, "bar_mer")} className="bg-red-50/10" />
-                    <CTd value={d.bar_split} onClick={() => openDrill(d, "bar_split")} className="bg-red-50/10" />
-                    <CTd value={d.bar_trf_unb} onClick={() => openDrill(d, "bar_trf_unb")} className="bg-red-50/10" />
-                    <CTd value={d.pur_ret} onClick={() => openDrill(d, "pur_ret")} className="bg-red-50/10" />
-                    <Td className="bg-red-50/20 font-semibold">{v(d.outflow)}</Td>
+                    <CTd value={d[k("sale")]} onClick={() => openDrill(d, "sale")} className="bg-red-50/10" />
+                    <CTd value={d[k("sale_app")]} onClick={() => openDrill(d, "sale_app")} className="bg-red-50/10" />
+                    <CTd value={d[k("trf_rr_out")]} onClick={() => openDrill(d, "trf_rr_out")} className="bg-red-50/10" />
+                    <CTd value={d[k("bar_mer")]} onClick={() => openDrill(d, "bar_mer")} className="bg-red-50/10" />
+                    <CTd value={d[k("bar_split")]} onClick={() => openDrill(d, "bar_split")} className="bg-red-50/10" />
+                    <CTd value={d[k("bar_trf_unb")]} onClick={() => openDrill(d, "bar_trf_unb")} className="bg-red-50/10" />
+                    <CTd value={d[k("pur_ret")]} onClick={() => openDrill(d, "pur_ret")} className="bg-red-50/10" />
+                    <Td className="bg-red-50/20 font-semibold">{v(d[k("outflow")])}</Td>
                     {/* Stock */}
-                    <CTd value={d.stock} onClick={() => openDrill(d, "stock")} className="bg-primary/5 font-bold text-sm" />
+                    <CTd value={d[k("stock")]} onClick={() => openDrill(d, "stock")} className="bg-primary/5 font-bold text-sm" />
                   </tr>
                 ))}
 
@@ -400,24 +430,24 @@ export default function BarcodeStockReport() {
                     >
                       Total
                     </td>
-                    <Td className="bg-violet-50/30 font-bold">{v(totals.opening)}</Td>
-                    <Td className="bg-green-50/20">{v(totals.create_pur)}</Td>
-                    <Td className="bg-green-50/20">{v(totals.create_rec)}</Td>
-                    <Td className="bg-green-50/20">{v(totals.sale_ret)}</Td>
-                    <Td className="bg-green-50/20">{v(totals.sale_app_ret)}</Td>
-                    <Td className="bg-green-50/20">{v(totals.trf_rr_in)}</Td>
-                    <Td className="bg-green-50/20">{v(totals.bar_mer_crt)}</Td>
-                    <Td className="bg-green-50/20">{v(totals.bar_split_crt)}</Td>
-                    <Td className="bg-green-50/30 font-bold">{v(totals.inflow)}</Td>
-                    <Td className="bg-red-50/20">{v(totals.sale)}</Td>
-                    <Td className="bg-red-50/20">{v(totals.sale_app)}</Td>
-                    <Td className="bg-red-50/20">{v(totals.trf_rr_out)}</Td>
-                    <Td className="bg-red-50/20">{v(totals.bar_mer)}</Td>
-                    <Td className="bg-red-50/20">{v(totals.bar_split)}</Td>
-                    <Td className="bg-red-50/20">{v(totals.bar_trf_unb)}</Td>
-                    <Td className="bg-red-50/20">{v(totals.pur_ret)}</Td>
-                    <Td className="bg-red-50/30 font-bold">{v(totals.outflow)}</Td>
-                    <Td className="bg-primary/5 font-bold text-sm">{v(totals.stock)}</Td>
+                    <Td className="bg-violet-50/30 font-bold">{v(totals[k("opening")])}</Td>
+                    <Td className="bg-green-50/20">{v(totals[k("create_pur")])}</Td>
+                    <Td className="bg-green-50/20">{v(totals[k("create_rec")])}</Td>
+                    <Td className="bg-green-50/20">{v(totals[k("sale_ret")])}</Td>
+                    <Td className="bg-green-50/20">{v(totals[k("sale_app_ret")])}</Td>
+                    <Td className="bg-green-50/20">{v(totals[k("trf_rr_in")])}</Td>
+                    <Td className="bg-green-50/20">{v(totals[k("bar_mer_crt")])}</Td>
+                    <Td className="bg-green-50/20">{v(totals[k("bar_split_crt")])}</Td>
+                    <Td className="bg-green-50/30 font-bold">{v(totals[k("inflow")])}</Td>
+                    <Td className="bg-red-50/20">{v(totals[k("sale")])}</Td>
+                    <Td className="bg-red-50/20">{v(totals[k("sale_app")])}</Td>
+                    <Td className="bg-red-50/20">{v(totals[k("trf_rr_out")])}</Td>
+                    <Td className="bg-red-50/20">{v(totals[k("bar_mer")])}</Td>
+                    <Td className="bg-red-50/20">{v(totals[k("bar_split")])}</Td>
+                    <Td className="bg-red-50/20">{v(totals[k("bar_trf_unb")])}</Td>
+                    <Td className="bg-red-50/20">{v(totals[k("pur_ret")])}</Td>
+                    <Td className="bg-red-50/30 font-bold">{v(totals[k("outflow")])}</Td>
+                    <Td className="bg-primary/5 font-bold text-sm">{v(totals[k("stock")])}</Td>
                   </tr>
                 )}
               </tbody>

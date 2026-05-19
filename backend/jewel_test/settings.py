@@ -68,8 +68,8 @@ INSTALLED_APPS = [
      "corsheaders",
     "rest_framework",
     'rest_framework.authtoken',
-    'simple_history',
     'common',
+    'audit',
 ]
 
 EXTERNAL_APPS = [
@@ -125,19 +125,27 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'mastersconfig.middleware.RetailMiddleware',
-    # Must come after RetailMiddleware so request.retail is set when the
-    # simple_history pre_create_historical_record signal fires.
-    'common.middleware.TenantHistoryMiddleware',
+    # Populates the audit thread-local (request_id, correlation_id, user,
+    # retail, IP, session) consumed by audit.signals on every CRUD.
+    'audit.middleware.AuditContextMiddleware',
     'licensing.middleware.LicenseMiddleware',
 ]
 
-# ── Audit trail ───────────────────────────────────────────────────────────────
-# django-simple-history snapshots every CRUD on the models that opted in via
-# common.audit.TenantHistoricalRecords. Multi-tenant scope and per-operation
-# reversal are powered by the history_retail / history_transaction_id columns
-# attached to each historical row.
-SIMPLE_HISTORY_HISTORY_CHANGE_REASON_USE_TEXT_FIELD = False
-SIMPLE_HISTORY_REVERT_DISABLED = False
+# ── Audit app retention (per action type) ─────────────────────────────────────
+# Used by `python manage.py prune_audit`. Override any of these per
+# deployment; missing keys fall back to the defaults in the command.
+from datetime import timedelta as _td   # noqa: E402
+AUDIT_RETENTION = {
+    'LOGIN':         _td(days=180),
+    'LOGOUT':        _td(days=180),
+    'LOGIN_FAILED':  _td(days=90),
+    'CREATE':        _td(days=365 * 7),
+    'UPDATE':        _td(days=365 * 7),
+    'DELETE':        _td(days=365 * 7),
+    'RESTORE':       _td(days=365 * 7),
+    'BULK':          _td(days=365 * 7),
+    'CUSTOM':        _td(days=365 * 7),
+}
 
 
 ROOT_URLCONF = 'jewel_test.urls'

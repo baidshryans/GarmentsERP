@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('mastersconfig', '0004_historicalitem_historicalpacket_and_more'),
+        ('mastersconfig', '0003_system_settings_mysql_sync_config'),
     ]
 
     operations = [

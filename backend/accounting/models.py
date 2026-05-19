@@ -9,8 +9,6 @@ from django.db import models
 from contacts.models import Ledger
 from mastersconfig.models import RetailMaster
 
-from common.audit import TenantHistoricalRecords
-
 # Create your models here.
 class Account(models.Model):
     name = models.CharField(max_length=100)
@@ -52,9 +50,6 @@ class VoucherMain(models.Model):
         related_name='receipts',
         help_text="For RCPT vouchers: the customer order this advance receipt belongs to"
     )
-
-    history = TenantHistoricalRecords()
-
     def __str__(self):
         return f"Journal Entry {self.id} - {self.date}"
 
@@ -91,9 +86,6 @@ class VoucherDetail(models.Model):
     party_bank_name = models.CharField(max_length=200,null=True,blank=True)
     chq_no = models.CharField(max_length=200,null=True,blank=True)
     chq_date = models.DateField(null=True,blank=True)
-
-    history = TenantHistoricalRecords()
-
     def __str__(self):
         # Use raw FK value (voucher_main_id) to be cascade-delete safe — accessing
         # self.voucher_main during a cascade can raise DoesNotExist before the

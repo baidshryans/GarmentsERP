@@ -24,7 +24,7 @@ from rest_framework.permissions import IsAuthenticated
 from accounting.utils import peek_next_bill_number
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
-from django.db.models import OuterRef, Subquery, Sum, IntegerField, Q, F, ExpressionWrapper, Prefetch
+from django.db.models import OuterRef, Subquery, Sum, IntegerField, Q, F, ExpressionWrapper, Prefetch, Count
 
 
 @api_view()
@@ -677,7 +677,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Sum, F, FloatField
 from django.db.models.functions import Coalesce
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 from decimal import Decimal
 from mastersconfig.models import Item, Packet
@@ -862,24 +862,14 @@ class StockReportView(APIView):
 
         retail = request.retail
 
-        # Opening stock: barcodes marked as op_stk created on or before as_on_date.
-        # stk_status is intentionally NOT filtered — an op_stk barcode currently held
-        # with a karigar or in approval still belongs to the retail's inventory.
-        base_barcodes = BarcodeMain.objects.filter(
-            op_retail=retail,
-            item=OuterRef('pk'),
-            op_stk=True,
-            created_date__lte=as_on_date,
-        ).values('item').annotate(total_pcs=Coalesce(Sum('pcs'), 0)).values('total_pcs')
-
-        # All transactions up to as_on_date. Retail-less rows (legacy/import) are
-        # included defensively so they don't vanish from every retail's report.
-        # Compare on the date portion of the datetime field so transactions created
-        # later in the day on as_on_date are still counted.
-        transactions = BarcodeTransaction.objects.filter(
-            barcode__item=OuterRef('pk'),
-            date__date__lte=as_on_date,
-        ).filter(Q(retail=retail) | Q(retail__isnull=True))
+        # Single-day report semantics:
+        #   Opening(D) = closing balance as of end of day (D-1)
+        #              = op_stk seeds (created_date <= D-1)
+        #              + inflow transactions (date <= D-1)
+        #              - outflow transactions (date <= D-1)
+        #   Inflow/Outflow columns = movements on day D only
+        #   Stock(D) = Opening + Inflow - Outflow
+        prev_date = as_on_date - timedelta(days=1)
 
         # Actual trans_type values from barcode_transaction table
         inflow_types = [
@@ -890,6 +880,36 @@ class StockReportView(APIView):
             'SALE', 'SALE-APP', 'TRF-RR-OUT',
             'BAR-MER', 'BAR-SPLIT', 'BAR-TRF-UNB', 'PURCHASE-RET',
         ]
+
+        # op_stk seed barcodes still in inventory as of end of prev_date.
+        # stk_status is intentionally NOT filtered — an op_stk barcode held with a
+        # karigar or in approval still belongs to the retail's inventory.
+        op_stk_pcs_sq = BarcodeMain.objects.filter(
+            op_retail=retail,
+            item=OuterRef('pk'),
+            op_stk=True,
+            created_date__lte=prev_date,
+        ).values('item').annotate(total=Coalesce(Sum('pcs'), 0)).values('total')
+
+        # Prior-period transactions (date <= prev_date). Retail-less rows (legacy /
+        # import) are included defensively so they don't vanish from every retail.
+        prior_tx = BarcodeTransaction.objects.filter(
+            barcode__item=OuterRef('pk'),
+            date__date__lte=prev_date,
+        ).filter(Q(retail=retail) | Q(retail__isnull=True))
+
+        prior_inflow_pcs_sq = prior_tx.filter(trans_type__in=inflow_types).values(
+            'barcode__item'
+        ).annotate(total=Coalesce(Sum('barcode__pcs'), 0)).values('total')
+        prior_outflow_pcs_sq = prior_tx.filter(trans_type__in=outflow_types).values(
+            'barcode__item'
+        ).annotate(total=Coalesce(Sum('barcode__pcs'), 0)).values('total')
+
+        # Day-of transactions (date == as_on_date) — drives all per-type inflow/outflow columns.
+        transactions = BarcodeTransaction.objects.filter(
+            barcode__item=OuterRef('pk'),
+            date__date=as_on_date,
+        ).filter(Q(retail=retail) | Q(retail__isnull=True))
 
         # Map trans_type values to safe annotation field names
         type_field_map = {
@@ -904,7 +924,9 @@ class StockReportView(APIView):
         }
 
         annotations = {
-            'opening': Coalesce(Subquery(base_barcodes, output_field=IntegerField()), 0),
+            '_op_stk_pcs': Coalesce(Subquery(op_stk_pcs_sq, output_field=IntegerField()), 0),
+            '_prior_inflow_pcs': Coalesce(Subquery(prior_inflow_pcs_sq, output_field=IntegerField()), 0),
+            '_prior_outflow_pcs': Coalesce(Subquery(prior_outflow_pcs_sq, output_field=IntegerField()), 0),
         }
 
         for trans_type, field_name in type_field_map.items():
@@ -932,13 +954,75 @@ class StockReportView(APIView):
             inflow=inflow_expr,
             outflow=outflow_expr,
         ).annotate(
-            stock=F('opening') + F('inflow') - F('outflow')
+            opening=F('_op_stk_pcs') + F('_prior_inflow_pcs') - F('_prior_outflow_pcs'),
+        ).annotate(
+            stock=F('opening') + F('inflow') - F('outflow'),
         ).filter(
             Q(opening__gt=0) | Q(inflow__gt=0) | Q(outflow__gt=0)
         ).order_by('short_code')
 
-        serializer = ItemStockReportSerializer(qs, many=True)
-        return Response(serializer.data)
+        data = [dict(r) for r in ItemStockReportSerializer(qs, many=True).data]
+
+        # All *_count fields are computed in Python via bulk aggregation. Subquery +
+        # Count(distinct=True) + OuterRef was returning 0 in this ORM version, so we
+        # sidestep the ORM entirely and patch the response.
+        retail_filter = Q(retail=retail) | Q(retail__isnull=True)
+
+        op_stk_counts = {}
+        for iid in BarcodeMain.objects.filter(
+            op_retail=retail, op_stk=True, created_date__lte=prev_date,
+        ).values_list('item', flat=True):
+            op_stk_counts[iid] = op_stk_counts.get(iid, 0) + 1
+
+        prior_in_sets = {}
+        for iid, bid in BarcodeTransaction.objects.filter(
+            date__date__lte=prev_date, trans_type__in=inflow_types,
+        ).filter(retail_filter).values_list('barcode__item', 'barcode_id'):
+            prior_in_sets.setdefault(iid, set()).add(bid)
+        prior_in_counts = {iid: len(s) for iid, s in prior_in_sets.items()}
+
+        prior_out_sets = {}
+        for iid, bid in BarcodeTransaction.objects.filter(
+            date__date__lte=prev_date, trans_type__in=outflow_types,
+        ).filter(retail_filter).values_list('barcode__item', 'barcode_id'):
+            prior_out_sets.setdefault(iid, set()).add(bid)
+        prior_out_counts = {iid: len(s) for iid, s in prior_out_sets.items()}
+
+        # Per-trans-type day-of distinct barcode counts: { item_id: { trans_type: count } }
+        day_sets = {}
+        for iid, tt, bid in BarcodeTransaction.objects.filter(
+            date__date=as_on_date,
+        ).filter(retail_filter).values_list('barcode__item', 'trans_type', 'barcode_id'):
+            day_sets.setdefault(iid, {}).setdefault(tt, set()).add(bid)
+        day_counts = {
+            iid: {tt: len(s) for tt, s in by_tt.items()}
+            for iid, by_tt in day_sets.items()
+        }
+
+        for row in data:
+            iid = row['id']
+            opening_count = (
+                op_stk_counts.get(iid, 0)
+                + prior_in_counts.get(iid, 0)
+                - prior_out_counts.get(iid, 0)
+            )
+            row['opening_count'] = opening_count
+            per_type = day_counts.get(iid, {})
+            inflow_count = 0
+            outflow_count = 0
+            for tt in inflow_types:
+                c = per_type.get(tt, 0)
+                row[f'{type_field_map[tt]}_count'] = c
+                inflow_count += c
+            for tt in outflow_types:
+                c = per_type.get(tt, 0)
+                row[f'{type_field_map[tt]}_count'] = c
+                outflow_count += c
+            row['inflow_count'] = inflow_count
+            row['outflow_count'] = outflow_count
+            row['stock_count'] = opening_count + inflow_count - outflow_count
+
+        return Response(data)
 
 
 class StockReportBarcodesView(APIView):
@@ -976,34 +1060,19 @@ class StockReportBarcodesView(APIView):
 
         retail = request.retail
 
-        if column == 'opening':
-            barcodes = BarcodeMain.objects.filter(
-                op_retail=retail,
-                item_id=item_id,
-                op_stk=True,
-                created_date__lte=as_on_date,
-            ).order_by('barcode')
-            rows = [{
-                'barcode': b.barcode,
-                'pcs': b.pcs,
-                'date': b.created_date.isoformat() if b.created_date else None,
-                'billno': '',
-                'trans_type': 'OPENING',
-            } for b in barcodes]
-            return Response(rows)
-
-        if column == 'stock':
-            # Reconstruct in-stock set as of as_on_date:
-            # opening barcodes, plus inflows minus outflows via transaction count parity.
+        if column in ('opening', 'stock'):
+            # Single-day report: opening = in-stock at end of (as_on_date - 1),
+            # stock = in-stock at end of as_on_date.
+            cutoff = as_on_date - timedelta(days=1) if column == 'opening' else as_on_date
             opening_ids = set(
                 BarcodeMain.objects.filter(
                     op_retail=retail, item_id=item_id, op_stk=True,
-                    created_date__lte=as_on_date,
+                    created_date__lte=cutoff,
                 ).values_list('pk', flat=True)
             )
             txn_qs = BarcodeTransaction.objects.filter(
                 barcode__item_id=item_id,
-                date__date__lte=as_on_date,
+                date__date__lte=cutoff,
             ).filter(Q(retail=retail) | Q(retail__isnull=True))
 
             inflow_trans = set(self.INFLOW_COLUMNS.values())
@@ -1024,13 +1093,14 @@ class StockReportBarcodesView(APIView):
                 elif net < 0 and bid in in_stock_ids:
                     in_stock_ids.discard(bid)
 
+            label = 'OPENING' if column == 'opening' else 'IN-STOCK'
             barcodes = BarcodeMain.objects.filter(pk__in=in_stock_ids).order_by('barcode')
             rows = [{
                 'barcode': b.barcode,
                 'pcs': b.pcs,
                 'date': b.created_date.isoformat() if b.created_date else None,
                 'billno': '',
-                'trans_type': 'IN-STOCK',
+                'trans_type': label,
             } for b in barcodes]
             return Response(rows)
 
@@ -1038,10 +1108,11 @@ class StockReportBarcodesView(APIView):
         if not trans_type:
             return Response({"error": f"Unknown column '{column}'"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Per-type columns are scoped to the selected day to match the main report.
         txns = BarcodeTransaction.objects.filter(
             barcode__item_id=item_id,
             trans_type=trans_type,
-            date__date__lte=as_on_date,
+            date__date=as_on_date,
         ).filter(
             Q(retail=retail) | Q(retail__isnull=True)
         ).select_related('barcode').order_by('date')

@@ -41,7 +41,7 @@ def reverse_noop(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounting', '0006_historicalvoucherdetail_historicalvouchermain'),
+        ('accounting', '0005_add_lob_retail_index'),
         ('purchase',   '0001_initial'),
     ]
 

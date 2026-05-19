@@ -199,6 +199,15 @@ export const fetchAuditLog = async (params = {}) => {
   } catch (e) { return { success: false, error: e.response?.data || e.message }; }
 };
 
+// Fetch every event sharing one correlation_id (parent + child rows that
+// were written inside a single transaction.atomic / HTTP request).
+export const fetchAuditCorrelation = async (correlation_id) => {
+  try {
+    const r = await apiClient.get('/audit/api/log/correlation/', { params: { id: correlation_id } });
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+};
+
 // Fetch old→new field diff for a single history record
 export const fetchAuditDetail = async (id) => {
   try {

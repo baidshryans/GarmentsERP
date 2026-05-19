@@ -501,43 +501,13 @@ def backup_database(request):
 def audit_log(request):
     """GET /userauth/api/audit-log/ — paginated audit trail (admin only).
 
-    Backed by django-simple-history. Iterates every model that registered a
-    TenantHistoricalRecords field, scoped to the active retail, sorts the
-    union by date and paginates in memory. Output shape stays identical to
-    the old easy-audit response so AuditLog.jsx renders unchanged.
+    Backed by the new `audit.AuditEvent` table (one universal event log
+    that auto-tracks every model, groups parent + child rows under a
+    correlation_id, and records login/logout events). Response shape
+    is unchanged so AuditLog.jsx renders without modification.
     """
-    if not _is_admin(request):
-        return Response({'detail': 'Admin access required.'}, status=403)
-
-    from common.history_query import query_history
-
-    retail     = getattr(request, 'retail', None)
-    user_id    = request.GET.get('user')
-    model_name = request.GET.get('model', '').strip()
-    from_date  = request.GET.get('from_date') or None
-    to_date    = request.GET.get('to_date') or None
-
-    rows = query_history(
-        retail=retail,
-        from_date=from_date,
-        to_date=to_date,
-        model_name=model_name,
-        user_id=user_id,
-    )
-
-    page      = max(int(request.GET.get('page', 1)), 1)
-    page_size = 50
-    offset    = (page - 1) * page_size
-    total     = len(rows)
-    page_rows = rows[offset: offset + page_size]
-
-    return Response({
-        'count':     total,
-        'page':      page,
-        'page_size': page_size,
-        'num_pages': max(1, (total + page_size - 1) // page_size),
-        'results':   page_rows,
-    })
+    from audit.views import _log_list_impl
+    return _log_list_impl(request)
 
 
 # ── Audit Reversal & Restore (admin only) ───────────────────────────────────
@@ -547,30 +517,27 @@ def audit_log(request):
 def reverse_transaction_view(request):
     """POST /userauth/api/audit-log/reverse-transaction/
 
-    Body: { history_transaction_id, dry_run? }
-    Undoes every change written during one HTTP request (rows that share
-    the same history_transaction_id). Use dry_run=true to preview.
+    Body: { history_transaction_id (== correlation_id), reason? }
+    Destructively reverts every row touched in the correlation group and
+    deletes any child rows created during it. Replaces the old
+    simple-history-based reverse_transaction.
     """
     if not _is_admin(request):
         return Response({'detail': 'Admin access required.'}, status=403)
 
-    from common.restore import reverse_transaction
+    from audit.restore import restore_correlation
 
-    txn_id = request.data.get('history_transaction_id')
+    txn_id = request.data.get('history_transaction_id') or request.data.get('correlation_id')
     if not txn_id:
         return Response({'detail': 'history_transaction_id is required.'}, status=400)
-
-    dry_run = bool(request.data.get('dry_run', False))
+    reason = request.data.get('reason') or ''
 
     try:
-        summary = reverse_transaction(txn_id, dry_run=dry_run)
+        summary = restore_correlation(txn_id, user=request.user, reason=reason)
     except Exception as exc:
         return Response({'detail': f'Reversal failed: {exc}'}, status=500)
 
-    return Response({
-        'dry_run':  dry_run,
-        'summary':  summary.as_dict(),
-    })
+    return Response({'summary': summary.as_dict()})
 
 
 @api_view(['POST'])
@@ -578,20 +545,28 @@ def reverse_transaction_view(request):
 def restore_to_point_view(request):
     """POST /userauth/api/audit-log/restore-to-point/
 
-    Body: { timestamp (ISO 8601), retail_id?, dry_run? }
-    Roll all tracked rows back to the state that was current at `timestamp`.
+    Body: { model_label, object_pk, timestamp (ISO 8601), reason? }
+    Restores ONE row to its state at the given timestamp by replaying
+    CREATE snapshot + UPDATE diffs forward from the AuditEvent log.
+    System-wide point-in-time restore is no longer supported — use this
+    endpoint per row, or the /audit/api/log/reverse/ endpoint to roll
+    back one correlation group.
     """
     if not _is_admin(request):
         return Response({'detail': 'Admin access required.'}, status=403)
 
-    from common.restore import restore_to_point
-    from mastersconfig.models import RetailMaster
+    from audit.restore import restore_row
     from django.utils.dateparse import parse_datetime
     from django.utils.timezone import make_aware, is_aware
 
-    raw_ts = request.data.get('timestamp')
-    if not raw_ts:
-        return Response({'detail': 'timestamp is required.'}, status=400)
+    model_label = request.data.get('model_label')
+    object_pk   = request.data.get('object_pk')
+    raw_ts      = request.data.get('timestamp') or request.data.get('at_timestamp')
+    reason      = request.data.get('reason') or ''
+    if not (model_label and object_pk and raw_ts):
+        return Response({
+            'detail': 'model_label, object_pk, and timestamp are required.',
+        }, status=400)
 
     ts = parse_datetime(raw_ts)
     if ts is None:
@@ -599,27 +574,14 @@ def restore_to_point_view(request):
     if not is_aware(ts):
         ts = make_aware(ts)
 
-    retail_id = request.data.get('retail_id')
-    retail = None
-    if retail_id:
-        try:
-            retail = RetailMaster.objects.get(pk=retail_id)
-        except RetailMaster.DoesNotExist:
-            return Response({'detail': f'Retail {retail_id} not found.'}, status=404)
-    else:
-        retail = getattr(request, 'retail', None)
-
-    dry_run = bool(request.data.get('dry_run', False))
-
     try:
-        summary = restore_to_point(ts, retail=retail, dry_run=dry_run)
+        summary = restore_row(model_label, object_pk, ts,
+                              user=request.user, reason=reason)
     except Exception as exc:
         return Response({'detail': f'Restore failed: {exc}'}, status=500)
 
     return Response({
-        'dry_run':  dry_run,
         'timestamp': ts.isoformat(),
-        'retail':    retail.retail_code if retail else None,
         'summary':   summary.as_dict(),
     })
 
@@ -718,63 +680,8 @@ def audit_log_detail(request):
     if not _is_admin(request):
         return Response({'detail': 'Admin access required.'}, status=403)
 
-    composite_id = request.GET.get('id', '').strip()
-    if not composite_id or ':' not in composite_id:
-        return Response({'detail': 'id parameter required in format app.model:history_id'}, status=400)
-
-    try:
-        label, history_id_str = composite_id.rsplit(':', 1)
-        history_id = int(history_id_str)
-        app_label, model_name = label.split('.', 1)
-    except (ValueError, AttributeError):
-        return Response({'detail': f'Malformed id: {composite_id}'}, status=400)
-
-    from django.apps import apps
-    try:
-        live_model = apps.get_model(app_label, model_name)
-    except LookupError:
-        return Response({'detail': f'Unknown model: {label}'}, status=404)
-
-    historical_model = getattr(live_model, 'history', None)
-    if historical_model is None:
-        return Response({'detail': f'Model {label} has no history.'}, status=404)
-    historical_model = historical_model.model
-
-    try:
-        hist = historical_model.objects.get(history_id=history_id)
-    except historical_model.DoesNotExist:
-        return Response({'detail': f'History record {history_id} not found.'}, status=404)
-
-    # Find the immediately preceding record for the same live object
-    prev = (
-        historical_model.objects
-        .filter(id=hist.id, history_date__lt=hist.history_date)
-        .order_by('-history_date')
-        .first()
-    )
-
-    changes = []
-    if prev is not None:
-        try:
-            delta = hist.diff_against(prev)
-            for change in delta.changes:
-                changes.append({
-                    'field': change.field,
-                    'old':   str(change.old) if change.old is not None else None,
-                    'new':   str(change.new) if change.new is not None else None,
-                })
-        except Exception as exc:
-            return Response({'detail': f'Could not compute diff: {exc}'}, status=500)
-    else:
-        # CREATE — every field is "new"
-        for field in live_model._meta.get_fields():
-            if not hasattr(field, 'attname'):
-                continue
-            val = getattr(hist, field.attname, None)
-            if val is not None:
-                changes.append({'field': field.name, 'old': None, 'new': str(val)})
-
-    return Response({'history_id': history_id, 'event_type': hist.history_type, 'changes': changes})
+    from audit.views import _log_detail_impl
+    return _log_detail_impl(request)
 
 
 # ── Dashboard Summary ────────────────────────────────────────────────────────

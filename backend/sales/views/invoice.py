@@ -1062,9 +1062,33 @@ class SalesApprovalReturnViewset(views.RetailBaseViewset):
 
     def perform_destroy(self, instance):
         from accounting.utils import release_last_bill_number
+        from inventory.utils import guard_no_later_barcode_transaction
+        from inventory.models import BarcodeTransaction
+
+        barcode_ids = list(
+            instance.items.filter(barcode__isnull=False)
+            .values_list('barcode_id', flat=True)
+            .distinct()
+        )
+        # Block deletion if any of these barcodes had a later transaction
+        # (e.g. a fresh sale) — that downstream history would be left orphaned.
+        guard_no_later_barcode_transaction(barcode_ids, instance.billno)
+
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno
+
+        # SalesApprovalReturnItem.pre_delete already flips stk_status back to False
+        # (barcode returns to "out on approval") and clears the approval item's
+        # ret_status. We additionally remove the audit-log row written on create
+        # so the SALE-APP-RET entry disappears from barcode history / stock reports.
+        if barcode_ids:
+            BarcodeTransaction.objects.filter(
+                billno=billno,
+                trans_type='SALE-APP-RET',
+                barcode_id__in=barcode_ids,
+            ).delete()
+
         super().perform_destroy(instance)
         release_last_bill_number(retail, 'SAR', billno, fiscal_year)
 

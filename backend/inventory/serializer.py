@@ -76,6 +76,8 @@ class OpeningInventorySerializer(serializers.ModelSerializer):
 
 
 class ItemStockReportSerializer(serializers.ModelSerializer):
+    # Pcs-based fields come from queryset annotations. All matching *_count fields
+    # are patched into the response in StockReportView (Python-side bulk aggregation).
     opening = serializers.IntegerField()
     # Inflows
     create_pur = serializers.IntegerField()

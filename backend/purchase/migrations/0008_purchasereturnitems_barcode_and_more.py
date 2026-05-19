@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('inventory', '0014_alter_barcodemain_design_code'),
-        ('purchase', '0007_historicalpurchasevoucher_and_more'),
+        ('purchase', '0006_pv_items_customer_order_item_fk'),
     ]
 
     operations = [

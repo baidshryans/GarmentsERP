@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 import global_vars
-from common.audit import TenantHistoricalRecords
 # Create your modes here.
 
     
@@ -268,6 +267,9 @@ class RetailMaster(models.Model):
         on_delete=models.SET_NULL, related_name='retails'
     )
 
+    def __str__(self):
+        return self.retail_name or self.retail_code or f'Retail #{self.pk}'
+
     default_country_code = models.CharField(
         max_length=5, default='IN', blank=True,
         help_text="ISO 3166-1 alpha-2 code used as default dial code on mobile inputs (e.g. IN, AE, US)"
@@ -287,7 +289,6 @@ class RetailMaster(models.Model):
             return f"{display}/{self.retail_code}/{fy}/"
         return f"{display}/{self.retail_code}/"
 
-    history = TenantHistoricalRecords()
 
 
 
@@ -377,7 +378,6 @@ class Item(models.Model):
     class Meta:
         db_table = "item_master"
 
-    history = TenantHistoricalRecords()
 
 
 class Shapes(models.Model):
@@ -545,7 +545,6 @@ class Packet(models.Model):
 
     op_stock_wtd_avg_rate = models.DecimalField(default=0,decimal_places=3,max_digits=10)
 
-    history = TenantHistoricalRecords()
 
     class Meta:
         db_table = "packet_master"

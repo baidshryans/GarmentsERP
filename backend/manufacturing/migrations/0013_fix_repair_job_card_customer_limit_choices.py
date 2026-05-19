@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('contacts', '0003_historicalledger'),
+        ('contacts', '0002_initial'),
         ('manufacturing', '0012_alter_karigarreceiveitem_making_and_more'),
     ]
 

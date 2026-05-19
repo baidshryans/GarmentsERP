@@ -1,8 +1,7 @@
-﻿from django.db import models
+from django.db import models
 from contacts.models import Ledger
 from mastersconfig.models import Item, SalesPersonMaster
 from goldrates.models import PurityMaster
-from common.audit import TenantHistoricalRecords
 # Create your models here.
 class CustomerOrder(models.Model):
     ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
@@ -208,9 +207,6 @@ class SalesVou(models.Model):
             raise ValidationError("IGST must be 0 if both CGST and SGST are defined.")
         if self.igst_per and (self.cgst_per or self.sgst_per):
             raise ValidationError("CGST and SGST must be 0 if IGST is defined.")
-
-    history = TenantHistoricalRecords()
-
     class Meta:
         db_table = "sales_vou"
         indexes = [
@@ -252,9 +248,6 @@ class SalesVouItem(models.Model):
     amount = models.IntegerField()
 
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
-
-    history = TenantHistoricalRecords()
-
     class Meta:
         db_table = "sales_vou_main"
 
@@ -289,9 +282,6 @@ class BankDetail(models.Model):
         'accounting.VoucherMain', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='cheque_deposits',
     )
-
-    history = TenantHistoricalRecords()
-
     class Meta:
         db_table = 'sale_voucher_bankdetail'
 
@@ -322,9 +312,6 @@ class SalesVouItemDetails(models.Model):
     def fine_wt(self):
         # tunch is stored as a percentage (e.g. 101 means 101%)
         return (self.gw if self.gw else Decimal(0)) * ((self.tunch / Decimal('100')) if self.tunch else Decimal(0))
-
-    history = TenantHistoricalRecords()
-
     class Meta:
         db_table = "sales_vou_detail"
 
@@ -555,7 +542,6 @@ class SalesApprovalReturn(models.Model):
     fiscal_year = models.ForeignKey(
         "mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True,
     )
-
     class Meta:
         db_table = "sales_vou_appr_return"
 
@@ -579,7 +565,6 @@ class SalesApprovalReturnItem(models.Model):
     retail = models.ForeignKey(
         "mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True,
     )
-
     class Meta:
         db_table = "sales_vou_appr_return_main"
 
@@ -604,7 +589,6 @@ class SalesApprovalReturnItemDetails(models.Model):
     retail = models.ForeignKey(
         "mastersconfig.RetailMaster", on_delete=models.SET_NULL, null=True, blank=True,
     )
-
     class Meta:
         db_table = "sales_vou_appr_return_detail"
 

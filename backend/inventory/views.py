@@ -452,16 +452,16 @@ def barcode_split_view(request,old_barcode):
             inst.stk_status = False
             inst.save()
 
-            serializer.save(retail=request.retail)
+            new_barcode = serializer.save(retail=request.retail)
             inst = BarcodeSplitMerge.objects.create(
                 transaction_type = "Split",
                 old_barcode = old_br,
                 # new_barcode = serializer.instance[0],
-                new_barcode = serializer.instance,
+                new_barcode = new_barcode,
                 retail = request.retail
             )
             BarcodeTransaction.objects.create(
-            barcode=old_br,
+            barcode=new_barcode,
             billno=f"${inst.id}",
             trans_type="BAR-SPLIT-CRT",
             user=request.user,

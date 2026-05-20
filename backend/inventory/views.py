@@ -461,12 +461,12 @@ def barcode_split_view(request,old_barcode):
                 retail = request.retail
             )
             BarcodeTransaction.objects.create(
-            barcode=new_barcode,
-            billno=f"${inst.id}",
-            trans_type="BAR-SPLIT-CRT",
-            user=request.user,
-            ip_address=ip,
-            retail=request.retail
+                barcode=new_barcode,
+                billno=f"${inst.id}",
+                trans_type="BAR-SPLIT-CRT",
+                user=request.user,
+                ip_address=ip,
+                retail=request.retail
             )
         
         return Response(data=serializer.data)

@@ -243,8 +243,12 @@ class BarcodeDetailsSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
+        # Purity only applies to metal items. Stone ('S') and Other ('O') sub-items
+        # never carry a metal purity, so we hard-null it for them. Raw ('R') metal
+        # sub-items (Gold, gold scrap, etc.) keep whatever purity the client sent.
+        # Manufactured ('M') sub-items can also legitimately have purity.
         item = attrs.get('item')
-        if item and item.item_type != 'M':
+        if item and item.item_type in ('S', 'O'):
             attrs['purity'] = None
         return attrs
 

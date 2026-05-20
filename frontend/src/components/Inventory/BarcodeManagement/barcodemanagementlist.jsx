@@ -169,6 +169,11 @@ const BarcodeManagementList = () => {
         .then((r) => {
           if (r.success) {
             pvPurityRef.current = r.data.purity || null;
+            // If purityData already loaded by the time prefill returns, the re-apply
+            // useEffect won't re-fire (it depends on purityData, not the ref). Apply now.
+            if (pvPurityRef.current) {
+              setValue("form.purity", pvPurityRef.current);
+            }
             // Capture the gold/metal entry (no packet) before filtering it out.
             // It will be re-injected on submit with the actual NW as its weight.
             pvGoldItemRef.current =
@@ -216,6 +221,9 @@ const BarcodeManagementList = () => {
             // (its weight lives in NW and its purity mirrors the main item).
             const allDetails = d.barcodedetails_set || [];
             pvGoldItemRef.current = allDetails.find((r) => !r.packet) || null;
+            // Stash the loaded purity so the submit's effectivePurity fallback
+            // works in edit mode too (mirrors what we do for PV prefill above).
+            pvPurityRef.current = d.purity || null;
             // Format weight fields to 3 dp strings before setting
             const formData = {
               ...d,
@@ -241,12 +249,36 @@ const BarcodeManagementList = () => {
   const onSubmit = () => {
     const form_data = { ...getValues("form") };
 
-    // Stone / accessory sub-items — purity is always null for non-gold items
-    const stoneDetails = (form_data.barcodedetails_set || []).map((d) => ({
-      ...d,
-      barcode_text: form_data.barcode,
-      purity: null,
-    }));
+    // Resolve the effective main-item purity. The Radix Select races with purityData
+    // load — if purityData arrives BEFORE the PV prefill, the re-apply useEffect
+    // (line ~363) never fires after the ref is set, leaving form.purity blank at
+    // submit. Fall back to pvPurityRef.current so the gold sub-item still gets a
+    // purity_id even in that race.
+    const effectivePurity = form_data.purity || pvPurityRef.current || null;
+
+    // Sub-items inherit purity strictly by item type — overrides any stale value
+    // that may have been left on the row:
+    //   Raw (R)   → main-item purity (e.g. 22K)  — gold scrap, accessory metal, etc.
+    //                (if the user explicitly set d.purity, that wins)
+    //   Stone (S) → always null (stones never carry a metal purity)
+    //   anything else → null
+    const stoneDetails = (form_data.barcodedetails_set || []).map((d) => {
+      const itemMaster = mainItemData.find((m) => m.short_code === d.item);
+      const t = (itemMaster?.item_type || "").toUpperCase();
+      let purity;
+      if (t === "S") {
+        purity = null;
+      } else if (t === "R") {
+        purity = d.purity || effectivePurity;
+      } else {
+        purity = null;
+      }
+      return {
+        ...d,
+        barcode_text: form_data.barcode,
+        purity,
+      };
+    });
 
     // Gold sub-item — re-inject with NW as weight and main-item purity
     // (rate is fetched live at sale time). The item must always be the
@@ -266,7 +298,7 @@ const BarcodeManagementList = () => {
           pcs:          0,
           ct:           0,
           gw:           nw,
-          purity:       form_data.purity || null,   // main-item purity (e.g. "22K")
+          purity:       effectivePurity,   // main-item purity (e.g. "22K") — race-safe
           rate:         0,
           amt:          0,
           barcode_text: form_data.barcode,

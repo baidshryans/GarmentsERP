@@ -390,6 +390,7 @@ class ConvertBarcodeToUnbarcodedView(APIView):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def barcode_split_view(request,old_barcode):
+    from decimal import Decimal
     with transaction.atomic():
         old_br = BarcodeMain.objects.get(barcode=old_barcode)
         ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')) if request else None
@@ -402,18 +403,56 @@ def barcode_split_view(request,old_barcode):
             ip_address=ip,
             retail=request.retail
         ) 
+        # Inherit traceability fields from the source barcode onto each new split row.
+        # The user explicitly wants voucher_no + the source provenance FKs (pur_voucher,
+        # rec_item, kr_code) + created_by carried forward so reports can still trace
+        # post-split barcodes back to their purchase / karigar receive.
+        inherited = {
+            'voucher_no':  old_br.voucher_no,
+            'pur_voucher': old_br.pur_voucher_id,
+            'rec_item':    old_br.rec_item_id,
+            'kr_code':     old_br.kr_code_id,
+            'created_by':  old_br.created_by,
+        }
+        source_gw    = Decimal(str(old_br.gw or 0))
+        source_value = Decimal(str(old_br.value or 0))
+
         for item in request.data:
-            item['retail'] = request.retail
-            # serializer = BarCodeMainSerializer(data=request.data,many=True)
+            # Inject inherited fields (only when the client didn't already send a value).
+            for k, v in inherited.items():
+                if v is not None and not item.get(k):
+                    item[k] = v
+
+            # Compute nw = gw - sum(non-Raw sub-items' gw). Stones don't count as metal.
+            # If the client already sent nw explicitly, respect that.
+            new_gw = Decimal(str(item.get('gw') or 0))
+            if not item.get('nw'):
+                stone_gw = Decimal('0')
+                for sub in item.get('barcodedetails_set', []):
+                    # Sub-items committed as canonical (pcs/ct/gw/amt/purity); Raw subs
+                    # are metal (gold) and should count toward NW, Stone subs should not.
+                    # We treat anything with a `purity` field as metal (gold/raw) — stones
+                    # don't carry a metal purity.
+                    if not (sub.get('purity') or sub.get('metal_purity')):
+                        stone_gw += Decimal(str(sub.get('gw') or 0))
+                item['nw'] = float(max(Decimal('0'), new_gw - stone_gw))
+
+            # Compute value proportionally from the source barcode by GW share, so the
+            # new barcodes' metal values sum to the source's value (round to 2dp).
+            if not item.get('value') and source_gw > 0 and source_value > 0:
+                item['value'] = float((source_value * new_gw / source_gw).quantize(Decimal('0.01')))
+
+            # The serializer's field list does not include `retail`, so pass it via
+            # serializer.save(retail=...) instead of trying to set it through the payload.
             serializer = BarCodeMainSerializer(data=item, context={"request": request})
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data
-        
+
             inst = BarcodeMain.objects.get(barcode=old_barcode)
             inst.stk_status = False
             inst.save()
-            
-            serializer.save()
+
+            serializer.save(retail=request.retail)
             inst = BarcodeSplitMerge.objects.create(
                 transaction_type = "Split",
                 old_barcode = old_br,

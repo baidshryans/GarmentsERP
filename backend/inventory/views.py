@@ -942,29 +942,49 @@ class StockReportView(APIView):
 
         # Prior-period transactions (date <= prev_date). Retail-less rows (legacy /
         # import) are included defensively so they don't vanish from every retail.
-        # EXCLUDE transactions from barcodes that have been split/merged.
-        prior_tx = BarcodeTransaction.objects.filter(
+        # Inflow: EXCLUDE transactions from barcodes that have been split/merged.
+        prior_inflow_tx = BarcodeTransaction.objects.filter(
             barcode__item=OuterRef('pk'),
             date__date__lte=prev_date,
+            trans_type__in=inflow_types,
         ).exclude(
             barcode_id__in=split_merged_barcode_ids
         ).filter(Q(retail=retail) | Q(retail__isnull=True))
 
-        prior_inflow_pcs_sq = prior_tx.filter(trans_type__in=inflow_types).values(
+        prior_inflow_pcs_sq = prior_inflow_tx.values(
             'barcode__item'
         ).annotate(total=Coalesce(Sum('barcode__pcs'), 0)).values('total')
-        prior_outflow_pcs_sq = prior_tx.filter(trans_type__in=outflow_types).values(
+
+        # Outflow: Include BAR-SPLIT on old barcodes, but exclude other outflow on split barcodes.
+        # BAR-SPLIT represents the outflow when a barcode is split, so it should always be included.
+        prior_outflow_tx = BarcodeTransaction.objects.filter(
+            barcode__item=OuterRef('pk'),
+            date__date__lte=prev_date,
+            trans_type__in=outflow_types,
+        ).filter(Q(retail=retail) | Q(retail__isnull=True))
+
+        # Exclude other outflow types from split barcodes, but keep BAR-SPLIT
+        prior_outflow_tx = prior_outflow_tx.exclude(
+            barcode_id__in=split_merged_barcode_ids,
+            trans_type__in=[t for t in outflow_types if t != 'BAR-SPLIT']
+        )
+
+        prior_outflow_pcs_sq = prior_outflow_tx.values(
             'barcode__item'
         ).annotate(total=Coalesce(Sum('barcode__pcs'), 0)).values('total')
 
         # Day-of transactions (date == as_on_date) — drives all per-type inflow/outflow columns.
-        # EXCLUDE transactions from barcodes that have been split/merged.
+        # Exclude split barcodes from inflow, but include BAR-SPLIT outflow on old barcodes.
         transactions = BarcodeTransaction.objects.filter(
             barcode__item=OuterRef('pk'),
             date__date=as_on_date,
-        ).exclude(
-            barcode_id__in=split_merged_barcode_ids
         ).filter(Q(retail=retail) | Q(retail__isnull=True))
+
+        # Exclude inflow and non-BAR-SPLIT outflow on split barcodes, but keep BAR-SPLIT
+        transactions = transactions.exclude(
+            barcode_id__in=split_merged_barcode_ids,
+            trans_type__in=inflow_types + [t for t in outflow_types if t != 'BAR-SPLIT']
+        )
 
         # Map trans_type values to safe annotation field names
         type_field_map = {
@@ -1043,9 +1063,10 @@ class StockReportView(APIView):
         prior_out_sets = {}
         for iid, bid in BarcodeTransaction.objects.filter(
             date__date__lte=prev_date, trans_type__in=outflow_types,
-        ).exclude(
-            barcode_id__in=split_merged_barcode_ids
-        ).filter(retail_filter).values_list('barcode__item', 'barcode_id'):
+        ).filter(retail_filter).exclude(
+            barcode_id__in=split_merged_barcode_ids,
+            trans_type__in=[t for t in outflow_types if t != 'BAR-SPLIT']
+        ).values_list('barcode__item', 'barcode_id'):
             prior_out_sets.setdefault(iid, set()).add(bid)
         prior_out_counts = {iid: len(s) for iid, s in prior_out_sets.items()}
 
@@ -1053,9 +1074,10 @@ class StockReportView(APIView):
         day_sets = {}
         for iid, tt, bid in BarcodeTransaction.objects.filter(
             date__date=as_on_date,
-        ).exclude(
-            barcode_id__in=split_merged_barcode_ids
-        ).filter(retail_filter).values_list('barcode__item', 'trans_type', 'barcode_id'):
+        ).filter(retail_filter).exclude(
+            barcode_id__in=split_merged_barcode_ids,
+            trans_type__in=inflow_types + [t for t in outflow_types if t != 'BAR-SPLIT']
+        ).values_list('barcode__item', 'trans_type', 'barcode_id'):
             day_sets.setdefault(iid, {}).setdefault(tt, set()).add(bid)
         day_counts = {
             iid: {tt: len(s) for tt, s in by_tt.items()}

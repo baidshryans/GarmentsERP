@@ -920,21 +920,34 @@ class StockReportView(APIView):
             'BAR-MER', 'BAR-SPLIT', 'BAR-TRF-UNB', 'PURCHASE-RET',
         ]
 
+        # Exclude barcodes that are old_barcode in split/merge operations.
+        # When a barcode is split/merged, the old barcode should not contribute to
+        # stock reports — only the new child barcodes should be counted.
+        split_merged_barcode_ids = BarcodeSplitMerge.objects.values_list(
+            'old_barcode_id', flat=True
+        )
+
         # op_stk seed barcodes still in inventory as of end of prev_date.
         # stk_status is intentionally NOT filtered — an op_stk barcode held with a
         # karigar or in approval still belongs to the retail's inventory.
+        # EXCLUDE barcodes that have been split/merged.
         op_stk_pcs_sq = BarcodeMain.objects.filter(
             op_retail=retail,
             item=OuterRef('pk'),
             op_stk=True,
             created_date__lte=prev_date,
+        ).exclude(
+            pk__in=split_merged_barcode_ids
         ).values('item').annotate(total=Coalesce(Sum('pcs'), 0)).values('total')
 
         # Prior-period transactions (date <= prev_date). Retail-less rows (legacy /
         # import) are included defensively so they don't vanish from every retail.
+        # EXCLUDE transactions from barcodes that have been split/merged.
         prior_tx = BarcodeTransaction.objects.filter(
             barcode__item=OuterRef('pk'),
             date__date__lte=prev_date,
+        ).exclude(
+            barcode_id__in=split_merged_barcode_ids
         ).filter(Q(retail=retail) | Q(retail__isnull=True))
 
         prior_inflow_pcs_sq = prior_tx.filter(trans_type__in=inflow_types).values(
@@ -945,9 +958,12 @@ class StockReportView(APIView):
         ).annotate(total=Coalesce(Sum('barcode__pcs'), 0)).values('total')
 
         # Day-of transactions (date == as_on_date) — drives all per-type inflow/outflow columns.
+        # EXCLUDE transactions from barcodes that have been split/merged.
         transactions = BarcodeTransaction.objects.filter(
             barcode__item=OuterRef('pk'),
             date__date=as_on_date,
+        ).exclude(
+            barcode_id__in=split_merged_barcode_ids
         ).filter(Q(retail=retail) | Q(retail__isnull=True))
 
         # Map trans_type values to safe annotation field names
@@ -1010,12 +1026,16 @@ class StockReportView(APIView):
         op_stk_counts = {}
         for iid in BarcodeMain.objects.filter(
             op_retail=retail, op_stk=True, created_date__lte=prev_date,
+        ).exclude(
+            pk__in=split_merged_barcode_ids
         ).values_list('item', flat=True):
             op_stk_counts[iid] = op_stk_counts.get(iid, 0) + 1
 
         prior_in_sets = {}
         for iid, bid in BarcodeTransaction.objects.filter(
             date__date__lte=prev_date, trans_type__in=inflow_types,
+        ).exclude(
+            barcode_id__in=split_merged_barcode_ids
         ).filter(retail_filter).values_list('barcode__item', 'barcode_id'):
             prior_in_sets.setdefault(iid, set()).add(bid)
         prior_in_counts = {iid: len(s) for iid, s in prior_in_sets.items()}
@@ -1023,6 +1043,8 @@ class StockReportView(APIView):
         prior_out_sets = {}
         for iid, bid in BarcodeTransaction.objects.filter(
             date__date__lte=prev_date, trans_type__in=outflow_types,
+        ).exclude(
+            barcode_id__in=split_merged_barcode_ids
         ).filter(retail_filter).values_list('barcode__item', 'barcode_id'):
             prior_out_sets.setdefault(iid, set()).add(bid)
         prior_out_counts = {iid: len(s) for iid, s in prior_out_sets.items()}
@@ -1031,6 +1053,8 @@ class StockReportView(APIView):
         day_sets = {}
         for iid, tt, bid in BarcodeTransaction.objects.filter(
             date__date=as_on_date,
+        ).exclude(
+            barcode_id__in=split_merged_barcode_ids
         ).filter(retail_filter).values_list('barcode__item', 'trans_type', 'barcode_id'):
             day_sets.setdefault(iid, {}).setdefault(tt, set()).add(bid)
         day_counts = {

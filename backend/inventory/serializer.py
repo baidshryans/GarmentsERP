@@ -942,7 +942,7 @@ class RawMaterialTransactionSerializer(serializers.ModelSerializer):
 
 class RfidTagAssignSerializer(serializers.Serializer):
     """Assigns (or clears) an RFID tag EPC on a BarcodeMain record."""
-    barcode = serializers.CharField(max_length=13)
+    barcode = serializers.CharField(max_length=50)
     rfid_tag = serializers.CharField(max_length=100, allow_blank=True)
 
     def validate(self, data):

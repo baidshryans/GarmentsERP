@@ -25,6 +25,7 @@ export default function BarcodeOpeningUploadCard() {
   const [conflictAction, setConflictAction] = useState('error');
   const [errorMessage, setErrorMessage] = useState('');
   const [errorList, setErrorList] = useState([]);
+  const [errorsTruncated, setErrorsTruncated] = useState(false);
   const fileMainInputRef = useRef(null);
   const fileDetailsInputRef = useRef(null);
 
@@ -43,6 +44,7 @@ export default function BarcodeOpeningUploadCard() {
     setStatus(STATUS.VALIDATING);
     setErrorMessage('');
     setErrorList([]);
+    setErrorsTruncated(false);
     try {
       const result = await validateBarcodeOpeningCSV(fileMain, fileDetails);
       if (result.success) {
@@ -51,6 +53,7 @@ export default function BarcodeOpeningUploadCard() {
       } else {
         setErrorMessage(result.error || 'Validation failed');
         setErrorList(result.errors || []);
+        setErrorsTruncated(Boolean(result.errors_truncated));
         setStatus(STATUS.ERROR);
       }
     } catch (e) {
@@ -64,6 +67,7 @@ export default function BarcodeOpeningUploadCard() {
     setStatus(STATUS.IMPORTING);
     setErrorMessage('');
     setErrorList([]);
+    setErrorsTruncated(false);
     try {
       const result = await importBarcodeOpeningCSV(fileMain, fileDetails, conflictAction);
       if (result.success) {
@@ -72,6 +76,7 @@ export default function BarcodeOpeningUploadCard() {
       } else {
         setErrorMessage(result.error || 'Import failed');
         setErrorList(result.errors || []);
+        setErrorsTruncated(Boolean(result.errors_truncated));
         setStatus(STATUS.ERROR);
       }
     } catch (e) {
@@ -89,6 +94,7 @@ export default function BarcodeOpeningUploadCard() {
     setConflictAction('error');
     setErrorMessage('');
     setErrorList([]);
+    setErrorsTruncated(false);
     if (fileMainInputRef.current) fileMainInputRef.current.value = '';
     if (fileDetailsInputRef.current) fileDetailsInputRef.current.value = '';
   };
@@ -320,6 +326,11 @@ export default function BarcodeOpeningUploadCard() {
                 <li className="ml-3 text-gray-500 italic">…and {errorList.length - 20} more errors</li>
               )}
             </ul>
+            {errorsTruncated && (
+              <p className="mt-1.5 text-xs text-amber-700 italic">
+                The backend truncated the full error list — additional errors exist beyond the {errorList.length} shown here.
+              </p>
+            )}
           </details>
         )}
 

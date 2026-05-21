@@ -2,7 +2,6 @@ from django.db import models
 from django.forms import ValidationError
 from manufacturing.models import *
 from contacts.models import *
-from django.core.validators import MinLengthValidator, MaxLengthValidator
 from barcode import EAN13
 from barcode.writer import ImageWriter
 import qrcode
@@ -17,9 +16,8 @@ from mastersconfig import serializers
 class BarcodeMain(models.Model):
     item = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True)
     barcode = models.CharField(
-        max_length=13,
+        max_length=50,
         unique=True,
-        validators=[MinLengthValidator(13), MaxLengthValidator(13)]
     )
     qr_code = models.ImageField(upload_to='qrcodes/', blank=True)
     pur_voucher = models.ForeignKey("purchase.PurchaseVoucherItems", on_delete=models.SET_NULL, null=True)

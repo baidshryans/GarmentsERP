@@ -21,6 +21,9 @@ class ItemSerializer(ModelSerializer):
     """Read serializer for Item — resolves FK names without depth=1 to avoid N+1."""
     grp_name = serializers.CharField(source='grp.name', read_only=True, default=None)
     hsn_code = serializers.CharField(source='hsn_no.hsn_no', read_only=True, default=None)
+    hsn_cgst = serializers.DecimalField(source='hsn_no.cgst', max_digits=6, decimal_places=3, read_only=True, default=None)
+    hsn_sgst = serializers.DecimalField(source='hsn_no.sgst', max_digits=6, decimal_places=3, read_only=True, default=None)
+    hsn_igst = serializers.DecimalField(source='hsn_no.igst', max_digits=6, decimal_places=3, read_only=True, default=None)
     purchase_ledger_name = serializers.CharField(source='purchase_ledger.ac_name', read_only=True, default=None)
     sale_ledger_name = serializers.CharField(source='sale_ledger.ac_name', read_only=True, default=None)
 

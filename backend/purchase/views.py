@@ -327,14 +327,18 @@ def purchase_return_initial_data(request):
     from accounting.utils import peek_next_bill_number
     bill_no = peek_next_bill_number(request.retail, "PR")
     ledgers_qs = (Ledger.objects
-                  .filter(roles__role='SC')
+                  .filter(roles__role='VD')
                   .select_related('ac_group')
                   .prefetch_related('roles')
-                  .only('id', 'ac_name', 'ac_group')
+                  .only('id', 'ac_name', 'ac_group', 'state')
                   .distinct())
     items_qs = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger').all()
     purity_qs = PurityMaster.objects.all()
     packets_qs = Packet.objects.select_related('stone_item_id').all()
+
+    retail_state = None
+    if request.retail and request.retail.state:
+        retail_state = request.retail.state.name
 
     return Response({
         "billno": bill_no,
@@ -342,6 +346,7 @@ def purchase_return_initial_data(request):
         "items": ItemSerializer(items_qs, many=True).data,
         "purity": PurityMasterSerializer(purity_qs, many=True).data,
         "packets": PacketSerializer(packets_qs, many=True).data,
+        "retail_state": retail_state,
     })
 
 

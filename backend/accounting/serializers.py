@@ -61,7 +61,7 @@ class LedgerLightSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ledger
-        fields = ['id', 'ac_name', 'ac_group', 'ac_group_name', 'primary_role']
+        fields = ['id', 'ac_name', 'ac_group', 'ac_group_name', 'primary_role', 'state']
 
     def get_primary_role(self, obj):
         # Uses prefetched roles if available

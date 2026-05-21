@@ -1,8 +1,11 @@
+import csv
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from django.http import HttpResponse
 
 from inventory.models import BarcodeMain, BarcodeDetails
 from inventory.csv_parsers import (
@@ -356,3 +359,68 @@ class BarcodeOpeningImportView(APIView):
                 'details_replaced': details_replaced_count,
             },
         })
+
+
+class BarcodeMainTemplateView(APIView):
+    """Download the barcode_main CSV template (header + one example row)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        columns = [
+            'barcode', 'item_name', 'purity', 'quantity_pieces', 'gross_weight',
+            'net_weight', 'value', 'making_value', 'retail_code', 'huid',
+            'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
+        ]
+        example = {
+            'barcode': 'B001',
+            'item_name': 'Ring',
+            'purity': '18',
+            'quantity_pieces': '1',
+            'gross_weight': '5.500',
+            'net_weight': '5.000',
+            'value': '15000.00',
+            'making_value': '2000.00',
+            'retail_code': 'R001',
+            'huid': 'HU123',
+            'design_code': 'DES001',
+            'metal_color': 'Yellow',
+            'size': '6.5',
+            'making_type': 'Hand',
+            'other_charges': '500.00',
+        }
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="barcode_main_template.csv"'
+        writer = csv.DictWriter(response, fieldnames=columns)
+        writer.writeheader()
+        writer.writerow(example)
+        return response
+
+
+class BarcodeDetailsTemplateView(APIView):
+    """Download the barcode_details CSV template (header + one example row)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        columns = [
+            'barcode', 'item_name', 'purity', 'quantity_pieces', 'carat_weight',
+            'gross_weight', 'rate', 'amount', 'packet_number',
+        ]
+        example = {
+            'barcode': 'B001',
+            'item_name': 'Gold Sheet',
+            'purity': '18',
+            'quantity_pieces': '1',
+            'carat_weight': '5.000',
+            'gross_weight': '5.500',
+            'rate': '2500',
+            'amount': '12500',
+            'packet_number': '5',
+        }
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="barcode_details_template.csv"'
+        writer = csv.DictWriter(response, fieldnames=columns)
+        writer.writeheader()
+        writer.writerow(example)
+        return response

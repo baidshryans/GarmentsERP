@@ -51,8 +51,29 @@ const GstInputRegister = () => {
   };
 
 
-  const fmt = (amount) =>
-    amount !== null && amount !== undefined ? Number(amount).toFixed(2) : '0.00';
+  const fmt = (amount) => {
+    if (amount === null || amount === undefined) return '0.00';
+    const num = Number(amount).toFixed(2);
+    const [intPart, decPart] = num.split('.');
+    const isNegative = intPart.startsWith('-');
+    const absInt = isNegative ? intPart.slice(1) : intPart;
+
+    // Indian number format: 1,23,45,678.00
+    let formatted = '';
+    if (absInt.length <= 3) {
+      formatted = absInt;
+    } else {
+      const lastThree = absInt.slice(-3);
+      const remaining = absInt.slice(0, -3);
+      const groups = remaining.split('').reverse().reduce((acc, digit, i) => {
+        if (i > 0 && i % 2 === 0) acc.unshift(',');
+        acc.unshift(digit);
+        return acc;
+      }, []);
+      formatted = groups.join('') + ',' + lastThree;
+    }
+    return (isNegative ? '-' : '') + formatted + '.' + decPart;
+  };
 
   const formatDate = (dateString) =>
     new Date(dateString).toLocaleDateString('en-GB', {
@@ -87,7 +108,7 @@ const GstInputRegister = () => {
   const exportToCSV = () => {
     const headers = [
       'Date', 'Bill No.', 'Ref. No.', 'Party Name', 'GST IN', 'PAN No',
-      'Bill Value', 'Goods Value', '+/- Before Tax', 'Taxable Amt',
+      'Bill Value', '+/- Before Tax', 'Taxable Amt',
       'SGST', 'CGST', 'IGST', 'UTGST', 'Add/Less'
     ];
 
@@ -99,7 +120,6 @@ const GstInputRegister = () => {
       row.gstin || '',
       row.pan || '',
       fmt(row.bill_value),
-      fmt(row.goods_value),
       fmt(row.before_tax),
       fmt(row.taxable_amount),
       fmt(row.sgst),
@@ -112,7 +132,6 @@ const GstInputRegister = () => {
     const totalsRow = [
       'Totals', '', '', '', '', '',
       fmt(totals.bill_value),
-      fmt(totals.goods_value),
       fmt(totals.before_tax),
       fmt(totals.taxable_amount),
       fmt(totals.sgst),
@@ -138,7 +157,6 @@ const GstInputRegister = () => {
   const totals = data.reduce(
     (acc, row) => ({
       bill_value: acc.bill_value + (row.bill_value || 0),
-      goods_value: acc.goods_value + (row.goods_value || 0),
       before_tax: acc.before_tax + (row.before_tax || 0),
       taxable_amount: acc.taxable_amount + (row.taxable_amount || 0),
       sgst: acc.sgst + (row.sgst || 0),
@@ -146,7 +164,7 @@ const GstInputRegister = () => {
       igst: acc.igst + (row.igst || 0),
       utgst: acc.utgst + (row.utgst || 0),
     }),
-    { bill_value: 0, goods_value: 0, before_tax: 0, taxable_amount: 0, sgst: 0, cgst: 0, igst: 0, utgst: 0 }
+    { bill_value: 0, before_tax: 0, taxable_amount: 0, sgst: 0, cgst: 0, igst: 0, utgst: 0 }
   );
 
   return (
@@ -233,7 +251,6 @@ const GstInputRegister = () => {
                     <th className="px-3 py-2.5 text-left font-semibold border-r border-border">PAN No</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">Taxable Amt</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">Bill Value</th>
-                    <th className="px-3 py-2.5 text-right font-semibold border-r border-border">Goods Value</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">+/- Before Tax</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">SGST</th>
                     <th className="px-3 py-2.5 text-right font-semibold border-r border-border">CGST</th>
@@ -245,7 +262,7 @@ const GstInputRegister = () => {
                 <tbody>
                   {data.length === 0 ? (
                     <tr>
-                      <td colSpan="15" className="px-3 py-10 text-center text-muted-foreground">
+                      <td colSpan="14" className="px-3 py-10 text-center text-muted-foreground">
                         No data found for the selected date range.
                       </td>
                     </tr>
@@ -265,7 +282,6 @@ const GstInputRegister = () => {
                         <td className="px-3 py-2 border-r border-border/50">{row.pan || '—'}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.taxable_amount)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.bill_value)}</td>
-                        <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.goods_value)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.before_tax)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.sgst)}</td>
                         <td className="px-3 py-2 text-right border-r border-border/50">{fmt(row.cgst)}</td>
@@ -282,7 +298,6 @@ const GstInputRegister = () => {
                       <td colSpan="6" className="px-3 py-2.5 text-sm">Totals</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.taxable_amount)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.bill_value)}</td>
-                      <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.goods_value)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.before_tax)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.sgst)}</td>
                       <td className="px-3 py-2.5 text-right text-sm border-r border-border/50">{fmt(totals.cgst)}</td>

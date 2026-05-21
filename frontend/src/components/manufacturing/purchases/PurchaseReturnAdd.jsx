@@ -21,6 +21,7 @@ import {
   TableCell,
   TableBody,
 } from "@/components/ui/table";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 
 import {
   createPurchaseReturn,
@@ -118,10 +119,17 @@ const PurchaseReturnAdd = () => {
           cgst_amt: 0,
           sgst_amt: 0,
           igst_amt: 0,
+          cgst_per: 0,
+          sgst_per: 0,
+          igst_per: 0,
           tcs_amt: 0,
           discount: 0,
           hallmark_charge: 0,
           freight_amt: 0,
+          other_charge: 0,
+          mrp: 0,
+          taxable_value: 0,
+          total_incl_gst: 0,
           bill_value: 0,
           round_off: 0,
         },
@@ -138,9 +146,11 @@ const PurchaseReturnAdd = () => {
   const [mainItemData, setMainItemData] = useState([]);
   const [purityData, setPurityData] = useState([]);
   const [packets, setPackets] = useState([]);
+  const [retailState, setRetailState] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanning, setScanning] = useState(false);
   const barcodeFetchingRef = useRef(false);
+  const loadedPvBillNosRef = useRef(new Set());
 
   // ── Initial data load ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -153,6 +163,7 @@ const PurchaseReturnAdd = () => {
           setMainItemData(d.items || []);
           setPurityData(d.purity || []);
           setPackets(d.packets || []);
+          setRetailState(d.retail_state || "");
           setValue("form.billno", d.billno);
         } else {
           console.error("Failed to fetch initial data:", res.error);
@@ -193,26 +204,64 @@ const PurchaseReturnAdd = () => {
   // ── Ref Purchase Voucher auto-populate (Tab on PV Bill No) ────────────────
   const handlePvBillNoKeyDown = async (e) => {
     if (e.key !== "Tab") return;
+    e.preventDefault();
     const pvBillNo = getValues("form.pv_billno");
     if (!pvBillNo) return;
+    if (loadedPvBillNosRef.current.has(pvBillNo)) {
+      toast({ title: "Already loaded", description: `PV Bill "${pvBillNo}" items are already added.` });
+      return;
+    }
     try {
       const response = await fetchDetailsForPurchaseReturn(pvBillNo);
       if (response.success && response.data) {
         const cleanData = removeIds(response.data);
-        const { billno, bill_no, ...restData } = cleanData;
-        reset({
-          ...getValues(),
-          form: {
-            ...getValues("form"),
-            ...restData,
-            pv_billno: pvBillNo,
-            billno: getValues("form.billno"),
-          },
-        });
+
+        const isFirstLoad = loadedPvBillNosRef.current.size === 0;
+
+        if (isFirstLoad) {
+          // Only on the first PV load: populate header/ledger/GST from the PV
+          const { billno, bill_no, ...restData } = cleanData;
+          const itemsTotal = (cleanData.purchasereturnitems_set || []).reduce((sum, item) => {
+            const making = parseFloat(item.making) || 0;
+            const subTotal = (item.purchasereturndetails_set || []).reduce(
+              (s, d) => s + (parseFloat(d.value) || parseFloat(d.amt) || 0),
+              0
+            );
+            return sum + making + subTotal;
+          }, 0);
+          const freight = parseFloat(cleanData.freight_amt) || 0;
+          const other = parseFloat(cleanData.other_charge) || 0;
+          const discount = parseFloat(cleanData.discount) || 0;
+          const taxableBase = itemsTotal + freight + other - discount;
+          const cgstAmt = parseFloat(cleanData.cgst_amt) || 0;
+          const sgstAmt = parseFloat(cleanData.sgst_amt) || 0;
+          const igstAmt = parseFloat(cleanData.igst_amt) || 0;
+          const cgstPer = taxableBase > 0 ? Number(((cgstAmt / taxableBase) * 100).toFixed(2)) : 0;
+          const sgstPer = taxableBase > 0 ? Number(((sgstAmt / taxableBase) * 100).toFixed(2)) : 0;
+          const igstPer = taxableBase > 0 ? Number(((igstAmt / taxableBase) * 100).toFixed(2)) : 0;
+
+          reset({
+            ...getValues(),
+            form: {
+              ...getValues("form"),
+              ...restData,
+              cgst_per: cgstPer,
+              sgst_per: sgstPer,
+              igst_per: igstPer,
+              pv_billno: pvBillNo,
+              billno: getValues("form.billno"),
+            },
+          });
+        } else {
+          // Subsequent PV loads: ONLY append items, keep current vendor/charges intact
+          setValue("form.pv_billno", "");
+        }
+
         setRows((prev) => [
           ...prev,
           ...(cleanData.purchasereturnitems_set || []),
         ]);
+        loadedPvBillNosRef.current.add(pvBillNo);
         markTableDirty();
       }
     } catch (err) {
@@ -235,6 +284,57 @@ const PurchaseReturnAdd = () => {
       handleAddRow();
     }
   };
+
+  // ── Re-apply GST split when rows change (after vendor was already selected) ─
+  const watchedLdgr = watch("form.ldgr");
+  useEffect(() => {
+    if (!watchedLdgr) return;
+    const vendor = vendors.find((v) => v.id === watchedLdgr || v.id === Number(watchedLdgr));
+    if (vendor) applyGstSplitForVendor(vendor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rs.length, watchedLdgr, vendors, retailState, mainItemData]);
+
+  // ── Auto-calculate Bill Summary totals ─────────────────────────────────────
+  const watchedDiscount = watch("form.discount");
+  const watchedFreight = watch("form.freight_amt");
+  const watchedOther = watch("form.other_charge");
+  const watchedRoundOff = watch("form.round_off");
+  const watchedCgstPer = watch("form.cgst_per");
+  const watchedSgstPer = watch("form.sgst_per");
+  const watchedIgstPer = watch("form.igst_per");
+
+  useEffect(() => {
+    const itemsTotal = rs.reduce((sum, item) => {
+      const making = parseFloat(item.making) || 0;
+      const subTotal = (item.purchasereturndetails_set || []).reduce(
+        (s, d) => s + (parseFloat(d.value) || 0),
+        0
+      );
+      return sum + making + subTotal;
+    }, 0);
+
+    const freight = parseFloat(watchedFreight) || 0;
+    const other = parseFloat(watchedOther) || 0;
+    const discount = parseFloat(watchedDiscount) || 0;
+    const roundOff = parseFloat(watchedRoundOff) || 0;
+    const cgstPer = parseFloat(watchedCgstPer) || 0;
+    const sgstPer = parseFloat(watchedSgstPer) || 0;
+    const igstPer = parseFloat(watchedIgstPer) || 0;
+
+    const taxableValue = itemsTotal + freight + other - discount;
+    const cgstAmt = (taxableValue * cgstPer) / 100;
+    const sgstAmt = (taxableValue * sgstPer) / 100;
+    const igstAmt = (taxableValue * igstPer) / 100;
+    const totalInclGst = taxableValue + cgstAmt + sgstAmt + igstAmt;
+    const billValue = totalInclGst + roundOff;
+
+    setValue("form.taxable_value", Number(taxableValue.toFixed(2)));
+    setValue("form.cgst_amt", Number(cgstAmt.toFixed(2)));
+    setValue("form.sgst_amt", Number(sgstAmt.toFixed(2)));
+    setValue("form.igst_amt", Number(igstAmt.toFixed(2)));
+    setValue("form.total_incl_gst", Number(totalInclGst.toFixed(2)));
+    setValue("form.bill_value", Number(billValue.toFixed(2)));
+  }, [rs, watchedDiscount, watchedFreight, watchedOther, watchedRoundOff, watchedCgstPer, watchedSgstPer, watchedIgstPer]);
 
   // ── Packet → sub_item auto-fill & lock ────────────────────────────────────
   const detailPacket = watch("details.packet");
@@ -287,6 +387,95 @@ const PurchaseReturnAdd = () => {
   const handleEdit = (index) => {
     reset({ ...getValues(), table: { ...rs[index] } });
     setRows((prev) => prev.filter((_, i) => i !== index));
+    markTableDirty();
+  };
+
+  const getEffectiveGstRate = () => {
+    // Prefer existing total GST (e.g. when a Ref PV was loaded with rates)
+    const cgstPer = parseFloat(getValues("form.cgst_per")) || 0;
+    const sgstPer = parseFloat(getValues("form.sgst_per")) || 0;
+    const igstPer = parseFloat(getValues("form.igst_per")) || 0;
+    const existing = cgstPer + sgstPer + igstPer;
+    if (existing > 0) return existing;
+
+    // Otherwise derive from items' HSN — use the first item's HSN rate
+    for (const row of rs) {
+      const itm = mainItemData.find((m) => m.short_code === row.item);
+      if (itm) {
+        const cgst = parseFloat(itm.hsn_cgst) || 0;
+        const sgst = parseFloat(itm.hsn_sgst) || 0;
+        const igst = parseFloat(itm.hsn_igst) || 0;
+        const total = cgst + sgst > 0 ? cgst + sgst : igst;
+        if (total > 0) return total;
+      }
+    }
+    return 0;
+  };
+
+  const applyGstSplitForVendor = (vendor) => {
+    if (!vendor) return;
+    const vendorState = (vendor.state || "").trim().toLowerCase();
+    const retState = (retailState || "").trim().toLowerCase();
+    const totalGst = getEffectiveGstRate();
+    if (totalGst <= 0) return;
+
+    const isIntraState = vendorState && retState && vendorState === retState;
+    if (isIntraState) {
+      const half = Number((totalGst / 2).toFixed(2));
+      setValue("form.cgst_per", half);
+      setValue("form.sgst_per", half);
+      setValue("form.igst_per", 0);
+    } else {
+      setValue("form.cgst_per", 0);
+      setValue("form.sgst_per", 0);
+      setValue("form.igst_per", Number(totalGst.toFixed(2)));
+    }
+  };
+
+  const handleItemMakingChange = (itemIdx, newMaking) => {
+    setRows((prev) =>
+      prev.map((item, i) =>
+        i === itemIdx
+          ? { ...item, making: newMaking, making_value: newMaking }
+          : item
+      )
+    );
+    markTableDirty();
+  };
+
+  const getDetailUom = (detail) => {
+    if (!detail?.packet) return "gm";
+    const pkt = packets.find((p) => p.pckt_no === detail.packet);
+    return pkt?.stone_item_uom || "ct";
+  };
+
+  const calcDetailValue = (detail, rate) => {
+    const r = parseFloat(rate) || 0;
+    const uom = getDetailUom(detail);
+    if (uom === "ct") {
+      return r * (parseFloat(detail.sub_ct) || 0);
+    }
+    const fineWt =
+      (parseFloat(detail.sub_gw) || 0) *
+      ((parseFloat(detail.tunch) || 0) / 100);
+    const basis = fineWt > 0 ? fineWt : (parseFloat(detail.sub_gw) || 0);
+    return r * basis;
+  };
+
+  const handleDetailRateChange = (itemIdx, detailIdx, newRate) => {
+    setRows((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIdx) return item;
+        const updatedDetails = (item.purchasereturndetails_set || []).map(
+          (d, j) => {
+            if (j !== detailIdx) return d;
+            const value = calcDetailValue(d, newRate);
+            return { ...d, rate: newRate, value: Number(value.toFixed(2)) };
+          }
+        );
+        return { ...item, purchasereturndetails_set: updatedDetails };
+      })
+    );
     markTableDirty();
   };
 
@@ -360,6 +549,27 @@ const PurchaseReturnAdd = () => {
       }
       const d = res.data;
       const nextSl = rs.length + 1;
+      const normalizedDetails = Array.isArray(d.main_item_set)
+        ? d.main_item_set.map((sd) => {
+            const detail = {
+              sl_no: nextSl,
+              sub_item: sd.item ?? "",
+              sub_pcs: sd.pcs ?? 0,
+              sub_ct: sd.ct ?? 0,
+              sub_gw: sd.gw ?? 0,
+              metal_purity: sd.metal_purity ?? "",
+              loss: sd.loss ?? 0,
+              tunch: sd.tunch ?? 0,
+              rate: sd.rate ?? 0,
+              value: sd.amt ?? sd.value ?? 0,
+              packet: sd.packet ?? "",
+            };
+            const computed = calcDetailValue(detail, detail.rate);
+            if (computed > 0) detail.value = Number(computed.toFixed(2));
+            return detail;
+          })
+        : [];
+
       const newRow = {
         sl_no: nextSl,
         barcode: d.id ?? null,
@@ -368,11 +578,11 @@ const PurchaseReturnAdd = () => {
         pcs: d.pcs ?? 1,
         gw: d.gw ?? 0,
         purity: d.purity ?? "",
-        making_type: "",
-        making_value: 0,
+        making_type: d.making_type ?? "",
+        making_value: d.making ?? 0,
         making: d.making ?? 0,
         remarks: "",
-        purchasereturndetails_set: Array.isArray(d.main_item_set) ? d.main_item_set : [],
+        purchasereturndetails_set: normalizedDetails,
       };
       setRows((prev) => [...prev, newRow]);
       setBarcodeInput("");
@@ -390,17 +600,23 @@ const PurchaseReturnAdd = () => {
   const formRef = useRef(null);
   useEnterAsTab(formRef);
 
+  const cgstPerForLabel = parseFloat(watchedCgstPer) || 0;
+  const sgstPerForLabel = parseFloat(watchedSgstPer) || 0;
+  const igstPerForLabel = parseFloat(watchedIgstPer) || 0;
+
   const billSummaryRows = [
-    { label: "Discount",      field: "form.discount",       editable: true, step: "0.01" },
-    { label: "Hallmark Charge", field: "form.hallmark_charge", editable: true, step: "0.01" },
-    { label: "Freight",       field: "form.freight_amt",    editable: true, step: "0.01" },
-    { label: "Round Off",     field: "form.round_off",      editable: true, step: "0.01" },
+    { label: "Freight Charge", field: "form.freight_amt",   editable: true, step: "0.01" },
+    { label: "Other Charge",   field: "form.other_charge",  editable: true, step: "0.01" },
     { isSeparator: true },
-    { label: "CGST Amount",   field: "form.cgst_amt" },
-    { label: "SGST Amount",   field: "form.sgst_amt" },
-    { label: "IGST Amount",   field: "form.igst_amt" },
-    { label: "TCS Amount",    field: "form.tcs_amt" },
-    { label: "Bill Value",    field: "form.bill_value" },
+    { label: "Discount",       field: "form.discount",      editable: true, step: "0.01" },
+    { label: "Taxable Value",  field: "form.taxable_value" },
+    { label: cgstPerForLabel > 0 ? `CGST @ ${cgstPerForLabel}%` : "CGST", field: "form.cgst_amt" },
+    { label: igstPerForLabel > 0 ? `IGST @ ${igstPerForLabel}%` : "IGST", field: "form.igst_amt" },
+    { label: sgstPerForLabel > 0 ? `SGST @ ${sgstPerForLabel}%` : "SGST", field: "form.sgst_amt" },
+    { label: "Total incl. GST", field: "form.total_incl_gst" },
+    { label: "Round Off",      field: "form.round_off",     editable: true, step: "0.01" },
+    { isSeparator: true },
+    { label: "Total",          field: "form.bill_value",    isTotal: true },
   ];
 
   return (
@@ -443,34 +659,31 @@ const PurchaseReturnAdd = () => {
           </FieldContainer>
 
           <FieldContainer>
-            <Label>Ref PV Bill No</Label>
+            <Label>Ref PV Bill No <span className="text-muted-foreground text-xs">(optional)</span></Label>
             <Input
               type="text"
               onKeyDown={handlePvBillNoKeyDown}
               {...register("form.pv_billno")}
-              placeholder="Tab to auto-fill"
+              placeholder="Tab to auto-fill, or leave blank"
             />
           </FieldContainer>
 
           <FieldContainer>
-            <Label>Vendor / Ledger</Label>
-            <Input
-              list="vendor_list"
-              {...register("form.ldgr_name")}
-              onChange={(e) => {
-                const selected = vendors.find((v) => v.ac_name === e.target.value);
-                if (selected) setValue("form.ldgr", selected.id);
+            <Label>Vendor</Label>
+            <SearchableComboBox
+              options={vendors}
+              labelKey="ac_name"
+              searchKeys={["ac_name"]}
+              value={watch("form.ldgr_name") || ""}
+              placeholder="Search vendor…"
+              onSelect={(v) => {
+                setValue("form.ldgr_name", v.ac_name);
+                setValue("form.ldgr", v.id);
+                applyGstSplitForVendor(v);
               }}
-              required
             />
+            <input type="hidden" {...register("form.ldgr_name")} required />
             <input type="hidden" {...register("form.ldgr")} />
-            <datalist id="vendor_list">
-              {vendors.map((v, i) => (
-                <option key={i} value={v.ac_name}>
-                  {v.id}
-                </option>
-              ))}
-            </datalist>
           </FieldContainer>
         </div>
 
@@ -488,7 +701,7 @@ const PurchaseReturnAdd = () => {
 
         {/* ══ BARCODE SCANNER ═══════════════════════════════════════════════ */}
         <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-4 mb-4">
-          <form onSubmit={handleScan} className="flex items-end gap-3">
+          <div className="flex items-end gap-3">
             <div className="flex flex-col gap-1 flex-1 max-w-sm">
               <Label className="text-xs font-medium flex items-center gap-1.5">
                 <ScanBarcode className="size-3.5" /> Scan Barcode / RFID
@@ -496,17 +709,25 @@ const PurchaseReturnAdd = () => {
               <Input
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleScan(e);
+                  }
+                }}
                 placeholder="Scan or type barcode…"
                 className="h-10 text-base font-mono"
                 disabled={scanning}
+                data-enter-submit="true"
               />
             </div>
-            <Button type="submit" disabled={scanning || !barcodeInput.trim()} className="h-10 gap-1.5">
+            <Button type="button" onClick={handleScan} disabled={scanning || !barcodeInput.trim()} className="h-10 gap-1.5">
               {scanning ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               {scanning ? "Loading…" : "Add"}
             </Button>
             <span className="text-xs text-muted-foreground pb-2">Press Enter after each scan</span>
-          </form>
+          </div>
         </div>
 
         {/* ══ SECTION 2: Add Return Item ════════════════════════════════════ */}
@@ -704,17 +925,18 @@ const PurchaseReturnAdd = () => {
                 <TH>Sl No</TH>
                 <TH className="w-28">Barcode</TH>
                 <TH>Packet</TH>
-                <TH>Item</TH>
+                <TH className="w-56">Item</TH>
                 <TH>Pcs</TH>
                 <TH>Ct</TH>
                 <TH>GW</TH>
                 <TH>Purity</TH>
-                <TH>Making</TH>
+                <TH className="w-20">Making</TH>
                 <TH>Making Type</TH>
                 <TH>Making Value</TH>
                 <TH>Loss</TH>
                 <TH>Tunch</TH>
                 <TH>Fine Wt</TH>
+                <TH className="w-20">Rate</TH>
                 <TH>Amount</TH>
               </TableRow>
 
@@ -741,28 +963,50 @@ const PurchaseReturnAdd = () => {
                     <TableCell className="px-3 py-2 border text-xs">{item.sl_no}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs font-mono">{item.barcode_txt || "—"}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs"></TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{item.item}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs">{mainItemData.find((m) => m.short_code === item.item)?.item_name || item.item}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.pcs}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs"></TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.purity}</TableCell>
-                    <TableCell className="px-3 py-2 border text-xs">{item.making}</TableCell>
+                    <TableCell className="px-3 py-2 border text-xs">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={item.making ?? 0}
+                        onChange={(e) => handleItemMakingChange(idx, e.target.value)}
+                        className="h-7 text-xs"
+                      />
+                    </TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making_type}</TableCell>
                     <TableCell className="px-3 py-2 border text-xs">{item.making_value}</TableCell>
-                    <TableCell className="px-3 py-2 border" colSpan={4}></TableCell>
+                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                    <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                    <TableCell className="px-3 py-2 border text-xs">
+                      {(
+                        (parseFloat(item.making) || 0) +
+                        (item.purchasereturndetails_set || []).reduce(
+                          (s, d) => s + (parseFloat(d.value) || 0),
+                          0
+                        )
+                      ).toFixed(2)}
+                    </TableCell>
                   </TableRow>
 
                   {/* Detail rows */}
                   {Array.isArray(item.purchasereturndetails_set) &&
                     item.purchasereturndetails_set.map((detail, detailIdx) => (
                       <TableRow className="bg-gray-50" key={detailIdx}>
-                        <TableCell className="px-3 py-2 border flex items-center justify-center">
-                          <Trash2
-                            size={14}
-                            color="#d45959"
-                            className="cursor-pointer"
-                            onClick={() => handleDeleteDetail(idx, detailIdx)}
-                          />
+                        <TableCell className="px-3 py-2 border">
+                          <div className="flex items-center justify-center">
+                            <Trash2
+                              size={14}
+                              color="#d45959"
+                              className="cursor-pointer"
+                              onClick={() => handleDeleteDetail(idx, detailIdx)}
+                            />
+                          </div>
                         </TableCell>
                         {/* Detail: SL NO(↳) | BARCODE | PACKET | ITEM | PCS | CT | GW | PURITY | MAKING x3 | LOSS | TUNCH | FINE WT | AMOUNT */}
                         <TableCell className="px-3 py-2 border text-xs text-gray-400">↳</TableCell>
@@ -773,11 +1017,22 @@ const PurchaseReturnAdd = () => {
                         <TableCell className="px-3 py-2 border text-xs">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_gw != null ? parseFloat(detail.sub_gw).toFixed(3) : "—"}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.metal_purity}</TableCell>
-                        <TableCell className="px-3 py-2 border" colSpan={3}></TableCell>
+                        <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                        <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                        <TableCell className="px-3 py-2 border text-xs"></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.loss}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.tunch}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{(detail.sub_gw && detail.tunch) ? (parseFloat(detail.sub_gw) * parseFloat(detail.tunch) / 100).toFixed(3) : "—"}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs">{detail.value}</TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={detail.rate ?? 0}
+                            onChange={(e) => handleDetailRateChange(idx, detailIdx, e.target.value)}
+                            className="h-7 text-xs"
+                          />
+                        </TableCell>
+                        <TableCell className="px-3 py-2 border text-xs">{Number(detail.value || 0).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                 </React.Fragment>

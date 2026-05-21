@@ -26,17 +26,23 @@ export default function BarcodeOpeningUploadCard() {
   const [errorMessage, setErrorMessage] = useState('');
   const [errorList, setErrorList] = useState([]);
   const [errorsTruncated, setErrorsTruncated] = useState(false);
+  const [downloadingMain, setDownloadingMain] = useState(false);
+  const [downloadingDetails, setDownloadingDetails] = useState(false);
   const fileMainInputRef = useRef(null);
   const fileDetailsInputRef = useRef(null);
 
   const handleDownloadMain = async () => {
+    setDownloadingMain(true);
     const res = await downloadBarcodeMainTemplate();
     if (!res.success) alert(`Template download failed: ${res.error}`);
+    setDownloadingMain(false);
   };
 
   const handleDownloadDetails = async () => {
+    setDownloadingDetails(true);
     const res = await downloadBarcodeDetailsTemplate();
     if (!res.success) alert(`Template download failed: ${res.error}`);
+    setDownloadingDetails(false);
   };
 
   const handleValidate = async () => {
@@ -102,52 +108,65 @@ export default function BarcodeOpeningUploadCard() {
   // ── IDLE ───────────────────────────────────────────────────────────────────
   if (status === STATUS.IDLE) {
     return (
-      <div className="p-4 border rounded bg-white">
-        <h3 className="text-base font-semibold mb-3">Barcode Opening Data Import</h3>
-        <p className="text-xs text-gray-500 mb-4">
-          Upload two CSV files (barcode_main + barcode_details). New barcodes are marked as opening stock
-          (op_stk=true). If a barcode already exists, you can choose to skip, update, or abort.
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <p className="text-xs text-gray-400 mb-4">
+          Upload two CSV files (barcode_main + barcode_details). New barcodes are marked as opening
+          stock. If a barcode already exists, you can choose to skip, update, or abort.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <div className="border-2 border-dashed border-gray-200 rounded p-3">
-            <label htmlFor="barcode-main-csv-input" className="block text-sm font-medium mb-1">Barcode Main CSV</label>
+          {/* Barcode Main */}
+          <div className="rounded-lg border border-gray-200 p-3">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <label htmlFor="barcode-main-csv-input" className="text-sm font-semibold text-gray-800">
+                Barcode Main CSV
+              </label>
+              <button
+                type="button"
+                onClick={handleDownloadMain}
+                disabled={downloadingMain}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors shrink-0"
+              >
+                {downloadingMain ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {downloadingMain ? '…' : 'Template'}
+              </button>
+            </div>
             <input
               id="barcode-main-csv-input"
               ref={fileMainInputRef}
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => setFileMain(e.target.files?.[0] || null)}
-              className="block w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="block w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-primary hover:file:bg-violet-100"
             />
-            {fileMain && <div className="text-xs text-green-700 mt-1">✓ {fileMain.name}</div>}
-            <button
-              type="button"
-              onClick={handleDownloadMain}
-              className="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1"
-            >
-              <Download size={12} /> Download Template
-            </button>
+            {fileMain && <div className="text-xs text-green-700 mt-1.5">✓ {fileMain.name}</div>}
           </div>
 
-          <div className="border-2 border-dashed border-gray-200 rounded p-3">
-            <label htmlFor="barcode-details-csv-input" className="block text-sm font-medium mb-1">Barcode Details CSV</label>
+          {/* Barcode Details */}
+          <div className="rounded-lg border border-gray-200 p-3">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <label htmlFor="barcode-details-csv-input" className="text-sm font-semibold text-gray-800">
+                Barcode Details CSV
+              </label>
+              <button
+                type="button"
+                onClick={handleDownloadDetails}
+                disabled={downloadingDetails}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors shrink-0"
+              >
+                {downloadingDetails ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                {downloadingDetails ? '…' : 'Template'}
+              </button>
+            </div>
             <input
               id="barcode-details-csv-input"
               ref={fileDetailsInputRef}
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => setFileDetails(e.target.files?.[0] || null)}
-              className="block w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="block w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-primary hover:file:bg-violet-100"
             />
-            {fileDetails && <div className="text-xs text-green-700 mt-1">✓ {fileDetails.name}</div>}
-            <button
-              type="button"
-              onClick={handleDownloadDetails}
-              className="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1"
-            >
-              <Download size={12} /> Download Template
-            </button>
+            {fileDetails && <div className="text-xs text-green-700 mt-1.5">✓ {fileDetails.name}</div>}
           </div>
         </div>
 
@@ -155,7 +174,7 @@ export default function BarcodeOpeningUploadCard() {
           type="button"
           onClick={handleValidate}
           disabled={!fileMain || !fileDetails}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <Upload size={14} /> Upload & Validate
         </button>
@@ -166,8 +185,8 @@ export default function BarcodeOpeningUploadCard() {
   // ── VALIDATING ─────────────────────────────────────────────────────────────
   if (status === STATUS.VALIDATING) {
     return (
-      <div className="p-4 border rounded bg-white flex items-center gap-2 text-sm">
-        <Loader2 className="animate-spin text-blue-600" size={16} />
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm flex items-center gap-2 text-sm">
+        <Loader2 className="animate-spin text-primary" size={16} />
         <span>Parsing and validating files…</span>
       </div>
     );
@@ -177,7 +196,7 @@ export default function BarcodeOpeningUploadCard() {
   if (status === STATUS.PREVIEW && validationResult) {
     const hasConflicts = validationResult.existing_barcodes_count > 0;
     return (
-      <div className="p-4 border rounded bg-white">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <h3 className="text-base font-semibold mb-3">Preview & Confirm Import</h3>
 
         <div className="space-y-2 mb-4">
@@ -234,14 +253,14 @@ export default function BarcodeOpeningUploadCard() {
           <button
             type="button"
             onClick={handleReset}
-            className="px-3 py-1.5 text-sm rounded border border-gray-300 hover:bg-gray-50"
+            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
           >
             Go Back
           </button>
           <button
             type="button"
             onClick={handleImport}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-primary text-white hover:opacity-90 transition-colors"
           >
             <Upload size={14} /> Import
           </button>
@@ -253,8 +272,8 @@ export default function BarcodeOpeningUploadCard() {
   // ── IMPORTING ──────────────────────────────────────────────────────────────
   if (status === STATUS.IMPORTING) {
     return (
-      <div className="p-4 border rounded bg-white flex items-center gap-2 text-sm">
-        <Loader2 className="animate-spin text-blue-600" size={16} />
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm flex items-center gap-2 text-sm">
+        <Loader2 className="animate-spin text-primary" size={16} />
         <span>Importing…</span>
       </div>
     );
@@ -263,16 +282,16 @@ export default function BarcodeOpeningUploadCard() {
   // ── SUCCESS ────────────────────────────────────────────────────────────────
   if (status === STATUS.SUCCESS && importResult) {
     return (
-      <div className="p-4 border rounded bg-white">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <CheckCircle className="text-green-600" size={18} />
           <h3 className="text-base font-semibold text-green-700">Import complete</h3>
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="p-2 bg-blue-50 rounded text-center">
+          <div className="p-2 bg-violet-50 rounded text-center">
             <div className="text-xs text-gray-600">Created</div>
-            <div className="text-xl font-bold text-blue-700">{importResult.created ?? 0}</div>
+            <div className="text-xl font-bold text-primary">{importResult.created ?? 0}</div>
           </div>
           <div className="p-2 bg-purple-50 rounded text-center">
             <div className="text-xs text-gray-600">Updated</div>
@@ -293,7 +312,7 @@ export default function BarcodeOpeningUploadCard() {
         <button
           type="button"
           onClick={handleReset}
-          className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+          className="px-3 py-1.5 text-sm rounded-md bg-primary text-white hover:opacity-90 transition-colors"
         >
           Import More Data
         </button>
@@ -304,7 +323,7 @@ export default function BarcodeOpeningUploadCard() {
   // ── ERROR ──────────────────────────────────────────────────────────────────
   if (status === STATUS.ERROR) {
     return (
-      <div className="p-4 border rounded bg-white">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-start gap-2 mb-3">
           <XCircle className="text-red-600 mt-0.5" size={18} />
           <div className="flex-1">
@@ -337,7 +356,7 @@ export default function BarcodeOpeningUploadCard() {
         <button
           type="button"
           onClick={handleReset}
-          className="px-3 py-1.5 text-sm rounded border border-gray-300 hover:bg-gray-50"
+          className="px-3 py-1.5 text-sm rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
         >
           Try Again
         </button>

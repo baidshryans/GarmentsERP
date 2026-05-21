@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff } from "lucide-react";
+import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag } from "lucide-react";
 import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
 import BarcodeOpeningUploadCard from './BarcodeOpeningUploadCard';
@@ -24,6 +24,13 @@ const TABLES = [
   { key: "packet_group",   label: "Packet Group Master",   uploadFn: uploadPacketGroupCSV,    hint: "Columns: packet_group (or packet_group_name)",                                                                                     dependsOn: "item" },
   { key: "packet",         label: "Packet Master",         uploadFn: uploadPacketCSV,         hint: "Columns: pckt_no, stone_id, rate_for_retail, rate_for_wholesale, solitare, customer, packet_group",                               dependsOn: "item" },
   { key: "karigar_making", label: "Karigar Making Rates",  uploadFn: uploadKarigarMakingCSV,  hint: "Columns: karigar_name, item_code, purity, making_per_gm, making_per_pc, loss_rate, kr_code (optional)",                           dependsOn: "item" },
+];
+
+const TABS = [
+  { id: "masters", label: "Masters",   icon: Database },
+  { id: "ledgers", label: "Ledgers",   icon: Users    },
+  { id: "barcode", label: "Barcode",   icon: Tag      },
+  { id: "mysql",   label: "MySQL Sync", icon: RefreshCw },
 ];
 
 function ResultBadge({ result }) {
@@ -410,6 +417,7 @@ const TABLE_CHECK_URLS = {
 };
 
 export default function ImportDataPage() {
+  const [activeTab, setActiveTab] = useState("masters");
   const [completed, setCompleted] = useState(new Set());
 
   // On mount, check which dependent tables already have data and pre-unlock them
@@ -432,10 +440,8 @@ export default function ImportDataPage() {
 
   const handleSuccess = (key) => setCompleted(prev => new Set([...prev, key]));
 
-  // Resolve human-readable label for a dependency key
   const labelOf = (key) => TABLES.find(t => t.key === key)?.label ?? key;
 
-  // A card is blocked if its dependency has not been completed yet
   const blockedBy = (dependsOn) => {
     if (!dependsOn) return null;
     return completed.has(dependsOn) ? null : labelOf(dependsOn);
@@ -447,10 +453,30 @@ export default function ImportDataPage() {
       <p className="text-sm text-gray-500 mb-5">
         Upload CSV files to populate master tables, or sync directly from a connected MySQL database.
       </p>
-      <div className="space-y-4">
-        <SeedSystemLedgersCard />
-        <section>
-          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">CSV Upload</h2>
+
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-md font-medium transition-colors ${
+              activeTab === id
+                ? "bg-white text-primary shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Icon size={14} />
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Masters tab */}
+      {activeTab === "masters" && (
+        <div className="space-y-4">
+          <SeedSystemLedgersCard />
           <div className="grid gap-3 sm:grid-cols-2">
             {TABLES.map(({ key, dependsOn, ...rest }) => (
               <CSVUploadCard
@@ -462,24 +488,13 @@ export default function ImportDataPage() {
               />
             ))}
           </div>
-        </section>
-        <section>
-          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">
-            Barcode Opening Stock
-          </h2>
-          <p className="text-xs text-gray-500 mb-3">
-            Bulk-upload opening-stock barcodes with their details. Both CSVs are required.
-            New barcodes are flagged with <code className="bg-gray-100 px-1 rounded">op_stk=true</code>.
-            Existing barcodes can be skipped, updated, or treated as an error.
-          </p>
-          <BarcodeOpeningUploadCard />
-        </section>
-        <section>
-          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <Users size={14} className="text-primary" />
-            Ledger Masters
-          </h2>
-          <p className="text-xs text-gray-500 mb-3">
+        </div>
+      )}
+
+      {/* Ledgers tab */}
+      {activeTab === "ledgers" && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">
             Download the template for each ledger role, fill it in from your existing records, then upload.
             The first two rows are sample data — delete them before uploading.
             Rows are matched by <code className="bg-gray-100 px-1 rounded">ac_name</code> — re-uploading the same file safely updates existing ledgers.
@@ -489,12 +504,25 @@ export default function ImportDataPage() {
               <LedgerUploadCard key={type} type={type} label={label} hint={hint} />
             ))}
           </div>
-        </section>
-        <section>
-          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3">MySQL Sync</h2>
-          <MySQLSyncCard />
-        </section>
-      </div>
+        </div>
+      )}
+
+      {/* Barcode tab */}
+      {activeTab === "barcode" && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">
+            Bulk-upload opening-stock barcodes with their details. Both CSVs are required.
+            New barcodes are flagged with <code className="bg-gray-100 px-1 rounded">op_stk=true</code>.
+            Existing barcodes can be skipped, updated, or treated as an error.
+          </p>
+          <BarcodeOpeningUploadCard />
+        </div>
+      )}
+
+      {/* MySQL Sync tab */}
+      {activeTab === "mysql" && (
+        <MySQLSyncCard />
+      )}
     </div>
   );
 }

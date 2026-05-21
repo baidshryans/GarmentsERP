@@ -105,8 +105,9 @@ export default function BarcodeOpeningUploadCard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <div className="border-2 border-dashed border-gray-200 rounded p-3">
-            <div className="text-sm font-medium mb-1">Barcode Main CSV</div>
+            <label htmlFor="barcode-main-csv-input" className="block text-sm font-medium mb-1">Barcode Main CSV</label>
             <input
+              id="barcode-main-csv-input"
               ref={fileMainInputRef}
               type="file"
               accept=".csv,text/csv"
@@ -124,8 +125,9 @@ export default function BarcodeOpeningUploadCard() {
           </div>
 
           <div className="border-2 border-dashed border-gray-200 rounded p-3">
-            <div className="text-sm font-medium mb-1">Barcode Details CSV</div>
+            <label htmlFor="barcode-details-csv-input" className="block text-sm font-medium mb-1">Barcode Details CSV</label>
             <input
+              id="barcode-details-csv-input"
               ref={fileDetailsInputRef}
               type="file"
               accept=".csv,text/csv"

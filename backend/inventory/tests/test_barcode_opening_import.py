@@ -310,8 +310,8 @@ IMPORT_URL = "/inventory/api/barcode-opening/import/"
 
 MAIN_COLS = [
     "barcode", "item_id", "purity", "quantity_pieces", "gross_weight",
-    "net_weight", "value", "making_value", "retail_code", "huid",
-    "design_code", "metal_color", "size", "making_type", "other_charges",
+    "net_weight", "value", "making_value", "total_amount", "retail_code",
+    "huid", "design_code", "metal_color", "size", "making_type", "other_charges",
 ]
 DETAILS_COLS = [
     "barcode", "item_id", "purity", "quantity_pieces", "carat_weight",
@@ -329,6 +329,7 @@ def main_row(barcode="B001", item_id="", **overrides):
         "net_weight": "5.000",
         "value": "15000.00",
         "making_value": "2000.00",
+        "total_amount": "17000.00",
         "retail_code": "R001",
         "huid": "",
         "design_code": "",

@@ -115,7 +115,7 @@ export default function BarcodeOpeningUploadCard() {
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-gray-800">Barcode Main CSV</h3>
               <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-                barcode, item_id, purity, gross_weight, net_weight, value, retail_code, huid, design_code…
+                barcode, item_id, purity, gross_weight, net_weight, value, making_value, total_amount, retail_code…
               </p>
               {fileMain && (
                 <p className="mt-1.5 text-xs text-green-700 flex items-center gap-1">

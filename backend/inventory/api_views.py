@@ -21,8 +21,8 @@ from inventory.csv_parsers import (
 
 BARCODE_MAIN_COLUMNS = [
     'barcode', 'item_id', 'purity', 'quantity_pieces', 'gross_weight',
-    'net_weight', 'value', 'making_value', 'retail_code', 'huid',
-    'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
+    'net_weight', 'value', 'making_value', 'total_amount', 'retail_code',
+    'huid', 'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
 ]
 
 BARCODE_DETAILS_COLUMNS = [
@@ -68,6 +68,8 @@ def _validate_main_row(row, row_num, main_barcodes, existing_barcodes, errors):
     _check(lambda: parse_decimal_field(row.get('value'), 'value', 2))
     _check(lambda: parse_decimal_field(row.get('making_value'), 'making_value', 2))
 
+    if str(row.get('total_amount') or '').strip():
+        _check(lambda: parse_decimal_field(row.get('total_amount'), 'total_amount', 2))
     if str(row.get('other_charges') or '').strip():
         _check(lambda: parse_decimal_field(row.get('other_charges'), 'other_charges', 2))
 
@@ -134,7 +136,9 @@ def _build_barcode_main_kwargs(row):
         val = str(row.get(csv_col) or '').strip()
         if val:
             kwargs[model_field] = val
-    # Optional decimal
+    # Optional decimals
+    if str(row.get('total_amount') or '').strip():
+        kwargs['total_amount'] = parse_decimal_field(row.get('total_amount'), 'total_amount', 2)
     if str(row.get('other_charges') or '').strip():
         kwargs['other_chg'] = parse_decimal_field(row.get('other_charges'), 'other_charges', 2)
     return kwargs
@@ -369,8 +373,8 @@ class BarcodeMainTemplateView(APIView):
     def get(self, request):
         columns = [
             'barcode', 'item_id', 'purity', 'quantity_pieces', 'gross_weight',
-            'net_weight', 'value', 'making_value', 'retail_code', 'huid',
-            'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
+            'net_weight', 'value', 'making_value', 'total_amount', 'retail_code',
+            'huid', 'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
         ]
         example = {
             'barcode': 'B001',
@@ -381,6 +385,7 @@ class BarcodeMainTemplateView(APIView):
             'net_weight': '5.000',
             'value': '15000.00',
             'making_value': '2000.00',
+            'total_amount': '17500.00',
             'retail_code': 'R001',
             'huid': 'HU123',
             'design_code': 'DES001',

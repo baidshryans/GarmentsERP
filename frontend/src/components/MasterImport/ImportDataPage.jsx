@@ -216,9 +216,9 @@ function MySQLSyncCard() {
   const [status, setStatus] = useState("idle");
   const [results, setResults] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [selectedTables, setSelectedTables] = useState({
-    hsn: true, item: true, packet_group: true, packet: true,
-  });
+  const [selectedTables, setSelectedTables] = useState(
+    Object.fromEntries(TABLES.map(({ key }) => [key, true]))
+  );
 
   useEffect(() => {
     getMySQLConfig().then(r => {

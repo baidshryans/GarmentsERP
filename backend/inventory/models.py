@@ -80,8 +80,8 @@ class BarcodeDetails(models.Model):  # Inherit models.Model
     gw = models.DecimalField(blank=True, null=True, max_digits=10, decimal_places=3)
     item = models.ForeignKey(Item, on_delete=models.CASCADE)
     purity = models.ForeignKey(PurityMaster, null=True, blank=True, on_delete=models.SET_NULL)
-    rate = models.IntegerField()
-    amt = models.IntegerField()
+    rate = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    amt = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
     @property
     def barcode_text(self):

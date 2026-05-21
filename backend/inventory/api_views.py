@@ -103,8 +103,8 @@ def _validate_details_row(row, row_num, main_barcodes_in_upload, errors):
 
     _check(lambda: parse_decimal_field(row.get('carat_weight'), 'carat_weight', 3))
     _check(lambda: parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3))
-    _check(lambda: parse_integer_field(row.get('rate'), 'rate'))
-    _check(lambda: parse_integer_field(row.get('amount'), 'amount'))
+    _check(lambda: parse_decimal_field(row.get('rate'), 'rate', 2))
+    _check(lambda: parse_decimal_field(row.get('amount'), 'amount', 2))
 
     if str(row.get('quantity_pieces') or '').strip():
         _check(lambda: parse_integer_field(row.get('quantity_pieces'), 'quantity_pieces'))
@@ -147,8 +147,8 @@ def _build_barcode_details_kwargs(row, barcode_main_instance):
         'item': match_item_id(row.get('item_id')),
         'ct': parse_decimal_field(row.get('carat_weight'), 'carat_weight', 3),
         'gw': parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3),
-        'rate': parse_integer_field(row.get('rate'), 'rate'),
-        'amt': parse_integer_field(row.get('amount'), 'amount'),
+        'rate': parse_decimal_field(row.get('rate'), 'rate', 2),
+        'amt': parse_decimal_field(row.get('amount'), 'amount', 2),
     }
     if str(row.get('purity') or '').strip():
         kwargs['purity'] = match_purity(row.get('purity'))
@@ -414,8 +414,8 @@ class BarcodeDetailsTemplateView(APIView):
             'quantity_pieces': '1',
             'carat_weight': '5.000',
             'gross_weight': '5.500',
-            'rate': '2500',
-            'amount': '12500',
+            'rate': '2500.00',
+            'amount': '12500.00',
             'packet_number': '5',
         }
         response = HttpResponse(content_type='text/csv')

@@ -349,8 +349,8 @@ def details_row(barcode="B001", item_id="", **overrides):
         "quantity_pieces": "1",
         "carat_weight": "5.000",
         "gross_weight": "5.500",
-        "rate": "2500",
-        "amount": "12500",
+        "rate": "2500.00",
+        "amount": "12500.00",
         "packet_number": "",
     }
     base.update(overrides)
@@ -507,10 +507,10 @@ class BarcodeOpeningImportEndpointTests(TransactionTestCase):
         # Pre-create a barcode WITH existing details
         existing = BarcodeMain.objects.create(barcode="B001", purity=self.purity, retail=self.retail, item=self.item)
         BarcodeDetails.objects.create(
-            barcode=existing, item=self.item, rate=100, amt=500, ct=Decimal("1.000"), gw=Decimal("1.000")
+            barcode=existing, item=self.item, rate=Decimal("100.00"), amt=Decimal("500.00"), ct=Decimal("1.000"), gw=Decimal("1.000")
         )
         BarcodeDetails.objects.create(
-            barcode=existing, item=self.item, rate=200, amt=600, ct=Decimal("2.000"), gw=Decimal("2.000")
+            barcode=existing, item=self.item, rate=Decimal("200.00"), amt=Decimal("600.00"), ct=Decimal("2.000"), gw=Decimal("2.000")
         )
         iid = str(self.item.id)
         resp = self._post_import(

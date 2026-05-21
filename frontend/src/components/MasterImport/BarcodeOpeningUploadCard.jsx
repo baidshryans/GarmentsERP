@@ -108,75 +108,99 @@ export default function BarcodeOpeningUploadCard() {
   // ── IDLE ───────────────────────────────────────────────────────────────────
   if (status === STATUS.IDLE) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="text-xs text-gray-400 mb-4">
-          Upload two CSV files (barcode_main + barcode_details). New barcodes are marked as opening
-          stock. If a barcode already exists, you can choose to skip, update, or abort.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          {/* Barcode Main */}
-          <div className="rounded-lg border border-gray-200 p-3">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <label htmlFor="barcode-main-csv-input" className="text-sm font-semibold text-gray-800">
-                Barcode Main CSV
-              </label>
+      <div className="space-y-3">
+        {/* Barcode Main */}
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-800">Barcode Main CSV</h3>
+              <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                barcode, item_name, purity, gross_weight, net_weight, value, retail_code, huid, design_code…
+              </p>
+              {fileMain && (
+                <p className="mt-1.5 text-xs text-green-700 flex items-center gap-1">
+                  <CheckCircle size={11} /> {fileMain.name}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleDownloadMain}
                 disabled={downloadingMain}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
               >
                 {downloadingMain ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                 {downloadingMain ? '…' : 'Template'}
               </button>
+              <button
+                type="button"
+                onClick={() => fileMainInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary text-white hover:opacity-90 transition-colors"
+              >
+                <Upload size={14} /> Upload CSV
+              </button>
+              <input
+                ref={fileMainInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => setFileMain(e.target.files?.[0] || null)}
+              />
             </div>
-            <input
-              id="barcode-main-csv-input"
-              ref={fileMainInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(e) => setFileMain(e.target.files?.[0] || null)}
-              className="block w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-primary hover:file:bg-violet-100"
-            />
-            {fileMain && <div className="text-xs text-green-700 mt-1.5">✓ {fileMain.name}</div>}
           </div>
+        </div>
 
-          {/* Barcode Details */}
-          <div className="rounded-lg border border-gray-200 p-3">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <label htmlFor="barcode-details-csv-input" className="text-sm font-semibold text-gray-800">
-                Barcode Details CSV
-              </label>
+        {/* Barcode Details */}
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-800">Barcode Details CSV</h3>
+              <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                barcode, item_name, purity, carat_weight, gross_weight, rate, amount, packet_number…
+              </p>
+              {fileDetails && (
+                <p className="mt-1.5 text-xs text-green-700 flex items-center gap-1">
+                  <CheckCircle size={11} /> {fileDetails.name}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleDownloadDetails}
                 disabled={downloadingDetails}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
               >
                 {downloadingDetails ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                 {downloadingDetails ? '…' : 'Template'}
               </button>
+              <button
+                type="button"
+                onClick={() => fileDetailsInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary text-white hover:opacity-90 transition-colors"
+              >
+                <Upload size={14} /> Upload CSV
+              </button>
+              <input
+                ref={fileDetailsInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => setFileDetails(e.target.files?.[0] || null)}
+              />
             </div>
-            <input
-              id="barcode-details-csv-input"
-              ref={fileDetailsInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(e) => setFileDetails(e.target.files?.[0] || null)}
-              className="block w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-violet-50 file:text-primary hover:file:bg-violet-100"
-            />
-            {fileDetails && <div className="text-xs text-green-700 mt-1.5">✓ {fileDetails.name}</div>}
           </div>
         </div>
 
+        {/* Validate trigger */}
         <button
           type="button"
           onClick={handleValidate}
           disabled={!fileMain || !fileDetails}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <Upload size={14} /> Upload & Validate
+          <Upload size={14} /> Validate &amp; Preview
         </button>
       </div>
     );

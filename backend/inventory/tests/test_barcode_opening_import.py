@@ -19,7 +19,7 @@ from inventory.csv_parsers import (
     parse_csv_file,
     match_purity,
     match_retail_code,
-    match_item_name,
+    match_item_id,
     match_packet,
     parse_decimal_field,
     parse_integer_field,
@@ -199,30 +199,30 @@ class MatchRetailCodeTests(TestCase):
             match_retail_code("")
 
 
-# ─── match_item_name ──────────────────────────────────────────────────────────
+# ─── match_item_id ────────────────────────────────────────────────────────────
 
 
-class MatchItemNameTests(TestCase):
+class MatchItemIdTests(TestCase):
     def setUp(self):
         self.ring = make_item(short_code="RNG", name="Ring")
 
     def test_valid(self):
-        self.assertEqual(match_item_name("Ring").id, self.ring.id)
+        self.assertEqual(match_item_id(str(self.ring.id)).id, self.ring.id)
 
-    def test_invalid_raises(self):
-        with self.assertRaises(BarcodeOpeningCSVError):
-            match_item_name("Nonexistent")
+    def test_invalid_id_raises(self):
+        with self.assertRaises(BarcodeOpeningCSVError) as ctx:
+            match_item_id("99999")
+        self.assertIn("does not exist", str(ctx.exception))
 
     def test_empty_raises(self):
-        with self.assertRaises(BarcodeOpeningCSVError):
-            match_item_name("")
-
-    def test_ambiguous_raises(self):
-        # Two items with the same name
-        make_item(short_code="RNG2", name="Ring")
         with self.assertRaises(BarcodeOpeningCSVError) as ctx:
-            match_item_name("Ring")
-        self.assertIn("ambiguous", str(ctx.exception))
+            match_item_id("")
+        self.assertIn("empty", str(ctx.exception).lower())
+
+    def test_non_integer_raises(self):
+        with self.assertRaises(BarcodeOpeningCSVError) as ctx:
+            match_item_id("Ring")
+        self.assertIn("not a valid integer", str(ctx.exception))
 
 
 # ─── match_packet ─────────────────────────────────────────────────────────────
@@ -304,20 +304,20 @@ VALIDATE_URL = "/inventory/api/barcode-opening/validate/"
 IMPORT_URL = "/inventory/api/barcode-opening/import/"
 
 MAIN_COLS = [
-    "barcode", "item_name", "purity", "quantity_pieces", "gross_weight",
+    "barcode", "item_id", "purity", "quantity_pieces", "gross_weight",
     "net_weight", "value", "making_value", "retail_code", "huid",
     "design_code", "metal_color", "size", "making_type", "other_charges",
 ]
 DETAILS_COLS = [
-    "barcode", "item_name", "purity", "quantity_pieces", "carat_weight",
+    "barcode", "item_id", "purity", "quantity_pieces", "carat_weight",
     "gross_weight", "rate", "amount", "packet_number",
 ]
 
 
-def main_row(barcode="B001", **overrides):
+def main_row(barcode="B001", item_id="", **overrides):
     base = {
         "barcode": barcode,
-        "item_name": "Ring",
+        "item_id": item_id,
         "purity": "14",
         "quantity_pieces": "1",
         "gross_weight": "5.500",
@@ -336,10 +336,10 @@ def main_row(barcode="B001", **overrides):
     return base
 
 
-def details_row(barcode="B001", **overrides):
+def details_row(barcode="B001", item_id="", **overrides):
     base = {
         "barcode": barcode,
-        "item_name": "Ring",
+        "item_id": item_id,
         "purity": "14",
         "quantity_pieces": "1",
         "carat_weight": "5.000",
@@ -377,7 +377,8 @@ class BarcodeOpeningValidateEndpointTests(TestCase):
         )
 
     def test_success_returns_preview(self):
-        resp = self._post_validate([main_row()], [details_row()])
+        iid = str(self.item.id)
+        resp = self._post_validate([main_row(item_id=iid)], [details_row(item_id=iid)])
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertTrue(resp.data["success"])
         self.assertEqual(resp.data["main_rows_valid"], 1)
@@ -390,26 +391,29 @@ class BarcodeOpeningValidateEndpointTests(TestCase):
         self.assertFalse(resp.data["success"])
 
     def test_invalid_purity_returns_400_with_error_list(self):
+        iid = str(self.item.id)
         resp = self._post_validate(
-            [main_row(purity="999")],
-            [details_row()],
+            [main_row(item_id=iid, purity="999")],
+            [details_row(item_id=iid)],
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(resp.data["success"])
         self.assertTrue(any("Purity" in e or "purity" in e for e in resp.data["errors"]))
 
     def test_duplicate_barcode_in_upload_flagged(self):
+        iid = str(self.item.id)
         resp = self._post_validate(
-            [main_row("B001"), main_row("B001")],
-            [details_row("B001")],
+            [main_row("B001", item_id=iid), main_row("B001", item_id=iid)],
+            [details_row("B001", item_id=iid)],
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(any("multiple times" in e for e in resp.data["errors"]))
 
     def test_details_barcode_not_in_main_or_db(self):
+        iid = str(self.item.id)
         resp = self._post_validate(
-            [main_row("B001")],
-            [details_row("B999")],
+            [main_row("B001", item_id=iid)],
+            [details_row("B999", item_id=iid)],
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertTrue(any("not found" in e for e in resp.data["errors"]))
@@ -417,7 +421,8 @@ class BarcodeOpeningValidateEndpointTests(TestCase):
     def test_existing_barcode_reported_in_preview(self):
         # Pre-create a barcode in DB
         BarcodeMain.objects.create(barcode="B001", purity=self.purity, retail=self.retail, item=self.item)
-        resp = self._post_validate([main_row("B001")], [details_row("B001")])
+        iid = str(self.item.id)
+        resp = self._post_validate([main_row("B001", item_id=iid)], [details_row("B001", item_id=iid)])
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertTrue(resp.data["success"])
         self.assertEqual(resp.data["existing_barcodes_count"], 1)
@@ -425,7 +430,8 @@ class BarcodeOpeningValidateEndpointTests(TestCase):
 
     def test_unauthenticated_returns_401_or_403(self):
         self.client.force_authenticate(user=None)
-        resp = self._post_validate([main_row()], [details_row()])
+        iid = str(self.item.id)
+        resp = self._post_validate([main_row(item_id=iid)], [details_row(item_id=iid)])
         self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
 
@@ -456,7 +462,8 @@ class BarcodeOpeningImportEndpointTests(TransactionTestCase):
         )
 
     def test_creates_new_barcode_with_op_stk_and_op_retail(self):
-        resp = self._post_import([main_row("B001")], [details_row("B001")])
+        iid = str(self.item.id)
+        resp = self._post_import([main_row("B001", item_id=iid)], [details_row("B001", item_id=iid)])
         self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.data)
         self.assertTrue(resp.data["success"])
         self.assertEqual(resp.data["data"]["created"], 1)
@@ -468,9 +475,10 @@ class BarcodeOpeningImportEndpointTests(TransactionTestCase):
 
     def test_conflict_action_error_blocks_existing(self):
         BarcodeMain.objects.create(barcode="B001", purity=self.purity, retail=self.retail, item=self.item)
+        iid = str(self.item.id)
         resp = self._post_import(
-            [main_row("B001")],
-            [details_row("B001")],
+            [main_row("B001", item_id=iid)],
+            [details_row("B001", item_id=iid)],
             conflict_action="error",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
@@ -479,9 +487,10 @@ class BarcodeOpeningImportEndpointTests(TransactionTestCase):
 
     def test_conflict_action_skip_skips_existing_and_their_details(self):
         BarcodeMain.objects.create(barcode="B001", purity=self.purity, retail=self.retail, item=self.item)
+        iid = str(self.item.id)
         resp = self._post_import(
-            [main_row("B001"), main_row("B002")],
-            [details_row("B001"), details_row("B002")],
+            [main_row("B001", item_id=iid), main_row("B002", item_id=iid)],
+            [details_row("B001", item_id=iid), details_row("B002", item_id=iid)],
             conflict_action="skip",
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.data)
@@ -498,10 +507,10 @@ class BarcodeOpeningImportEndpointTests(TransactionTestCase):
         BarcodeDetails.objects.create(
             barcode=existing, item=self.item, rate=200, amt=600, ct=Decimal("2.000"), gw=Decimal("2.000")
         )
-
+        iid = str(self.item.id)
         resp = self._post_import(
-            [main_row("B001", value="20000.00")],
-            [details_row("B001")],
+            [main_row("B001", item_id=iid, value="20000.00")],
+            [details_row("B001", item_id=iid)],
             conflict_action="update",
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.data)
@@ -516,9 +525,10 @@ class BarcodeOpeningImportEndpointTests(TransactionTestCase):
 
     def test_validation_failure_rolls_back_transaction(self):
         # First main row is valid, second is invalid (bad purity)
+        iid = str(self.item.id)
         resp = self._post_import(
-            [main_row("B001"), main_row("B002", purity="999")],
-            [details_row("B001"), details_row("B002")],
+            [main_row("B001", item_id=iid), main_row("B002", item_id=iid, purity="999")],
+            [details_row("B001", item_id=iid), details_row("B002", item_id=iid)],
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         # Neither barcode should be created (atomic rollback)
@@ -526,9 +536,10 @@ class BarcodeOpeningImportEndpointTests(TransactionTestCase):
         self.assertFalse(BarcodeMain.objects.filter(barcode="B002").exists())
 
     def test_invalid_conflict_action_returns_400(self):
+        iid = str(self.item.id)
         resp = self._post_import(
-            [main_row("B001")],
-            [details_row("B001")],
+            [main_row("B001", item_id=iid)],
+            [details_row("B001", item_id=iid)],
             conflict_action="garbage",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

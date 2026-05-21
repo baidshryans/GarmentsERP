@@ -1,4 +1,4 @@
-barcode,item_name,purity,quantity_pieces,gross_weight,net_weight,value,making_value,retail_code,huid,design_code,metal_color,size,making_type,other_charges
-B001,Ring,18,1,5.500,5.000,15000.00,2000.00,R001,HU123,DES001,Yellow,6.5,Hand,500.00
-B002,Pendant,14,2,3.200,2.800,8000.00,1200.00,R001,HU124,DES002,White,,Machine,200.00
-B003,Necklace,22K,1,10.000,9.500,25000.00,3500.00,R002,HU125,,Yellow,,Hand,
+barcode,item_id,purity,quantity_pieces,gross_weight,net_weight,value,making_value,retail_code,huid,design_code,metal_color,size,making_type,other_charges
+B001,1,18,1,5.500,5.000,15000.00,2000.00,R001,HU123,DES001,Yellow,6.5,Hand,500.00
+B002,2,14,2,3.200,2.800,8000.00,1200.00,R001,HU124,DES002,White,,Machine,200.00
+B003,3,22K,1,10.000,9.500,25000.00,3500.00,R002,HU125,,Yellow,,Hand,

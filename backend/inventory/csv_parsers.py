@@ -130,28 +130,29 @@ def match_retail_code(retail_code):
         )
 
 
-def match_item_name(item_name):
-    """Match item name to Item.item_name.
-
-    Note: Item.item_name is NOT unique in this codebase. If multiple items
-    share the same name, raises an ambiguity error so the user can disambiguate.
+def match_item_id(item_id_text):
+    """Match item_id to Item by primary key.
 
     Raises:
-        BarcodeOpeningCSVError: If empty, not found, or ambiguous.
+        BarcodeOpeningCSVError: If empty, non-integer, or not found.
     """
-    if item_name is None or str(item_name).strip() == '':
-        raise BarcodeOpeningCSVError("Item name is empty")
+    if item_id_text is None or str(item_id_text).strip() == '':
+        raise BarcodeOpeningCSVError("item_id is empty")
 
-    item_name = str(item_name).strip()
-    matches = list(Item.objects.filter(item_name=item_name)[:2])
-    if not matches:
-        raise BarcodeOpeningCSVError(f"Item '{item_name}' does not exist")
-    if len(matches) > 1:
+    item_id_text = str(item_id_text).strip()
+    try:
+        pk = int(item_id_text)
+    except ValueError:
         raise BarcodeOpeningCSVError(
-            f"Item name '{item_name}' is ambiguous (multiple items with this name); "
-            f"please use a more specific name or rename duplicates"
+            f"item_id '{item_id_text}' is not a valid integer"
         )
-    return matches[0]
+
+    try:
+        return Item.objects.get(id=pk)
+    except Item.DoesNotExist:
+        raise BarcodeOpeningCSVError(
+            f"Item with id '{pk}' does not exist"
+        )
 
 
 def match_packet(packet_text):

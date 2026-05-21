@@ -12,7 +12,7 @@ from inventory.csv_parsers import (
     parse_csv_file,
     match_purity,
     match_retail_code,
-    match_item_name,
+    match_item_id,
     match_packet,
     parse_decimal_field,
     parse_integer_field,
@@ -20,13 +20,13 @@ from inventory.csv_parsers import (
 )
 
 BARCODE_MAIN_COLUMNS = [
-    'barcode', 'item_name', 'purity', 'quantity_pieces', 'gross_weight',
+    'barcode', 'item_id', 'purity', 'quantity_pieces', 'gross_weight',
     'net_weight', 'value', 'making_value', 'retail_code', 'huid',
     'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
 ]
 
 BARCODE_DETAILS_COLUMNS = [
-    'barcode', 'item_name', 'purity', 'quantity_pieces', 'carat_weight',
+    'barcode', 'item_id', 'purity', 'quantity_pieces', 'carat_weight',
     'gross_weight', 'rate', 'amount', 'packet_number',
 ]
 
@@ -59,7 +59,7 @@ def _validate_main_row(row, row_num, main_barcodes, existing_barcodes, errors):
         except BarcodeOpeningCSVError as e:
             errors.append(f"Row {row_num} (barcode_main): {str(e)}")
 
-    _check(lambda: match_item_name(row.get('item_name')))
+    _check(lambda: match_item_id(row.get('item_id')))
     _check(lambda: match_purity(row.get('purity')))
     _check(lambda: match_retail_code(row.get('retail_code')))
     _check(lambda: parse_integer_field(row.get('quantity_pieces'), 'quantity_pieces'))
@@ -94,7 +94,7 @@ def _validate_details_row(row, row_num, main_barcodes_in_upload, errors):
         except BarcodeOpeningCSVError as e:
             errors.append(f"Row {row_num} (barcode_details): {str(e)}")
 
-    _check(lambda: match_item_name(row.get('item_name')))
+    _check(lambda: match_item_id(row.get('item_id')))
 
     if str(row.get('purity') or '').strip():
         _check(lambda: match_purity(row.get('purity')))
@@ -113,7 +113,7 @@ def _validate_details_row(row, row_num, main_barcodes_in_upload, errors):
 def _build_barcode_main_kwargs(row):
     """Build the kwargs dict for BarcodeMain create/update from a validated row."""
     kwargs = {
-        'item': match_item_name(row.get('item_name')),
+        'item': match_item_id(row.get('item_id')),
         'purity': match_purity(row.get('purity')),
         'pcs': parse_integer_field(row.get('quantity_pieces'), 'quantity_pieces'),
         'gw': parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3),
@@ -144,7 +144,7 @@ def _build_barcode_details_kwargs(row, barcode_main_instance):
     """Build the kwargs dict for BarcodeDetails create from a validated row."""
     kwargs = {
         'barcode': barcode_main_instance,
-        'item': match_item_name(row.get('item_name')),
+        'item': match_item_id(row.get('item_id')),
         'ct': parse_decimal_field(row.get('carat_weight'), 'carat_weight', 3),
         'gw': parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3),
         'rate': parse_integer_field(row.get('rate'), 'rate'),
@@ -368,13 +368,13 @@ class BarcodeMainTemplateView(APIView):
 
     def get(self, request):
         columns = [
-            'barcode', 'item_name', 'purity', 'quantity_pieces', 'gross_weight',
+            'barcode', 'item_id', 'purity', 'quantity_pieces', 'gross_weight',
             'net_weight', 'value', 'making_value', 'retail_code', 'huid',
             'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
         ]
         example = {
             'barcode': 'B001',
-            'item_name': 'Ring',
+            'item_id': '1',
             'purity': '18',
             'quantity_pieces': '1',
             'gross_weight': '5.500',
@@ -404,12 +404,12 @@ class BarcodeDetailsTemplateView(APIView):
 
     def get(self, request):
         columns = [
-            'barcode', 'item_name', 'purity', 'quantity_pieces', 'carat_weight',
+            'barcode', 'item_id', 'purity', 'quantity_pieces', 'carat_weight',
             'gross_weight', 'rate', 'amount', 'packet_number',
         ]
         example = {
             'barcode': 'B001',
-            'item_name': 'Gold Sheet',
+            'item_id': '2',
             'purity': '18',
             'quantity_pieces': '1',
             'carat_weight': '5.000',

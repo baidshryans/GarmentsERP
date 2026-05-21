@@ -37,7 +37,7 @@ def parse_csv_file(file_obj, expected_columns):
         if reader.fieldnames is None:
             raise BarcodeOpeningCSVError("Empty CSV file")
 
-        reader.fieldnames = [f.strip().lstrip('﻿') for f in reader.fieldnames]
+        reader.fieldnames = [f.lstrip('﻿').strip() for f in reader.fieldnames]
 
         missing = set(expected_columns) - set(reader.fieldnames or [])
         if missing:

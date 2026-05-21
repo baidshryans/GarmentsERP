@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff } from "lucide-react";
 import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
+import BarcodeOpeningUploadCard from './BarcodeOpeningUploadCard';
 
 const LEDGER_TYPES = [
   { type: "CO",  label: "Customers",                hint: "ac_name, ac_group_name, salutation, dob (DD/MM/YYYY), anniversary, mobile1, pan, gst, aadhar, address…" },
@@ -461,6 +462,17 @@ export default function ImportDataPage() {
               />
             ))}
           </div>
+        </section>
+        <section>
+          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2">
+            Barcode Opening Stock
+          </h2>
+          <p className="text-xs text-gray-500 mb-3">
+            Bulk-upload opening-stock barcodes with their details. Both CSVs are required.
+            New barcodes are flagged with <code className="bg-gray-100 px-1 rounded">op_stk=true</code>.
+            Existing barcodes can be skipped, updated, or treated as an error.
+          </p>
+          <BarcodeOpeningUploadCard />
         </section>
         <section>
           <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">

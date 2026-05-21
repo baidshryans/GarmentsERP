@@ -242,6 +242,11 @@ class MatchPacketTests(TestCase):
         self.assertIsNone(match_packet(""))
         self.assertIsNone(match_packet(None))
 
+    def test_zero_returns_none(self):
+        """'0' is a conventional sentinel meaning 'no packet'."""
+        self.assertIsNone(match_packet("0"))
+        self.assertIsNone(match_packet(0))
+
     def test_invalid_raises(self):
         with self.assertRaises(BarcodeOpeningCSVError):
             match_packet("does-not-exist-xyz")

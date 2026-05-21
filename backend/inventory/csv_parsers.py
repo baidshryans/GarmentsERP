@@ -156,17 +156,23 @@ def match_item_id(item_id_text):
 
 
 def match_packet(packet_text):
-    """Match packet to Packet model. Returns None if input is empty.
+    """Match packet to Packet model. Returns None if input is empty or zero.
 
     Tries integer ID first, then falls back to Packet.pckt_no.
+
+    A value of '0' (or 0) is treated as "no packet" and returns None,
+    since IDs start at 1 and users use 0 as a conventional null sentinel.
 
     Note: if the integer ID lookup finds no row, the same string is retried as
     `pckt_no`, so `'42'` can match a packet whose `pckt_no` is `'42'`.
 
     Raises:
-        BarcodeOpeningCSVError: If non-empty input provided but no match found.
+        BarcodeOpeningCSVError: If non-empty, non-zero input provided but no match found.
     """
     if packet_text is None or str(packet_text).strip() == '':
+        return None
+
+    if str(packet_text).strip() == '0':
         return None
 
     packet_text = str(packet_text).strip()

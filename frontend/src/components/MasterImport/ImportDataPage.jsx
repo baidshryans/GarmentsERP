@@ -463,7 +463,7 @@ export default function ImportDataPage() {
             onClick={() => setActiveTab(id)}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm rounded-md font-medium transition-colors ${
               activeTab === id
-                ? "bg-white text-primary shadow-sm"
+                ? "bg-primary text-white shadow-sm"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >

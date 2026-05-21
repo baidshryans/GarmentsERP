@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 
 from inventory.models import BarcodeMain, BarcodeDetails
@@ -30,71 +31,80 @@ MAX_REPORTED_ERRORS = 50
 
 
 def _validate_main_row(row, row_num, main_barcodes, existing_barcodes, errors):
-    """Validate a barcode_main CSV row. Mutates main_barcodes, existing_barcodes, errors."""
-    try:
-        barcode = str(row.get('barcode', '') or '').strip()
-        if not barcode:
-            errors.append(f"Row {row_num} (barcode_main): barcode is empty")
-            return
-        if barcode in main_barcodes:
-            errors.append(
-                f"Row {row_num} (barcode_main): barcode '{barcode}' appears multiple times in upload"
-            )
-            return
-        main_barcodes.add(barcode)
+    """Validate a barcode_main CSV row. Mutates main_barcodes, existing_barcodes, errors.
 
-        if BarcodeMain.objects.filter(barcode=barcode).exists():
-            existing_barcodes.add(barcode)
+    Collects ALL field-level errors per row (not just the first), so operators
+    can fix multiple issues in one round-trip.
+    """
+    barcode = str(row.get('barcode', '') or '').strip()
+    if not barcode:
+        errors.append(f"Row {row_num} (barcode_main): barcode is empty")
+        return
+    if barcode in main_barcodes:
+        errors.append(
+            f"Row {row_num} (barcode_main): barcode '{barcode}' appears multiple times in upload"
+        )
+        return
+    main_barcodes.add(barcode)
 
-        # Required FKs
-        match_item_name(row.get('item_name'))
-        match_purity(row.get('purity'))
-        match_retail_code(row.get('retail_code'))
+    if BarcodeMain.objects.filter(barcode=barcode).exists():
+        existing_barcodes.add(barcode)
 
-        # Required numerics
-        parse_integer_field(row.get('quantity_pieces'), 'quantity_pieces')
-        parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3)
-        parse_decimal_field(row.get('net_weight'), 'net_weight', 3)
-        parse_decimal_field(row.get('value'), 'value', 2)
-        parse_decimal_field(row.get('making_value'), 'making_value', 2)
+    def _check(callable_):
+        try:
+            callable_()
+        except BarcodeOpeningCSVError as e:
+            errors.append(f"Row {row_num} (barcode_main): {str(e)}")
 
-        # Optional numerics
-        if str(row.get('other_charges') or '').strip():
-            parse_decimal_field(row.get('other_charges'), 'other_charges', 2)
-    except BarcodeOpeningCSVError as e:
-        errors.append(f"Row {row_num} (barcode_main): {str(e)}")
+    _check(lambda: match_item_name(row.get('item_name')))
+    _check(lambda: match_purity(row.get('purity')))
+    _check(lambda: match_retail_code(row.get('retail_code')))
+    _check(lambda: parse_integer_field(row.get('quantity_pieces'), 'quantity_pieces'))
+    _check(lambda: parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3))
+    _check(lambda: parse_decimal_field(row.get('net_weight'), 'net_weight', 3))
+    _check(lambda: parse_decimal_field(row.get('value'), 'value', 2))
+    _check(lambda: parse_decimal_field(row.get('making_value'), 'making_value', 2))
+
+    if str(row.get('other_charges') or '').strip():
+        _check(lambda: parse_decimal_field(row.get('other_charges'), 'other_charges', 2))
 
 
 def _validate_details_row(row, row_num, main_barcodes_in_upload, errors):
-    """Validate a barcode_details CSV row. Mutates errors."""
-    try:
-        barcode = str(row.get('barcode', '') or '').strip()
-        if not barcode:
-            errors.append(f"Row {row_num} (barcode_details): barcode is empty")
-            return
+    """Validate a barcode_details CSV row. Mutates errors.
 
-        # Cross-file consistency: barcode must exist in main CSV OR already in DB
-        if barcode not in main_barcodes_in_upload and not BarcodeMain.objects.filter(barcode=barcode).exists():
-            errors.append(
-                f"Row {row_num} (barcode_details): barcode '{barcode}' not found in main CSV or database"
-            )
-            return
+    Collects ALL field-level errors per row.
+    """
+    barcode = str(row.get('barcode', '') or '').strip()
+    if not barcode:
+        errors.append(f"Row {row_num} (barcode_details): barcode is empty")
+        return
 
-        match_item_name(row.get('item_name'))
-        if str(row.get('purity') or '').strip():
-            match_purity(row.get('purity'))
-        if str(row.get('packet_number') or '').strip():
-            match_packet(row.get('packet_number'))
+    if barcode not in main_barcodes_in_upload and not BarcodeMain.objects.filter(barcode=barcode).exists():
+        errors.append(
+            f"Row {row_num} (barcode_details): barcode '{barcode}' not found in main CSV or database"
+        )
+        return
 
-        parse_decimal_field(row.get('carat_weight'), 'carat_weight', 3)
-        parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3)
-        parse_integer_field(row.get('rate'), 'rate')
-        parse_integer_field(row.get('amount'), 'amount')
+    def _check(callable_):
+        try:
+            callable_()
+        except BarcodeOpeningCSVError as e:
+            errors.append(f"Row {row_num} (barcode_details): {str(e)}")
 
-        if str(row.get('quantity_pieces') or '').strip():
-            parse_integer_field(row.get('quantity_pieces'), 'quantity_pieces')
-    except BarcodeOpeningCSVError as e:
-        errors.append(f"Row {row_num} (barcode_details): {str(e)}")
+    _check(lambda: match_item_name(row.get('item_name')))
+
+    if str(row.get('purity') or '').strip():
+        _check(lambda: match_purity(row.get('purity')))
+    if str(row.get('packet_number') or '').strip():
+        _check(lambda: match_packet(row.get('packet_number')))
+
+    _check(lambda: parse_decimal_field(row.get('carat_weight'), 'carat_weight', 3))
+    _check(lambda: parse_decimal_field(row.get('gross_weight'), 'gross_weight', 3))
+    _check(lambda: parse_integer_field(row.get('rate'), 'rate'))
+    _check(lambda: parse_integer_field(row.get('amount'), 'amount'))
+
+    if str(row.get('quantity_pieces') or '').strip():
+        _check(lambda: parse_integer_field(row.get('quantity_pieces'), 'quantity_pieces'))
 
 
 def _build_barcode_main_kwargs(row):
@@ -149,6 +159,8 @@ def _build_barcode_details_kwargs(row, barcode_main_instance):
 class BarcodeOpeningValidateView(APIView):
     """Dry-run validate barcode opening CSV files. No DB writes."""
 
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         file_main = request.FILES.get('barcode_main_csv')
         file_details = request.FILES.get('barcode_details_csv')
@@ -183,7 +195,7 @@ class BarcodeOpeningValidateView(APIView):
                 'success': False,
                 'errors': errors[:MAX_REPORTED_ERRORS],
                 'errors_truncated': len(errors) > MAX_REPORTED_ERRORS,
-            })
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         existing_list = sorted(existing_barcodes)
         return Response({
@@ -198,6 +210,8 @@ class BarcodeOpeningValidateView(APIView):
 
 class BarcodeOpeningImportView(APIView):
     """Atomically import barcode opening CSV files. Honours conflict_action."""
+
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         file_main = request.FILES.get('barcode_main_csv')
@@ -251,6 +265,7 @@ class BarcodeOpeningImportView(APIView):
                     'success': False,
                     'error': f"{len(existing_barcodes)} existing barcode(s) found and conflict_action is 'error'",
                     'existing_barcodes': sorted(existing_barcodes)[:100],
+                    'existing_barcodes_count': len(existing_barcodes),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -262,12 +277,15 @@ class BarcodeOpeningImportView(APIView):
                 updated_count = 0
                 skipped_count = 0
                 details_created_count = 0
-                details_updated_count = 0
-                skipped_barcodes = set()  # barcodes whose details should also be skipped
+                details_replaced_count = 0
+                skipped_barcodes = set()
+                barcode_main_cache = {}  # barcode → BarcodeMain instance
 
+                # Main pass
                 for row_num, row in main_rows:
                     barcode = str(row.get('barcode') or '').strip()
                     kwargs = _build_barcode_main_kwargs(row)
+                    kwargs['op_retail'] = kwargs['retail']  # avoid second save() to set op_retail
 
                     existing = BarcodeMain.objects.filter(barcode=barcode).first()
 
@@ -277,28 +295,41 @@ class BarcodeOpeningImportView(APIView):
                         continue
 
                     if existing and conflict_action == 'update':
-                        # Delete old details (will be re-created in details pass)
                         deleted_old = BarcodeDetails.objects.filter(barcode=existing).delete()[0]
-                        details_updated_count += deleted_old
-
+                        details_replaced_count += deleted_old
                         for field, value in kwargs.items():
                             setattr(existing, field, value)
-                        existing.op_retail = existing.retail
                         existing.save()
+                        barcode_main_cache[barcode] = existing
                         updated_count += 1
                     else:
                         new_bm = BarcodeMain(barcode=barcode, **kwargs)
-                        new_bm.save()  # triggers QR-code generation
-                        new_bm.op_retail = new_bm.retail
                         new_bm.save()
+                        barcode_main_cache[barcode] = new_bm
                         created_count += 1
+
+                # Pre-fetch any barcodes referenced in details_rows that weren't in the main pass
+                # (these must exist in DB by validation rule)
+                details_barcodes = {
+                    str(r.get('barcode') or '').strip()
+                    for _, r in details_rows
+                }
+                missing_in_cache = details_barcodes - set(barcode_main_cache.keys()) - skipped_barcodes
+                if missing_in_cache:
+                    for bm in BarcodeMain.objects.filter(barcode__in=missing_in_cache):
+                        barcode_main_cache[bm.barcode] = bm
 
                 # Details pass
                 for row_num, row in details_rows:
                     barcode = str(row.get('barcode') or '').strip()
                     if barcode in skipped_barcodes:
                         continue
-                    barcode_main = BarcodeMain.objects.get(barcode=barcode)
+                    barcode_main = barcode_main_cache.get(barcode)
+                    if barcode_main is None:
+                        # Race condition: barcode disappeared between validate and import
+                        raise BarcodeOpeningCSVError(
+                            f"Row {row_num} (barcode_details): barcode '{barcode}' no longer exists"
+                        )
                     details_kwargs = _build_barcode_details_kwargs(row, barcode_main)
                     BarcodeDetails(**details_kwargs).save()
                     details_created_count += 1
@@ -322,6 +353,6 @@ class BarcodeOpeningImportView(APIView):
                 'updated': updated_count,
                 'skipped': skipped_count,
                 'details_created': details_created_count,
-                'details_updated': details_updated_count,
+                'details_replaced': details_replaced_count,
             },
         })

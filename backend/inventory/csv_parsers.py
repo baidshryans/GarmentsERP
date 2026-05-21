@@ -6,6 +6,9 @@ from goldrates.models import PurityMaster
 from mastersconfig.models import RetailMaster, Item, Packet
 
 
+MAX_ROWS = 10_000  # safety cap to prevent unbounded memory use / long transactions
+
+
 class BarcodeOpeningCSVError(Exception):
     """Custom exception for barcode CSV import errors."""
     pass
@@ -45,6 +48,12 @@ def parse_csv_file(file_obj, expected_columns):
             if all(v is None or str(v).strip() == '' for v in row.values()):
                 continue
             rows.append((row_num, row))
+
+        if len(rows) > MAX_ROWS:
+            raise BarcodeOpeningCSVError(
+                f"CSV has {len(rows)} data rows, which exceeds the maximum of {MAX_ROWS}. "
+                f"Please split the file into smaller chunks."
+            )
 
         if not rows:
             raise BarcodeOpeningCSVError("No data rows found (only header)")

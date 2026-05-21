@@ -1,5 +1,5 @@
 import csv
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from io import StringIO
 
 from goldrates.models import PurityMaster
@@ -34,6 +34,8 @@ def parse_csv_file(file_obj, expected_columns):
         if reader.fieldnames is None:
             raise BarcodeOpeningCSVError("Empty CSV file")
 
+        reader.fieldnames = [f.strip().lstrip('﻿') for f in reader.fieldnames]
+
         missing = set(expected_columns) - set(reader.fieldnames or [])
         if missing:
             raise BarcodeOpeningCSVError(f"Missing columns: {', '.join(sorted(missing))}")
@@ -60,34 +62,39 @@ def match_purity(purity_text):
     Supports both numeric values ("14", "18", "22") and karat-suffix
     formats ("14K", "18K", "22K"), case-insensitive.
 
-    Tries exact match first, then strips trailing "K" and retries.
+    Tries: (1) exact iexact, (2) strip trailing 'K', (3) append 'K' if digits.
 
     Returns:
         PurityMaster instance.
 
     Raises:
-        BarcodeOpeningCSVError: If empty or no match.
+        BarcodeOpeningCSVError: If empty, no match, or ambiguous.
     """
-    if not purity_text or str(purity_text).strip() == '':
+    if purity_text is None or str(purity_text).strip() == '':
         raise BarcodeOpeningCSVError("Purity is empty")
 
     purity_text = str(purity_text).strip().upper()
 
-    # 1) Try exact match on PurityMaster.purity (covers stored "14" AND stored "14K")
-    obj = PurityMaster.objects.filter(purity__iexact=purity_text).first()
+    def _lookup(needle):
+        matches = list(PurityMaster.objects.filter(purity__iexact=needle)[:2])
+        if len(matches) > 1:
+            raise BarcodeOpeningCSVError(
+                f"Purity '{needle}' is ambiguous (multiple PurityMaster rows); "
+                f"please deduplicate the master data"
+            )
+        return matches[0] if matches else None
+
+    obj = _lookup(purity_text)
     if obj:
         return obj
 
-    # 2) If input ends with "K", try without the K
     if purity_text.endswith('K'):
-        stripped = purity_text[:-1]
-        obj = PurityMaster.objects.filter(purity__iexact=stripped).first()
+        obj = _lookup(purity_text[:-1])
         if obj:
             return obj
 
-    # 3) If input is purely numeric, try with "K" appended
     if purity_text.isdigit():
-        obj = PurityMaster.objects.filter(purity__iexact=purity_text + 'K').first()
+        obj = _lookup(purity_text + 'K')
         if obj:
             return obj
 
@@ -102,7 +109,7 @@ def match_retail_code(retail_code):
     Raises:
         BarcodeOpeningCSVError: If empty or no match.
     """
-    if not retail_code or str(retail_code).strip() == '':
+    if retail_code is None or str(retail_code).strip() == '':
         raise BarcodeOpeningCSVError("Retail code is empty")
 
     retail_code = str(retail_code).strip()
@@ -123,7 +130,7 @@ def match_item_name(item_name):
     Raises:
         BarcodeOpeningCSVError: If empty, not found, or ambiguous.
     """
-    if not item_name or str(item_name).strip() == '':
+    if item_name is None or str(item_name).strip() == '':
         raise BarcodeOpeningCSVError("Item name is empty")
 
     item_name = str(item_name).strip()
@@ -143,10 +150,13 @@ def match_packet(packet_text):
 
     Tries integer ID first, then falls back to Packet.pckt_no.
 
+    Note: if the integer ID lookup finds no row, the same string is retried as
+    `pckt_no`, so `'42'` can match a packet whose `pckt_no` is `'42'`.
+
     Raises:
         BarcodeOpeningCSVError: If non-empty input provided but no match found.
     """
-    if not packet_text or str(packet_text).strip() == '':
+    if packet_text is None or str(packet_text).strip() == '':
         return None
 
     packet_text = str(packet_text).strip()
@@ -187,9 +197,14 @@ def parse_decimal_field(value, field_name, decimal_places=None):
 
     try:
         decimal_val = Decimal(str(value).strip())
-    except Exception as e:
+    except InvalidOperation as e:
         raise BarcodeOpeningCSVError(
             f"{field_name} '{value}' is not a valid decimal: {str(e)}"
+        )
+
+    if not decimal_val.is_finite():
+        raise BarcodeOpeningCSVError(
+            f"{field_name} '{value}' is not a valid decimal number"
         )
 
     if decimal_places is not None:

@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from inventory.api_views import BarcodeOpeningValidateView, BarcodeOpeningImportView
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
 from django.conf.urls.static import static
@@ -58,6 +59,8 @@ urlpatterns = [
     path('api/rfid/assign/', views.RfidTagAssignView.as_view(), name='rfid_tag_assign'),
     path('api/rfid/count/', views.RfidInventoryCountView.as_view(), name='rfid_inventory_count'),
     path('api/rfid/tags/', views.RfidTagListView.as_view(), name='rfid_tag_list'),
+    path('api/barcode-opening/validate/', BarcodeOpeningValidateView.as_view(), name='barcode-opening-validate'),
+    path('api/barcode-opening/import/', BarcodeOpeningImportView.as_view(), name='barcode-opening-import'),
     *router.urls
     
 ]

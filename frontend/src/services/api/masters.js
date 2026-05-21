@@ -952,3 +952,116 @@ export async function deleteGSTINMaster(id) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+
+// ── Barcode Opening Data Import ───────────────────────────────────────────────
+
+/**
+ * Download the barcode_main CSV template (header + 1 example row).
+ * Triggers a browser download named "barcode_main_template.csv".
+ */
+export async function downloadBarcodeMainTemplate() {
+  try {
+    const response = await apiClient.get("/inventory/api/templates/barcode-main/", {
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "barcode_main_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to download barcode_main template:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+/**
+ * Download the barcode_details CSV template (header + 1 example row).
+ * Triggers a browser download named "barcode_details_template.csv".
+ */
+export async function downloadBarcodeDetailsTemplate() {
+  try {
+    const response = await apiClient.get("/inventory/api/templates/barcode-details/", {
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "barcode_details_template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to download barcode_details template:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+/**
+ * Validate (dry-run) barcode opening CSV files.
+ *
+ * @param {File} fileMain    Required. The barcode_main CSV file.
+ * @param {File} fileDetails Required. The barcode_details CSV file.
+ * @returns Promise resolving to the backend JSON payload, e.g.
+ *   - on success: { success: true, main_rows_valid, details_rows_valid,
+ *                   existing_barcodes, existing_barcodes_count, errors: [] }
+ *   - on validation failure: { success: false, errors: [...], errors_truncated: bool }
+ * Throws only on transport errors (no network, 5xx without JSON body, etc.).
+ */
+export async function validateBarcodeOpeningCSV(fileMain, fileDetails) {
+  const formData = new FormData();
+  formData.append("barcode_main_csv", fileMain);
+  formData.append("barcode_details_csv", fileDetails);
+  try {
+    const response = await apiClient.post(
+      "/inventory/api/barcode-opening/validate/",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 120000 }
+    );
+    return response.data;
+  } catch (error) {
+    // Backend returns 400 with a JSON body for validation errors — surface it.
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Import barcode opening CSV files into the database.
+ *
+ * @param {File} fileMain        Required. The barcode_main CSV file.
+ * @param {File} fileDetails     Required. The barcode_details CSV file.
+ * @param {string} conflictAction One of "skip" | "update" | "error". Default "error".
+ * @returns Promise resolving to the backend JSON payload, e.g.
+ *   - on success: { success: true, data: { created, updated, skipped,
+ *                                          details_created, details_replaced } }
+ *   - on failure:  { success: false, error, errors?, existing_barcodes?, ... }
+ * Throws only on transport errors.
+ */
+export async function importBarcodeOpeningCSV(fileMain, fileDetails, conflictAction = "error") {
+  const formData = new FormData();
+  formData.append("barcode_main_csv", fileMain);
+  formData.append("barcode_details_csv", fileDetails);
+  formData.append("conflict_action", conflictAction);
+  try {
+    const response = await apiClient.post(
+      "/inventory/api/barcode-opening/import/",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 300000 }
+    );
+    return response.data;
+  } catch (error) {
+    if (error.response?.data) {
+      return error.response.data;
+    }
+    return { success: false, error: error.message };
+  }
+}

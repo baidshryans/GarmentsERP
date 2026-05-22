@@ -1125,6 +1125,18 @@ const SalesVoucherAdd = () => {
               <SearchableComboBox
                 className="flex-1"
                 options={customers}
+                searchKeys={["mobile1", "mobile2", "mobile3", "phone1"]}
+                placeholder="Search by name or mobile…"
+                renderOption={(opt) => (
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="truncate">{opt.ac_name}</span>
+                    {(opt.mobile1 || opt.mobile2 || opt.mobile3 || opt.phone1) && (
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                        {opt.mobile1 || opt.mobile2 || opt.mobile3 || opt.phone1}
+                      </span>
+                    )}
+                  </div>
+                )}
                 value={watch("form.ldgr_name") ?? ""}
                 onInputChange={(val) => setValue("form.ldgr_name", val)}
                 onSelect={async (opt) => {

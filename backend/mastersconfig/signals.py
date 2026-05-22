@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import DatabaseError, models as dj_models
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from .models import RetailMaster, BranchMaster, GSTINMaster, CompanyMaster
+from .models import RetailMaster, BranchMaster, GSTINMaster, CompanyMaster, Packet
 from contacts.models import Ledger, LedgerRole
 
 logger = logging.getLogger(__name__)
@@ -433,4 +433,84 @@ def auto_fill_retail(sender, instance, **kwargs):
         sender._meta.app_label,
         sender._meta.model_name,
         getattr(instance, 'pk', None),
+    )
+
+
+# ── Packet rate cascade ──────────────────────────────────────────────────────
+# When a Packet's rate_for_retail changes, re-price every BarcodeDetails row
+# that references this packet on an *in-stock* barcode (BarcodeMain.stk_status
+# is True). Sold/returned/transferred-out barcodes keep their snapshot rate.
+# BarcodeMain.value (sum of details.amt) and total_amount (value + making_val
+# + other_chg) are recomputed for each affected main row.
+
+@receiver(pre_save, sender=Packet, dispatch_uid='mastersconfig_packet_stash_rate')
+def _packet_stash_old_rate(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._old_rate_for_retail = None
+        return
+    try:
+        instance._old_rate_for_retail = (
+            Packet.objects.only('rate_for_retail').get(pk=instance.pk).rate_for_retail
+        )
+    except Packet.DoesNotExist:
+        instance._old_rate_for_retail = None
+
+
+@receiver(post_save, sender=Packet, dispatch_uid='mastersconfig_packet_cascade_rate')
+def _packet_cascade_rate_to_stock_barcodes(sender, instance, created, **kwargs):
+    if created:
+        return
+    old = getattr(instance, '_old_rate_for_retail', None)
+    new = instance.rate_for_retail
+    if old == new:
+        return
+
+    from decimal import Decimal
+    from django.db import transaction
+    from django.db.models import Sum
+    from inventory.models import BarcodeDetails, BarcodeMain
+
+    new_rate = Decimal(new or 0)
+
+    with transaction.atomic():
+        affected_main_ids = list(
+            BarcodeDetails.objects
+            .filter(packet=instance, barcode__stk_status=True)
+            .values_list('barcode_id', flat=True)
+            .distinct()
+        )
+        if not affected_main_ids:
+            return
+
+        # Re-price the detail rows for this packet on in-stock barcodes.
+        details = BarcodeDetails.objects.filter(
+            packet=instance,
+            barcode_id__in=affected_main_ids,
+        ).only('id', 'ct', 'rate', 'amt')
+        for d in details:
+            ct = d.ct or Decimal('0')
+            d.rate = new_rate
+            d.amt = ct * new_rate
+            d.save(update_fields=['rate', 'amt'])
+
+        # Recompute BarcodeMain.value / total_amount from *all* detail rows on
+        # each affected main (not just this packet's rows). Use queryset.update
+        # to skip the overridden BarcodeMain.save() which regenerates QR codes.
+        mains = BarcodeMain.objects.filter(pk__in=affected_main_ids).only(
+            'id', 'making_val', 'other_chg'
+        )
+        for bm in mains:
+            details_total = BarcodeDetails.objects.filter(barcode_id=bm.pk).aggregate(
+                total=Sum('amt')
+            )['total'] or Decimal('0')
+            making_val = bm.making_val or Decimal('0')
+            other_chg = bm.other_chg or Decimal('0')
+            BarcodeMain.objects.filter(pk=bm.pk).update(
+                value=details_total,
+                total_amount=details_total + making_val + other_chg,
+            )
+
+    logger.info(
+        "Packet rate cascade: pckt=%s old=%s new=%s — re-priced %d in-stock barcode(s)",
+        getattr(instance, 'pckt_no', instance.pk), old, new, len(affected_main_ids),
     )

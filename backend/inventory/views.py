@@ -935,7 +935,7 @@ class StockReportView(APIView):
             op_retail=retail,
             item=OuterRef('pk'),
             op_stk=True,
-            created_date__lte=prev_date,
+            created_date__lte=as_on_date,
         ).exclude(
             pk__in=split_merged_barcode_ids
         ).values('item').annotate(total=Coalesce(Sum('pcs'), 0)).values('total')
@@ -1045,7 +1045,7 @@ class StockReportView(APIView):
 
         op_stk_counts = {}
         for iid in BarcodeMain.objects.filter(
-            op_retail=retail, op_stk=True, created_date__lte=prev_date,
+            op_retail=retail, op_stk=True, created_date__lte=as_on_date,
         ).exclude(
             pk__in=split_merged_barcode_ids
         ).values_list('item', flat=True):

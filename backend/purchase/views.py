@@ -192,6 +192,10 @@ class PurchaseVoucherViewset(RetailBaseViewset):
 
     def _check_purchase_vou_mutable(self, instance, action):
         from rest_framework.exceptions import ValidationError
+        if getattr(instance, 'source', 'standalone') == 'sales_inline':
+            raise ValidationError(
+                f"Purchase voucher '{instance.billno}' cannot be {action} directly because it was created from a sales voucher. Edit the linked sales voucher instead."
+            )
         if instance.purchase_returns.exists():
             raise ValidationError(
                 f"Purchase voucher '{instance.billno}' cannot be {action} because a purchase return exists against it."
@@ -673,6 +677,7 @@ def customer_purchases_for_adjustment(request):
         ldgr_id=ldgr_id,
         retail=request.retail,
         is_return=False,
+        source='standalone',
     ).annotate(
         legacy_adjusted=Coalesce(
             Sum('linked_sales_vouchers__old_gold_adjusted'),

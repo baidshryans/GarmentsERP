@@ -22,6 +22,7 @@ import {
   TableCell,
   TableBody,
   TableHead,
+  TableHeader,
 } from "@/components/ui/table";
 
 import {
@@ -200,6 +201,43 @@ const SalesVoucherAdd = () => {
   const [selectedReceiptIds, setSelectedReceiptIds] = useState([]); // PKs chosen for direct advance
   const [customerPurchases, setCustomerPurchases] = useState([]); // old gold purchases with available balance
   const [selectedPurchase, setSelectedPurchase] = useState(null); // the linked PurchaseVoucher object
+  // Inline old-gold exchange rows — these become a sale-owned Customer
+  // PurchaseVoucher on submit. Each row: { item, item_name, description,
+  // purity, pcs, ct, gw, loss, tunch, fine_wt, uom, rate, value }.
+  // Items must be type R (Raw) or S (Stone).
+  const [inlineOldGold, setInlineOldGold] = useState([]);
+  const blankInlineRow = () => ({
+    item: "", item_name: "", description: "", purity: "",
+    pcs: "", ct: "", gw: "", loss: "", tunch: "", fine_wt: 0,
+    uom: "Gm", rate: "", value: 0,
+  });
+  const recalcInlineRow = (row) => {
+    const gw = parseFloat(row.gw || 0);
+    const loss = parseFloat(row.loss || 0);
+    const tunch = parseFloat(row.tunch || 0);
+    const rate = parseFloat(row.rate || 0);
+    const pcs = parseFloat(row.pcs || 0);
+    const ct = parseFloat(row.ct || 0);
+    const fine_wt = +(((gw - loss) * tunch) / 100).toFixed(3);
+    const uom = row.uom || "Gm";
+    let value;
+    if (uom === "Pcs")      value = +(rate * pcs).toFixed(2);
+    else if (uom === "Ct")  value = +(rate * ct).toFixed(2);
+    else if (tunch > 0)     value = +(rate * fine_wt).toFixed(2);
+    else                    value = +(rate * (gw - loss)).toFixed(2);
+    return { ...row, fine_wt, value };
+  };
+  const updateInlineRow = (idx, patch) => {
+    setInlineOldGold(prev => prev.map((r, i) => i === idx ? recalcInlineRow({ ...r, ...patch }) : r));
+    markTableDirty();
+    setCalculate(prev => prev + 1);
+  };
+  const inlineOldGoldTotal = inlineOldGold.reduce((s, r) => s + (parseFloat(r.value) || 0), 0);
+  // Mirror the inline-old-gold total into a real form field so BillSummaryPanel
+  // can `register()` it without blowing up (panel always calls register(row.field)).
+  useEffect(() => {
+    setValue("form.inline_old_gold_total", inlineOldGoldTotal);
+  }, [inlineOldGoldTotal, setValue]);
   const [b2bPricelist, setB2bPricelist] = useState(null);         // null = retail mode; object = B2B pricelist data
   const [retailDiscountPricelist, setRetailDiscountPricelist] = useState(null); // retail discount pricelist for Apply Discount
   const [activeOffer, setActiveOffer] = useState(null);           // company-wide active offer (retail only)
@@ -436,6 +474,22 @@ const SalesVoucherAdd = () => {
           // Restore manual items
           if (data.salesvouitemdetails_set?.length) {
             setRows(data.salesvouitemdetails_set);
+          }
+          // Restore inline old-gold rows from the linked sale-owned PV
+          if (data.inline_old_gold_pv?.rows?.length) {
+            setInlineOldGold(data.inline_old_gold_pv.rows.map(r => recalcInlineRow({
+              item: r.item || "",
+              item_name: r.item_name || r.item || "",
+              description: r.item_name || "",
+              purity: r.purity || "",
+              pcs: r.pcs ?? "",
+              ct: r.ct ?? "",
+              gw: r.gw ?? "",
+              loss: r.loss ?? "",
+              tunch: r.tunch ?? "",
+              uom: "Gm",
+              rate: r.rate ?? "",
+            })));
           }
           // Restore old gold purchase link (still sequential — needs ldgr from voucher data)
           if (data.old_gold_purchase && data.ldgr) {
@@ -862,7 +916,23 @@ const SalesVoucherAdd = () => {
       const bankPaid       = bankdetails.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
       const advDeducted    = parseFloat(data.advance_deducted || 0);
       const oldGoldAdj     = parseFloat(data.old_gold_adjusted || 0);
-      data.due_amt         = Math.max(0, grandTotal - cashPaid - bankPaid - advDeducted - oldGoldAdj).toFixed(2);
+      const inlineOldGoldVal = inlineOldGold.reduce((s, r) => s + (parseFloat(r.value) || 0), 0);
+      data.due_amt         = Math.max(0, grandTotal - cashPaid - bankPaid - advDeducted - oldGoldAdj - inlineOldGoldVal).toFixed(2);
+      // Inline old gold rows (server creates/updates a sale-owned Customer PV)
+      data.inline_old_gold_items = inlineOldGold
+        .filter(r => r.item && (parseFloat(r.value) || 0) > 0)
+        .map(r => ({
+          item: r.item,
+          description: r.description || "",
+          purity: r.purity || null,
+          pcs: parseInt(r.pcs || 0, 10),
+          ct: parseFloat(r.ct || 0),
+          gw: parseFloat(r.gw || 0),
+          loss: parseFloat(r.loss || 0),
+          tunch: parseFloat(r.tunch || 0),
+          uom: r.uom || "Gm",
+          rate: parseFloat(r.rate || 0),
+        }));
       // Send null when no order/purchase linked (avoid empty-string FK)
       if (!data.customer_order) data.customer_order = null;
       if (!data.old_gold_purchase) data.old_gold_purchase = null;
@@ -1013,6 +1083,7 @@ const SalesVoucherAdd = () => {
     { label: 'Total',          field: 'form.total_bill_value', isTotal: true, isEditableTotal: true },
     ...(selectedOrder ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: false, step: '1' }] : []),
     ...(selectedPurchase ? [{ label: 'Old Gold Adjusted', field: 'form.old_gold_adjusted', editable: true, step: '1' }] : []),
+    ...(inlineOldGoldTotal > 0 ? [{ label: 'Old Gold (Inline)', field: 'form.inline_old_gold_total' }] : []),
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -1406,6 +1477,8 @@ const SalesVoucherAdd = () => {
             )}
           </div>
         )}
+
+        {/* Inline Old-Gold Exchange section has moved next to the Bill Summary panel below. */}
 
         {/* ══ Old Gold Adjustment ════════════════════════════════════════ */}
         {customerPurchases.length > 0 && (
@@ -2007,7 +2080,9 @@ const SalesVoucherAdd = () => {
           </Table>
         </div>
 
-        {/* ══ 5. REMARKS ═══════════════════════════════════════════════════════ */}
+        {/* ══ 5/6. REMARKS + OLD GOLD (left)  ·  BILL SUMMARY (right) ═════════ */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex-1 min-w-0">
         <SectionHeader number="5" title="Remarks" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
@@ -2017,7 +2092,6 @@ const SalesVoucherAdd = () => {
           </FieldContainer>
         </div>
 
-        {/* ══ 6. BILL SUMMARY ══════════════════════════════════════════════════ */}
         {(retailDiscountPricelist || activeOffer) && !b2bPricelist && (
           <div className="flex justify-end mb-2">
             <Button
@@ -2038,7 +2112,130 @@ const SalesVoucherAdd = () => {
             </Button>
           </div>
         )}
-        <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} autoCalcTotal={autoCalcEnabled} onAutoCalc={handleAutoCalcFromTotal} />
+          {/* ── Buy Old Gold / Stones (inline) ─────────────────────────────── */}
+          <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50/40 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Gem className="size-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">Buy Old Gold / Stones in this Sale</span>
+                <span className="text-[11px] text-muted-foreground">(Raw &amp; Stone items only — creates a linked customer purchase voucher)</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => { setInlineOldGold(prev => [...prev, blankInlineRow()]); markTableDirty(); }}
+              >
+                <Plus className="size-3 mr-1" /> Add Row
+              </Button>
+            </div>
+            {inlineOldGold.length > 0 && (
+              <div className="overflow-x-auto rounded border border-violet-200 bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/60">
+                      <TH className="px-2 py-1.5 text-[11px]">Item</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Purity</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Pcs</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Ct</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Gw</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Loss</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Tunch</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Fine Wt</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Uom</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Rate</TH>
+                      <TH className="px-2 py-1.5 text-[11px]">Value</TH>
+                      <TH className="px-2 py-1.5 text-[11px]"></TH>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {inlineOldGold.map((row, idx) => {
+                      const itemOptions = mainItemData
+                        .filter(m => m.item_type === 'R' || m.item_type === 'S');
+                      return (
+                      <TableRow key={idx}>
+                        <TableCell className="p-1 border align-top min-w-[180px]">
+                          <SearchableComboBox
+                            className="w-full"
+                            labelKey="item_name"
+                            searchKeys={["short_code"]}
+                            options={itemOptions}
+                            value={row.item_name || row.item || ""}
+                            onInputChange={(val) => updateInlineRow(idx, { item: val, item_name: val })}
+                            onSelect={(opt) => {
+                              if (opt.item_type !== 'R' && opt.item_type !== 'S') {
+                                toast({ title: `Item '${opt.item_name}' is not Raw or Stone — cannot use for old gold.`, variant: "destructive" });
+                                return;
+                              }
+                              updateInlineRow(idx, {
+                                item: opt.short_code,
+                                item_name: opt.item_name,
+                                description: row.description || opt.item_name,
+                              });
+                            }}
+                          />
+                          {row.description && row.description !== row.item_name && (
+                            <div className="mt-1 text-[10px] text-gray-500 italic px-1 truncate" title={row.description}>{row.description}</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="p-1 border align-top">
+                          <select
+                            className="h-7 text-sm w-full px-1 border rounded"
+                            value={row.purity}
+                            onChange={(e) => {
+                              const newPurity = e.target.value;
+                              const autoRate = parseFloat(goldRates[newPurity]) || 0;
+                              updateInlineRow(idx, {
+                                purity: newPurity,
+                                ...(autoRate > 0 ? { rate: autoRate } : {}),
+                              });
+                            }}
+                          >
+                            <option value="">—</option>
+                            {purityData.map((p) => <option key={p.id} value={p.purity}>{p.purity}</option>)}
+                          </select>
+                        </TableCell>
+                        <TableCell className="p-1 border align-top"><Input type="number" className="h-7 text-sm w-16" value={row.pcs} onChange={(e) => updateInlineRow(idx, { pcs: e.target.value })} /></TableCell>
+                        <TableCell className="p-1 border align-top"><Input type="number" step="0.001" className="h-7 text-sm w-16" value={row.ct} onChange={(e) => updateInlineRow(idx, { ct: e.target.value })} /></TableCell>
+                        <TableCell className="p-1 border align-top"><Input type="number" step="0.001" className="h-7 text-sm w-20" value={row.gw} onChange={(e) => updateInlineRow(idx, { gw: e.target.value })} /></TableCell>
+                        <TableCell className="p-1 border align-top"><Input type="number" step="0.001" className="h-7 text-sm w-16" value={row.loss} onChange={(e) => updateInlineRow(idx, { loss: e.target.value })} /></TableCell>
+                        <TableCell className="p-1 border align-top"><Input type="number" step="0.01" className="h-7 text-sm w-16" value={row.tunch} onChange={(e) => updateInlineRow(idx, { tunch: e.target.value })} /></TableCell>
+                        <TableCell className="p-1 border align-top text-right text-sm">{Number(row.fine_wt || 0).toFixed(3)}</TableCell>
+                        <TableCell className="p-1 border align-top">
+                          <select className="h-7 text-sm w-full px-1 border rounded" value={row.uom} onChange={(e) => updateInlineRow(idx, { uom: e.target.value })}>
+                            <option value="Gm">Gm</option>
+                            <option value="Pcs">Pcs</option>
+                            <option value="Ct">Ct</option>
+                          </select>
+                        </TableCell>
+                        <TableCell className="p-1 border align-top"><Input type="number" step="0.01" className="h-7 text-sm w-24" value={row.rate} onChange={(e) => updateInlineRow(idx, { rate: e.target.value })} /></TableCell>
+                        <TableCell className="p-1 border align-top text-right text-sm font-medium">₹{Number(row.value || 0).toFixed(2)}</TableCell>
+                        <TableCell className="p-1 border align-top text-center">
+                          <button type="button" className="text-rose-500 hover:text-rose-700" onClick={() => { setInlineOldGold(prev => prev.filter((_, i) => i !== idx)); markTableDirty(); setCalculate(prev => prev + 1); }}>
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    );})}
+                    <TableRow className="bg-violet-50">
+                      <TableCell colSpan={10} className="px-2 py-1.5 border text-right text-xs font-semibold text-primary">Inline Old Gold Total</TableCell>
+                      <TableCell className="px-2 py-1.5 border text-right text-sm font-bold text-primary">₹{inlineOldGoldTotal.toFixed(2)}</TableCell>
+                      <TableCell className="border" />
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+
+        </div>{/* end left column */}
+
+          {/* ── Bill Summary (right-side panel) ─────────────────────────────── */}
+          <div className="w-full lg:w-[420px] shrink-0 mt-12">
+            <BillSummaryPanel rows={billSummaryRows} register={register} watch={watch} standalone={false} autoCalcTotal={autoCalcEnabled} onAutoCalc={handleAutoCalcFromTotal} />
+          </div>
+        </div>{/* end outer flex row */}
 
         {/* Submit */}
         <div className="flex justify-center gap-3 mt-6 pt-4 border-t border-gray-100">

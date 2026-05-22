@@ -355,6 +355,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             'party_phone',
             'party_aadhar',
             'party_state',
+            'source',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},

@@ -636,10 +636,218 @@ class SalesVouSerializer(serializers.ModelSerializer):
         child=serializers.DictField(), write_only=True, required=False, default=list,
     )
 
+    # Inline old gold (sales-form path) — auto-creates a Customer PurchaseVoucher
+    # owned by this sale. Each row: {item: short_code, purity: slug, pcs, ct, gw,
+    # loss, tunch, rate, description, color, seives, clarity, uom}.
+    inline_old_gold_items = serializers.ListField(
+        child=serializers.DictField(), required=False, default=list,
+    )
+    inline_old_gold_pv = serializers.SerializerMethodField(read_only=True)
+
+    def get_inline_old_gold_pv(self, obj):
+        from purchase.models import PurchaseVoucher, PurchaseVoucherDetails
+        pv = PurchaseVoucher.objects.filter(
+            sale_adjustments__sale=obj, source='sales_inline'
+        ).first()
+        if not pv:
+            return None
+        rows = []
+        for d in PurchaseVoucherDetails.objects.filter(billno=pv).select_related('sub_item', 'metal_purity'):
+            rows.append({
+                'id': d.id,
+                'item': d.sub_item.short_code if d.sub_item else None,
+                'item_name': d.sub_item.item_name if d.sub_item else None,
+                'purity': d.metal_purity.purity if d.metal_purity else None,
+                'pcs': d.sub_pcs,
+                'ct': float(d.sub_ct or 0),
+                'gw': float(d.sub_gw or 0),
+                'loss': float(d.loss or 0),
+                'tunch': float(d.tunch or 0),
+                'fine_wt': float(d.fine_wt or 0),
+                'rate': float(d.rate or 0),
+                'value': float(d.value or 0),
+            })
+        return {'id': pv.id, 'billno': pv.billno, 'bill_value': float(pv.bill_value or 0), 'rows': rows}
+
     old_gold_purchase = serializers.PrimaryKeyRelatedField(
         queryset=PurchaseVoucher.objects.filter(voucher_type='Customer'),
         allow_null=True, required=False
     )
+
+    def _upsert_sales_inline_pv(self, sale, rows, request):
+        """Create or rebuild the sale-owned Customer PurchaseVoucher from inline rows.
+
+        Returns (pv, total_value). pv is None when rows is empty (and any prior
+        sale-inline PV gets deleted).
+        """
+        from decimal import Decimal
+        from purchase.models import PurchaseVoucher, PurchaseVoucherItems, PurchaseVoucherDetails
+        from accounting.utils import get_next_bill_number
+        from mastersconfig.models import Item as _Item
+        from goldrates.models import PurityMaster as _Purity
+        from sales.models import SaleOldGoldAdjustment
+
+        rows = rows or []
+
+        def _resolve_item(val):
+            if val is None or val == '':
+                return None
+            if isinstance(val, _Item):
+                return val
+            try:
+                return _Item.objects.get(short_code=val)
+            except _Item.DoesNotExist:
+                raise ValidationError({'inline_old_gold_items': f"Item '{val}' not found."})
+
+        def _resolve_purity(val):
+            if val in (None, '', 'null'):
+                return None
+            if isinstance(val, _Purity):
+                return val
+            try:
+                return _Purity.objects.get(purity=val)
+            except _Purity.DoesNotExist:
+                return None
+
+        def _D(v):
+            return Decimal(str(v or 0))
+
+        existing_pv = PurchaseVoucher.objects.filter(
+            sale_adjustments__sale=sale, source='sales_inline'
+        ).first()
+
+        if not rows:
+            if existing_pv:
+                SaleOldGoldAdjustment.objects.filter(sale=sale, purchase=existing_pv).delete()
+                if existing_pv.ac_voucher_id:
+                    existing_pv.ac_voucher.delete()
+                existing_pv.delete()
+            return None, Decimal('0')
+
+        # Resolve and validate every row's item is Raw/Stone, then compute values.
+        prepared = []
+        for r in rows:
+            it = _resolve_item(r.get('item'))
+            if not it:
+                raise ValidationError({'inline_old_gold_items': "Each row needs an item."})
+            if it.item_type not in ('R', 'S'):
+                raise ValidationError({'inline_old_gold_items':
+                    f"Item '{it.short_code}' is type '{it.item_type}'; only Raw or Stone allowed in old gold exchange."})
+            gw, loss, tunch, rate = _D(r.get('gw')), _D(r.get('loss')), _D(r.get('tunch')), _D(r.get('rate'))
+            fine_wt = (gw - loss) * tunch / Decimal('100')
+            value = (fine_wt * rate).quantize(Decimal('0.01'))
+            fine_wt = fine_wt.quantize(Decimal('0.01'))
+            prepared.append({
+                'item': it,
+                'purity': _resolve_purity(r.get('purity')),
+                'pcs': int(r.get('pcs') or 0),
+                'ct': _D(r.get('ct')),
+                'gw': gw,
+                'loss': loss,
+                'tunch': tunch,
+                'rate': rate,
+                'fine_wt': fine_wt,
+                'value': value,
+            })
+        total = sum((p['value'] for p in prepared), Decimal('0'))
+
+        retail = request.retail
+
+        if existing_pv:
+            existing_pv.purchasevoucheritems_set.all().delete()
+            existing_pv.purchasevoucherdetails_set.all().delete()
+            if existing_pv.ac_voucher_id:
+                existing_pv.ac_voucher.delete()
+                existing_pv.ac_voucher = None
+            pv = existing_pv
+            pv.date1 = sale.date1
+            pv.ldgr = sale.ldgr
+            pv.item_total = total
+            pv.bill_value = total
+            pv.total_incl_gst = total
+            pv.due_amt = Decimal('0')
+            pv.fiscal_year = sale.fiscal_year
+            pv.save()
+        else:
+            billno = get_next_bill_number(retail, 'PVC', sale.fiscal_year)
+            pv = PurchaseVoucher.objects.create(
+                date1=sale.date1,
+                billno=billno,
+                voucher_type='Customer',
+                ldgr=sale.ldgr,
+                item_total=total,
+                bill_value=total,
+                total_incl_gst=total,
+                due_amt=Decimal('0'),
+                source='sales_inline',
+                retail=retail,
+                fiscal_year=sale.fiscal_year,
+            )
+
+        item_details_for_journal = []
+        for idx, p in enumerate(prepared, 1):
+            main = PurchaseVoucherItems.objects.create(
+                billno=pv,
+                date1=sale.date1,
+                item=p['item'],
+                sl_no=idx,
+                pcs=p['pcs'],
+                gw=p['gw'],
+                purity=p['purity'],
+                making=Decimal('0'),
+                making_value=0,
+                item_value=p['value'],
+                retail=retail,
+            )
+            det = PurchaseVoucherDetails.objects.create(
+                main_item=main,
+                billno=pv,
+                date1=sale.date1,
+                sub_item=p['item'],
+                sub_pcs=p['pcs'],
+                sub_gw=p['gw'],
+                sub_ct=p['ct'],
+                metal_purity=p['purity'],
+                loss=p['loss'],
+                tunch=p['tunch'],
+                fine_wt=p['fine_wt'],
+                rate=p['rate'],
+                value=p['value'],
+                retail=retail,
+            )
+            item_details_for_journal.append(det)
+
+        # Build the PV's own accounting journal: DR each item.purchase_ledger / CR customer ldgr.
+        if total > 0:
+            ser = JournalEntrySerializer(data={
+                'date': sale.date1.strftime('%Y-%m-%d'),
+                'voucher_no': pv.billno,
+                'retail': retail.id,
+                'narration': f"Old gold purchase inline with Sales {sale.billno}",
+                'voucher_type': global_vars.VoucherType.purc_sc,
+                'voucher_details': [
+                    {
+                        'account': (
+                            d.sub_item.purchase_ledger.ac_name
+                            if d.sub_item and d.sub_item.purchase_ledger
+                            else _raise_missing_ledger(f"Purchase Ledger for item '{d.sub_item}'")
+                        ),
+                        'debit': f"{d.value:.2f}",
+                    }
+                    for d in item_details_for_journal
+                ] + [
+                    {
+                        'account': pv.ldgr.ac_name,
+                        'credit': f"{total:.2f}",
+                    }
+                ],
+            }, context=self.context)
+            ser.is_valid(raise_exception=True)
+            pv.ac_voucher = ser.save()
+            pv.save(update_fields=['ac_voucher'])
+
+        return pv, total
+
 
     total_gw = serializers.SerializerMethodField(read_only=True)
     total_net_wt = serializers.SerializerMethodField(read_only=True)
@@ -726,6 +934,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'trans_doc_date',
             'has_eway_bill',
             'old_gold_adjustments_data',
+            'inline_old_gold_items',
+            'inline_old_gold_pv',
         ]
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -761,6 +971,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             item_Details = validated_data.pop('salesvouitemdetails_set')
             bank_details = validated_data.pop('bank_details')
             advance_receipt_ids = validated_data.pop('advance_receipt_ids', [])
+            inline_old_gold_items = validated_data.pop('inline_old_gold_items', []) or []
 
             # Auto-generate bill number server-side to avoid clashes
             request = self.context.get("request")
@@ -871,6 +1082,23 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 if _retail:
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             sales_vou_instance = SalesVou.objects.create(**validated_data)
+
+            # ── Inline old-gold purchase: auto-create a sale-owned Customer PV ──
+            # When inline rows are present, fold any legacy single-FK old gold
+            # into _og_adjustments so everything flows through the multi-voucher path.
+            if inline_old_gold_items:
+                if old_gold_purchase and old_gold_adjusted > 0 and not _og_adjustments:
+                    _og_adjustments.append({'purchase': old_gold_purchase, 'amount': old_gold_adjusted})
+                    sales_vou_instance.old_gold_purchase = None
+                    old_gold_purchase = None
+                _inline_pv, _inline_total = self._upsert_sales_inline_pv(
+                    sales_vou_instance, inline_old_gold_items, request
+                )
+                if _inline_pv and _inline_total > 0:
+                    _og_adjustments.append({'purchase': _inline_pv, 'amount': _inline_total})
+                    old_gold_adjusted += _inline_total
+                    sales_vou_instance.old_gold_adjusted = old_gold_adjusted
+                    sales_vou_instance.save(update_fields=['old_gold_adjusted', 'old_gold_purchase'])
 
             # Patch due_amt now that the instance exists (total_bill_value is a property)
             total_bill = Decimal(str(sales_vou_instance.total_bill_value))
@@ -1193,6 +1421,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             detail_data = validated_data.pop('salesvouitem_set', [])
             item_details_data = validated_data.pop('salesvouitemdetails_set', [])
             bank_details = validated_data.pop('bank_details')
+            inline_old_gold_items = validated_data.pop('inline_old_gold_items', []) or []
 
             # â”€â”€ Snapshot current DB values BEFORE setattr overwrites them â”€â”€â”€â”€â”€â”€
             # Needed to preserve subsequent payment receipts when recalculating due_amt.
@@ -1233,6 +1462,34 @@ class SalesVouSerializer(serializers.ModelSerializer):
             sales_vou_instance = instance
             sales_vou_instance.ac_voucher.delete()
             create_or_update_nested(BankDetails, sales_vou_instance, 'bank_details', 'sales_vou', BankDetails(bank_details, many=True).data)
+
+            # ── Inline old-gold purchase: rebuild sale-owned PV and refresh
+            # SaleOldGoldAdjustment row(s); update instance.old_gold_adjusted to
+            # the sum of all multi-voucher adjustments tied to this sale.
+            _inline_pv, _inline_total = self._upsert_sales_inline_pv(
+                sales_vou_instance, inline_old_gold_items, self.context.get('request')
+            )
+            from sales.models import SaleOldGoldAdjustment as _SOGA
+            from django.db.models import Sum as _SumAgg
+            if _inline_pv:
+                _SOGA.objects.update_or_create(
+                    sale=sales_vou_instance, purchase=_inline_pv,
+                    defaults={'amount': _inline_total},
+                )
+            # Recompute the aggregated old gold for downstream due_amt + RCPT logic.
+            if _SOGA.objects.filter(sale=sales_vou_instance).exists():
+                _sog_total = _SOGA.objects.filter(sale=sales_vou_instance).aggregate(
+                    s=_SumAgg('amount'))['s'] or Decimal('0')
+                sales_vou_instance.old_gold_adjusted = _sog_total
+                sales_vou_instance.save(update_fields=['old_gold_adjusted'])
+            # Refresh due_amt on every PV touched by this sale.
+            for _pv in {sog.purchase for sog in _SOGA.objects.filter(sale=sales_vou_instance).select_related('purchase')}:
+                _adj = (
+                    (_pv.linked_sales_vouchers.aggregate(s=_SumAgg('old_gold_adjusted'))['s'] or Decimal('0')) +
+                    (_pv.sale_adjustments.aggregate(s=_SumAgg('amount'))['s'] or Decimal('0'))
+                )
+                _pv.due_amt = max(Decimal('0'), Decimal(str(_pv.bill_value or 0)) - _adj)
+                _pv.save(update_fields=['due_amt'])
 
             # â”€â”€ Fresh DB queries â€” the prefetch_related cache on `instance` is STALE
             #    after create_or_update_nested; using it would put old values in the journal.

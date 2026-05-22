@@ -55,6 +55,17 @@ class PurchaseVoucher(models.Model):
         help_text="Reverse charge applies — old gold purchased from unregistered individual"
     )
 
+    SOURCE_CHOICES = [
+        ('standalone', 'Standalone'),
+        ('sales_inline', 'Sales Inline'),
+    ]
+    source = models.CharField(
+        max_length=20,
+        default='standalone',
+        choices=SOURCE_CHOICES,
+        help_text="standalone: created directly; sales_inline: auto-created from a Sales Voucher and read-only here",
+    )
+
     ac_voucher     = models.ForeignKey("accounting.VoucherMain", on_delete=models.SET_NULL, null=True, blank=True)
     tds_ac_voucher = models.ForeignKey("accounting.VoucherMain", on_delete=models.SET_NULL, null=True, blank=True, related_name='tds_purchase_vouchers')
 

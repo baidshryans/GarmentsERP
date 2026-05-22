@@ -37,6 +37,26 @@ def on_sales_vou_delete(sender, instance, **kwargs):
         from accounting.models import VoucherMain
         VoucherMain.objects.filter(id__in=voucher_ids).delete()
 
+    # ── 3. Cascade-delete sale-inline Customer PurchaseVoucher ───────────────
+    # SaleOldGoldAdjustment.purchase uses PROTECT, so we must drop the linked
+    # sale-inline PV (and its adjustment row + accounting voucher) before this
+    # SalesVou row is removed.
+    from purchase.models import PurchaseVoucher
+    inline_pvs = list(PurchaseVoucher.objects.filter(
+        sale_adjustments__sale=instance, source='sales_inline'
+    ).distinct())
+    if inline_pvs:
+        from accounting.models import VoucherMain
+        from .models import SaleOldGoldAdjustment
+        SaleOldGoldAdjustment.objects.filter(
+            sale=instance, purchase__in=inline_pvs
+        ).delete()
+        ac_voucher_ids = [pv.ac_voucher_id for pv in inline_pvs if pv.ac_voucher_id]
+        if ac_voucher_ids:
+            VoucherMain.objects.filter(id__in=ac_voucher_ids).delete()
+        # bypass the view-level edit/delete lock by deleting via ORM directly
+        PurchaseVoucher.objects.filter(id__in=[pv.id for pv in inline_pvs]).delete()
+
 
 @receiver(pre_delete, sender=SaleReturn)
 def on_sale_return_delete(sender, instance, **kwargs):

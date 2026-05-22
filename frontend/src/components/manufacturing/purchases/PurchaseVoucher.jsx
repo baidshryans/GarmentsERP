@@ -58,6 +58,7 @@ const PurchaseVoucher = () => {
   let navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]); // files to upload after create
+  const [pvSource, setPvSource] = useState('standalone'); // 'standalone' or 'sales_inline' — sales_inline is read-only
   const [detailItemDisplay, setDetailItemDisplay] = useState(""); // display label for item field
   const [tableItemDisplay, setTableItemDisplay] = useState(""); // display label for main item field
   const { register: originalRegister, handleSubmit, control, reset, watch, setValue, getValues, formState: { isDirty } } = useForm({
@@ -372,6 +373,10 @@ const PurchaseVoucher = () => {
               setValue(`form.${key}`, data[key]);
             }
           });
+          // Track sale-inline source to enforce read-only mode
+          if (data.source === 'sales_inline') {
+            setPvSource('sales_inline');
+          }
 
           // Restore HSN at root level (drives tax rate lookup)
           if (data.hsn) {
@@ -1267,10 +1272,16 @@ const PurchaseVoucher = () => {
     <div className="container mt-4">
       <form
         ref={formRef}
-        className="p-6 shadow-sm rounded-xl bg-white border border-gray-100"
+        className={`p-6 shadow-sm rounded-xl bg-white border border-gray-100 ${pvSource === 'sales_inline' ? 'pointer-events-none opacity-90' : ''}`}
         id="orderForm"
         onSubmit={handleSubmit(onSubmit)}
       >
+        {pvSource === 'sales_inline' && (
+          <div className="pointer-events-auto mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-start gap-2">
+            <span className="font-semibold">Read-only:</span>
+            <span>This purchase voucher was created automatically from a sales voucher. Open the linked sales voucher to edit or delete it.</span>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">1</span>
@@ -1965,11 +1976,13 @@ const PurchaseVoucher = () => {
         </div>
 
         {/* Submit */}
-        <div className="flex justify-center items-center gap-3 mt-2 pt-4 border-t border-gray-100">
-          <Button type="submit" className="bg-primary hover:bg-primary text-white px-8" disabled={saving || !canSave}>
-            {saveLabel(saving)}
-          </Button>
-          <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
+        <div className="pointer-events-auto flex justify-center items-center gap-3 mt-2 pt-4 border-t border-gray-100">
+          {pvSource !== 'sales_inline' && (
+            <Button type="submit" className="bg-primary hover:bg-primary text-white px-8" disabled={saving || !canSave}>
+              {saveLabel(saving)}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => window.history.back()}>{pvSource === 'sales_inline' ? 'Back' : 'Cancel'}</Button>
         </div>
       </form>
 

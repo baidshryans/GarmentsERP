@@ -213,6 +213,7 @@ class AgedReceivablesView(APIView):
         today = _date.today()
 
         if kind == 'sales':
+            from sales.models import SalesVou
             qs = SalesVou.objects.filter(retail=retail, due_amt__gt=0) \
                 .select_related('ldgr').order_by('ldgr__ac_name', 'date1')
             date_field = 'date1'

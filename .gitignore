@@ -7,6 +7,9 @@
 *.xlsx
 *.xls
 
+# CSV templates & opening-stock data (customer-specific, often large)
+templates/*.csv
+
 # ============================================================
 # GEO AUDIT FILES — unrelated to the project
 # ============================================================

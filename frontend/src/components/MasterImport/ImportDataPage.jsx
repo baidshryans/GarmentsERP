@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag } from "lucide-react";
-import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers } from "@/services/apiService";
+import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag, Package } from "lucide-react";
+import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers, downloadOpeningStockTemplate, uploadOpeningStockCSV } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
 import BarcodeOpeningUploadCard from './BarcodeOpeningUploadCard';
 
@@ -27,10 +27,11 @@ const TABLES = [
 ];
 
 const TABS = [
-  { id: "masters", label: "Masters",   icon: Database },
-  { id: "ledgers", label: "Ledgers",   icon: Users    },
-  { id: "barcode", label: "Barcode",   icon: Tag      },
-  { id: "mysql",   label: "MySQL Sync", icon: RefreshCw },
+  { id: "masters",       label: "Masters",       icon: Database  },
+  { id: "ledgers",       label: "Ledgers",       icon: Users     },
+  { id: "barcode",       label: "Barcode",       icon: Tag       },
+  { id: "opening_stock", label: "Opening Stock", icon: Package   },
+  { id: "mysql",         label: "MySQL Sync",    icon: RefreshCw },
 ];
 
 function ResultBadge({ result }) {
@@ -206,6 +207,97 @@ function LedgerUploadCard({ type, label, hint }) {
     </div>
   );
 }
+
+function OpeningStockUploadCard() {
+  const inputRef = useRef(null);
+  const [uploadStatus, setUploadStatus] = useState("idle");
+  const [result, setResult] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    await downloadOpeningStockTemplate();
+    setDownloading(false);
+  };
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setUploadStatus("loading");
+    setResult(null);
+    setErrorMsg("");
+    const res = await uploadOpeningStockCSV(file);
+    if (res.success) {
+      setUploadStatus("success");
+      setResult(res.data);
+    } else {
+      setUploadStatus("error");
+      setErrorMsg(res.error || "Upload failed");
+    }
+    e.target.value = "";
+  };
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-800">Opening Stock</h3>
+          <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+            Columns: <code className="bg-gray-100 px-1 rounded">item_short_code</code>,
+            <code className="bg-gray-100 px-1 rounded ml-1">type</code> (SH/KR/CO),
+            <code className="bg-gray-100 px-1 rounded ml-1">ldgr_name</code> (required for KR/CO),
+            <code className="bg-gray-100 px-1 rounded ml-1">purity</code>,
+            <code className="bg-gray-100 px-1 rounded ml-1">packet_no</code>,
+            <code className="bg-gray-100 px-1 rounded ml-1">pcs</code>,
+            <code className="bg-gray-100 px-1 rounded ml-1">ct</code>,
+            <code className="bg-gray-100 px-1 rounded ml-1">gw</code>,
+            <code className="bg-gray-100 px-1 rounded ml-1">wtd_avg_rate</code>. Re-uploading
+            updates existing rows matched by item + type + ledger.
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
+          >
+            {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            {downloading ? "…" : "Template"}
+          </button>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploadStatus === "loading"}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary hover:bg-primary text-white disabled:opacity-50 transition-colors"
+          >
+            {uploadStatus === "loading" ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            {uploadStatus === "loading" ? "Uploading…" : "Upload CSV"}
+          </button>
+          <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
+        </div>
+      </div>
+      {fileName && uploadStatus !== "idle" && (
+        <p className="mt-2 text-xs text-gray-500 truncate">File: {fileName}</p>
+      )}
+      {uploadStatus === "success" && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-green-700">
+          <CheckCircle size={13} /><span>Import complete</span>
+        </div>
+      )}
+      {uploadStatus === "error" && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600">
+          <XCircle size={13} /><span>{errorMsg}</span>
+        </div>
+      )}
+      <ResultBadge result={result} />
+    </div>
+  );
+}
+
 
 const EMPTY_CONN = { host: "", port: "3306", database: "", user: "", password: "" };
 
@@ -516,6 +608,19 @@ export default function ImportDataPage() {
             Existing barcodes can be skipped, updated, or treated as an error.
           </p>
           <BarcodeOpeningUploadCard />
+        </div>
+      )}
+
+      {/* Opening Stock tab */}
+      {activeTab === "opening_stock" && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">
+            Bulk-upload opening stock entries that feed the Closing Stock report. Download the
+            template, fill it in (one row per item / type / ledger), then upload. For Stone (S)
+            items, leave <code className="bg-gray-100 px-1 rounded">gw</code> blank to auto-derive
+            it as <code className="bg-gray-100 px-1 rounded">ct ÷ 5</code>.
+          </p>
+          <OpeningStockUploadCard />
         </div>
       )}
 

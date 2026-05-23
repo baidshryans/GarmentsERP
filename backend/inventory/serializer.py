@@ -48,6 +48,7 @@ def create_or_update_nested(serializer_class, parent_instance, related_name,pare
 class OpeningInventorySerializer(serializers.ModelSerializer):
     item_name = serializers.CharField(source='item.item_name', read_only=True)
     item_short_code = serializers.CharField(source='item.short_code', read_only=True)
+    item_type = serializers.CharField(source='item.item_type', read_only=True)
     ldgr_name = serializers.CharField(source='ldgr.ac_name', read_only=True, allow_null=True, default=None)
     purity_label = serializers.CharField(source='purity.purity', read_only=True, allow_null=True, default=None)
     packet_label = serializers.CharField(source='packet.pckt_no', read_only=True, allow_null=True, default=None)
@@ -55,9 +56,9 @@ class OpeningInventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = OpeningInventory
         fields = [
-            'id', 'item', 'item_name', 'item_short_code',
+            'id', 'item', 'item_name', 'item_short_code', 'item_type',
             'ldgr', 'ldgr_name',
-            'pcs', 'ct', 'gw',
+            'pcs', 'ct', 'gw', 'wtd_avg_rate',
             'type',
             'packet', 'packet_label',
             'purity', 'purity_label',

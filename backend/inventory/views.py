@@ -1319,22 +1319,28 @@ class ClosingStockCal:
         def _get(d, iid, key):
             return d.get(iid, {}).get(key, zero)
 
-        # ── Opening stock (3 source tables) ──────────────────────────────────
-        op_b_qs = BarcodeDetails.objects.filter(item_id__in=item_ids, barcode__op_stk=True)
-        op_u_qs = UnBarcodedDetails.objects.filter(item_id__in=item_ids, main_item__op_stk=True)
+        # ── Opening stock (single source: OpeningInventory) ──────────────────
+        # Opening stock is pulled exclusively from the Opening Stock entry
+        # screen (`/inventory/opening-stock` → OpeningInventory). Opening value
+        # is computed per-row as wtd_avg_rate × primary_qty (gw for M/R,
+        # ct for S) and summed; we aggregate both candidate amounts here and
+        # pick the right one per item.item_type in the per-item loop below.
         op_r_qs = OpeningInventory.objects.filter(item_id__in=item_ids)
         if retail_ids:
-            op_b_qs = op_b_qs.filter(Q(barcode__retail_id__in=retail_ids) | Q(barcode__retail_id__isnull=True))
-            op_u_qs = op_u_qs.filter(Q(main_item__retail_id__in=retail_ids) | Q(main_item__retail_id__isnull=True))
             op_r_qs = op_r_qs.filter(_retail_q())
 
-        gwct_ann = {
+        op_r = _batch(op_r_qs, 'item_id', {
             'total_gw': Coalesce(Sum('gw'), zero),
             'total_ct': Coalesce(Sum('ct'), zero),
-        }
-        op_b = _batch(op_b_qs, 'item_id', gwct_ann)
-        op_u = _batch(op_u_qs, 'item_id', gwct_ann)
-        op_r = _batch(op_r_qs, 'item_id', gwct_ann)
+            'total_amt_gw': Coalesce(
+                Sum(F('wtd_avg_rate') * F('gw'), output_field=DecimalField(max_digits=20, decimal_places=4)),
+                zero,
+            ),
+            'total_amt_ct': Coalesce(
+                Sum(F('wtd_avg_rate') * F('ct'), output_field=DecimalField(max_digits=20, decimal_places=4)),
+                zero,
+            ),
+        })
 
         # ── Purchases (main + sub-item details) ──────────────────────────────
         pu_main_qs = PurchaseVoucherItems.objects.filter(
@@ -1431,11 +1437,13 @@ class ClosingStockCal:
         for item in items:
             iid = item.id
 
-            # Opening — sum across the 3 tables; value uses item.op_wtd_avg_rate × primary qty
-            op_gw = _get(op_b, iid, 'total_gw') + _get(op_u, iid, 'total_gw') + _get(op_r, iid, 'total_gw')
-            op_ct = _get(op_b, iid, 'total_ct') + _get(op_u, iid, 'total_ct') + _get(op_r, iid, 'total_ct')
-            op_pq = op_ct if item.item_type == 'S' else op_gw
-            opening = {'gw': op_gw, 'ct': op_ct, 'amt': op_pq * item.op_wtd_avg_rate}
+            # Opening — pulled only from OpeningInventory.
+            # Amount uses the per-row stored wtd_avg_rate × primary_qty
+            # (gw for M/R, ct for S), summed at the DB level.
+            op_gw = _get(op_r, iid, 'total_gw')
+            op_ct = _get(op_r, iid, 'total_ct')
+            op_amt = _get(op_r, iid, 'total_amt_ct') if item.item_type == 'S' else _get(op_r, iid, 'total_amt_gw')
+            opening = {'gw': op_gw, 'ct': op_ct, 'amt': op_amt}
 
             # Purchases
             pu_gw = _get(pu_main, iid, 'total_gw')

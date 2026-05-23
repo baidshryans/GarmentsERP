@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
 import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, getStates, fetchPVNoNext, fetchPoNoNext, fetchPackets, fetchPos, fetchStoneIssuesFilterJobs, fetchStoneIssued, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchBarcodeList, splitBarcode, fetchNextBarcode } from "@/services/apiService";
@@ -28,6 +29,18 @@ const SectionHeader = ({ icon: Icon, title, subtitle }) => (
     <div className="flex-1 h-px bg-violet-100" />
   </div>
 );
+
+// ── Indian-format numeric helpers ────────────────────────────────────────────
+const inr = (v) => {
+  const n = parseFloat(v);
+  if (!isFinite(n)) return null;
+  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+const inrCompact = (v) => {
+  const n = parseFloat(v);
+  if (!isFinite(n)) return null;
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+};
 
 // ── Compact table header cell ────────────────────────────────────────────────
 const TH = ({ children, className = "" }) => (
@@ -138,6 +151,11 @@ const BarcodeSplit = () => {
     const [rs, setRows] = useState([]);
     const [saving, setSaving] = useState(false);
     const[toprs,setTopRows] = useState([]);
+    // Index of the main-item row being edited. null when not editing.
+    // handleEdit sets it; handleAddRow re-inserts at this index then clears it.
+    const [editingIdx, setEditingIdx] = useState(null);
+    const mainItemRef = useRef(null);
+    const subItemInputRef = useRef(null);
     const [statesData, setstatesData] = useState([]);
     const [salespersonData, setSalespersonData] = useState([]);
     const [mainItemData, setMainItemData] = useState([]);
@@ -307,7 +325,7 @@ const BarcodeSplit = () => {
                 });  // Success toast
 
               setTimeout(()=>{
-                navigate("");
+                navigate("/inventory/barcodemanagement/list/");
               },2000);
 
             } else if (response.status < 500) {
@@ -332,8 +350,59 @@ const BarcodeSplit = () => {
 
     const handleEdit = (index) => {
         const row = rs[index];
-        reset(row);
+        if (!row) return;
+        // Remap the canonical row back into the `table.*` form fields used by
+        // the New Barcode Entry inputs. Inverse of the remapping in handleAddRow:
+        //   row.making_val  → table.making
+        //   row.other_chg   → table.value (registered as the Oth. Making input)
+        setValue("table", {
+            bill_no: row.bill_no ?? null,
+            date1: row.date1 ?? null,
+            po_no: row.po_no ?? "",
+            po_sl_no: row.po_sl_no ?? null,
+            item: row.item ?? null,
+            barcode: row.barcode ?? null,
+            barcode_text: row.barcode_text ?? "",
+            order_no: row.order_no ?? null,
+            sl_no: row.sl_no ?? 0,
+            pcs: row.pcs ?? null,
+            gw: row.gw ?? null,
+            size: row.size ?? "",
+            purity: row.purity ?? null,
+            pending_pcs: row.pending_pcs ?? null,
+            pending_gw: row.pending_gw ?? null,
+            making_type: row.making_type ?? "",
+            making_amt: row.making_amt ?? null,
+            making: row.making_val ?? row.making ?? null,
+            item_value: row.item_value ?? null,
+            value: row.other_chg ?? row.value ?? null,
+            remarks: row.remarks ?? "",
+            barcodedetails_set: row.barcodedetails_set ?? [],
+            details: {
+                main_item: null,
+                bill_no: "",
+                date1: null,
+                sub_item: null,
+                item: null,
+                sub_pcs: 0,
+                sub_gw: 0,
+                sub_ct: 0,
+                metal_purity: null,
+                loss: 0,
+                tunch: 0,
+                fine_wt: 0,
+                packet: null,
+                rate: 0,
+                barcode_text: "",
+                amt: 0,
+                value: 0,
+                sl_no: rs.length,
+            },
+        });
         setRows((prev) => prev.filter((_, i) => i !== index));
+        setEditingIdx(index);
+        // Focus the main-item combobox after the form has flushed the new values.
+        setTimeout(() => mainItemRef.current?.focus(), 0);
     };
 
     const handleDelete = (index) => {
@@ -375,6 +444,7 @@ const BarcodeSplit = () => {
             const { value, total } = computeRowTotal(newRow);
             return { ...newRow, value, total_amount: total, item_value: total };
         }));
+        setTimeout(() => subItemInputRef.current?.focus(), 0);
     };
 
     const handleDeleteSubItem = (parentIdx, subIdx) => {
@@ -686,8 +756,19 @@ const BarcodeSplit = () => {
         remapped.total_amount = initTotal;
         remapped.item_value   = initTotal;
 
-        // Add the current item to the rows
-        setRows(prevRows => [...prevRows, remapped]);
+        // Add the current item to the rows. If we're editing, splice the
+        // re-committed row back into its original position; otherwise append.
+        if (editingIdx !== null) {
+            setRows(prevRows => {
+                const next = [...prevRows];
+                const insertAt = Math.min(editingIdx, next.length);
+                next.splice(insertAt, 0, remapped);
+                return next;
+            });
+            setEditingIdx(null);
+        } else {
+            setRows(prevRows => [...prevRows, remapped]);
+        }
 
         // Generate a fresh barcode for the next split entry
         const bcRes = await fetchNextBarcode();
@@ -745,6 +826,14 @@ const BarcodeSplit = () => {
         if (e.key === "Tab") {
             const barcode = getValues("form.old_barcode")
             const foundBarcode = barcodes.find(item => item.barcode === barcode);
+            if (foundBarcode && foundBarcode.stk_status === false) {
+                toast({
+                    title: "Barcode not in stock",
+                    description: `Barcode ${barcode} is not currently in stock and cannot be split.`,
+                });
+                setValue("form.old_barcode", "");
+                return;
+            }
             if (foundBarcode) {
                 setTopRows([...toprs, { ...foundBarcode }]);
                 // Default purity of new barcodes to the source barcode's purity
@@ -789,57 +878,104 @@ const BarcodeSplit = () => {
                         </p>
                     </div>
 
-                    {/* Source barcode details table */}
+                    {/* Source barcode details */}
                     {toprs.length > 0 && (
-                        <div className="mt-5 overflow-x-auto rounded-lg border border-violet-100">
-                            <table className="w-full text-sm border-collapse">
-                                <thead>
-                                    <tr>
-                                        <TH>Barcode</TH>
-                                        <TH>Item</TH>
-                                        <TH>Pcs</TH>
-                                        <TH>Ct</TH>
-                                        <TH>GW</TH>
-                                        <TH>Purity</TH>
-                                        <TH>Making</TH>
-                                        <TH>Rate</TH>
-                                        <TH>Oth. Making</TH>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {toprs.map((item, idx) => (
-                                        <React.Fragment key={idx}>
-                                            <tr className="bg-violet-50 border-t border-violet-100">
-                                                <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
-                                                <td className="px-2 py-1.5">{item.item_name || item.item}</td>
-                                                <td className="px-2 py-1.5">{item.pcs}</td>
-                                                <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
-                                                <td className="px-2 py-1.5">{item.purity}</td>
-                                                <td className="px-2 py-1.5">{item.making_val}</td>
-                                                <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.other_chg}</td>
-                                            </tr>
-                                            {item.barcodedetails_set?.map((detail, di) => {
-                                                const subItemName = (mainItemData.find(m => m.short_code === detail.item)?.item_name) || detail.item;
-                                                return (
-                                                    <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
-                                                        <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
-                                                        <td className="px-2 py-1 text-xs">{subItemName}</td>
-                                                        <td className="px-2 py-1 text-xs">{detail.pcs}</td>
-                                                        <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
-                                                        <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
-                                                        <td className="px-2 py-1 text-xs">{detail.purity || detail.metal_purity || "—"}</td>
-                                                        <td className="px-2 py-1 text-xs"></td>
-                                                        <td className="px-2 py-1 text-xs">{detail.rate}</td>
-                                                        <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </React.Fragment>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div className="mt-5 space-y-3">
+                            {toprs.map((item, idx) => {
+                                const subs = item.barcodedetails_set || [];
+                                const fmt3 = (v) => (v != null && !isNaN(parseFloat(v)) ? parseFloat(v).toFixed(3) : null);
+                                const fmt2 = (v) => (v != null && !isNaN(parseFloat(v)) ? parseFloat(v).toFixed(2) : null);
+                                const totals = subs.reduce((acc, d) => ({
+                                    pcs: acc.pcs + (parseFloat(d.pcs) || 0),
+                                    ct: acc.ct + (parseFloat(d.ct) || 0),
+                                    gw: acc.gw + (parseFloat(d.gw) || 0),
+                                    amt: acc.amt + (parseFloat(d.amt) || 0),
+                                }), { pcs: 0, ct: 0, gw: 0, amt: 0 });
+
+                                return (
+                                    <div key={idx} className="rounded-xl border border-violet-100 bg-white overflow-hidden shadow-sm">
+                                        {/* Summary header */}
+                                        <div className="px-5 py-4 bg-gradient-to-r from-violet-50 via-violet-50/60 to-white border-b border-violet-100">
+                                            <div className="flex flex-wrap items-start justify-between gap-4">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-primary text-white font-mono text-sm font-semibold tracking-wider shadow-sm">
+                                                        {item.barcode}
+                                                    </span>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-gray-800 leading-tight">{item.item_name || item.item}</p>
+                                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 mt-0.5">Source barcode</p>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-6 gap-y-2">
+                                                    {[
+                                                        { label: "Pcs", value: item.pcs ?? "—" },
+                                                        { label: "Ct", value: fmt3(totals.ct) ?? "—" },
+                                                        { label: "GW", value: fmt3(item.gw) ?? "—" },
+                                                        { label: "Purity", value: item.purity ?? "—" },
+                                                        { label: "Making", value: item.making_val != null && item.making_val !== "" ? inrCompact(item.making_val) ?? item.making_val : "—" },
+                                                        { label: "Oth. Making", value: item.other_chg != null && item.other_chg !== "" ? inrCompact(item.other_chg) ?? item.other_chg : "—" },
+                                                    ].map((m) => (
+                                                        <div key={m.label} className="flex flex-col">
+                                                            <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">{m.label}</span>
+                                                            <span className="text-sm font-semibold text-gray-800 tabular-nums">{m.value}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Sub-items table */}
+                                        {subs.length > 0 && (
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm border-collapse">
+                                                    <thead>
+                                                        <tr>
+                                                            <TH>Item</TH>
+                                                            <TH>Packet</TH>
+                                                            <TH className="text-right">Pcs</TH>
+                                                            <TH className="text-right">Ct</TH>
+                                                            <TH className="text-right">GW</TH>
+                                                            <TH>Purity</TH>
+                                                            <TH className="text-right">Rate</TH>
+                                                            <TH className="text-right">Amount</TH>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {subs.map((detail, di) => {
+                                                            const subItemName = (mainItemData.find(m => m.short_code === detail.item)?.item_name) || detail.item;
+                                                            const hasCt = parseFloat(detail.ct) > 0;
+                                                            const hasGw = parseFloat(detail.gw) > 0;
+                                                            const hasAmt = parseFloat(detail.amt) > 0;
+                                                            const hasRate = parseFloat(detail.rate) > 0;
+                                                            return (
+                                                                <tr key={di} className="border-t border-gray-100 hover:bg-violet-50/40 transition-colors">
+                                                                    <td className="px-3 py-2 text-gray-700">{subItemName}</td>
+                                                                    <td className="px-3 py-2 font-mono text-xs text-gray-500">{detail.packet || "—"}</td>
+                                                                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">{detail.pcs || "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums ${hasCt ? "text-gray-700" : "text-gray-300"}`}>{hasCt ? fmt3(detail.ct) : "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums ${hasGw ? "text-gray-700" : "text-gray-300"}`}>{hasGw ? fmt3(detail.gw) : "—"}</td>
+                                                                    <td className="px-3 py-2 text-gray-600">{detail.purity || detail.metal_purity || "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums ${hasRate ? "text-gray-600" : "text-gray-300"}`}>{hasRate ? inrCompact(detail.rate) : "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums font-medium ${hasAmt ? "text-gray-900" : "text-gray-300"}`}>{hasAmt ? inr(detail.amt) : "—"}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                        <tr className="border-t-2 border-violet-200 bg-gray-50/70">
+                                                            <td className="px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-semibold" colSpan={2}>Total</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.pcs || "—"}</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.ct ? totals.ct.toFixed(3) : "—"}</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.gw ? totals.gw.toFixed(3) : "—"}</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-bold text-primary">{totals.amt ? inr(totals.amt) : "—"}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -853,17 +989,33 @@ const BarcodeSplit = () => {
                     <div className="flex flex-wrap items-end gap-3 mb-6 p-4 rounded-lg bg-gray-50 border border-gray-100">
                         <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-gray-500">Item</Label>
-                            <Input
-                                list="item_list"
-                                {...register("table.item")}
-                                className="h-9 w-36 bg-white text-sm"
-                                placeholder="Item code…"
+                            <Controller
+                                name="table.item"
+                                control={control}
+                                render={({ field }) => {
+                                    const selected = mainItemData.find(m => m.short_code === field.value);
+                                    const displayVal = selected ? selected.item_name : (field.value || "");
+                                    return (
+                                        <SearchableComboBox
+                                            ref={mainItemRef}
+                                            className="w-56"
+                                            labelKey="item_name"
+                                            searchKeys={["short_code"]}
+                                            options={mainItemData.filter(m => (m.item_type || "").toUpperCase() === "M")}
+                                            value={displayVal}
+                                            onInputChange={(val) => field.onChange(val)}
+                                            onSelect={(opt) => field.onChange(opt.short_code)}
+                                            renderOption={(opt) => (
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <span className="truncate">{opt.item_name}</span>
+                                                    <span className="text-[10px] font-mono text-gray-400">{opt.short_code}</span>
+                                                </div>
+                                            )}
+                                            placeholder="Search item…"
+                                        />
+                                    );
+                                }}
                             />
-                            <datalist id="item_list">
-                                {mainItemData.map((item, index) => (
-                                    <option key={index} value={item.short_code}>{item.item_name}</option>
-                                ))}
-                            </datalist>
                         </div>
                         <div className="flex flex-col gap-1.5">
                             <Label className="text-xs text-gray-500">Barcode</Label>
@@ -974,16 +1126,22 @@ const BarcodeSplit = () => {
                                         )}
                                     </td>
                                     <td className="px-2 py-1.5 border-b border-gray-100">
-                                        <Input
-                                            list="sub_item_list"
-                                            {...register("table.details.item")}
-                                            className="h-9 text-sm bg-white w-28 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            placeholder="Item…"
-                                            disabled={itemDisabledByPacket}
-                                        />
+                                        {(() => {
+                                            const { ref: rhfRef, ...rhfRest } = register("table.details.item");
+                                            return (
+                                                <Input
+                                                    list="sub_item_list"
+                                                    {...rhfRest}
+                                                    ref={(el) => { rhfRef(el); subItemInputRef.current = el; }}
+                                                    className="h-9 text-sm bg-white w-28 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    placeholder="Item…"
+                                                    disabled={itemDisabledByPacket}
+                                                />
+                                            );
+                                        })()}
                                         <datalist id="sub_item_list">
                                             {mainItemData
-                                                .filter(item => item.item_type === "R" || item.item_type === "S")
+                                                .filter(item => (item.item_type || "").toUpperCase() !== "M")
                                                 .map((item, index) => (
                                                     <option key={index} value={item.short_code}>{item.item_name}</option>
                                                 ))}
@@ -1052,100 +1210,156 @@ const BarcodeSplit = () => {
                     <div className="p-6 shadow-sm rounded-xl bg-white border border-gray-100">
                         <SectionHeader icon={Plus} title="New Barcodes" subtitle="Split barcodes to be created" />
 
-                        <div className="overflow-x-auto rounded-lg border border-violet-100">
-                            <table className="w-full text-sm border-collapse">
-                                <thead>
-                                    <tr>
-                                        <TH></TH>
-                                        <TH>Barcode</TH>
-                                        <TH>Item</TH>
-                                        <TH>Pcs</TH>
-                                        <TH>Ct</TH>
-                                        <TH>GW</TH>
-                                        <TH>Purity</TH>
-                                        <TH>Making</TH>
-                                        <TH>Rate</TH>
-                                        <TH>Oth. Making</TH>
-                                        <TH>Total</TH>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rs.map((item, idx) => {
-                                        const parentName = (mainItemData.find(m => m.short_code === item.item)?.item_name) || item.item_name || item.item;
-                                        return (
-                                        <React.Fragment key={idx}>
-                                            <tr className="bg-violet-50 border-t border-violet-100">
-                                                <td className="px-2 py-1.5">
-                                                    <div className="flex gap-1">
+                        <div className="space-y-3">
+                            {rs.map((item, idx) => {
+                                const isEditing = editingIdx === idx;
+                                const parentName = (mainItemData.find(m => m.short_code === item.item)?.item_name) || item.item_name || item.item;
+                                const subs = item.barcodedetails_set || [];
+                                const fmt3 = (v) => (v != null && !isNaN(parseFloat(v)) ? parseFloat(v).toFixed(3) : null);
+                                const totals = subs.reduce((acc, d) => ({
+                                    pcs: acc.pcs + (parseFloat(d.pcs) || 0),
+                                    ct: acc.ct + (parseFloat(d.ct) || 0),
+                                    gw: acc.gw + (parseFloat(d.gw) || 0),
+                                    amt: acc.amt + (parseFloat(d.amt) || 0),
+                                }), { pcs: 0, ct: 0, gw: 0, amt: 0 });
+                                const makingDisplay = item.making_val
+                                    ? `${inrCompact(item.making_val) ?? item.making_val}${item.making_type === 'per_nw' ? '/g' : ''}`
+                                    : null;
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`rounded-xl border bg-white overflow-hidden shadow-sm transition-colors ${isEditing ? "border-amber-300 ring-2 ring-amber-200" : "border-violet-100"}`}
+                                    >
+                                        {/* Header strip */}
+                                        <div className="px-5 py-4 bg-gradient-to-r from-violet-50 via-violet-50/60 to-white border-b border-violet-100">
+                                            <div className="flex flex-wrap items-start justify-between gap-4">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="flex items-center gap-1 shrink-0">
                                                         <button
                                                             type="button"
                                                             onClick={() => handleEdit(idx)}
-                                                            className="p-1 rounded text-primary hover:bg-violet-50"
+                                                            aria-label={`Edit barcode ${item.barcode}`}
+                                                            title="Edit"
+                                                            className="inline-flex items-center justify-center size-8 rounded-md text-primary hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
                                                         >
                                                             <Pencil className="size-4" />
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => handleDelete(idx)}
-                                                            className="p-1 rounded text-red-500 hover:bg-red-50"
+                                                            aria-label={`Delete barcode ${item.barcode}`}
+                                                            title="Delete"
+                                                            className="inline-flex items-center justify-center size-8 rounded-md text-red-500 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors"
                                                         >
                                                             <Trash2 className="size-4" />
                                                         </button>
                                                     </div>
-                                                </td>
-                                                <td className="px-2 py-1.5 font-semibold text-primary">{item.barcode}</td>
-                                                <td className="px-2 py-1.5">{parentName}</td>
-                                                <td className="px-2 py-1.5">{item.pcs}</td>
-                                                <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.gw != null ? parseFloat(item.gw).toFixed(3) : "—"}</td>
-                                                <td className="px-2 py-1.5">{item.purity}</td>
-                                                <td className="px-2 py-1.5">
-                                                    {item.making_val ? `${item.making_val}${item.making_type === 'per_nw' ? '/g' : ''}` : ''}
-                                                </td>
-                                                <td className="px-2 py-1.5"></td>
-                                                <td className="px-2 py-1.5">{item.other_chg}</td>
-                                                <td className="px-2 py-1.5 font-semibold">{item.total_amount != null ? parseFloat(item.total_amount).toFixed(2) : ''}</td>
-                                            </tr>
-                                            {item.barcodedetails_set?.map((detail, di) => {
-                                                const subItemName = (mainItemData.find(m => m.short_code === detail.item)?.item_name) || detail.item;
-                                                return (
-                                                <tr key={di} className="bg-violet-50/50 border-t border-violet-50">
-                                                    <td className="px-2 py-1 text-xs">
-                                                        <div className="flex gap-1">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleEditSubItem(idx, di)}
-                                                                className="p-1 rounded text-primary hover:bg-violet-50"
-                                                            >
-                                                                <Pencil className="size-3.5" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteSubItem(idx, di)}
-                                                                className="p-1 rounded text-red-500 hover:bg-red-50"
-                                                            >
-                                                                <Trash2 className="size-3.5" />
-                                                            </button>
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-primary text-white font-mono text-sm font-semibold tracking-wider shadow-sm shrink-0">
+                                                        {item.barcode}
+                                                    </span>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-semibold text-gray-800 leading-tight truncate" title={parentName}>{parentName}</p>
+                                                        <p className="text-[10px] uppercase tracking-wider text-gray-400 mt-0.5">
+                                                            New barcode {idx + 1}{isEditing ? " • editing" : ""}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-6 gap-y-2">
+                                                    {[
+                                                        { label: "Pcs", value: item.pcs ?? "—" },
+                                                        { label: "Ct", value: fmt3(totals.ct) ?? "—" },
+                                                        { label: "GW", value: fmt3(item.gw) ?? "—" },
+                                                        { label: "Purity", value: item.purity ?? "—" },
+                                                        { label: "Making", value: makingDisplay ?? "—" },
+                                                        { label: "Total", value: item.total_amount != null ? (inr(item.total_amount) ?? "—") : "—", emphasis: true },
+                                                    ].map((m) => (
+                                                        <div key={m.label} className="flex flex-col">
+                                                            <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">{m.label}</span>
+                                                            <span className={`text-sm tabular-nums ${m.emphasis ? "font-bold text-primary" : "font-semibold text-gray-800"}`}>{m.value}</span>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-2 py-1 pl-6 text-xs text-gray-400 font-mono">{detail.packet || "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{subItemName}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.pcs}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.ct != null ? parseFloat(detail.ct).toFixed(3) : "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.gw != null ? parseFloat(detail.gw).toFixed(3) : "—"}</td>
-                                                    <td className="px-2 py-1 text-xs">{detail.purity || detail.metal_purity || "—"}</td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                    <td className="px-2 py-1 text-xs">{detail.rate}</td>
-                                                    <td className="px-2 py-1 text-xs font-medium">{detail.amt}</td>
-                                                    <td className="px-2 py-1 text-xs"></td>
-                                                </tr>
-                                                );
-                                            })}
-                                        </React.Fragment>
-                                    );
-                                })}
-                                </tbody>
-                            </table>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Sub-items table */}
+                                        {subs.length > 0 && (
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm border-collapse">
+                                                    <thead>
+                                                        <tr>
+                                                            <TH className="w-20">Actions</TH>
+                                                            <TH>Item</TH>
+                                                            <TH>Packet</TH>
+                                                            <TH className="text-right">Pcs</TH>
+                                                            <TH className="text-right">Ct</TH>
+                                                            <TH className="text-right">GW</TH>
+                                                            <TH>Purity</TH>
+                                                            <TH className="text-right">Rate</TH>
+                                                            <TH className="text-right">Amount</TH>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {subs.map((detail, di) => {
+                                                            const subItemName = (mainItemData.find(m => m.short_code === detail.item)?.item_name) || detail.item;
+                                                            const hasPcs  = parseFloat(detail.pcs) > 0;
+                                                            const hasCt   = parseFloat(detail.ct) > 0;
+                                                            const hasGw   = parseFloat(detail.gw) > 0;
+                                                            const hasRate = parseFloat(detail.rate) > 0;
+                                                            const hasAmt  = parseFloat(detail.amt) > 0;
+                                                            return (
+                                                                <tr key={di} className="border-t border-gray-100 hover:bg-violet-50/40 transition-colors">
+                                                                    <td className="px-3 py-2">
+                                                                        <div className="flex items-center gap-1">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleEditSubItem(idx, di)}
+                                                                                aria-label={`Edit sub-item ${subItemName}`}
+                                                                                title="Edit"
+                                                                                className="inline-flex items-center justify-center size-7 rounded-md text-primary hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
+                                                                            >
+                                                                                <Pencil className="size-3.5" />
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleDeleteSubItem(idx, di)}
+                                                                                aria-label={`Delete sub-item ${subItemName}`}
+                                                                                title="Delete"
+                                                                                className="inline-flex items-center justify-center size-7 rounded-md text-red-500 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-1 transition-colors"
+                                                                            >
+                                                                                <Trash2 className="size-3.5" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-gray-700">{subItemName}</td>
+                                                                    <td className="px-3 py-2 font-mono text-xs text-gray-500">{detail.packet || "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums ${hasPcs ? "text-gray-700" : "text-gray-300"}`}>{hasPcs ? detail.pcs : "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums ${hasCt ? "text-gray-700" : "text-gray-300"}`}>{hasCt ? fmt3(detail.ct) : "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums ${hasGw ? "text-gray-700" : "text-gray-300"}`}>{hasGw ? fmt3(detail.gw) : "—"}</td>
+                                                                    <td className="px-3 py-2 text-gray-600">{detail.purity || detail.metal_purity || "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums ${hasRate ? "text-gray-600" : "text-gray-300"}`}>{hasRate ? inrCompact(detail.rate) : "—"}</td>
+                                                                    <td className={`px-3 py-2 text-right tabular-nums font-medium ${hasAmt ? "text-gray-900" : "text-gray-300"}`}>{hasAmt ? inr(detail.amt) : "—"}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                        <tr className="border-t-2 border-violet-200 bg-gray-50/70">
+                                                            <td></td>
+                                                            <td className="px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-semibold" colSpan={2}>Total</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.pcs || "—"}</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.ct ? totals.ct.toFixed(3) : "—"}</td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.gw ? totals.gw.toFixed(3) : "—"}</td>
+                                                            <td></td>
+                                                            <td></td>
+                                                            <td className="px-3 py-2 text-right tabular-nums font-bold text-primary">{totals.amt ? inr(totals.amt) : "—"}</td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -1156,7 +1370,7 @@ const BarcodeSplit = () => {
                         type="button"
                         variant="outline"
                         className="border-gray-200 text-gray-600 hover:bg-gray-50"
-                        onClick={() => navigate("")}
+                        onClick={() => navigate("/inventory/barcodemanagement/list/")}
                     >
                         Cancel
                     </Button>

@@ -328,10 +328,13 @@ class OpeningInventory(models.Model):
     pcs = models.PositiveBigIntegerField(default=0)
     ct = models.DecimalField(decimal_places=3,max_digits=10,default=0)
     gw = models.DecimalField(decimal_places=3,max_digits=10,default=0)
+    # Weighted-average rate (per primary qty unit — gw for M/R items, ct for S items).
+    # The closing-stock report aggregates wtd_avg_rate × primary_qty to derive opening value.
+    wtd_avg_rate = models.DecimalField(decimal_places=2, max_digits=14, default=0)
     type = models.CharField(max_length=10, choices=[('SH', 'Showroom'), ('KR', 'Karigar'), ('CO', 'Customer')])
     packet = models.ForeignKey(Packet,on_delete=models.SET_NULL,null=True,blank=True)
     retail = models.ForeignKey(RetailMaster,on_delete=models.CASCADE,null=True)
-    purity = models.ForeignKey(PurityMaster,on_delete=models.SET_NULL,null=True) 
+    purity = models.ForeignKey(PurityMaster,on_delete=models.SET_NULL,null=True)
 
     class Meta:
         db_table = "opening_stock"

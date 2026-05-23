@@ -7,7 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from django.http import HttpResponse
 
-from inventory.models import BarcodeMain, BarcodeDetails
+from inventory.models import BarcodeMain, BarcodeDetails, OpeningInventory, Item
+from mastersconfig.models import Packet
+from goldrates.models import PurityMaster
+from contacts.models import Ledger
+from django.core.exceptions import ValidationError
+from decimal import Decimal, InvalidOperation
 from inventory.csv_parsers import (
     parse_csv_file,
     match_purity,
@@ -429,3 +434,207 @@ class BarcodeDetailsTemplateView(APIView):
         writer.writeheader()
         writer.writerow(example)
         return response
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Opening Stock CSV import (writes to OpeningInventory)
+# ──────────────────────────────────────────────────────────────────────────────
+
+OPENING_STOCK_COLUMNS = [
+    'item_short_code', 'type', 'ldgr_name',
+    'purity', 'packet_no',
+    'pcs', 'ct', 'gw', 'wtd_avg_rate',
+]
+
+OPENING_STOCK_TYPES = {'SH', 'KR', 'CO'}
+
+
+def _decimal_or_zero(raw, default=Decimal('0')):
+    if raw is None:
+        return default
+    s = str(raw).strip()
+    if not s:
+        return default
+    try:
+        return Decimal(s)
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"invalid number '{raw}'")
+
+
+def _int_or_zero(raw, default=0):
+    if raw is None:
+        return default
+    s = str(raw).strip()
+    if not s:
+        return default
+    try:
+        return int(float(s))
+    except (TypeError, ValueError):
+        raise ValueError(f"invalid integer '{raw}'")
+
+
+class OpeningStockTemplateView(APIView):
+    """GET → returns a CSV template with the expected headers and one sample row."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        sample_sh = {
+            'item_short_code': 'GOLD-22K',
+            'type': 'SH',
+            'ldgr_name': '',
+            'purity': '22.00',
+            'packet_no': '',
+            'pcs': '0',
+            'ct': '0',
+            'gw': '125.500',
+            'wtd_avg_rate': '6800.00',
+        }
+        sample_kr = {
+            'item_short_code': 'DIA-VVS',
+            'type': 'KR',
+            'ldgr_name': 'Ramesh Karigar',
+            'purity': '',
+            'packet_no': 'PKT-001',
+            'pcs': '10',
+            'ct': '5.250',
+            'gw': '1.050',  # 5.25 / 5 — for S items
+            'wtd_avg_rate': '45000.00',
+        }
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="opening_stock_template.csv"'
+        writer = csv.DictWriter(response, fieldnames=OPENING_STOCK_COLUMNS)
+        writer.writeheader()
+        writer.writerow(sample_sh)
+        writer.writerow(sample_kr)
+        return response
+
+
+class OpeningStockImportView(APIView):
+    """POST file=<csv> → upserts OpeningInventory rows. Matches by
+    (item, type, ldgr, packet, purity) tuple — duplicate uploads update qty/rate.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded. Use form field name "file".'}, status=400)
+
+        try:
+            text = file.read().decode('utf-8-sig')
+        except UnicodeDecodeError:
+            return Response({'error': 'File must be UTF-8 encoded CSV.'}, status=400)
+
+        reader = csv.DictReader(text.splitlines())
+        missing = [c for c in ['item_short_code', 'type'] if c not in (reader.fieldnames or [])]
+        if missing:
+            return Response(
+                {'error': f"Missing required columns: {', '.join(missing)}"},
+                status=400,
+            )
+
+        # Pre-load lookup maps to avoid N+1 DB hits.
+        items_by_code = {
+            (i.short_code or '').strip().lower(): i
+            for i in Item.objects.all() if i.short_code
+        }
+        purities_by_label = {
+            str(p.purity).strip().lower(): p for p in PurityMaster.objects.all()
+        }
+        packets_by_no = {
+            (p.pckt_no or '').strip().lower(): p
+            for p in Packet.objects.all() if p.pckt_no
+        }
+        ledgers_by_name = {
+            (l.ac_name or '').strip().lower(): l
+            for l in Ledger.objects.all() if l.ac_name
+        }
+
+        retail = getattr(request, 'retail', None)
+
+        created = 0
+        updated = 0
+        errors = []
+        rows = list(reader)
+
+        with transaction.atomic():
+            for idx, row in enumerate(rows, start=2):  # row 1 is header
+                if not any((str(v) or '').strip() for v in row.values()):
+                    continue  # blank line
+                try:
+                    code = (row.get('item_short_code') or '').strip()
+                    if not code:
+                        raise ValueError("item_short_code is required")
+                    item = items_by_code.get(code.lower())
+                    if not item:
+                        raise ValueError(f"item '{code}' not found in Item Master")
+
+                    entry_type = (row.get('type') or '').strip().upper()
+                    if entry_type not in OPENING_STOCK_TYPES:
+                        raise ValueError(f"type must be one of SH / KR / CO (got '{entry_type}')")
+
+                    ldgr = None
+                    ldgr_raw = (row.get('ldgr_name') or '').strip()
+                    if entry_type in ('KR', 'CO'):
+                        if not ldgr_raw:
+                            raise ValueError(f"ldgr_name is required for type {entry_type}")
+                        ldgr = ledgers_by_name.get(ldgr_raw.lower())
+                        if not ldgr:
+                            raise ValueError(f"ledger '{ldgr_raw}' not found")
+                    elif ldgr_raw:
+                        ldgr = ledgers_by_name.get(ldgr_raw.lower())  # optional for SH
+
+                    purity = None
+                    purity_raw = (row.get('purity') or '').strip()
+                    if purity_raw:
+                        purity = purities_by_label.get(purity_raw.lower())
+                        if not purity:
+                            raise ValueError(f"purity '{purity_raw}' not found")
+
+                    packet = None
+                    packet_raw = (row.get('packet_no') or '').strip()
+                    if packet_raw:
+                        packet = packets_by_no.get(packet_raw.lower())
+                        if not packet:
+                            raise ValueError(f"packet '{packet_raw}' not found")
+                        # R items cannot have a packet (mirrors the form rule)
+                        if (item.item_type or '').upper() == 'R':
+                            raise ValueError("Raw (R) items cannot have a packet")
+
+                    pcs = _int_or_zero(row.get('pcs'))
+                    ct = _decimal_or_zero(row.get('ct'))
+                    gw = _decimal_or_zero(row.get('gw'))
+                    rate = _decimal_or_zero(row.get('wtd_avg_rate'))
+
+                    # For S items, derive gw = ct / 5 if not supplied
+                    if (item.item_type or '').upper() == 'S' and gw == 0 and ct > 0:
+                        gw = (ct / Decimal('5')).quantize(Decimal('0.001'))
+
+                    defaults = {
+                        'pcs': pcs, 'ct': ct, 'gw': gw,
+                        'wtd_avg_rate': rate,
+                        'purity': purity, 'packet': packet, 'retail': retail,
+                    }
+                    obj, was_created = OpeningInventory.objects.update_or_create(
+                        item=item, type=entry_type, ldgr=ldgr,
+                        defaults=defaults,
+                    )
+                    if was_created:
+                        created += 1
+                    else:
+                        updated += 1
+
+                except (ValueError, ValidationError) as e:
+                    errors.append(f"Row {idx}: {str(e)}")
+                except Exception as e:
+                    errors.append(f"Row {idx}: unexpected error — {str(e)}")
+
+                if len(errors) >= MAX_REPORTED_ERRORS:
+                    errors.append(f"…stopped reporting after {MAX_REPORTED_ERRORS} errors.")
+                    break
+
+        return Response({
+            'created': created,
+            'updated': updated,
+            'errors': errors,
+        })

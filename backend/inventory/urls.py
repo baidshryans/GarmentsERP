@@ -5,6 +5,8 @@ from inventory.api_views import (
     BarcodeOpeningImportView,
     BarcodeMainTemplateView,
     BarcodeDetailsTemplateView,
+    OpeningStockTemplateView,
+    OpeningStockImportView,
 )
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
@@ -68,6 +70,8 @@ urlpatterns = [
     path('api/barcode-opening/import/', BarcodeOpeningImportView.as_view(), name='barcode-opening-import'),
     path('api/templates/barcode-main/', BarcodeMainTemplateView.as_view(), name='barcode-main-template'),
     path('api/templates/barcode-details/', BarcodeDetailsTemplateView.as_view(), name='barcode-details-template'),
+    path('api/templates/opening-stock/', OpeningStockTemplateView.as_view(), name='opening-stock-template'),
+    path('api/opening-stock/import/', OpeningStockImportView.as_view(), name='opening-stock-import'),
     *router.urls
     
 ]

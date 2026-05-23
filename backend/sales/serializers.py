@@ -1302,10 +1302,15 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
 
             def _bank_debit_account(bank):
-                """Cheques go to 'Cheques in Hand' suspense; all other modes go direct to bank."""
+                """Cheques go to 'Cheques in Hand' suspense; all other modes go
+                direct to the linked bank ledger (BankDetail.ledger FK) so the
+                Bank Book picks them up. Free-text bank_name is only a fallback."""
                 if bank.get("payment_mode") == "CHEQUE":
                     return "Cheques in Hand"
-                return bank["bank_name"]
+                ldgr = bank.get("ledger")
+                if ldgr is not None:
+                    return getattr(ldgr, 'ac_name', None) or str(ldgr)
+                return bank.get("bank_name") or ""
 
             _rcpt_customer_credit = (
                 sales_vou_instance.cash
@@ -1461,6 +1466,14 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
             sales_vou_instance = instance
             sales_vou_instance.ac_voucher.delete()
+            # The update path rebuilds a SINGLE combined journal that includes
+            # both the sale lines and the cash/bank receipt lines. The original
+            # ac_rec_voucher created at insert time must therefore be deleted,
+            # otherwise its bank-debit lines double-count against the new
+            # combined journal in the Bank Book.
+            if sales_vou_instance.ac_rec_voucher_id:
+                sales_vou_instance.ac_rec_voucher.delete()
+                sales_vou_instance.ac_rec_voucher = None
             create_or_update_nested(BankDetails, sales_vou_instance, 'bank_details', 'sales_vou', BankDetails(bank_details, many=True).data)
 
             # ── Inline old-gold purchase: rebuild sale-owned PV and refresh
@@ -1607,7 +1620,10 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'credit':0
                                     }] +
                                     [{
-                                        'account': "Cheques in Hand" if bank.get("payment_mode") == "CHEQUE" else bank["bank_name"],
+                                        'account': (
+                                            "Cheques in Hand" if bank.get("payment_mode") == "CHEQUE"
+                                            else (getattr(bank.get("ledger"), 'ac_name', None) or bank.get("bank_name") or "")
+                                        ),
                                         'debit':f"{bank['amount']:.2f}",
                                         'credit':0,
                                         'party_bank_name':bank["bank_name"],

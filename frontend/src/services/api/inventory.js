@@ -471,6 +471,39 @@ export async function getOpeningInventoryById(id) {
   }
 }
 
+export async function downloadOpeningStockTemplate() {
+  try {
+    const response = await apiClient.get('/inventory/api/templates/opening-stock/', {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'opening_stock_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
+export async function uploadOpeningStockCSV(file) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/inventory/api/opening-stock/import/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
 // ── RFID ──────────────────────────────────────────────────────────────────────
 
 export async function fetchRfidTagList({ search = "", assigned = "" } = {}) {

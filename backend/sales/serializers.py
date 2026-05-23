@@ -538,14 +538,36 @@ class SalesVouItemSerializer(serializers.ModelSerializer):
                 rep['purity'] = str(purity_pk)
         return rep
 
+    def _get_existing_vou_barcode_ids(self):
+        """When this nested item serializer is bound to a SalesVouSerializer
+        whose instance is the SalesVou being edited, return the set of
+        barcode IDs already attached to that voucher. Used to allow the user
+        to re-save the voucher with barcodes whose stk_status was flipped to
+        False at original insert time."""
+        from sales.models import SalesVou
+        p = self.parent
+        while p is not None:
+            inst = getattr(p, 'instance', None)
+            if isinstance(inst, SalesVou) and inst.pk:
+                return set(inst.salesvouitem_set.values_list('barcode_id', flat=True))
+            p = getattr(p, 'parent', None)
+        return set()
+
     def validate_barcode(self, barcode):
         request = self.context.get('request')
+        # When editing an existing sales voucher, the barcodes already attached
+        # to it have stk_status=False (they were marked sold at insert time).
+        # Skip the in-stock check for those — the user must be able to re-save
+        # the voucher with the same barcodes. Newly added barcodes (not in the
+        # existing voucher) still need to be in stock.
+        existing_vou_barcode_ids = self._get_existing_vou_barcode_ids()
+        is_already_on_voucher = barcode.id in existing_vou_barcode_ids
         if request and getattr(request, 'retail', None):
             if barcode.retail_id != request.retail.pk:
                 raise serializers.ValidationError(
                     f"Barcode '{barcode.barcode}' does not belong to the current retail location."
                 )
-            if not barcode.stk_status:
+            if not is_already_on_voucher and not barcode.stk_status:
                 raise serializers.ValidationError(
                     f"Barcode '{barcode.barcode}' is not in active stock "
                     "(it may already be sold, in transit, or transferred)."

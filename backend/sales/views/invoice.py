@@ -1401,17 +1401,24 @@ def build_invoice_context(voucher, retail, request=None):
     total    = round(taxable + sgst_amt + cgst_amt + igst_amt + tcs_amt, 2)
 
     cash = float(voucher.cash or 0)
-    net_receivable = round(total - cash, 2)
 
     # ── Bank details ──────────────────────────────────────────────────────────
     bank_lines = []
+    bank_total = 0.0
     for bd in voucher.bank_details.all():
+        bank_total += float(bd.amount or 0)
         parts = list(filter(None, [
             bd.bank_name,
             f'Chq: {bd.chq_no}' if bd.chq_no else '',
             f'₹{bd.amount}' if bd.amount else '',
         ]))
         bank_lines.append(' | '.join(parts))
+    bank_total = round(bank_total, 2)
+
+    advance_deducted  = float(voucher.advance_deducted or 0)
+    old_gold_adjusted = float(voucher.old_gold_adjusted or 0)
+    # Net receivable = bill total minus everything already received / adjusted.
+    net_receivable = round(total - cash - bank_total - advance_deducted - old_gold_adjusted, 2)
 
     # ── Walk hierarchy: retail → branch → company for PAN / TAN / name ──────
     company = None
@@ -1464,9 +1471,12 @@ def build_invoice_context(voucher, retail, request=None):
         'igst_per': igst_per, 'igst_amt': igst_amt,
         'tcs_per':  tcs_per,  'tcs_amt':  tcs_amt,
         'total_bill_value': total,
-        'cash':            cash,
-        'net_receivable':  net_receivable,
-        'bank_lines':      bank_lines,
+        'cash':              cash,
+        'bank_total':        bank_total,
+        'advance_deducted':  advance_deducted,
+        'old_gold_adjusted': old_gold_adjusted,
+        'net_receivable':    net_receivable,
+        'bank_lines':        bank_lines,
         'mrp':             float(voucher.mrp or 0),
     }
 

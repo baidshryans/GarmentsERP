@@ -1488,6 +1488,11 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
             sales_vou_instance = instance
             sales_vou_instance.ac_voucher.delete()
+            # Clear the dangling Python reference — after .delete() the FK
+            # attribute still points at the (now-deleted) VoucherMain instance
+            # whose pk is None, which trips Django's
+            # _prepare_related_fields_for_save check on the next instance.save().
+            sales_vou_instance.ac_voucher = None
             # The update path rebuilds a SINGLE combined journal that includes
             # both the sale lines and the cash/bank receipt lines. The original
             # ac_rec_voucher created at insert time must therefore be deleted,

@@ -2047,6 +2047,20 @@ const SalesVoucherAdd = () => {
                       setValue("bank.ledger_name", selected ? selected.ac_name : "");
                       register("bank.ledger").onChange(e);
                     }}
+                    onBlur={(e) => {
+                      register("bank.ledger").onBlur(e);
+                      // Auto-push the row on Tab-out when the entry is usable.
+                      // For CHEQUE the next field (chq_date) still needs input,
+                      // so skip auto-add in that mode.
+                      const bnk = getValues("bank");
+                      if (
+                        bnk?.payment_mode !== "CHEQUE" &&
+                        bnk?.ledger &&
+                        Number(bnk?.amount) > 0
+                      ) {
+                        handleAddBank();
+                      }
+                    }}
                   >
                     <option value="">— Select Bank A/C —</option>
                     {bankLedgers.map(l => (
@@ -2056,7 +2070,23 @@ const SalesVoucherAdd = () => {
                 </TableCell>
                 {bankPaymentMode === "CHEQUE" && (
                   <TableCell className="px-3 py-2 border">
-                    <Input type="date" onKeyDown={handleKeyDown} {...register("bank.chq_date")} />
+                    <Input
+                      type="date"
+                      onKeyDown={handleKeyDown}
+                      {...register("bank.chq_date")}
+                      onBlur={(e) => {
+                        register("bank.chq_date").onBlur(e);
+                        const bnk = getValues("bank");
+                        if (
+                          bnk?.payment_mode === "CHEQUE" &&
+                          bnk?.ledger &&
+                          Number(bnk?.amount) > 0 &&
+                          bnk?.chq_date
+                        ) {
+                          handleAddBank();
+                        }
+                      }}
+                    />
                   </TableCell>
                 )}
               </TableRow>

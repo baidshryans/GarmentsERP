@@ -618,6 +618,7 @@ class BankDetails(serializers.ModelSerializer):
         extra_kwargs = {
             'id':              {'read_only': False, 'required': False},
             'ledger':          {'required': False, 'allow_null': True},
+            'bank_name':       {'required': False, 'allow_null': True, 'allow_blank': True},
             'chq_no':          {'required': False, 'allow_null': True, 'allow_blank': True},
             'chq_date':        {'required': False, 'allow_null': True},
             'payment_mode':    {'default': 'NEFT'},
@@ -1269,6 +1270,24 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _tcs_d   = Decimal(f"{_tcs_amt:.2f}")
             _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
 
+            # ── Reject over-receipt ──────────────────────────────────────────
+            # Customer cannot pay more than the bill receivable. Check after
+            # advance has been server-capped so the comparison is exact.
+            _received_total = (
+                Decimal(str(sales_vou_instance.cash or 0))
+                + sum(Decimal(str(b.get('amount', 0) or 0)) for b in bank_details)
+                + Decimal(str(sales_vou_instance.old_gold_adjusted or 0))
+                + Decimal(str(sales_vou_instance.advance_deducted or 0))
+            )
+            if _received_total > _party_debit:
+                raise serializers.ValidationError({
+                    'bank_details': (
+                        f"Receipts (₹{_received_total:.2f}) exceed bill total "
+                        f"(₹{_party_debit:.2f}). Reduce cash or bank amounts by "
+                        f"₹{(_received_total - _party_debit):.2f}."
+                    )
+                })
+
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":sales_vou_instance.billno,
                                     'retail':request.retail.id,
@@ -1535,8 +1554,17 @@ class SalesVouSerializer(serializers.ModelSerializer):
             #    after create_or_update_nested; using it would put old values in the journal.
             from sales.models import SalesVouItem as _SVItem, SalesVouItemDetails as _SVDetail
             item_instances = list(_SVItem.objects.filter(billno=instance).select_related('item', 'barcode__purity'))
+            # Catch BOTH classes of detail rows:
+            #   1. Orphan details posted via `salesvouitemdetails_set` (billno=instance, main_item=NULL)
+            #   2. Nested details saved per-item via `main_item_set` (billno=NULL, main_item.billno=instance)
+            # Filtering only on `billno=instance` silently dropped the nested ones,
+            # collapsing `_actual_mrp` to just the making-value sum and breaking
+            # the journal balance.
+            from django.db.models import Q as _Q
             item_detail_instances = list(
-                _SVDetail.objects.filter(billno=instance).select_related('item')
+                _SVDetail.objects.filter(
+                    _Q(billno=instance) | _Q(main_item__billno=instance)
+                ).select_related('item').distinct()
             )
 
             # â”€â”€ Recompute mrp from actual saved items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1599,6 +1627,25 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _round_off_d = Decimal(str(sales_vou_instance.round_off or 0))
             _tcs_d   = Decimal(f"{_tcs_amt:.2f}")
             _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
+
+            # ── Reject over-receipt ──────────────────────────────────────────
+            # Customer cannot pay more than the bill receivable.
+            _rcv_cash      = Decimal(str(sales_vou_instance.cash or 0))
+            _rcv_bank      = sum(Decimal(str(b.get('amount', 0) or 0)) for b in bank_details)
+            _rcv_old_gold  = Decimal(str(sales_vou_instance.old_gold_adjusted or 0))
+            _rcv_advance   = Decimal(str(sales_vou_instance.advance_deducted or 0))
+            _received_total = _rcv_cash + _rcv_bank + _rcv_old_gold + _rcv_advance
+            if _received_total > _party_debit:
+                raise serializers.ValidationError({
+                    'bank_details': (
+                        f"Receipts (₹{_received_total:.2f}) exceed bill total "
+                        f"(₹{_party_debit:.2f}) by ₹{(_received_total - _party_debit):.2f}. "
+                        f"Breakdown — Cash: ₹{_rcv_cash:.2f}, "
+                        f"Bank: ₹{_rcv_bank:.2f}, "
+                        f"Old Gold: ₹{_rcv_old_gold:.2f}, "
+                        f"Advance: ₹{_rcv_advance:.2f}."
+                    )
+                })
 
             ser = JournalEntrySerializer(data= {'date':sales_vou_instance.date1.strftime('%Y-%m-%d'),
                                     "voucher_no":sales_vou_instance.billno,

@@ -554,10 +554,26 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             item_instances = list(
                 _PVItems.objects.filter(billno=instance).select_related('item', 'purity')
             )
+            # Catch BOTH classes of detail rows:
+            #   1. Nested under a main item — newly created ones during edit
+            #      come through PurchaseVoucherItemsSerializer.update() and only
+            #      have main_item set (billno=NULL); pre-existing ones still
+            #      carry billno from create time.
+            #   2. Direct (orphan) details — always have billno=instance and
+            #      main_item=NULL.
+            # A `billno=instance`-only filter silently dropped newly-added
+            # nested details, collapsing item_value/bill_value to a stale subset
+            # and breaking journal balance after an edit that added rows.
+            from django.db.models import Q as _Q
             item_detail_instances = list(
-                _PVDetails.objects.filter(billno=instance, main_item__isnull=False)
+                _PVDetails.objects
+                .filter(
+                    (_Q(billno=instance) | _Q(main_item__billno=instance))
+                    & _Q(main_item__isnull=False)
+                )
                 .select_related('sub_item__purchase_ledger')
                 .order_by('main_item_id', 'id')
+                .distinct()
             ) + list(
                 _PVDetails.objects.filter(billno=instance, main_item__isnull=True)
                 .select_related('sub_item__purchase_ledger')

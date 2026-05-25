@@ -1,7 +1,7 @@
 # Jewel India ERP - User Manual
 
-**Version:** 1.3
-**Last Updated:** April 2026
+**Version:** 1.5
+**Last Updated:** May 2026
 **Audience:** First-time clients, store managers, accountants, and administrators
 
 ---
@@ -407,6 +407,41 @@ Configure Tax Deducted/Collected at Source sections:
 **Common TCS Sections:**
 - **206C(1H)** - Sale of goods above threshold (0.1%)
 
+#### Applying TDS on a Purchase Voucher
+
+TDS is deducted at source when you pay a vendor. Apply it directly inside the Purchase Voucher:
+
+1. Open (or create) a **Purchase Voucher** (**Purchases > Purchase Voucher**)
+2. Select the vendor ledger — a **TDS** panel appears below the item table if TDS-applicable vendors are flagged in their ledger
+3. In the TDS panel:
+   - **Section**: Select the applicable section (e.g., 194Q for goods purchase)
+   - **Rate %**: Auto-filled from the section master; override if needed
+   - **TDS Amount**: Calculated automatically on the taxable base (usually net purchase value before GST)
+4. The TDS amount is shown in the **Deduction** row in the payment summary
+5. On save, the system posts:
+   - **Dr** Vendor A/c (full invoice value)
+   - **Cr** Purchase A/c (net value)
+   - **Cr** TDS Payable A/c (the deducted amount)
+6. The net amount payable to the vendor = Invoice Amount − TDS Deducted
+
+**Paying the TDS to the Government:**
+After deducting TDS, remit the collected amount via a **Payment Voucher**:
+- **Dr** TDS Payable A/c
+- **Cr** Bank A/c
+
+View all deductions in **Reports > TDS Register** (Section 12.4).
+
+#### Applying TCS on a Sales Voucher
+
+TCS is collected from the buyer and remitted to the government. For jewellery sales above ₹50 lakhs aggregate per year per buyer (Section 206C(1H)):
+
+1. In the **Sales Voucher**, the TCS row appears automatically once the buyer's aggregate exceeds the threshold
+2. The system calculates TCS at 0.1% on the sale amount above the threshold
+3. TCS is added to the buyer's invoice total and posted to **TCS Collected A/c** (liability)
+4. Remit via Payment Voucher: **Dr** TCS Collected A/c → **Cr** Bank
+
+View all collections in **Reports > TCS Register** (Section 12.5).
+
 ### 5.8 Sales Person Master
 
 | Field | Description | Example |
@@ -525,11 +560,36 @@ Sales Return (if needed)
 
 ### 7.2 Creating an Estimate
 
+An estimate is a quotation given to a customer before any order is confirmed. It does not create accounting or inventory entries — it is purely for reference.
+
+**Step-by-step:**
+
 1. Navigate to **Sales > Estimate**
-2. Select customer and add items
-3. System auto-calculates gold value, making charges, stone value, GST
-4. Save or print the estimate
-5. Estimate can be converted to a Customer Order
+2. Click **New Estimate**
+3. Fill in the header:
+   - **Customer**: Select or type the customer ledger name. For walk-in customers, select the generic "Cash Customer" ledger.
+   - **Date**: Defaults to today; change if needed.
+   - **Salesperson**: Assign the responsible salesperson.
+   - **Remarks**: Optional note printed on the estimate.
+4. Add items to the estimate:
+   - Click **Add Item** (or scan a barcode if estimating against existing stock)
+   - **Item**: Select the item type (e.g., Gold 22K Ring)
+   - **Pcs**: Number of pieces
+   - **Gross Weight (GW)**: Total weight of the piece in grams
+   - **Net Weight (NW)**: Weight after deducting stone weight
+   - **Purity**: Select purity (22K, 18K, etc.) — the system fetches today's gold rate automatically
+   - **Making Type**: Select how making charges are calculated (Fixed / Per Gram / Percentage)
+   - **Making Value**: Enter the making charge amount
+   - **Stone Details**: If the piece contains stones, add packets with pieces and carats
+   - The **Amount** column auto-calculates: `Net Weight × Rate × (Purity%) + Making + Stone Value`
+5. The **Summary** section auto-computes:
+   - Gold Value, Making Charges, Stone Value, Other Charges
+   - CGST + SGST (or IGST for inter-state)
+   - **Total Amount**
+6. Click **Save** to record the estimate, or **Print** to hand a printed quote to the customer
+7. **Convert to Order**: On the saved estimate, click **Convert to Customer Order** to carry all line items into a Customer Order (Section 7.3) without re-entering them
+
+> Estimates do not reserve stock or block inventory. They are informational only.
 
 ### 7.3 Customer Orders
 
@@ -644,30 +704,82 @@ Purchase Return (if defective)
 
 ### 8.2 Purchase Order
 
-1. Navigate to **Purchases > Purchase Order**
-2. Select the order type:
-   - **Customer Order**: Linked to a specific customer order
-   - **Stock**: General stock purchase
-   - **Repair**: Repair job
-3. Add items with specifications
-4. Save and send to karigar/vendor
+A Purchase Order (PO) is sent to a karigar or vendor to initiate manufacturing or procurement. It does not create accounting or inventory entries — those happen when the goods are received via a Purchase Voucher.
 
-**Pending Customer-Order Picker:** When the order type is **Customer Order**, use the **Pick from Pending Orders** button to open a modal listing customer-order items that are not yet fulfilled. You can multi-select line items; they are auto-filled into the PO with a per-row CO badge. If a row is deleted from the PO, its item returns to the pending pool.
+**Step-by-step:**
+
+1. Navigate to **Purchases > Purchase Order**
+2. Click **New Purchase Order**
+3. Fill the header:
+   - **Order Type**: Choose the purpose:
+     - **Customer Order** — ordered against a specific customer booking
+     - **Stock** — general replenishment for showroom stock
+     - **Repair** — repair job for a customer's item
+   - **Karigar / Vendor**: Select the artisan or vendor who will make/supply the items
+   - **Expected Delivery Date**: Target date for receiving the items
+   - **Salesperson**: Assign if applicable
+   - **Remarks / Instructions**: Any special instructions for the karigar (finish, design, stone setting notes)
+4. Add items:
+   - **Item**: Item type (Gold 22K, Diamond Ring, etc.)
+   - **Pieces**: Number of pieces
+   - **Gross Weight**: Expected gross weight in grams
+   - **Purity**: Metal purity
+   - **Making Charges**: Agreed making rate per gram or fixed amount
+   - **Design Code**: Link to a saved design (optional; see Section 10.5)
+   - **Notes per row**: Any item-specific instruction
+5. **Pending Customer-Order Picker**: When the order type is **Customer Order**, click **Pick from Pending Orders** to open a modal listing all customer-order line items not yet assigned to a PO. Multi-select the items — they auto-fill into the PO with a CO reference badge on each row. If a row is deleted from the PO, that item returns to the pending pool.
+6. Click **Save** to record the order
+7. Click **Send** to mark the order as dispatched to the karigar:
+   - The PO status changes from *Draft* to *Sent*
+   - A printable order slip (A4) is generated with shop letterhead, item specifications, making rates, and the expected delivery date — hand this to the karigar or share via WhatsApp
+   - Once sent, item-level edits are locked (you can still edit remarks and expected delivery date)
+8. When goods arrive, use **Manufacturing > Receive > Job Work Receive** (Section 9.3) and reference this PO to close it out
 
 ### 8.3 Purchase Voucher (Invoice)
 
+A Purchase Voucher records the receipt of goods (finished jewellery, raw materials, or diamonds) from a vendor or karigar, and creates the corresponding accounting entry and inventory movement.
+
+**Step-by-step:**
+
 1. Navigate to **Purchases > Purchase Voucher**
 2. Click **New Purchase**
-3. Select vendor/karigar ledger
+3. Fill the header:
+   - **Date**: Date of receipt (defaults to today)
+   - **Vendor Bill No**: The vendor's/karigar's invoice number (for your records and TDS matching)
+   - **Vendor**: Select the vendor or karigar ledger
+   - **Bill Type**: Select the purchase category:
+     - **SC** (Stock from Vendor) — finished goods bought from a supplier
+     - **CO** (Karigar Manufacturing) — items received from a karigar after manufacturing
+     - **RM** (Raw Material) — gold/silver bars, loose stones
 4. Add items received:
-   - Scan barcodes or enter manually
-   - Weight, purity, rate, making charges
-5. **TDS**: System auto-calculates TDS if applicable
-6. **RCM**: For purchases from unregistered dealers, Reverse Charge Mechanism applies
-7. System auto-creates:
-   - Accounting entry (Dr Purchase A/c, Cr Vendor A/c)
-   - Inventory entry (barcodes move to stock)
-   - Raw material transaction (if raw materials)
+   - **Scan Barcode**: If the vendor attaches barcodes, scan to auto-fill item details
+   - **Manual Entry**: Click **Add Row** and fill:
+     - **Item**: Select item type (Gold 22K, Diamond Ring, etc.)
+     - **Pieces**: Number of pieces
+     - **Gross Weight**: Total weight received (grams)
+     - **Net Weight**: Weight after stone deduction
+     - **Purity**: Metal purity (e.g., 22K = 91.6%)
+     - **Rate**: Gold rate per gram (auto-filled from today's rate, editable)
+     - **Making Charges**: Labour/making charges billed by vendor
+     - **Stone Details**: For pieces with diamonds/stones — select packets, enter carats
+   - The **Amount** column auto-calculates: `NW × (Purity%) × Rate + Making + Stone Value`
+5. **GST**: For purchases from registered vendors, enter the GST charged on their invoice:
+   - CGST + SGST (intra-state) or IGST (inter-state)
+   - This creates input tax credit (ITC) that offsets your GST liability
+6. **TDS** (if applicable):
+   - If the vendor is TDS-applicable (Section 194Q for goods, 194C for karigars), select the TDS section
+   - The TDS amount is deducted from the net payable and posted to **TDS Payable A/c**
+   - See Section 5.7 for how to configure TDS sections
+7. **RCM (Reverse Charge Mechanism)**: Applies automatically for purchases from unregistered dealers or specific service categories. When RCM is active, you pay GST directly to the government instead of to the vendor — a liability entry is created automatically.
+8. **Payment**: Record payment made at the time of purchase (if cash/immediate):
+   - Select the payment ledger (Cash or Bank)
+   - The voucher can also be saved as **Credit** (payable to vendor) for later payment via a Payment Voucher
+9. Click **Save** — the system auto-creates:
+   - **Accounting entry**: Dr Purchase A/c → Cr Vendor A/c (or Cr Cash/Bank if paid immediately)
+   - **Inventory entry**: Barcodes are generated and items enter stock
+   - **Raw material ledger**: If RM items, the weight is added to the raw material balance
+
+> **Tip**: After saving, click the **Print** icon to get a goods receipt note (GRN) that you can file alongside the vendor's invoice.
 
 ### 8.4 Purchase Return
 
@@ -678,11 +790,38 @@ Purchase Return (if defective)
 
 ### 8.5 Customer Purchase (Old Gold)
 
-When customers bring old gold for exchange:
+When a customer brings old gold (jewellery, coins, bars) to exchange or sell, record it as a Customer Purchase. This creates a purchase entry in your books and reduces the customer's payable amount on the linked sales invoice.
+
+**Step-by-step:**
 
 1. Navigate to **Purchases > Customer Purchase**
-2. Enter gold details (weight, purity, rate)
-3. Amount is adjusted against the sales bill
+2. Click **New Customer Purchase**
+3. Fill the header:
+   - **Date**: Date of the transaction
+   - **Customer**: Select the customer's ledger account
+   - **Linked Sale Voucher** *(optional)*: If the old gold is being exchanged against a sale, select the sales voucher number. The old gold value will be auto-deducted from that bill's outstanding amount.
+4. Add the old gold item(s):
+   - **Description**: Brief description (e.g., "22K Gold Bangles — 2 pieces")
+   - **Gross Weight**: Weigh the item on the scale and enter the gross weight in grams
+   - **Stone Weight**: If the item has stones/enamel, enter stone weight to deduct
+   - **Net Gold Weight**: Auto-calculated = Gross Weight − Stone Weight
+   - **Purity (Tunch %)**: Enter the tested purity percentage (e.g., 91.6 for 22K). If the purity is unknown, do an assay first.
+   - **Fine Gold Weight**: Auto-calculated = Net Weight × Purity% / 100
+   - **Rate**: The buying rate per gram of fine gold (auto-filled from today's buying rate set in Gold Rates; editable if you negotiate a different rate)
+   - **Amount**: Auto-calculated = Fine Gold Weight × Rate
+5. Repeat for each old gold item brought by the customer
+6. The **Total Old Gold Value** is shown at the bottom
+7. **Adjustment against sale**:
+   - If linked to a sales voucher, the system deducts the old gold value from the sale total
+   - The revised **Net Payable** by the customer = Sale Amount − Old Gold Value
+   - If old gold value exceeds the sale amount, the difference is paid back to the customer in cash
+8. Click **Save** — the system creates:
+   - **Accounting entry**: Dr Old Gold Purchase A/c → Cr Customer A/c (reduces what the customer owes)
+   - **Inventory entry**: The old gold is added as raw material stock (to be melted/refined)
+
+> **Making deduction**: Some stores deduct a melting/refining charge (typically 2–5%) before arriving at the buying rate. Apply this by reducing the rate or adding a deduction row before saving.
+
+> **Purity testing**: For items of unknown purity, issue them to a karigar or refinery for assay (Section 9.2 → Assay Issue) before creating the Customer Purchase.
 
 ---
 
@@ -781,12 +920,54 @@ Record results after purity testing:
 
 ### 9.4 Repair Jobs
 
-Track customer repair requests:
+Repair jobs track customer-owned items (rings, bangles, etc.) taken in for repair, alteration, or polishing. Each job card records the item in, the work done, and the item out — maintaining a clear audit trail of customer property.
+
+#### Creating a Repair Job Card
 
 1. Navigate to **Manufacturing > Repair > Repair Job Cards**
-2. Create a repair job with customer details
-3. Track issue and receive of the repair item
-4. Record charges and completion
+2. Click **New Repair Job**
+3. Fill the header:
+   - **Customer**: Select the customer's ledger account
+   - **Date Received**: Date the item was taken in for repair
+   - **Promised Date**: Expected completion / return date
+   - **Salesperson**: Staff member who accepted the item
+4. Add the item(s) to be repaired:
+   - **Item Description**: What the piece is (e.g., "22K Gold Ring")
+   - **Gross Weight**: Weigh the item and record it. This creates an accountability trail — you know exactly how much gold the customer handed over.
+   - **Purity**: If known, enter purity
+   - **Work Required**: Description of the repair (e.g., "Rhodium plating, resize to size 16, re-set loose stone")
+   - **Estimated Charges**: Labour/repair charges quoted to the customer
+5. Click **Save** — a **Job Card Number** is generated
+6. **Print the Job Card**: Click **Print** to hand the customer a receipt with the job card number, description of work, weight received, and promised return date. The customer uses this as a claim slip.
+
+#### Issuing the Item for Repair
+
+Once accepted:
+
+1. Open the repair job card
+2. Click **Issue to Karigar** (if outsourcing) or **Issue to Counter** (if in-house)
+3. Select the karigar/bench and record any additional gold or stones issued for the repair
+
+#### Completing and Returning the Repair
+
+When the repaired item is ready:
+
+1. Open the repair job card
+2. Click **Receive from Karigar** (if outsourced) — enter the returned weight and any gold used/remaining
+3. Record final **Repair Charges** (may differ from estimate)
+4. Click **Mark as Completed**
+5. When the customer collects the item:
+   - Click **Deliver to Customer**
+   - Collect the repair charges — the system creates a **Receipt Voucher** for the payment
+   - Status changes to **Delivered**
+
+#### Repair Charges Billing
+
+Repair charges are billed separately:
+- If the customer pays cash: a **Receipt Voucher** is auto-created crediting Repair Income A/c
+- If charges are added to a linked Sales Voucher: the repair amount is included as an "Other Charges" line on the bill
+
+> **Weight accountability**: If the returned weight is less than the received weight, the difference must be explained (gold used in repair, stone added, etc.). The system flags weight discrepancies for review before allowing delivery.
 
 ---
 
@@ -805,6 +986,46 @@ Every finished jewellery piece in Jewel India ERP has a unique **13-digit barcod
 - Total value
 - Karigar code, design code
 - Stock status
+
+#### How Barcodes Are Created
+
+Barcodes are generated automatically — you never need to create them manually. They are created at these points:
+
+| Trigger | Where |
+|---------|-------|
+| Job Work Receive | Manufacturing > Receive > Job Work Receive |
+| Purchase Voucher (finished goods) | Purchases > Purchase Voucher |
+| Stock Journal (add stock) | Inventory > Stock Journal |
+| Barcode Split / Merge | Inventory > Barcode Management |
+
+#### Creating a Barcode via Stock Journal (manual)
+
+If you need to add a barcode for a piece that did not come through manufacturing or purchase:
+
+1. Navigate to **Inventory > Stock Journal**
+2. Select **Receive** (adding to stock)
+3. Click **Add Row** and fill:
+   - **Item**: Item type (e.g., Gold 22K)
+   - **Gross Weight**: Total weight in grams
+   - **Net Weight**: Weight after stone deduction
+   - **Purity**: Select purity (e.g., 22K)
+   - **Making Type / Making Value**: How making charges are calculated
+   - **Stone Details**: Add stone packets if the piece has diamonds or stones
+   - **Karigar Code**: Who made the piece (optional)
+   - **Design Code**: Linked design (optional)
+   - **Rate**: Gold rate per gram (auto-filled from today's rate)
+4. The **Total Value** auto-calculates
+5. Add a **Remark** explaining why the barcode is being created (e.g., "Opening stock entry")
+6. Click **Save** — a new barcode is generated and the piece enters stock
+
+#### Printing Barcodes
+
+To print a barcode label:
+1. Navigate to **Inventory > Barcode Management > List**
+2. Search for the barcode by number or item description
+3. Click the **Print** icon on the row
+4. A printable label appears with the barcode, QR code, item description, weight, purity, and value
+5. Use a thermal label printer (58mm or 80mm roll) for physical tags, or print on A4 sheets for bulk labelling
 
 ### 10.2 Barcode Operations
 
@@ -855,14 +1076,35 @@ Manual stock adjustments for discrepancies:
 
 ### 10.5 Design Management
 
-Track jewellery designs for manufacturing:
+The Design master stores the standard specifications for each jewellery design, so that when a Purchase Order is placed with a karigar, the expected weight, making charges, and stone composition are pre-filled automatically — reducing data entry errors.
+
+**Creating a Design:**
 
 1. Navigate to **Inventory > Design**
-2. Create designs with specifications:
-   - Design number, item type
-   - Weight, making charges, loss rate
-   - Stone composition
-3. Attach documents: sketches, CAD files, photos
+2. Click **New Design**
+3. Fill the design details:
+   - **Design Number**: Your internal design code (e.g., "RNG-001", "BNG-22K-SET")
+   - **Design Name**: Descriptive name (e.g., "22K Plain Gold Bangle Pair")
+   - **Item Type**: Select the item (Gold 22K, Diamond Ring, etc.)
+   - **Expected Gross Weight**: Standard weight for this design in grams
+   - **Making Type**: Fixed / Per Gram / Percentage
+   - **Making Value**: Standard making charge for this design
+   - **Loss Rate %**: Expected gold loss during manufacturing (used to calculate the issue weight to the karigar)
+   - **Purity**: Metal purity
+4. **Stone Composition** (for diamond/stone pieces):
+   - Click **Add Stone**
+   - Select packet type, expected pieces, carats per piece
+   - Repeat for each stone type in the design
+5. **Attachments**: Upload the design sketch, CAD file, or photograph (JPEG, PNG, PDF). These are accessible to karigars when viewing the Purchase Order.
+6. Click **Save**
+
+**Using a Design in a Purchase Order:**
+
+When creating a Purchase Order (Section 8.2), select the **Design Code** on each item row. The system auto-fills the expected weight, making charges, and stone details from the design master — you can still override per-order.
+
+**Design Catalogue:**
+
+The saved design list acts as a catalogue of your product range. Use the search/filter on the Design list page to find designs by code, item type, or weight range.
 
 ### 10.6 RFID Inventory Counting
 
@@ -1050,12 +1292,41 @@ Set up beginning balances for a new fiscal year:
 
 ### 11.6 Cash Gold Conversion
 
-Track conversion between cash and gold accounts:
+Cash Gold Conversion records the movement between your cash/bank accounts and your gold (raw material) stock when gold is bought or sold for cash outside of normal purchase/sales vouchers — typically when gold is purchased from a gold merchant for melting into raw material, or when refined gold is sold back to a refinery.
+
+**Types:**
+
+| Type | Code | Meaning |
+|------|------|---------|
+| Cash to Gold | CG | You spend cash to acquire gold (e.g., buying a gold bar) |
+| Gold to Cash | GC | You receive cash in exchange for gold (e.g., selling scrap) |
+
+**Step-by-step — CG (Cash to Gold):**
 
 1. Navigate to **Financial Accounting > Cash Gold Conversion**
-2. Select type: **CG** (Cash to Gold) or **GC** (Gold to Cash)
-3. Enter ledger, weight, rate, amount
-4. System auto-creates a journal voucher
+2. Click **New Entry**
+3. Select type **CG**
+4. Fill the fields:
+   - **Date**: Transaction date
+   - **Gold Ledger**: The raw material or gold account being credited/debited (e.g., "Raw Gold 22K")
+   - **Cash/Bank Ledger**: The payment ledger (e.g., "Cash A/c" or "HDFC Bank")
+   - **Weight**: Weight of gold in grams
+   - **Purity**: Purity of the gold
+   - **Fine Weight**: Auto-calculated = Weight × Purity%
+   - **Rate**: Rate per gram of fine gold
+   - **Amount**: Auto-calculated = Fine Weight × Rate
+5. Add a **Narration** (e.g., "Purchase of 100g 22K gold bar from RK Gold")
+6. Click **Save** — the system auto-creates a **Journal Voucher** with entries:
+   - **Dr** Raw Gold A/c (the gold stock increases)
+   - **Cr** Cash/Bank A/c (cash reduces)
+
+**Step-by-step — GC (Gold to Cash):**
+
+Same as above with **GC** type — the accounting entry reverses:
+   - **Dr** Cash/Bank A/c
+   - **Cr** Raw Gold A/c (gold stock reduces)
+
+> Use this entry for gold merchant transactions that are not through the regular Purchase/Sale voucher flow. For old gold taken from customers as exchange in a sale, use **Purchases > Customer Purchase** (Section 8.5) instead.
 
 ### 11.7 Ledger Statement
 
@@ -1525,37 +1796,102 @@ Schemes that sit here for too long will eventually appear in the **Aged Advances
 
 ### 15.2 Salary Structure
 
+The Salary Structure defines what each employee earns each month. Set it up once; it is reused every payroll cycle.
+
+**Step-by-step:**
+
 1. Navigate to **HR > Salary Structure**
-2. Define earnings for each employee:
-   - Basic salary
-   - HRA (House Rent Allowance)
-   - DA (Dearness Allowance)
-   - Conveyance, Medical, Special Allowance
+2. Click **Add / Edit** against an employee (or click the employee's name)
+3. Fill in the monthly earnings:
+
+| Component | How to enter |
+|-----------|-------------|
+| **Basic Salary** | Fixed monthly amount (e.g., ₹15,000) |
+| **HRA** (House Rent Allowance) | Typically 40–50% of Basic; enter as a fixed amount |
+| **DA** (Dearness Allowance) | Fixed amount or % of Basic |
+| **Conveyance Allowance** | Fixed monthly amount (standard ₹1,600 is tax-exempt) |
+| **Medical Allowance** | Fixed monthly amount (₹1,250/month is tax-exempt) |
+| **Special Allowance** | Any additional fixed pay component |
+
+4. **Effective Date**: Enter the date from which this structure applies. If you revise salary mid-year, add a new structure with the new date — previous structures are preserved for audit.
+5. Click **Save**
+
+> The sum of all earnings = **Gross Salary**. PF, ESI, PT, and TDS are calculated on top of this in Section 15.3.
 
 ### 15.3 Deduction Configuration
 
-Configure deductions per employee:
-- **PF**: 12% of basic (capped at Rs 15,000 basic if not opted for full)
-- **ESI**: 0.75% employee + 3.25% employer (for gross < Rs 21,000)
-- **Professional Tax**: State-specific slab
-- **TDS**: Monthly income tax deduction
-- **Advance Recovery**: EMI for advance salary
+Deductions are configured per employee and applied automatically during salary processing.
+
+**Step-by-step:**
+
+1. Navigate to **HR > Deductions** (or the Deductions tab inside the employee record)
+2. Configure each applicable deduction:
+
+| Deduction | Rate / Rule | Notes |
+|-----------|------------|-------|
+| **PF (Provident Fund)** | 12% of Basic (employee) + 12% employer | Basic capped at ₹15,000 for statutory rate. If employee opts for PF on full salary, remove the cap. |
+| **ESI (Employee State Insurance)** | 0.75% of Gross (employee) + 3.25% employer | Applies only if Gross Salary < ₹21,000/month |
+| **Professional Tax** | State-specific slab | Maharashtra: ₹200/month for salaries > ₹10,000. Enter the applicable monthly amount. |
+| **TDS (Income Tax)** | Monthly deduction based on annual projected income | Enter the monthly TDS amount (calculate outside using the income tax slab); the ERP deducts the entered amount |
+| **Advance Recovery** | Fixed EMI per month | Enter the monthly installment to recover against a salary advance given to the employee |
+| **LWP (Leave Without Pay)** | Calculated during processing | Not configured here — entered as "days absent" during salary processing |
+
+3. Click **Save Deductions**
+
+> **Employer contributions** (PF, ESI employer share) are shown on the payslip for reference but are not deducted from the employee's net pay. They are posted as an expense in the accounting entry.
 
 ### 15.4 Salary Processing
 
+Run salary processing at the end of each month.
+
+**Step-by-step:**
+
 1. Navigate to **HR > Salary Processing**
-2. Select month and year
-3. Click **Generate Slips**
-4. System auto-calculates:
-   - Proportional earnings (based on days worked)
-   - All applicable deductions
-   - Net salary
-5. Review and **Approve** slips
-6. On approval, system creates a **SLRY** accounting voucher
+2. Click **New Payroll Run**
+3. Select:
+   - **Month**: The payroll month (e.g., May 2026)
+   - **Retail Location**: The branch for which you are running payroll
+4. Click **Generate Slips** — the system creates a draft payslip for every active employee
+5. Review each generated slip:
+   - Click on an employee row to open their draft slip
+   - **Days Worked**: Enter the actual number of days worked. The system prorates earnings: `Gross × (Days Worked / Working Days in Month)`
+   - **Days Absent (LWP)**: Days absent without approved leave — automatically reduces proportional salary
+   - **Additional Earnings**: Enter any one-time bonus, overtime, or allowance for this month
+   - **Additional Deductions**: Enter any one-time recovery or adjustment
+   - The **Net Salary** updates as you make changes
+6. Once all slips are reviewed, click **Approve All** (or approve individually)
+7. On approval, the system:
+   - Locks the payslips (no further editing)
+   - Creates a **SLRY voucher** with the accounting entry:
+     - **Dr** Salary Expense A/c (gross salary)
+     - **Dr** PF Expense A/c (employer's PF share)
+     - **Cr** Employee Payable A/c (net salary payable to employees)
+     - **Cr** PF Payable A/c (both employee + employer PF)
+     - **Cr** ESI Payable A/c
+     - **Cr** PT Payable A/c
+     - **Cr** TDS Payable A/c
+8. **Pay employees**: After approving, use a **Payment Voucher** to pay each employee:
+   - **Dr** Employee Payable A/c → **Cr** Bank / Cash
+9. Click **Print Payslips** to print or share payslips with employees
 
 ### 15.5 Leave Management
 
 Track employee leave balances within the ERP.
+
+#### Configuring Leave Types
+
+1. Navigate to **HR > Leave Types**
+2. Default types: Casual Leave (CL), Earned Leave (EL), Sick Leave (SL)
+3. Edit or add leave types, setting the **Annual Entitlement** per type (e.g., CL: 12 days/year)
+
+#### Opening Leave Balances
+
+At the start of a new year (or when setting up a new employee):
+
+1. Navigate to **HR > Leave Balances**
+2. Select the employee
+3. Enter the opening balance for each leave type
+4. Click **Save**
 
 #### Viewing Leave Balances
 
@@ -1563,15 +1899,15 @@ Track employee leave balances within the ERP.
 2. Select the employee and leave type (Casual Leave, Earned Leave, Sick Leave, etc.)
 3. The screen shows: opening balance, leaves taken, current balance
 
-#### Recording Leave
+#### Recording Leave Taken
 
 Leave taken is factored into salary calculation:
 
-- When generating a salary slip, enter the number of **days worked** for the month
-- The system calculates proportional earnings based on days worked vs. total working days
-- Leave without pay (LWP) automatically reduces the proportional salary
+- When generating a salary slip (Section 15.4), enter the number of **days worked** for the month
+- For **LWP** (Leave Without Pay): enter the days absent — proportional salary deduction is automatic
+- For **paid leave** (CL/EL): the system deducts from the leave balance but does NOT reduce salary
 
-> Formal leave application workflows (leave requests and approvals) are managed outside the ERP. The ERP records the outcome — days worked — for payroll purposes.
+> **Important**: Formal leave application workflows (leave requests, manager approvals) are managed outside the ERP. The ERP records the outcome — days worked — for payroll purposes only. Update leave balances manually when leave is sanctioned.
 
 ### 15.6 HR Settings
 
@@ -1586,74 +1922,137 @@ Configure accounting ledgers for salary posting:
 
 ### 16.1 Financial Reports
 
-| Report | Path | Description |
-|--------|------|-------------|
-| Trial Balance | Finance Reports | All ledger balances (Debit/Credit) |
-| Balance Sheet | Finance Reports | Assets = Liabilities + Capital |
-| Profit & Loss | Finance Reports | Income - Expenses = Profit/Loss |
-| P&L Calculation | Finance Reports | Detailed P&L with opening/closing stock |
-| Financial Ratios | Finance Reports | Current ratio, quick ratio, etc. |
-| Cash Book | Finance Reports | All cash transactions |
-| Bank Book | Finance Reports | All bank transactions |
-| Day Book | Finance Reports | All vouchers for a date |
-| Gold Ledger Balances | Finance Reports | Gold weight balances per ledger |
-| GSTR-2B Reconciliation | Finance Reports > GST | Match vendor filings vs. your purchase records |
-| Gold Rate History | Setup > Gold Rates | Historical buying and selling rates by date |
+#### How to Run Financial Reports
+
+1. Navigate to **Financial Accounting > Reports** (or use the shortcut under the Reports menu)
+2. Select the report from the list below
+3. Set the **Fiscal Year** and **Date Range** filters
+4. Click **Generate / Run**
+5. Use the **Print** button or **Export to Excel/PDF** as needed
+
+| Report | Path | Description | Key Filters |
+|--------|------|-------------|-------------|
+| **Trial Balance** | Finance Reports | All ledger balances (Debit/Credit) — use to verify books balance | As-of date, FY |
+| **Balance Sheet** | Finance Reports | Assets = Liabilities + Capital; see the overall financial position | As-of date |
+| **Profit & Loss** | Finance Reports | Income − Expenses = Net Profit/Loss for the period | Date range |
+| **P&L Calculation** | Finance Reports | Detailed P&L including opening/closing stock valuation | Date range |
+| **Financial Ratios** | Finance Reports | Current ratio, quick ratio, gross margin, etc. | FY |
+| **Cash Book** | Finance Reports | All cash receipts and payments, running balance | Date range, Cash ledger |
+| **Bank Book** | Finance Reports | All bank transactions, running balance | Date range, Bank ledger |
+| **Day Book** | Finance Reports | All vouchers posted on a specific date — useful for daily reconciliation | Date |
+| **Gold Ledger Balances** | Finance Reports | Gold weight balances (grams) per ledger account | As-of date |
+| **GSTR-2B Reconciliation** | Finance Reports > GST | Match vendor GST filings vs. your purchase ITC records | Month |
+| **Gold Rate History** | Setup > Gold Rates | Historical buying and selling rates by date | Date range |
+
+> **Trial Balance first**: Always run the Trial Balance before generating Balance Sheet or P&L — if TB doesn't balance (Debit ≠ Credit), there is a data entry error that will corrupt the other reports.
 
 ### 16.2 Sales Reports
 
-| Report | Path | Description |
-|--------|------|-------------|
-| Salesperson Commission | Sales > Reports | Commission earned per salesperson |
-| GST Invoice Register | Sales > Reports | All sales invoices with GST breakup |
-| Cheque Deposit Status | Sales > Reports | Cheques received, deposited, cleared, bounced |
-| Delivery Tracking | Sales > Reports | Delivery status per invoice |
-| Advance Received | Sales > Reports | Advance payments collected vs. adjusted |
+#### How to Run Sales Reports
+
+1. Navigate to **Sales > Reports**
+2. Select the report, set the date range, and click **Run**
+
+| Report | Description | Key Filters | Common Use |
+|--------|-------------|------------|------------|
+| **Salesperson Commission** | Commission earned per salesperson for the period | Date range, Salesperson | Month-end payouts |
+| **GST Invoice Register** | All sales invoices with CGST/SGST/IGST breakup | Date range | GSTR-1 filing |
+| **Cheque Deposit Status** | Cheques received, deposited, cleared, bounced | Date range, Status | Daily banking follow-up |
+| **Delivery Tracking** | Delivery status per invoice | Date range, Status | Customer delivery follow-up |
+| **Advance Received** | Advance payments collected vs. adjusted against orders | Date range | Identify unadjusted advances |
+
+> **For GSTR-1**: Run the GST Invoice Register for the filing month, cross-check totals against your GSTN portal before filing.
 
 ### 16.3 Inventory Reports
 
-| Report | Path | Description |
-|--------|------|-------------|
-| Stock Report | Inventory > Reports | Current stock by barcode |
-| Closing Stock Valuation | Inventory > Reports | Stock value for accounting |
-| Metal Report | Inventory > Reports | Gold/silver weight summaries |
-| Packetwise Stone | Inventory > Reports | Stone inventory by packet |
-| Raw Material Balance | Inventory > Reports | Raw material on hand |
-| Raw Material Ledger | Inventory > Reports | Transaction history per material |
-| Semi-Finished Stock | Inventory > Reports | Items with karigars |
-| ItemWise Barcode | Inventory > Reports | Barcodes grouped by item |
-| Barcode Split/Merge | Inventory > Reports | History of splits and merges |
+#### How to Run Inventory Reports
+
+1. Navigate to **Inventory > Reports**
+2. Select the report, apply filters, and click **Run**
+
+| Report | Description | Key Filters | Common Use |
+|--------|-------------|------------|------------|
+| **Stock Report** | All barcodes currently in stock with weight, purity, value | Item type, Purity, Location | Daily stock check |
+| **Closing Stock Valuation** | Total stock value as of a date (for accounting/P&L) | As-of date | Month-end closing |
+| **Metal Report** | Gold/silver weight totals by item and purity | Date range | Reconcile against physical stock |
+| **Packetwise Stone** | Stone inventory by packet — pieces and carats on hand | Packet group | Stone reconciliation |
+| **Raw Material Balance** | Unmanufactured gold/silver on hand by purity | As-of date | Check material for new orders |
+| **Raw Material Ledger** | Transaction-by-transaction history for raw material | Ledger, Date range | Audit trail for material movements |
+| **Semi-Finished Stock** | Items currently with karigars (issued but not received) | Karigar | Follow-up on outstanding job work |
+| **ItemWise Barcode** | Barcodes grouped by item type with count and weight | Item | Count pieces by category |
+| **Barcode Split/Merge** | History of all split and merge operations | Date range | Audit trail for altered barcodes |
+
+> **Month-end procedure**: Run **Closing Stock Valuation** on the last day of the month and save the export. This value feeds into the P&L Calculation report as closing stock.
+
+### 16.4 Purchase Reports
+
+#### How to Run Purchase Reports
+
+1. Navigate to **Purchases > Reports**
+2. Select the report, set the date range, and click **Run**
+
+| Report | Description | Key Filters | Common Use |
+|--------|-------------|------------|------------|
+| **Purchase Register** | All purchase vouchers with vendor, amount, GST breakup | Date range, Vendor | Month-end reconciliation with vendors |
+| **Vendor Outstanding** | Unpaid vendor bills and their age | As-of date, Vendor | Follow up on payables |
+| **Purchase Order Status** | Open POs — ordered vs. received per line item | Date range, Karigar | Follow up on pending manufacturing |
+| **TDS Deducted** | TDS deducted across purchase vouchers | Date range, Section | TDS return filing (Form 26Q) |
+| **RCM Liability** | GST payable under reverse charge | Date range | File GST on RCM |
+| **Karigar-wise Purchase** | Total purchases per karigar for the period | Date range, Karigar | Karigar payment reconciliation |
+
+> **For GSTR-2**: Run the Purchase Register for the month, cross-check ITC totals before filing your GSTR-2B reconciliation (Section 16.1 → GSTR-2B Reconciliation).
 
 ### 16.5 Gold Scheme Reports
 
-| Report | Path | Description |
-|--------|------|-------------|
-| **Scheme Dashboard** | Gold Schemes → Dashboard | Live operational overview — dues, maturities, overdue, aged advances, payment mode mix. See Section 14.11. |
-| Maturity Calendar | Gold Scheme > Reports | Enrollments maturing in a date range |
-| Collection Report | Gold Scheme > Reports | Installment payments received per period, breakable by payment mode |
-| Enrollment Summary | Gold Scheme > Reports | Active, matured, and redeemed enrollments |
-| Customer Scheme Statement | Gold Scheme > Reports | Scheme history for a specific customer |
+#### How to Run Gold Scheme Reports
+
+1. Navigate to **Gold Schemes > Reports**
+2. Select the report, set filters, and click **Run**
+
+| Report | Description | Key Filters | Common Use |
+|--------|-------------|------------|------------|
+| **Scheme Dashboard** | Live operational overview — dues, maturities, overdue, aged advances, payment mode mix. See Section 14.11. | — | Daily operations, morning review |
+| **Maturity Calendar** | Enrollments maturing within a date range | Date range | Plan redemption conversations for the month |
+| **Collection Report** | Installment payments received, breakable by payment mode | Date range, Scheme | Monthly collection review; bank reconciliation |
+| **Enrollment Summary** | Count of Active, Matured, Redeemed, and Cancelled enrollments | FY, Scheme | Board-level scheme performance review |
+| **Customer Scheme Statement** | Full payment history for a specific customer's enrollment | Customer, Enrollment No | Customer service — "How many installments have I paid?" |
+
+> **Monthly collection workflow**: Run the Collection Report for the month, filter by payment mode to verify that cash/bank totals match your bank statement and cash book.
 
 ### 16.6 HR Reports
 
-| Report | Path | Description |
-|--------|------|-------------|
-| Employee List | HR > Reports | All active employees with designation and joining date |
-| Payslip Register | HR > Reports | Month-wise salary paid to all employees |
-| PF / ESI Summary | HR > Reports | Statutory deduction totals for filing |
-| Professional Tax Register | HR > Reports | PT deducted per employee per period |
+#### How to Run HR Reports
+
+1. Navigate to **HR > Reports**
+2. Select the report, set the month/year, and click **Run**
+
+| Report | Description | Key Filters | Common Use |
+|--------|-------------|------------|------------|
+| **Employee List** | All active employees with designation and joining date | Status (Active/Inactive) | Staff directory, audit |
+| **Payslip Register** | Month-wise salary paid to all employees | Month, Year | Payroll audit, salary disbursement tracking |
+| **PF / ESI Summary** | Statutory deduction totals — employee + employer contributions | Month, Year | PF/ESI challan payment and filing |
+| **Professional Tax Register** | PT deducted per employee per period | Month, State | PT challan payment |
+
+> **For PF/ESI filing**: Run the PF/ESI Summary for the month, use the totals to fill the ECR (Electronic Challan cum Return) on the EPFO portal. PT should match the Professional Tax Register before challan payment.
 
 ### 16.7 Manufacturing Reports
 
-| Report | Path | Description |
-|--------|------|-------------|
-| Job Work Status | Manufacturing > Reports | Outstanding job work with each karigar (renamed from "Karigar – Job Work") |
-| Karigar Stone Transactions | Manufacturing > Reports | Stone issue/return per karigar |
-| Hallmark Issue/Receive | Manufacturing > Reports | Hallmarking status per item |
-| Finished Item Receive | Manufacturing > Reports | Items received from manufacturing |
-| Refinery Report | Manufacturing > Reports | Refinery transactions and returns |
-| Assay Report | Manufacturing > Reports | Purity test results per batch |
-| Repair Job Status | Manufacturing > Reports | Open and closed repair jobs |
+#### How to Run Manufacturing Reports
+
+1. Navigate to **Manufacturing > Reports**
+2. Select the report, apply filters, and click **Run**
+
+| Report | Description | Key Filters | Common Use |
+|--------|-------------|------------|------------|
+| **Job Work Status** | Outstanding gold and items with each karigar | Karigar, Date range | Daily karigar follow-up; identifies items not returned |
+| **Karigar Stone Transactions** | Stone issue and return per karigar | Karigar, Date range | Stone accountability — matches issued vs. returned carats |
+| **Hallmark Issue/Receive** | Status of items sent for hallmarking | Status, Date range | Follow up on items pending HUID assignment |
+| **Finished Item Receive** | Items received from karigars with weight details | Karigar, Date range | Manufacturing inward register |
+| **Refinery Report** | Gold sent to refinery and returns | Date range | Reconcile refined gold received vs. issued |
+| **Assay Report** | Purity test results per batch | Date range | Verify gold purity before purchase/issue |
+| **Repair Job Status** | Open and closed repair job cards | Status, Date range | Customer follow-up on pending repairs |
+
+> **Daily use**: Run **Job Work Status** every morning to see gold balances with each karigar. Any item older than your standard manufacturing cycle needs immediate follow-up.
 
 ---
 
@@ -1698,15 +2097,61 @@ For temporary exhibitions/fairs at different venues:
 
 ### 17.5 CRM Automation (WhatsApp)
 
-Configure automated WhatsApp messages:
+Configure automated WhatsApp messages to keep customers informed without manual effort. Messages are triggered by events (sale saved, payment received, etc.).
+
+#### Supported Providers
+
+| Provider | Best For | Notes |
+|----------|----------|-------|
+| **Meta Cloud API** | Direct integration — no third-party | Requires a WhatsApp Business API account and approved templates |
+| **WATI** | Managed WhatsApp inbox + automation | Subscription service; easier template management |
+| **AiSensy** | Campaign management + chatbot | Subscription service |
+
+#### Step-by-Step Setup
+
+**1. Choose a provider and obtain API credentials**
+
+- For **Meta Cloud API**: Set up a WhatsApp Business API account at [business.facebook.com](https://business.facebook.com), create a WhatsApp Business App, and get the **Phone Number ID** and **Access Token**
+- For **WATI** or **AiSensy**: Sign up at their respective portals and obtain the **API Endpoint URL** and **API Key**
+
+**2. Create and approve message templates**
+
+WhatsApp requires pre-approved message templates for business-initiated messages:
+- Log into your provider's portal and create a template for each event (sale, payment receipt, birthday, etc.)
+- Templates must be approved by Meta before they can be used (typically 24–48 hours)
+- Note down the **Template Name** for each approved template
+
+**3. Configure the ERP**
 
 1. Navigate to **Settings > CRM Automation**
-2. Select provider: Meta Cloud API, WATI, or AiSensy
-3. Configure API keys and template names
-4. Enable automated messages for:
-   - Sales confirmation
-   - Payment receipts
-   - Birthday/anniversary greetings
+2. Select your **Provider** from the dropdown
+3. Enter the credentials:
+   - **API Endpoint / Phone Number ID**: From your provider
+   - **API Key / Access Token**: From your provider
+4. Map each event to a template:
+
+| Event | Template to Map | When It Fires |
+|-------|----------------|---------------|
+| **Sales Confirmation** | Your "sale_confirmation" template | When a Sales Voucher is saved |
+| **Payment Receipt** | Your "payment_receipt" template | When a Receipt Voucher is saved |
+| **Gold Scheme Payment** | Your "scheme_payment" template | When a Scheme Payment is recorded |
+| **Scheme Maturity Alert** | Your "scheme_maturity" template | When an enrollment matures |
+| **Birthday Greeting** | Your "birthday" template | Customer's birthday (if date stored in ledger) |
+| **Anniversary Greeting** | Your "anniversary" template | Customer's anniversary (if date stored in ledger) |
+
+5. Enter the template name for each event you want to enable, and toggle the event **ON**
+6. Click **Save Settings**
+
+**4. Testing**
+
+1. Create a test sales voucher for a customer with a valid mobile number
+2. Save the voucher
+3. Check the customer's WhatsApp — the configured template message should arrive within 30 seconds
+4. If the message does not arrive, check **Settings > CRM Automation > Message Logs** for error details
+
+> **Important**: The mobile number used for WhatsApp messages is taken from the customer's ledger (**mobile1** field). Ensure all customer ledgers have a valid 10-digit mobile number starting with the country code (e.g., 91XXXXXXXXXX).
+
+> **Template variables**: Templates use placeholders like `{{customer_name}}`, `{{amount}}`, `{{invoice_no}}`. The ERP fills these automatically from the transaction data — do not modify the placeholder names when creating templates.
 
 ### 17.6 Advanced Settings
 
@@ -1823,28 +2268,40 @@ A separate web portal for customers to access their scheme information.
 
 ### Daily Checklist
 
-- [ ] Update gold rates for the day
-- [ ] Check and process pending stock transfers
-- [ ] Verify cash book balance matches physical cash
-- [ ] Review outstanding payments due today
-- [ ] Back up the database (for SQLite setups)
+- [ ] **Update gold rates** before creating any sales or purchase bills (**Setup > Gold Rates**)
+- [ ] **Review Gold Scheme Dashboard** — check "Dues Today / 7 Days" tab for customers with installments due (**Gold Schemes > Dashboard**)
+- [ ] **Check pending stock transfers** — receive any in-transit items from other branches (**Inventory > Stock Transfer**)
+- [ ] **Review Job Work Status** — follow up on karigars with overdue items (**Manufacturing > Reports > Job Work Status**)
+- [ ] **Verify cash book balance** matches physical cash in hand (**Finance Reports > Cash Book**)
+- [ ] **Review outstanding cheques** — check for any cheques due for deposit or clearance (**Sales > Cheque Deposits**)
+- [ ] **Back up the database** (critical for SQLite setups — **Settings > Backup > Download Backup**)
 
 ### Monthly Checklist
 
-- [ ] Process salaries for all employees
-- [ ] Run bank reconciliation for all bank accounts
-- [ ] Review and file GSTR-3B
-- [ ] Check outstanding receivables aged > 90 days
-- [ ] Review gold scheme payments and maturity calendar
+- [ ] **Process salaries** for all employees (**HR > Salary Processing**)
+- [ ] **Pay PF/ESI challan** using the PF/ESI Summary report (**HR > Reports > PF / ESI Summary**)
+- [ ] **Pay Professional Tax** challan (**HR > Reports > Professional Tax Register**)
+- [ ] **Pay TDS collected** during the month (**Financial Accounting > Voucher Lists > Payment Voucher** → TDS Payable A/c)
+- [ ] **Bank reconciliation** for all bank accounts (**Financial Accounting > Bank Reconciliation**)
+- [ ] **Review and file GSTR-3B** using the GST Invoice Register and Purchase Register
+- [ ] **Run Closing Stock Valuation** on month-end and export/save (**Inventory > Reports > Closing Stock Valuation**)
+- [ ] **Check outstanding receivables** aged > 60 days (**Financial Accounting > Outstanding Report**)
+- [ ] **Review Gold Scheme Maturity Calendar** for next month's maturities — contact customers proactively
+- [ ] **Review Aged Advances** (>365 days) on the Scheme Dashboard — these must be settled without further delay
+- [ ] **Review Overdue Matured** schemes — contact enrolled customers to come in for redemption
 
 ### Year-End Checklist
 
-- [ ] Run closing stock valuation
-- [ ] Generate P&L and Balance Sheet
-- [ ] Generate depreciation for all fixed assets
-- [ ] File GSTR-1 annual reconciliation
-- [ ] Sync opening balances to new fiscal year
-- [ ] Close the old fiscal year (after auditor approval)
+- [ ] **Run Closing Stock Valuation** on 31 March and save — this becomes the closing stock for P&L
+- [ ] **Post depreciation** for all fixed assets (**Fixed Assets > Depreciation Worksheet > Generate**)
+- [ ] **Post year-end provisions** — salary payable, audit fees, etc. via Journal Vouchers
+- [ ] **Generate Trial Balance** — verify it balances before running other financial reports
+- [ ] **Generate P&L and Balance Sheet** — share with auditor
+- [ ] **File GSTR-9 annual return** using the GST Invoice Register for the full year
+- [ ] **Review TDS register** — file TDS returns (Form 26Q) for all four quarters
+- [ ] **Sync Opening Balances** to the new fiscal year (**Setup > Organisation > Fiscal Years > Sync Opening Balances**)
+- [ ] **Close the old fiscal year** after auditor sign-off (**Setup > Organisation > Fiscal Years > Close FY**)
+- [ ] **Create the new fiscal year** with the correct April–March dates
 
 ---
 

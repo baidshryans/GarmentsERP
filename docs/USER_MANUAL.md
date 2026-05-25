@@ -31,6 +31,8 @@
 21. [Glossary](#21-glossary)
 22. [Migrating from an Existing ERP](#22-migrating-from-an-existing-erp)
 23. [AI Assistant & MCP Server Setup](#23-ai-assistant--mcp-server-setup)
+24. [Performance & Scalability](#24-performance--scalability)
+25. [Migrating to PostgreSQL](#25-migrating-to-postgresql)
 
 ---
 
@@ -1402,6 +1404,111 @@ Customers can check their own scheme status without calling the shop:
 
 ---
 
+### 14.11 Gold Scheme Dashboard
+
+Navigate to **Gold Schemes → Dashboard** for a live operational overview of your entire scheme portfolio. The dashboard is designed for daily use — it tells you what needs attention today, what is coming up, and what regulatory deadlines are approaching.
+
+The page refreshes its data automatically every 60 seconds. After recording a payment or enrolling a new customer, the dashboard updates within one minute.
+
+---
+
+#### 14.11.1 KPI Strip
+
+Six headline cards appear at the top of the page:
+
+| Card | What It Shows |
+|------|--------------|
+| **Active** | Total enrollments currently in ACTIVE status (paying customers). |
+| **Total Collection** | Cumulative amount received across all scheme payments since inception. Shown in compact format (e.g. ₹4.20L, ₹1.25Cr). |
+| **Due This Month** | Total installment amount expected this month, with a count of how many individual installments are due. |
+| **Maturing This Month** | Number of enrollments reaching their maturity date this calendar month, with a sub-line showing how many mature within the next 7 days. |
+| **Overdue Matured** | Enrollments that have passed their maturity date but have not yet been redeemed by the customer. These need follow-up. |
+| **Aged >365 Days** | Enrollments where the customer's first payment is older than 365 days and the scheme has not been redeemed or cancelled. See Section 14.11.5 for why this matters. |
+
+---
+
+#### 14.11.2 Collections by Payment Mode — This Month
+
+Below the KPI strip, a horizontal bar shows how collections this month are split by payment method:
+
+- Cash, Bank Transfer, UPI, Cheque, Card
+- Each mode shows the total amount and its percentage share of this month's collections
+- Use this to reconcile day-end cash counts against scheme receipts, and to verify bank deposits match UPI + Cheque + Bank totals
+
+---
+
+#### 14.11.3 Aged Advances — Regulatory Alert (Red Banner)
+
+> **Legal requirement:** Under the Jewellery (Making, Selling and Trading) regulations in India, a jeweller cannot hold a customer's advance for more than 365 days without delivering goods or returning the money.
+
+The red banner at the top of the dashboard lists every enrollment where the **first payment received is older than 365 days** and the scheme has not been redeemed or cancelled. Each row shows:
+
+| Column | Meaning |
+|--------|---------|
+| **Enrollment** | Enrollment number — click Open to view the full record. |
+| **Customer** | Customer name and phone number. |
+| **First Payment** | Date of the earliest payment received. |
+| **Days Held** | How many days have elapsed since that first payment (highlighted in red if it exceeds 365). |
+| **Total Collected** | Sum of all payments received for this enrollment. |
+
+**Action required:** For each flagged enrollment you must either:
+1. Arrange the customer's redemption (purchase jewellery and apply the benefit), or
+2. Refund the customer and cancel the enrollment.
+
+If the banner shows no rows, a green message appears: *"No aged advances. All customer balances within policy."*
+
+---
+
+#### 14.11.4 Installment Dues Section
+
+This section shows which customers owe an installment payment. Use the tab strip to switch between three views:
+
+| Tab | Shows |
+|-----|-------|
+| **Overdue** | Customers whose next installment was due in a previous month and has not been paid. Sorted by most overdue first. |
+| **Next 7 Days** | Customers whose next installment falls within the coming week. Use this to send reminders or call the customer. |
+| **This Month** | All customers with an installment due before month-end. |
+
+Each row in the table shows the enrollment number, customer name, phone number, installment amount, computed next-due date, and a progress counter (e.g. *4 / 11* meaning 4 months paid out of 11 total).
+
+> **How the due date is calculated:** The system uses the customer's enrollment start date as the anchor day. If a customer enrolled on the 15th of a month, their installment is due on the 15th of every subsequent month. Payments already recorded for the month shift the next-due forward by one month automatically.
+
+> **Note:** Only INSTALLMENT-type schemes appear in this section. ACCUMULATION and LUMPSUM schemes do not have monthly due dates.
+
+---
+
+#### 14.11.5 Maturing Schemes Section
+
+This section shows enrollments approaching their maturity date. Switch between two windows:
+
+| Tab | Shows |
+|-----|-------|
+| **Next 7 Days** | Enrollments that mature within the coming week. Plan redemption calls for these customers now. |
+| **This Month** | All enrollments maturing before month-end. |
+
+Columns shown: enrollment number, customer, scheme name, maturity date, and total amount accumulated.
+
+When a customer's scheme matures, the enrollment status changes to **MATURED** automatically. At that point, the customer should be contacted to come in and purchase jewellery using their accumulated benefit.
+
+---
+
+#### 14.11.6 Matured & Awaiting Redemption
+
+This table lists all enrollments in **MATURED** status — schemes that have completed their tenure but have not yet been redeemed. Each row shows how many days have passed since the maturity date.
+
+| Column | Meaning |
+|--------|---------|
+| **Enrollment** | Enrollment number. |
+| **Customer** | Customer name. |
+| **Matured On** | Date the scheme reached its tenure. |
+| **Days Past Due** | Days elapsed since maturity. Shown in red as a reminder. |
+| **Accumulated** | Total amount (or gold grams for ACCUMULATION) built up. |
+| **Open** | Button to go directly to the enrollment's payment/redeem screen. |
+
+Schemes that sit here for too long will eventually appear in the **Aged Advances** regulatory alert once the 365-day clock is passed.
+
+---
+
 ## 15. HR & Payroll
 
 ### 15.1 Employee Setup
@@ -1521,8 +1628,9 @@ Configure accounting ledgers for salary posting:
 
 | Report | Path | Description |
 |--------|------|-------------|
+| **Scheme Dashboard** | Gold Schemes → Dashboard | Live operational overview — dues, maturities, overdue, aged advances, payment mode mix. See Section 14.11. |
 | Maturity Calendar | Gold Scheme > Reports | Enrollments maturing in a date range |
-| Collection Report | Gold Scheme > Reports | Installment payments received per period |
+| Collection Report | Gold Scheme > Reports | Installment payments received per period, breakable by payment mode |
 | Enrollment Summary | Gold Scheme > Reports | Active, matured, and redeemed enrollments |
 | Customer Scheme Statement | Gold Scheme > Reports | Scheme history for a specific customer |
 
@@ -2190,13 +2298,400 @@ To avoid "Python not found" errors, use the full path to the virtual environment
 
 ---
 
+---
+
+## 24. Performance & Scalability
+
+This section explains how the ERP is tuned for speed and what you can do as load increases.
+
+### 24.1 What Has Been Optimised
+
+The following improvements are built into the codebase as of May 2026. No configuration is required for them to take effect.
+
+#### Database Connection Reuse (`CONN_MAX_AGE`)
+
+Previously, each HTTP request opened a new connection to the database and closed it when the response was sent. This added 5–10 ms of overhead on every API call. The connection is now **held open for 60 seconds** and reused across requests from the same worker process. This is controlled by the `DB_CONN_MAX_AGE` environment variable (default: 60).
+
+#### SQLite Memory Tuning
+
+The following SQLite settings are applied automatically when a connection is established:
+
+| PRAGMA | Value | Effect |
+|--------|-------|--------|
+| `journal_mode` | `WAL` | Readers and writers no longer block each other. Multiple users can read simultaneously while one writes. |
+| `synchronous` | `NORMAL` | Reduces disk flush frequency. Durable enough for normal use; improves write speed by ~30%. |
+| `cache_size` | `-65536` (64 MB) | SQLite keeps 64 MB of database pages in memory per connection. Repeated reads of the same ledger, vouchers, or scheme data are served from memory. |
+| `temp_store` | `MEMORY` | Sorting operations and temporary tables happen in RAM instead of writing to a temp file on disk. |
+| `mmap_size` | `268435456` (256 MB) | The operating system memory-maps up to 256 MB of the database file. Sequential read-heavy reports (trial balance, P&L) benefit the most. |
+
+#### Report Query Optimisation
+
+Two report functions that previously loaded all records into Python and filtered them in a loop have been rewritten to push all filtering into SQL:
+
+- **Overdue installments:** The system now computes `months_elapsed` directly in the database and returns only enrollments where payments are behind — one SQL query instead of an O(N) loop.
+- **Upcoming payment dues:** The next-due date per enrollment is now computed in SQL using SQLite's date arithmetic. Only enrollments falling within the requested window (7 days or current month) are returned.
+
+These changes mean the dashboard loads in roughly the same time whether you have 100 enrollments or 10,000.
+
+#### View-Level Response Caching
+
+The following API endpoints cache their responses for **60 seconds**:
+
+| Endpoint | Cache Duration |
+|----------|---------------|
+| Scheme Dashboard (extended) | 60 seconds |
+| Scheme Summary KPIs | 60 seconds |
+| Overdue Installments | 60 seconds |
+
+When a staff member loads the dashboard, the server calculates the data once. Every subsequent load within 60 seconds is served instantly from the cache without hitting the database. The cache is **automatically cleared** when any payment is recorded or any enrollment is saved — so real changes are always reflected within the next page load.
+
+**Cache backend by environment:**
+
+| Environment | Cache Backend | Notes |
+|-------------|--------------|-------|
+| Development | File-based cache (`.cache/` folder in backend) | Shared across all worker processes; survives server restarts |
+| Production | Redis (set `CACHE_BACKEND=redis` and `REDIS_URL` in `.env`) | Fastest; shared across all server nodes in a multi-server setup |
+
+---
+
+### 24.2 Capacity Estimates
+
+| Setup | Safe Concurrent Users | Notes |
+|-------|----------------------|-------|
+| **Current (SQLite + sync workers)** | ~10–20 light users | SQLite single-writer lock; each gunicorn worker handles 1 request at a time. Suitable for one shop or a small team. |
+| **SQLite + gevent workers** | ~50 concurrent | Use `GUNICORN_WORKER_CLASS=gevent` in production. Each worker handles 50 green-thread connections. Still limited by SQLite's write lock. |
+| **PostgreSQL + gevent workers** | 100–300 concurrent | PostgreSQL has row-level locking. Writers do not block each other. Suitable for multi-branch deployments. |
+| **PostgreSQL + async (uvicorn)** | 500+ concurrent | Full async Django + PostgreSQL. Long-term production target. |
+
+---
+
+### 24.3 Running in Production (Gunicorn)
+
+A `gunicorn.conf.py` file is included in the `backend/` folder. Start the production server with:
+
+```bash
+cd backend
+gunicorn -c gunicorn.conf.py jewel_test.wsgi:application
+```
+
+**Key environment variables for tuning:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WEB_CONCURRENCY` | `(2 × CPU cores) + 1` | Number of gunicorn worker processes |
+| `GUNICORN_WORKER_CLASS` | `gevent` | `gevent` for 100 concurrent; `sync` for SQLite development |
+| `GUNICORN_WORKER_CONNECTIONS` | `50` | Greenlets per gevent worker |
+| `GUNICORN_TIMEOUT` | `120` | Seconds before a slow request is killed |
+| `GUNICORN_PORT` | `8000` | Port to bind on |
+| `GUNICORN_LOG_LEVEL` | `info` | `debug`, `info`, `warning`, `error` |
+
+Workers are automatically restarted after 1,000 requests (with ±100 jitter) to prevent memory growth in long-running processes. The app is pre-loaded once before forking workers (`preload_app = True`), saving 50–100 MB of RAM through OS copy-on-write.
+
+---
+
+## 25. Migrating to PostgreSQL
+
+SQLite is used during development because it requires no installation or configuration — the database is a single file (`backend/db.sqlite3`). For production deployments serving more than one or two users simultaneously, **PostgreSQL is strongly recommended**.
+
+This section walks through the complete migration from SQLite to PostgreSQL without losing any data.
+
+---
+
+### 25.1 When to Migrate
+
+Migrate to PostgreSQL when any of the following apply:
+
+- More than **2–3 staff users** access the ERP at the same time.
+- You experience **"database is locked"** errors during normal use.
+- You are deploying to a **cloud server** (VPS, AWS EC2, DigitalOcean Droplet, etc.).
+- You want to run **nightly automated backups** using standard database tooling (`pg_dump`).
+- You plan to add **multiple branch locations** accessing the same server.
+
+---
+
+### 25.2 Prerequisites
+
+Before starting, ensure the following are installed on your server:
+
+1. **PostgreSQL 15 or 16** — [postgresql.org/download](https://www.postgresql.org/download/)
+2. **psycopg2** (the Python PostgreSQL driver):
+   ```bash
+   cd backend
+   env\Scripts\pip install psycopg2-binary
+   ```
+3. The ERP backend must be stopped before the migration begins.
+
+---
+
+### 25.3 Step 1 — Create the PostgreSQL Database and User
+
+Open a PostgreSQL prompt (run as the `postgres` system user):
+
+```bash
+psql -U postgres
+```
+
+Run the following SQL commands:
+
+```sql
+CREATE DATABASE jewel_erp;
+CREATE USER jewel_user WITH PASSWORD 'your_strong_password_here';
+ALTER ROLE jewel_user SET client_encoding TO 'utf8';
+ALTER ROLE jewel_user SET default_transaction_isolation TO 'read committed';
+ALTER ROLE jewel_user SET timezone TO 'Asia/Kolkata';
+GRANT ALL PRIVILEGES ON DATABASE jewel_erp TO jewel_user;
+\q
+```
+
+> **Password:** Use a long random password (20+ characters). Store it securely — you will need it in the next step.
+
+---
+
+### 25.4 Step 2 — Update the `.env` File
+
+Open `backend/.env` and update or add the following variables:
+
+```env
+# Replace the old SQLite block with these:
+DB_ENGINE=django.db.backends.postgresql
+DB_NAME=jewel_erp
+DB_USER=jewel_user
+DB_PASSWORD=your_strong_password_here
+DB_HOST=localhost
+DB_PORT=5432
+
+# Connection reuse — with PostgreSQL + PgBouncer in transaction mode, set this to 0.
+# With direct connections (no pooler), 60 is fine.
+DB_CONN_MAX_AGE=60
+
+# Switch cache to Redis once Redis is also installed:
+CACHE_BACKEND=redis
+REDIS_URL=redis://127.0.0.1:6379/1
+```
+
+---
+
+### 25.5 Step 3 — Update `settings.py` to Read PostgreSQL Config
+
+Open `backend/jewel_test/settings.py` and replace the `DATABASES` block with:
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
+        'NAME': config('DB_NAME', default=str(BASE_DIR / 'db.sqlite3')),
+        'USER': config('DB_USER', default=''),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default=''),
+        'PORT': config('DB_PORT', default=''),
+        'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
+        'OPTIONS': {
+            # SQLite-specific pragma — safe to leave; ignored by PostgreSQL
+            'timeout': 30,
+        },
+    }
+}
+```
+
+> **Note:** The SQLite WAL signal (`_activate_sqlite_wal`) in settings.py checks `connection.vendor == 'sqlite'` before applying PRAGMAs, so it will silently skip when PostgreSQL is the backend. No change needed there.
+
+---
+
+### 25.6 Step 4 — Export Data from SQLite
+
+Install `django-admin-export` or use the built-in management command approach. The safest method is Django's `dumpdata`:
+
+```bash
+cd backend
+env\Scripts\python manage.py dumpdata \
+  --natural-foreign \
+  --natural-primary \
+  --exclude auth.permission \
+  --exclude contenttypes \
+  --indent 2 \
+  > full_data_export.json
+```
+
+This creates a `full_data_export.json` file containing all your data. **Keep this file** — it is your migration backup.
+
+> **Check the file size:** A healthy export for a year of data is typically 5–50 MB. If it is 0 bytes or unusually small, something went wrong — investigate before continuing.
+
+---
+
+### 25.7 Step 5 — Apply Migrations to PostgreSQL
+
+With the `.env` now pointing to PostgreSQL, run migrations to create all tables:
+
+```bash
+cd backend
+env\Scripts\python manage.py migrate
+```
+
+You should see a long list of `OK` lines. If you see errors, the most common cause is a missing psycopg2 installation — re-run the `pip install psycopg2-binary` step.
+
+---
+
+### 25.8 Step 6 — Load the Data into PostgreSQL
+
+```bash
+cd backend
+env\Scripts\python manage.py loaddata full_data_export.json
+```
+
+This will take 1–10 minutes depending on data volume. You should see output like:
+
+```
+Installed 48392 object(s) from 1 fixture(s)
+```
+
+> **If you see errors about duplicate keys or constraint violations:** This usually means `contenttypes` or `auth.permission` data was included. Re-run `dumpdata` with the `--exclude` flags shown in Step 4 and try again.
+
+---
+
+### 25.9 Step 7 — Fix PostgreSQL Sequence Numbers
+
+PostgreSQL uses sequences (auto-increment counters) for primary keys. After importing data from SQLite, these sequences are not updated — the database doesn't know what the highest ID in each table is. If you try to save a new record, it will fail with a duplicate key error.
+
+Fix all sequences in one command:
+
+```bash
+cd backend
+env\Scripts\python manage.py shell -c "
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute(\"\"\"
+        SELECT 'SELECT SETVAL(' || quote_literal(quote_ident(s.relname)) || ', MAX(' || quote_ident(a.attname) || ')) FROM ' || quote_ident(c.relname) || ';'
+        FROM pg_class c
+        JOIN pg_attribute a ON a.attrelid = c.oid
+        JOIN pg_attrdef d ON (d.adrelid = c.oid AND d.adnum = a.attnum)
+        JOIN pg_class s ON s.oid = (pg_get_expr(d.adbin, d.adrelid) ~ 'nextval')::boolean::int = 1
+            AND s.oid = (SELECT oid FROM pg_class WHERE relname = regexp_replace(pg_get_expr(d.adbin, d.adrelid), $$^nextval\('([^']+)'.*$$, '\1')::regclass)
+        WHERE c.relkind = 'r' AND a.atthasdef AND pg_get_expr(d.adbin, d.adrelid) LIKE 'nextval%'
+    \"\"\")
+    statements = cursor.fetchall()
+    for (stmt,) in statements:
+        try:
+            cursor.execute(stmt)
+        except Exception as e:
+            print(f'Skipped: {e}')
+print('Sequences reset.')
+"
+```
+
+Alternatively, use the `sqlsequencereset` management command per app:
+
+```bash
+env\Scripts\python manage.py sqlsequencereset \
+  contacts userauth mastersconfig goldrates sales purchase \
+  manufacturing inventory accounting goldscheme hr audit \
+  | env\Scripts\python manage.py dbshell
+```
+
+---
+
+### 25.10 Step 8 — Verify the Migration
+
+Run the following checks:
+
+**1. Check record counts match your SQLite export:**
+```bash
+env\Scripts\python manage.py shell -c "
+from sales.models import SalesVou
+from contacts.models import Ledger
+from goldscheme.models import SchemeEnrollment
+from accounting.models import VoucherMain
+print('Sales vouchers:', SalesVou.objects.count())
+print('Ledgers:', Ledger.objects.count())
+print('Enrollments:', SchemeEnrollment.objects.count())
+print('Vouchers:', VoucherMain.objects.count())
+"
+```
+
+Compare these numbers against the same counts from your SQLite database (run the same script before switching).
+
+**2. Start the server and log in:**
+```bash
+env\Scripts\python manage.py runserver
+```
+
+Navigate to the dashboard, open a sales voucher, check the ledger list, and verify the Gold Scheme dashboard loads correctly.
+
+**3. Record one test transaction** (a payment, a small voucher entry, or anything that writes to the database) and confirm it saves without errors.
+
+---
+
+### 25.11 Step 9 — Update Gunicorn for PostgreSQL
+
+Once on PostgreSQL, update your production startup to use the full async worker class for maximum throughput:
+
+In `.env` or the server's environment:
+```env
+GUNICORN_WORKER_CLASS=uvicorn.workers.UvicornWorker
+```
+
+Install uvicorn if not already present:
+```bash
+env\Scripts\pip install uvicorn[standard]
+```
+
+This requires switching `WSGI_APPLICATION` to `ASGI_APPLICATION` in `settings.py` — a one-line change. Consult the technical team before doing this on a live server.
+
+---
+
+### 25.12 Optional — Install PgBouncer (Connection Pooling)
+
+With PostgreSQL, each gunicorn worker still opens a direct database connection. Under high concurrency (100+ users), PostgreSQL can hit its `max_connections` limit. PgBouncer sits between Django and PostgreSQL, maintaining a small pool of real connections and routing thousands of Django requests through them.
+
+**Install PgBouncer (Ubuntu/Debian):**
+```bash
+sudo apt install pgbouncer
+```
+
+**Basic `pgbouncer.ini` config:**
+```ini
+[databases]
+jewel_erp = host=127.0.0.1 port=5432 dbname=jewel_erp
+
+[pgbouncer]
+listen_addr = 127.0.0.1
+listen_port = 6432
+auth_type = md5
+pool_mode = transaction
+max_client_conn = 500
+default_pool_size = 20
+```
+
+**Then update `.env` to point Django at PgBouncer:**
+```env
+DB_HOST=127.0.0.1
+DB_PORT=6432
+DB_CONN_MAX_AGE=0   # Must be 0 in transaction-mode PgBouncer
+```
+
+> **Important:** Set `CONN_MAX_AGE=0` when using PgBouncer in transaction mode. PgBouncer manages the pooling itself; Django's own connection persistence interferes with it.
+
+---
+
+### 25.13 Rollback Plan
+
+If the migration fails or produces incorrect data:
+
+1. Stop the server.
+2. Update `.env` to restore the SQLite config (`DB_ENGINE=django.db.backends.sqlite3`, remove PostgreSQL fields).
+3. Restart the server — your original SQLite database is untouched.
+4. Investigate the error using the `full_data_export.json` file.
+
+The SQLite database file at `backend/db.sqlite3` is never modified during the PostgreSQL migration. It is safe to migrate while keeping it as a fallback.
+
+---
+
 ## Document Information
 
 | Field | Value |
 |-------|-------|
 | **Document Title** | Jewel India ERP - User Manual |
-| **Version** | 1.3 — April 2026 update |
-| **Date** | April 2026 |
+| **Version** | 1.4 — May 2026 update |
+| **Date** | May 2026 |
 | **Prepared For** | First-time ERP clients |
 | **Confidentiality** | Client-use only |
 

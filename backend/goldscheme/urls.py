@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/reports/maturity-calendar/', views.MaturityCalendarView.as_view(), name='maturity-calendar'),
     path('api/reports/overdue-payments/', views.OverduePaymentsView.as_view(), name='overdue-payments'),
     path('api/reports/scheme-collection/', views.SchemeCollectionView.as_view(), name='scheme-collection'),
+    path('api/reports/scheme-dashboard-ext/', views.SchemeDashboardExtView.as_view(), name='scheme-dashboard-ext'),
     # Customer Portal — legacy public endpoints (mobile-number auth)
     path('api/customer-portal/my-schemes/', views.CustomerPortalMySchemes.as_view(), name='portal-my-schemes'),
     path('api/customer-portal/scheme/<str:enrollment_no>/', views.CustomerPortalSchemeDetail.as_view(), name='portal-scheme-detail'),

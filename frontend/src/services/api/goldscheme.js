@@ -122,3 +122,11 @@ export async function fetchOverduePayments() {
     return { success: false, error: error.response?.data || error.message };
   }
 }
+export async function fetchSchemeDashboardExt() {
+  try {
+    const response = await apiClient.get("/goldscheme/api/reports/scheme-dashboard-ext/");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

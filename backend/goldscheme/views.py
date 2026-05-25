@@ -229,6 +229,15 @@ class OverduePaymentsView(APIView):
         return Response(reports.overdue_payments(retail))
 
 
+class SchemeDashboardExtView(APIView):
+    """GET /api/reports/scheme-dashboard-ext/ — Combined extended dashboard payload."""
+    def get(self, request):
+        retail = request.retail
+        if not retail:
+            return Response({'error': 'Retail not found.'}, status=400)
+        return Response(reports.scheme_dashboard_ext(retail))
+
+
 class SchemeCollectionView(APIView):
     """GET /api/reports/scheme-collection/?from_date=...&to_date=..."""
     def get(self, request):

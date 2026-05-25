@@ -6,13 +6,32 @@ Signals for the Gold Scheme module.
 """
 import logging
 
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import DatabaseError, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from global_vars import VoucherType
-from .models import SchemePayment
+from .models import SchemePayment, SchemeEnrollment
+
+
+def _invalidate_scheme_caches(retail_pk):
+    """Drop all scheme report caches for a retail branch."""
+    for prefix in ('scheme_summary', 'scheme_dashboard_ext', 'overdue_payments'):
+        cache.delete(f'{prefix}_{retail_pk}')
+
+
+@receiver(post_save, sender=SchemePayment)
+def invalidate_cache_on_payment(sender, instance, created, **kwargs):
+    if instance.retail_id:
+        _invalidate_scheme_caches(instance.retail_id)
+
+
+@receiver(post_save, sender=SchemeEnrollment)
+def invalidate_cache_on_enrollment(sender, instance, created, **kwargs):
+    if instance.retail_id:
+        _invalidate_scheme_caches(instance.retail_id)
 
 logger = logging.getLogger(__name__)
 

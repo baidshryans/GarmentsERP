@@ -197,20 +197,46 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
-        'CONN_MAX_AGE': 0,
+        # Reuse the same connection for 60 s instead of opening a new one per
+        # request.  Safe for SQLite (single-file DB, no server-side state to
+        # desync). Set to 0 for PostgreSQL with PgBouncer transaction-mode.
+        'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
         'OPTIONS': {
             'timeout': 30,       # Wait up to 30 s for a lock to clear
         }
     }
 }
 
-# Cache configuration — LocMemCache for single-process deployments (no external deps)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'jewel-india-cache',
+# ---------------------------------------------------------------------------
+# Cache — FileBasedCache in dev (shared across processes, survives restarts);
+# Redis in production.  Set CACHE_BACKEND=redis in .env and supply REDIS_URL.
+# ---------------------------------------------------------------------------
+_CACHE_BACKEND = config('CACHE_BACKEND', default='file')
+
+if _CACHE_BACKEND == 'redis':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': config('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'IGNORE_EXCEPTIONS': True,   # Degrade gracefully if Redis is down
+            },
+            'TIMEOUT': 300,
+            'KEY_PREFIX': 'jewel',
+        }
     }
-}
+    SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+    SESSION_CACHE_ALIAS = 'default'
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': str(BASE_DIR / '.cache'),
+            'TIMEOUT': 300,
+            'OPTIONS': {'MAX_ENTRIES': 2000},
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -268,5 +294,11 @@ def _activate_sqlite_wal(sender, connection, **kwargs):
     if connection.vendor == 'sqlite':
         connection.connection.execute('PRAGMA journal_mode=WAL;')
         connection.connection.execute('PRAGMA synchronous=NORMAL;')
+        # 64 MB page cache per connection — reduces disk I/O on repeated reads.
+        connection.connection.execute('PRAGMA cache_size=-65536;')
+        # Store temp tables and indices in memory instead of a temp file.
+        connection.connection.execute('PRAGMA temp_store=MEMORY;')
+        # Memory-map up to 256 MB of the DB file — faster sequential reads.
+        connection.connection.execute('PRAGMA mmap_size=268435456;')
 
 connection_created.connect(_activate_sqlite_wal)

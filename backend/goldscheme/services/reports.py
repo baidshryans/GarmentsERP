@@ -5,7 +5,10 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
-from django.db.models import Sum, Count, Q, F, Min
+from django.db import connection
+from django.db.models import Sum, Count, Q, F, Min, Value, ExpressionWrapper, IntegerField
+from django.db.models.expressions import RawSQL
+from django.db.models.functions import ExtractYear, ExtractMonth
 
 from goldscheme.models import SchemeEnrollment, SchemePayment, SchemeMaster
 
@@ -69,33 +72,40 @@ def maturity_calendar(retail, from_date, to_date):
 
 def overdue_payments(retail):
     """
-    Find active enrollments where the expected number of payments
-    (based on months elapsed) exceeds actual payments made.
-    Only applies to INSTALLMENT and ACCUMULATION types.
+    Active INSTALLMENT/ACCUMULATION enrollments where months elapsed since
+    start_date exceeds payments_made — computed entirely in SQL so only
+    qualifying rows are fetched (no Python loop over all enrollments).
     """
     today = date.today()
-    active = SchemeEnrollment.objects.filter(
-        retail=retail,
-        status='ACTIVE',
-        scheme__scheme_type__in=('INSTALLMENT', 'ACCUMULATION'),
-    ).select_related('customer', 'scheme')
 
-    overdue = []
-    for e in active:
-        expected = e.months_completed
-        if expected > e.payments_made:
-            overdue.append({
-                'enrollment_no': e.enrollment_no,
-                'customer': e.customer.ac_name,
-                'scheme': e.scheme.name,
-                'months_elapsed': expected,
-                'payments_made': e.payments_made,
-                'missed_payments': expected - e.payments_made,
-                'installment_amount': float(e.installment_amount),
-                'total_overdue': float(e.installment_amount * (expected - e.payments_made)),
-            })
+    months_elapsed_expr = ExpressionWrapper(
+        (Value(today.year) - ExtractYear('start_date')) * 12
+        + (Value(today.month) - ExtractMonth('start_date')),
+        output_field=IntegerField(),
+    )
 
-    return sorted(overdue, key=lambda x: x['missed_payments'], reverse=True)
+    qs = (
+        SchemeEnrollment.objects
+        .filter(retail=retail, status='ACTIVE', scheme__scheme_type__in=('INSTALLMENT', 'ACCUMULATION'))
+        .annotate(months_elapsed=months_elapsed_expr)
+        .filter(months_elapsed__gt=F('payments_made'))
+        .select_related('customer', 'scheme')
+        .order_by(F('months_elapsed') - F('payments_made'))
+    )
+
+    return [
+        {
+            'enrollment_no': e.enrollment_no,
+            'customer': e.customer.ac_name,
+            'scheme': e.scheme.name,
+            'months_elapsed': e.months_elapsed,
+            'payments_made': e.payments_made,
+            'missed_payments': e.months_elapsed - e.payments_made,
+            'installment_amount': float(e.installment_amount),
+            'total_overdue': float(e.installment_amount * (e.months_elapsed - e.payments_made)),
+        }
+        for e in qs
+    ]
 
 
 def scheme_wise_collection(retail, from_date=None, to_date=None):
@@ -127,38 +137,55 @@ def _month_end(d):
 
 def upcoming_payment_dues(retail, window_end):
     """
-    Active INSTALLMENT enrollments whose next installment is due on or before window_end.
-    Next-due = start_date + (payments_made + 1) months, anchored on start_date.day.
-    Includes already-overdue (next_due < today) so the dashboard can chase them too.
+    Active INSTALLMENT enrollments whose next installment is due on or before
+    window_end.  Next-due = start_date + (payments_made + 1) months.
+    The date arithmetic is pushed into SQL so only rows inside the window are
+    returned — no Python loop over all enrollments.
+    Includes already-overdue (next_due < today) so the dashboard can chase them.
     """
     today = date.today()
-    qs = SchemeEnrollment.objects.filter(
-        retail=retail,
-        status='ACTIVE',
-        scheme__scheme_type='INSTALLMENT',
-    ).select_related('customer', 'scheme')
 
-    rows = []
-    for e in qs:
-        # Don't bill past tenure
-        if e.payments_made >= e.scheme.tenure_months:
-            continue
-        next_due = e.start_date + relativedelta(months=e.payments_made + 1)
-        if next_due > window_end:
-            continue
-        rows.append({
+    # Build a database-vendor-aware expression for next_due date.
+    if connection.vendor == 'sqlite':
+        next_due_expr = RawSQL(
+            "date(start_date, '+' || (payments_made + 1) || ' months')", []
+        )
+    else:
+        # PostgreSQL — also works for MySQL with minor adjustments.
+        next_due_expr = RawSQL(
+            "(start_date + (payments_made + 1) * INTERVAL '1 month')::date", []
+        )
+
+    qs = (
+        SchemeEnrollment.objects
+        .filter(
+            retail=retail,
+            status='ACTIVE',
+            scheme__scheme_type='INSTALLMENT',
+            # Exclude fully-paid enrollments at the DB level.
+            payments_made__lt=F('scheme__tenure_months'),
+        )
+        .annotate(next_due=next_due_expr)
+        .filter(next_due__lte=str(window_end))
+        .select_related('customer', 'scheme')
+        .order_by('next_due')
+    )
+
+    return [
+        {
             'enrollment_no': e.enrollment_no,
             'enrollment_id': e.id,
             'customer': e.customer.ac_name,
             'phone': getattr(e.customer, 'mobile1', '') or '',
             'scheme': e.scheme.name,
             'installment_amount': float(e.installment_amount),
-            'next_due_date': str(next_due),
-            'days_until_due': (next_due - today).days,
+            'next_due_date': str(e.next_due),
+            'days_until_due': (date.fromisoformat(str(e.next_due)) - today).days,
             'payments_made': e.payments_made,
             'tenure_months': e.scheme.tenure_months,
-        })
-    return sorted(rows, key=lambda x: x['next_due_date'])
+        }
+        for e in qs
+    ]
 
 
 def overdue_matured(retail):

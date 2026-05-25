@@ -1,5 +1,7 @@
 from datetime import date, datetime
 
+from django.core.cache import cache
+
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -197,12 +199,17 @@ class SchemePaymentViewSet(RetailBaseViewset):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class SchemeSummaryView(APIView):
-    """GET /api/reports/scheme-summary/ — Dashboard KPIs."""
+    """GET /api/reports/scheme-summary/ — Dashboard KPIs. Cached 60 s."""
     def get(self, request):
         retail = request.retail
         if not retail:
             return Response({'error': 'Retail not found.'}, status=400)
-        return Response(reports.scheme_summary(retail))
+        cache_key = f'scheme_summary_{retail.pk}'
+        data = cache.get(cache_key)
+        if data is None:
+            data = reports.scheme_summary(retail)
+            cache.set(cache_key, data, timeout=60)
+        return Response(data)
 
 
 class MaturityCalendarView(APIView):
@@ -221,21 +228,31 @@ class MaturityCalendarView(APIView):
 
 
 class OverduePaymentsView(APIView):
-    """GET /api/reports/overdue-payments/"""
+    """GET /api/reports/overdue-payments/ — Cached 60 s."""
     def get(self, request):
         retail = request.retail
         if not retail:
             return Response({'error': 'Retail not found.'}, status=400)
-        return Response(reports.overdue_payments(retail))
+        cache_key = f'overdue_payments_{retail.pk}'
+        data = cache.get(cache_key)
+        if data is None:
+            data = reports.overdue_payments(retail)
+            cache.set(cache_key, data, timeout=60)
+        return Response(data)
 
 
 class SchemeDashboardExtView(APIView):
-    """GET /api/reports/scheme-dashboard-ext/ — Combined extended dashboard payload."""
+    """GET /api/reports/scheme-dashboard-ext/ — Combined extended dashboard payload. Cached 60 s."""
     def get(self, request):
         retail = request.retail
         if not retail:
             return Response({'error': 'Retail not found.'}, status=400)
-        return Response(reports.scheme_dashboard_ext(retail))
+        cache_key = f'scheme_dashboard_ext_{retail.pk}'
+        data = cache.get(cache_key)
+        if data is None:
+            data = reports.scheme_dashboard_ext(retail)
+            cache.set(cache_key, data, timeout=60)
+        return Response(data)
 
 
 class SchemeCollectionView(APIView):

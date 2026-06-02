@@ -69,6 +69,32 @@ const TH = ({ children, className = "" }) => (
   </TableCell>
 );
 
+const TransportSummaryChip = ({ watch }) => {
+  const vehicle = watch("form.vehicle_no");
+  const transporter = watch("form.transporter_name");
+  const mode = watch("form.mode_of_transport");
+  const distance = watch("form.trans_distance");
+  const hasAny = vehicle || transporter || mode || distance;
+  if (!hasAny) {
+    return (
+      <div className="text-xs text-muted-foreground italic px-2 py-1">
+        Enter via E-Way Bill button on the voucher list
+      </div>
+    );
+  }
+  const parts = [
+    mode && `${mode}`,
+    vehicle && `Vehicle: ${vehicle}`,
+    transporter && `Transporter: ${transporter}`,
+    distance && `${distance} km`,
+  ].filter(Boolean);
+  return (
+    <div className="text-xs px-2 py-1 rounded bg-muted/50 border" title="Edit via E-Way Bill button on voucher list">
+      {parts.join("  •  ")}
+    </div>
+  );
+};
+
 const SalesVoucherAdd = () => {
   const { toast } = useToast();
   const { id } = useParams();
@@ -108,7 +134,6 @@ const SalesVoucherAdd = () => {
         igst_per: 0,
         tcs_per: 0,
         other_charge: 0,
-        mode_of_transport: "",
         exhibition_profile: "",
         customer_order: "",
         advance_deducted: 0,
@@ -1316,8 +1341,8 @@ const SalesVoucherAdd = () => {
           </FieldContainer>
 
           <FieldContainer>
-            <Label className="text-nowrap">Mode of Transport</Label>
-            <Input type="text" {...register("form.mode_of_transport")} />
+            <Label className="text-nowrap">Transport</Label>
+            <TransportSummaryChip watch={watch} />
           </FieldContainer>
         </div>
 

@@ -66,6 +66,7 @@ function TabBtn({ active, onClick, children, count }) {
 const StockTransferList = () => {
   const { toast } = useToast();
   const [params, setParams] = useSearchParams();
+  const currentRetailCode = sessionStorage.getItem('retail_code');
   const [tab, setTab] = useState(() => params.get("tab") === "intransit" ? "intransit" : "transfers"); // "transfers" | "intransit"
 
   // Transfers tab state
@@ -178,7 +179,7 @@ const StockTransferList = () => {
                 </Button>
               </>
             )}
-            {t.sent_status && !t.rec_status && (
+            {t.sent_status && !t.rec_status && t.to_rt_code === currentRetailCode && (
               <Button size="sm" variant="outline" disabled={busy}
                 className="h-6 px-2 text-[11px] text-green-700 border-green-300 hover:bg-green-50"
                 onClick={() => handleMarkReceived(t.id)}>

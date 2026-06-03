@@ -1403,6 +1403,10 @@ class ClosingStockCal:
         # ── Refinery issues / receives ───────────────────────────────────────
         ri_qs = _date_filter(RefinaryIssueDetail.objects.filter(item_id__in=item_ids).filter(_retail_q()))
         rr_qs = _date_filter(RefinaryReceiveDetail.objects.filter(item_id__in=item_ids).filter(_retail_q()))
+        gwct_ann = {
+            'total_gw': Coalesce(Sum('gw'), zero),
+            'total_ct': Coalesce(Sum('ct'), zero),
+        }
         ri = _batch(ri_qs, 'item_id', gwct_ann)
         rr = _batch(rr_qs, 'item_id', gwct_ann)
 

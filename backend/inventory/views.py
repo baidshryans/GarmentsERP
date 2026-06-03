@@ -2726,17 +2726,21 @@ class ClosingStockTxnView(APIView):
             qs = PurchaseVoucherItems.objects.filter(
                 item=item, is_return=False, is_finished=False,
                 billno__date1__lte=to_date,
-            ).select_related('billno', 'billno__ldgr')
+            ).select_related('billno', 'billno__ldgr').prefetch_related('purchasevoucherdetails_set')
             if retail_id:
                 qs = qs.filter(retail_id=retail_id)
             for r in qs:
+                amt = r.item_value or 0
+                if not amt:
+                    amt = sum((d.value or 0) for d in r.purchasevoucherdetails_set.all()) \
+                        + (r.making_value or 0)
                 vouchers.append({
                     'date': str(r.billno.date1),
                     'voucher_no': r.billno.billno,
                     'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
                     'gw': float(r.gw or 0),
                     'ct': 0.0,
-                    'amount': float(r.item_value or 0),
+                    'amount': float(amt),
                 })
             if item.item_type in ['S', 'R']:
                 dq = PurchaseVoucherDetails.objects.filter(

@@ -103,14 +103,58 @@ export async function deleteSalesApprovalReturn(id, toast) {
 
 // ── Initial data ───────────────────────────────────────────────────────────────
 
-export async function fetchSaleVoucherInitialData() {
-  try {
-    const response = await apiClient.get(`/sales/api/sale-voucher-initial-data/`);
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error("Failed to fetch sale voucher initial data:", error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
+// Cache key includes the active retail so different retails don't share data.
+// 5-minute TTL keeps stale-data risk low while making subsequent loads instant.
+const SVID_CACHE_TTL_MS = 5 * 60 * 1000;
+const _svidInflight = { promise: null, retailKey: null };
+
+function _svidCacheKey() {
+  const retail = sessionStorage.getItem("retail_code") || "default";
+  return `svid::${retail}`;
+}
+
+export function invalidateSaleVoucherInitialData() {
+  try { sessionStorage.removeItem(_svidCacheKey()); } catch {}
+}
+
+export async function fetchSaleVoucherInitialData({ force = false } = {}) {
+  const key = _svidCacheKey();
+  // In-flight de-dupe — share a single network call across simultaneous callers
+  if (!force && _svidInflight.promise && _svidInflight.retailKey === key) {
+    return _svidInflight.promise;
   }
+  // sessionStorage cache with TTL
+  if (!force) {
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (raw) {
+        const { ts, data } = JSON.parse(raw);
+        if (Date.now() - ts < SVID_CACHE_TTL_MS) {
+          return { success: true, data };
+        }
+      }
+    } catch {}
+  }
+  const p = (async () => {
+    try {
+      const response = await apiClient.get(`/sales/api/sale-voucher-initial-data/`);
+      try {
+        sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: response.data }));
+      } catch {}
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error("Failed to fetch sale voucher initial data:", error.response?.data || error.message);
+      return { success: false, error: error.response?.data || error.message };
+    } finally {
+      if (_svidInflight.retailKey === key) {
+        _svidInflight.promise = null;
+        _svidInflight.retailKey = null;
+      }
+    }
+  })();
+  _svidInflight.promise = p;
+  _svidInflight.retailKey = key;
+  return p;
 }
 
 export async function fetchSaleReturnInitialData() {

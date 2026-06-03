@@ -42,7 +42,9 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
               return <div key={i} className="h-px bg-border/80" />;
             }
 
-            const value = watch ? watch(row.field) : 0;
+            const value = row.computedValue !== undefined
+              ? row.computedValue
+              : (watch ? watch(row.field) : 0);
             const isTotal = row.isTotal;
             const isEditable = row.editable;
             const showEditableTotal = row.isEditableTotal && autoCalcTotal;
@@ -114,7 +116,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                   />
                 ) : (
                   <>
-                    <input type="hidden" {...register(row.field)} />
+                    {row.field && <input type="hidden" {...register(row.field)} />}
                     <span
                       className={`tabular-nums text-right ${
                         isTotal

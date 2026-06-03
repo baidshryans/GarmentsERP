@@ -193,7 +193,7 @@ const SalesVoucherAdd = () => {
     }
   };
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "salesvouitem_set",
   });
@@ -488,7 +488,8 @@ const SalesVoucherAdd = () => {
           };
           Object.keys(formData.form).forEach(key => {
             if (key === 'salesvouitem_set') {
-              formData.form[key].forEach(item => append(item));
+              // Use replace() so re-running the load (HMR / StrictMode) cannot duplicate rows
+              replace(formData.form[key] || []);
             } else if (key !== 'salesvouitemdetails_set' && key !== 'bank_details') {
               setValue(`form.${key}`, formData.form[key]);
             }
@@ -515,6 +516,27 @@ const SalesVoucherAdd = () => {
               uom: "Gm",
               rate: r.rate ?? "",
             })));
+          }
+          // Restore applied advance receipts AND fetch any still-unlinked receipts
+          // for the loaded customer so advances can be added/removed in edit mode.
+          const appliedReceipts = Array.isArray(data.applied_advance_receipts)
+            ? data.applied_advance_receipts : [];
+          if (appliedReceipts.length > 0) {
+            setSelectedReceiptIds(appliedReceipts.map(r => r.id));
+          }
+          if (data.ldgr) {
+            setLoadingOnAccount(true);
+            fetchUnlinkedReceipts(data.ldgr).then(res => {
+              setLoadingOnAccount(false);
+              const unlinked = res.success ? res.data : [];
+              const merged = [
+                ...appliedReceipts,
+                ...unlinked.filter(u => !appliedReceipts.some(a => a.id === u.id)),
+              ];
+              setOnAccountReceipts(merged);
+            });
+          } else if (appliedReceipts.length > 0) {
+            setOnAccountReceipts(appliedReceipts);
           }
           // Restore old gold purchase link (still sequential — needs ldgr from voucher data)
           if (data.old_gold_purchase && data.ldgr) {
@@ -962,7 +984,8 @@ const SalesVoucherAdd = () => {
       if (!data.customer_order) data.customer_order = null;
       if (!data.old_gold_purchase) data.old_gold_purchase = null;
       // Direct on-account advance: only send when no order is linked
-      if (!data.customer_order && selectedReceiptIds.length > 0) {
+      if (!data.customer_order) {
+        // Always send the list (even empty) so the backend can reconcile allocations on update
         data.advance_receipt_ids = selectedReceiptIds;
       } else {
         delete data.advance_receipt_ids;
@@ -1106,9 +1129,23 @@ const SalesVoucherAdd = () => {
     { label: 'Round Off',      field: 'form.round_off',      editable: true, step: '0.01' },
     { isSeparator: true },
     { label: 'Total',          field: 'form.total_bill_value', isTotal: true, isEditableTotal: true },
-    ...(selectedOrder ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: false, step: '1' }] : []),
+    ...((selectedOrder || selectedReceiptIds.length > 0 || parseFloat(getValues('form.advance_deducted') || 0) > 0) ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: false, step: '1' }] : []),
     ...(selectedPurchase ? [{ label: 'Old Gold Adjusted', field: 'form.old_gold_adjusted', editable: true, step: '1' }] : []),
     ...(inlineOldGoldTotal > 0 ? [{ label: 'Old Gold (Inline)', field: 'form.inline_old_gold_total' }] : []),
+    { isSeparator: true },
+    {
+      label: 'Net Due',
+      isTotal: true,
+      computedValue: Math.max(
+        0,
+        parseFloat(watch('form.total_bill_value') || 0)
+        - parseFloat(watch('form.cash') || 0)
+        - bankdetails.reduce((s, b) => s + parseFloat(b.amount || 0), 0)
+        - parseFloat(watch('form.advance_deducted') || 0)
+        - parseFloat(watch('form.old_gold_adjusted') || 0)
+        - inlineOldGoldTotal
+      ),
+    },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -1199,7 +1236,6 @@ const SalesVoucherAdd = () => {
                   setB2bPricelist(plRes.success && plRes.data ? plRes.data : null);
                   setRetailDiscountPricelist(rdplRes.success && rdplRes.data ? rdplRes.data : null);
                 }}
-                placeholder="Search customer…"
               />
               <Link
                 to={`/crm/ledger/add/?next=${encodeURIComponent(location.pathname)}`}
@@ -1370,148 +1406,6 @@ const SalesVoucherAdd = () => {
                 )}
               />
             </FieldContainer>
-          </div>
-        )}
-
-        {/* ══ Order Advance Reconciliation ════════════════════════════════════ */}
-        {customerOrders.length > 0 && (
-          <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50/60 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <ClipboardList className="size-4 text-primary" />
-              <span className="text-sm font-semibold text-primary">Link Customer Order &amp; Apply Advance</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Order dropdown */}
-              <FieldContainer>
-                <Label className="text-nowrap text-primary">Customer Order</Label>
-                <Controller
-                  name="form.customer_order"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={field.value ? String(field.value) : "__none__"}
-                      onValueChange={(val) => {
-                        if (val === "__none__") {
-                          field.onChange("");
-                          setSelectedOrder(null);
-                          setValue("form.advance_deducted", 0);
-                        } else {
-                          field.onChange(val);
-                          const order = customerOrders.find(o => String(o.id) === val);
-                          setSelectedOrder(order ?? null);
-                          // Auto-fill with available advance
-                          if (order) {
-                            const avail = parseFloat(order.advance_available ?? order.advance_amt ?? 0);
-                            setValue("form.advance_deducted", avail);
-                            setCalculate(prev => prev + 1);
-                          }
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="h-9 text-sm bg-white">
-                        <SelectValue placeholder="Select order…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— No order linked —</SelectItem>
-                        {customerOrders.map(o => (
-                          <SelectItem key={o.id} value={String(o.id)}>
-                            {o.order_no} · ₹{parseFloat(o.advance_available ?? o.advance_amt ?? 0).toLocaleString('en-IN')} available
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </FieldContainer>
-
-              {/* Advance info card */}
-              {selectedOrder && (
-                <div className="rounded-md border border-violet-200 bg-white px-4 py-3 text-sm flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <CheckCircle2 className="size-3.5 text-emerald-600" />
-                    <span className="font-semibold text-primary">{selectedOrder.order_no}</span>
-                    <span className="text-muted-foreground text-xs ml-auto">{selectedOrder.date1}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Estimated Value</span>
-                    <span className="font-medium">₹{parseFloat(selectedOrder.est_amount || 0).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Total Advance</span>
-                    <span className="font-medium">₹{parseFloat(selectedOrder.advance_amt || 0).toLocaleString('en-IN')}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Already Reconciled</span>
-                    <span className="font-medium text-rose-600">
-                      − ₹{parseFloat(selectedOrder.advance_reconciled || 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs border-t border-violet-100 pt-1 mt-0.5">
-                    <span className="font-semibold text-primary">Available to Apply</span>
-                    <span className="font-bold text-primary">
-                      ₹{parseFloat(selectedOrder.advance_available ?? selectedOrder.advance_amt ?? 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {selectedOrder && (
-              <div className="mt-3 flex items-center gap-3">
-                <AlertCircle className="size-3.5 text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-700">
-                  The full available advance is applied automatically. Any surplus
-                  stays on the order and will roll into the next bill against it.
-                </p>
-              </div>
-            )}
-
-            {/* On-account credits — only shown when no order is linked */}
-            {!selectedOrder && (loadingOnAccount || onAccountReceipts.length > 0) && (
-              <div className="mt-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  On-account credits
-                </p>
-                {loadingOnAccount ? (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="size-3 animate-spin" /> Loading…
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-border overflow-hidden">
-                    {onAccountReceipts.map(r => {
-                      const checked = selectedReceiptIds.includes(r.id);
-                      return (
-                        <label
-                          key={r.id}
-                          className={`flex items-center gap-3 px-3 py-2 cursor-pointer text-xs border-b last:border-0 transition-colors ${checked ? "bg-emerald-50" : "hover:bg-muted/30"}`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={e => {
-                              setSelectedReceiptIds(prev =>
-                                e.target.checked ? [...prev, r.id] : prev.filter(x => x !== r.id)
-                              );
-                            }}
-                            className="accent-primary"
-                          />
-                          <span className="font-mono flex-1">{r.voucher_no}</span>
-                          <span className="text-muted-foreground">{r.date}</span>
-                          <span className="font-medium text-emerald-700">
-                            ₹{r.amount_remaining.toLocaleString("en-IN")} available
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-                {selectedReceiptIds.length > 0 && (
-                  <p className="text-[10px] text-emerald-700 mt-1">
-                    Selected credits will be applied as advance deduction on this bill.
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -2296,6 +2190,167 @@ const SalesVoucherAdd = () => {
             )}
           </div>
 
+        {/* ══ Order Advance Reconciliation / On-Account Advance ══ */}
+        {(customerOrders.length > 0 || onAccountReceipts.length > 0 || loadingOnAccount) && (
+          <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50/60 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ClipboardList className="size-4 text-primary" />
+              <span className="text-sm font-semibold text-primary">
+                {customerOrders.length > 0 ? "Link Customer Order & Apply Advance" : "Apply On-Account Advance"}
+              </span>
+            </div>
+            {customerOrders.length > 0 && (
+            <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FieldContainer>
+                <Label className="text-nowrap text-primary">Customer Order</Label>
+                <Controller
+                  name="form.customer_order"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value ? String(field.value) : "__none__"}
+                      onValueChange={(val) => {
+                        if (val === "__none__") {
+                          field.onChange("");
+                          setSelectedOrder(null);
+                          setValue("form.advance_deducted", 0);
+                        } else {
+                          field.onChange(val);
+                          const order = customerOrders.find(o => String(o.id) === val);
+                          setSelectedOrder(order ?? null);
+                          if (order) {
+                            const avail = parseFloat(order.advance_available ?? order.advance_amt ?? 0);
+                            setValue("form.advance_deducted", avail);
+                            setCalculate(prev => prev + 1);
+                          }
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 text-sm bg-white">
+                        <SelectValue placeholder="Select order…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— No order linked —</SelectItem>
+                        {customerOrders.map(o => (
+                          <SelectItem key={o.id} value={String(o.id)}>
+                            {o.order_no} · ₹{parseFloat(o.advance_available ?? o.advance_amt ?? 0).toLocaleString('en-IN')} available
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FieldContainer>
+              {selectedOrder && (
+                <div className="rounded-md border border-violet-200 bg-white px-4 py-3 text-sm flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <CheckCircle2 className="size-3.5 text-emerald-600" />
+                    <span className="font-semibold text-primary">{selectedOrder.order_no}</span>
+                    <span className="text-muted-foreground text-xs ml-auto">{selectedOrder.date1}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Total Advance</span>
+                    <span className="font-medium">₹{parseFloat(selectedOrder.advance_amt || 0).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Already Reconciled</span>
+                    <span className="font-medium text-rose-600">
+                      − ₹{parseFloat(selectedOrder.advance_reconciled || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs border-t border-violet-100 pt-1 mt-0.5">
+                    <span className="font-semibold text-primary">Available to Apply</span>
+                    <span className="font-bold text-primary">
+                      ₹{parseFloat(selectedOrder.advance_available ?? selectedOrder.advance_amt ?? 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            {selectedOrder && (
+              <div className="mt-3 flex items-center gap-3">
+                <AlertCircle className="size-3.5 text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-700">
+                  The full available advance is applied automatically. Any surplus
+                  stays on the order and will roll into the next bill against it.
+                </p>
+              </div>
+            )}
+            </>
+            )}
+            {!selectedOrder && (loadingOnAccount || onAccountReceipts.length > 0) && (
+              <div className={customerOrders.length > 0 ? "mt-3" : ""}>
+                {customerOrders.length > 0 && (
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    On-account credits
+                  </p>
+                )}
+                {loadingOnAccount ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" /> Loading…
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-border overflow-hidden bg-white">
+                    {onAccountReceipts.map(r => {
+                      const checked = selectedReceiptIds.includes(r.id);
+                      return (
+                        <label
+                          key={r.id}
+                          className={`flex items-center gap-3 px-3 py-2 cursor-pointer text-xs border-b last:border-0 transition-colors ${checked ? "bg-emerald-50" : "hover:bg-muted/30"}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={e => {
+                              const next = e.target.checked
+                                ? [...selectedReceiptIds, r.id]
+                                : selectedReceiptIds.filter(x => x !== r.id);
+                              const nextSum = next.reduce((s, id) => {
+                                const rec = onAccountReceipts.find(o => o.id === id);
+                                return s + (rec ? parseFloat(rec.amount_remaining || 0) : 0);
+                              }, 0);
+                              if (e.target.checked) {
+                                const grandTotal = parseFloat(getValues("form.total_bill_value") || 0);
+                                const cashPaid   = parseFloat(getValues("form.cash") || 0);
+                                const bankPaid   = bankdetails.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
+                                const oldGoldAdj = parseFloat(getValues("form.old_gold_adjusted") || 0);
+                                const maxAdvance = Math.max(0, grandTotal - cashPaid - bankPaid - oldGoldAdj);
+                                if (nextSum > maxAdvance + 0.01) {
+                                  toast({
+                                    title: "Advance exceeds bill balance",
+                                    description: `Only ₹${maxAdvance.toFixed(2)} can be adjusted against this bill.`,
+                                    variant: "destructive",
+                                  });
+                                  return;
+                                }
+                              }
+                              setSelectedReceiptIds(next);
+                              setValue("form.advance_deducted", parseFloat(nextSum.toFixed(2)));
+                              setCalculate(prev => prev + 1);
+                            }}
+                            className="accent-primary"
+                          />
+                          <span className="font-mono flex-1">{r.voucher_no}</span>
+                          <span className="text-muted-foreground">{r.date}</span>
+                          <span className="font-medium text-emerald-700">
+                            ₹{r.amount_remaining.toLocaleString("en-IN")} available
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedReceiptIds.length > 0 && (
+                  <p className="text-[10px] text-emerald-700 mt-1">
+                    Selected credits will be applied as advance deduction on this bill.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         </div>{/* end left column */}
 
           {/* ── Bill Summary (right-side panel) ─────────────────────────────── */}
@@ -2313,7 +2368,7 @@ const SalesVoucherAdd = () => {
           >
             <button type="submit" disabled={saving || !canSave}>{saveLabel(saving)}</button>
           </Button>
-          <Button variant="outline" onClick={() => window.history.back()}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
         </div>
       </form>
     </div>

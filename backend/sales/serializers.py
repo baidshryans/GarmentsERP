@@ -654,6 +654,33 @@ class SalesVouSerializer(serializers.ModelSerializer):
         child=serializers.IntegerField(), required=False, write_only=True, default=list,
         help_text="PKs of unlinked RCPT vouchers to apply as advance (used when no customer_order is set)"
     )
+    applied_advance_receipts = serializers.SerializerMethodField(read_only=True)
+
+    def get_applied_advance_receipts(self, obj):
+        if not obj.billno or not obj.ldgr_id:
+            return []
+        from accounting.models import ReferenceBills as _RefBills
+        rows = (
+            _RefBills.objects
+            .filter(
+                ref_bill_txt=obj.billno,
+                ldgr=obj.ldgr,
+                voucher__voucher_type__in=['RCPT', 'RCPT-SALE'],
+            )
+            .select_related('voucher')
+            .order_by('voucher__date', 'voucher_id')
+        )
+        return [
+            {
+                'id': r.voucher_id,
+                'voucher_no': r.voucher.voucher_no,
+                'date': r.voucher.date.isoformat() if r.voucher.date else '',
+                'amount': float(r.voucher.amount or 0),
+                'amount_remaining': float(r.amount or 0),
+                'narration': r.voucher.narration or '',
+            }
+            for r in rows
+        ]
     # Multi-voucher old gold (POS path) — [{purchase_id, amount}, ...]
     old_gold_adjustments_data = serializers.ListField(
         child=serializers.DictField(), write_only=True, required=False, default=list,
@@ -914,6 +941,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'due_amt',
             'advance_deducted',
             'advance_receipt_ids',
+            'applied_advance_receipts',
             'customer_order',
             'old_gold_purchase',
             'old_gold_adjusted',
@@ -1468,6 +1496,47 @@ class SalesVouSerializer(serializers.ModelSerializer):
             item_details_data = validated_data.pop('salesvouitemdetails_set', [])
             bank_details = validated_data.pop('bank_details')
             inline_old_gold_items = validated_data.pop('inline_old_gold_items', []) or []
+            # Advance receipts: when the frontend explicitly sends advance_receipt_ids
+            # (including an empty list), reconcile ReferenceBills allocations to match.
+            _adv_ids_sentinel = object()
+            advance_receipt_ids = validated_data.pop('advance_receipt_ids', _adv_ids_sentinel)
+            _reconcile_advance = (
+                advance_receipt_ids is not _adv_ids_sentinel
+                and not validated_data.get('customer_order')
+                and not instance.customer_order_id
+            )
+            if _reconcile_advance:
+                from accounting.models import ReferenceBills as _RefBills, VoucherMain as _VM
+                # Clear existing RCPT allocations against this bill
+                _RefBills.objects.filter(
+                    ref_bill_txt=instance.billno,
+                    voucher__voucher_type__in=['RCPT', 'RCPT-SALE'],
+                ).delete()
+                # Recompute advance_deducted from the new selection
+                new_advance = Decimal('0')
+                _selected_rcpts = list(
+                    _VM.objects.filter(
+                        pk__in=advance_receipt_ids or [],
+                        voucher_type__in=['RCPT', 'RCPT-SALE'],
+                        status='posted',
+                    ).order_by('date', 'id')
+                )
+                for rcpt in _selected_rcpts:
+                    from django.db.models import Sum as _SumA
+                    already = _RefBills.objects.filter(voucher=rcpt).aggregate(
+                        s=_SumA('amount')
+                    )['s'] or Decimal('0')
+                    avail = Decimal(str(rcpt.amount)) - already
+                    if avail > 0:
+                        new_advance += avail
+                validated_data['advance_deducted'] = new_advance
+                # Stash for post-save ReferenceBills creation
+                self._pending_advance_rcpts = _selected_rcpts
+                self._pending_advance_total = new_advance
+            else:
+                self._pending_advance_rcpts = None
+                self._pending_advance_total = None
+            validated_data.pop('old_gold_adjustments_data', None)
 
             # â”€â”€ Snapshot current DB values BEFORE setattr overwrites them â”€â”€â”€â”€â”€â”€
             # Needed to preserve subsequent payment receipts when recalculating due_amt.
@@ -1486,6 +1555,31 @@ class SalesVouSerializer(serializers.ModelSerializer):
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
             instance.save()
+
+            # Re-create RCPT allocations after save (uses instance.billno which won't change)
+            if self._pending_advance_rcpts is not None:
+                from accounting.models import ReferenceBills as _RefBills
+                remaining = self._pending_advance_total or Decimal('0')
+                for rcpt in self._pending_advance_rcpts:
+                    if remaining <= 0:
+                        break
+                    from django.db.models import Sum as _SumA
+                    already = _RefBills.objects.filter(voucher=rcpt).aggregate(
+                        s=_SumA('amount')
+                    )['s'] or Decimal('0')
+                    avail = Decimal(str(rcpt.amount)) - already
+                    if avail <= 0:
+                        continue
+                    alloc = min(remaining, avail)
+                    _RefBills.objects.create(
+                        ldgr=instance.ldgr,
+                        voucher=rcpt,
+                        amount=alloc,
+                        vendor_bill_no="",
+                        ref_bill=None,
+                        ref_bill_txt=instance.billno,
+                    )
+                    remaining -= alloc
 
             create_or_update_nested(SalesVouItemSerializer, instance, 'salesvouitem_set', 'billno', SalesVouItemSerializer(detail_data, many=True).data)
 

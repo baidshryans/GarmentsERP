@@ -1347,9 +1347,24 @@ class ClosingStockCal:
             item_id__in=item_ids, is_return=False, is_finished=False,
         ).filter(_retail_q())
         pu_main_qs = _date_filter(pu_main_qs)
+        # Customer-type purchases (PV/C) leave item_value at 0; the line value
+        # lives on the sub-item PurchaseVoucherDetails rows. Fall back to
+        # Σ(detail.value) + making_value when item_value is null/0.
+        _pv_detail_sum = PurchaseVoucherDetails.objects.filter(
+            main_item=OuterRef('pk')
+        ).values('main_item').annotate(s=Sum('value')).values('s')
+        pu_main_qs = pu_main_qs.annotate(
+            _real_value=Case(
+                When(Q(item_value__isnull=True) | Q(item_value=0),
+                     then=Coalesce(Subquery(_pv_detail_sum, output_field=DecimalField()), zero)
+                          + Coalesce(F('making_value'), zero)),
+                default=F('item_value'),
+                output_field=DecimalField(),
+            )
+        )
         pu_main = _batch(pu_main_qs, 'item_id', {
             'total_gw': Coalesce(Sum('gw'), zero),
-            'total_amt': Coalesce(Sum('item_value'), zero),
+            'total_amt': Coalesce(Sum('_real_value'), zero),
         })
         pu_det_qs = PurchaseVoucherDetails.objects.filter(
             sub_item_id__in=item_ids,

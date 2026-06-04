@@ -1347,34 +1347,9 @@ class ClosingStockCal:
             item_id__in=item_ids, is_return=False, is_finished=False,
         ).filter(_retail_q())
         pu_main_qs = _date_filter(pu_main_qs)
-        # Customer-type purchases (PV/C) leave item_value at 0; the line value
-        # lives on the sub-item PurchaseVoucherDetails rows. Fall back to
-        # Σ(detail.value) + making_value when item_value is null/0.
-        # Customer purchases often leave detail.value at 0 (only rate × sub_gw
-        # is captured), so the fallback recomputes value as sub_gw*rate when
-        # value is null/0.
-        _pv_detail_sum = PurchaseVoucherDetails.objects.filter(
-            main_item=OuterRef('pk')
-        ).values('main_item').annotate(
-            s=Sum(Case(
-                When(Q(value__isnull=True) | Q(value=0),
-                     then=Coalesce(F('sub_gw'), zero) * Coalesce(F('rate'), zero)),
-                default=F('value'),
-                output_field=DecimalField(),
-            ))
-        ).values('s')
-        pu_main_qs = pu_main_qs.annotate(
-            _real_value=Case(
-                When(Q(item_value__isnull=True) | Q(item_value=0),
-                     then=Coalesce(Subquery(_pv_detail_sum, output_field=DecimalField()), zero)
-                          + Coalesce(F('making_value'), zero)),
-                default=F('item_value'),
-                output_field=DecimalField(),
-            )
-        )
         pu_main = _batch(pu_main_qs, 'item_id', {
             'total_gw': Coalesce(Sum('gw'), zero),
-            'total_amt': Coalesce(Sum('_real_value'), zero),
+            'total_amt': Coalesce(Sum('item_value'), zero),
         })
         pu_det_qs = PurchaseVoucherDetails.objects.filter(
             sub_item_id__in=item_ids,
@@ -2757,23 +2732,17 @@ class ClosingStockTxnView(APIView):
             qs = PurchaseVoucherItems.objects.filter(
                 item=item, is_return=False, is_finished=False,
                 billno__date1__lte=to_date,
-            ).select_related('billno', 'billno__ldgr').prefetch_related('purchasevoucherdetails_set')
+            ).select_related('billno', 'billno__ldgr')
             if retail_id:
                 qs = qs.filter(retail_id=retail_id)
             for r in qs:
-                amt = r.item_value or 0
-                if not amt:
-                    amt = sum(
-                        (d.value or 0) or ((d.sub_gw or 0) * (d.rate or 0))
-                        for d in r.purchasevoucherdetails_set.all()
-                    ) + (r.making_value or 0)
                 vouchers.append({
                     'date': str(r.billno.date1),
                     'voucher_no': r.billno.billno,
                     'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
                     'gw': float(r.gw or 0),
                     'ct': 0.0,
-                    'amount': float(amt),
+                    'amount': float(r.item_value or 0),
                 })
             if item.item_type in ['S', 'R']:
                 dq = PurchaseVoucherDetails.objects.filter(
@@ -2793,16 +2762,13 @@ class ClosingStockTxnView(APIView):
                 if retail_id:
                     dq = dq.filter(retail_id=retail_id)
                 for r in dq:
-                    amt = r.value or 0
-                    if not amt:
-                        amt = (r.sub_gw or 0) * (r.rate or 0)
                     vouchers.append({
                         'date': str(r.billno.date1),
                         'voucher_no': r.billno.billno,
                         'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
                         'gw': float(r.sub_gw or 0),
                         'ct': float(r.sub_ct or 0),
-                        'amount': float(amt),
+                        'amount': float(r.value or 0),
                     })
 
         elif txn_type == 'purchase_returns':

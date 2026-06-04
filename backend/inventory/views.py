@@ -1381,6 +1381,12 @@ class ClosingStockCal:
         ).filter(
             Q(main_item__isnull=True) |
             Q(main_item__is_finished=False, main_item__is_return=False)
+        ).exclude(
+            # Skip rows where the parent main_item is the same item as the
+            # sub_item — pu_main already accounts for these via _real_value.
+            # Otherwise R-type items (e.g., raw Gold bought via customer
+            # purchase) get their gw and amount counted twice.
+            main_item__item_id=F('sub_item_id'),
         ).filter(_retail_q())
         pu_det_qs = _date_filter(pu_det_qs)
         pu_det = _batch(pu_det_qs, 'sub_item_id', {
@@ -2776,17 +2782,27 @@ class ClosingStockTxnView(APIView):
                 ).filter(
                     Q(main_item__isnull=True) |
                     Q(main_item__is_finished=False, main_item__is_return=False)
+                ).exclude(
+                    # Don't double-count: if the parent main_item is the same
+                    # item we're drilling on (e.g., customer purchase of pure
+                    # Gold where main_item.item == sub_item == Gold), the main
+                    # row already includes this detail's value via the
+                    # _real_value fallback above.
+                    main_item__item_id=item.id,
                 ).select_related('billno', 'billno__ldgr')
                 if retail_id:
                     dq = dq.filter(retail_id=retail_id)
                 for r in dq:
+                    amt = r.value or 0
+                    if not amt:
+                        amt = (r.sub_gw or 0) * (r.rate or 0)
                     vouchers.append({
                         'date': str(r.billno.date1),
                         'voucher_no': r.billno.billno,
                         'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
                         'gw': float(r.sub_gw or 0),
                         'ct': float(r.sub_ct or 0),
-                        'amount': float(r.value or 0),
+                        'amount': float(amt),
                     })
 
         elif txn_type == 'purchase_returns':

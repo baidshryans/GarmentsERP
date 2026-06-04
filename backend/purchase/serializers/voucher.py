@@ -83,11 +83,28 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
             'main_item': {'required': False, 'allow_null': True},
         }
 
+    @staticmethod
+    def _derive_value(validated_data, instance=None):
+        """If `value` is missing/zero but sub_gw and rate are present, set
+        value = sub_gw * rate. Customer-purchase flow doesn't compute this
+        client-side, but we still need it for closing-stock / journals."""
+        v = validated_data.get('value')
+        if v in (None, 0, Decimal('0'), Decimal('0.00')):
+            sub_gw = validated_data.get('sub_gw')
+            rate = validated_data.get('rate')
+            if sub_gw is None and instance is not None:
+                sub_gw = instance.sub_gw
+            if rate is None and instance is not None:
+                rate = instance.rate
+            if sub_gw and rate:
+                validated_data['value'] = Decimal(str(sub_gw)) * Decimal(str(rate))
+
     def create(self, validated_data):
         # Derive billno from main_item so the FK is always populated
         main_item = validated_data.get('main_item')
         if main_item and 'billno' not in validated_data:
             validated_data['billno'] = main_item.billno
+        self._derive_value(validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -103,6 +120,7 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
             and instance.main_item_id is not None
         ):
             validated_data.pop('main_item')
+        self._derive_value(validated_data, instance=instance)
         return super().update(instance, validated_data)
 
 
@@ -384,7 +402,9 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     **item_data,
                 )
                 item_instances.append(voucher_item_instance)
+                _detail_value_sum = Decimal('0')
                 for detail_data in details_data:
+                    PurchaseVoucherDetailsSerializer._derive_value(detail_data)
                     det = PurchaseVoucherDetails.objects.create(
                         main_item=voucher_item_instance,
                         billno=purchase_voucher_instance,
@@ -392,10 +412,18 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                         **detail_data,
                     )
                     item_detail_instances.append(det)
+                    _detail_value_sum += Decimal(str(det.value or 0))
+                # Recompute item_value so customer-purchase rows (where the
+                # client sends 0) end up with the correct total. item_value
+                # = Σ(detail.value) + making_value.
+                _making = Decimal(str(voucher_item_instance.making_value or 0))
+                voucher_item_instance.item_value = _detail_value_sum + _making
+                voucher_item_instance.save(update_fields=['item_value'])
 
             # Create direct raw/material details (no parent main item)
             for detail_data in direct_details_data:
                 detail_data.pop('main_item', None)
+                PurchaseVoucherDetailsSerializer._derive_value(detail_data)
                 det = PurchaseVoucherDetails.objects.create(
                     billno=purchase_voucher_instance,
                     main_item=None,
@@ -538,6 +566,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                 # **detail_data doesn't double-pass billno/main_item/retail.
                 detail_data = {k: v for k, v in detail_data.items()
                                if k not in {"billno", "main_item", "retail", "id"}}
+                PurchaseVoucherDetailsSerializer._derive_value(detail_data)
                 PurchaseVoucherDetails.objects.create(
                     billno=instance,
                     main_item=None,

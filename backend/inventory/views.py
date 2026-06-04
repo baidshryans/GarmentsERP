@@ -1350,9 +1350,19 @@ class ClosingStockCal:
         # Customer-type purchases (PV/C) leave item_value at 0; the line value
         # lives on the sub-item PurchaseVoucherDetails rows. Fall back to
         # Σ(detail.value) + making_value when item_value is null/0.
+        # Customer purchases often leave detail.value at 0 (only rate × sub_gw
+        # is captured), so the fallback recomputes value as sub_gw*rate when
+        # value is null/0.
         _pv_detail_sum = PurchaseVoucherDetails.objects.filter(
             main_item=OuterRef('pk')
-        ).values('main_item').annotate(s=Sum('value')).values('s')
+        ).values('main_item').annotate(
+            s=Sum(Case(
+                When(Q(value__isnull=True) | Q(value=0),
+                     then=Coalesce(F('sub_gw'), zero) * Coalesce(F('rate'), zero)),
+                default=F('value'),
+                output_field=DecimalField(),
+            ))
+        ).values('s')
         pu_main_qs = pu_main_qs.annotate(
             _real_value=Case(
                 When(Q(item_value__isnull=True) | Q(item_value=0),
@@ -2747,8 +2757,10 @@ class ClosingStockTxnView(APIView):
             for r in qs:
                 amt = r.item_value or 0
                 if not amt:
-                    amt = sum((d.value or 0) for d in r.purchasevoucherdetails_set.all()) \
-                        + (r.making_value or 0)
+                    amt = sum(
+                        (d.value or 0) or ((d.sub_gw or 0) * (d.rate or 0))
+                        for d in r.purchasevoucherdetails_set.all()
+                    ) + (r.making_value or 0)
                 vouchers.append({
                     'date': str(r.billno.date1),
                     'voucher_no': r.billno.billno,

@@ -210,10 +210,17 @@ class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         details_data = validated_data.pop('purchasevoucherdetails_set')
         coi = validated_data.get('customer_order_item')
+        # Mirror voucher date onto the item row when FE omits date1.
+        billno = validated_data.get('billno')
+        if billno and not validated_data.get('date1'):
+            validated_data['date1'] = billno.date1
         voucher_item_instance = PurchaseVoucherItems.objects.create(**validated_data)
 
         # Create related PurchaseVoucherDetails instances
         for detail_data in details_data:
+            PurchaseVoucherDetailsSerializer._derive_value(detail_data)
+            if not detail_data.get('date1') and voucher_item_instance.billno_id:
+                detail_data['date1'] = voucher_item_instance.billno.date1
             PurchaseVoucherDetails.objects.create(main_item=voucher_item_instance, **detail_data)
 
         # Belt-and-braces: flip sale_status True so the CO item is locked
@@ -396,6 +403,10 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             _retail = purchase_voucher_instance.retail
             for item_data in items_data:
                 details_data = item_data.pop('purchasevoucherdetails_set')
+                # Mirror the voucher date onto the item/detail rows when the
+                # frontend omits date1 — the column is nullable but downstream
+                # reports (closing stock, day book) rely on it.
+                item_data.setdefault('date1', purchase_voucher_instance.date1)
                 voucher_item_instance = PurchaseVoucherItems.objects.create(
                     billno=purchase_voucher_instance,
                     retail=_retail,
@@ -405,6 +416,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                 _detail_value_sum = Decimal('0')
                 for detail_data in details_data:
                     PurchaseVoucherDetailsSerializer._derive_value(detail_data)
+                    detail_data.setdefault('date1', purchase_voucher_instance.date1)
                     det = PurchaseVoucherDetails.objects.create(
                         main_item=voucher_item_instance,
                         billno=purchase_voucher_instance,
@@ -424,6 +436,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             for detail_data in direct_details_data:
                 detail_data.pop('main_item', None)
                 PurchaseVoucherDetailsSerializer._derive_value(detail_data)
+                detail_data.setdefault('date1', purchase_voucher_instance.date1)
                 det = PurchaseVoucherDetails.objects.create(
                     billno=purchase_voucher_instance,
                     main_item=None,
@@ -567,6 +580,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                 detail_data = {k: v for k, v in detail_data.items()
                                if k not in {"billno", "main_item", "retail", "id"}}
                 PurchaseVoucherDetailsSerializer._derive_value(detail_data)
+                detail_data.setdefault('date1', instance.date1)
                 PurchaseVoucherDetails.objects.create(
                     billno=instance,
                     main_item=None,

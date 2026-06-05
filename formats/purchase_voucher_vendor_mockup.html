@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Purchase Voucher (Vendor) — Mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" />
+<style>
+:root{
+  --ink:#0f172a;
+  --body:#1e293b;
+  --muted:#64748b;
+  --faint:#94a3b8;
+  --rule:#e2e8f0;
+  --band:#f8fafc;
+  --neg:#b91c1c;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#eef2f6}
+body{
+  font-family:"Inter","Helvetica Neue",Arial,sans-serif;
+  color:var(--body);
+  font-feature-settings:"tnum" 1,"lnum" 1;
+  -webkit-font-smoothing:antialiased;
+}
+.pv-page{
+  width:210mm;min-height:297mm;
+  margin:24px auto;background:#fff;
+  padding:10mm 11mm;
+  box-shadow:0 4px 24px rgba(15,23,42,.08);
+  color:var(--body);font-size:9px;line-height:1.45;
+  display:flex;flex-direction:column;
+}
+
+/* ── Header ── */
+.pv-hdr{
+  display:grid;grid-template-columns:auto 1fr auto;
+  align-items:center;gap:16px;
+  padding-bottom:14px;border-bottom:2px solid var(--ink);
+  text-align:center;
+}
+.pv-bis,.pv-logo{
+  width:90px;height:64px;display:grid;place-items:center;
+  font-size:7.5px;color:var(--muted);text-align:center;line-height:1.15;
+  letter-spacing:.5px;border:1px dashed var(--faint);border-radius:4px;
+}
+.pv-bis{width:64px;border-radius:50%;}
+.pv-brand-block{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.pv-brand{font-family:"Fraunces",Georgia,serif;font-size:14px;font-weight:700;color:var(--ink);}
+.pv-brand-legal{font-size:11px;font-weight:600;color:var(--ink);}
+.pv-brand-sub{font-size:9px;color:var(--muted);letter-spacing:.2px;}
+.pv-brand-sub strong{color:var(--ink);font-weight:600;}
+.pv-brand-ids{display:flex;gap:18px;font-size:8.5px;color:var(--muted);margin-top:2px;}
+.pv-brand-ids span b{color:var(--ink);font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums;}
+
+/* ── Title strip ── */
+.pv-title{text-align:center;margin:12px 0 10px;position:relative;}
+.pv-title .pv-t{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--ink);font-weight:700;}
+.pv-title .pv-m{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px;}
+.pv-title .pv-m .pv-num{color:var(--ink);font-weight:700;letter-spacing:.2px;}
+.pv-title .pv-m .pv-sep{color:var(--faint);margin:0 8px;}
+.pv-title .pv-m .pv-date{color:var(--ink);font-weight:600;}
+.pv-rcm{
+  position:absolute;left:0;top:0;
+  font-size:8px;letter-spacing:1.6px;font-weight:700;
+  color:var(--neg);border:1px solid var(--neg);
+  padding:2px 6px;border-radius:3px;
+}
+.pv-copy{
+  position:absolute;right:0;top:2px;
+  font-size:8px;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--muted);font-weight:600;
+}
+
+/* ── Parties / vendor + bill meta ── */
+.pv-parties{
+  display:grid;grid-template-columns:1.4fr 1fr;
+  margin-bottom:12px;border:1px solid var(--rule);
+  border-radius:4px;overflow:hidden;
+}
+.pv-party{padding:10px 12px;}
+.pv-party + .pv-party{border-left:1px solid var(--rule);}
+.pv-pe{
+  font-size:7px;letter-spacing:1.8px;text-transform:uppercase;
+  color:var(--muted);font-weight:700;margin-bottom:6px;
+  display:flex;align-items:center;gap:8px;
+}
+.pv-pe::after{content:"";flex:1;height:1px;background:var(--rule);}
+.pv-name{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:-.1px;}
+.pv-addr{font-size:9px;color:var(--body);margin-top:4px;line-height:1.55;}
+.pv-ids{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:8px 14px;margin-top:10px;padding-top:10px;
+  border-top:1px dashed var(--rule);
+}
+.pv-id .pv-l{font-size:7px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;}
+.pv-id .pv-v{font-size:9px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px;word-break:break-all;}
+.pv-id .pv-v.empty{color:var(--faint);font-weight:400;}
+
+.pv-bill-ids{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 14px;}
+.pv-bill-ids.row3{grid-template-columns:repeat(2,1fr);}
+
+/* ── Metal rate strip ── */
+.pv-rate{
+  display:flex;align-items:baseline;gap:18px;
+  padding:7px 0;border-top:1px solid var(--rule);
+  border-bottom:1px solid var(--rule);margin-bottom:14px;
+  font-variant-numeric:tabular-nums;
+}
+.pv-rate .pv-l{font-size:7.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);font-weight:700;}
+.pv-rate .pv-r{font-size:10px;color:var(--ink);font-weight:500;}
+
+/* ── Items table ── */
+table.pv-items{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5px;}
+table.pv-items thead th{
+  text-align:right;padding:7px 5px;
+  font-size:7px;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--muted);font-weight:700;border-bottom:1px solid var(--ink);
+}
+table.pv-items thead th.l{text-align:left;}
+table.pv-items thead th.c{text-align:center;}
+table.pv-items tbody td{
+  padding:6px 5px;border-bottom:1px solid var(--rule);
+  vertical-align:top;text-align:right;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+table.pv-items tbody td.l{text-align:left;}
+table.pv-items tbody td.c{text-align:center;}
+table.pv-items tbody td.product{text-align:left;color:var(--ink);font-weight:600;font-size:9px;}
+table.pv-items tbody tr.parent td{font-weight:600;color:var(--ink);padding:6px 5px;}
+table.pv-items tbody tr.parent td.amt{font-weight:700;}
+table.pv-items tbody tr.parent td.sn{font-weight:700;color:var(--ink);}
+table.pv-items tbody tr.sub td{
+  color:var(--muted);border-bottom:1px dashed var(--rule);
+  font-size:8px;padding:4px 5px;background:#fcfcfd;
+}
+table.pv-items tbody tr.sub td.l{padding-left:12px;font-style:italic;}
+
+/* ── HSN tax breakup ── */
+.pv-tax{
+  margin-top:14px;border:1px solid var(--rule);border-radius:4px;overflow:hidden;
+}
+.pv-tax table{width:100%;border-collapse:collapse;font-size:8.5px;}
+.pv-tax th{
+  text-align:right;padding:6px 8px;font-size:7px;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--muted);font-weight:700;
+  background:var(--band);border-bottom:1px solid var(--rule);
+}
+.pv-tax th.l{text-align:left;}
+.pv-tax th.c{text-align:center;}
+.pv-tax td{padding:6px 8px;text-align:right;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;}
+.pv-tax td.c{text-align:center;}
+
+/* ── Bottom split ── */
+.pv-bottom{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-top:14px;}
+.pv-left h4{font-size:7.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px;}
+.pv-block{margin-bottom:14px;}
+.pv-narr,.pv-words{
+  border:1px solid var(--rule);border-radius:4px;
+  padding:8px 12px;background:var(--band);
+  font-size:9px;color:var(--body);
+}
+.pv-narr b,.pv-words b{color:var(--ink);font-weight:600;}
+.pv-words{font-style:italic;margin-top:6px;}
+.pv-words b{font-style:normal;}
+
+/* ── Totals ladder ── */
+.pv-totals{font-size:9.5px;}
+.pv-totals .pv-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;color:var(--body);}
+.pv-totals .pv-row .pv-l{font-size:8px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:600;}
+.pv-totals .pv-row .pv-v{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);}
+.pv-totals .pv-row.bold{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:7px 0;}
+.pv-totals .pv-row.bold .pv-l{color:var(--ink);font-weight:700;}
+.pv-totals .pv-row.bold .pv-v{font-weight:700;}
+.pv-totals .pv-row.net{margin-top:4px;border-top:2px solid var(--ink);padding:8px 0;}
+.pv-totals .pv-row.net .pv-l{color:var(--ink);font-weight:700;font-size:9px;}
+.pv-totals .pv-row.net .pv-v{font-weight:700;}
+.pv-totals .pv-row.neg .pv-v{color:var(--neg);}
+
+/* ── Footer ── */
+.pv-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--rule);}
+.pv-terms{font-size:8px;color:var(--muted);line-height:1.6;margin-bottom:16px;}
+.pv-terms div + div{margin-top:2px;}
+.pv-terms b{color:var(--ink);font-weight:600;}
+.pv-sig-row{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:end;}
+.pv-sig{text-align:center;display:flex;flex-direction:column;align-items:stretch;min-height:78px;}
+.pv-sig .pv-for{font-size:7.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px;}
+.pv-sig .pv-space{flex:1;min-height:56px;border-bottom:1px solid var(--ink);margin-bottom:5px;}
+.pv-sig .pv-l{font-size:7.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink);font-weight:700;}
+.pv-stamp{margin-top:10px;display:flex;align-items:center;justify-content:space-between;font-size:7.5px;color:var(--faint);letter-spacing:.4px;font-style:italic;}
+.pv-stamp .pv-pg{font-style:normal;font-weight:700;color:var(--muted);letter-spacing:1px;}
+
+@media print{
+  @page{size:A4 portrait;margin:0;}
+  html,body{background:#fff;margin:0;padding:0;}
+  .pv-page{box-shadow:none;margin:0;}
+}
+</style>
+</head>
+<body>
+
+<div class="pv-page">
+
+  <!-- ── Header ── -->
+  <div class="pv-hdr">
+    <div class="pv-bis"><span>BIS<br/>HALLMARK</span></div>
+    <div class="pv-brand-block">
+      <div class="pv-brand">ZORII</div>
+      <div class="pv-brand-legal">Zorii Diamonds Pvt. Ltd.</div>
+      <div class="pv-brand-sub">24, Camac Street, 1st Floor, Kolkata-700016</div>
+      <div class="pv-brand-sub">
+        Phone <strong>8981584400</strong> &nbsp;·&nbsp;
+        Email <strong>contact@zorii.in</strong>
+      </div>
+      <div class="pv-brand-ids">
+        <span>GSTIN<b>19AACCZ5519L1ZR</b></span>
+        <span>PAN<b>AACCZ5519L</b></span>
+        <span>TAN<b>CALZ12345A</b></span>
+        <span>CIN<b>U32111WB2025PTC276060</b></span>
+      </div>
+    </div>
+    <div class="pv-logo"><span>COMPANY<br/>LOGO</span></div>
+  </div>
+
+  <!-- ── Title strip ── -->
+  <div class="pv-title">
+    <span class="pv-rcm">RCM</span>
+    <div class="pv-t">Purchase Voucher · Vendor</div>
+    <div class="pv-m">
+      <span class="pv-num">PV/V/R001/26-27/00018</span>
+      <span class="pv-sep">·</span>
+      <span class="pv-date">04 Jun 2026</span>
+    </div>
+    <span class="pv-copy">Original / Duplicate</span>
+  </div>
+
+  <!-- ── Vendor + Bill ── -->
+  <div class="pv-parties">
+    <div class="pv-party">
+      <div class="pv-pe">Vendor</div>
+      <div class="pv-name">M/s. Rajesh Bullion Traders</div>
+      <div class="pv-addr">Shop 12, Zaveri Bazaar, Mumbai-400002</div>
+      <div class="pv-ids">
+        <div class="pv-id"><div class="pv-l">State</div><div class="pv-v">Maharashtra (27)</div></div>
+        <div class="pv-id"><div class="pv-l">GSTIN</div><div class="pv-v">27AAACR9821K1Z5</div></div>
+        <div class="pv-id"><div class="pv-l">PAN</div><div class="pv-v">AAACR9821K</div></div>
+        <div class="pv-id"><div class="pv-l">Phone</div><div class="pv-v">022-22421188</div></div>
+        <div class="pv-id"><div class="pv-l">Email</div><div class="pv-v">accounts@rbtraders.in</div></div>
+        <div class="pv-id"><div class="pv-l">MSME</div><div class="pv-v">UDYAM-MH-19-0094221</div></div>
+      </div>
+    </div>
+    <div class="pv-party">
+      <div class="pv-pe">Voucher Details</div>
+      <div class="pv-ids" style="border-top:none;padding-top:0;margin-top:0;grid-template-columns:repeat(2,1fr);">
+        <div class="pv-id"><div class="pv-l">Vendor Invoice</div><div class="pv-v">RBT/2627/0421</div></div>
+        <div class="pv-id"><div class="pv-l">Invoice Date</div><div class="pv-v">01 Jun 2026</div></div>
+        <div class="pv-id"><div class="pv-l">HSN</div><div class="pv-v">7113</div></div>
+        <div class="pv-id"><div class="pv-l">E-Way Bill</div><div class="pv-v">1310-2244-1188</div></div>
+        <div class="pv-id"><div class="pv-l">Place of Supply</div><div class="pv-v">West Bengal (19)</div></div>
+        <div class="pv-id"><div class="pv-l">Supply Type</div><div class="pv-v">Inter-State</div></div>
+        <div class="pv-id"><div class="pv-l">Mode</div><div class="pv-v">Road · Courier</div></div>
+        <div class="pv-id"><div class="pv-l">Vehicle</div><div class="pv-v">MH-04-AB-2244</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Metal rate strip ── -->
+  <div class="pv-rate">
+    <span class="pv-l">Metal Rate</span>
+    <span class="pv-r">22K : ₹ 10,955 / gm</span>
+    <span class="pv-r">18K : ₹ 8,965 / gm</span>
+  </div>
+
+  <!-- ── Items table ── -->
+  <table class="pv-items">
+    <colgroup>
+      <col style="width:4%"/>
+      <col style="width:20%"/>
+      <col style="width:6%"/>
+      <col style="width:6%"/>
+      <col style="width:4%"/>
+      <col style="width:7%"/>
+      <col style="width:7%"/>
+      <col style="width:7%"/>
+      <col style="width:8%"/>
+      <col style="width:9%"/>
+      <col style="width:8%"/>
+      <col style="width:7%"/>
+      <col style="width:9%"/>
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="c">S.No</th>
+        <th class="l">Item</th>
+        <th class="c">HSN</th>
+        <th class="c">Purity</th>
+        <th>Pcs</th>
+        <th>GW</th>
+        <th>NW</th>
+        <th>Rate</th>
+        <th>Metal Value</th>
+        <th>Stone Value</th>
+        <th>Making</th>
+        <th>Other</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="parent">
+        <td class="c sn">1</td>
+        <td class="product">Gents Ring 22K</td>
+        <td class="c">7113</td>
+        <td class="c">916</td>
+        <td>1</td>
+        <td>8.420</td>
+        <td>8.420</td>
+        <td>10,955</td>
+        <td>84,496</td>
+        <td></td>
+        <td>1,684</td>
+        <td>0</td>
+        <td class="amt">86,180</td>
+      </tr>
+      <tr class="parent">
+        <td class="c sn">2</td>
+        <td class="product">Ladies Bangle Set 22K</td>
+        <td class="c">7113</td>
+        <td class="c">916</td>
+        <td>2</td>
+        <td>42.180</td>
+        <td>42.180</td>
+        <td>10,955</td>
+        <td>4,23,279</td>
+        <td>6,510</td>
+        <td>12,450</td>
+        <td>0</td>
+        <td class="amt">4,42,239</td>
+      </tr>
+      <tr class="sub">
+        <td class="c"></td>
+        <td class="l" colspan="4">↳ Solitaire CZ · 4 pcs · 1.860 ct</td>
+        <td></td>
+        <td></td>
+        <td>3,500</td>
+        <td></td>
+        <td>6,510</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── HSN tax breakup ── -->
+  <div class="pv-tax">
+    <table>
+      <thead>
+        <tr>
+          <th class="c" style="width:12%">HSN</th>
+          <th style="width:16%">Taxable</th>
+          <th class="c" style="width:8%">CGST%</th>
+          <th style="width:12%">CGST Amt</th>
+          <th class="c" style="width:8%">SGST%</th>
+          <th style="width:12%">SGST Amt</th>
+          <th class="c" style="width:8%">IGST%</th>
+          <th style="width:12%">IGST Amt</th>
+          <th>Total Tax</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="c">7113</td>
+          <td>5,27,504</td>
+          <td class="c">—</td>
+          <td>—</td>
+          <td class="c">—</td>
+          <td>—</td>
+          <td class="c">3.000</td>
+          <td>15,825</td>
+          <td>15,825</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Bottom split ── -->
+  <div class="pv-bottom">
+    <div class="pv-left">
+      <div class="pv-block">
+        <h4>Narration</h4>
+        <div class="pv-narr">
+          Inward stock — gents ring &amp; ladies bangle set received against vendor invoice RBT/2627/0421. Inter-state procurement under reverse charge mechanism.
+        </div>
+        <div class="pv-words">
+          <b>In words:</b> Rupees Five Lakh Forty Three Thousand Three Hundred Forty Four Only
+        </div>
+      </div>
+
+      <div class="pv-block">
+        <h4>Payment Details</h4>
+        <div class="pv-narr" style="display:flex;justify-content:space-between;align-items:center;">
+          <span><b>Mode:</b> Bank Transfer · RTGS</span>
+          <span style="font-variant-numeric:tabular-nums;color:var(--ink);font-weight:700;">Due 11 Jun 2026</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pv-totals">
+      <div class="pv-row"><span class="pv-l">Subtotal</span><span class="pv-v">5,14,285</span></div>
+      <div class="pv-row"><span class="pv-l">Making Charges</span><span class="pv-v">14,134</span></div>
+      <div class="pv-row"><span class="pv-l">Hallmark Charges</span><span class="pv-v">135</span></div>
+      <div class="pv-row"><span class="pv-l">Freight Charges</span><span class="pv-v">450</span></div>
+      <div class="pv-row neg"><span class="pv-l">Less: Discount</span><span class="pv-v">1,500</span></div>
+      <div class="pv-row bold"><span class="pv-l">Total Before Tax</span><span class="pv-v">5,27,504</span></div>
+      <div class="pv-row"><span class="pv-l">CGST 0.000%</span><span class="pv-v">0</span></div>
+      <div class="pv-row"><span class="pv-l">SGST 0.000%</span><span class="pv-v">0</span></div>
+      <div class="pv-row"><span class="pv-l">IGST 3.000%</span><span class="pv-v">15,825</span></div>
+      <div class="pv-row bold"><span class="pv-l">Total After Tax</span><span class="pv-v">5,43,329</span></div>
+      <div class="pv-row"><span class="pv-l">TCS 0.100%</span><span class="pv-v">543</span></div>
+      <div class="pv-row neg"><span class="pv-l">Less: TDS (194Q)</span><span class="pv-v">528</span></div>
+      <div class="pv-row"><span class="pv-l">Round Off</span><span class="pv-v">0</span></div>
+      <div class="pv-row net"><span class="pv-l">Net Payable</span><span class="pv-v">₹ 5,43,344</span></div>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <div class="pv-footer">
+    <div class="pv-terms">
+      <div>•&nbsp; Goods received in good order &amp; condition. Hallmark verified at receipt.</div>
+      <div>•&nbsp; Payment due within <b>7 days</b> of bill date, subject to vendor's bank realisation.</div>
+      <div>•&nbsp; Disputes, if any, to be raised within 48 hours of receipt. Subject to <b>KOLKATA</b> jurisdiction.</div>
+    </div>
+    <div class="pv-sig-row">
+      <div class="pv-sig">
+        <div class="pv-for">&nbsp;</div>
+        <div class="pv-space"></div>
+        <div class="pv-l">Received By / Stores</div>
+      </div>
+      <div class="pv-sig">
+        <div class="pv-for">For ZORII DIAMONDS PVT. LTD.</div>
+        <div class="pv-space"></div>
+        <div class="pv-l">Authorised Signatory</div>
+      </div>
+    </div>
+    <div class="pv-stamp">
+      <span>This is a computer-generated voucher and does not require a signature</span>
+      <span class="pv-pg">PAGE 1 OF 1</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

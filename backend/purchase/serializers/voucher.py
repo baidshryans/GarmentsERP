@@ -23,6 +23,23 @@ from ..models import (
 
 
 class PurchaseVoucherSerializer(ModelSerializer):
+    # GST rates resolved from the linked HSN master row so the print/UI
+    # render them without having to walk the FK themselves.
+    hsn_cgst_per = serializers.SerializerMethodField()
+    hsn_sgst_per = serializers.SerializerMethodField()
+    hsn_igst_per = serializers.SerializerMethodField()
+
+    def _hsn_rate(self, obj, field):
+        hsn = getattr(obj, 'hsn', None)
+        if not hsn:
+            return None
+        val = getattr(hsn, field, None)
+        return float(val) if val is not None else None
+
+    def get_hsn_cgst_per(self, obj): return self._hsn_rate(obj, 'cgst')
+    def get_hsn_sgst_per(self, obj): return self._hsn_rate(obj, 'sgst')
+    def get_hsn_igst_per(self, obj): return self._hsn_rate(obj, 'igst')
+
     class Meta:
         model = PurchaseVoucher
         fields = "__all__"
@@ -277,6 +294,20 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
     party_phone   = serializers.SerializerMethodField()
     party_aadhar  = serializers.SerializerMethodField()
     party_state   = serializers.SerializerMethodField()
+    hsn_cgst_per  = serializers.SerializerMethodField()
+    hsn_sgst_per  = serializers.SerializerMethodField()
+    hsn_igst_per  = serializers.SerializerMethodField()
+
+    def _hsn_rate(self, obj, field):
+        hsn = getattr(obj, 'hsn', None)
+        if not hsn:
+            return None
+        val = getattr(hsn, field, None)
+        return float(val) if val is not None else None
+
+    def get_hsn_cgst_per(self, obj): return self._hsn_rate(obj, 'cgst')
+    def get_hsn_sgst_per(self, obj): return self._hsn_rate(obj, 'sgst')
+    def get_hsn_igst_per(self, obj): return self._hsn_rate(obj, 'igst')
 
     def get_party_address(self, obj):
         ldgr = obj.ldgr
@@ -380,6 +411,9 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             'party_phone',
             'party_aadhar',
             'party_state',
+            'hsn_cgst_per',
+            'hsn_sgst_per',
+            'hsn_igst_per',
             'source',
         ]
         extra_kwargs = {

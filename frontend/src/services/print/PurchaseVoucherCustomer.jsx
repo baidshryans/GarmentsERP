@@ -1,36 +1,16 @@
-﻿import React from "react";
+import React from "react";
 
 /* ────────────────────────────────────────────────────────────────────────────
-   PurchaseVoucherCustomer
-   ------------------------------------------------------------------
-   A5-landscape, monochrome receipt format for purchases booked AGAINST a
-   customer (old-gold / buyback vouchers). Designed to print on half-A4
-   sheets with comfortable spacing.
-
-   Layout (top → bottom):
-     • Copy indicator     ─ ORIGINAL / DUPLICATE, plain caps, top-right
-     • Header             ─ BIS placeholder · centered company block · logo
-     • Title              ─ PURCHASE VOUCHER (CUSTOMER), centered
-     • Meta cards         ─ Voucher No · Voucher Date · Place of Supply
-     • Customer card      ─ name · address · Phone/PAN/GSTIN/State row
-     • Items table        ─ SL · Particulars · Pcs · Ct · Wt · Fine Wt
-                            · Rate · Value · Amount
-     • Totals (in-table)  ─ Subtotal · Round Off · Total Payable
-     • Narration / In Words (single lines, conditional)
-     • Sign-off           ─ Issued-by GST grid · Authorised Signatory
-     • Footer             ─ centered "computer-generated" line
-
-   Data prop (merged row + companyInfo from PurchaseVoucherList):
-     d.billno, d.date1, d.narration, d.bill_value, d.round_off,
-     d.total_incl_gst, d.ldgr_name, d.party_address, d.party_phone,
-     d.party_pan, d.party_gstin, d.party_state, d.vendor_state_code,
-     d.purchasevoucheritems_set[], d.purchasevoucherdetails_set[],
-     d.company_name, d.company_address, d.company_phone, d.company_email,
-     d.company_cin, d.company_pan, d.company_gstin, d.company_logo_url,
-     d.bis_logo_url
+   PurchaseVoucherCustomer — General Exchange Form / Credit Note print.
+   Shares the SalesInvoice visual language (Inter + Fraunces, slate palette)
+   used by PurchaseVoucherVendor, adapted for customer-side purchases:
+     • Title strip reads "GENERAL EXCHANGE FORM / CREDIT NOTE"
+     • Party block is the Customer
+     • No vendor-invoice / E-way / supply-type meta
+     • GST and TCS/TDS lines render only when non-zero
    ──────────────────────────────────────────────────────────────────────────── */
 
-/* ─── Helpers ─────────────────────────────────────────────────────────── */
+/* ─── Number / date helpers ──────────────────────────────────────────────── */
 
 const fmt = (n, dec = 2) => {
   if (n === null || n === undefined || n === "") return "";
@@ -41,14 +21,20 @@ const fmt = (n, dec = 2) => {
     maximumFractionDigits: dec,
   });
 };
-const fmt3 = (n) => fmt(n, 3);
+
+const fmtInt = (n) => {
+  if (n === null || n === undefined || n === "") return "";
+  const num = parseFloat(n);
+  if (isNaN(num)) return "";
+  return Math.round(num).toLocaleString("en-IN");
+};
 
 const fmtDate = (s) => {
   if (!s) return "";
   const d = new Date(s);
   if (isNaN(d)) return s;
   const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return `${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  return String(d.getDate()).padStart(2, "0") + " " + months[d.getMonth()] + " " + d.getFullYear();
 };
 
 function numberToWords(num) {
@@ -82,511 +68,543 @@ function numberToWords(num) {
   return "Rupees " + res.trim() + " Only";
 }
 
-/* ─── Stylesheet (scoped via .pvc- prefix) ────────────────────────────── */
+/* ─── Indian state lookup ─────────────────────────────────────────────────── */
 
-const PVC_CSS = `
-*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #fff; }
+const STATE_MAP = (() => {
+  const rows = [
+    ["AN","Andaman and Nicobar Islands","35"],["AP","Andhra Pradesh","37"],
+    ["AR","Arunachal Pradesh","12"],["AS","Assam","18"],["BR","Bihar","10"],
+    ["CG","Chhattisgarh","22"],["CT","Chhattisgarh","22"],["CH","Chandigarh","04"],
+    ["DD","Daman and Diu","25"],["DL","Delhi","07"],["DN","Dadra and Nagar Haveli","26"],
+    ["GA","Goa","30"],["GJ","Gujarat","24"],["HP","Himachal Pradesh","02"],
+    ["HR","Haryana","06"],["JH","Jharkhand","20"],["JK","Jammu and Kashmir","01"],
+    ["KA","Karnataka","29"],["KL","Kerala","32"],["LA","Ladakh","38"],
+    ["LD","Lakshadweep","31"],["MH","Maharashtra","27"],["ML","Meghalaya","17"],
+    ["MN","Manipur","14"],["MP","Madhya Pradesh","23"],["MZ","Mizoram","15"],
+    ["NL","Nagaland","13"],["OD","Odisha","21"],["OR","Odisha","21"],
+    ["PB","Punjab","03"],["PY","Puducherry","34"],["RJ","Rajasthan","08"],
+    ["SK","Sikkim","11"],["TG","Telangana","36"],["TS","Telangana","36"],
+    ["TN","Tamil Nadu","33"],["TR","Tripura","16"],["UK","Uttarakhand","05"],
+    ["UT","Uttarakhand","05"],["UP","Uttar Pradesh","09"],["WB","West Bengal","19"],
+  ];
+  const m = {};
+  rows.forEach(([abbr, name, code]) => {
+    m[abbr.toUpperCase()] = { name, code };
+    m[name.toUpperCase()] = { name, code };
+  });
+  return m;
+})();
 
-.pvc-page {
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 9px;
-  line-height: 1.4;
-  color: #000;
-  width: 210mm;
-  min-height: 148mm;
-  margin: 0 auto;
-  padding: 5mm 7mm;
-  background: #fff;
-  position: relative;
-  break-after: page;
-  page-break-after: always;
-  -webkit-font-smoothing: antialiased;
-}
-.pvc-page:last-of-type { break-after: auto; page-break-after: auto; }
-.pvc-page::before {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: #000;
-}
+const resolveState = (value, fallbackCode) => {
+  const raw = (value || "").toString().trim();
+  const hit = STATE_MAP[raw.toUpperCase()];
+  if (hit) return { name: hit.name, code: hit.code, label: hit.name + " (" + hit.code + ")" };
+  const code = (fallbackCode || "").toString().trim();
+  return { name: raw, code, label: raw + (code ? " (" + code + ")" : "") };
+};
 
-/* Copy indicator */
-.pvc-copy-line {
-  display: flex; justify-content: flex-end; align-items: center;
-  margin-bottom: 2px;
-}
-.pvc-copy-tag {
-  color: #000; font-size: 8px; font-weight: 700;
-  letter-spacing: 1.6px; text-transform: uppercase;
-}
+const num = (v) => {
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+};
+
+/* ─── Stylesheet ──────────────────────────────────────────────────────────── */
+
+const FONTS_HREF =
+  "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap";
+
+const PV_CSS = `
+:root{--ink:#0f172a;--body:#1e293b;--muted:#64748b;--faint:#94a3b8;--rule:#e2e8f0;--band:#f8fafc;--neg:#b91c1c;}
+.pv-root,.pv-root *{box-sizing:border-box;margin:0;padding:0;}
+.pv-root{background:#eef2f6;font-family:"Inter","Helvetica Neue",Arial,sans-serif;color:var(--body);font-feature-settings:"tnum" 1,"lnum" 1;-webkit-font-smoothing:antialiased;width:100%;min-height:100vh;display:block;}
+.pv-page{width:210mm;height:297mm;margin:24px auto;background:#fff;padding:10mm 11mm;box-shadow:0 4px 24px rgba(15,23,42,.08);color:var(--body);font-size:9px;line-height:1.45;display:flex;flex-direction:column;overflow:hidden;break-after:page;page-break-after:always;}
+.pv-page:last-of-type{break-after:auto;page-break-after:auto;}
 
 /* Header */
-.pvc-header {
-  display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
-  align-items: center;
-  margin-bottom: 5px;
-}
-.pvc-header .left  { justify-self: start; }
-.pvc-header .right { justify-self: end; }
-.pvc-logo-slot {
-  width: 40px; height: 40px;
-  border: 1px dashed #9a9a9a; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  color: #6e6e6e;
-  font-size: 6.5px; font-weight: 600; letter-spacing: 1px;
-  text-align: center; line-height: 1.1;
-}
-.pvc-logo-slot.square { border-radius: 4px; width: 60px; height: 38px; }
-.pvc-logo-img        { max-height: 44px; max-width: 80px; object-fit: contain; }
-.pvc-logo-img.square { max-height: 38px; max-width: 90px; }
+.pv-hdr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;padding-bottom:14px;border-bottom:2px solid var(--ink);text-align:center;}
+.pv-bis{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:7.5px;color:var(--muted);text-align:center;line-height:1.15;letter-spacing:.5px;}
+.pv-bis.placeholder{border:1px dashed var(--faint);}
+.pv-logo{width:90px;height:64px;display:grid;place-items:center;font-size:7.5px;color:var(--muted);text-align:center;line-height:1.15;letter-spacing:.5px;}
+.pv-logo.placeholder{border:1px dashed var(--faint);}
+.pv-bis img,.pv-logo img{max-width:100%;max-height:100%;object-fit:contain;}
+.pv-brand-block{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.pv-brand{font-family:"Fraunces",Georgia,serif;font-size:14px;font-weight:700;color:var(--ink);}
+.pv-brand-legal{font-size:11px;font-weight:600;color:var(--ink);}
+.pv-brand-sub{font-size:9px;color:var(--muted);letter-spacing:.2px;}
+.pv-brand-sub strong{color:var(--ink);font-weight:600;}
+.pv-brand-ids{display:flex;gap:18px;font-size:8.5px;color:var(--muted);margin-top:2px;flex-wrap:wrap;justify-content:center;}
+.pv-brand-ids span b{color:var(--ink);font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums;}
 
-.pvc-brand   { text-align: center; }
-.pvc-h-name  { font-size: 14px; font-weight: 800; letter-spacing: 0.4px; line-height: 1.1; }
-.pvc-h-meta  { color: #2b2b2b; font-size: 8.5px; margin-top: 2px; line-height: 1.35; }
-.pvc-h-meta div + div { margin-top: 0; }
+/* Title strip */
+.pv-title{text-align:center;margin:12px 0 10px;position:relative;}
+.pv-title .pv-t{font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--ink);font-weight:700;}
+.pv-title .pv-m{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:4px;}
+.pv-title .pv-m .pv-num{color:var(--ink);font-weight:700;letter-spacing:.2px;}
+.pv-title .pv-m .pv-sep{color:var(--faint);margin:0 8px;}
+.pv-title .pv-m .pv-date{color:var(--ink);font-weight:600;}
+.pv-copy{position:absolute;right:0;top:2px;font-size:8px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:600;}
 
-/* Title */
-.pvc-title {
-  text-align: center;
-  padding: 0 0 3px;
-  margin-bottom: 6px;
-}
-.pvc-title-text {
-  font-size: 11px; font-weight: 700; color: #000;
-  letter-spacing: 2.5px; text-transform: uppercase;
-}
+/* Parties */
+.pv-parties{display:grid;grid-template-columns:1.4fr 1fr;margin-bottom:12px;border:1px solid var(--rule);border-radius:4px;overflow:hidden;}
+.pv-party{padding:10px 12px;}
+.pv-party + .pv-party{border-left:1px solid var(--rule);}
+.pv-pe{font-size:7px;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.pv-pe::after{content:"";flex:1;height:1px;background:var(--rule);}
+.pv-name{font-size:13px;font-weight:700;color:var(--ink);letter-spacing:-.1px;}
+.pv-addr{font-size:9px;color:var(--body);margin-top:4px;line-height:1.55;}
+.pv-ids{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 14px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--rule);}
+.pv-ids.cols2{grid-template-columns:repeat(2,1fr);}
+.pv-id .pv-l{font-size:7px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);font-weight:700;}
+.pv-id .pv-v{font-size:9px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;margin-top:1px;word-break:break-all;}
+.pv-id .pv-v.empty{color:var(--faint);font-weight:400;}
 
-/* Meta cards (Voucher No · Date · Place of Supply) */
-.pvc-meta-strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  column-gap: 6px;
-  margin-bottom: 6px;
-}
-.pvc-meta-card {
-  border: 1px solid #d0d0d0; border-radius: 3px;
-  padding: 4px 8px; background: #fff;
-}
-.pvc-label {
-  text-transform: uppercase; letter-spacing: 1.4px;
-  font-size: 7px; font-weight: 600; color: #6e6e6e;
-}
-.pvc-meta-card .pvc-label { margin-bottom: 1px; }
-.pvc-meta-card .pvc-value {
-  font-size: 9.5px; font-weight: 700; color: #000;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Customer / vendor card */
-.pvc-vendor-card {
-  background: #f6f6f6;
-  padding: 6px 10px;
-  border-left: 3px solid #000;
-  border-radius: 2px;
-  margin-bottom: 6px;
-  font-size: 9px;
-}
-.pvc-vendor-card .pvc-name {
-  font-size: 10.5px; font-weight: 700; color: #000;
-  margin-bottom: 2px;
-}
-.pvc-vendor-card .pvc-addr { color: #2b2b2b; font-size: 9px; margin-bottom: 3px; line-height: 1.4; }
-.pvc-vendor-card .pvc-ids-row {
-  display: flex; flex-wrap: wrap;
-  column-gap: 14px; row-gap: 2px;
-  padding-top: 3px; border-top: 1px dashed #d0d0d0;
-}
-.pvc-kv { display: inline-flex; align-items: baseline; gap: 6px; }
-.pvc-kv .k {
-  color: #6e6e6e; text-transform: uppercase; letter-spacing: 1px;
-  font-size: 7.2px; font-weight: 600;
-}
-.pvc-kv .v { color: #000; font-weight: 600; font-size: 9px; }
-.pvc-kv .v.muted { color: #2b2b2b; font-weight: 500; }
+/* Metal rate */
+.pv-rate{display:flex;align-items:baseline;gap:18px;padding:7px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin-bottom:14px;font-variant-numeric:tabular-nums;flex-wrap:wrap;}
+.pv-rate .pv-l{font-size:7.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);font-weight:700;}
+.pv-rate .pv-r{font-size:10px;color:var(--ink);font-weight:500;}
 
 /* Items table */
-.pvc-items { width: 100%; border-collapse: collapse; margin-top: 2px; }
-.pvc-items thead th {
-  text-transform: uppercase; letter-spacing: 1.2px;
-  font-size: 7.5px; font-weight: 700; color: #000;
-  text-align: right; padding: 4px 5px;
-  border-bottom: 1.5px solid #000;
-  background: #fff;
-}
-.pvc-items thead th.t-left   { text-align: left; }
-.pvc-items thead th.t-center { text-align: center; }
-.pvc-items tbody td {
-  padding: 5px 5px;
-  border-bottom: 1px solid #d0d0d0;
-  font-size: 8.5px;
-  color: #000;
-  vertical-align: top;
-}
-.pvc-items tbody td.t-num    { text-align: right; font-variant-numeric: tabular-nums; }
-.pvc-items tbody td.t-center { text-align: center; }
-.pvc-items tbody td.sl       { color: #000; font-weight: 700; }
-.pvc-item-name { font-weight: 700; }
-.pvc-item-sub  { color: #2b2b2b; font-size: 7.5px; margin-top: 1px; }
-.pvc-items tbody tr.filler td { border-bottom: 1px dotted #d0d0d0; padding: 3px 5px; }
+table.pv-items{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8.5px;}
+table.pv-items thead th{text-align:right;padding:7px 5px;font-size:7px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1px solid var(--ink);}
+table.pv-items thead th.l{text-align:left;}
+table.pv-items thead th.c{text-align:center;}
+table.pv-items tbody td{padding:6px 5px;border-bottom:1px solid var(--rule);vertical-align:top;text-align:right;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+table.pv-items tbody td.l{text-align:left;}
+table.pv-items tbody td.c{text-align:center;}
+table.pv-items tbody td.product{text-align:left;color:var(--ink);font-weight:600;font-size:9px;}
+table.pv-items tbody tr.parent td{font-weight:600;color:var(--ink);padding:6px 5px;}
+table.pv-items tbody tr.parent td.amt{font-weight:700;}
+table.pv-items tbody tr.parent td.sn{font-weight:700;color:var(--ink);}
+table.pv-items tbody tr.sub td{color:var(--muted);border-bottom:1px dashed var(--rule);font-size:8px;padding:4px 5px;background:#fcfcfd;}
+table.pv-items tbody tr.sub td.l{padding-left:12px;font-style:italic;}
 
-/* Sub-rows under a parent item */
-.pvc-items tbody tr.subrow td { color: #2b2b2b; font-size: 8.2px; }
-.pvc-items tbody tr.subrow td.particulars { padding-left: 14px; }
+/* Bottom split */
+.pv-bottom{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin-top:14px;}
+.pv-left h4{font-size:7.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px;}
+.pv-block{margin-bottom:14px;}
+.pv-narr,.pv-words{border:1px solid var(--rule);border-radius:4px;padding:8px 12px;background:var(--band);font-size:9px;color:var(--body);}
+.pv-narr b,.pv-words b{color:var(--ink);font-weight:600;}
+.pv-words{font-style:italic;margin-top:6px;}
+.pv-words b{font-style:normal;}
 
-/* Integrated totals (rows of the items table) */
-.pvc-items tr.tot td {
-  border-bottom: none;
-  padding: 4px 5px;
-  font-size: 9px;
-  color: #000;
-}
-.pvc-items tr.tot td.tot-label {
-  text-align: right; padding-right: 10px;
-  font-weight: 500; color: #2b2b2b;
-  white-space: nowrap;
-}
-.pvc-items tr.tot td.tot-value {
-  text-align: right; font-variant-numeric: tabular-nums;
-  font-weight: 600; white-space: nowrap;
-}
-.pvc-items tr.tot.first td  { border-top: 1px solid #9a9a9a; padding-top: 5px; }
-.pvc-items tr.tot.subtotal td.tot-label { color: #000; font-weight: 600; }
-.pvc-items tr.tot.subtotal td.tot-value { font-weight: 700; }
-.pvc-items tr.tot.grand td {
-  border-top: 1px solid #9a9a9a;
-  padding-top: 5px; padding-bottom: 5px;
-  font-size: 10.5px; font-weight: 700; color: #000;
-}
-
-/* Narration / In Words */
-.pvc-meta-line {
-  margin-top: 6px; font-size: 9px; color: #000;
-}
-.pvc-meta-line + .pvc-meta-line { margin-top: 3px; }
-.pvc-meta-line .pvc-label-inline {
-  display: inline-block; margin-right: 8px;
-  text-transform: uppercase; letter-spacing: 1.4px;
-  font-size: 7.5px; font-weight: 600; color: #6e6e6e;
-}
-.pvc-meta-line .strong { font-weight: 700; color: #000; }
-
-/* Sign-off */
-.pvc-signoff {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 14px; margin-top: 8px;
-  padding-top: 6px; border-top: 1px solid #000;
-}
-.pvc-gst-grid {
-  display: grid; grid-template-columns: auto 1fr;
-  column-gap: 10px; row-gap: 2px; font-size: 8.5px;
-}
-.pvc-gst-grid .k {
-  color: #6e6e6e; text-transform: uppercase; letter-spacing: 1.3px;
-  font-size: 7.2px; font-weight: 600; align-self: center;
-}
-.pvc-gst-grid .v { color: #000; font-weight: 600; }
-
-.pvc-sign      { text-align: right; }
-.pvc-sign .for { font-size: 9px; color: #2b2b2b; }
-.pvc-sign .for .strong { color: #000; font-weight: 700; }
-.pvc-sig-box {
-  display: inline-block; margin-top: 18px;
-  padding: 4px 18px 0;
-  border-top: 1.5px solid #000;
-  font-size: 8px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 1.6px; color: #000;
-}
+/* Totals ladder */
+.pv-totals{font-size:9.5px;}
+.pv-totals .pv-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;color:var(--body);}
+.pv-totals .pv-row .pv-l{font-size:8px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:600;}
+.pv-totals .pv-row .pv-v{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);}
+.pv-totals .pv-row.bold{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:7px 0;}
+.pv-totals .pv-row.bold .pv-l{color:var(--ink);font-weight:700;}
+.pv-totals .pv-row.bold .pv-v{font-weight:700;}
+.pv-totals .pv-row.net{margin-top:4px;border-top:2px solid var(--ink);padding:8px 0;}
+.pv-totals .pv-row.net .pv-l{color:var(--ink);font-weight:700;font-size:9px;}
+.pv-totals .pv-row.net .pv-v{font-weight:700;}
+.pv-totals .pv-row.neg .pv-v{color:var(--neg);}
 
 /* Footer */
-.pvc-footer {
-  margin-top: 8px; text-align: center;
-  padding-top: 5px; border-top: 1px solid #d0d0d0;
-  font-size: 7px; color: #6e6e6e;
-  text-transform: uppercase; letter-spacing: 1.2px;
-}
+.pv-footer{margin-top:auto;padding-top:12px;border-top:1px solid var(--rule);}
+.pv-terms{font-size:8px;color:var(--muted);line-height:1.6;margin-bottom:16px;}
+.pv-terms div + div{margin-top:2px;}
+.pv-terms b{color:var(--ink);font-weight:600;}
+.pv-sig-row{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:end;}
+.pv-sig{text-align:center;display:flex;flex-direction:column;align-items:stretch;min-height:78px;}
+.pv-sig .pv-for{font-size:7.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px;}
+.pv-sig .pv-space{flex:1;min-height:56px;border-bottom:1px solid var(--ink);margin-bottom:5px;}
+.pv-sig .pv-l{font-size:7.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ink);font-weight:700;}
+.pv-stamp{margin-top:10px;display:flex;align-items:center;justify-content:space-between;font-size:7.5px;color:var(--faint);letter-spacing:.4px;font-style:italic;}
+.pv-stamp .pv-pg{font-style:normal;font-weight:700;color:var(--muted);letter-spacing:1px;}
 
-@media print {
-  @page { size: A5 landscape; margin: 0; }
-  body  { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .pvc-page { padding: 5mm 7mm; }
+@media print{
+  @page{size:A4 portrait;margin:0;}
+  html,body{background:#fff;margin:0;padding:0;}
+  .pv-root{background:#fff;}
+  .pv-page{box-shadow:none;margin:0;}
+  .no-print{display:none !important;}
 }
 `;
 
-/* ─── Component ───────────────────────────────────────────────────────── */
+/* Row-budget paginator (matches PurchaseVoucherVendor / SalesInvoice). */
+function paginateBlocks(blocks, lastBudget = 8, normalBudget = 28) {
+  if (!blocks.length) return [[]];
+  let lastPage = [];
+  let lastUsed = 0;
+  let i = blocks.length - 1;
+  while (i >= 0 && lastUsed + blocks[i].rows <= lastBudget) {
+    lastPage.unshift(blocks[i]);
+    lastUsed += blocks[i].rows;
+    i--;
+  }
+  if (lastPage.length === 0) {
+    lastPage.push(blocks[blocks.length - 1]);
+    i = blocks.length - 2;
+  }
+  const remaining = blocks.slice(0, i + 1);
+  const earlier = [];
+  let j = 0;
+  while (j < remaining.length) {
+    const page = [];
+    let used = 0;
+    while (j < remaining.length) {
+      const next = remaining[j];
+      if (used + next.rows > normalBudget && page.length > 0) break;
+      page.push(next);
+      used += next.rows;
+      j++;
+    }
+    earlier.push(page);
+  }
+  return [...earlier, lastPage];
+}
+
+/* ─── Component ───────────────────────────────────────────────────────────── */
 
 const PurchaseVoucherCustomer = ({ data = {} }) => {
   const d = data;
 
-  /* item rows ------------------------------------------------------- */
-  const items      = d.purchasevoucheritems_set || [];
-  const directSubs = (d.purchasevoucherdetails_set || []).filter((x) => !x.main_item);
+  const partyState = resolveState(d.party_state, d.party_state_code);
 
-  /* totals ---------------------------------------------------------- */
-  const subtotal   = parseFloat(d.bill_value) || parseFloat(d.item_total) || 0;
-  const roundOff   = parseFloat(d.round_off) || 0;
-  const grandTotal = parseFloat(d.total_incl_gst) || (subtotal + roundOff);
+  const items      = d.purchasevoucheritems_set  || [];
+  const directSubs = (d.purchasevoucherdetails_set || []).filter(x => !x.main_item);
 
-  /* place of supply (state · code) --------------------------------- */
-  const placeOfSupply = (() => {
-    const state = d.party_state || "";
-    const code = d.vendor_state_code || "";
-    if (state && code) return `${state} · ${code}`;
-    return state || code || "";
-  })();
+  const blocks = [];
+  directSubs.forEach((sub, idx) => {
+    blocks.push({ kind: "direct", sub, idx, rows: 1 });
+  });
+  items.forEach((item, idx) => {
+    const subs = item.purchasevoucherdetails_set || [];
+    blocks.push({ kind: "main", item, subs, idx, rows: 1 + subs.length });
+  });
+  const pages = paginateBlocks(blocks);
+  const totalPages = pages.length;
+
+  /* Totals. Customer purchases are typically GST-free; the ladder still
+     supports it for completeness — rows render only when non-zero. */
+  const subtotal   = num(d.tds_taxable_value) || num(d.bill_value);
+  const hallmark   = num(d.hallmark_charge);
+  const freight    = num(d.freight_amt);
+  const addChrg1   = num(d.add_chrg_amt1);
+  const addChrg2   = num(d.add_chrg_amt2);
+  const discount   = num(d.discount_amt);
+  const taxable    = subtotal + hallmark + freight + addChrg1 + addChrg2 - discount;
+  const cgst       = num(d.cgst);
+  const sgst       = num(d.sgst);
+  const igst       = num(d.igst);
+  const totalTax   = cgst + sgst + igst;
+  const totalAfter = taxable + totalTax;
+  const tcs        = num(d.tcs_amt);
+  const tds        = num(d.tds_amt);
+  const roundOff   = num(d.round_off);
+  const netPayable = num(d.total_incl_gst) || (totalAfter + tcs - tds + roundOff);
+
+  const cgstPer = num(d.hsn_cgst_per);
+  const sgstPer = num(d.hsn_sgst_per);
+  const igstPer = num(d.hsn_igst_per);
+  const tcsPer  = taxable > 0 ? (tcs / taxable) * 100 : 0;
+
+  /* Metal rates from items / direct sub-rows (if any). */
+  const rateMap = {};
+  items.forEach((it) => {
+    const rate = num(it.rate);
+    const label = it.purity || it.metal_purity || "";
+    if (rate > 0 && label) rateMap[label] = rate;
+  });
+  directSubs.forEach((s) => {
+    const rate = num(s.rate);
+    const label = s.metal_purity || "";
+    if (rate > 0 && label) rateMap[label] = rate;
+  });
+  const metalRates = Object.entries(rateMap).map(([label, rate]) => ({ label, rate }));
+
+  /* ── Section renderers ─────────────────────────────────────────────────── */
+
+  const idCell = (label, value) => (
+    <div className="pv-id">
+      <div className="pv-l">{label}</div>
+      <div className={"pv-v" + (value ? "" : " empty")}>{value || "—"}</div>
+    </div>
+  );
+
+  const renderHeader = () => (
+    <div className="pv-hdr">
+      <div className={d.bis_logo_url ? "pv-bis" : "pv-bis placeholder"}>
+        {d.bis_logo_url
+          ? <img src={d.bis_logo_url} alt="BIS Hallmark" />
+          : <span>BIS<br/>HALLMARK</span>}
+      </div>
+      <div className="pv-brand-block">
+        <div className="pv-brand">{d.company_name || "JEWEL INDIA"}</div>
+        {(d.company_legal_name && d.company_legal_name !== d.company_name) && (
+          <div className="pv-brand-legal">{d.company_legal_name}</div>
+        )}
+        {d.company_address && <div className="pv-brand-sub">{d.company_address}</div>}
+        {(d.company_phone || d.company_email) && (
+          <div className="pv-brand-sub">
+            {d.company_phone && <>Phone <strong>{d.company_phone}</strong></>}
+            {d.company_phone && d.company_email && <>&nbsp;·&nbsp;</>}
+            {d.company_email && <>Email <strong>{d.company_email}</strong></>}
+          </div>
+        )}
+        {(d.company_gstin || d.company_pan || d.company_tan || d.company_cin) && (
+          <div className="pv-brand-ids">
+            {d.company_gstin && <span>GSTIN<b>{d.company_gstin}</b></span>}
+            {d.company_pan   && <span>PAN<b>{d.company_pan}</b></span>}
+            {d.company_tan   && <span>TAN<b>{d.company_tan}</b></span>}
+            {d.company_cin   && <span>CIN<b>{d.company_cin}</b></span>}
+          </div>
+        )}
+      </div>
+      <div className={d.company_logo_url ? "pv-logo" : "pv-logo placeholder"}>
+        {d.company_logo_url
+          ? <img src={d.company_logo_url} alt="Logo" />
+          : <span>COMPANY<br/>LOGO</span>}
+      </div>
+    </div>
+  );
+
+  const renderTitleStrip = () => (
+    <div className="pv-title">
+      <div className="pv-t">General Exchange Form / Credit Note</div>
+      <div className="pv-m">
+        <span className="pv-num">{d.billno || ""}</span>
+        <span className="pv-sep">·</span>
+        <span className="pv-date">{fmtDate(d.date1)}</span>
+      </div>
+      <span className="pv-copy">Original / Duplicate</span>
+    </div>
+  );
+
+  const renderParties = () => (
+    <div className="pv-parties">
+      <div className="pv-party">
+        <div className="pv-pe">Customer</div>
+        <div className="pv-name">{d.ldgr_name || ""}</div>
+        {d.party_address && <div className="pv-addr">{d.party_address}</div>}
+        <div className="pv-ids">
+          {idCell("State",  partyState.label)}
+          {idCell("Phone",  d.party_phone)}
+          {idCell("PAN",    d.party_pan)}
+          {idCell("GSTIN",  d.party_gstin)}
+          {idCell("Aadhar", d.party_aadhar)}
+          {idCell("Email",  d.party_email)}
+        </div>
+      </div>
+      <div className="pv-party">
+        <div className="pv-pe">Voucher Details</div>
+        <div className="pv-ids cols2" style={{ borderTop: "none", paddingTop: 0, marginTop: 0 }}>
+          {idCell("Voucher No.",     d.billno)}
+          {idCell("Date",            fmtDate(d.date1))}
+          {idCell("Place of Supply", partyState.label)}
+          {idCell("HSN",             d.hsn)}
+          {idCell("Reference",       d.ref_no)}
+          {idCell("Mode",            d.mode_of_transport)}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMetalRate = () => (
+    <div className="pv-rate">
+      <span className="pv-l">Metal Rate</span>
+      {metalRates.length > 0
+        ? metalRates.map((r, i) => (
+            <span key={i} className="pv-r">{r.label} : ₹ {fmtInt(r.rate)} / gm</span>
+          ))
+        : <span className="pv-r" style={{ color: "var(--faint)" }}>—</span>}
+    </div>
+  );
+
+  const renderItemsTable = (pageBlocks) => (
+    <table className="pv-items">
+      <colgroup>
+        <col style={{ width: "5%"  }} />
+        <col style={{ width: "28%" }} />
+        <col style={{ width: "6%"  }} />
+        <col style={{ width: "8%"  }} />
+        <col style={{ width: "9%"  }} />
+        <col style={{ width: "7%"  }} />
+        <col style={{ width: "9%"  }} />
+        <col style={{ width: "10%" }} />
+        <col style={{ width: "9%"  }} />
+        <col style={{ width: "9%"  }} />
+      </colgroup>
+      <thead>
+        <tr>
+          <th className="c">S.No</th>
+          <th className="l">Particulars</th>
+          <th>Pcs</th>
+          <th>Wt (g)</th>
+          <th>Ct / Stones</th>
+          <th>Tunch %</th>
+          <th>Fine Wt</th>
+          <th>Rate (₹/g)</th>
+          <th>Value</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {pageBlocks.map((b) => {
+          if (b.kind === "direct") {
+            const s = b.sub;
+            return (
+              <tr className="parent" key={"d-" + b.idx}>
+                <td className="c sn">{b.idx + 1}</td>
+                <td className="product">
+                  {s.sub_item || ""}
+                  {s.packet       ? <span style={{ color: "var(--muted)", fontSize: "8px", fontWeight: 500 }}>{" · " + s.packet}</span> : null}
+                  {s.metal_purity ? <span style={{ color: "var(--muted)", fontSize: "8px", fontWeight: 500 }}>{" · " + s.metal_purity}</span> : null}
+                </td>
+                <td>{s.sub_pcs ?? ""}</td>
+                <td>{s.sub_gw ? fmt(s.sub_gw, 3) : ""}</td>
+                <td>{s.sub_ct ? fmt(s.sub_ct, 3) + " ct" : ""}</td>
+                <td>{s.tunch ? fmt(s.tunch) : ""}</td>
+                <td>{s.fine_wt ? fmt(s.fine_wt, 3) : ""}</td>
+                <td>{s.rate ? fmtInt(s.rate) : ""}</td>
+                <td>{s.value ? fmtInt(s.value) : ""}</td>
+                <td className="amt">{s.value ? fmtInt(s.value) : ""}</td>
+              </tr>
+            );
+          }
+          const item = b.item;
+          const amount = num(item.item_value);
+          return (
+            <React.Fragment key={"m-" + b.idx}>
+              <tr className="parent">
+                <td className="c sn">{b.idx + 1}</td>
+                <td className="product">
+                  {item.item_name || item.item || ""}
+                  {item.barcode_txt ? <span style={{ color: "var(--muted)", fontSize: "8px", fontWeight: 500 }}>{" · " + item.barcode_txt}</span> : null}
+                  {item.purity     ? <span style={{ color: "var(--muted)", fontSize: "8px", fontWeight: 500 }}>{" · " + item.purity}</span> : null}
+                </td>
+                <td>{item.pcs ?? ""}</td>
+                <td>{fmt(item.gw, 3)}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>{item.rate ? fmtInt(item.rate) : ""}</td>
+                <td></td>
+                <td className="amt">{amount ? fmtInt(amount) : ""}</td>
+              </tr>
+              {b.subs.map((s, si) => (
+                <tr className="sub" key={"s-" + b.idx + "-" + si}>
+                  <td className="c"></td>
+                  <td className="l">↳ {s.sub_item || ""}{s.packet ? " [" + s.packet + "]" : ""}</td>
+                  <td>{s.sub_pcs ?? ""}</td>
+                  <td>{s.sub_gw ? fmt(s.sub_gw, 3) : ""}</td>
+                  <td>{s.sub_ct ? fmt(s.sub_ct, 3) + " ct" : ""}</td>
+                  <td>{s.tunch ? fmt(s.tunch) : ""}</td>
+                  <td>{s.fine_wt ? fmt(s.fine_wt, 3) : ""}</td>
+                  <td>{s.rate ? fmtInt(s.rate) : ""}</td>
+                  <td>{s.value ? fmtInt(s.value) : ""}</td>
+                  <td></td>
+                </tr>
+              ))}
+            </React.Fragment>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+
+  const renderBottomSplit = () => (
+    <div className="pv-bottom">
+      <div className="pv-left">
+        <div className="pv-block">
+          <h4>Narration</h4>
+          <div className="pv-narr">
+            {d.narration || "Old gold / exchange received from customer."}
+          </div>
+          <div className="pv-words">
+            <b>In words:</b> {numberToWords(netPayable)}
+          </div>
+        </div>
+        {(d.payment_mode || d.due_date) && (
+          <div className="pv-block">
+            <h4>Settlement</h4>
+            <div className="pv-narr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span><b>Mode:</b> {d.payment_mode || "Adjusted against sale / credit note"}</span>
+              {d.due_date && (
+                <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--ink)", fontWeight: 700 }}>
+                  {fmtDate(d.due_date)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="pv-totals">
+        <div className="pv-row"><span className="pv-l">Subtotal</span><span className="pv-v">{fmtInt(subtotal)}</span></div>
+        {hallmark ? <div className="pv-row"><span className="pv-l">Hallmark Charges</span><span className="pv-v">{fmtInt(hallmark)}</span></div> : null}
+        {freight  ? <div className="pv-row"><span className="pv-l">Freight Charges</span><span className="pv-v">{fmtInt(freight)}</span></div> : null}
+        {addChrg1 ? <div className="pv-row"><span className="pv-l">{d.add_chrg_cap1 || "Add. Charge 1"}</span><span className="pv-v">{fmtInt(addChrg1)}</span></div> : null}
+        {addChrg2 ? <div className="pv-row"><span className="pv-l">{d.add_chrg_cap2 || "Add. Charge 2"}</span><span className="pv-v">{fmtInt(addChrg2)}</span></div> : null}
+        {discount ? <div className="pv-row neg"><span className="pv-l">Less: Discount</span><span className="pv-v">{fmtInt(discount)}</span></div> : null}
+        {totalTax > 0 ? (
+          <>
+            <div className="pv-row bold"><span className="pv-l">Total Before Tax</span><span className="pv-v">{fmtInt(taxable)}</span></div>
+            {cgst ? <div className="pv-row"><span className="pv-l">{"CGST " + fmt(cgstPer, 3) + "%"}</span><span className="pv-v">{fmtInt(cgst)}</span></div> : null}
+            {sgst ? <div className="pv-row"><span className="pv-l">{"SGST " + fmt(sgstPer, 3) + "%"}</span><span className="pv-v">{fmtInt(sgst)}</span></div> : null}
+            {igst ? <div className="pv-row"><span className="pv-l">{"IGST " + fmt(igstPer, 3) + "%"}</span><span className="pv-v">{fmtInt(igst)}</span></div> : null}
+            <div className="pv-row bold"><span className="pv-l">Total After Tax</span><span className="pv-v">{fmtInt(totalAfter)}</span></div>
+          </>
+        ) : null}
+        {tcs ? <div className="pv-row"><span className="pv-l">{"TCS " + fmt(tcsPer, 3) + "%"}</span><span className="pv-v">{fmtInt(tcs)}</span></div> : null}
+        {tds ? <div className="pv-row neg"><span className="pv-l">{"Less: TDS" + (d.tds_section ? " (" + d.tds_section + ")" : "")}</span><span className="pv-v">{fmtInt(tds)}</span></div> : null}
+        {roundOff ? <div className="pv-row"><span className="pv-l">Round Off</span><span className="pv-v">{fmtInt(roundOff)}</span></div> : null}
+        <div className="pv-row net"><span className="pv-l">Net Credit</span><span className="pv-v">₹ {fmtInt(netPayable)}</span></div>
+      </div>
+    </div>
+  );
+
+  const renderFooter = () => (
+    <div className="pv-footer">
+      <div className="pv-terms">
+        <div>•&nbsp; Goods received from customer are verified by weight, purity and stone count at the counter.</div>
+        <div>•&nbsp; The credit value above is adjusted against the customer's purchase or refunded as per shop policy.</div>
+        <div>•&nbsp; Disputes, if any, to be raised within 24 hours of receipt. Subject to <b>{(d.jurisdiction || "Kolkata").toUpperCase()}</b> jurisdiction only.</div>
+      </div>
+      <div className="pv-sig-row">
+        <div className="pv-sig">
+          <div className="pv-for">&nbsp;</div>
+          <div className="pv-space"></div>
+          <div className="pv-l">Customer Signature</div>
+        </div>
+        <div className="pv-sig">
+          <div className="pv-for">For {(d.company_legal_name || d.company_name || "").toUpperCase()}</div>
+          <div className="pv-space"></div>
+          <div className="pv-l">Authorised Signatory</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPageStamp = (pageNum, total) => (
+    <div className="pv-stamp">
+      <span>This is a computer-generated voucher and does not require a signature</span>
+      <span className="pv-pg">PAGE {pageNum} OF {total}</span>
+    </div>
+  );
 
   return (
-    <div className="pvc-page">
-      <style>{PVC_CSS}</style>
+    <div className="pv-root">
+      <link rel="stylesheet" href={FONTS_HREF} />
+      <style>{PV_CSS}</style>
 
-      {/* Copy indicator */}
-      <div className="pvc-copy-line">
-        <span className="pvc-copy-tag">Original / Duplicate</span>
-      </div>
-
-      {/* Header — BIS · Company (centered) · Brand logo */}
-      <div className="pvc-header">
-        <div className="left">
-          {d.bis_logo_url
-            ? <img src={d.bis_logo_url} alt="BIS Hallmark" className="pvc-logo-img" />
-            : <div className="pvc-logo-slot">BIS<br/>HALLMARK</div>}
-        </div>
-        <div className="pvc-brand">
-          <div className="pvc-h-name">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</div>
-          <div className="pvc-h-meta">
-            {d.company_address && <div>{d.company_address}</div>}
-            {(d.company_phone || d.company_email) && (
-              <div>
-                {d.company_phone && <>Phone : {d.company_phone}</>}
-                {d.company_phone && d.company_email && <>&nbsp;&nbsp;·&nbsp;&nbsp;</>}
-                {d.company_email && <>Email : {d.company_email}</>}
-              </div>
-            )}
-            {d.company_cin && <div>CIN : {d.company_cin}</div>}
+      {pages.map((pageBlocks, pageIdx) => {
+        const isFirst = pageIdx === 0;
+        const isLast  = pageIdx === totalPages - 1;
+        return (
+          <div key={pageIdx} className="pv-page">
+            {renderHeader()}
+            {renderTitleStrip()}
+            {renderParties()}
+            {isFirst && metalRates.length > 0 && renderMetalRate()}
+            {renderItemsTable(pageBlocks)}
+            {isLast && renderBottomSplit()}
+            {isLast && renderFooter()}
+            {renderPageStamp(pageIdx + 1, totalPages)}
           </div>
-        </div>
-        <div className="right">
-          {d.company_logo_url
-            ? <img src={d.company_logo_url} alt="logo" className="pvc-logo-img square" />
-            : <div className="pvc-logo-slot square">COMPANY<br/>LOGO</div>}
-        </div>
-      </div>
-
-      {/* Title */}
-      <div className="pvc-title">
-        <span className="pvc-title-text">Purchase Voucher (Customer)</span>
-      </div>
-
-      {/* Meta cards */}
-      <div className="pvc-meta-strip">
-        <div className="pvc-meta-card">
-          <div className="pvc-label">Voucher No.</div>
-          <div className="pvc-value">{d.billno || ""}</div>
-        </div>
-        <div className="pvc-meta-card">
-          <div className="pvc-label">Voucher Date</div>
-          <div className="pvc-value">{fmtDate(d.date1)}</div>
-        </div>
-        <div className="pvc-meta-card">
-          <div className="pvc-label">Place of Supply</div>
-          <div className="pvc-value">{placeOfSupply || "—"}</div>
-        </div>
-      </div>
-
-      {/* Customer card */}
-      <div className="pvc-vendor-card">
-        <div className="pvc-name">{d.ldgr_name || ""}</div>
-        {d.party_address && <div className="pvc-addr">{d.party_address}</div>}
-        <div className="pvc-ids-row">
-          {d.party_phone && (
-            <span className="pvc-kv"><span className="k">Phone</span><span className="v">{d.party_phone}</span></span>
-          )}
-          {d.party_pan && (
-            <span className="pvc-kv"><span className="k">PAN</span><span className="v">{d.party_pan}</span></span>
-          )}
-          <span className="pvc-kv">
-            <span className="k">GSTIN</span>
-            <span className={"v" + (d.party_gstin ? "" : " muted")}>
-              {d.party_gstin || "Unregistered"}
-            </span>
-          </span>
-          {placeOfSupply && (
-            <span className="pvc-kv"><span className="k">State</span><span className="v">{placeOfSupply}</span></span>
-          )}
-        </div>
-      </div>
-
-      {/* Items table */}
-      <table className="pvc-items">
-        <colgroup>
-          <col style={{ width: "5%"  }} />
-          <col style={{ width: "31%" }} />
-          <col style={{ width: "6%"  }} />
-          <col style={{ width: "7%"  }} />
-          <col style={{ width: "9%"  }} />
-          <col style={{ width: "9%"  }} />
-          <col style={{ width: "10%" }} />
-          <col style={{ width: "11%" }} />
-          <col style={{ width: "12%" }} />
-        </colgroup>
-        <thead>
-          <tr>
-            <th className="t-center">SL</th>
-            <th className="t-left">Particulars</th>
-            <th>Pcs</th>
-            <th>Ct</th>
-            <th>Wt</th>
-            <th>Fine Wt</th>
-            <th>Rate</th>
-            <th>Value</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {/* Direct sub-items (no parent) — each is its own SL row */}
-          {directSubs.map((sub, i) => (
-            <tr key={"d-" + i}>
-              <td className="sl t-center">{String(i + 1).padStart(2, "0")}</td>
-              <td>
-                <div className="pvc-item-name">{sub.sub_item || ""}</div>
-                {(sub.metal_purity || sub.packet) && (
-                  <div className="pvc-item-sub">
-                    {sub.metal_purity && <>Purity: {sub.metal_purity}</>}
-                    {sub.metal_purity && sub.packet && <> · </>}
-                    {sub.packet && <>{sub.packet}</>}
-                  </div>
-                )}
-              </td>
-              <td className="t-center">{sub.sub_pcs || "—"}</td>
-              <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : "—"}</td>
-              <td className="t-num strong">{sub.sub_gw ? fmt3(sub.sub_gw) : "—"}</td>
-              <td className="t-num">{sub.fine_wt ? fmt3(sub.fine_wt) : "—"}</td>
-              <td className="t-num">{sub.rate ? fmt(sub.rate) : "—"}</td>
-              <td className="t-num">{sub.value ? fmt(sub.value) : "—"}</td>
-              <td className="t-num strong">{sub.value ? fmt(sub.value) : "—"}</td>
-            </tr>
-          ))}
-
-          {/* Items with their own sub-rows */}
-          {items.map((item, idx) => {
-            const subs   = item.purchasevoucherdetails_set || [];
-            const slNo   = String(directSubs.length + idx + 1).padStart(2, "0");
-            const amount = parseFloat(item.item_value) || 0;
-            return (
-              <React.Fragment key={"i-" + idx}>
-                <tr>
-                  <td className="sl t-center">{slNo}</td>
-                  <td>
-                    <div className="pvc-item-name">{item.item_name || item.item || ""}</div>
-                    {(item.purity || item.barcode_txt || item.size) && (
-                      <div className="pvc-item-sub">
-                        {item.purity && <>Purity: {item.purity}</>}
-                        {item.purity && item.barcode_txt && <> · </>}
-                        {item.barcode_txt && <>{item.barcode_txt}</>}
-                        {(item.purity || item.barcode_txt) && item.size && <> · </>}
-                        {item.size && <>Size {item.size}</>}
-                      </div>
-                    )}
-                  </td>
-                  <td className="t-center">{item.pcs ?? "—"}</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num strong">{item.gw ? fmt3(item.gw) : "—"}</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num">—</td>
-                  <td className="t-num strong">{amount ? fmt(amount) : "—"}</td>
-                </tr>
-                {subs.map((sub, si) => (
-                  <tr key={"i-" + idx + "-s-" + si} className="subrow">
-                    <td></td>
-                    <td className="particulars">↳ {sub.sub_item || ""}</td>
-                    <td className="t-center">{sub.sub_pcs || ""}</td>
-                    <td className="t-num">{sub.sub_ct ? fmt3(sub.sub_ct) : ""}</td>
-                    <td className="t-num">{sub.sub_gw ? fmt3(sub.sub_gw) : ""}</td>
-                    <td className="t-num">{sub.fine_wt ? fmt3(sub.fine_wt) : ""}</td>
-                    <td className="t-num">{sub.rate ? fmt(sub.rate) : ""}</td>
-                    <td className="t-num">{sub.value ? fmt(sub.value) : ""}</td>
-                    <td className="t-num">{sub.value ? fmt(sub.value) : ""}</td>
-                  </tr>
-                ))}
-              </React.Fragment>
-            );
-          })}
-
-          {/* Filler rows when bill is short, for visual balance */}
-          {(directSubs.length + items.length) > 0 &&
-           (directSubs.length + items.length) < 3 &&
-           Array.from({ length: 3 - (directSubs.length + items.length) }).map((_, i) => (
-            <tr key={"f-" + i} className="filler">
-              <td colSpan={9}>&nbsp;</td>
-            </tr>
-          ))}
-
-          {/* Totals — integrated as bottom rows */}
-          <tr className="tot subtotal first">
-            <td colSpan={7}></td>
-            <td className="tot-label">Subtotal</td>
-            <td className="tot-value">{fmt(subtotal)}</td>
-          </tr>
-          {roundOff !== 0 && (
-            <tr className="tot">
-              <td colSpan={7}></td>
-              <td className="tot-label">Round Off</td>
-              <td className="tot-value">{fmt(roundOff)}</td>
-            </tr>
-          )}
-          <tr className="tot grand">
-            <td colSpan={7}></td>
-            <td className="tot-label">Total Payable</td>
-            <td className="tot-value">{fmt(grandTotal)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* Narration (rendered only when not blank) */}
-      {d.narration && (
-        <div className="pvc-meta-line">
-          <span className="pvc-label-inline">Narration</span>
-          <span>{d.narration}</span>
-        </div>
-      )}
-
-      {/* In Words */}
-      <div className="pvc-meta-line">
-        <span className="pvc-label-inline">In Words</span>
-        <span className="strong">{numberToWords(grandTotal)}</span>
-      </div>
-
-      {/* Sign-off */}
-      <div className="pvc-signoff">
-        <div>
-          <div className="pvc-label" style={{ marginBottom: 4 }}>Issued By</div>
-          <div className="pvc-gst-grid">
-            {d.company_pan && (<>
-              <div className="k">Pan</div>   <div className="v">{d.company_pan}</div>
-            </>)}
-            {d.company_gstin && (<>
-              <div className="k">Gstin</div> <div className="v">{d.company_gstin}</div>
-            </>)}
-            {(d.company_state || d.company_state_code) && (<>
-              <div className="k">State</div>
-              <div className="v">
-                {d.company_state || ""}
-                {d.company_state && d.company_state_code && " · "}
-                {d.company_state_code || ""}
-              </div>
-            </>)}
-          </div>
-        </div>
-        <div className="pvc-sign">
-          <div className="for">for <span className="strong">{d.company_legal_name || d.company_name || "JEWEL INDIA"}</span></div>
-          <div className="pvc-sig-box">Authorised Signatory</div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="pvc-footer">
-        Computer-generated voucher · No physical signature required
-      </div>
+        );
+      })}
     </div>
   );
 };

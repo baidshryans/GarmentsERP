@@ -803,6 +803,11 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
         retail = request.retail
 
+        # Mirror the branch / GSTIN context from the parent sale so the PV
+        # is filterable in the same branch and GSTIN reports.
+        sale_branch = getattr(sale, 'branch_ref', None) or getattr(retail, 'branch', None)
+        sale_gstin  = getattr(sale, 'gstin_ref',  None) or getattr(retail, 'gstin',  None)
+
         if existing_pv:
             existing_pv.purchasevoucheritems_set.all().delete()
             existing_pv.purchasevoucherdetails_set.all().delete()
@@ -817,6 +822,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
             pv.total_incl_gst = total
             pv.due_amt = Decimal('0')
             pv.fiscal_year = sale.fiscal_year
+            pv.branch_ref = sale_branch
+            pv.gstin_ref  = sale_gstin
             pv.save()
         else:
             billno = get_next_bill_number(retail, 'PVC', sale.fiscal_year)
@@ -832,6 +839,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 source='sales_inline',
                 retail=retail,
                 fiscal_year=sale.fiscal_year,
+                branch_ref=sale_branch,
+                gstin_ref=sale_gstin,
             )
 
         item_details_for_journal = []

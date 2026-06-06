@@ -18,8 +18,8 @@ from .voucher import _raise_missing_ledger
 class PurchaseReturnDetailsSerializer(serializers.ModelSerializer):
     # Fields related to PurchaseReturnDetails model
     sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
-    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field ="pckt_no", required=False)
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False, allow_null=True)
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
 
     class Meta:
         model = PurchaseReturnDetails

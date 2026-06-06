@@ -1,4 +1,5 @@
 from decimal import Decimal
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -131,6 +132,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
             'ldgr_name': {'read_only': True},
         }
 
+    @transaction.atomic
     def create(self, validated_data):
         items_data = validated_data.pop('purchasereturnitems_set')
         if 'fiscal_year' not in validated_data:
@@ -242,6 +244,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
 
         return purchase_return_instance
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         detail_data = validated_data.pop('purchasereturnitems_set', [])
         for attr, value in validated_data.items():

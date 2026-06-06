@@ -146,6 +146,8 @@ const PurchaseReturnAdd = () => {
   const [mainItemData, setMainItemData] = useState([]);
   const [purityData, setPurityData] = useState([]);
   const [packets, setPackets] = useState([]);
+  const [detailSubItemDisplay, setDetailSubItemDisplay] = useState("");
+  const [detailSubItem, setDetailSubItem] = useState(null);
   const [retailState, setRetailState] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -273,6 +275,18 @@ const PurchaseReturnAdd = () => {
   // ── Main item entry (Tab on Remarks) ──────────────────────────────────────
   const handleAddRow = () => {
     const newItem = { ...getValues("table"), purchasereturndetails_set: [] };
+    const hasItem = !!(newItem.item || newItem.barcode_txt);
+    const hasQty =
+      (parseFloat(newItem.pcs) || 0) > 0 ||
+      (parseFloat(newItem.gw) || 0) > 0;
+    if (!hasItem || !hasQty) {
+      toast({
+        title: "Blank row",
+        description: "Select an item and enter Pcs or GW before adding.",
+        variant: "destructive",
+      });
+      return;
+    }
     setRows((prev) => [...prev, newItem]);
     markTableDirty();
     reset({ ...getValues(), table: { ...emptyTableRow } });
@@ -292,7 +306,7 @@ const PurchaseReturnAdd = () => {
     const vendor = vendors.find((v) => v.id === watchedLdgr || v.id === Number(watchedLdgr));
     if (vendor) applyGstSplitForVendor(vendor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rs.length, watchedLdgr, vendors, retailState, mainItemData]);
+  }, [rs, watchedLdgr, vendors, retailState, mainItemData]);
 
   // ── Auto-calculate Bill Summary totals ─────────────────────────────────────
   const watchedDiscount = watch("form.discount");
@@ -338,22 +352,97 @@ const PurchaseReturnAdd = () => {
 
   // ── Packet → sub_item auto-fill & lock ────────────────────────────────────
   const detailPacket = watch("details.packet");
+  const itemLockedByPacket = !!detailPacket;
   useEffect(() => {
     if (!detailPacket) {
       setValue("details.sub_item", "");
+      setDetailSubItemDisplay("");
+      setDetailSubItem(null);
       return;
     }
     const pkt = packets.find((p) => p.pckt_no === detailPacket);
     if (pkt?.stone_item_short_code) {
       setValue("details.sub_item", pkt.stone_item_short_code);
+      const item = mainItemData.find((m) => m.short_code === pkt.stone_item_short_code);
+      setDetailSubItemDisplay(item?.item_name || pkt.stone_item_short_code);
+      setDetailSubItem(item || null);
     }
-  }, [detailPacket, packets]);
+  }, [detailPacket, packets, mainItemData]);
 
-  // ── Detail entry (Tab on Packet) ──────────────────────────────────────────
+  // Manual Item entry (when no packet is selected) — resolve typed name to short_code
+  const handleSubItemDisplayChange = (e) => {
+    const typed = e.target.value;
+    setDetailSubItemDisplay(typed);
+    const found = mainItemData.find((m) => m.item_name === typed);
+    setValue("details.sub_item", found ? found.short_code : "");
+    setDetailSubItem(found || null);
+  };
+
+  // Field-visibility flags for the sub-item entry row
+  const isRawSubItem = detailSubItem?.item_type === "R";
+  const isCtUom = detailSubItem?.uom === "Ct";
+  const subPacketHidden = isRawSubItem;
+  const subPcsHidden = isRawSubItem;
+  const subCtHidden = isRawSubItem;
+  const subPurityHidden = itemLockedByPacket;
+  const subLossHidden = itemLockedByPacket;
+  const subTunchHidden = itemLockedByPacket;
+
+  // Zero out hidden fields so stale values aren't submitted
+  useEffect(() => {
+    if (subPacketHidden) setValue("details.packet", "");
+    if (subPcsHidden) setValue("details.sub_pcs", 0);
+    if (subCtHidden) setValue("details.sub_ct", 0);
+  }, [subPacketHidden, subPcsHidden, subCtHidden]);
+
+  // Auto-derive sub-item GW from CT when UOM is "Ct" (1 ct = 0.2 g)
+  const watchedSubCt = watch("details.sub_ct");
+  useEffect(() => {
+    if (!isCtUom) return;
+    const ct = parseFloat(watchedSubCt) || 0;
+    setValue("details.sub_gw", +(ct * 0.2).toFixed(3));
+  }, [isCtUom, watchedSubCt]);
+
+  // Auto-calc sub-item Amount = rate × qty based on UOM
+  const detailSubPcs = watch("details.sub_pcs");
+  const detailSubCt = watch("details.sub_ct");
+  const detailSubGw = watch("details.sub_gw");
+  const detailSubRate = watch("details.rate");
+  useEffect(() => {
+    if (!detailSubItem) return;
+    const r = parseFloat(detailSubRate) || 0;
+    const uom = detailSubItem.uom;
+    let amt = 0;
+    if (uom === "Pcs") amt = r * (parseFloat(detailSubPcs) || 0);
+    else if (uom === "Ct") amt = r * (parseFloat(detailSubCt) || 0);
+    else amt = r * (parseFloat(detailSubGw) || 0);
+    setValue("details.value", +amt.toFixed(2));
+  }, [detailSubItem, detailSubRate, detailSubPcs, detailSubCt, detailSubGw]);
+  useEffect(() => {
+    if (subPurityHidden) setValue("details.metal_purity", "");
+    if (subLossHidden) setValue("details.loss", 0);
+    if (subTunchHidden) setValue("details.tunch", 0);
+  }, [subPurityHidden, subLossHidden, subTunchHidden]);
+
+  // ── Detail entry (Tab on Amount) ──────────────────────────────────────────
   const handleAddDetail = () => {
     const detail = { ...getValues("details") };
+    const hasSubItem = !!detail.sub_item;
+    const hasSubQty =
+      (parseFloat(detail.sub_pcs) || 0) > 0 ||
+      (parseFloat(detail.sub_ct) || 0) > 0 ||
+      (parseFloat(detail.sub_gw) || 0) > 0;
+    if (!hasSubItem || !hasSubQty) {
+      toast({
+        title: "Blank sub-item",
+        description: "Select an Item (or Packet) and enter Pcs / Ct / GW before adding.",
+        variant: "destructive",
+      });
+      return;
+    }
     const idx = parseInt(detail.sl_no, 10) - 1;
     if (idx >= 0 && idx < rs.length) {
+      // Attach to an existing main item
       setRows((prev) =>
         prev.map((row, i) =>
           i === idx
@@ -369,9 +458,21 @@ const PurchaseReturnAdd = () => {
             : row
         )
       );
-      markTableDirty();
-      reset({ ...getValues(), details: { ...emptyDetails } });
+    } else {
+      // Standalone sub-item return — create a shell main row to host it
+      const nextSl = rs.length + 1;
+      const shell = {
+        ...emptyTableRow,
+        sl_no: nextSl,
+        is_shell: true,
+        purchasereturndetails_set: [{ ...detail, sl_no: nextSl }],
+      };
+      setRows((prev) => [...prev, shell]);
     }
+    markTableDirty();
+    reset({ ...getValues(), details: { ...emptyDetails } });
+    setDetailSubItemDisplay("");
+    setDetailSubItem(null);
   };
 
   const handleKeyDownDetails = (e) => {
@@ -398,15 +499,22 @@ const PurchaseReturnAdd = () => {
     const existing = cgstPer + sgstPer + igstPer;
     if (existing > 0) return existing;
 
-    // Otherwise derive from items' HSN — use the first item's HSN rate
+    // Derive from items' HSN — prefer main item, fall back to sub-items
+    const rateFromShortCode = (sc) => {
+      if (!sc) return 0;
+      const itm = mainItemData.find((m) => m.short_code === sc);
+      if (!itm) return 0;
+      const cgst = parseFloat(itm.hsn_cgst) || 0;
+      const sgst = parseFloat(itm.hsn_sgst) || 0;
+      const igst = parseFloat(itm.hsn_igst) || 0;
+      return cgst + sgst > 0 ? cgst + sgst : igst;
+    };
     for (const row of rs) {
-      const itm = mainItemData.find((m) => m.short_code === row.item);
-      if (itm) {
-        const cgst = parseFloat(itm.hsn_cgst) || 0;
-        const sgst = parseFloat(itm.hsn_sgst) || 0;
-        const igst = parseFloat(itm.hsn_igst) || 0;
-        const total = cgst + sgst > 0 ? cgst + sgst : igst;
-        if (total > 0) return total;
+      const r = rateFromShortCode(row.item);
+      if (r > 0) return r;
+      for (const det of row.purchasereturndetails_set || []) {
+        const dr = rateFromShortCode(det.sub_item);
+        if (dr > 0) return dr;
       }
     }
     return 0;
@@ -414,7 +522,8 @@ const PurchaseReturnAdd = () => {
 
   const applyGstSplitForVendor = (vendor) => {
     if (!vendor) return;
-    const vendorState = (vendor.state || "").trim().toLowerCase();
+    // Use vendor's SHIPPING state (falls back to billing state when shipping is blank)
+    const vendorState = (vendor.ship_state || vendor.state || "").trim().toLowerCase();
     const retState = (retailState || "").trim().toLowerCase();
     const totalGst = getEffectiveGstRate();
     if (totalGst <= 0) return;
@@ -481,16 +590,18 @@ const PurchaseReturnAdd = () => {
 
   const handleDeleteDetail = (itemIdx, detailIdx) => {
     setRows((prev) =>
-      prev.map((item, idx) =>
-        idx === itemIdx
-          ? {
-              ...item,
-              purchasereturndetails_set: item.purchasereturndetails_set.filter(
-                (_, i) => i !== detailIdx
-              ),
-            }
-          : item
-      )
+      prev
+        .map((item, idx) =>
+          idx === itemIdx
+            ? {
+                ...item,
+                purchasereturndetails_set: item.purchasereturndetails_set.filter(
+                  (_, i) => i !== detailIdx
+                ),
+              }
+            : item
+        )
+        .filter((item) => !(item.is_shell && (item.purchasereturndetails_set || []).length === 0))
     );
     markTableDirty();
   };
@@ -831,8 +942,9 @@ const PurchaseReturnAdd = () => {
         <SectionHeader number="3" title="Add Sub-Item Details (Stone / Metal)" />
         <p className="text-xs text-gray-500 mb-3">
           Use <strong>Sl No</strong> to link the detail row to an item above (row number).
+          Select a <strong>Packet</strong> to auto-fill <strong>Item</strong>, or type the Item manually.
           Press <kbd className="px-1 py-0.5 bg-gray-100 border rounded text-xs">Tab</kbd> on{" "}
-          <strong>Packet</strong> to add.
+          <strong>Amount</strong> to add.
         </p>
 
         <div className="overflow-x-auto">
@@ -840,74 +952,111 @@ const PurchaseReturnAdd = () => {
             <TableBody>
               <TableRow className="bg-violet-50">
                 <TH>Sl No</TH>
-                <TH>Pcs</TH>
-                <TH>Ct</TH>
+                {!subPacketHidden && <TH>Packet</TH>}
+                <TH>Item</TH>
+                {!subPcsHidden && <TH>Pcs</TH>}
+                {!subCtHidden && <TH>Ct</TH>}
                 <TH>GW</TH>
-                <TH>Purity</TH>
-                <TH>Loss</TH>
-                <TH>Tunch</TH>
+                {!subPurityHidden && <TH>Purity</TH>}
+                {!subLossHidden && <TH>Loss</TH>}
+                {!subTunchHidden && <TH>Tunch</TH>}
                 <TH>Rate</TH>
                 <TH>Amount</TH>
-                <TH>Packet</TH>
               </TableRow>
               <TableRow>
                 <TableCell className="w-16 px-3 py-2 border">
                   <Input type="number" placeholder="#" {...register("details.sl_no")} />
                 </TableCell>
-                {/* sub_item hidden — auto-filled from packet, see detailPacket watch above */}
-                <input type="hidden" {...register("details.sub_item")} />
-                <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" {...register("details.sub_pcs")} />
+                {!subPacketHidden && (
+                  <TableCell className="w-28 px-3 py-2 border">
+                    <Input
+                      list="packet_list"
+                      {...register("details.packet")}
+                    />
+                    <datalist id="packet_list">
+                      {packets.map((p, i) => (
+                        <option key={i} value={p.pckt_no} />
+                      ))}
+                    </datalist>
+                  </TableCell>
+                )}
+                <TableCell className="w-40 px-3 py-2 border align-top">
+                  {itemLockedByPacket ? (
+                    <div className="min-h-8 px-2 py-1 text-sm bg-gray-100 text-gray-700 rounded border border-input whitespace-normal break-words cursor-not-allowed">
+                      {detailSubItemDisplay || <span className="text-gray-400">Item</span>}
+                    </div>
+                  ) : (
+                    <Input
+                      list="pr_sub_item_list"
+                      value={detailSubItemDisplay}
+                      onChange={handleSubItemDisplayChange}
+                      placeholder="Item"
+                    />
+                  )}
+                  <datalist id="pr_sub_item_list">
+                    {mainItemData.map((m, i) => (
+                      <option key={i} value={m.item_name} />
+                    ))}
+                  </datalist>
+                  <input type="hidden" {...register("details.sub_item")} />
                 </TableCell>
+                {!subPcsHidden && (
+                  <TableCell className="w-20 px-3 py-2 border">
+                    <Input type="number" {...register("details.sub_pcs")} />
+                  </TableCell>
+                )}
+                {!subCtHidden && (
+                  <TableCell className="w-20 px-3 py-2 border">
+                    <Input type="number" step="0.001" {...register("details.sub_ct")} />
+                  </TableCell>
+                )}
                 <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.001" {...register("details.sub_ct")} />
-                </TableCell>
-                <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.001" {...register("details.sub_gw")} />
-                </TableCell>
-                <TableCell className="w-28 px-3 py-2 border">
-                  <Controller
-                    name="details.metal_purity"
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger className="h-8">
-                          <SelectValue placeholder="Purity" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {purityData.map((p, i) => (
-                            <SelectItem key={i} value={`${p.purity}`}>
-                              {p.purity}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+                  <Input
+                    type="number"
+                    step="0.001"
+                    readOnly={isCtUom}
+                    tabIndex={isCtUom ? -1 : 0}
+                    className={isCtUom ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}
+                    {...register("details.sub_gw")}
                   />
                 </TableCell>
-                <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.001" {...register("details.loss")} />
-                </TableCell>
-                <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.001" {...register("details.tunch")} />
-                </TableCell>
+                {!subPurityHidden && (
+                  <TableCell className="w-28 px-3 py-2 border">
+                    <Controller
+                      name="details.metal_purity"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger className="h-8">
+                            <SelectValue placeholder="Purity" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {purityData.map((p, i) => (
+                              <SelectItem key={i} value={`${p.purity}`}>
+                                {p.purity}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                )}
+                {!subLossHidden && (
+                  <TableCell className="w-20 px-3 py-2 border">
+                    <Input type="number" step="0.001" {...register("details.loss")} />
+                  </TableCell>
+                )}
+                {!subTunchHidden && (
+                  <TableCell className="w-20 px-3 py-2 border">
+                    <Input type="number" step="0.001" {...register("details.tunch")} />
+                  </TableCell>
+                )}
                 <TableCell className="w-20 px-3 py-2 border">
                   <Input type="number" step="0.001" {...register("details.rate")} />
                 </TableCell>
                 <TableCell className="w-20 px-3 py-2 border">
-                  <Input type="number" step="0.01" {...register("details.value")} />
-                </TableCell>
-                <TableCell className="w-28 px-3 py-2 border">
-                  <Input
-                    list="packet_list"
-                    onKeyDown={handleKeyDownDetails}
-                    {...register("details.packet")}
-                  />
-                  <datalist id="packet_list">
-                    {packets.map((p, i) => (
-                      <option key={i} value={p.pckt_no} />
-                    ))}
-                  </datalist>
+                  <Input type="number" step="0.01" onKeyDown={handleKeyDownDetails} {...register("details.value")} />
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -942,7 +1091,8 @@ const PurchaseReturnAdd = () => {
 
               {rs.map((item, idx) => (
                 <React.Fragment key={idx}>
-                  {/* Main item row */}
+                  {/* Main item row (skipped for shell rows that only host a standalone sub-item) */}
+                  {!item.is_shell && (
                   <TableRow className={item.barcode ? "bg-violet-50" : "bg-sky-50"}>
                     <TableCell className="px-3 py-2 border">
                       <div className="flex items-center gap-1">
@@ -993,6 +1143,7 @@ const PurchaseReturnAdd = () => {
                       ).toFixed(2)}
                     </TableCell>
                   </TableRow>
+                  )}
 
                   {/* Detail rows */}
                   {Array.isArray(item.purchasereturndetails_set) &&
@@ -1012,7 +1163,7 @@ const PurchaseReturnAdd = () => {
                         <TableCell className="px-3 py-2 border text-xs text-gray-400">↳</TableCell>
                         <TableCell className="px-3 py-2 border text-xs"></TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.packet}</TableCell>
-                        <TableCell className="px-3 py-2 border text-xs"></TableCell>
+                        <TableCell className="px-3 py-2 border text-xs whitespace-normal break-words">{mainItemData.find((m) => m.short_code === detail.sub_item)?.item_name || detail.sub_item || ""}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_pcs}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{Number(detail.sub_ct || 0).toFixed(3)}</TableCell>
                         <TableCell className="px-3 py-2 border text-xs">{detail.sub_gw != null ? parseFloat(detail.sub_gw).toFixed(3) : "—"}</TableCell>

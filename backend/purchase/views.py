@@ -334,7 +334,7 @@ def purchase_return_initial_data(request):
                   .filter(roles__role='VD')
                   .select_related('ac_group')
                   .prefetch_related('roles')
-                  .only('id', 'ac_name', 'ac_group', 'state')
+                  .only('id', 'ac_name', 'ac_group', 'state', 'ship_state')
                   .distinct())
     items_qs = Item.objects.select_related('grp', 'hsn_no', 'purchase_ledger', 'sale_ledger').all()
     purity_qs = PurityMaster.objects.all()

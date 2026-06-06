@@ -115,6 +115,10 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
             'sgst_amt',
             'igst_amt',
             'tcs_amt',
+            'hallmark_charge',
+            'freight_amt',
+            'bill_value',
+            'round_off',
             'narration',
             'mode_of_transport',
             'total_incl_tax',  # Computed property

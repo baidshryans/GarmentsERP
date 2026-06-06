@@ -72,20 +72,20 @@ function PurchaseReturnList() {
       cell: ({ row }) => (
         <div className="flex space-x-4">
           <Link to={`/purchase/purchasereturn/list/${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" />
+            <SquarePen className="size-4" />
           </Link>
           <button
             onClick={() => handlePrintDN(row.original)}
             className="p-1.5 rounded text-amber-600 hover:bg-amber-50 transition-colors flex items-center"
             title="Print Debit Note"
           >
-            <FileText className="mr-1" />
+            <FileText className="size-4" />
           </button>
           <button
             onClick={() => deletePurchaseReturn(row.original.id, toast)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
-            <Trash2 className="mr-1" />
+            <Trash2 className="size-4" />
           </button>
         </div>
       ),

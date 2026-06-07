@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,14 +7,25 @@ import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
 import { useF2Navigate } from "@/hooks/useF2Navigate"
 import { useEnterAsTab } from "@/hooks/useEnterAsTab"
-import { useQueryClient, useMutation } from '@tanstack/react-query';
-
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Table, TableRow, TableCell, TableHead, TableHeader, TableBody } from "@/components/ui/table";
-import { fetchMainItem, fetchSalesperson, fetchPurity, getLedgers, getStates, fetchPVNoNext, fetchPackets, fetchPos, createPurchaseVoucher, fetchBarcodes, fetchHSNs, fetchLedgerTDSInfo } from "@/services/apiService";
+import { fetchLedgerTDSInfo } from "@/services/apiService";
 import { useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { fetchCustomerOrders, fetchPurchaseVoucherForEdit, fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, updatePurchaseVoucherForEdit, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
+import { fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
+import {
+  useLedgers,
+  useItems,
+  usePurities,
+  usePackets,
+  useHsnList,
+  usePos,
+} from "@/hooks/queries/masters";
+import {
+  useNextPVNo,
+  usePurchaseVoucherForEdit,
+  useSavePurchaseVoucherMutation,
+} from "@/hooks/queries/purchaseVoucherQueries";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SquarePen, Trash2, Paperclip, X, Upload, FileText } from "lucide-react";
@@ -30,33 +41,15 @@ import { useEditDirty } from "@/hooks/useEditDirty";
 const PurchaseVoucher = () => {
   const { toast } = useToast()
   const { id } = useParams()
-    const queryClient = useQueryClient();
-    const createPVmutaion = useMutation({
-  mutationFn: ({ data }) => createPurchaseVoucher(data),   // your API call
-  onSuccess: () => {
-    queryClient.invalidateQueries({
-      queryKey: ["purchaseVouchers"],
-    });
-  },
-  onError: (err) => {
-    toast.error(err.message || "Delete failed");
-  },
-});
-    const updatePVmutaion = useMutation({
-  mutationFn: ({ id,data }) => updatePurchaseVoucherForEdit(data,id),   // your API call
-  onSuccess: () => {
-    queryClient.invalidateQueries({
-      queryKey: ["purchaseVouchers"],
-    });
-  },
-  onError: (err) => {
-    toast.error(err.message || "Delete failed");
-  },
-});
+  // Single mutation handles create vs update — chosen by `id` inside the hook.
+  // Replaces two broken mutations whose onError called the non-existent
+  // `toast.error(...)` API (toast is a function, not an object with `.error`)
+  // and which both showed the misleading message "Delete failed".
+  const savePVMutation = useSavePurchaseVoucherMutation(id);
   const [searchParams] = useSearchParams(); // React Router hook
   const vou_type = searchParams.get('vou_type');
   let navigate = useNavigate();
-  const [saving, setSaving] = useState(false);
+  const saving = savePVMutation.isPending;
   const [pendingFiles, setPendingFiles] = useState([]); // files to upload after create
   const [pvSource, setPvSource] = useState('standalone'); // 'standalone' or 'sales_inline' — sales_inline is read-only
   const [detailItemDisplay, setDetailItemDisplay] = useState(""); // display label for item field
@@ -194,11 +187,35 @@ const PurchaseVoucher = () => {
   const [rsRaw, setRsRaw] = useState([]);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [serialNos, setSerialNos] = useState([]);
-  const [statesData, setstatesData] = useState([]);
-  const [mainItemData, setMainItemData] = useState([]);   // all items (for sub-item lookup & name resolution)
-  const [mainItemsM, setMainItemsM] = useState([]);       // type M only (for main item datalist)
-  const [customerOrders, setCustomerOrders] = useState([]);
-  const [customers, setCustomers] = useState([]);
+
+  // ── Server-side masters via React Query ────────────────────────────────────
+  // Replaces the 130-line Promise.all useEffect that previously mounted all
+  // these state buckets. Each query caches across screens & navigations.
+  //
+  // `useLedgers` is keyed by the IN-FORM voucher type (watch('form.voucher_type'))
+  // so when the user toggles the type dropdown the ledger list refetches with
+  // the right role filter — no separate effect needed. The watch returns the
+  // default ("Vendor") on the first render, so we always have a valid filter.
+  const inFormVouType = watch('form.voucher_type') || vou_type || 'Vendor';
+  const ledgerType = inFormVouType === 'Customer' ? 'CO,DL' : 'VD,KR';
+  const ledgersQuery = useLedgers({ type: ledgerType });
+  const itemsAllQuery = useItems();              // all items (sub-item lookup)
+  const itemsMQuery = useItems({ type: 'M' });   // type=M only (main item datalist)
+  const purityQuery = usePurities();
+  const packetsQuery = usePackets();
+  const hsnQuery = useHsnList();
+  const posQuery = usePos();                      // raw payload; po_no plucked via hydrate effect below
+  const nextPVNoQuery = useNextPVNo(vou_type, { enabled: !id });
+  const editQuery = usePurchaseVoucherForEdit(id);
+  // Aliases that match the variable names used throughout the JSX below — keeps
+  // the diff small and avoids renaming ~150 references. useMemo stabilises
+  // the `?? []` fallback so dep-arrays of downstream effects don't churn.
+  const mainItemData = useMemo(() => itemsAllQuery.data ?? [], [itemsAllQuery.data]);
+  const mainItemsM = useMemo(() => itemsMQuery.data ?? [], [itemsMQuery.data]);
+  const customers = useMemo(() => ledgersQuery.data ?? [], [ledgersQuery.data]);
+  const purityData = useMemo(() => purityQuery.data ?? [], [purityQuery.data]);
+  const packets = useMemo(() => packetsQuery.data ?? [], [packetsQuery.data]);
+  const hsns = useMemo(() => hsnQuery.data ?? [], [hsnQuery.data]);
   // Pending-PO picker modal (auto-opens on vendor select)
   const [poPickerOpen, setPoPickerOpen] = useState(false);
   const [pendingPOItems, setPendingPOItems] = useState([]);
@@ -211,9 +228,6 @@ const PurchaseVoucher = () => {
   const [coPickerSearch, setCoPickerSearch] = useState("");
   const [selectedCOItemIds, setSelectedCOItemIds] = useState(new Set());
   const [coPickerLoading, setCoPickerLoading] = useState(false);
-  const [purityData, setPurityData] = useState([]);
-  const [packets, setPackets] = useState([]);
-  const [hsns, setHSNs] = useState([]);
   const [calculate, setCalculate] = useState(0);
   const [tableFormulas, setTableFormulas] = useState({});
   const [uom, setUom] = useState('');
@@ -227,7 +241,14 @@ const PurchaseVoucher = () => {
   const detailSubCt = watch('details.sub_ct');
   const detailSubPcs = watch('details.sub_pcs');
   const selectedPacketData = packets.find(p => p.pckt_no === selectedPacket);
-  const detailItemData = mainItemData.find(m => m.short_code === selectedItem);
+  // Memoize so the reference is stable across renders. Without this, every
+  // keystroke re-creates the object and downstream useEffects (e.g. old-gold
+  // rate auto-fill) misfire and overwrite the user's typed rate before the
+  // value-calc effect can apply it.
+  const detailItemData = useMemo(
+    () => mainItemData.find(m => m.short_code === selectedItem),
+    [mainItemData, selectedItem]
+  );
   const isRawItem = detailItemData?.item_type === "R";
   // Show metal/gold fields only when a raw (gold) item is selected — hide when blank or stone item
   const showMetalFields = isRawItem;
@@ -248,6 +269,8 @@ const PurchaseVoucher = () => {
       uom = selectedItemData.uom.toLowerCase();
     }
     if (uom) setUom(uom);
+    // mainItemData is a stable useMemo; selected* are already in deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPacket, selectedItem, packets])
 
   useEffect(() => {
@@ -260,7 +283,9 @@ const PurchaseVoucher = () => {
       setValue("details.metal_purity", tablevalues.purity)
       setCalculate(prev => prev + 1)
     }
-
+    // Intentionally fires only when `uom` flips — derived state from rs/selectedItem
+    // is read fresh via getValues/rs. setValue/getValues are stable RHF refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uom])
 
   useEffect(() => {
@@ -297,140 +322,99 @@ const PurchaseVoucher = () => {
         setCalculate(prev => prev + 1);
       }
     });
+    // setValue is a stable RHF ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRawItem, detailItemData, detailMetalPurity]);
 
+  // ── React-Query-driven hydrate effects (replace the old mega useEffect) ────
+  // The old code fired a 130-line Promise.all that mixed reference-data fetches
+  // with edit-mode hydration. We now have one focused effect per piece of state
+  // that needs hydration when its source query resolves.
+
+  // 1) Seed billno from the "next number" query on Add only (Edit uses the
+  //    record's billno via the edit-query hydrate below).
   useEffect(() => {
-    async function fetchData() {
-      // All reference data + voucher data (when editing) are fetched in a single
-      // Promise.all so every request fires simultaneously instead of sequentially.
-      const [
-        /* 0 */ ,           // fetchPVNoNext — side-effect only (sets billno), result unused
-        /* 1 */ packets,
-        /* 2 */ barcodes,
-        /* 3 */ customerOrders,
-        /* 4 */ customers,
-        /* 5 */ states,
-        /* 6 */ salesperson,
-        /* 7 */ mainItem,
-        /* 8 */ mainItemM,
-        /* 9 */ purity,
-        /* 10 */ poNo,
-        /* 11 */ hsnres,
-        /* 12 */ voucherResponse,   // null when creating; Response when editing
-      ] = await Promise.all([
-        fetchPVNoNext(vou_type).then(orderNo => { if (orderNo.success) setValue("form.billno", orderNo.data.billno); }),
-        fetchPackets(),
-        fetchBarcodes(),
-        fetchCustomerOrders(),
-        getLedgers({type: vou_type === "Customer" ? "CO,DL" : "VD,KR", page_size: 10000}),
-        getStates(),
-        fetchSalesperson(),
-        fetchMainItem(),
-        fetchMainItem({type: "M"}),
-        fetchPurity(),
-        fetchPos(),
-        fetchHSNs(),
-        // Fetch the voucher for editing in parallel with all the reference calls above.
-        // In create mode (no id) this resolves immediately to null.
-        id ? fetchPurchaseVoucherForEdit(id) : Promise.resolve(null),
-      ]);
+    if (id) return;
+    const billno = nextPVNoQuery.data?.billno;
+    if (billno) setValue("form.billno", billno);
+  }, [id, nextPVNoQuery.data, setValue]);
 
-      if (packets.success) setPackets(packets.data.results ?? packets.data);
-      if (customerOrders.success) setCustomerOrders(customerOrders.data.results);
-      if (customers.success) setCustomers(customers.data.results);
-      if (states.success) setstatesData(states.data.results ?? states.data);
+  // 2) Seed po_no from the PO list query.
+  useEffect(() => {
+    const poNo = posQuery.data?.po_no;
+    if (poNo) setValue("po_no", poNo);
+  }, [posQuery.data, setValue]);
 
-      if (mainItem.success) setMainItemData(mainItem.data.results ?? mainItem.data);
-      if (mainItemM.success) setMainItemsM(mainItemM.data.results ?? mainItemM.data);
-      if (purity.success) setPurityData(purity.data.results ?? purity.data);
-      if (poNo.success) setValue("po_no", poNo.data.po_no);
-      if (hsnres.success) {
-        setHSNs(hsnres.data.results);
-        // Set default HSN to 711319 (Jewellery plain or studded) in create mode
-        if (!id) {
-          const jewelleryHsn = hsnres.data.results.find(
-            h => h.hsn_no === "711319" || h.description?.toUpperCase().includes("JEWELLERY PLAIN")
-          );
-          if (jewelleryHsn) setTimeout(() => setValue("hsn", jewelleryHsn.hsn_no), 0);
-        }
-      }
+  // 3) Default HSN to 711319 (Jewellery plain or studded) on Add. setTimeout
+  //    preserved from the original to defer past initial register() calls.
+  useEffect(() => {
+    if (id) return;
+    const hsnList = hsnQuery.data;
+    if (!hsnList?.length) return;
+    const jewelleryHsn = hsnList.find(
+      (h) => h.hsn_no === "711319" || h.description?.toUpperCase().includes("JEWELLERY PLAIN")
+    );
+    if (jewelleryHsn) setTimeout(() => setValue("hsn", jewelleryHsn.hsn_no), 0);
+  }, [id, hsnQuery.data, setValue]);
 
-      // Return the voucher response so the caller can process it after all
-      // state setters above have run (avoids potential React batching issues).
-      return voucherResponse;
+  // 4) One-time voucher-type seed from the URL on mount. Mirrors original
+  //    behaviour: set form.voucher_type and zero GST when Customer.
+  useEffect(() => {
+    if (!vou_type) return;
+    setValue("form.voucher_type", vou_type);
+    if (vou_type === "Customer") {
+      setValue("form.sgst_per", 0);
+      setValue("form.cgst_per", 0);
+      setValue("form.igst_per", 0);
     }
+  }, [vou_type, setValue]);
 
-    fetchData().then((voucherResponse) => {
-      if (id) {
-        if (!voucherResponse?.success) {
-          console.error('Error fetching purchase voucher for edit:', voucherResponse?.error);
-        } else {
-          const data = voucherResponse.data;
+  // 5) Hydrate the form from the edit-record once it arrives. Race-safe via
+  //    React Query's query-key handling: switching ids returns fresh data,
+  //    never a stale older fetch landing late.
+  useEffect(() => {
+    if (!id || !editQuery.data) return;
+    const data = editQuery.data;
 
-          // Set form fields, skipping nested arrays and hsn (handled separately)
-          Object.keys(data).forEach((key) => {
-            if (key !== 'purchasevoucheritems_set' && key !== 'purchasevoucherdetails_set' && key !== 'hsn') {
-              setValue(`form.${key}`, data[key]);
-            }
-          });
-          // Track sale-inline source to enforce read-only mode
-          if (data.source === 'sales_inline') {
-            setPvSource('sales_inline');
-          }
-
-          // Restore HSN at root level (drives tax rate lookup)
-          if (data.hsn) {
-            setValue("hsn", data.hsn);
-          }
-
-          if (data.purchasevoucheritems_set) {
-            // Annotate each sub-item with the parent's sl_no so the details
-            // input form can correctly reference which row it belongs to.
-            setRows(data.purchasevoucheritems_set.map(item => ({
-              ...item,
-              // Mirror backend FK into the client-side display key used by the row render.
-              customer_order_item_id: item.customer_order_item ?? null,
-              co_no_display: item.order_no || "",
-              purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
-                ...d,
-                sl_no: d.sl_no ?? item.sl_no,
-              })),
-            })));
-          }
-
-          // Only load raw/direct details that are NOT already nested inside items
-          if (data.purchasevoucherdetails_set?.length) {
-            const nestedIds = new Set();
-            (data.purchasevoucheritems_set || []).forEach(item => {
-              (item.purchasevoucherdetails_set || []).forEach(d => {
-                if (d.id) nestedIds.add(d.id);
-              });
-            });
-            setRsRaw(data.purchasevoucherdetails_set.filter(d => !nestedIds.has(d.id)));
-          }
-
-          // vendor_state_code is now embedded in the voucher response (first 2 digits of
-          // the vendor GSTIN) — no separate getLedger call needed.
-          if (data.vendor_state_code) {
-            setVendorStateCode(data.vendor_state_code);
-          }
-          reset(getValues(), { keepValues: true, keepDirty: false });
-          resetTableDirty();
-        }
-      }
-
-      if (vou_type) {
-        setValue("form.voucher_type", vou_type)
-        if (vou_type === "Customer") {
-          setValue("form.sgst_per", 0)
-          setValue("form.cgst_per", 0)
-          setValue("form.igst_per", 0)
-        }
+    // Set form fields, skipping nested arrays and hsn (handled separately).
+    Object.keys(data).forEach((key) => {
+      if (key !== 'purchasevoucheritems_set' && key !== 'purchasevoucherdetails_set' && key !== 'hsn') {
+        setValue(`form.${key}`, data[key]);
       }
     });
-
-
-  }, []);
+    if (data.source === 'sales_inline') {
+      setPvSource('sales_inline');
+    }
+    if (data.hsn) {
+      setValue("hsn", data.hsn);
+    }
+    if (data.purchasevoucheritems_set) {
+      setRows(data.purchasevoucheritems_set.map((item) => ({
+        ...item,
+        customer_order_item_id: item.customer_order_item ?? null,
+        co_no_display: item.order_no || "",
+        purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map((d) => ({
+          ...d,
+          sl_no: d.sl_no ?? item.sl_no,
+        })),
+      })));
+    }
+    if (data.purchasevoucherdetails_set?.length) {
+      const nestedIds = new Set();
+      (data.purchasevoucheritems_set || []).forEach((item) => {
+        (item.purchasevoucherdetails_set || []).forEach((d) => {
+          if (d.id) nestedIds.add(d.id);
+        });
+      });
+      setRsRaw(data.purchasevoucherdetails_set.filter((d) => !nestedIds.has(d.id)));
+    }
+    if (data.vendor_state_code) {
+      setVendorStateCode(data.vendor_state_code);
+    }
+    reset(getValues(), { keepValues: true, keepDirty: false });
+    resetTableDirty();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, editQuery.data]);
 
 
 
@@ -444,17 +428,12 @@ const PurchaseVoucher = () => {
   const add_chrg_cap1 = watch('form.add_chrg_cap1');
   const add_chrg_cap2 = watch('form.add_chrg_cap2');
 
-  useEffect(() => { if (!add_chrg_cap1) setValue('form.add_chrg_amt1', 0); }, [add_chrg_cap1]);
-  useEffect(() => { if (!add_chrg_cap2) setValue('form.add_chrg_amt2', 0); }, [add_chrg_cap2]);
+  useEffect(() => { if (!add_chrg_cap1) setValue('form.add_chrg_amt1', 0); }, [add_chrg_cap1, setValue]);
+  useEffect(() => { if (!add_chrg_cap2) setValue('form.add_chrg_amt2', 0); }, [add_chrg_cap2, setValue]);
 
-  // Re-fetch party list when voucher type changes in the dropdown
-  useEffect(() => {
-    if (!current_vou_type) return;
-    const roleFilter = current_vou_type === 'Customer' ? 'CO,DL' : 'VD,KR';
-    getLedgers({ type: roleFilter, page_size: 10000 }).then(res => {
-      if (res.success) setCustomers(res.data.results);
-    });
-  }, [current_vou_type]);
+  // Note: the old "refetch party list when voucher type changes" useEffect was
+  // removed. `useLedgers` above is keyed by the current in-form voucher type,
+  // so the refetch happens automatically and races are impossible.
 
 
   // Total excl. taxes = items + all charges (before discount)
@@ -566,6 +545,10 @@ const PurchaseVoucher = () => {
     ) {
       setValue('details.rate', 0);
     }
+    // Formula-recalc effect; many derived inputs read via getValues each run.
+    // Adding the full closure of deps would re-trigger on every keystroke
+    // (which is what we want anyway via `calculate`). Stable RHF refs elided.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rs, rsRaw, watchedFields, watchedTunch, calculate]);
 
   // Auto-fill making_value when making_type is 'val' (flat value)
@@ -573,7 +556,7 @@ const PurchaseVoucher = () => {
     if (watchedMakingType === 'val') {
       setValue('table.making_value', parseFloat(watchedMaking) || 0);
     }
-  }, [watchedMaking, watchedMakingType]);
+  }, [watchedMaking, watchedMakingType, setValue]);
 
   useEffect(() => {
     // Skip when editing a sub-item — rate/value are already set by handleEditSubItem
@@ -603,6 +586,8 @@ const PurchaseVoucher = () => {
       // Trigger formula recalculation so value auto-computes based on new rate
       setCalculate(prev => prev + 1);
     }
+    // current_vou_type is read-once at effect run; setValue stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedPacketDetail, packets]);
 
   // Auto-calculate value based on UOM
@@ -617,7 +602,7 @@ const PurchaseVoucher = () => {
       qty = parseFloat(detailSubGw || 0);
     }
     setValue('details.value', parseFloat((rate * qty).toFixed(2)));
-  }, [detailRate, detailSubGw, detailSubCt, detailSubPcs, uom]);
+  }, [detailRate, detailSubGw, detailSubCt, detailSubPcs, uom, setValue]);
 
 
   useEffect(() => {
@@ -628,7 +613,7 @@ const PurchaseVoucher = () => {
       return;
     }
     setValue("details.sl_no", rs.length);
-  }, [rs])
+  }, [rs, setValue])
 
   useEffect(() => {
     const current_voucher_type = getValues("form.voucher_type");
@@ -645,6 +630,9 @@ const PurchaseVoucher = () => {
       setValue('form.igst_per', isIntraState ? 0.0 : parseFloat(hsn_.igst));
       setCalculate(prev => prev + 1);
     }
+    // hsns/getValues/setValue intentionally elided — hsns is a stable useMemo,
+    // and the effect should run only when the HSN or vendor state actually changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hsn_current, vendorStateCode]);
 
   const onSubmit = async (data) => {
@@ -815,34 +803,29 @@ const PurchaseVoucher = () => {
         + parseFloat(form.round_off || 0)
       ).toFixed(2)
     );
-    setSaving(true);
+    // Single mutation handles both create and update — its `isPending` flag is
+    // the source of truth for `saving`, so we don't manually flip a flag.
+    // onSuccess invalidates the list cache + seeds the per-record cache.
     try {
-      const response = id
-        ? await updatePVmutaion.mutateAsync({ data: form, id })
-        : await createPVmutaion.mutateAsync({ data: form });
-
-      if (response.success) {
-        // Upload any pending files (add mode)
-        if (!id && pendingFiles.length > 0) {
-          const newId = response.data.id;
-          for (const file of pendingFiles) {
-            await uploadPurchaseAttachment(newId, file);
-          }
-          setPendingFiles([]);
+      const responseData = await savePVMutation.mutateAsync(form);
+      if (!id && pendingFiles.length > 0) {
+        const newId = responseData.id;
+        for (const file of pendingFiles) {
+          await uploadPurchaseAttachment(newId, file);
         }
-        toast({ title: "Form submitted successfully!" });
-        setTimeout(() => navigate("/purchase/list/"), 500);
-      } else {
-        setSaving(false);
-        toast({
-          title: "Form submission failed.",
-          description: renderErrorTree(response.error),
-          variant: "destructive",
-        });
+        setPendingFiles([]);
       }
-    } catch {
-      setSaving(false);
-      toast({ title: "An error occurred. Please try again later." });
+      toast({ title: "Form submitted successfully!" });
+      setTimeout(() => navigate("/purchase/list/"), 500);
+    } catch (error) {
+      // Mutation throws an Error whose .cause holds the structured payload
+      // from `services/api`, exactly what renderErrorTree expects.
+      const payload = error?.cause ?? error?.message;
+      toast({
+        title: "Form submission failed.",
+        description: renderErrorTree(payload),
+        variant: "destructive",
+      });
     }
   };
 

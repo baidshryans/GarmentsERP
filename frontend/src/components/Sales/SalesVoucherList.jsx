@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { fetchSalesVoucher, updateEwayTransport } from "@/services/apiService";
@@ -22,12 +23,9 @@ import {
 function SalesVoucherList() {
   useF2Navigate("/sales/add/");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const [vouchers, setVouchers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const search = params.get('search') || "";
   const sortby = params.get('sortby') || "";
 
@@ -40,20 +38,33 @@ function SalesVoucherList() {
   });
   const [ewayLoading, setEwayLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  // Data fetched via React Query — keyed by the filters that change the result.
+  // This replaces the old useEffect+useState+setLoading triplet and gives us
+  // automatic dedup, retry, cache, and race-condition-free refetch on filter change.
+  const {
+    data,
+    isLoading: loading,
+    error: queryError,
+  } = useQuery({
+    queryKey: ['salesVouchers', { search, page, sortby }],
+    queryFn: async () => {
       const result = await fetchSalesVoucher({ search, page, ordering: sortby });
-      if (result.success) {
-        setVouchers(result.data.results);
-        setTotalPages(result.data.total_pages);
-      } else {
-        setError(result.error);
+      if (!result.success) {
+        throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
       }
-      setLoading(false);
-    };
-    fetchData();
-  }, [search, page, sortby]);
+      return result.data;
+    },
+    placeholderData: (prev) => prev, // keep previous page visible while next loads
+  });
+  const vouchers = data?.results ?? [];
+  const totalPages = data?.total_pages ?? 1;
+  const error = queryError ? queryError.message : "";
+
+  // Invalidate the list after delete so the table refreshes without a manual reload.
+  const handleDeleteSalesVoucher = async (id) => {
+    await deleteSalesVoucher(id, toast);
+    queryClient.invalidateQueries({ queryKey: ['salesVouchers'] });
+  };
 
   const openEwaySheet = (row) => {
     setEwayVoucher(row);
@@ -103,7 +114,7 @@ function SalesVoucherList() {
     } catch (e) {
       const errText = e.response?.data ? await e.response.data.text() : e.message;
       let detail = errText;
-      try { detail = JSON.parse(errText)?.error || errText; } catch {}
+      try { detail = JSON.parse(errText)?.error || errText; } catch { /* errText not JSON; keep as-is */ }
       toast({ title: 'E-Way Bill generation failed', description: detail, variant: 'destructive' });
     }
     setEwayLoading(false);
@@ -119,7 +130,7 @@ function SalesVoucherList() {
             <SquarePen className="size-4" />
           </Link>
           <button
-            onClick={() => deleteSalesVoucher(row.original.id, toast)}
+            onClick={() => handleDeleteSalesVoucher(row.original.id)}
             className="p-1.5 rounded text-destructive hover:bg-red-50 transition-colors"
           >
             <Trash2 className="size-4" />
@@ -129,7 +140,7 @@ function SalesVoucherList() {
               try {
                 const res = await apiClient.get(`/sales/api/sale-voucher/${row.original.id}/print-data/`);
                 openAndPrint(<SalesInvoice data={res.data} />);
-              } catch (e) {
+              } catch {
                 toast({ title: 'Print failed', description: 'Could not load invoice data.', variant: 'destructive' });
               }
             }}
@@ -165,7 +176,7 @@ function SalesVoucherList() {
                   } catch (e) {
                     const errText = e.response?.data ? await e.response.data.text() : e.message;
                     let detail = errText;
-                    try { detail = JSON.parse(errText)?.error || errText; } catch {}
+                    try { detail = JSON.parse(errText)?.error || errText; } catch { /* errText not JSON; keep as-is */ }
                     toast({ title: 'JSON generation failed', description: detail, variant: 'destructive' });
                   }
                 }}

@@ -8,13 +8,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Printer, Plus, Trash2, Search, Save, ScanBarcode } from "lucide-react";
 import {
   fetchBarcodeDetailOnly,
-  fetchQuotationInitialData,
-  createQuotation,
-  updateQuotation,
-  fetchQuotationById,
   getGoldRate,
   fetchB2BPricelistForLedger,
 } from "@/services/apiService";
+import {
+  useQuotationInitialData,
+  useQuotationForEdit,
+  useSaveQuotationMutation,
+} from "@/hooks/queries/quotationQueries";
 import { openAndPrint } from "@/services/print/utils";
 import QuotationPrint from "./QuotationPrint";
 
@@ -117,15 +118,20 @@ export default function QuotationAdd() {
   const [rate22kt, setRate22kt] = useState(0);
   const [rate24kt, setRate24kt] = useState(0);
 
-  // Initial data
-  const [ledgers, setLedgers] = useState([]);
-  const [salespersons, setSalespersons] = useState([]);
-  const [initialLoading, setInitialLoading] = useState(true);
+  // Initial data via React Query — replaces useEffect+useState for ledgers,
+  // salespersons, purities. Loading flag derived from query state.
+  const initialDataQuery = useQuotationInitialData();
+  const editQuery = useQuotationForEdit(id);
+  const saveMutation = useSaveQuotationMutation(id);
+  const saving = saveMutation.isPending;
+  const ledgers = initialDataQuery.data?.ledgers || [];
+  const salespersons = initialDataQuery.data?.salespersons || [];
+  const purities = initialDataQuery.data?.purities || [];
+  const initialLoading = initialDataQuery.isLoading;
   const [partySearch, setPartySearch] = useState("");
 
   // B2B pricelist (set when a B2B ledger is selected)
   const [b2bPricelist, setB2bPricelist] = useState(null);
-  const [purities, setPurities] = useState([]);
 
   // Scanner
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -133,57 +139,43 @@ export default function QuotationAdd() {
 
   // Items
   const [items, setItems] = useState([]);
-  const [saving, setSaving] = useState(false);
 
-  // ── Load initial data ──────────────────────────────────────────────────
+  // Seed quotation number on Add from the initial-data payload.
   useEffect(() => {
-    (async () => {
-      const res = await fetchQuotationInitialData();
-      if (res.success) {
-        setLedgers(res.data.ledgers || []);
-        setSalespersons(res.data.salespersons || []);
-        setPurities(res.data.purities || []);
-        if (!id) setQuotationNo(res.data.billno || "");
-      }
-      setInitialLoading(false);
-    })();
-  }, []);
+    if (id) return;
+    const billno = initialDataQuery.data?.billno;
+    if (billno) setQuotationNo(billno);
+  }, [id, initialDataQuery.data]);
 
-  // Load existing quotation for edit
+  // Hydrate the form from the edit-record once it arrives. Race-safe via
+  // React Query's id-keyed responses.
   useEffect(() => {
-    if (!id) return;
-    (async () => {
-      const res = await fetchQuotationById(id);
-      if (res.success) {
-        const q = res.data;
-        setDate1(q.date1);
-        setQuotationNo(q.quotation_no);
-        setLdgr(q.ldgr ? String(q.ldgr) : "");
-        setPartyName(q.party_name || "");
-        setPartyType(q.ldgr ? "ledger" : "walkin");
-        setSalesPerson(q.sales_person ? String(q.sales_person) : "");
-        setSellerInfo(q.seller_info || "");
-        setValidUntil(q.valid_until || "");
-        setRemarks(q.remarks || "");
-        setTaxPercent(parseFloat(q.tax_percent) || 3);
-        setGoldRateDate(q.gold_rate_date || today());
-        setRate18kt(q.rate_18kt || 0);
-        setRate22kt(q.rate_22kt || 0);
-        setRate24kt(q.rate_24kt || 0);
-        setItems(
-          (q.items || []).map((item, idx) => ({
-            ...item,
-            _key: Date.now() + idx,
-          }))
-        );
-        // Restore B2B pricelist so any newly scanned items are priced correctly
-        if (q.ldgr) {
-          const plRes = await fetchB2BPricelistForLedger(q.ldgr);
-          if (plRes.success && plRes.data) setB2bPricelist(plRes.data);
-        }
-      }
-    })();
-  }, [id]);
+    if (!id || !editQuery.data) return;
+    const q = editQuery.data;
+    setDate1(q.date1);
+    setQuotationNo(q.quotation_no);
+    setLdgr(q.ldgr ? String(q.ldgr) : "");
+    setPartyName(q.party_name || "");
+    setPartyType(q.ldgr ? "ledger" : "walkin");
+    setSalesPerson(q.sales_person ? String(q.sales_person) : "");
+    setSellerInfo(q.seller_info || "");
+    setValidUntil(q.valid_until || "");
+    setRemarks(q.remarks || "");
+    setTaxPercent(parseFloat(q.tax_percent) || 3);
+    setGoldRateDate(q.gold_rate_date || today());
+    setRate18kt(q.rate_18kt || 0);
+    setRate22kt(q.rate_22kt || 0);
+    setRate24kt(q.rate_24kt || 0);
+    setItems((q.items || []).map((item, idx) => ({ ...item, _key: idx })));
+    // Restore B2B pricelist so any newly-scanned items are priced correctly.
+    // Chained on edit data — keep as a one-shot side-effect, not a useQuery,
+    // because it depends on the loaded ldgr which is part of the edit payload.
+    if (q.ldgr) {
+      fetchB2BPricelistForLedger(q.ldgr).then((plRes) => {
+        if (plRes.success && plRes.data) setB2bPricelist(plRes.data);
+      });
+    }
+  }, [id, editQuery.data]);
 
   // ── Gold rates ─────────────────────────────────────────────────────────
   const fetchRates = useCallback(async (dateVal) => {
@@ -379,7 +371,6 @@ export default function QuotationAdd() {
       return;
     }
 
-    setSaving(true);
     const payload = {
       date1,
       ldgr: partyType === "ledger" && ldgr ? parseInt(ldgr) : null,
@@ -434,25 +425,32 @@ export default function QuotationAdd() {
       })),
     };
 
-    const res = id ? await updateQuotation(id, payload) : await createQuotation(payload);
-    if (res.success) {
+    // Mutation handles loading state, invalidates the quotation list cache,
+    // and seeds the per-record cache so reopening the saved quotation is
+    // instant. Loading flag (`saving`) is `saveMutation.isPending`.
+    try {
+      const responseData = await saveMutation.mutateAsync(payload);
       toast({ title: "Quotation saved" });
       if (andPrint) {
         openAndPrint(
           <QuotationPrint
             data={{
               ...payload,
-              quotation_no: res.data?.quotation_no || quotationNo,
+              quotation_no: responseData?.quotation_no || quotationNo,
               ldgr_name: partyType === "ledger" ? ledgers.find((l) => String(l.id) === ldgr)?.ac_name || "" : partyName,
             }}
           />
         );
       }
       setTimeout(() => navigate("/sales/quotation/list/"), 800);
-    } else {
-      toast({ title: "Save failed", description: JSON.stringify(res.error), variant: "destructive" });
+    } catch (error) {
+      const payloadErr = error?.cause ?? error?.message;
+      toast({
+        title: "Save failed",
+        description: typeof payloadErr === "string" ? payloadErr : JSON.stringify(payloadErr),
+        variant: "destructive",
+      });
     }
-    setSaving(false);
   };
 
   // F4 keyboard shortcut
@@ -462,6 +460,10 @@ export default function QuotationAdd() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+    // handleSave is a closure over many state vars (items/date1/ldgr/partyName
+    // are already in deps); attaching/removing the listener on those changes
+    // refreshes the F4 binding to the latest closure each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, date1, ldgr, partyName]);
 
   // ── Filtered ledgers ───────────────────────────────────────────────────

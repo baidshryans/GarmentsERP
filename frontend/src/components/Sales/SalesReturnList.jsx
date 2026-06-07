@@ -1,7 +1,8 @@
-import React,{useState, useEffect} from 'react'
+import {useState} from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
-import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchSalesReturn } from "@/services/apiService";
+import { fetchSalesReturn } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -17,36 +18,37 @@ import { useF2Navigate } from "@/hooks/useF2Navigate";
 function SalesReturnList() {
   useF2Navigate("/sales/salesreturn/add/");
   const {toast} = useToast();
+  const queryClient = useQueryClient();
       const [params, setParams] = useSearchParams();
-      const [ledgers, setLedgers] = useState([]);
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState("");
       const [page, setPage] = useState(1);
-      const [totalPages, setTotalPages] = useState(1);
-      const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
       const search=params.get('search')||"";
       const sortby=params.get('sortby')||"";
-    
-    useEffect(() => {
-        const fetchLedgers = async () => {
-          setLoading(true);
-          const result = await  fetchSalesReturn({
-            search,
-            page,
-            ordering:sortby,
-          });
-    
-          if (result.success) {
-            setLedgers(result.data.results);
-            setTotalPages(result.data.total_pages);
-          } else {
-            setError(result.error);
+
+      // React Query replaces the old useEffect+useState+setLoading triplet.
+      const {
+        data,
+        isLoading: loading,
+        error: queryError,
+      } = useQuery({
+        queryKey: ['salesReturns', { search, page, sortby }],
+        queryFn: async () => {
+          const result = await fetchSalesReturn({ search, page, ordering: sortby });
+          if (!result.success) {
+            throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
           }
-          setLoading(false);
-        };
-    
-        fetchLedgers();
-      }, [search, page, sortby]);
+          return result.data;
+        },
+        placeholderData: (prev) => prev,
+      });
+      const ledgers = data?.results ?? [];
+      const totalPages = data?.total_pages ?? 1;
+      const error = queryError ? queryError.message : "";
+
+      // Refresh after delete so the row disappears without a manual reload.
+      const handleDeleteSalesReturn = async (id) => {
+        await deleteSalesReturn(id, toast);
+        queryClient.invalidateQueries({ queryKey: ['salesReturns'] });
+      };
     
       
 
@@ -78,7 +80,7 @@ function SalesReturnList() {
                    <Printer className="size-4" />
                  </button>
                  <button
-                           onClick={() => deleteSalesReturn(row.original.id,toast)}
+                           onClick={() => handleDeleteSalesReturn(row.original.id)}
                            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
                            title="Delete"
                          >

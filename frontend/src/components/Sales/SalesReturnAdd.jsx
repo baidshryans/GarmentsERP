@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,14 +22,13 @@ import {
   TableBody,
 } from "@/components/ui/table";
 
+import { fetchDetailsforSaleReturn } from "@/services/apiService";
 import {
-  createSalesReturn,
-  fetchSalesReturnById,
-  updateSalesReturn,
-  fetchSaleReturnInitialData,
-  fetchDetailsforSaleReturn,
-  fetchSystemSettings,
-} from "@/services/apiService";
+  useSaleReturnInitialData,
+  useSalesReturnForEdit,
+  useSaveSalesReturnMutation,
+} from "@/hooks/queries/salesReturnQueries";
+import { useSystemSettings } from "@/hooks/queries/salesVoucherQueries";
 
 import { useParams, useNavigate } from "react-router-dom";
 import { renderErrorTree } from "../../Utils";
@@ -108,17 +107,26 @@ const SalesReturnAdd = () => {
     });
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [saving, setSaving] = useState(false);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [rs, setRows]                             = useState([]);
   const [fetchedBillItems, setFetchedBillItems]   = useState([]);
   const [selectedIndices, setSelectedIndices]     = useState(new Set());
   const [calculate, setCalculate]                 = useState(0);
-  const [autoCalcEnabled, setAutoCalcEnabled]     = useState(false);
-  const [customers, setCustomers]                 = useState([]);
-  const [mainItemData, setMainItemData]           = useState([]);
-  const [purityData, setPurityData]               = useState([]);
-  const [packets, setPackets]                     = useState([]);
+
+  // ── Server-side data via React Query ───────────────────────────────────────
+  // Replaces a ~40-line mega useEffect plus 5 useState slots. The edit-record
+  // fetch is now race-safe via React Query's id-keyed responses.
+  const initialDataQuery = useSaleReturnInitialData();
+  const systemSettingsQuery = useSystemSettings();
+  const editQuery = useSalesReturnForEdit(id);
+  const saveMutation = useSaveSalesReturnMutation(id);
+  const saving = saveMutation.isPending;
+  // useMemo so the `?? []` fallback gives a stable reference between renders.
+  const customers = useMemo(() => initialDataQuery.data?.ledgers || [], [initialDataQuery.data]);
+  const mainItemData = useMemo(() => initialDataQuery.data?.items || [], [initialDataQuery.data]);
+  const purityData = useMemo(() => initialDataQuery.data?.purity || [], [initialDataQuery.data]);
+  const packets = useMemo(() => initialDataQuery.data?.packets || [], [initialDataQuery.data]);
+  const autoCalcEnabled = !!systemSettingsQuery.data?.bill_total_auto_calc;
   const [mainItemDisplay, setMainItemDisplay]     = useState("");
   const [detailItemDisplay, setDetailItemDisplay] = useState("");
   const [detailItem, setDetailItem]               = useState(null); // resolved item object for sub-item
@@ -152,45 +160,40 @@ const SalesReturnAdd = () => {
   const packetLockedByItem = !itemLockedByPacket && !!detailItem; // item typed → packet locked
   const showMetalPurity    = isRawItem && !itemLockedByPacket;    // only for raw items without packet
 
-  // ── Initial data load ──────────────────────────────────────────────────────
-  useEffect(() => {
-    async function loadAll() {
-      try {
-        const [res, sysSettings] = await Promise.all([
-          fetchSaleReturnInitialData(),
-          fetchSystemSettings(),
-        ]);
-        if (res.success) {
-          setCustomers(res.data.ledgers || []);
-          setValue("form.billno", res.data.billno);
-          if (res.data.items)   setMainItemData(res.data.items);
-          if (res.data.purity)  setPurityData(res.data.purity);
-          if (res.data.packets) setPackets(res.data.packets);
-        } else {
-          toast({ title: "Error", description: res.error?.error || "Failed to load form data.", variant: "destructive" });
-        }
-        if (sysSettings.success) setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
-      } catch (err) {
-        console.error("Exception fetching initial data:", err);
-      }
+  // ── React-Query hydrate effects (replace the old mega useEffect) ──────────
 
-      if (id) {
-        const data = await fetchSalesReturnById(id);
-        if (data.success) {
-          const d = data.data;
-          reset({
-            form: { ...d, ldgr_name: d.ldgr_name || "", ref_bill_no: "" },
-            mainItem: { ...emptyMainItem },
-            details:  { ...emptyDetail  },
-          });
-          setRows(JSON.parse(JSON.stringify(d.salereturnitem_set || [])));
-          setCalculate((c) => c + 1);
-          resetTableDirty();
-        }
-      }
-    }
-    loadAll();
-  }, [setValue]);
+  // Seed the billno on Add only — Edit gets it from the record below.
+  useEffect(() => {
+    if (id) return;
+    const billno = initialDataQuery.data?.billno;
+    if (billno) setValue("form.billno", billno);
+  }, [id, initialDataQuery.data, setValue]);
+
+  // Surface initial-data errors as a toast.
+  useEffect(() => {
+    if (!initialDataQuery.error) return;
+    toast({
+      title: "Error",
+      description: initialDataQuery.error.message || "Failed to load form data.",
+      variant: "destructive",
+    });
+  }, [initialDataQuery.error, toast]);
+
+  // Hydrate the form from the edit-record once it arrives. Race-safe: React
+  // Query keys responses by id, so switching ids cannot land stale data.
+  useEffect(() => {
+    if (!id || !editQuery.data) return;
+    const d = editQuery.data;
+    reset({
+      form: { ...d, ldgr_name: d.ldgr_name || "", ref_bill_no: "" },
+      mainItem: { ...emptyMainItem },
+      details: { ...emptyDetail },
+    });
+    setRows(JSON.parse(JSON.stringify(d.salereturnitem_set || [])));
+    setCalculate((c) => c + 1);
+    resetTableDirty();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, editQuery.data]);
 
   // ── Packet → auto-fill item ────────────────────────────────────────────────
   useEffect(() => {
@@ -215,6 +218,9 @@ const SalesReturnAdd = () => {
       setDetailItem(item);
       setDetailItemDisplay(item.item_name);
     }
+    // setValue/itemLockedByPacket intentionally not in deps — itemLockedByPacket
+    // is derived from detailPacket which IS already a dep, and setValue is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailPacket, packets]);
 
   // ── Clear fields when item type changes ───────────────────────────────────
@@ -223,6 +229,8 @@ const SalesReturnAdd = () => {
       setValue("details.metal_purity", "");
       setValue("details.tunch", null);
     }
+    // isRawItem is derived from detailItem (already in deps); setValue is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailItem]);
 
   // ── Sub-item amount auto-calculation (mirrors sales voucher logic) ─────────
@@ -245,6 +253,8 @@ const SalesReturnAdd = () => {
       amount = gw * rate;
     }
     setValue("details.amount", parseFloat(amount.toFixed(2)));
+    // isRawItem is derived from detailItem (in deps); setValue is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailGw, detailRate, detailTunch, detailCt, detailPcs, detailItem]);
 
   // ── Bill-level auto-calculation ───────────────────────────────────────────
@@ -279,6 +289,8 @@ const SalesReturnAdd = () => {
     setValue("form.total_incl_gst",   total_incl_gst.toFixed(2));
     setValue("form.tcs_amt",          tcs_amt.toFixed(2));
     setValue("form.total_bill_value", total.toFixed(2));
+    // getValues/setValue are stable RHF refs; intentionally elided.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rs, calculate, w_discount]);
 
   // ── Ref Bill Fetch ─────────────────────────────────────────────────────────
@@ -453,32 +465,27 @@ const SalesReturnAdd = () => {
   };
 
   // ── Submit ────────────────────────────────────────────────────────────────
+  // Mutation handles loading state via `isPending` (mapped to `saving`),
+  // invalidates the Sales Return list cache, and seeds the per-record cache.
   const handleSalesReturnSubmit = async () => {
     if (rs.length === 0) { toast({ title: "Table is empty", description: "Add at least one item." }); return; }
-    setSaving(true);
+    const formVals = getValues("form");
+    const payload = { ...formVals, salereturnitem_set: rs };
+    delete payload.ref_bill_no;
+    delete payload.ldgr_name;
+    delete payload.total_bill_value;
     try {
-      const formVals = getValues("form");
-      const payload  = { ...formVals, salereturnitem_set: rs };
-      delete payload.ref_bill_no;
-      delete payload.ldgr_name;
-      delete payload.total_bill_value;
-
-      const response = id
-        ? await updateSalesReturn(payload, id)
-        : await createSalesReturn(payload);
-
-      if (response.success) {
-        toast({ title: "Form submitted successfully!" });
-        reset();
-        setRows([]);
-        setTimeout(() => navigate("/sales/salesreturn/list/"), 2000);
-      } else {
-        setSaving(false);
-        toast({ title: "Form submission failed.", description: renderErrorTree(response.error) });
-      }
+      await saveMutation.mutateAsync(payload);
+      toast({ title: "Form submitted successfully!" });
+      reset();
+      setRows([]);
+      setTimeout(() => navigate("/sales/salesreturn/list/"), 2000);
     } catch (error) {
-      setSaving(false);
-      toast({ title: "An error occurred. Please try again later." });
+      const payloadErr = error?.cause ?? error?.message;
+      toast({
+        title: "Form submission failed.",
+        description: renderErrorTree(payloadErr),
+      });
     }
   };
 

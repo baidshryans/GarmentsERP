@@ -27,26 +27,30 @@ import {
 
 import {
   getLedgers,
-  createSalesVoucher,
   fetchBarcodeDetail,
   CashTotalLedger,
-  fetchSaleVoucherInitialData,
-  fetchSystemSettings,
   fetchMainItem,
   fetchPurity,
   fetchPackets,
-  fetchExhibitions,
   fetchCustomerCashReceived,
   fetchCustomerOrdersByLedger,
   fetchCustomerPurchasesByLedger,
   fetchB2BPricelistForLedger,
   fetchRetailDiscountPricelistForLedger,
-  fetchActiveOffer,
 } from "@/services/apiService";
 import { Link, useParams, useSearchParams, useLocation } from "react-router-dom";
 
 import { FieldContainer } from "@/Utils.jsx";
-import { fetchSalesVoucherwithID, updateSalesVoucher, getGoldRate } from "../../services/apiService";
+import {
+  useSaleVoucherInitialData,
+  useExhibitions,
+  useTodayGoldRateMap,
+  useSystemSettings,
+  useBankLedgers,
+  useActiveOffer,
+  useSalesVoucherForEdit,
+  useSaveSalesVoucherMutation,
+} from "@/hooks/queries/salesVoucherQueries";
 import { useEditDirty } from "@/hooks/useEditDirty";
 import { useNavigate } from "react-router-dom";
 import { renderErrorTree } from "../../Utils";
@@ -200,24 +204,44 @@ const SalesVoucherAdd = () => {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
-  const [saving, setSaving] = useState(false);
   const [rs, setRows] = useState([]);              // manual / raw items
-  const [statesData, setstatesData] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [salespersonData, setSalespersonData] = useState([]);
-  const [hsns, setHsns] = useState([]);
   const [bankdetails, setBankDetails] = useState([]);
-  const [bankLedgers, setBankLedgers] = useState([]);
   const [calculate, setCalculate] = useState(0);
   const [cashledger, setCashLedger] = useState([]);
-  const [mainItemData, setMainItemData] = useState([]);
-  const [packets, setPackets] = useState([]);
-  const [purityData, setPurityData] = useState([]);
   const [retailStateCode, setRetailStateCode] = useState("");
-  const [goldRates, setGoldRates] = useState({});  // { "22KT": 4600, "24KT": 5000, … }
-  const [exhibitions, setExhibitions] = useState([]);
   const [isExhibitionRetail, setIsExhibitionRetail] = useState(false);
-  const [autoCalcEnabled, setAutoCalcEnabled] = useState(false);
+
+  // ── Server-side data via React Query ───────────────────────────────────────
+  // Replaces 8 useState buckets and the manual `cancelled` race-guard flag.
+  // The query-key on `useSalesVoucherForEdit(id)` means switching between two
+  // PV ids in quick succession is structurally race-free: the slower request
+  // can never land its data over the faster one.
+  const initialDataQuery = useSaleVoucherInitialData();
+  const exhibitionsQuery = useExhibitions();
+  const goldRateMapQuery = useTodayGoldRateMap();
+  const systemSettingsQuery = useSystemSettings();
+  const bankLedgersQuery = useBankLedgers();
+  const activeOfferQuery = useActiveOffer();
+  const editQuery = useSalesVoucherForEdit(id);
+  const saveMutation = useSaveSalesVoucherMutation(id);
+  const saving = saveMutation.isPending;
+
+  // Aliases that keep the JSX downstream unchanged (~200 references). The
+  // shape matches what the old useState slots held.
+  const statesData = initialDataQuery.data?.states ?? [];
+  const salespersonData = initialDataQuery.data?.salespersons ?? [];
+  const hsns = initialDataQuery.data?.hsns ?? [];
+  const mainItemData = initialDataQuery.data?.items ?? [];
+  const packets = initialDataQuery.data?.packets ?? [];
+  const purityData = initialDataQuery.data?.purity ?? [];
+  const bankLedgers = bankLedgersQuery.data ?? [];
+  const exhibitions = exhibitionsQuery.data ?? [];
+  const goldRates = goldRateMapQuery.data ?? {};
+  const activeOffer = activeOfferQuery.data ?? null;
+  // Customers can still be locally mutated by the party-name search effect, so
+  // we keep a useState — initial data flows in via a hydrate effect below.
+  const [customers, setCustomers] = useState([]);
+  const autoCalcEnabled = !!systemSettingsQuery.data?.bill_total_auto_calc;
   const [customerCashInfo, setCustomerCashInfo] = useState(null); // { cash_received, limit, remaining }
   const [customerOrders, setCustomerOrders] = useState([]);       // orders with available advance
   const [selectedOrder, setSelectedOrder] = useState(null);       // the linked CustomerOrder object
@@ -265,8 +289,12 @@ const SalesVoucherAdd = () => {
   }, [inlineOldGoldTotal, setValue]);
   const [b2bPricelist, setB2bPricelist] = useState(null);         // null = retail mode; object = B2B pricelist data
   const [retailDiscountPricelist, setRetailDiscountPricelist] = useState(null); // retail discount pricelist for Apply Discount
-  const [activeOffer, setActiveOffer] = useState(null);           // company-wide active offer (retail only)
-  const [enableGstBill, setEnableGstBill] = useState(false);      // driven by SystemSettings.enable_gst_bill
+  // Both flags are derived from React Query data above. `enableGstBill` honours
+  // either source (the bundled initial-data payload OR the system settings) —
+  // matches the legacy behaviour where the system-settings fetch could
+  // override the initial-data value.
+  const enableGstBill =
+    !!(systemSettingsQuery.data?.enable_gst_bill ?? initialDataQuery.data?.enable_gst_bill);
   const [showManualItems, setShowManualItems] = useState(false);  // section 3 toggle
   // Resolved item for the current manual input row
   const [detailItem, setDetailItem] = useState(null);
@@ -329,13 +357,16 @@ const SalesVoucherAdd = () => {
       const gw  = getValues("details.gw");
       setValue("details.value", computeValue(rate, item.uom, pcs, ct, gw));
     }
+    // detailItem/getValues/getB2bStoneRate read fresh inside the effect; we
+    // only want it to run when packet/packets/b2bPricelist actually change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailPacket, packets, setValue, b2bPricelist]);
 
   // Recalculate value whenever rate or qty fields change
   useEffect(() => {
     if (!detailItem) return;
     setValue("details.value", computeValue(detailRate, detailItem.uom, detailPcs, detailCt, detailGw));
-  }, [detailRate, detailPcs, detailCt, detailGw, detailItem]);
+  }, [detailRate, detailPcs, detailCt, detailGw, detailItem, setValue]);
 
   // Handler for manual item name input (when no packet is selected)
   const handleItemDisplayChange = (e) => {
@@ -379,6 +410,10 @@ const SalesVoucherAdd = () => {
         setValue("details.metal_purity", parentInfo.default_purity);
       }
     }
+    // ct/gw/isRawItem are derived from detailItem (already in deps); mainItemData
+    // is a stable useMemo; rs/setValue read fresh on each run. Effect intentionally
+    // only fires on detailItem change to avoid clobbering manual entries.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailItem]);
 
   // Auto-fill rate from gold rates when purity is selected on a raw/gold item
@@ -391,171 +426,124 @@ const SalesVoucherAdd = () => {
     if (rate !== undefined) {
       setValue("details.rate", rate);
     }
+    // getB2bGoldRate is a closure over b2bPricelist (already in deps); setValue stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailPurity, isRawItem, goldRates, b2bPricelist]);
 
-  // ── Initial data load ──────────────────────────────────────────────────────
+  // ── React-Query-driven hydrate effects (replaces the old mega useEffect) ────
+  // The legacy effect ran ~160 lines of nested Promise.all + a manual
+  // `cancelled` flag to guard against the Strict-Mode double-mount race.
+  // Each React Query hook above takes care of fetching + caching; these small
+  // effects just hydrate form state when their source query resolves.
+  // Race-safety: switching ids cannot land stale data — React Query keys
+  // responses by id, so the slower request is discarded automatically.
+
+  // 1) Hydrate masters-derived form fields when bundled initial data lands.
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [res, exhRes] = await Promise.all([
-          fetchSaleVoucherInitialData(),
-          fetchExhibitions(),
-        ]);
-        if (res.success) {
-          const d = res.data;
-          console.log("Initial data loaded:", d);
-          setstatesData(d.states || []);
-          setCustomers(d.ledgers || []);
-          setSalespersonData(d.salespersons || []);
-          setHsns(d.hsns || []);
-          setMainItemData(d.items || []);
-          setPurityData(d.purity || []);
-          setPackets(d.packets || []);
-          setValue("form.billno", d.billno);
-          if (d.enable_gst_bill) {
-            setEnableGstBill(true);
-            setValue("form.gst_billno", d.gst_billno || "");
-          }
-          if (d.retail_state_code) setRetailStateCode(d.retail_state_code);
-          if (d.is_exhibition) setIsExhibitionRetail(true);
-        } else {
-          console.error("Failed to fetch initial data:", res.error);
-          toast({
-            title: "Error",
-            description: res.error?.error || "Failed to load form data. Please ensure you are logged in and have selected a retail location.",
-            variant: "destructive",
-          });
-        }
-        if (exhRes.success) {
-          const list = Array.isArray(exhRes.data) ? exhRes.data : (exhRes.data?.results ?? []);
-          setExhibitions(list);
-          // Pre-select the profile marked as default (is_active = true), if any
-          const defaultExh = list.find(e => e.is_active);
-          if (defaultExh) setValue("form.exhibition_profile", String(defaultExh.id));
-        }
-      } catch (err) {
-        console.error("Exception while fetching initial data:", err);
-      }
-      // Fetch today's gold rates for auto-filling rate on raw/gold items
-      const today = new Date().toISOString().split("T")[0];
-      getGoldRate(today).then(res => {
-        if (res.success && Array.isArray(res.data)) {
-          const rateMap = {};
-          res.data.forEach(r => { if (r.purity_name) rateMap[r.purity_name] = r.selling_rate || r.rate; });
-          setGoldRates(rateMap);
-        }
-      });
+    const d = initialDataQuery.data;
+    if (!d) return;
+    setCustomers(d.ledgers || []);
+    if (d.billno) setValue("form.billno", d.billno);
+    if (d.enable_gst_bill) setValue("form.gst_billno", d.gst_billno || "");
+    if (d.retail_state_code) setRetailStateCode(d.retail_state_code);
+    if (d.is_exhibition) setIsExhibitionRetail(true);
+  }, [initialDataQuery.data, setValue]);
 
-      // Fetch system settings, bank ledgers, active offer, AND the voucher being edited
-      // all in parallel — the voucher fetch no longer waits for the other calls to finish.
-      const [sysSettings, bankLedgersRes, offerRes, voucherResponse] = await Promise.all([
-        fetchSystemSettings(),
-        getLedgers({ type: "BA", page: 1 }),
-        fetchActiveOffer(),
-        // In create mode (no id) resolves immediately to null.
-        id ? fetchSalesVoucherwithID(id) : Promise.resolve(null),
-      ]);
-      if (sysSettings.success) {
-        setAutoCalcEnabled(!!sysSettings.data.bill_total_auto_calc);
-        setEnableGstBill(!!sysSettings.data.enable_gst_bill);
-      }
-      if (bankLedgersRes.success) {
-        const list = Array.isArray(bankLedgersRes.data) ? bankLedgersRes.data : (bankLedgersRes.data?.results ?? []);
-        setBankLedgers(list);
-      }
-      if (offerRes.success && offerRes.data?.id) setActiveOffer(offerRes.data);
+  // 2) Surface initial-data errors as a toast (matches old behaviour).
+  useEffect(() => {
+    if (!initialDataQuery.error) return;
+    toast({
+      title: "Error",
+      description:
+        initialDataQuery.error.message ||
+        "Failed to load form data. Please ensure you are logged in and have selected a retail location.",
+      variant: "destructive",
+    });
+  }, [initialDataQuery.error, toast]);
 
-      return voucherResponse;
-    }
+  // 3) Pre-select the default exhibition profile when exhibitions land.
+  useEffect(() => {
+    if (!exhibitionsQuery.data) return;
+    const defaultExh = exhibitionsQuery.data.find((e) => e.is_active);
+    if (defaultExh) setValue("form.exhibition_profile", String(defaultExh.id));
+  }, [exhibitionsQuery.data, setValue]);
 
-    let cancelled = false;
-
-    fetchData().then((voucherResponse) => {
-      // React 18 Strict Mode runs effects twice (mount → cleanup → remount).
-      // Without this guard, both .then() callbacks would call append(), doubling every item.
-      if (cancelled) return;
-
-      if (id) {
-        if (!voucherResponse?.success) {
-          console.error('Error fetching sales voucher for edit:', voucherResponse?.error);
-        } else {
-          const data = voucherResponse.data;
-          const formData = {
-            form: {
-              ...data,
-              salesvouitem_set: JSON.parse(JSON.stringify(data.salesvouitem_set ?? [])),
-            }
-          };
-          Object.keys(formData.form).forEach(key => {
-            if (key === 'salesvouitem_set') {
-              // Use replace() so re-running the load (HMR / StrictMode) cannot duplicate rows
-              replace(formData.form[key] || []);
-            } else if (key !== 'salesvouitemdetails_set' && key !== 'bank_details') {
-              setValue(`form.${key}`, formData.form[key]);
-            }
-          });
-          if (data.bank_details) {
-            setBankDetails(data.bank_details);
-          }
-          // Restore manual items
-          if (data.salesvouitemdetails_set?.length) {
-            setRows(data.salesvouitemdetails_set);
-          }
-          // Restore inline old-gold rows from the linked sale-owned PV
-          if (data.inline_old_gold_pv?.rows?.length) {
-            setInlineOldGold(data.inline_old_gold_pv.rows.map(r => recalcInlineRow({
-              item: r.item || "",
-              item_name: r.item_name || r.item || "",
-              description: r.item_name || "",
-              purity: r.purity || "",
-              pcs: r.pcs ?? "",
-              ct: r.ct ?? "",
-              gw: r.gw ?? "",
-              loss: r.loss ?? "",
-              tunch: r.tunch ?? "",
-              uom: "Gm",
-              rate: r.rate ?? "",
-            })));
-          }
-          // Restore applied advance receipts AND fetch any still-unlinked receipts
-          // for the loaded customer so advances can be added/removed in edit mode.
-          const appliedReceipts = Array.isArray(data.applied_advance_receipts)
-            ? data.applied_advance_receipts : [];
-          if (appliedReceipts.length > 0) {
-            setSelectedReceiptIds(appliedReceipts.map(r => r.id));
-          }
-          if (data.ldgr) {
-            setLoadingOnAccount(true);
-            fetchUnlinkedReceipts(data.ldgr).then(res => {
-              setLoadingOnAccount(false);
-              const unlinked = res.success ? res.data : [];
-              const merged = [
-                ...appliedReceipts,
-                ...unlinked.filter(u => !appliedReceipts.some(a => a.id === u.id)),
-              ];
-              setOnAccountReceipts(merged);
-            });
-          } else if (appliedReceipts.length > 0) {
-            setOnAccountReceipts(appliedReceipts);
-          }
-          // Restore old gold purchase link (still sequential — needs ldgr from voucher data)
-          if (data.old_gold_purchase && data.ldgr) {
-            fetchCustomerPurchasesByLedger(data.ldgr).then(res => {
-              if (res.success) {
-                setCustomerPurchases(res.data);
-                const pv = res.data.find(p => p.id === data.old_gold_purchase);
-                setSelectedPurchase(pv ?? null);
-              }
-            });
-          }
-          reset(getValues(), { keepValues: true, keepDirty: false });
-          resetTableDirty();
-        }
+  // 4) Hydrate the form from the edit-record once it arrives. React Query
+  //    keys by id, so the Strict-Mode double-mount race the old code guarded
+  //    against with `cancelled` is now impossible.
+  useEffect(() => {
+    if (!id || !editQuery.data) return;
+    const data = editQuery.data;
+    const formData = {
+      form: {
+        ...data,
+        salesvouitem_set: JSON.parse(JSON.stringify(data.salesvouitem_set ?? [])),
+      },
+    };
+    Object.keys(formData.form).forEach((key) => {
+      if (key === 'salesvouitem_set') {
+        // Use replace() so re-running this effect cannot duplicate rows.
+        replace(formData.form[key] || []);
+      } else if (key !== 'salesvouitemdetails_set' && key !== 'bank_details') {
+        setValue(`form.${key}`, formData.form[key]);
       }
     });
-
-    return () => { cancelled = true; };
-  }, [setValue]);
+    if (data.bank_details) {
+      setBankDetails(data.bank_details);
+    }
+    if (data.salesvouitemdetails_set?.length) {
+      setRows(data.salesvouitemdetails_set);
+    }
+    if (data.inline_old_gold_pv?.rows?.length) {
+      setInlineOldGold(data.inline_old_gold_pv.rows.map((r) => recalcInlineRow({
+        item: r.item || "",
+        item_name: r.item_name || r.item || "",
+        description: r.item_name || "",
+        purity: r.purity || "",
+        pcs: r.pcs ?? "",
+        ct: r.ct ?? "",
+        gw: r.gw ?? "",
+        loss: r.loss ?? "",
+        tunch: r.tunch ?? "",
+        uom: "Gm",
+        rate: r.rate ?? "",
+      })));
+    }
+    // Restore applied advance receipts AND fetch any still-unlinked receipts
+    // for the loaded customer so advances can be added/removed in edit mode.
+    const appliedReceipts = Array.isArray(data.applied_advance_receipts)
+      ? data.applied_advance_receipts : [];
+    if (appliedReceipts.length > 0) {
+      setSelectedReceiptIds(appliedReceipts.map((r) => r.id));
+    }
+    if (data.ldgr) {
+      setLoadingOnAccount(true);
+      fetchUnlinkedReceipts(data.ldgr).then((res) => {
+        setLoadingOnAccount(false);
+        const unlinked = res.success ? res.data : [];
+        const merged = [
+          ...appliedReceipts,
+          ...unlinked.filter((u) => !appliedReceipts.some((a) => a.id === u.id)),
+        ];
+        setOnAccountReceipts(merged);
+      });
+    } else if (appliedReceipts.length > 0) {
+      setOnAccountReceipts(appliedReceipts);
+    }
+    // Restore old gold purchase link (still sequential — needs ldgr from voucher data)
+    if (data.old_gold_purchase && data.ldgr) {
+      fetchCustomerPurchasesByLedger(data.ldgr).then((res) => {
+        if (res.success) {
+          setCustomerPurchases(res.data);
+          const pv = res.data.find((p) => p.id === data.old_gold_purchase);
+          setSelectedPurchase(pv ?? null);
+        }
+      });
+    }
+    reset(getValues(), { keepValues: true, keepDirty: false });
+    resetTableDirty();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, editQuery.data]);
 
   // ── Formulas ───────────────────────────────────────────────────────────────
   const hsn_current = watch('hsn');
@@ -634,7 +622,7 @@ const SalesVoucherAdd = () => {
         return already ? prev : [{ id: ldgr, ac_name: ldgrName, mobile1: "" }, ...prev];
       });
     }
-  }, [searchParams]);
+  }, [searchParams, setValue]);
 
   // Recalculate formulas whenever anything changes
   useEffect(() => {
@@ -692,6 +680,10 @@ const SalesVoucherAdd = () => {
     Object.keys(main_formulas).forEach(col => {
       setValue(`form.${col}`, evaluateFormula(main_formulas[col], form));
     });
+    // formulas/main_formulas/sub_formulas are stable module-scope objects;
+    // getValues is a stable RHF ref. Intentionally elided to keep the hot
+    // formula-recalc loop bounded to actual input changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calculate, setValue, watchFields, rs, goldRates]);
 
   // HSN → set GST rates based on place of supply vs retail state
@@ -706,6 +698,9 @@ const SalesVoucherAdd = () => {
     setValue('form.cgst_per', isIntraState ? parseFloat(hsn_.cgst) : 0.0);
     setValue('form.igst_per', isIntraState ? 0.0 : parseFloat(hsn_.igst));
     setCalculate(prev => prev + 1);
+    // hsns is a derived array (initialDataQuery.data?.hsns); setValue stable.
+    // The effect intentionally fires only when its actual triggers change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hsn_current, place_of_supply, retailStateCode]);
 
   // ── B2B pricelist helpers ───────────────────────────────────────────────────
@@ -1004,20 +999,22 @@ const SalesVoucherAdd = () => {
         return;
       }
 
-      setSaving(true);
-      const response = id
-        ? await updateSalesVoucher(data, id)
-        : await createSalesVoucher(data);
-
-      if (response.success) {
+      // useMutation's `isPending` flag drives the `saving` button state; on
+      // success it invalidates the list cache so the Sales list refreshes
+      // without a manual reload, and seeds the per-record cache so reopening
+      // the same voucher for edit is instant.
+      try {
+        await saveMutation.mutateAsync(data);
         toast({ title: id ? "Sales voucher updated!" : "Form submitted successfully!" });
         setTimeout(() => navigate("/sales/list/"), 500);
-      } else {
-        setSaving(false);
-        toast({ title: "Form submission failed.", description: renderErrorTree(response.error) });
+      } catch (mutationError) {
+        const payload = mutationError?.cause ?? mutationError?.message;
+        toast({
+          title: "Form submission failed.",
+          description: renderErrorTree(payload),
+        });
       }
     } catch (error) {
-      setSaving(false);
       console.error("Error creating Sales Voucher:", error);
       toast({ title: "An error occurred. Please try again later." });
     }

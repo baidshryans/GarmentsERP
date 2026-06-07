@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
-import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchPurchaseRetun, fetchCompanies, fetchRetails, fetchPurchaseReturnForEdit } from "@/services/apiService";
+import { fetchPurchaseRetun, fetchCompanies, fetchRetails, fetchPurchaseReturnForEdit } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,14 +23,13 @@ import {
 } from "@/components/ui/table";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 
-import {
-  createPurchaseReturn,
-  fetchPurchaseReturnForEdit,
-  updatePurchaseReturnForEdit,
-  fetchPurchaseReturnInitialData,
-  fetchDetailsForPurchaseReturn,
-} from "@/services/apiService";
+import { fetchDetailsForPurchaseReturn } from "@/services/apiService";
 import { fetchBarcodeDetailOnly } from "@/services/api/inventory";
+import {
+  usePurchaseReturnInitialData,
+  usePurchaseReturnForEdit,
+  useSavePurchaseReturnMutation,
+} from "@/hooks/queries/purchaseReturnQueries";
 
 import { useParams, useNavigate } from "react-router-dom";
 import { FieldContainer } from "@/Utils.jsx";
@@ -39,6 +38,7 @@ import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 import { useEditDirty } from "@/hooks/useEditDirty";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+// eslint-disable-next-line react/prop-types
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
     <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">
@@ -49,6 +49,7 @@ const SectionHeader = ({ number, title }) => (
   </div>
 );
 
+// eslint-disable-next-line react/prop-types
 const TH = ({ children, className = "" }) => (
   <TableCell
     className={`px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}
@@ -139,69 +140,67 @@ const PurchaseReturnAdd = () => {
     });
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [saving, setSaving] = useState(false);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [rs, setRows] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [mainItemData, setMainItemData] = useState([]);
-  const [purityData, setPurityData] = useState([]);
-  const [packets, setPackets] = useState([]);
   const [detailSubItemDisplay, setDetailSubItemDisplay] = useState("");
   const [detailSubItem, setDetailSubItem] = useState(null);
-  const [retailState, setRetailState] = useState("");
   const [barcodeInput, setBarcodeInput] = useState("");
   const [scanning, setScanning] = useState(false);
   const barcodeFetchingRef = useRef(false);
   const loadedPvBillNosRef = useRef(new Set());
 
-  // ── Initial data load ──────────────────────────────────────────────────────
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetchPurchaseReturnInitialData();
-        if (res.success) {
-          const d = res.data;
-          setVendors(d.ledgers || []);
-          setMainItemData(d.items || []);
-          setPurityData(d.purity || []);
-          setPackets(d.packets || []);
-          setRetailState(d.retail_state || "");
-          setValue("form.billno", d.billno);
-        } else {
-          console.error("Failed to fetch initial data:", res.error);
-          toast({
-            title: "Error",
-            description:
-              res.error?.error ||
-              "Failed to load form data. Please ensure you are logged in and have selected a retail location.",
-            variant: "destructive",
-          });
-        }
-      } catch (err) {
-        console.error("Exception fetching initial data:", err);
-      }
-    }
+  // ── Server data via React Query ────────────────────────────────────────────
+  // Replaces three useEffect+useState pairs (vendors/items/purity/packets/retail
+  // master fetch + edit-record fetch). Both queries cache, so navigating away
+  // and back is instant; the edit query is race-safe via React Query's
+  // built-in query-key handling.
+  const initialQuery = usePurchaseReturnInitialData();
+  const editQuery = usePurchaseReturnForEdit(id);
+  const saveMutation = useSavePurchaseReturnMutation(id);
+  const saving = saveMutation.isPending;
 
-    fetchData().then(() => {
-      if (id) {
-        fetchPurchaseReturnForEdit(id)
-          .then((response) => {
-            if (response.success || response.data) {
-              const data = response.data || response;
-              Object.keys(data).forEach((key) => {
-                setValue(`form.${key}`, data[key]);
-              });
-              if (data.purchasereturnitems_set) {
-                setRows(JSON.parse(JSON.stringify(data.purchasereturnitems_set)));
-              }
-              reset(getValues(), { keepValues: true, keepDirty: false });
-              resetTableDirty();
-            }
-          })
-          .catch((err) => console.error("Error fetching purchase return:", err));
-      }
+  // Wrap in useMemo so the `?? []` fallback doesn't create a new empty array
+  // on every render — that would invalidate the dep-arrays of effects below
+  // and cause them to re-run every render.
+  const vendors = useMemo(() => initialQuery.data?.ledgers || [], [initialQuery.data]);
+  const mainItemData = useMemo(() => initialQuery.data?.items || [], [initialQuery.data]);
+  const purityData = useMemo(() => initialQuery.data?.purity || [], [initialQuery.data]);
+  const packets = useMemo(() => initialQuery.data?.packets || [], [initialQuery.data]);
+  const retailState = initialQuery.data?.retail_state || "";
+
+  // Surface initial-data errors as a toast (matches the old behaviour).
+  useEffect(() => {
+    if (!initialQuery.error) return;
+    toast({
+      title: "Error",
+      description:
+        initialQuery.error.message ||
+        "Failed to load form data. Please ensure you are logged in and have selected a retail location.",
+      variant: "destructive",
     });
-  }, [setValue]);
+  }, [initialQuery.error, toast]);
+
+  // Seed the auto-generated billno on Add only — Edit gets it from the record.
+  useEffect(() => {
+    if (id) return;
+    const billno = initialQuery.data?.billno;
+    if (billno) setValue("form.billno", billno);
+  }, [id, initialQuery.data?.billno, setValue]);
+
+  // Hydrate the form from the edit record when it arrives. Runs once per id;
+  // React Query's cache means revisiting the same id reuses this data instantly.
+  useEffect(() => {
+    if (!id || !editQuery.data) return;
+    const data = editQuery.data;
+    Object.keys(data).forEach((key) => {
+      setValue(`form.${key}`, data[key]);
+    });
+    if (data.purchasereturnitems_set) {
+      setRows(JSON.parse(JSON.stringify(data.purchasereturnitems_set)));
+    }
+    reset(getValues(), { keepValues: true, keepDirty: false });
+    resetTableDirty();
+  }, [id, editQuery.data, setValue, reset, getValues, resetTableDirty]);
 
   // ── Ref Purchase Voucher auto-populate (Tab on PV Bill No) ────────────────
   const handlePvBillNoKeyDown = async (e) => {
@@ -221,8 +220,11 @@ const PurchaseReturnAdd = () => {
         const isFirstLoad = loadedPvBillNosRef.current.size === 0;
 
         if (isFirstLoad) {
-          // Only on the first PV load: populate header/ledger/GST from the PV
-          const { billno, bill_no, ...restData } = cleanData;
+          // Only on the first PV load: populate header/ledger/GST from the PV.
+          // Strip the source PV's billno/bill_no via destructure-rest so the
+          // existing PR billno (auto-generated for this return) is preserved.
+          // eslint-disable-next-line no-unused-vars
+          const { billno: _omitBillno, bill_no: _omitBillNo, ...restData } = cleanData;
           const itemsTotal = (cleanData.purchasereturnitems_set || []).reduce((sum, item) => {
             const making = parseFloat(item.making) || 0;
             const subTotal = (item.purchasereturndetails_set || []).reduce(
@@ -348,7 +350,8 @@ const PurchaseReturnAdd = () => {
     setValue("form.igst_amt", Number(igstAmt.toFixed(2)));
     setValue("form.total_incl_gst", Number(totalInclGst.toFixed(2)));
     setValue("form.bill_value", Number(billValue.toFixed(2)));
-  }, [rs, watchedDiscount, watchedFreight, watchedOther, watchedRoundOff, watchedCgstPer, watchedSgstPer, watchedIgstPer]);
+    // setValue is a stable RHF ref; safe to include for the linter.
+  }, [rs, watchedDiscount, watchedFreight, watchedOther, watchedRoundOff, watchedCgstPer, watchedSgstPer, watchedIgstPer, setValue]);
 
   // ── Packet → sub_item auto-fill & lock ────────────────────────────────────
   const detailPacket = watch("details.packet");
@@ -367,7 +370,7 @@ const PurchaseReturnAdd = () => {
       setDetailSubItemDisplay(item?.item_name || pkt.stone_item_short_code);
       setDetailSubItem(item || null);
     }
-  }, [detailPacket, packets, mainItemData]);
+  }, [detailPacket, packets, mainItemData, setValue]);
 
   // Manual Item entry (when no packet is selected) — resolve typed name to short_code
   const handleSubItemDisplayChange = (e) => {
@@ -393,7 +396,7 @@ const PurchaseReturnAdd = () => {
     if (subPacketHidden) setValue("details.packet", "");
     if (subPcsHidden) setValue("details.sub_pcs", 0);
     if (subCtHidden) setValue("details.sub_ct", 0);
-  }, [subPacketHidden, subPcsHidden, subCtHidden]);
+  }, [subPacketHidden, subPcsHidden, subCtHidden, setValue]);
 
   // Auto-derive sub-item GW from CT when UOM is "Ct" (1 ct = 0.2 g)
   const watchedSubCt = watch("details.sub_ct");
@@ -401,7 +404,7 @@ const PurchaseReturnAdd = () => {
     if (!isCtUom) return;
     const ct = parseFloat(watchedSubCt) || 0;
     setValue("details.sub_gw", +(ct * 0.2).toFixed(3));
-  }, [isCtUom, watchedSubCt]);
+  }, [isCtUom, watchedSubCt, setValue]);
 
   // Auto-calc sub-item Amount = rate × qty based on UOM
   const detailSubPcs = watch("details.sub_pcs");
@@ -417,12 +420,12 @@ const PurchaseReturnAdd = () => {
     else if (uom === "Ct") amt = r * (parseFloat(detailSubCt) || 0);
     else amt = r * (parseFloat(detailSubGw) || 0);
     setValue("details.value", +amt.toFixed(2));
-  }, [detailSubItem, detailSubRate, detailSubPcs, detailSubCt, detailSubGw]);
+  }, [detailSubItem, detailSubRate, detailSubPcs, detailSubCt, detailSubGw, setValue]);
   useEffect(() => {
     if (subPurityHidden) setValue("details.metal_purity", "");
     if (subLossHidden) setValue("details.loss", 0);
     if (subTunchHidden) setValue("details.tunch", 0);
-  }, [subPurityHidden, subLossHidden, subTunchHidden]);
+  }, [subPurityHidden, subLossHidden, subTunchHidden, setValue]);
 
   // ── Detail entry (Tab on Amount) ──────────────────────────────────────────
   const handleAddDetail = () => {
@@ -607,35 +610,34 @@ const PurchaseReturnAdd = () => {
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmitForm = async () => {
-    try {
-      if (rs.length === 0) {
-        toast({ title: "Table is empty" });
-        return;
-      }
-      const data = { ...getValues("form"), purchasereturnitems_set: rs };
-      setSaving(true);
-      const response = id
-        ? await updatePurchaseReturnForEdit(data, id)
-        : await createPurchaseReturn(data);
-
-      if (response.success) {
+  // useMutation manages the pending state (saving), invalidates the list cache
+  // on success, and surfaces server errors via the `error` field so we don't
+  // have to thread try/catch through here.
+  const handleSubmitForm = () => {
+    if (rs.length === 0) {
+      toast({ title: "Table is empty" });
+      return;
+    }
+    const data = { ...getValues("form"), purchasereturnitems_set: rs };
+    saveMutation.mutate(data, {
+      onSuccess: () => {
         toast({ title: id ? "Updated successfully!" : "Form submitted successfully!" });
         reset();
         setRows([]);
         setTimeout(() => navigate("/purchase/purchasereturn/list/"), 2000);
-      } else {
-        setSaving(false);
+      },
+      onError: (error) => {
+        // The mutation throws an Error; the underlying API response payload
+        // (which renderErrorTree expects) lives on the cause of the unwrap.
+        // For now fall back to the message — most server errors arrive as
+        // structured payloads that renderErrorTree handles, so try both.
+        const payload = error?.cause || error?.payload || error?.message;
         toast({
           title: "Form submission failed.",
-          description: renderErrorTree(response.error),
+          description: renderErrorTree(payload),
         });
-      }
-    } catch (error) {
-      setSaving(false);
-      console.error("Error submitting Purchase Return:", error);
-      toast({ title: "An error occurred. Please try again later." });
-    }
+      },
+    });
   };
 
   // ── Barcode scan ───────────────────────────────────────────────────────────

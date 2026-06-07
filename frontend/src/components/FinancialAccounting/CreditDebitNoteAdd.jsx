@@ -1,18 +1,17 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Save, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { getLedgers } from "@/services/apiService";
 import {
-  getLedgers,
-  fetchOutstandingBills,
-  fetchNextCNDNNumber,
-  createCreditDebitNote,
-} from "@/services/apiService";
+  useNextCNDNNumber,
+  useOutstandingBills,
+  useCreateCreditDebitNoteMutation,
+} from "@/hooks/queries/creditDebitNoteQueries";
 
 const fmt = (v) =>
   Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -23,7 +22,6 @@ export default function CreditDebitNoteAdd() {
 
   // Form state
   const [noteType, setNoteType] = useState("CN");
-  const [noteNo, setNoteNo] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [ldgr, setLdgr] = useState(null);
   const [ldgrSearch, setLdgrSearch] = useState("");
@@ -32,22 +30,28 @@ export default function CreditDebitNoteAdd() {
   const [adjSearch, setAdjSearch] = useState("");
   const [adjOptions, setAdjOptions] = useState([]);
   const [refInvoice, setRefInvoice] = useState(null);
-  const [outstandingBills, setOutstandingBills] = useState([]);
   const [reason, setReason] = useState("");
   const [taxableValue, setTaxableValue] = useState("");
   const [gstRate, setGstRate] = useState("");
   const [isInterState, setIsInterState] = useState(false);
-  const [saving, setSaving] = useState(false);
 
-  // Fetch next note number
-  const loadNextNo = useCallback(async () => {
-    const res = await fetchNextCNDNNumber(noteType);
-    if (res.success) setNoteNo(res.data.next_no);
-  }, [noteType]);
+  // ── Server-side data via React Query ───────────────────────────────────────
+  // Replaces three useEffects: the next-number fetch, the outstanding-bills
+  // fetch, and the manual `loadNextNo` useCallback. Each query is keyed by
+  // the inputs that affect its result so switching noteType / party is
+  // race-safe — no need for setOutstandingBills([]) reset hacks.
+  const nextNoQuery = useNextCNDNNumber(noteType);
+  const outstandingBillsQuery = useOutstandingBills(
+    ldgr?.id,
+    noteType === "CN" ? "sales" : "purchase"
+  );
+  const saveMutation = useCreateCreditDebitNoteMutation();
+  const saving = saveMutation.isPending;
+  const noteNo = nextNoQuery.data?.next_no || "";
+  const outstandingBills = outstandingBillsQuery.data || [];
 
-  useEffect(() => { loadNextNo(); }, [loadNextNo]);
-
-  // Party ledger search
+  // Party ledger search (still debounced + manual — useQuery is overkill for a
+  // sub-300ms typeahead).
   useEffect(() => {
     if (ldgrSearch.length < 2) { setLdgrOptions([]); return; }
     const role = noteType === "CN" ? "CO,SD,DL" : "VD,SC";
@@ -68,21 +72,13 @@ export default function CreditDebitNoteAdd() {
     return () => clearTimeout(timer);
   }, [adjSearch]);
 
-  // Load outstanding bills when party is selected
-  useEffect(() => {
-    if (!ldgr) { setOutstandingBills([]); return; }
-    const kind = noteType === "CN" ? "sales" : "purchase";
-    fetchOutstandingBills(ldgr.id, kind).then((res) => {
-      if (res.success) setOutstandingBills(res.data || []);
-    });
-  }, [ldgr, noteType]);
-
-  // Reset party when note type changes
+  // Reset party when note type changes. Outstanding bills no longer needs an
+  // explicit reset — `useOutstandingBills` is disabled while ldgr is null,
+  // so the derived `outstandingBills` array automatically becomes empty.
   useEffect(() => {
     setLdgr(null);
     setLdgrSearch("");
     setRefInvoice(null);
-    setOutstandingBills([]);
   }, [noteType]);
 
   // Computed tax amounts
@@ -99,7 +95,6 @@ export default function CreditDebitNoteAdd() {
     if (!taxable || taxable <= 0) return toast({ title: "Error", description: "Enter a valid taxable value", variant: "destructive" });
     if (!reason.trim()) return toast({ title: "Error", description: "Enter a reason", variant: "destructive" });
 
-    setSaving(true);
     const payload = {
       note_type: noteType,
       date,
@@ -120,15 +115,15 @@ export default function CreditDebitNoteAdd() {
       else payload.ref_purchase_vou = refInvoice.id;
     }
 
-    const res = await createCreditDebitNote(payload);
-    setSaving(false);
-    if (res.success) {
+    try {
+      await saveMutation.mutateAsync(payload);
       toast({ title: "Saved", description: `${noteType === "CN" ? "Credit" : "Debit"} Note created.` });
       navigate("/accounting/credit-debit-notes");
-    } else {
-      const errMsg = typeof res.error === "string" ? res.error
-        : Array.isArray(res.error) ? res.error.join(", ")
-        : JSON.stringify(res.error);
+    } catch (error) {
+      const cause = error?.cause ?? error?.message;
+      const errMsg = typeof cause === "string" ? cause
+        : Array.isArray(cause) ? cause.join(", ")
+        : JSON.stringify(cause);
       toast({ title: "Error", description: errMsg, variant: "destructive" });
     }
   };

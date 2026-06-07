@@ -9,7 +9,12 @@ import { useF2Navigate } from "@/hooks/useF2Navigate"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
-import { fetchMainItem, fetchOrderNoNext, fetchSalesperson, fetchPurity, getLedgers, createCustomerOrder, createJournalEntry, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment, fetchLedgerBalance } from "@/services/apiService";
+import { fetchOrderNoNext, getLedgers, createCustomerOrder, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment, fetchLedgerBalance } from "@/services/apiService";
+import {
+  useVoucherNoNext,
+  useJournalEntryForEdit,
+  useSaveJournalEntryMutation,
+} from "@/hooks/queries/journalQueries";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 
 // Only these four voucher types are valid for the journal/receipt/payment/contra
@@ -19,7 +24,7 @@ import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom"
 const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
 import { FieldContainer } from "@/Utils";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
-import { fetchAccountingVoucher, fetchJournalEntryForEdit, fetchVoucherNoNext, updateJournalEntryForEdit } from "../../../services/apiService";
+import { fetchAccountingVoucher } from "../../../services/apiService";
 import { SquarePen, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
 import AccountSuggestion from "@/components/AI/AccountSuggestion";
 import BillAllocationTable from "./BillAllocationTable";
@@ -52,12 +57,17 @@ const AddJournal = () => {
     },
   });
   const [rs, setRows] = useState([]);
-  const [salespersonData, setSalespersonData] = useState([]);
-  const [mainItemData, setMainItemData] = useState([]);
+  // Server-side queries. The legacy code fetched salesperson / mainItem /
+  // purity here too, but the data was never read — dropped to avoid wasted
+  // requests. Re-add via `useSalespeople()`, `useItems()`, `usePurities()`
+  // from `@/hooks/queries/masters` if needed in future.
+  const nextVoucherNoQuery = useVoucherNoNext(journal_type, { enabled: !id && isValidType });
+  const editQuery = useJournalEntryForEdit(id);
+  const saveMutation = useSaveJournalEntryMutation(id);
   const [allocations, setAllocations] = useState([]);  // bill-wise allocations for current party row
   const accountInputRef = useRef(null);  // focus target after clicking edit on a row
   const [narrationForSuggestion, setNarrationForSuggestion] = useState(null);
-  const [saving, setSaving] = useState(false);
+  const saving = saveMutation.isPending;
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
   const [savedVoucherId, setSavedVoucherId] = useState(id || null);
   const [voucherStatus, setVoucherStatus] = useState(null); // 'posted' | 'cancelled' | null
@@ -78,7 +88,6 @@ const AddJournal = () => {
     [selectedLedger],
   );
 
-  const [purityData, setPurityData] = useState([]);
   const [totalCredit, settotalCredit] = useState(0);
   const [totalDebit, settotalDebit] = useState(0);
 
@@ -98,34 +107,37 @@ const AddJournal = () => {
         }
       });
     }
+    // isValidType is derived from the URL param (won't change in this session
+    // without a navigation that re-mounts the component); not in deps to avoid
+    // re-running the attachment fetch on unrelated re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Set the voucher_type from the URL on mount.
   useEffect(() => {
     if (!isValidType) return;
     if (journal_type) {
-      setValue("form.voucher_type", journal_type); // Set the default voucher type
+      setValue("form.voucher_type", journal_type);
     }
+  }, [isValidType, journal_type, setValue]);
 
-    if (id)fetchJournalEntryForEdit(id).then
-      ((response) => {
-        setVoucherStatus(response.data.status ?? null);
-        Object.keys(response.data).forEach((key) => {
-          setValue(`form.${key}`, response.data[key]);
-        });
-
-        // Set items array
-        if (response.data.voucher_details) {
-          setRows(response.data.voucher_details);
-        }
-        reset(getValues(), { keepValues: true, keepDirty: false });
-        resetTableDirty();
-      })
-      .catch((error) => {
-        console.error('Error fetching manufacturing issue:', error);
-      });
-    
-
-  }, [journal_type, setValue]);
+  // Hydrate the form from the edit-record once it arrives. Replaces the bare
+  // `.then()` callback that previously had no race protection (the screen
+  // could land an old voucher's data over a newer one on rapid navigation).
+  useEffect(() => {
+    if (!id || !editQuery.data) return;
+    const data = editQuery.data;
+    setVoucherStatus(data.status ?? null);
+    Object.keys(data).forEach((key) => {
+      setValue(`form.${key}`, data[key]);
+    });
+    if (data.voucher_details) {
+      setRows(data.voucher_details);
+    }
+    reset(getValues(), { keepValues: true, keepDirty: false });
+    resetTableDirty();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, editQuery.data]);
 
   useEffect(() => {
     const totalDebit = rs.reduce((acc, row) => acc + (parseFloat(row.debit) || 0), 0);
@@ -135,22 +147,14 @@ const AddJournal = () => {
 
   }, [rs]);
 
+  // Seed the next voucher number on Add only. Edit gets the existing number
+  // from the record. Replaces the bundled Promise.all that fetched
+  // salesperson / mainItem / purity — those are now shared React Query hooks.
   useEffect(() => {
-    if (!isValidType) return;
-    async function fetchData() {
-      const [salesperson, orderNo, mainItem, purity] = await Promise.all([
-        fetchSalesperson(),
-        fetchVoucherNoNext(journal_type),
-        fetchMainItem(),
-        fetchPurity(),
-      ]);
-      if (salesperson.success) setSalespersonData(salesperson.data.results);
-      if (!id && orderNo.success) setValue("form.voucher_no", orderNo.data.billno);
-      if (mainItem.success) setMainItemData(mainItem.data.results);
-      if (purity.success) setPurityData(purity.data.results);
-    }
-    fetchData();
-  }, []);
+    if (id || !isValidType) return;
+    const billno = nextVoucherNoQuery.data?.billno;
+    if (billno) setValue("form.voucher_no", billno);
+  }, [id, isValidType, nextVoucherNoQuery.data, setValue]);
 
   const account_name = watch("table.account");
   const accountTimerRef = useRef(null);
@@ -187,54 +191,48 @@ const AddJournal = () => {
       return;
     }
 
-    setSaving(true);
-    (id ? updateJournalEntryForEdit(form,id) : createJournalEntry(form))
-      .then(async (response) => {
-
-        if (response.success) {
-          const vId = id || response.data?.id;
-          if (!id && vId) setSavedVoucherId(vId);
-
-          // Upload any files that were queued before the voucher existed
-          if (pendingFiles.length > 0 && vId) {
-            setUploadingFiles(true);
-            for (const file of pendingFiles) {
-              await uploadVoucherAttachment(vId, file);
-            }
-            setPendingFiles([]);
-            // Refresh saved attachments list
-            const attRes = await getVoucherAttachments(vId);
-            if (attRes.success) {
-              const data = Array.isArray(attRes.data) ? attRes.data : attRes.data?.results ?? [];
-              setSavedAttachments(data);
-            }
-            setUploadingFiles(false);
+    // Mutation handles saving state via `isPending` and invalidates the
+    // accounting voucher list cache on success.
+    (async () => {
+      try {
+        const responseData = await saveMutation.mutateAsync(form);
+        const vId = id || responseData?.id;
+        if (!id && vId) setSavedVoucherId(vId);
+        if (pendingFiles.length > 0 && vId) {
+          setUploadingFiles(true);
+          for (const file of pendingFiles) {
+            await uploadVoucherAttachment(vId, file);
           }
-
-          toast({ title: "Voucher saved successfully!" });
-          navigate(`/accounting/${journal_type}`);
-        } else {
-          setSaving(false);
-          // Surface the actual server-side error message (covers 269ST / 40A(3) limit errors)
-          const err = response.error;
-          let description = "There was a problem with your request.";
-          if (typeof err === "string") {
-            description = err;
-          } else if (Array.isArray(err)) {
-            description = err.join(" ");
-          } else if (err && typeof err === "object") {
-            const msgs = Object.values(err).flat();
-            description = msgs.join(" | ");
+          setPendingFiles([]);
+          const attRes = await getVoucherAttachments(vId);
+          if (attRes.success) {
+            const data = Array.isArray(attRes.data) ? attRes.data : attRes.data?.results ?? [];
+            setSavedAttachments(data);
           }
-          toast({
-            title: "Voucher could not be saved",
-            description,
-            variant: "destructive",
-          });
+          setUploadingFiles(false);
         }
-      })
-      .catch((error) => {
-        setSaving(false);
+        toast({ title: "Voucher saved successfully!" });
+        navigate(`/accounting/${journal_type}`);
+      } catch (error) {
+        // Surface server-side errors (covers 269ST / 40A(3) limit errors) by
+        // unwrapping the structured cause attached by the mutation hook.
+        const err = error?.cause ?? error?.message;
+        let description = "There was a problem with your request.";
+        if (typeof err === "string") {
+          description = err;
+        } else if (Array.isArray(err)) {
+          description = err.join(" ");
+        } else if (err && typeof err === "object") {
+          const msgs = Object.values(err).flat();
+          description = msgs.join(" | ");
+        }
+        toast({
+          title: "Voucher could not be saved",
+          description,
+          variant: "destructive",
+        });
+      }
+    })().catch((error) => {
         console.error("Error submitting form:", error);
         toast({ title: "An error occurred. Please try again later.", variant: "destructive" });
       });

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
@@ -29,33 +30,38 @@ const statusColors = {
 export default function QuotationList() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const [quotations, setQuotations] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [actionLoading, setActionLoading] = useState(null);
   const [extendTarget, setExtendTarget] = useState(null); // { id, valid_until }
   const [extendDate, setExtendDate] = useState("");
   const search = params.get("search") || "";
   const statusFilter = params.get("status") || "";
 
-  const load = async () => {
-    setLoading(true);
-    const qs = new URLSearchParams();
-    if (search) qs.set("search", search);
-    if (statusFilter) qs.set("status", statusFilter);
-    qs.set("page", page);
-    const res = await fetchQuotations(qs.toString());
-    if (res.success) {
-      const data = res.data;
-      setQuotations(Array.isArray(data) ? data : data.results || []);
-      setTotalPages(data.total_pages || 1);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, [search, statusFilter, page]);
+  // React Query manages fetching/caching; `load()` becomes a one-liner that
+  // invalidates the cache so the hook refetches.
+  const {
+    data: queryData,
+    isLoading: loading,
+  } = useQuery({
+    queryKey: ['quotations', { search, status: statusFilter, page }],
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (search) qs.set("search", search);
+      if (statusFilter) qs.set("status", statusFilter);
+      qs.set("page", page);
+      const res = await fetchQuotations(qs.toString());
+      if (!res.success) {
+        throw new Error(typeof res.error === 'string' ? res.error : JSON.stringify(res.error));
+      }
+      return res.data;
+    },
+    placeholderData: (prev) => prev,
+  });
+  const quotations = Array.isArray(queryData) ? queryData : (queryData?.results ?? []);
+  const totalPages = queryData?.total_pages || 1;
+  const load = () => queryClient.invalidateQueries({ queryKey: ['quotations'] });
 
   const handleSearch = (val) => {
     setParams((prev) => { val ? prev.set("search", val) : prev.delete("search"); return prev; });

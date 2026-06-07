@@ -1,44 +1,56 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useContext, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getGoldRate } from "../services/apiService";
+import { GOLD_RATES_KEY } from "./queryKeys";
 
 const GoldRateContext = createContext(null);
 
 const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
+async function fetchTodayGoldRates() {
+  const today = new Date().toISOString().split("T")[0];
+  const response = await getGoldRate(today);
+  if (!response?.success) {
+    throw new Error(
+      typeof response?.error === "string"
+        ? response.error
+        : "Failed to fetch gold rates"
+    );
+  }
+  return response.data;
+}
+
+// eslint-disable-next-line react/prop-types
 export function GoldRateProvider({ children }) {
-  const [goldRates, setGoldRates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const intervalRef = useRef(null);
+  const queryClient = useQueryClient();
 
-  const fetchRates = useCallback(async () => {
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const response = await getGoldRate(today);
-      if (!response.success) throw new Error("Failed to fetch gold rates");
-      setGoldRates(response.data);
-      setError(null);
-    } catch (err) {
-      console.error("Error fetching gold rates:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    data: goldRates = [],
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: GOLD_RATES_KEY,
+    queryFn: fetchTodayGoldRates,
+    refetchInterval: POLL_INTERVAL,
+    // Keep the previous data visible while we refetch on the interval so the UI
+    // doesn't blink. Today's rate doesn't change often within a 5-min window.
+    staleTime: POLL_INTERVAL,
+  });
 
-  // Called by the gold rate form after saving new rates
+  // Called by the gold rate form after saving new rates.
   const refreshGoldRates = useCallback(() => {
-    fetchRates();
-  }, [fetchRates]);
-
-  useEffect(() => {
-    fetchRates();
-    intervalRef.current = setInterval(fetchRates, POLL_INTERVAL);
-    return () => clearInterval(intervalRef.current);
-  }, [fetchRates]);
+    queryClient.invalidateQueries({ queryKey: GOLD_RATES_KEY });
+  }, [queryClient]);
 
   return (
-    <GoldRateContext.Provider value={{ goldRates, loading, error, refreshGoldRates }}>
+    <GoldRateContext.Provider
+      value={{
+        goldRates,
+        loading,
+        error: error ? error.message : null,
+        refreshGoldRates,
+      }}
+    >
       {children}
     </GoldRateContext.Provider>
   );

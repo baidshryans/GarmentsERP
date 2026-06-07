@@ -322,7 +322,7 @@ const SalesReturnAdd = () => {
       } else {
         toast({ title: "Bill not found", description: `No sale voucher found for "${bill_no}"`, variant: "destructive" });
       }
-    } catch (err) {
+    } catch {
       toast({ title: "Error fetching bill details" });
     }
   };

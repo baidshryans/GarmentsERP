@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 import { useEnterAsTab } from "@/hooks/useEnterAsTab";
-import { SquarePen, Printer, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle, Plus, Loader2 } from "lucide-react";
+import { SquarePen, Trash2, ClipboardList, CheckCircle2, AlertCircle, Gem, BadgePercent, PlusCircle, Plus, Loader2 } from "lucide-react";
 import { fetchUnlinkedReceipts } from "@/services/api/accounting";
 import {
   Select,
@@ -21,7 +21,6 @@ import {
   TableRow,
   TableCell,
   TableBody,
-  TableHead,
   TableHeader,
 } from "@/components/ui/table";
 
@@ -29,9 +28,6 @@ import {
   getLedgers,
   fetchBarcodeDetail,
   CashTotalLedger,
-  fetchMainItem,
-  fetchPurity,
-  fetchPackets,
   fetchCustomerCashReceived,
   fetchCustomerOrdersByLedger,
   fetchCustomerPurchasesByLedger,
@@ -58,6 +54,7 @@ import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import BillSummaryPanel from "@/components/shared/BillSummaryPanel";
 
 // ─── Section header helper ──────────────────────────────────────────────────
+// eslint-disable-next-line react/prop-types
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
     <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">{number}</span>
@@ -67,12 +64,14 @@ const SectionHeader = ({ number, title }) => (
 );
 
 // ─── Table header cell helper ────────────────────────────────────────────────
+// eslint-disable-next-line react/prop-types
 const TH = ({ children, className = "" }) => (
   <TableCell className={`px-4 py-2.5 border text-sm font-semibold text-primary uppercase tracking-wider whitespace-nowrap ${className}`}>
     {children}
   </TableCell>
 );
 
+// eslint-disable-next-line react/prop-types
 const TransportSummaryChip = ({ watch }) => {
   const vehicle = watch("form.vehicle_no");
   const transporter = watch("form.transporter_name");
@@ -197,7 +196,7 @@ const SalesVoucherAdd = () => {
     }
   };
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { append, remove, replace } = useFieldArray({
     control,
     name: "salesvouitem_set",
   });
@@ -933,13 +932,6 @@ const SalesVoucherAdd = () => {
     setCalculate(prev => prev + 1);
     // Return focus to packet field for the next sub-item entry
     setTimeout(() => packetInputRef.current?.focus(), 0);
-  };
-
-  /** @deprecated Use handleDeleteMainItem / handleDeleteSubItem */
-  const handleDeleteManualRow = (index) => {
-    setRows(prev => prev.filter((_, i) => i !== index));
-    markTableDirty();
-    setCalculate(prev => prev + 1);
   };
 
   // ── Submit ─────────────────────────────────────────────────────────────────

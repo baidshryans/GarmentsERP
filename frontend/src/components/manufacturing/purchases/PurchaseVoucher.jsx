@@ -12,7 +12,7 @@ import { Table, TableRow, TableCell, TableHead, TableHeader, TableBody } from "@
 import { fetchLedgerTDSInfo } from "@/services/apiService";
 import { useParams, useSearchParams } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { fetchSlNosOrders, getCustomerItemAsPurchaseStyle, getGoldRate, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
+import { getGoldRate, fetchPendingPOItemsByVendor, fetchPendingCustomerOrderItems } from "../../../services/apiService";
 import {
   useLedgers,
   useItems,
@@ -186,7 +186,6 @@ const PurchaseVoucher = () => {
   useEnterAsTab(formRef);
   const [rsRaw, setRsRaw] = useState([]);
   const { canSave, saveLabel, markTableDirty, resetTableDirty } = useEditDirty({ id, isDirty });
-  const [serialNos, setSerialNos] = useState([]);
 
   // ── Server-side masters via React Query ────────────────────────────────────
   // Replaces the 130-line Promise.all useEffect that previously mounted all
@@ -635,7 +634,7 @@ const PurchaseVoucher = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hsn_current, vendorStateCode]);
 
-  const onSubmit = async (data) => {
+  const onSubmit = async () => {
     const form = getValues("form");
 
     // ── Auto-commit any sub-item currently in the edit row ──────────────────
@@ -746,13 +745,6 @@ const PurchaseVoucher = () => {
       return obj[slugField] ?? null;
     };
 
-    // Helper to extract pk from PrimaryKeyRelatedField object
-    const extractPk = (obj) => {
-      if (!obj) return null;
-      if (typeof obj === 'number') return obj; // already a pk
-      return obj.id ?? obj.pk ?? null;
-    };
-
     const toIntOrNull = v => (v === "" || v === undefined || v === null || Number.isNaN(Number(v))) ? null : Number(v);
     // Use currentRs/currentRsRaw (not rs/rsRaw) so any auto-committed pending edit is included
     form.purchasevoucheritems_set = currentRs.map(item => {
@@ -831,30 +823,6 @@ const PurchaseVoucher = () => {
 
   useF4Submit(handleSubmit(onSubmit));
   useF2Navigate("/purchase/add/");
-
-  const handleBlur = async (e) => {
-    const { customer_order_id } = getValues();
-    try {
-      const data = await fetchSlNosOrders(customer_order_id);
-      setSerialNos(data.data.sl_no_list);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  }
-
-  const handleBlur1 = async (e) => {
-
-    const { customer_order_id, sl_no } = getValues();
-    try {
-      const data = await getCustomerItemAsPurchaseStyle(customer_order_id, sl_no);
-      Object.keys(data.data).forEach((key) => {
-        setValue(`table.${key}`, data.data[key]);
-      });
-
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  }
 
   const handleEdit = (index) => {
     const row = rs[index];
@@ -1154,32 +1122,6 @@ const PurchaseVoucher = () => {
         fine_wt: 0.0,
         rate: 0.0,
         value: 0.0,
-      },
-    });
-  };
-
-  const handleAddRawRow = () => {
-    const newItem = getValues("rawDetails");
-    if (!newItem.sub_item) { toast({ title: "No item added" }); return; }
-    setRsRaw([...rsRaw, { ...newItem }]);
-    markTableDirty();
-    reset({
-      form: getValues('form'),
-      hsn: getValues('hsn'),
-      table: getValues('table'),
-      details: getValues('details'),
-      rawDetails: {
-        packet: null,
-        sub_item: null,
-        sub_pcs: 0,
-        sub_ct: 0,
-        sub_gw: 0,
-        metal_purity: null,
-        loss: 0,
-        tunch: 0,
-        fine_wt: 0,
-        rate: 0,
-        value: 0,
       },
     });
   };

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo } from "react";
+﻿import { useEffect, useState, useRef, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,15 +7,14 @@ import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
 import { useF2Navigate } from "@/hooks/useF2Navigate"
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableRow, TableCell, TableHead, TableBody } from "@/components/ui/table";
-import { fetchOrderNoNext, getLedgers, createCustomerOrder, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment, fetchLedgerBalance } from "@/services/apiService";
+import { Table, TableRow, TableCell, TableBody } from "@/components/ui/table";
+import { getLedgers, getVoucherAttachments, uploadVoucherAttachment, deleteVoucherAttachment, fetchLedgerBalance } from "@/services/apiService";
 import {
   useVoucherNoNext,
   useJournalEntryForEdit,
   useSaveJournalEntryMutation,
 } from "@/hooks/queries/journalQueries";
-import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 
 // Only these four voucher types are valid for the journal/receipt/payment/contra
 // editor. Anything else (e.g. /accounting/AddJournal/JRNL pointing at a legacy
@@ -24,7 +23,6 @@ import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom"
 const VALID_JOURNAL_TYPES = ["JRNL", "RCPT", "PMNT", "CONTRA"];
 import { FieldContainer } from "@/Utils";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
-import { fetchAccountingVoucher } from "../../../services/apiService";
 import { SquarePen, Trash2, Paperclip, Upload, FileText, X } from "lucide-react";
 import AccountSuggestion from "@/components/AI/AccountSuggestion";
 import BillAllocationTable from "./BillAllocationTable";
@@ -168,13 +166,18 @@ const AddJournal = () => {
     return () => clearTimeout(accountTimerRef.current);
   }, [account_name]);
 
-  const onSubmit = (data) => {
+  const onSubmit = () => {
     const form = getValues('form')
-    form.voucher_details = rs.map(({ _ledger, bill_id, ...row }) => ({
-      ...row,
-      debit:  parseFloat(row.debit)  || 0,
-      credit: parseFloat(row.credit) || 0,
-    }));
+    // Strip client-only fields (`_ledger`, `bill_id`) from each row before sending.
+    form.voucher_details = rs.map((row) => {
+      // eslint-disable-next-line no-unused-vars
+      const { _ledger, bill_id, ...rest } = row;
+      return {
+        ...rest,
+        debit:  parseFloat(rest.debit)  || 0,
+        credit: parseFloat(rest.credit) || 0,
+      };
+    });
     if (voucherStatus === 'cancelled') form.status = 'posted';
 
     console.log(form)
@@ -457,22 +460,15 @@ const AddJournal = () => {
   };
 
   const handleStatusKeyDown = (e) => {
-
     if (e.key === "Tab") {
       const status = getValues("table.status");
-      const account = getValues("table.account");
       const customerId = selectedLedger?.id ?? null;
-      console.log(status)
-      if (status === "Against_Ref" &&  journal_type=== "PMNT"){
-      const newWindow = window.open(`/accountadd/${journal_type}/${customerId}`, '_blank', 'width=800,height=600');
-
-     }
-     if (status === "Against_Ref" &&  journal_type=== "RECEIPT"){
-      const newWindow = window.open(`/accountadd/${journal_type}/${customerId}`, '_blank', 'width=800,height=600');
-
-     }
-
-
+      if (status === "Against_Ref" && journal_type === "PMNT") {
+        window.open(`/accountadd/${journal_type}/${customerId}`, '_blank', 'width=800,height=600');
+      }
+      if (status === "Against_Ref" && journal_type === "RECEIPT") {
+        window.open(`/accountadd/${journal_type}/${customerId}`, '_blank', 'width=800,height=600');
+      }
     }
   };
 
@@ -786,13 +782,13 @@ const AddJournal = () => {
             <AccountSuggestion
               narration={narrationForSuggestion?.narration}
               voucherType={narrationForSuggestion?.voucherType}
-              onApply={({ debitAccount, creditAccount }) => {
-                // Insert or update the first two rows of the transactions table
+              onApply={({ debitAccount }) => {
+                // Insert or update the first row of the transactions table.
+                // TODO: also wire `creditAccount` to the second row when the
+                // table layout supports two-leg entries.
                 const tableRows = getValues("table.transactions") || [];
                 if (tableRows.length > 0) {
                   setValue("table.transactions.0.account", debitAccount);
-                } else {
-                  // No rows yet — just store as a hint; user can add manually
                 }
               }}
             />

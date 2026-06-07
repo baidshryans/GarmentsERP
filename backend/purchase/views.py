@@ -110,7 +110,6 @@ class PurchaseReturnViewset(RetailBaseViewset):
             )
 
     def perform_destroy(self, instance):
-        self._check_purchase_return_mutable(instance, 'deleted')
         from accounting.utils import release_last_bill_number
         from inventory.utils import guard_no_later_barcode_transaction
         barcode_ids = list(
@@ -121,6 +120,12 @@ class PurchaseReturnViewset(RetailBaseViewset):
         retail = instance.retail
         fiscal_year = instance.fiscal_year
         billno = instance.billno
+        # Delete the linked accounting journal entry first — the FK is
+        # SET_NULL, so Django won't cascade-delete it. Without this the
+        # VoucherMain row outlives the PR and leaves a phantom entry in the
+        # day book.
+        if instance.ac_voucher_id:
+            instance.ac_voucher.delete()
         super().perform_destroy(instance)
         release_last_bill_number(retail, 'PR', billno, fiscal_year)
 

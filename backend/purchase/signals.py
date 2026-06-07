@@ -333,3 +333,13 @@ def on_purchase_return_delete(sender, instance, **kwargs):
     if instance.ac_voucher_id:
         from accounting.models import VoucherMain
         VoucherMain.objects.filter(id=instance.ac_voucher_id).delete()
+
+    # Remove the BarcodeTransaction outflow rows recorded when the PR was
+    # created. Without this, a deleted PR leaves orphan transactions behind,
+    # which then trip guard_no_later_barcode_transaction on later deletes
+    # (the guard sees a "later" PURCHASE-RET entry that no longer has a PR
+    # row attached to it).
+    from inventory.models import BarcodeTransaction
+    BarcodeTransaction.objects.filter(
+        billno=billno_str, trans_type='PURCHASE-RET'
+    ).delete()

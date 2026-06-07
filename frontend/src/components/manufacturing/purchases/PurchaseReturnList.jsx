@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
-import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchPurchaseRetun } from "@/services/apiService";
+import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchPurchaseRetun, fetchCompanies, fetchRetails, fetchPurchaseReturnForEdit } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -10,7 +11,7 @@ import { SquarePen, Trash2, FileText, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deletePurchaseReturn } from '../../../services/apiService';
 import { openAndPrint } from "@/services/print/utils";
-import CreditDebitNotePrint from "@/services/print/CreditDebitNote";
+import PurchaseReturnDebitNote from "@/services/print/PurchaseReturnDebitNote";
 import { useSearchParams } from 'react-router-dom';
 import { useF2Navigate } from "@/hooks/useF2Navigate";
 
@@ -19,50 +20,84 @@ import { useF2Navigate } from "@/hooks/useF2Navigate";
 function PurchaseReturnList() {
   useF2Navigate("/purchase/purchasereturn/list/add/");
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const[params, setParams] = useSearchParams();
-  const [ledgers, setLedgers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [transitioning, setTransitioning] = useState(false);
-  const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
+  const [companyInfo, setCompanyInfo] = useState({});
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
 
   useEffect(() => {
-    const fetchLedgers = async () => {
-      if (ledgers.length === 0) setLoading(true);
-      else setTransitioning(true);
-      const result = await fetchPurchaseRetun({
-        search,
-        page,
-        ordering:sortby,
-      });
-
-      if (result.success) {
-        setLedgers(result.data.results);
-        setTotalPages(result.data.total_pages);
-      } else {
-        setError(result.error);
+    Promise.all([fetchCompanies(), fetchRetails()]).then(([companyRes, retailRes]) => {
+      if (companyRes.success) {
+        const companies = Array.isArray(companyRes.data) ? companyRes.data : companyRes.data?.results ?? [];
+        if (companies.length > 0) {
+          const c = companies[0];
+          const retails = retailRes.success ? (Array.isArray(retailRes.data) ? retailRes.data : retailRes.data?.results ?? []) : [];
+          const retailCode = sessionStorage.getItem("retail_code");
+          const retail = retails.find(r => r.retail_code === retailCode) || retails[0];
+          setCompanyInfo({
+            company_name: c.company_name,
+            company_legal_name: c.legal_name || '',
+            company_address: [c.address, c.city, c.pincode].filter(Boolean).join(', '),
+            company_phone: c.phone,
+            company_email: c.email,
+            company_pan: c.pan,
+            company_gstin: retail?.gstin_master_str || "",
+            company_tan: c.tan,
+            company_cin: c.cin,
+          });
+        }
       }
-      setLoading(false);
-      setTransitioning(false);
-    };
-
-    fetchLedgers();
-  }, [search, page, sortby]);
-
-
-
-  const handlePrintDN = (row) => {
-    const params = new URLSearchParams({
-      type: 'DN',
-      ref_purchase_return: row.id,
-      ldgr_name: row.ldgr_name || '',
-      bill_no: row.billno || '',
     });
-    window.open(`/accounting/credit-debit-notes/add?${params.toString()}`, '_blank');
+  }, []);
+
+  // React Query handles the "show old data while refetching" behaviour that
+  // was previously implemented with a manual `transitioning` flag — `isFetching`
+  // tells us when a background refresh is in flight while `data` stays.
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error: queryError,
+  } = useQuery({
+    queryKey: ['purchaseReturns', { search, page, sortby }],
+    queryFn: async () => {
+      const result = await fetchPurchaseRetun({ search, page, ordering: sortby });
+      if (!result.success) {
+        throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
+      }
+      return result.data;
+    },
+    placeholderData: (prev) => prev,
+  });
+  const ledgers = data?.results ?? [];
+  const totalPages = data?.total_pages ?? 1;
+  const loading = isLoading;                       // first-load skeleton
+  const transitioning = isFetching && !isLoading;  // background refetch overlay
+  const error = queryError ? queryError.message : "";
+
+  // Refresh the list after delete so the row disappears without a manual reload.
+  const handleDeletePurchaseReturn = async (id) => {
+    await deletePurchaseReturn(id, toast);
+    queryClient.invalidateQueries({ queryKey: ['purchaseReturns'] });
+  };
+
+
+
+  const handlePrintDN = async (row) => {
+    // The list payload already includes nested items via PurchaseReturnSerializer,
+    // but we re-fetch the full PR by id to guarantee we have a fresh copy with
+    // all related sub-items (and to stay aligned with how the edit form loads).
+    let data = row;
+    try {
+      const res = await fetchPurchaseReturnForEdit(row.id);
+      if (res?.success && res?.data) data = res.data;
+      else if (res?.data) data = res.data;
+    } catch {
+      // fall back to row payload — pre-existing nested data is still usable
+    }
+    openAndPrint(<PurchaseReturnDebitNote data={{ ...data, ...companyInfo }} />);
   };
 
   const columns = [
@@ -82,7 +117,7 @@ function PurchaseReturnList() {
             <FileText className="size-4" />
           </button>
           <button
-            onClick={() => deletePurchaseReturn(row.original.id, toast)}
+            onClick={() => handleDeletePurchaseReturn(row.original.id)}
             className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
           >
             <Trash2 className="size-4" />

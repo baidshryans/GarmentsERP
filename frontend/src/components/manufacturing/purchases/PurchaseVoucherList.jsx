@@ -82,13 +82,13 @@ function PurchaseVoucherList({ voucherType = "" }) {
     error,
     isFetching,
   } = useQuery({
-    queryKey: ['purchaseVouchers', { search, page, sortby, voucherType }],
+    queryKey: ['purchaseVouchers', { search, page, sortby, voucherType: voucherType || "Vendor" }],
     queryFn: async ({ signal }) => {
       const result = await fetchPurchaseVoucher({
         search,
         page,
         ordering: sortby,
-        voucher_type: voucherType,
+        voucher_type: voucherType || "Vendor",
         signal, // optional
       });
 

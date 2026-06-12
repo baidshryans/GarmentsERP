@@ -93,6 +93,14 @@ export async function updateUser(id, data) {
   } catch (e) { return { success: false, error: e.response?.data || e.message }; }
 }
 
+export async function changePassword(old_password, new_password) {
+  try {
+    const r = await apiClient.post('/userauth/api/users/change-password/', { old_password, new_password });
+    if (r.data?.token) sessionStorage.setItem('Token', r.data.token);
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data?.detail || e.response?.data || e.message }; }
+}
+
 export async function assignUserRetail(id, retail_ids, default_retail_id) {
   try {
     const r = await apiClient.post(`/userauth/api/users/${id}/assign-retail/`, { retail_ids, default_retail_id });

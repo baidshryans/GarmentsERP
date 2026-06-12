@@ -190,6 +190,32 @@ def update_user(request, pk):
     return Response(_user_to_dict(user))
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    """POST /userauth/api/users/change-password/ — self-service password change."""
+    old_password = request.data.get('old_password', '')
+    new_password = request.data.get('new_password', '')
+
+    if not old_password or not new_password:
+        return Response({'detail': 'old_password and new_password are required.'}, status=400)
+    if not request.user.check_password(old_password):
+        return Response({'detail': 'Current password is incorrect.'}, status=400)
+    if len(new_password) < 8:
+        return Response({'detail': 'New password must be at least 8 characters.'}, status=400)
+    if new_password == old_password:
+        return Response({'detail': 'New password must be different from the current password.'}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save()
+
+    # Rotate auth token so the new password takes effect immediately on next call.
+    from rest_framework.authtoken.models import Token
+    Token.objects.filter(user=request.user).delete()
+    new_token = Token.objects.create(user=request.user)
+    return Response({'detail': 'Password changed.', 'token': new_token.key})
+
+
 # ── Roles & Permissions API ───────────────────────────────────────────────────
 
 RELEVANT_APPS = {

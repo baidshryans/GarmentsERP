@@ -25,6 +25,7 @@ urlpatterns += [
     # User management
     path('api/users/', views.list_users),
     path('api/users/create/', views.create_user),
+    path('api/users/change-password/', views.change_password),
     path('api/users/<int:pk>/', views.update_user),
     path('api/users/<int:pk>/assign-retail/', views.assign_retail),
     path('api/users/<int:pk>/assign-role/', views.assign_user_role),

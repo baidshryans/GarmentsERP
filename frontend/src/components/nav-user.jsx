@@ -1,15 +1,30 @@
 "use client"
 
+import { useState } from "react"
 import {
   BadgeCheck,
   Bell,
   ChevronsUpDown,
   CreditCard,
+  KeyRound,
   LogOut,
   Settings,
   Sparkles,
 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+import { changePassword } from "@/services/apiService"
 
 import {
   Avatar,
@@ -37,9 +52,43 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const navigate = useNavigate()
+  const { toast } = useToast()
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [oldPwd, setOldPwd] = useState("")
+  const [newPwd, setNewPwd] = useState("")
+  const [confirmPwd, setConfirmPwd] = useState("")
+  const [saving, setSaving] = useState(false)
+
+  function openPwdDialog() {
+    setOldPwd(""); setNewPwd(""); setConfirmPwd("")
+    setPwdOpen(true)
+  }
+
+  async function handleChangePassword() {
+    if (newPwd !== confirmPwd) {
+      toast({ title: "Passwords do not match", variant: "destructive" })
+      return
+    }
+    if (newPwd.length < 8) {
+      toast({ title: "New password must be at least 8 characters", variant: "destructive" })
+      return
+    }
+    setSaving(true)
+    const r = await changePassword(oldPwd, newPwd)
+    setSaving(false)
+    if (r.success) {
+      toast({ title: "Password changed successfully." })
+      setPwdOpen(false)
+    } else {
+      const msg = typeof r.error === "string" ? r.error
+        : (r.error?.detail || Object.values(r.error || {}).flat().join(", ") || "Failed to change password.")
+      toast({ title: "Error", description: msg, variant: "destructive" })
+    }
+  }
 
   return (
-    (<SidebarMenu>
+    (<>
+    <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -80,6 +129,10 @@ export function NavUser({
               <Settings />
               Settings
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={openPwdDialog}>
+              <KeyRound />
+              Change Password
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
 
             <DropdownMenuItem onClick={async (e)=>{
@@ -103,6 +156,44 @@ export function NavUser({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
-    </SidebarMenu>)
+    </SidebarMenu>
+
+    <Dialog open={pwdOpen} onOpenChange={setPwdOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Change Password</DialogTitle>
+          <DialogDescription>
+            Enter your current password and pick a new one (minimum 8 characters).
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Current Password</Label>
+            <Input type="password" autoComplete="current-password" value={oldPwd}
+              onChange={(e) => setOldPwd(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">New Password</Label>
+            <Input type="password" autoComplete="new-password" value={newPwd}
+              onChange={(e) => setNewPwd(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Confirm New Password</Label>
+            <Input type="password" autoComplete="new-password" value={confirmPwd}
+              onChange={(e) => setConfirmPwd(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPwdOpen(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleChangePassword}
+            disabled={saving || !oldPwd || !newPwd || !confirmPwd}>
+            {saving ? "Saving…" : "Update Password"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>)
   );
 }

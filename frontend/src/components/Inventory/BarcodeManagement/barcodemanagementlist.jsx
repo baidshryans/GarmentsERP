@@ -220,7 +220,8 @@ const BarcodeManagementList = () => {
             // re-injected on submit — and filter it out of the editable list
             // (its weight lives in NW and its purity mirrors the main item).
             const allDetails = d.barcodedetails_set || [];
-            pvGoldItemRef.current = allDetails.find((r) => !r.packet) || null;
+            const goldRow = allDetails.find((r) => !r.packet && r.item === "Gold") || null;
+            pvGoldItemRef.current = goldRow;
             // Stash the loaded purity so the submit's effectivePurity fallback
             // works in edit mode too (mirrors what we do for PV prefill above).
             pvPurityRef.current = d.purity || null;
@@ -232,7 +233,7 @@ const BarcodeManagementList = () => {
               gw: fmt3(d.gw),
               nw: fmt3(d.nw),
               barcodedetails_set: allDetails
-                .filter((row) => row.packet)
+                .filter((row) => row !== goldRow)
                 .map((row) => ({ ...row, ct: fmt3(row.ct), gw: fmt3(row.gw) })),
             };
             Object.keys(formData).forEach((key) => setValue(`form.${key}`, formData[key]));

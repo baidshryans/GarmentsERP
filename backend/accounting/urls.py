@@ -13,7 +13,6 @@ accounts_router.register('', views.AccountViewSet, basename='accounts')
 
 fa_router = routers.DefaultRouter()
 fa_router.register(r'assets',      views.FixedAssetViewSet,            basename='fa-asset')
-fa_router.register(r'suggestions', views.DepreciationSuggestionViewSet, basename='fa-suggestion')
 
 app_name = 'accounting'
 
@@ -65,9 +64,7 @@ urlpatterns = [
     # Fixed Assets
     path('api/fa/',                                    include(fa_router.urls)),
     path('api/fa/generate-suggestion/',                views.GenerateDepreciationSuggestionView.as_view(), name='fa-generate-suggestion'),
-    path('api/fa/suggestion-lines/<int:pk>/',          views.UpdateSuggestionLineView.as_view(),           name='fa-update-line'),
-    path('api/fa/approve-suggestion/<int:pk>/',        views.ApproveDepreciationSuggestionView.as_view(),  name='fa-approve-suggestion'),
-    path('api/fa/reject-suggestion/<int:pk>/',         views.RejectDepreciationSuggestionView.as_view(),   name='fa-reject-suggestion'),
+    path('api/fa/post-depreciation/',                  views.PostDepreciationView.as_view(),               name='fa-post-depreciation'),
     path('api/fa/settings/',                           views.FASettingsView.as_view(),                     name='fa-settings'),
     path('api/fa/it-block-rates/',                     views.ITBlockRatesView.as_view(),                   name='fa-it-block-rates'),
 ]

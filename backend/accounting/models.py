@@ -304,13 +304,6 @@ ASSET_STATUS_CHOICES = [
     ("FULLY_DEPRECIATED", "Fully Depreciated"),
 ]
 
-SUGGESTION_STATUS_CHOICES = [
-    ("PENDING",  "Pending"),
-    ("APPROVED", "Approved"),
-    ("REJECTED", "Rejected"),
-]
-
-
 class FixedAsset(models.Model):
     retail      = models.ForeignKey(RetailMaster, on_delete=models.PROTECT, related_name='fixed_assets')
     asset_code  = models.CharField(max_length=20)
@@ -333,6 +326,9 @@ class FixedAsset(models.Model):
                                                     null=True, blank=True, related_name='fa_dep_expense_ledger')
 
     accumulated_depreciation = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
+    # Last date through which depreciation has been posted for this asset.
+    # Used to prevent re-suggesting depreciation for a period already charged.
+    last_depreciation_through = models.DateField(null=True, blank=True)
     status       = models.CharField(max_length=20, choices=ASSET_STATUS_CHOICES, default='ACTIVE')
     disposal_date  = models.DateField(null=True, blank=True)
     disposal_value = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
@@ -372,48 +368,6 @@ class FixedAsset(models.Model):
     @property
     def is_fully_depreciated(self):
         return self.current_wdv <= self.residual_value
-
-
-class DepreciationSuggestion(models.Model):
-    retail      = models.ForeignKey(RetailMaster, on_delete=models.CASCADE, related_name='depreciation_suggestions')
-    fiscal_year = models.ForeignKey('mastersconfig.FiscalYearMaster', on_delete=models.SET_NULL,
-                                    null=True, blank=True, related_name='depreciation_suggestions')
-    label       = models.CharField(max_length=150)
-    period_from = models.DateField()
-    period_to   = models.DateField()
-    status       = models.CharField(max_length=10, choices=SUGGESTION_STATUS_CHOICES, default='PENDING')
-    total_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal('0'))
-    notes        = models.TextField(blank=True)
-    voucher      = models.ForeignKey('VoucherMain', on_delete=models.SET_NULL,
-                                     null=True, blank=True, related_name='depreciation_suggestions')
-    created_at   = models.DateTimeField(auto_now_add=True)
-    approved_at  = models.DateTimeField(null=True, blank=True)
-    approved_by  = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
-                                      related_name='approved_depreciation_suggestions')
-
-    class Meta:
-        db_table = 'fa_depreciation_suggestion'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.label} [{self.status}]"
-
-
-class DepreciationSuggestionLine(models.Model):
-    suggestion = models.ForeignKey(DepreciationSuggestion, on_delete=models.CASCADE, related_name='lines')
-    asset      = models.ForeignKey(FixedAsset, on_delete=models.PROTECT, related_name='suggestion_lines')
-    opening_wdv       = models.DecimalField(max_digits=14, decimal_places=2)
-    calculated_amount = models.DecimalField(max_digits=14, decimal_places=2)
-    approved_amount   = models.DecimalField(max_digits=14, decimal_places=2)
-    overridden        = models.BooleanField(default=False)
-    narration         = models.CharField(max_length=200, blank=True)
-
-    class Meta:
-        db_table = 'fa_suggestion_line'
-        ordering = ['asset__asset_code']
-
-    def __str__(self):
-        return f"{self.asset.asset_code} \u2013 \u20b9{self.approved_amount}"
 
 
 class FixedAssetSettings(models.Model):

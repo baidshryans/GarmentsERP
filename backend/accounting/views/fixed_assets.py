@@ -19,16 +19,12 @@ from ..models import Account, VoucherDetail
 from ..utils import *
 
 import datetime as _dt
-from django.db.models import Sum as _Sum
-from django.utils import timezone as _tz
 from userauth.permissions import RBACPermission
 from ..models import (
-    FixedAsset, DepreciationSuggestion, DepreciationSuggestionLine,
-    FixedAssetSettings, IT_BLOCK_RATES,
+    FixedAsset, FixedAssetSettings, IT_BLOCK_RATES,
 )
 from ..serializers import (
-    FixedAssetSerializer, DepreciationSuggestionSerializer,
-    DepreciationSuggestionLineSerializer, FixedAssetSettingsSerializer,
+    FixedAssetSerializer, FixedAssetSettingsSerializer,
 )
 from ..fa_services import generate_suggestion_lines
 
@@ -82,35 +78,21 @@ class FixedAssetViewSet(RetailBaseViewset):
         asset.save(update_fields=['asset_ledger'])
 
 
-class DepreciationSuggestionViewSet(RetailBaseViewset):
-    queryset         = DepreciationSuggestion.objects.all()
-    serializer_class = DepreciationSuggestionSerializer
-    permission_classes = [RBACPermission]
-
-    def get_queryset(self):
-        retail = getattr(self.request, 'retail', None)
-        return (
-            DepreciationSuggestion.objects
-            .filter(retail=retail)
-            .prefetch_related('lines__asset')
-            .select_related('voucher', 'approved_by', 'fiscal_year')
-        )
-
-    def create(self, request, *args, **kwargs):
-        return Response({'detail': 'Use /api/fa/generate-suggestion/ to create a suggestion.'}, status=405)
-
-
 class GenerateDepreciationSuggestionView(APIView):
+    """
+    Compute depreciation for all active assets over a date range.
+    Stateless — returns suggested lines without persisting anything.
+    The frontend keeps the worksheet in local state and POSTs back to
+    PostDepreciationView to actually create the journal entry.
+    """
     permission_classes = [RBACPermission]
 
     def post(self, request):
-        retail      = getattr(request, 'retail', None)
-        fiscal_year = getattr(request, 'fiscal_year', None)
+        retail = getattr(request, 'retail', None)
 
         period_from_str = request.data.get('period_from')
         period_to_str   = request.data.get('period_to')
         label           = request.data.get('label', '').strip()
-        fy_id           = request.data.get('fiscal_year_id')
 
         if not all([period_from_str, period_to_str, label]):
             return Response({'detail': 'period_from, period_to, and label are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -124,112 +106,66 @@ class GenerateDepreciationSuggestionView(APIView):
         if period_from > period_to:
             return Response({'detail': 'period_from must be before period_to.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if fy_id:
-            from mastersconfig.models import FiscalYearMaster
-            try:
-                fiscal_year = FiscalYearMaster.objects.get(pk=fy_id, retail=retail)
-            except FiscalYearMaster.DoesNotExist:
-                return Response({'detail': 'Fiscal year not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        overlapping = DepreciationSuggestion.objects.filter(
-            retail=retail, status='PENDING',
-            period_from__lte=period_to, period_to__gte=period_from,
-        ).exists()
-        if overlapping:
-            return Response(
-                {'detail': 'A pending suggestion already covers this period. Approve or reject it first.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         lines_data = generate_suggestion_lines(retail, period_from, period_to)
         if not lines_data:
             return Response({'detail': 'No active fixed assets found for this retail.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        total = sum(d['calculated_amount'] for d in lines_data)
+        lines = [{
+            'asset_id':           d['asset'].id,
+            'asset_code':         d['asset'].asset_code,
+            'asset_name':         d['asset'].asset_name,
+            'asset_method':       d['asset'].depreciation_method,
+            'asset_rate_or_life': str(d['asset'].rate_or_life),
+            'purchase_cost':      str(d['asset'].purchase_cost),
+            'opening_wdv':        str(d['opening_wdv']),
+            'calculated_amount':  str(d['calculated_amount']),
+            'approved_amount':    str(d['approved_amount']),
+            'narration':          d['narration'],
+        } for d in lines_data]
 
-        with transaction.atomic():
-            suggestion = DepreciationSuggestion.objects.create(
-                retail=retail, fiscal_year=fiscal_year,
-                label=label, period_from=period_from, period_to=period_to,
-                total_amount=total,
-            )
-            DepreciationSuggestionLine.objects.bulk_create([
-                DepreciationSuggestionLine(
-                    suggestion=suggestion, asset=d['asset'],
-                    opening_wdv=d['opening_wdv'], calculated_amount=d['calculated_amount'],
-                    approved_amount=d['approved_amount'], overridden=d['overridden'],
-                    narration=d['narration'],
-                )
-                for d in lines_data
-            ])
+        total = sum(Decimal(l['calculated_amount']) for l in lines)
 
-        suggestion.refresh_from_db()
-        return Response(DepreciationSuggestionSerializer(suggestion).data, status=status.HTTP_201_CREATED)
+        return Response({
+            'label':        label,
+            'period_from':  period_from_str,
+            'period_to':    period_to_str,
+            'total_amount': str(total),
+            'lines':        lines,
+        })
 
 
-class UpdateSuggestionLineView(APIView):
+class PostDepreciationView(APIView):
+    """
+    Take the edited worksheet from the frontend and post the depreciation
+    journal entry. No suggestion record is persisted — only the voucher
+    and the per-asset accumulated_depreciation are updated.
+
+    Payload:
+        {
+          "label": "FY 24-25 Annual Depreciation",
+          "period_to": "2026-03-31",
+          "lines": [{"asset_id": 1, "approved_amount": "1234.56"}, ...]
+        }
+    """
     permission_classes = [RBACPermission]
 
-    def patch(self, request, pk):
-        retail = getattr(request, 'retail', None)
-        try:
-            line = DepreciationSuggestionLine.objects.select_related('suggestion__retail').get(pk=pk)
-        except DepreciationSuggestionLine.DoesNotExist:
-            return Response({'detail': 'Line not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        if line.suggestion.retail != retail:
-            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
-        if line.suggestion.status != 'PENDING':
-            return Response({'detail': 'Only PENDING suggestions can be edited.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        new_amount = request.data.get('approved_amount')
-        narration  = request.data.get('narration')
-
-        if new_amount is not None:
-            try:
-                line.approved_amount = Decimal(str(new_amount))
-            except (InvalidOperation, ValueError):
-                return Response({'detail': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
-            line.overridden = (line.approved_amount != line.calculated_amount)
-
-        if narration is not None:
-            line.narration = narration[:200]
-
-        line.save(update_fields=['approved_amount', 'overridden', 'narration'])
-
-        total = (
-            DepreciationSuggestionLine.objects
-            .filter(suggestion=line.suggestion)
-            .aggregate(t=_Sum('approved_amount'))
-        )['t'] or Decimal('0')
-        line.suggestion.total_amount = total
-        line.suggestion.save(update_fields=['total_amount'])
-
-        return Response(DepreciationSuggestionLineSerializer(line).data)
-
-
-class ApproveDepreciationSuggestionView(APIView):
-    permission_classes = [RBACPermission]
-
-    def post(self, request, pk):
+    def post(self, request):
         retail      = getattr(request, 'retail', None)
         fiscal_year = getattr(request, 'fiscal_year', None)
 
+        label        = (request.data.get('label') or '').strip()
+        period_to_str = request.data.get('period_to')
+        raw_lines    = request.data.get('lines') or []
+        if not label:
+            return Response({'detail': 'label is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not period_to_str:
+            return Response({'detail': 'period_to is required.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            suggestion = (
-                DepreciationSuggestion.objects
-                .prefetch_related('lines__asset')
-                .select_related('retail', 'fiscal_year')
-                .get(pk=pk, retail=retail)
-            )
-        except DepreciationSuggestion.DoesNotExist:
-            return Response({'detail': 'Suggestion not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        if suggestion.status != 'PENDING':
-            return Response({'detail': f'Suggestion is already {suggestion.status}.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if suggestion.fiscal_year:
-            fiscal_year = suggestion.fiscal_year
+            period_to = _dt.date.fromisoformat(period_to_str)
+        except ValueError:
+            return Response({'detail': 'Invalid period_to. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(raw_lines, list) or not raw_lines:
+            return Response({'detail': 'lines payload is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             fa_settings = retail.fa_settings
@@ -242,10 +178,25 @@ class ApproveDepreciationSuggestionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        lines = list(suggestion.lines.select_related(
-            'asset__accum_depreciation_ledger', 'asset__depreciation_expense_ledger'
-        ).all())
-        total_approved = sum(l.approved_amount for l in lines)
+        # Validate + collect asset rows
+        rows = []
+        total_approved = Decimal('0')
+        for raw in raw_lines:
+            try:
+                asset_id = int(raw.get('asset_id'))
+                amount   = Decimal(str(raw.get('approved_amount', '0')))
+            except (TypeError, ValueError, InvalidOperation):
+                return Response({'detail': 'Invalid line in payload.'}, status=status.HTTP_400_BAD_REQUEST)
+            if amount <= 0:
+                continue
+            try:
+                asset = FixedAsset.objects.select_related(
+                    'accum_depreciation_ledger', 'depreciation_expense_ledger'
+                ).get(pk=asset_id, retail=retail)
+            except FixedAsset.DoesNotExist:
+                return Response({'detail': f'Asset {asset_id} not found.'}, status=status.HTTP_404_NOT_FOUND)
+            rows.append((asset, amount, (raw.get('narration') or '')[:200]))
+            total_approved += amount
 
         if total_approved <= 0:
             return Response({'detail': 'Total approved amount must be > 0.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -254,66 +205,43 @@ class ApproveDepreciationSuggestionView(APIView):
             voucher_no = get_next_bill_number(retail, VoucherType.depreciation, fiscal_year)
             voucher = VoucherMain.objects.create(
                 date=_dt.date.today(), voucher_no=voucher_no,
-                narration=suggestion.label[:150], amount=total_approved,
+                narration=label[:150], amount=total_approved,
                 voucher_type=VoucherType.depreciation, retail=retail, fiscal_year=fiscal_year,
             )
 
             vd_rows = []
-            for line in lines:
-                if line.approved_amount <= 0:
-                    continue
-                exp_ldgr   = line.asset.depreciation_expense_ledger or fa_settings.default_depreciation_expense_ldgr
-                accum_ldgr = line.asset.accum_depreciation_ledger    or fa_settings.default_accum_depreciation_ldgr
+            for asset, amount, _narr in rows:
+                exp_ldgr   = asset.depreciation_expense_ledger or fa_settings.default_depreciation_expense_ldgr
+                accum_ldgr = asset.accum_depreciation_ledger   or fa_settings.default_accum_depreciation_ldgr
                 vd_rows.append(VoucherDetail(
                     voucher_main=voucher, voucher_no=voucher_no,
                     voucher_type=VoucherType.depreciation, account=exp_ldgr,
-                    debit=line.approved_amount, credit=Decimal('0'),
+                    debit=amount, credit=Decimal('0'),
                 ))
                 vd_rows.append(VoucherDetail(
                     voucher_main=voucher, voucher_no=voucher_no,
                     voucher_type=VoucherType.depreciation, account=accum_ldgr,
-                    debit=Decimal('0'), credit=line.approved_amount,
+                    debit=Decimal('0'), credit=amount,
                 ))
-            # Plain bulk_create: the custom audit app captures created rows via
-            # post_save signals, so depreciation postings still land in the audit log.
             VoucherDetail.objects.bulk_create(vd_rows)
 
-            for line in lines:
-                if line.approved_amount <= 0:
-                    continue
-                asset = line.asset
-                asset.accumulated_depreciation += line.approved_amount
+            for asset, amount, _narr in rows:
+                asset.accumulated_depreciation += amount
+                # Advance the high-water mark so this period isn't re-suggested.
+                if not asset.last_depreciation_through or period_to > asset.last_depreciation_through:
+                    asset.last_depreciation_through = period_to
                 if asset.is_fully_depreciated:
                     asset.status = 'FULLY_DEPRECIATED'
-                asset.save(update_fields=['accumulated_depreciation', 'status'])
+                asset.save(update_fields=[
+                    'accumulated_depreciation', 'last_depreciation_through', 'status',
+                ])
 
-            suggestion.voucher      = voucher
-            suggestion.status       = 'APPROVED'
-            suggestion.total_amount = total_approved
-            suggestion.approved_at  = _tz.now()
-            suggestion.approved_by  = request.user
-            suggestion.save(update_fields=['voucher', 'status', 'total_amount', 'approved_at', 'approved_by'])
-
-        suggestion.refresh_from_db()
-        return Response(DepreciationSuggestionSerializer(suggestion).data)
-
-
-class RejectDepreciationSuggestionView(APIView):
-    permission_classes = [RBACPermission]
-
-    def post(self, request, pk):
-        retail = getattr(request, 'retail', None)
-        try:
-            suggestion = DepreciationSuggestion.objects.get(pk=pk, retail=retail)
-        except DepreciationSuggestion.DoesNotExist:
-            return Response({'detail': 'Suggestion not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        if suggestion.status != 'PENDING':
-            return Response({'detail': f'Suggestion is already {suggestion.status}.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        suggestion.status = 'REJECTED'
-        suggestion.save(update_fields=['status'])
-        return Response({'detail': 'Suggestion rejected.', 'id': suggestion.id})
+        return Response({
+            'detail':       'Depreciation posted.',
+            'voucher_id':   voucher.id,
+            'voucher_no':   voucher_no,
+            'total_amount': str(total_approved),
+        })
 
 
 class FASettingsView(APIView):

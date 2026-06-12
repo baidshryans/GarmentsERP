@@ -1,3 +1,4 @@
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from .models import IT_BLOCK_RATES
@@ -21,7 +22,34 @@ def calculate_asset_depreciation(asset, from_date, to_date):
         suggestions for any custom date range; they can edit the amount manually
         if they need the half-year rule for the acquisition year.
     """
-    days_in_period = (to_date - from_date).days + 1
+    # Clip the period to the asset's holding window: depreciation only accrues
+    # from the day of purchase onward. If the asset was acquired after the
+    # period ends, suggest zero — it wasn't owned during this window.
+    if asset.purchase_date > to_date:
+        return {
+            'opening_wdv':         asset.current_wdv,
+            'calculated_amount':   Decimal('0'),
+            'days_in_period':      0,
+            'annual_depreciation': Decimal('0'),
+            'method':              asset.depreciation_method,
+            'reason':              f'Asset acquired {asset.purchase_date} — after period end',
+        }
+
+    effective_from = max(from_date, asset.purchase_date)
+    # Don't re-charge depreciation for a stretch that's already been posted.
+    if asset.last_depreciation_through and asset.last_depreciation_through >= effective_from:
+        effective_from = asset.last_depreciation_through + timedelta(days=1)
+    if effective_from > to_date:
+        return {
+            'opening_wdv':         asset.current_wdv,
+            'calculated_amount':   Decimal('0'),
+            'days_in_period':      0,
+            'annual_depreciation': Decimal('0'),
+            'method':              asset.depreciation_method,
+            'reason':              f'Already depreciated through {asset.last_depreciation_through}',
+        }
+
+    days_in_period = (to_date - effective_from).days + 1
     days_in_year   = Decimal('365')
     opening_wdv    = asset.current_wdv
 
@@ -76,12 +104,24 @@ def generate_suggestion_lines(retail, from_date, to_date):
     assets = FixedAsset.objects.filter(retail=retail, status='ACTIVE').select_related('retail')
     lines  = []
     for asset in assets:
+        # Asset fully covered by an earlier posting — omit from the worksheet.
+        if asset.last_depreciation_through and asset.last_depreciation_through >= to_date:
+            continue
+        # Asset not yet acquired during the period — omit.
+        if asset.purchase_date > to_date:
+            continue
         result = calculate_asset_depreciation(asset, from_date, to_date)
         method_label = 'WDV' if asset.depreciation_method == 'WDV' else 'SLM'
+        effective_from = max(from_date, asset.purchase_date)
+        period_note = (
+            f"{from_date} to {to_date}"
+            if effective_from == from_date
+            else f"{effective_from} to {to_date} (acquired {asset.purchase_date})"
+        )
         narration = (
             f"Depreciation \u2013 {asset.asset_name} "
             f"({method_label}, {asset.rate_or_life}{'%' if asset.depreciation_method == 'WDV' else ' yrs'}) "
-            f"for period {from_date} to {to_date}"
+            f"for period {period_note}"
         )[:200]
 
         lines.append({

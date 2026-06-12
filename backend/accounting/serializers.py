@@ -958,8 +958,7 @@ class CreditDebitNoteSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 from .models import (  # noqa: E402 — appended block; same module
-    FixedAsset, DepreciationSuggestion, DepreciationSuggestionLine,
-    FixedAssetSettings, IT_BLOCK_RATES,
+    FixedAsset, FixedAssetSettings, IT_BLOCK_RATES,
 )
 
 
@@ -974,6 +973,7 @@ class FixedAssetSerializer(serializers.ModelSerializer):
         model  = FixedAsset
         fields = '__all__'
         read_only_fields = (
+            'retail', 'asset_ledger',
             'accumulated_depreciation', 'created_at',
             # Depreciation ledgers are set globally in Fixed Asset Settings — no
             # per-asset overrides allowed through the API.
@@ -984,31 +984,6 @@ class FixedAssetSerializer(serializers.ModelSerializer):
         if obj.it_block_category and obj.it_block_category in IT_BLOCK_RATES:
             return str(IT_BLOCK_RATES[obj.it_block_category][1])
         return None
-
-
-class DepreciationSuggestionLineSerializer(serializers.ModelSerializer):
-    asset_code         = serializers.CharField(source='asset.asset_code', read_only=True)
-    asset_name         = serializers.CharField(source='asset.asset_name', read_only=True)
-    asset_method       = serializers.CharField(source='asset.depreciation_method', read_only=True)
-    asset_rate_or_life = serializers.DecimalField(source='asset.rate_or_life', max_digits=6,
-                                                   decimal_places=2, read_only=True)
-    purchase_cost      = serializers.DecimalField(source='asset.purchase_cost', max_digits=14,
-                                                   decimal_places=2, read_only=True)
-
-    class Meta:
-        model  = DepreciationSuggestionLine
-        fields = '__all__'
-
-
-class DepreciationSuggestionSerializer(serializers.ModelSerializer):
-    lines            = DepreciationSuggestionLineSerializer(many=True, read_only=True)
-    voucher_no       = serializers.CharField(source='voucher.voucher_no', read_only=True, default=None)
-    approved_by_name = serializers.CharField(source='approved_by.get_full_name', read_only=True, default=None)
-
-    class Meta:
-        model  = DepreciationSuggestion
-        fields = '__all__'
-        read_only_fields = ('status', 'total_amount', 'voucher', 'approved_at', 'approved_by', 'created_at')
 
 
 class FixedAssetSettingsSerializer(serializers.ModelSerializer):

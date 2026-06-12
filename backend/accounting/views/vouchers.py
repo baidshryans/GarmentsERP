@@ -100,13 +100,12 @@ def _voucher_source_document(voucher):
         return ('Purchase Return', pr.billno)
 
     # ── Accounting (credit/debit notes, depreciation) ───────────────────────
-    from accounting.models import CreditDebitNote, DepreciationSuggestion
+    from accounting.models import CreditDebitNote
     cn = CreditDebitNote.objects.filter(ac_voucher=voucher).first()
     if cn:
         return ('Credit/Debit Note', cn.note_no)
-    dep = DepreciationSuggestion.objects.filter(voucher=voucher).first()
-    if dep:
-        return ('Depreciation Suggestion', dep.label)
+    if voucher.voucher_type == 'DEPR':
+        return ('Depreciation', voucher.narration or voucher.voucher_no)
 
     # ── Gold Scheme ──────────────────────────────────────────────────────────
     from goldscheme.models import SchemePayment

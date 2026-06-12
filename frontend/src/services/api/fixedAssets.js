@@ -25,14 +25,6 @@ export async function updateFixedAsset(id, data) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
-export async function fetchDepreciationSuggestions(params = {}) {
-  try {
-    const response = await apiClient.get("/accounting/api/fa/suggestions/", { params });
-    return { success: true, data: response.data };
-  } catch (error) {
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
 export async function generateDepreciationSuggestion(data) {
   try {
     const response = await apiClient.post("/accounting/api/fa/generate-suggestion/", data);
@@ -41,25 +33,9 @@ export async function generateDepreciationSuggestion(data) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
-export async function updateSuggestionLine(id, data) {
+export async function postDepreciation(payload) {
   try {
-    const response = await apiClient.patch(`/accounting/api/fa/suggestion-lines/${id}/`, data);
-    return { success: true, data: response.data };
-  } catch (error) {
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
-export async function approveDepreciationSuggestion(id) {
-  try {
-    const response = await apiClient.post(`/accounting/api/fa/approve-suggestion/${id}/`);
-    return { success: true, data: response.data };
-  } catch (error) {
-    return { success: false, error: error.response?.data || error.message };
-  }
-}
-export async function rejectDepreciationSuggestion(id) {
-  try {
-    const response = await apiClient.post(`/accounting/api/fa/reject-suggestion/${id}/`);
+    const response = await apiClient.post("/accounting/api/fa/post-depreciation/", payload);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

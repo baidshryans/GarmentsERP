@@ -10,7 +10,7 @@ import { Check, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchSchemes, createSchemeEnrollment,
-  getLedgers, getLedger, updateLedger,
+  getLedgers, getLedger, patchLedger,
 } from "@/services/apiService";
 
 const RELATIONSHIPS = [
@@ -115,7 +115,7 @@ export default function SchemeEnrollmentForm() {
       const patch = {};
       if (needPan) patch.pan = form.pan.trim().toUpperCase();
       if (needAadhaar) patch.aadhar = form.aadhar.trim();
-      const r = await updateLedger(form.customer, patch);
+      const r = await patchLedger(form.customer, patch);
       if (!r.success) {
         toast({
           title: "KYC update failed",

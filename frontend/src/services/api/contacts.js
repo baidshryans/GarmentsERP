@@ -95,6 +95,15 @@ export async function updateLedger(id, data) {
   }
 }
 
+export async function patchLedger(id, data) {
+  try {
+    const response = await apiClient.patch(`/contacts/api/ledger/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function addLedgerRole(id, role) {
   try {
     const response = await apiClient.post(`/contacts/api/ledger/${id}/roles/`, { role });

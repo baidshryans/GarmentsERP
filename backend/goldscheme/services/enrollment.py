@@ -23,7 +23,8 @@ def validate_enrollment(scheme, amount):
     return errors
 
 
-def create_enrollment(scheme, customer, amount, retail, fiscal_year=None, salesperson=None, remarks='', start_date=None):
+def create_enrollment(scheme, customer, amount, retail, fiscal_year=None, salesperson=None,
+                     remarks='', start_date=None, nominee_data=None, enrollment_form_file=None):
     """
     Create a new SchemeEnrollment with auto-generated enrollment number.
     For LOCKED price mode, captures the current gold rate.
@@ -75,7 +76,18 @@ def create_enrollment(scheme, customer, amount, retail, fiscal_year=None, salesp
             fiscal_year=fiscal_year or getattr(retail, 'active_fy', None),
             salesperson=salesperson,
             remarks=remarks,
+            enrollment_form_file=enrollment_form_file,
         )
+
+        if nominee_data:
+            from goldscheme.models import SchemeNominee
+            SchemeNominee.objects.create(
+                enrollment=enrollment,
+                name=nominee_data['name'],
+                mobile=nominee_data['mobile'],
+                address=nominee_data.get('address', ''),
+                relationship=nominee_data['relationship'],
+            )
 
     return enrollment
 

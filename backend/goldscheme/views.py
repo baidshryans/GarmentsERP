@@ -60,7 +60,18 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def create(self, request, *args, **kwargs):
-        ser = SchemeEnrollmentCreateSerializer(data=request.data)
+        # Re-nest multipart "nominee.<field>" keys into a "nominee" dict so the
+        # nested serializer can validate it the same way JSON does.
+        data = request.data
+        if any(k.startswith('nominee.') for k in data.keys()):
+            data = data.copy()
+            nominee = {}
+            for key in list(data.keys()):
+                if key.startswith('nominee.'):
+                    nominee[key.split('.', 1)[1]] = data[key]
+                    del data[key]
+            data['nominee'] = nominee
+        ser = SchemeEnrollmentCreateSerializer(data=data)
         ser.is_valid(raise_exception=True)
 
         retail = request.retail

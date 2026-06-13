@@ -50,9 +50,28 @@ export async function fetchSchemeEnrollment(id) {
     return { success: false, error: error.response?.data || error.message };
   }
 }
-export async function createSchemeEnrollment(data) {
+export async function createSchemeEnrollment(payload) {
   try {
-    const response = await apiClient.post("/goldscheme/api/enrollments/", data);
+    const hasFile = payload && payload.enrollment_form_file instanceof File;
+    let response;
+    if (hasFile) {
+      const fd = new FormData();
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v === undefined || v === null) return;
+        if (k === "nominee" && typeof v === "object") {
+          Object.entries(v).forEach(([nk, nv]) => {
+            if (nv !== undefined && nv !== null) fd.append(`nominee.${nk}`, nv);
+          });
+        } else {
+          fd.append(k, v);
+        }
+      });
+      response = await apiClient.post("/goldscheme/api/enrollments/", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    } else {
+      response = await apiClient.post("/goldscheme/api/enrollments/", payload);
+    }
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

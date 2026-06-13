@@ -1,6 +1,6 @@
 from decimal import Decimal
 from rest_framework import serializers
-from .models import SchemeMaster, SchemeBenefitTier, SchemeEnrollment, SchemePayment
+from .models import SchemeMaster, SchemeBenefitTier, SchemeEnrollment, SchemePayment, SchemeNominee
 
 
 # ── Benefit Tier ──────────────────────────────────────────────────────────────
@@ -10,6 +10,15 @@ class SchemeBenefitTierSerializer(serializers.ModelSerializer):
         model = SchemeBenefitTier
         fields = ['id', 'product_type', 'min_months', 'max_months',
                   'lc_discount_pct', 'value_discount_pct']
+
+
+class SchemeNomineeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SchemeNominee
+        fields = ['id', 'name', 'mobile', 'address', 'relationship']
+        extra_kwargs = {
+            'address': {'required': False, 'allow_blank': True},
+        }
 
 
 # ── Scheme Master ─────────────────────────────────────────────────────────────
@@ -83,6 +92,8 @@ class SchemeEnrollmentListSerializer(serializers.ModelSerializer):
     is_matured = serializers.BooleanField(read_only=True)
     remaining_installments = serializers.IntegerField(read_only=True)
     applicable_benefit = serializers.SerializerMethodField()
+    nominee = SchemeNomineeSerializer(read_only=True)
+    enrollment_form_file = serializers.FileField(read_only=True)
 
     class Meta:
         model = SchemeEnrollment
@@ -95,7 +106,7 @@ class SchemeEnrollmentListSerializer(serializers.ModelSerializer):
             'status', 'months_completed', 'is_matured', 'remaining_installments',
             'applicable_benefit',
             'redeemed_date', 'lc_discount_applied', 'value_discount_applied',
-            'salesperson', 'remarks', 'created_at',
+            'salesperson', 'remarks', 'nominee', 'enrollment_form_file', 'created_at',
         ]
 
     def get_applicable_benefit(self, obj):
@@ -114,7 +125,9 @@ class SchemeEnrollmentCreateSerializer(serializers.Serializer):
     installment_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     salesperson = serializers.IntegerField(required=False, allow_null=True)
     start_date = serializers.DateField(required=False)
-    remarks = serializers.CharField(required=False, default='')
+    remarks = serializers.CharField(required=False, default='', allow_blank=True)
+    nominee = SchemeNomineeSerializer(required=True)
+    enrollment_form_file = serializers.FileField(required=False, allow_null=True)
 
 
 # ── Payment ───────────────────────────────────────────────────────────────────

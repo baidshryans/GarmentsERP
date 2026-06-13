@@ -145,6 +145,10 @@ class SchemeEnrollment(models.Model):
     salesperson        = models.ForeignKey('mastersconfig.SalesPersonMaster', null=True, blank=True,
                                             on_delete=models.SET_NULL)
     remarks            = models.TextField(blank=True)
+    enrollment_form_file = models.FileField(
+        upload_to='scheme/enrollment_forms/%Y/%m/', null=True, blank=True,
+        help_text="Signed enrollment form scan (PDF/JPG/PNG)."
+    )
     created_at         = models.DateTimeField(auto_now_add=True)
     updated_at         = models.DateTimeField(auto_now=True)
 
@@ -262,6 +266,37 @@ class SchemePayment(models.Model):
 
     def __str__(self):
         return f"{self.payment_no} — ₹{self.amount} for {self.enrollment.enrollment_no}"
+
+
+class SchemeNominee(models.Model):
+    """One nominee per scheme enrollment. Captured at enrollment time."""
+    RELATIONSHIP_CHOICES = [
+        ('SPOUSE', 'Spouse'),
+        ('SON', 'Son'),
+        ('DAUGHTER', 'Daughter'),
+        ('FATHER', 'Father'),
+        ('MOTHER', 'Mother'),
+        ('BROTHER', 'Brother'),
+        ('SISTER', 'Sister'),
+        ('OTHER', 'Other'),
+    ]
+
+    enrollment   = models.OneToOneField(
+        SchemeEnrollment, on_delete=models.CASCADE,
+        related_name='nominee', null=True, blank=True,
+    )
+    name         = models.CharField(max_length=120)
+    mobile       = models.CharField(max_length=20)
+    address      = models.TextField(blank=True)
+    relationship = models.CharField(max_length=20, choices=RELATIONSHIP_CHOICES)
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'scheme_nominee'
+
+    def __str__(self):
+        return f"{self.name} ({self.get_relationship_display()}) — {self.enrollment.enrollment_no if self.enrollment else 'unlinked'}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

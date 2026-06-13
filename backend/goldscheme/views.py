@@ -76,7 +76,10 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
 
         retail = request.retail
         scheme = ser.validated_data['scheme']
-        customer = get_object_or_404(Ledger, pk=ser.validated_data['customer'], retail_code=retail)
+        customer = get_object_or_404(
+            Ledger.objects.filter(Q(retail_code=retail) | Q(retail_code__isnull=True)),
+            pk=ser.validated_data['customer'],
+        )
         amount = ser.validated_data['installment_amount']
 
         salesperson = None

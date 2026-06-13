@@ -118,7 +118,8 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
         ser.is_valid(raise_exception=True)
 
         payment_ledger = get_object_or_404(
-            Ledger, pk=ser.validated_data['payment_ledger'], retail_code=request.retail
+            Ledger.objects.filter(Q(retail_code=request.retail) | Q(retail_code__isnull=True)),
+            pk=ser.validated_data['payment_ledger'],
         )
 
         try:

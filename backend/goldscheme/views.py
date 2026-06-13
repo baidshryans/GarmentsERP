@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from contacts.models import Ledger
 from mastersconfig.models import SalesPersonMaster
@@ -56,6 +57,7 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
     serializer_class = SchemeEnrollmentListSerializer
     filterset_fields = ['status', 'scheme', 'customer']
     search_fields = ['enrollment_no', 'customer__ac_name']
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def create(self, request, *args, **kwargs):
         ser = SchemeEnrollmentCreateSerializer(data=request.data)
@@ -81,6 +83,8 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
                 salesperson=salesperson,
                 remarks=ser.validated_data.get('remarks', ''),
                 start_date=ser.validated_data.get('start_date'),
+                nominee_data=ser.validated_data.get('nominee'),
+                enrollment_form_file=ser.validated_data.get('enrollment_form_file'),
             )
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

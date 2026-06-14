@@ -50,6 +50,7 @@ ACCOUNT_TREE = [
     ("CL-HR-PF",  "PF Payable", "CL-HR"),
     ("CL-HR-ESI", "ESI Payable", "CL-HR"),
     ("CL-HR-PT",  "Professional Tax Payable", "CL-HR"),
+    ("CL-SCH", "Scheme Advances", "CL"),
 
     # Loans (Liability)
     ("LL", "Loans (Liability)", "LIA"),

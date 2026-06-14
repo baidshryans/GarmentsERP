@@ -16,7 +16,6 @@ import {
 const SETTLEMENT_MODES = [
   ["REFUND", "Refund to cash/bank"],
   ["TRANSFER", "Transfer to customer (credit on their ledger)"],
-  ["FORFEIT", "Forfeit (shop keeps the amount as income)"],
 ];
 
 const STATUS_COLORS = {

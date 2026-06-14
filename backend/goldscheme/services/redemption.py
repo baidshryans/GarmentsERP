@@ -105,8 +105,11 @@ def cancel_enrollment(enrollment, reason='', settlement_mode=None, refund_ledger
     settlement_mode:
         'REFUND'   → Dr scheme sub-ledger / Cr refund_ledger (cash/bank). refund_ledger required.
         'TRANSFER' → Dr scheme sub-ledger / Cr customer trade ledger (becomes a usable credit).
-        'FORFEIT'  → Dr scheme sub-ledger / Cr Scheme Forfeiture Income.
         None       → no accounting entry (only valid when there is no balance to settle).
+
+    Forfeiture is intentionally not supported — retaining a customer's scheme
+    deposits is not permitted, so a cancelled scheme must always be refunded or
+    transferred back to the customer.
 
     The JV clears the per-enrollment scheme sub-ledger to zero.
     """
@@ -116,9 +119,9 @@ def cancel_enrollment(enrollment, reason='', settlement_mode=None, refund_ledger
     has_balance = bool(enrollment.liability_ledger_id) and enrollment.total_paid > 0
 
     if has_balance:
-        if settlement_mode not in ('REFUND', 'TRANSFER', 'FORFEIT'):
+        if settlement_mode not in ('REFUND', 'TRANSFER'):
             raise ValueError(
-                "A settlement mode (REFUND, TRANSFER or FORFEIT) is required because "
+                "A settlement mode (REFUND or TRANSFER) is required because "
                 "the customer has paid into this scheme."
             )
         if settlement_mode == 'REFUND' and refund_ledger is None:
@@ -134,7 +137,6 @@ def cancel_enrollment(enrollment, reason='', settlement_mode=None, refund_ledger
             from global_vars import VoucherType
             from accounting.models import VoucherMain, VoucherDetail
             from accounting.utils import generate_voucher_no
-            from goldscheme.services.ledgers import get_or_create_forfeiture_income_ledger
 
             retail = enrollment.retail
             fiscal_year = enrollment.fiscal_year or getattr(retail, 'active_fy', None)
@@ -143,12 +145,9 @@ def cancel_enrollment(enrollment, reason='', settlement_mode=None, refund_ledger
             if settlement_mode == 'REFUND':
                 credit_account = refund_ledger
                 label = 'refund'
-            elif settlement_mode == 'TRANSFER':
+            else:  # TRANSFER
                 credit_account = enrollment.customer
                 label = 'transfer to customer'
-            else:  # FORFEIT
-                credit_account = get_or_create_forfeiture_income_ledger(retail)
-                label = 'forfeiture'
 
             vno = generate_voucher_no(VoucherType.scheme_cancel, retail, fiscal_year)
             narr = (f"Scheme cancellation {enrollment.enrollment_no} ({label}) — "

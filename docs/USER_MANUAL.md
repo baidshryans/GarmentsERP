@@ -1,6 +1,6 @@
 # Jewel India ERP - User Manual
 
-**Version:** 1.6
+**Version:** 1.7
 **Last Updated:** June 2026
 **Audience:** First-time clients, store managers, accountants, and administrators
 
@@ -1685,8 +1685,9 @@ Click the **eye icon** on any enrollment row to open the statement. It shows:
 | **ACTIVE** | Payments ongoing. Record Payment button is available. |
 | **MATURED** | All installments completed (maturity date reached). Awaiting redemption. |
 | **REDEEMED** | Customer has purchased jewellery and the scheme benefit has been applied. |
-| **FORFEITED** | Customer failed to complete — benefits lapsed (set manually or by policy). |
-| **CANCELLED** | Cancelled before maturity. Payments remain in accounting but no benefit applies. |
+| **CANCELLED** | Enrollment closed before redemption. Any amount the customer paid in is settled back to them — either refunded or transferred to their ledger as credit. See Section 14.12. |
+
+> **Note on cancellation:** A scheme deposit can never be retained by the shop on cancellation — that is not permitted under law. The system therefore only allows a **refund** or a **transfer to the customer's ledger**; it does not offer a forfeiture option.
 
 ---
 
@@ -1828,6 +1829,7 @@ Current Liabilities
 |-------|------------------|
 | **Payment received** | **Dr** Cash/Bank · **Cr** `Scheme A/c — <Customer>` (that enrolment's sub-ledger) |
 | **Redemption** (customer buys jewellery) | Sales invoice debits the customer's normal trade ledger; a settlement journal then posts **Dr** `Scheme A/c — <Customer>` · **Cr** customer's trade ledger, applying the scheme balance against the purchase. The scheme sub-ledger returns to zero. |
+| **Cancellation** (before redemption) | A settlement journal clears the sub-ledger back to the customer — **Dr** `Scheme A/c — <Customer>` · **Cr** Cash/Bank (refund) *or* the customer's trade ledger (transfer to credit). The scheme sub-ledger returns to zero. |
 
 #### What you see in reports
 
@@ -1838,6 +1840,23 @@ Current Liabilities
 #### How a scheme links back to the customer
 
 The scheme sub-ledger and the customer's normal trade ledger are **deliberately separate accounts** (a liability vs. a receivable — they must not be mixed on the balance sheet), but they are **permanently linked through the enrolment record**, which stores both the customer's trade ledger and the scheme sub-ledger. The system always knows they are the same person by this link — never by matching names — so two customers with the same name are never confused. The sub-ledger also carries the customer's mobile and PAN for easy human cross-reference.
+
+#### Cancelling an enrollment
+
+Open the enrollment's statement and click **Cancel Enrollment**. If the customer has paid anything in, a dialog asks how to settle that money:
+
+| Option | What happens | When to use |
+|--------|--------------|-------------|
+| **Refund to cash/bank** | The amount is paid back to the customer; the system posts **Dr** scheme sub-ledger · **Cr** the cash/bank account you choose. | The customer wants their money returned. |
+| **Transfer to customer** | The amount moves onto the customer's normal trade ledger as a credit they can use against a future purchase; **Dr** scheme sub-ledger · **Cr** customer trade ledger. | The customer will keep shopping and wants the balance held to their account. |
+
+Either way the scheme sub-ledger is cleared to zero. If no payments were made, the enrollment is simply cancelled with no accounting entry.
+
+> **Forfeiture is not offered.** Retaining a customer's scheme deposit is not permitted under law, so the shop can never keep the money — only refund or transfer it.
+
+#### Telling the two ledgers apart in reports
+
+Because every scheme customer now has two accounts that share the same name (their trade ledger and their `Scheme A/c — …` sub-ledger), the **Ledger Statement** search tags each scheme sub-ledger with an amber **"Scheme A/c"** badge. When you want the customer's *sales/purchase* statement, pick the plain trade-ledger row; when you want their *scheme passbook*, pick the badged row.
 
 > **Migrating existing data:** if you have schemes that were recorded before this structure existed, run `python manage.py backfill_scheme_subledgers` once. It creates the missing per-customer sub-ledgers and moves historical balances onto them. It is safe to run more than once.
 

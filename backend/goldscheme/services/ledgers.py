@@ -32,3 +32,30 @@ def get_or_create_enrollment_liability_ledger(enrollment):
         enrollment.save(update_fields=['liability_ledger', 'updated_at'])
 
     return ledger
+
+
+def get_or_create_forfeiture_income_ledger(retail):
+    """
+    Get or create the system 'Scheme Forfeiture Income' ledger (Indirect Income).
+    Used when a cancelled enrollment's balance is forfeited to the shop.
+    """
+    from contacts.models import Ledger, LedgerRole
+    from accounting.models import Account
+
+    ledger_name = "Scheme Forfeiture Income"
+    ledger = Ledger.objects.filter(ac_name=ledger_name, is_system=True).first()
+    if ledger:
+        return ledger
+
+    group = Account.objects.filter(code='INC-IND').first()  # Indirect Income
+    with transaction.atomic():
+        ledger = Ledger.objects.create(
+            ac_name=ledger_name,
+            display_name=ledger_name,
+            ac_group=group,
+            is_system=True,
+            retail_code=retail,
+        )
+        LedgerRole.objects.get_or_create(ledger=ledger, role='OTH', defaults={'is_primary': True})
+
+    return ledger

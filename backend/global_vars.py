@@ -68,5 +68,6 @@ class VoucherType:
     debit_note = "DN"
     scheme = "SCHM"
     scheme_redeem = "SCHM-R"
+    scheme_cancel = "SCHM-C"
     salary = "SLRY"
     depreciation = "DEPR"

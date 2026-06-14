@@ -76,6 +76,7 @@ class LedgerSerializer(serializers.ModelSerializer):
     roles = _LedgerRoleSerializer(many=True, read_only=True)
     primary_role = serializers.SerializerMethodField()
     ac_group_name = serializers.CharField(source='ac_group.name', read_only=True, allow_null=True)
+    ac_group_code = serializers.CharField(source='ac_group.code', read_only=True, allow_null=True)
     parent_group_name = serializers.CharField(source='ac_group.parent.name', read_only=True, allow_null=True, default=None)
 
     class Meta:

@@ -303,7 +303,11 @@ export default function LedgerStatement() {
                           <span className="text-[11px] text-muted-foreground">{l.mobile1 || l.phone1}</span>
                         )}
                       </div>
-                      <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-medium text-muted-foreground shrink-0">{l.type}</span>
+                      {l.ac_group_code === "CL-SCH" ? (
+                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium shrink-0 whitespace-nowrap">Scheme A/c</span>
+                      ) : (
+                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-medium text-muted-foreground shrink-0">{l.type}</span>
+                      )}
                     </button>
                   );
                 })

@@ -15,7 +15,9 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from contacts.models import Ledger
 from mastersconfig.models import SalesPersonMaster
 from userauth.views import RetailBaseViewset
+from userauth.permissions import RBACPermission
 from .models import SchemeMaster, SchemeBenefitTier, SchemeEnrollment, SchemePayment
+from .permissions import SchemeEnrollmentAccessPermission
 from .serializers import (
     SchemeMasterListSerializer, SchemeMasterWriteSerializer,
     SchemeEnrollmentListSerializer, SchemeEnrollmentCreateSerializer,
@@ -58,6 +60,9 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
     filterset_fields = ['status', 'scheme', 'customer']
     search_fields = ['enrollment_no', 'customer__ac_name']
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+    permission_classes = [RBACPermission, SchemeEnrollmentAccessPermission]
+    lookup_field = 'uuid'
+    lookup_value_regex = '[0-9a-f-]{36}'
 
     def create(self, request, *args, **kwargs):
         # Re-nest multipart "nominee.<field>" keys into a "nominee" dict so the
@@ -111,8 +116,8 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
     # ── Pay action ────────────────────────────────────────────────────────────
 
     @action(detail=True, methods=['post'])
-    def pay(self, request, pk=None):
-        """POST /api/enrollments/{id}/pay/ — Record an installment payment."""
+    def pay(self, request, uuid=None):
+        """POST /api/enrollments/{uuid}/pay/ — Record an installment payment."""
         enrollment = self.get_object()
         ser = SchemePaymentCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
@@ -139,8 +144,8 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
     # ── Statement ─────────────────────────────────────────────────────────────
 
     @action(detail=True, methods=['get'])
-    def statement(self, request, pk=None):
-        """GET /api/enrollments/{id}/statement/ — Full payment history."""
+    def statement(self, request, uuid=None):
+        """GET /api/enrollments/{uuid}/statement/ — Full payment history."""
         enrollment = self.get_object()
         check_and_update_maturity(enrollment)
 
@@ -153,16 +158,16 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
     # ── Benefit check ─────────────────────────────────────────────────────────
 
     @action(detail=True, methods=['get'])
-    def benefit(self, request, pk=None):
-        """GET /api/enrollments/{id}/benefit/ — Check current applicable benefit."""
+    def benefit(self, request, uuid=None):
+        """GET /api/enrollments/{uuid}/benefit/ — Check current applicable benefit."""
         enrollment = self.get_object()
         return Response(get_applicable_benefits(enrollment))
 
     # ── Redeem ────────────────────────────────────────────────────────────────
 
     @action(detail=True, methods=['post'])
-    def redeem(self, request, pk=None):
-        """POST /api/enrollments/{id}/redeem/ — Mark as redeemed."""
+    def redeem(self, request, uuid=None):
+        """POST /api/enrollments/{uuid}/redeem/ — Mark as redeemed."""
         enrollment = self.get_object()
         lc_discount = request.data.get('lc_discount_applied', 0)
         value_discount = request.data.get('value_discount_applied', 0)
@@ -188,13 +193,29 @@ class SchemeEnrollmentViewSet(RetailBaseViewset):
     # ── Cancel ────────────────────────────────────────────────────────────────
 
     @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
-        """POST /api/enrollments/{id}/cancel/ — Cancel enrollment."""
+    def cancel(self, request, uuid=None):
+        """POST /api/enrollments/{uuid}/cancel/ — Cancel enrollment.
+
+        Body: reason, settlement_mode (REFUND|TRANSFER|FORFEIT),
+        refund_ledger (ledger id, required when settlement_mode=REFUND).
+        """
         enrollment = self.get_object()
         reason = request.data.get('reason', '')
+        settlement_mode = request.data.get('settlement_mode')
+
+        refund_ledger = None
+        refund_ledger_id = request.data.get('refund_ledger')
+        if refund_ledger_id:
+            refund_ledger = get_object_or_404(
+                Ledger.objects.filter(Q(retail_code=request.retail) | Q(retail_code__isnull=True)),
+                pk=refund_ledger_id,
+            )
 
         try:
-            enrollment = cancel_enrollment(enrollment, reason=reason)
+            enrollment = cancel_enrollment(
+                enrollment, reason=reason,
+                settlement_mode=settlement_mode, refund_ledger=refund_ledger,
+            )
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

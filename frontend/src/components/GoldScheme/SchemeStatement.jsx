@@ -2,13 +2,22 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DataTable } from "@/table";
 import { ArrowLeft, CreditCard, Gift, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchSchemeStatement, fetchSchemeBenefit,
-  redeemSchemeEnrollment, cancelSchemeEnrollment,
+  redeemSchemeEnrollment, cancelSchemeEnrollment, getLedgers,
 } from "@/services/apiService";
+
+const SETTLEMENT_MODES = [
+  ["REFUND", "Refund to cash/bank"],
+  ["TRANSFER", "Transfer to customer (credit on their ledger)"],
+  ["FORFEIT", "Forfeit (shop keeps the amount as income)"],
+];
 
 const STATUS_COLORS = {
   ACTIVE: "bg-green-100 text-green-800",
@@ -19,30 +28,67 @@ const STATUS_COLORS = {
 };
 
 export default function SchemeStatement() {
-  const { id } = useParams();
+  const { uuid } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [data, setData] = useState(null);
   const [benefit, setBenefit] = useState(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [settlementMode, setSettlementMode] = useState("");
+  const [refundLedger, setRefundLedger] = useState("");
+  const [cashBankLedgers, setCashBankLedgers] = useState([]);
+  const [cancelling, setCancelling] = useState(false);
+
+  useEffect(() => {
+    Promise.all([getLedgers({ type: "CA" }), getLedgers({ type: "BA" })]).then(([ca, ba]) => {
+      const pick = (r) => (r.success ? (Array.isArray(r.data) ? r.data : r.data?.results ?? []) : []);
+      setCashBankLedgers([...pick(ca), ...pick(ba)]);
+    });
+  }, []);
 
   const load = async () => {
     const [stRes, bRes] = await Promise.all([
-      fetchSchemeStatement(id),
-      fetchSchemeBenefit(id),
+      fetchSchemeStatement(uuid),
+      fetchSchemeBenefit(uuid),
     ]);
     if (stRes.success) setData(stRes.data);
     if (bRes.success) setBenefit(bRes.data);
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [uuid]);
 
-  const handleCancel = async () => {
-    if (!window.confirm("Cancel this enrollment? Payments will remain recorded but no benefits will apply.")) return;
-    const res = await cancelSchemeEnrollment(id, { reason: "Cancelled by user" });
+  const openCancel = () => {
+    setSettlementMode("");
+    setRefundLedger("");
+    setCancelOpen(true);
+  };
+
+  const confirmCancel = async () => {
+    const hasBalance = Number(data?.enrollment?.total_paid) > 0;
+    if (hasBalance && !settlementMode) {
+      toast({ title: "Select what to do with the paid amount", variant: "destructive" });
+      return;
+    }
+    if (hasBalance && settlementMode === "REFUND" && !refundLedger) {
+      toast({ title: "Select the cash/bank account to refund from", variant: "destructive" });
+      return;
+    }
+    setCancelling(true);
+    const payload = { reason: "Cancelled by user" };
+    if (hasBalance) {
+      payload.settlement_mode = settlementMode;
+      if (settlementMode === "REFUND") payload.refund_ledger = parseInt(refundLedger);
+    }
+    const res = await cancelSchemeEnrollment(uuid, payload);
     if (res.success) {
       toast({ title: "Enrollment cancelled" });
+      setCancelOpen(false);
       load();
+    } else {
+      const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : res.error;
+      toast({ title: "Cancel failed", description: msg, variant: "destructive" });
     }
+    setCancelling(false);
   };
 
   if (!data) return <div className="p-4">Loading...</div>;
@@ -125,18 +171,65 @@ export default function SchemeStatement() {
           {/* Actions */}
           <div className="mt-4 flex gap-2">
             {e.status === "ACTIVE" && (
-              <Button onClick={() => navigate(`/scheme/enrollments/${id}/pay`)}>
+              <Button onClick={() => navigate(`/scheme/enrollments/${uuid}/pay`)}>
                 <CreditCard className="size-4 mr-1" /> Record Payment
               </Button>
             )}
             {(e.status === "ACTIVE" || e.status === "MATURED") && (
-              <Button variant="outline" onClick={handleCancel}>
+              <Button variant="outline" onClick={openCancel}>
                 <XCircle className="size-4 mr-1" /> Cancel Enrollment
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Cancel Enrollment</DialogTitle></DialogHeader>
+          {Number(e.total_paid) > 0 ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                The customer has paid {inr(e.total_paid)} into this scheme. Choose how to settle that amount.
+              </p>
+              <div>
+                <Label>What to do with the paid amount *</Label>
+                <Select value={settlementMode} onValueChange={setSettlementMode}>
+                  <SelectTrigger><SelectValue placeholder="Select settlement" /></SelectTrigger>
+                  <SelectContent>
+                    {SETTLEMENT_MODES.map(([v, label]) => (
+                      <SelectItem key={v} value={v}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {settlementMode === "REFUND" && (
+                <div>
+                  <Label>Refund from (cash/bank account) *</Label>
+                  <Select value={String(refundLedger)} onValueChange={setRefundLedger}>
+                    <SelectTrigger><SelectValue placeholder="Select cash/bank account" /></SelectTrigger>
+                    <SelectContent>
+                      {cashBankLedgers.map((l) => (
+                        <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No payments have been made. The enrollment will simply be cancelled.
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCancelOpen(false)} disabled={cancelling}>Keep enrollment</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={cancelling}>
+              {cancelling ? "Cancelling…" : "Cancel enrollment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment History */}
       <Card>

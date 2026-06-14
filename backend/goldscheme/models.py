@@ -103,6 +103,8 @@ class SchemeEnrollment(models.Model):
     ]
 
     enrollment_no      = models.CharField(max_length=30, unique=True)
+    uuid               = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True,
+                                          help_text="Opaque public identifier used in customer-facing URLs.")
     scheme             = models.ForeignKey(SchemeMaster, on_delete=models.PROTECT, related_name='enrollments')
     customer           = models.ForeignKey('contacts.Ledger', on_delete=models.PROTECT,
                                             related_name='scheme_enrollments')
@@ -137,6 +139,10 @@ class SchemeEnrollment(models.Model):
                                                help_text="Making charge discount applied at redemption")
     value_discount_applied = models.DecimalField(max_digits=10, decimal_places=2, default=0,
                                                   help_text="Value discount applied at redemption (diamond)")
+
+    liability_ledger   = models.ForeignKey('contacts.Ledger', null=True, blank=True,
+                                            on_delete=models.SET_NULL, related_name='scheme_liability_for',
+                                            help_text="Per-enrollment scheme-advances sub-ledger (Cr on payment).")
 
     retail             = models.ForeignKey('mastersconfig.RetailMaster', on_delete=models.CASCADE,
                                             related_name='scheme_enrollments')

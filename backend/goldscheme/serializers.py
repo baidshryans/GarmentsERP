@@ -92,13 +92,14 @@ class SchemeEnrollmentListSerializer(serializers.ModelSerializer):
     is_matured = serializers.BooleanField(read_only=True)
     remaining_installments = serializers.IntegerField(read_only=True)
     applicable_benefit = serializers.SerializerMethodField()
+    liability_ledger_name = serializers.CharField(source='liability_ledger.ac_name', read_only=True, default=None)
     nominee = SchemeNomineeSerializer(read_only=True)
     enrollment_form_file = serializers.FileField(read_only=True)
 
     class Meta:
         model = SchemeEnrollment
         fields = [
-            'id', 'enrollment_no', 'scheme', 'scheme_name', 'scheme_code', 'scheme_type',
+            'id', 'uuid', 'enrollment_no', 'scheme', 'scheme_name', 'scheme_code', 'scheme_type',
             'customer', 'customer_name',
             'start_date', 'maturity_date', 'installment_amount',
             'locked_gold_rate', 'locked_purity',
@@ -106,7 +107,7 @@ class SchemeEnrollmentListSerializer(serializers.ModelSerializer):
             'status', 'months_completed', 'is_matured', 'remaining_installments',
             'applicable_benefit',
             'redeemed_date', 'lc_discount_applied', 'value_discount_applied',
-            'salesperson', 'remarks', 'nominee', 'enrollment_form_file', 'created_at',
+            'salesperson', 'remarks', 'nominee', 'enrollment_form_file', 'liability_ledger', 'liability_ledger_name', 'created_at',
         ]
 
     def get_applicable_benefit(self, obj):

@@ -69,6 +69,31 @@ def redeem_enrollment(enrollment, sales_vou=None, lc_discount_amount=Decimal('0'
             'lc_discount_applied', 'value_discount_applied', 'updated_at',
         ])
 
+        # Settlement JV: clear the scheme float against the customer's trade ledger.
+        if enrollment.liability_ledger_id and enrollment.total_paid > 0:
+            from global_vars import VoucherType
+            from accounting.models import VoucherMain, VoucherDetail
+            from accounting.utils import generate_voucher_no
+
+            retail = enrollment.retail
+            fiscal_year = enrollment.fiscal_year or getattr(retail, 'active_fy', None)
+            vno = generate_voucher_no(VoucherType.scheme_redeem, retail, fiscal_year)
+            narr = (f"Scheme redemption {enrollment.enrollment_no} — "
+                    f"{enrollment.customer.ac_name}")[:150]
+            voucher = VoucherMain.objects.create(
+                date=enrollment.redeemed_date or (sales_vou.date1 if sales_vou else None),
+                voucher_no=vno, narration=narr, amount=enrollment.total_paid,
+                voucher_type=VoucherType.scheme_redeem, retail=retail, fiscal_year=fiscal_year,
+            )
+            VoucherDetail.objects.create(
+                voucher_main=voucher, voucher_no=vno, voucher_type=VoucherType.scheme_redeem,
+                account=enrollment.liability_ledger, debit=enrollment.total_paid, credit=0,
+            )
+            VoucherDetail.objects.create(
+                voucher_main=voucher, voucher_no=vno, voucher_type=VoucherType.scheme_redeem,
+                account=enrollment.customer, debit=0, credit=enrollment.total_paid,
+            )
+
     return enrollment
 
 

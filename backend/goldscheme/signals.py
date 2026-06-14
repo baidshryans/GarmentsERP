@@ -83,7 +83,10 @@ def create_scheme_voucher(sender, instance, created, **kwargs):
     fiscal_year = payment.fiscal_year or getattr(retail, 'active_fy', None)
 
     try:
-        scheme_liability = _get_or_create_scheme_liability_ledger(retail)
+        scheme_liability = (
+            payment.enrollment.liability_ledger
+            or _get_or_create_scheme_liability_ledger(retail)
+        )
         voucher_no = generate_voucher_no(VoucherType.scheme, retail, fiscal_year)
 
         narration = (

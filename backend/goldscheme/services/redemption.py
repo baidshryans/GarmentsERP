@@ -1,6 +1,7 @@
 """
 Redemption service — benefit calculation, scheme closure.
 """
+from datetime import date
 from decimal import Decimal
 
 from django.db import transaction
@@ -81,7 +82,7 @@ def redeem_enrollment(enrollment, sales_vou=None, lc_discount_amount=Decimal('0'
             narr = (f"Scheme redemption {enrollment.enrollment_no} — "
                     f"{enrollment.customer.ac_name}")[:150]
             voucher = VoucherMain.objects.create(
-                date=enrollment.redeemed_date or (sales_vou.date1 if sales_vou else None),
+                date=enrollment.redeemed_date or (sales_vou.date1 if sales_vou else None) or date.today(),
                 voucher_no=vno, narration=narr, amount=enrollment.total_paid,
                 voucher_type=VoucherType.scheme_redeem, retail=retail, fiscal_year=fiscal_year,
             )

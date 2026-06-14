@@ -765,6 +765,7 @@ class Command(BaseCommand):
             # ── Active scheme enrollments + payments ──────────────
             SchemeEnrollment = self._get_model('goldscheme', 'SchemeEnrollment')
             SchemePayment = self._get_model('goldscheme', 'SchemePayment')
+            SchemeNominee = self._get_model('goldscheme', 'SchemeNominee')
             se_qs = SchemeEnrollment.objects.filter(
                 retail=retail, status__in=['ACTIVE', 'MATURED']
             )
@@ -777,6 +778,13 @@ class Command(BaseCommand):
                 n2 = self._bulk_copy(SchemePayment, sp_qs, nullify_fields=['voucher'])
                 count += n2
                 self.stdout.write(f"           Scheme payments:        {n2}")
+
+                # Nominee (one per enrollment) — carry KYC forward with the enrollment
+                nom_qs = SchemeNominee.objects.filter(enrollment_id__in=se_ids)
+                n3 = self._bulk_copy(SchemeNominee, nom_qs)
+                count += n3
+                if n3:
+                    self.stdout.write(f"           Scheme nominees:        {n3}")
 
             # ── Active fixed assets ───────────────────────────────
             FixedAsset = self._get_model('accounting', 'FixedAsset')

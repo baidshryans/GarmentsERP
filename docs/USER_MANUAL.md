@@ -1,7 +1,7 @@
 # Jewel India ERP - User Manual
 
-**Version:** 1.5
-**Last Updated:** May 2026
+**Version:** 1.6
+**Last Updated:** June 2026
 **Audience:** First-time clients, store managers, accountants, and administrators
 
 ---
@@ -1610,12 +1610,37 @@ Navigate to **Gold Schemes → Enrollments** and click **New Enrollment**.
 | Field | Notes |
 |-------|-------|
 | **Scheme** | Select from active schemes. The tenure and min/max amounts are shown below the selection. |
-| **Customer** | Type at least 2 characters to search from your ledger. Select from the dropdown. |
+| **Customer** | Type at least 2 characters to search **existing customer ledgers** by **name or mobile number**. Only ledgers with the **Customer (CO)** role appear. Select from the dropdown; each result shows `Name — Mobile`. The scheme is always tied to a real customer ledger in your accounts — it is never a standalone record. |
 | **Monthly Installment (₹)** | The fixed amount the customer will pay each month. Must be within the scheme's min/max range. For LUMPSUM schemes, this is the one-time amount. |
 | **Start Date** | Defaults to today. The maturity date is auto-calculated as start date + tenure months. |
 | **Remarks** | Optional internal notes. |
 
-After saving, the enrollment is created with status **ACTIVE** and an enrollment number (e.g. `SCHM-2024-00042`).
+#### KYC (PAN & Aadhaar) — required to enrol
+
+Enrolment in a scheme requires the customer's **PAN and Aadhaar** on record. When you select a customer:
+
+- If their ledger **already has** PAN and Aadhaar, no extra fields appear.
+- If either is **missing**, a **"KYC details required"** panel appears asking for the missing value(s). PAN must look like `ABCDE1234F`; Aadhaar must be 12 digits.
+- On save, the captured PAN/Aadhaar is written **back to the customer's ledger** (so it only ever has to be entered once), and then the enrolment proceeds.
+
+#### Nominee details — required
+
+Every enrolment captures one **nominee**:
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| **Name** | Yes | Nominee's full name. |
+| **Mobile** | Yes | Nominee's contact number. |
+| **Relationship** | Yes | Spouse, Son, Daughter, Father, Mother, Brother, Sister, or Other. |
+| **Address** | Optional | Nominee's address. |
+
+The nominee is stored against this specific enrolment (one nominee per enrolment).
+
+#### Enrollment form upload — optional
+
+You may attach a scan of the **signed enrolment form** (PDF, JPG, or PNG, up to 10 MB). This is optional — the enrolment can be saved without it and the file added later.
+
+After saving, the enrollment is created with status **ACTIVE** and an enrollment number (e.g. `SCHM-E/R001/26-27/00001`). A per-customer scheme liability sub-ledger is also created automatically — see **14.12 Scheme Accounting Structure**.
 
 ---
 
@@ -1634,7 +1659,7 @@ Click the **green credit card icon** (Record Payment) on the row.
 | **Remarks** | Optional. |
 
 On save:
-- A **SCHM accounting voucher** is auto-created: Dr Cash/Bank → Cr Scheme Liability.
+- A **SCHM accounting voucher** is auto-created: **Dr Cash/Bank → Cr the customer's scheme sub-ledger** (`Scheme A/c — <Customer> (<Enrollment No>)`). The bank/cash book reflects the receipt exactly as entered. See **14.12 Scheme Accounting Structure** for how this rolls up.
 - The payment count and total paid on the enrollment are updated.
 - For ACCUMULATION schemes, gold grams are calculated and added to `gold_accumulated_wt`.
 - You are redirected to the **Enrollment Statement** which shows all payment history.
@@ -1777,6 +1802,44 @@ This table lists all enrollments in **MATURED** status — schemes that have com
 | **Open** | Button to go directly to the enrollment's payment/redeem screen. |
 
 Schemes that sit here for too long will eventually appear in the **Aged Advances** regulatory alert once the 365-day clock is passed.
+
+---
+
+### 14.12 Scheme Accounting Structure
+
+Gold schemes are **fully integrated with the accounting system** — they are not a separate silo. Money a customer pays into a scheme is an **advance against a future purchase**, so it is held as a **current liability** (money the shop owes the customer in goods), tracked per customer.
+
+#### How the ledgers are organised
+
+- A single account group, **Scheme Advances** (under *Current Liabilities*), holds all scheme money.
+- When a customer is enrolled, the system **auto-creates one sub-ledger per enrolment**, named `Scheme A/c — <Customer> (<Enrollment No>)`, inside the Scheme Advances group. These are **system ledgers** — they cannot be hand-edited or deleted.
+
+```
+Current Liabilities
+└── Scheme Advances                 ← single line on the Trial Balance
+    ├── Scheme A/c — Abha Lunia (SCHM-E/.../00001)
+    ├── Scheme A/c — Ramesh Shah (SCHM-E/.../00002)
+    └── ... one per active enrolment
+```
+
+#### What each entry does
+
+| Event | Accounting entry |
+|-------|------------------|
+| **Payment received** | **Dr** Cash/Bank · **Cr** `Scheme A/c — <Customer>` (that enrolment's sub-ledger) |
+| **Redemption** (customer buys jewellery) | Sales invoice debits the customer's normal trade ledger; a settlement journal then posts **Dr** `Scheme A/c — <Customer>` · **Cr** customer's trade ledger, applying the scheme balance against the purchase. The scheme sub-ledger returns to zero. |
+
+#### What you see in reports
+
+- **Bank / Cash Book** — every receipt appears at full value, exactly as entered.
+- **Trial Balance** — the Scheme Advances group shows as **one line** with the firm-wide scheme float; drill in to see each customer's balance.
+- **Customer's scheme statement** — the sub-ledger *is* the customer's scheme passbook: every receipt and the final redemption, in date order.
+
+#### How a scheme links back to the customer
+
+The scheme sub-ledger and the customer's normal trade ledger are **deliberately separate accounts** (a liability vs. a receivable — they must not be mixed on the balance sheet), but they are **permanently linked through the enrolment record**, which stores both the customer's trade ledger and the scheme sub-ledger. The system always knows they are the same person by this link — never by matching names — so two customers with the same name are never confused. The sub-ledger also carries the customer's mobile and PAN for easy human cross-reference.
+
+> **Migrating existing data:** if you have schemes that were recorded before this structure existed, run `python manage.py backfill_scheme_subledgers` once. It creates the missing per-customer sub-ledgers and moves historical balances onto them. It is safe to run more than once.
 
 ---
 

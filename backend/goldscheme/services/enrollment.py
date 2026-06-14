@@ -89,6 +89,9 @@ def create_enrollment(scheme, customer, amount, retail, fiscal_year=None, salesp
                 relationship=nominee_data['relationship'],
             )
 
+        from goldscheme.services.ledgers import get_or_create_enrollment_liability_ledger
+        get_or_create_enrollment_liability_ledger(enrollment)
+
     return enrollment
 
 

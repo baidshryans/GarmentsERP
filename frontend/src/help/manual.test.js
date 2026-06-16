@@ -81,4 +81,32 @@ describe('parseManual', () => {
     expect(toc.map((c) => c.id)).toEqual(['7-sales-module', '14-gold-scheme-management']);
     expect(toc[1].children.map((s) => s.id)).toEqual(['14-3-recording-a-payment']);
   });
+
+  it('gives every section a unique id even when headings repeat', () => {
+    const dup = [
+      '## 1. Alpha',
+      '### Overview',
+      'a',
+      '## 2. Beta',
+      '### Overview',
+      'b',
+    ].join('\n');
+    const { sections } = parseManual(dup);
+    const ids = sections.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain('overview');
+    expect(ids).toContain('overview-2');
+  });
+
+  it('skips the Table of Contents heading', () => {
+    const withToc = [
+      '## Table of Contents',
+      '- [Intro](#intro)',
+      '## 1. Introduction',
+      'Intro body.',
+    ].join('\n');
+    const { sections, toc } = parseManual(withToc);
+    expect(sections.find((s) => s.id === 'table-of-contents')).toBeUndefined();
+    expect(toc.map((c) => c.id)).toEqual(['1-introduction']);
+  });
 });

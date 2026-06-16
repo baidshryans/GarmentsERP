@@ -31,6 +31,14 @@ export function parseManual(raw) {
   let lastChapterId = null;
   let current = null;
   const bodyLines = [];
+  const usedIds = new Set();
+  const uniqueId = (base) => {
+    let id = base || 'section';
+    let n = 2;
+    while (usedIds.has(id)) id = `${base}-${n++}`;
+    usedIds.add(id);
+    return id;
+  };
 
   const flush = () => {
     if (current) {
@@ -48,7 +56,12 @@ export function parseManual(raw) {
       flush();
       const level = h[1].length === 2 ? 'chapter' : 'section';
       const title = h[2].trim();
-      const id = slugify(title);
+      // The manual's own Table of Contents is redundant in a navigable UI.
+      if (level === 'chapter' && /^table of contents$/i.test(title)) {
+        current = null;
+        continue;
+      }
+      const id = uniqueId(slugify(title));
       if (level === 'chapter') lastChapterId = id;
       current = {
         id,

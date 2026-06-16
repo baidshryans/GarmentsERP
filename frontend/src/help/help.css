@@ -1,0 +1,4 @@
+.manual-prose .mermaid-diagram svg { max-width: 100%; height: auto; }
+.manual-prose table { display: block; overflow-x: auto; }
+.manual-prose mark { background: #fde68a; padding: 0 1px; border-radius: 2px; }
+.manual-prose h2 { scroll-margin-top: 1rem; }

@@ -211,6 +211,16 @@ The frontend will be available at `http://localhost:5173/`.
 
 The Setup Wizard guides you through mandatory configuration. **You must complete all steps before using the ERP.**
 
+```mermaid
+flowchart TD
+    A[Company setup] --> B[Branch setup]
+    B --> C[Retail location]
+    C --> D[GSTIN master]
+    D --> E[Fiscal year]
+    E --> F[Chart of accounts]
+    F --> G([Setup complete])
+```
+
 ### Step 1: Company Setup
 
 Navigate to **Settings > ERP Setup Wizard** or it auto-launches on first login.
@@ -282,6 +292,14 @@ Create user accounts for your staff:
 ## 5. Master Data Setup
 
 Master data must be configured before creating transactions. Navigate to the **Setup** menu.
+
+```mermaid
+flowchart LR
+    A[Item group] --> B[Item master]
+    B --> C[Purity]
+    C --> D[Ledgers]
+    D --> E([Price lists])
+```
 
 ### 5.1 Chart of Accounts
 
@@ -457,6 +475,15 @@ View all collections in **Reports > TCS Register** (Section 12.5).
 
 ## 6. CRM & Ledger Management
 
+This module turns prospects into transacting parties: capture a lead, convert to a customer, create the backing ledger, and complete KYC.
+
+```mermaid
+flowchart LR
+    A[Capture lead] --> B[Convert to customer]
+    B --> C[Create ledger]
+    C --> D([KYC & documents])
+```
+
 ### 6.1 Understanding Ledgers
 
 In Jewel India ERP, every entity (customer, vendor, bank, expense account) is a **Ledger**. Ledgers can have multiple roles:
@@ -539,6 +566,16 @@ Navigate to **CRM > Customer History** to view:
 ---
 
 ## 7. Sales Module
+
+```mermaid
+flowchart LR
+    A[Select customer] --> B[Add items / weight]
+    B --> C[Apply making & GST]
+    C --> D[Generate invoice]
+    D --> E{Payment now?}
+    E -->|Yes| F[Receipt voucher]
+    E -->|Credit| G[Debtor ledger]
+```
 
 ### 7.1 Sales Workflow
 
@@ -690,6 +727,15 @@ For inter-state sales above the threshold, e-way bills are required.
 
 ## 8. Purchase Module
 
+```mermaid
+flowchart LR
+    A[Create Purchase Order] --> B[Receive goods]
+    B --> C{Fully received?}
+    C -->|No| B
+    C -->|Yes| D[Purchase voucher]
+    D --> E[Creditor ledger & stock in]
+```
+
 ### 8.1 Purchase Workflow
 
 ```
@@ -826,6 +872,16 @@ When a customer brings old gold (jewellery, coins, bars) to exchange or sell, re
 ---
 
 ## 9. Manufacturing Module
+
+```mermaid
+flowchart TD
+    A[Issue gold to karigar] --> B[Issue stones]
+    B --> C[Job work receive]
+    C --> D{Fully received?}
+    D -->|No| C
+    D -->|Yes| E[Quality check]
+    E --> F([Stock in])
+```
 
 ### 9.1 Manufacturing Workflow
 
@@ -972,6 +1028,16 @@ Repair charges are billed separately:
 ---
 
 ## 10. Inventory & Barcode Management
+
+```mermaid
+flowchart TD
+    A[Create barcode] --> B{Adjust stock?}
+    B -->|Yes| C[Split / merge / transfer]
+    C --> D[Available stock]
+    B -->|No| D
+    D --> E[Sale]
+    E --> F([Out of stock])
+```
 
 ### 10.1 Barcode System
 
@@ -1143,6 +1209,13 @@ Track raw materials (unfinished gold, loose stones):
 ---
 
 ## 11. Financial Accounting
+
+```mermaid
+flowchart LR
+    A[Voucher entry] --> B[Double entry posting]
+    B --> C[Ledger update]
+    C --> D([Trial balance])
+```
 
 ### 11.1 Double-Entry Bookkeeping
 
@@ -1367,6 +1440,13 @@ Auditors can review and approve vouchers:
 
 ## 12. GST & Tax Compliance
 
+```mermaid
+flowchart LR
+    A[Raise invoice] --> B[Capture GST]
+    B --> C[GSTR-1 & GSTR-3B]
+    C --> D([File returns])
+```
+
 ### 12.1 Automatic GST Computation
 
 The system automatically determines GST treatment:
@@ -1415,6 +1495,14 @@ View all TCS collected on sales:
 
 ## 13. Fixed Assets & Depreciation
 
+```mermaid
+flowchart TD
+    A[Acquire asset] --> B{Method?}
+    B -->|WDV| C[Periodic depreciation JV]
+    B -->|SLM| C
+    C --> D([Disposal])
+```
+
 ### 13.1 Asset Master
 
 Register fixed assets (computers, furniture, vehicles, etc.):
@@ -1453,6 +1541,18 @@ Configure default ledgers per retail:
 ## 14. Gold Scheme Management
 
 The Gold Scheme module lets you run structured jewellery savings schemes for your customers — similar to the chit fund / gold purchase plan model used widely in the Indian jewellery trade. Customers pay monthly instalments and earn making-charge discounts when they eventually purchase jewellery.
+
+```mermaid
+flowchart TD
+    A[Enroll customer] --> B[Record monthly payment]
+    B --> C{Tenure complete?}
+    C -->|No| B
+    C -->|Yes| D[Mature]
+    D --> E[Redeem against sale]
+    A -->|Customer cancels| F[Cancel and settlement JV]
+    E --> G([Liability cleared])
+    F --> G
+```
 
 ---
 

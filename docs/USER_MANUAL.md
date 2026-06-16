@@ -1964,6 +1964,14 @@ Because every scheme customer now has two accounts that share the same name (the
 
 ## 15. HR & Payroll
 
+```mermaid
+flowchart LR
+    A[Add employee] --> B[Salary structure]
+    B --> C[Attendance]
+    C --> D[Payroll run]
+    D --> E([Payslip])
+```
+
 ### 15.1 Employee Setup
 
 1. Navigate to **HR > Employees**
@@ -2102,6 +2110,13 @@ Configure accounting ledgers for salary posting:
 
 ## 16. Reports
 
+```mermaid
+flowchart LR
+    A[Pick report] --> B[Set filters retail/FY/date]
+    B --> C[View report]
+    C --> D([Export Excel/PDF])
+```
+
 ### 16.1 Financial Reports
 
 #### How to Run Financial Reports
@@ -2239,6 +2254,13 @@ Configure accounting ledgers for salary posting:
 ---
 
 ## 17. Settings & Administration
+
+```mermaid
+flowchart LR
+    A[Define roles] --> B[Configure permissions]
+    B --> C[Create users]
+    C --> D([Assign retail access])
+```
 
 ### 17.1 User Management
 
@@ -2410,6 +2432,12 @@ Navigate to **Settings > Audit Log** to view:
 ## 18. Customer Portal
 
 A separate web portal for customers to access their scheme information.
+
+```mermaid
+flowchart LR
+    A[OTP login] --> B[View schemes & dues]
+    B --> C([Make payment])
+```
 
 ### Portal Access
 
@@ -2597,6 +2625,13 @@ A separate web portal for customers to access their scheme information.
 ## 22. Migrating from an Existing ERP
 
 If you are transitioning from another ERP (Tally, Marg, Busy, Wonder, or any custom system), you do **not** start fresh. Instead, you bring your existing balances and master data into Jewel India ERP on a **cut-over date** — typically the first day of a new financial year or the first day of the current month.
+
+```mermaid
+flowchart LR
+    A[Export legacy data] --> B[Map masters]
+    B --> C[Import into ERP]
+    C --> D([Reconcile balances])
+```
 
 ### 22.1 Overview of the Migration Flow
 

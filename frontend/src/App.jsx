@@ -8,6 +8,7 @@ import BaseUrlConfig from "./components/BaseUrlConfig";
 import { LoginPage } from "./login";
 
 // ── Lazy-loaded route components ──────────────────────────────────────────────
+const HelpCenter                 = lazy(() => import("@/help/HelpCenter"));
 const Ledger                     = lazy(() => import("./ledger"));
 const LedgerForm                 = lazy(() => import("./addLedger.jsx"));
 const AccountTree                = lazy(() => import("./chartOfAccouts"));
@@ -241,6 +242,13 @@ const appRoutes = [
   // Apps
   { path: "apps", heading: "Apps", component: <AppsPage /> },
 
+  // Help & Manual
+  { path: "help", heading: "Help & Manual", component: (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading manual…</div>}>
+      <HelpCenter />
+    </Suspense>
+  ) },
+
   // ── CRM ───────────────────────────────────────────────────────────────────
   { path: "crm/ledger",     heading: "Ledger",      component: <Ledger /> },
   { path: "crm/ledger/add", heading: "Add Ledger",   component: <LedgerForm /> },
@@ -465,8 +473,8 @@ const appRoutes = [
   { path: "scheme/master",                       heading: "Scheme Master",          component: <SchemeMasterPage /> },
   { path: "scheme/enrollments",                  heading: "Scheme Enrollments",     component: <SchemeEnrollmentList /> },
   { path: "scheme/enrollments/add",              heading: "New Enrollment",         component: <SchemeEnrollmentForm /> },
-  { path: "scheme/enrollments/:id/pay",          heading: "Record Payment",         component: <SchemePaymentForm /> },
-  { path: "scheme/enrollments/:id/statement",    heading: "Scheme Statement",       component: <SchemeStatement /> },
+  { path: "scheme/enrollments/:uuid/pay",          heading: "Record Payment",         component: <SchemePaymentForm /> },
+  { path: "scheme/enrollments/:uuid/statement",    heading: "Scheme Statement",       component: <SchemeStatement /> },
 
   // ── HR ────────────────────────────────────────────────────────────────────
   { path: "hr/employees",         heading: "Employee Master",      component: <EmployeeMasterPage /> },

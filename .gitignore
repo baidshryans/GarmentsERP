@@ -71,3 +71,5 @@ desktop.ini
 .superpowers/
 docs/superpowers/
 .worktrees/
+
+frontend/src/help/manual.generated.md

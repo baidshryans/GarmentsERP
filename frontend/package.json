@@ -8,6 +8,11 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "sync:manual": "node scripts/sync-manual.mjs",
+    "predev": "node scripts/sync-manual.mjs",
+    "prebuild": "node scripts/sync-manual.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:e2e": "cypress open",
     "test:e2e:run": "cypress run"
   },

@@ -23,3 +23,55 @@ export function stripMarkdown(md) {
     .replace(/[ \t]+/g, ' ')
     .trim();
 }
+
+export function parseManual(raw) {
+  const lines = String(raw).split('\n');
+  const sections = [];
+  let inFence = false;
+  let lastChapterId = null;
+  let current = null;
+  const bodyLines = [];
+
+  const flush = () => {
+    if (current) {
+      current.markdown = bodyLines.join('\n').trim();
+      current.plainText = stripMarkdown(current.markdown);
+      sections.push(current);
+    }
+    bodyLines.length = 0;
+  };
+
+  for (const line of lines) {
+    if (/^```/.test(line)) inFence = !inFence;
+    const h = !inFence && line.match(/^(#{2,3})\s+(.*\S)\s*$/);
+    if (h) {
+      flush();
+      const level = h[1].length === 2 ? 'chapter' : 'section';
+      const title = h[2].trim();
+      const id = slugify(title);
+      if (level === 'chapter') lastChapterId = id;
+      current = {
+        id,
+        title,
+        level,
+        chapterId: level === 'chapter' ? id : lastChapterId,
+        markdown: '',
+        plainText: '',
+      };
+    } else if (current) {
+      bodyLines.push(line);
+    }
+  }
+  flush();
+
+  const toc = [];
+  for (const s of sections) {
+    if (s.level === 'chapter') {
+      toc.push({ id: s.id, title: s.title, children: [] });
+    } else {
+      const parent = toc[toc.length - 1];
+      if (parent) parent.children.push({ id: s.id, title: s.title });
+    }
+  }
+  return { sections, toc };
+}

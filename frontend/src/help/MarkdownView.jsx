@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import './help.css';
+import { useMemo, useState, useRef } from 'react';
 import { renderMarkdown } from './markdown';
 import MermaidDiagram from './MermaidDiagram';
 
@@ -41,8 +42,33 @@ export default function MarkdownView({ markdown, highlightTerms, idPrefix = 'doc
     return out;
   }, [markdown, highlightTerms, idPrefix]);
 
+  const matchCount = useMemo(() => {
+    if (!highlightTerms || highlightTerms.length === 0) return 0;
+    return parts
+      .filter((p) => p.type === 'html')
+      .reduce((n, p) => n + (p.html.match(/<mark>/g) || []).length, 0);
+  }, [parts, highlightTerms]);
+
+  const [matchIdx, setMatchIdx] = useState(0);
+  const rootRef = useRef(null);
+
+  const gotoMatch = (next) => {
+    const marks = rootRef.current?.querySelectorAll('mark');
+    if (!marks || marks.length === 0) return;
+    const i = (next + marks.length) % marks.length;
+    setMatchIdx(i);
+    marks[i].scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
+
   return (
-    <div className="manual-prose prose prose-sm max-w-none dark:prose-invert">
+    <div ref={rootRef} className="manual-prose prose prose-sm max-w-none dark:prose-invert">
+      {matchCount > 0 && (
+        <div className="sticky top-0 z-10 mb-2 flex items-center gap-2 bg-background/90 py-1 text-xs">
+          <span>{matchCount} matches</span>
+          <button className="rounded border px-1" onClick={() => gotoMatch(matchIdx - 1)} aria-label="Previous match">▲</button>
+          <button className="rounded border px-1" onClick={() => gotoMatch(matchIdx + 1)} aria-label="Next match">▼</button>
+        </div>
+      )}
       {parts.map((p, idx) =>
         p.type === 'mermaid' ? (
           <MermaidDiagram key={p.key} id={p.key} code={p.code} />

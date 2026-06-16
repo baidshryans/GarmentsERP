@@ -19,4 +19,10 @@ describe('MarkdownView', () => {
     );
     expect(container.querySelector('mark')).not.toBeNull();
   });
+  it('shows a match count when highlightTerms match multiple times', () => {
+    const { getByText } = render(
+      <MarkdownView markdown={'payment one. payment two. payment three.'} highlightTerms={['payment']} />
+    );
+    expect(getByText(/3 matches/i)).toBeInTheDocument();
+  });
 });

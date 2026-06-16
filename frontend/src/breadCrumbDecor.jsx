@@ -5,6 +5,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import RetailSelection from "./loginpage";
+import HelpButton from "@/help/HelpButton";
 import { navData } from "@/config/navData";
 
 // ── Build URL → label map from navData (walks nested items) ──────────────
@@ -232,8 +233,11 @@ const Header = ({ heading, children }) => {
           )}
         </div>
 
-        {/* Right: retail selector */}
-        <RetailSelection />
+        {/* Right: help + retail selector */}
+        <div className="flex items-center gap-2">
+          <HelpButton />
+          <RetailSelection />
+        </div>
 
         {/* Violet accent line at bottom */}
         <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-400/0 via-violet-400/40 to-violet-400/0 pointer-events-none" />

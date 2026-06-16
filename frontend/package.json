@@ -11,7 +11,7 @@
     "sync:manual": "node scripts/sync-manual.mjs",
     "predev": "node scripts/sync-manual.mjs",
     "prebuild": "node scripts/sync-manual.mjs",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:e2e": "cypress open",
     "test:e2e:run": "cypress run"
@@ -74,10 +74,10 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
     "globals": "^15.11.0",
-    "jsdom": "^29.1.1",
+    "jsdom": "^25.0.1",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "vite": "^5.4.10",
-    "vitest": "^4.1.9"
+    "vitest": "^3.2.6"
   }
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ArrowLeft, ExternalLink } from 'lucide-react';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,9 @@ export default function HelpDrawer({ open, onOpenChange }) {
       <SheetContent side="right" className="flex w-full flex-col gap-3 sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{active ? active.title : 'Help & Manual'}</SheetTitle>
+          <SheetDescription className="sr-only">
+            Search the user manual and read help topics.
+          </SheetDescription>
         </SheetHeader>
 
         {!active && (

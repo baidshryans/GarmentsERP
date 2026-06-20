@@ -1,7 +1,7 @@
-// frontend/src/services/api/masters.js
+﻿// frontend/src/services/api/masters.js
 import apiClient from "../apiClient";
 
-// ── Fetch Main Item / Shape / Group (legacy simple helpers) ───────────────────
+// â”€â”€ Fetch Main Item / Shape / Group (legacy simple helpers) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchMainItem({type="", page_size=10000}={}) {
   try {
@@ -33,7 +33,7 @@ export async function fetchGroup() {
   }
 }
 
-// ── Purity ────────────────────────────────────────────────────────────────────
+// â”€â”€ Purity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchPurity() {
   try {
@@ -72,7 +72,7 @@ export async function deletePurity(id) {
   }
 }
 
-// ── HSN ───────────────────────────────────────────────────────────────────────
+// â”€â”€ HSN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchHSNs() {
   try {
@@ -121,7 +121,7 @@ export async function fetchMainItemsForHSN(hsnId) {
   }
 }
 
-// ── Colors ────────────────────────────────────────────────────────────────────
+// â”€â”€ Colors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchColors() {
   try {
@@ -159,7 +159,7 @@ export async function deleteColor(id) {
   }
 }
 
-// ── Shapes ────────────────────────────────────────────────────────────────────
+// â”€â”€ Shapes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchShapes() {
   try {
@@ -197,7 +197,7 @@ export async function deleteShape(id) {
   }
 }
 
-// ── Items ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchItems({ page_size = 10000 } = {}) {
   try {
@@ -237,7 +237,7 @@ export async function deleteItem(id) {
   }
 }
 
-// ── Item Groups ───────────────────────────────────────────────────────────────
+// â”€â”€ Item Groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchItemGroups() {
   try {
@@ -275,7 +275,7 @@ export async function deleteItemGroup(id) {
   }
 }
 
-// ── Packet Groups ─────────────────────────────────────────────────────────────
+// â”€â”€ Packet Groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchPacketGroups() {
   try {
@@ -313,7 +313,7 @@ export async function deletePacketGroup(id) {
   }
 }
 
-// ── Packets ───────────────────────────────────────────────────────────────────
+// â”€â”€ Packets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function createPacket(data) {
   try {
@@ -342,7 +342,7 @@ export async function deletePacket(id) {
   }
 }
 
-// ── Karigar Making Master ─────────────────────────────────────────────────────
+// â”€â”€ Karigar Making Master â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchKarigarMaking() {
   try {
@@ -380,7 +380,7 @@ export async function deleteKarigarMaking(id) {
   }
 }
 
-// ── Company Master ────────────────────────────────────────────────────────────
+// â”€â”€ Company Master â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchCompanies() {
   try {
@@ -437,7 +437,7 @@ export async function deleteCompany(id) {
   }
 }
 
-// ── Branch Master ─────────────────────────────────────────────────────────────
+// â”€â”€ Branch Master â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchBranches() {
   try {
@@ -493,7 +493,7 @@ export async function fetchRetailAnalytics(id) {
   }
 }
 
-// ── TDS Sections ──────────────────────────────────────────────────────────────
+// â”€â”€ TDS Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchTDSSections() {
   try {
@@ -531,7 +531,7 @@ export async function deleteTDSSection(id) {
   }
 }
 
-// ── TCS Sections ──────────────────────────────────────────────────────────────
+// â”€â”€ TCS Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchTCSSections() {
   try {
@@ -569,7 +569,7 @@ export async function deleteTCSSection(id) {
   }
 }
 
-// ── Exhibition Profiles ───────────────────────────────────────────────────────
+// â”€â”€ Exhibition Profiles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchExhibitions() {
   try {
@@ -625,7 +625,7 @@ export async function deactivateExhibition(id) {
   }
 }
 
-// ── B2B Pricelist ─────────────────────────────────────────────────────────────
+// â”€â”€ B2B Pricelist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchB2BPricelists() {
   try {
@@ -682,7 +682,7 @@ export async function fetchB2BPricelistForLedger(ledgerId) {
   }
 }
 
-// ── Retail Discount Pricelist ─────────────────────────────────────────────────
+// â”€â”€ Retail Discount Pricelist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchRetailDiscountPricelists() {
   try {
@@ -730,7 +730,7 @@ export async function fetchRetailDiscountPricelistForLedger(ledgerId) {
   }
 }
 
-// ── Sales Offers ──────────────────────────────────────────────────────────────
+// â”€â”€ Sales Offers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchActiveOffer() {
   try {
@@ -777,7 +777,7 @@ export async function deleteSalesOffer(id) {
   }
 }
 
-// ── CSV Uploads ───────────────────────────────────────────────────────────────
+// â”€â”€ CSV Uploads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function downloadLedgerTemplate(type) {
   try {
@@ -891,7 +891,7 @@ export async function uploadKarigarMakingCSV(file) {
   }
 }
 
-// ── Packets ───────────────────────────────────────────────────────────────────
+// â”€â”€ Packets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchPackets() {
   try {
@@ -903,7 +903,7 @@ export async function fetchPackets() {
   }
 }
 
-// ── Main Item Details ─────────────────────────────────────────────────────────
+// â”€â”€ Main Item Details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchMainItemDetails(ref_job_no, job_sl_no) {
   try {
@@ -915,7 +915,7 @@ export async function fetchMainItemDetails(ref_job_no, job_sl_no) {
   }
 }
 
-// ── GSTIN Master ──────────────────────────────────────────────────────────────
+// â”€â”€ GSTIN Master â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function fetchGSTINMasters() {
   try {
@@ -953,7 +953,7 @@ export async function deleteGSTINMaster(id) {
   }
 }
 
-// ── Barcode Opening Data Import ───────────────────────────────────────────────
+// â”€â”€ Barcode Opening Data Import â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Download the barcode_main CSV template (header + 1 example row).
@@ -1026,7 +1026,7 @@ export async function validateBarcodeOpeningCSV(fileMain, fileDetails) {
     );
     return response.data;
   } catch (error) {
-    // Backend returns 400 with a JSON body for validation errors — surface it.
+    // Backend returns 400 with a JSON body for validation errors â€” surface it.
     if (error.response?.data) {
       return error.response.data;
     }
@@ -1066,12 +1066,3 @@ export async function importBarcodeOpeningCSV(fileMain, fileDetails, conflictAct
   }
 }
 
-export async function fetchPackets({ page_size = 10000 } = {}) {
-  try {
-    const response = await apiClient.get(`/mastersconfig/api/packet/?page_size=${page_size}`);
-    return { success: true, data: response.data };
-  } catch (error) {
-    console.error("Failed to fetch packets:", error.response?.data || error.message);
-    return { success: false, error: error.response?.data || error.message };
-  }
-}

@@ -71,7 +71,7 @@ export default function DesignForm() {
         fetchMainItem({ page_size: 10000 }),
         fetchPurity(),
         fetchKarigarIssues({ page_size: 1000 }),
-        fetchPackets({ page_size: 10000 }),
+        fetchPackets(),
       ]);
       if (it.success) setItems(it.data?.results ?? it.data ?? []);
       if (pu.success) setPurities(pu.data?.results ?? pu.data ?? []);

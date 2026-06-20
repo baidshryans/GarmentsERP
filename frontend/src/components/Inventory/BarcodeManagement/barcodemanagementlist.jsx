@@ -12,12 +12,13 @@ import {
   fetchMainItem, fetchKarigarIssues, fetchPurity,
   fetchNextBarcode, fetchReceiveItemsForBarcode, createBarcode,
   fetchBarcodeForEdit, fetchPurhcaseItemsForBarcode, updateBarcodeForEdit,
-  fetchPackets,
+  fetchPackets, uploadBarcodeImages,
 } from "@/services/apiService";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { FieldContainer } from "@/Utils";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ImageIcon } from "lucide-react";
 import { renderErrorTree } from "../../../Utils";
+import BarcodeImages from "./BarcodeImages";
 
 // Format a value to exactly 3 decimal places (returns "" for blank/null)
 const fmt3 = (v) => {
@@ -56,6 +57,10 @@ const BarcodeManagementList = () => {
   const [purityData, setPurityData] = useState([]);
   const [karigars, setKarigars] = useState([]);
   const [packetData, setPacketData] = useState([]);
+  // Photos: in edit mode they upload live (id present); in create mode they are
+  // staged here and flushed in onSubmit once the new barcode id is known.
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const [stagedPhotos, setStagedPhotos] = useState([]);
   const [detailItemDisplay, setDetailItemDisplay] = useState("");
   const [detailUom, setDetailUom] = useState("");          // UOM of inline entry item
   const [pvPrefilled, setPvPrefilled] = useState(false);
@@ -315,9 +320,23 @@ const BarcodeManagementList = () => {
     delete form_data.item_name;
 
     (id ? updateBarcodeForEdit(form_data, id) : createBarcode(form_data))
-      .then((response) => {
+      .then(async (response) => {
         if (response.success) {
-          toast({ title: "Barcode saved successfully!" });
+          // Create mode: flush the photos staged while filling the form, now that
+          // the new barcode id exists. (Edit mode uploads live, so nothing staged.)
+          let photoMsg = "";
+          const newId = id || response.data?.id;
+          if (!id && stagedPhotos.length && newId) {
+            const up = await uploadBarcodeImages(newId, stagedPhotos);
+            photoMsg = up.success
+              ? ` + ${stagedPhotos.length} photo${stagedPhotos.length > 1 ? "s" : ""}`
+              : "";
+            if (!up.success) {
+              toast({ title: "Barcode saved, but photos failed to upload.", variant: "destructive" });
+            }
+          }
+          toast({ title: `Barcode saved successfully!${photoMsg}` });
+          setStagedPhotos([]);
           setTimeout(() => navigate("/inventory/barcodemanagement/list/"), 1500);
         } else {
           toast({ title: "Save failed", description: renderErrorTree(response.error), variant: "destructive" });
@@ -444,6 +463,24 @@ const BarcodeManagementList = () => {
             SECTION 1: Header Info
             ════════════════════════════════════════════════ */}
         <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-muted-foreground">Item Details</h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setPhotoOpen(true)}
+            >
+              <ImageIcon className="size-4" />
+              Photos
+              {!id && stagedPhotos.length > 0 && (
+                <span className="ml-1 rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                  {stagedPhotos.length}
+                </span>
+              )}
+            </Button>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-3">
             <FieldContainer>
               <Label className="text-xs font-semibold text-muted-foreground">BARCODE</Label>
@@ -882,6 +919,16 @@ const BarcodeManagementList = () => {
         </div>
         </div>
       </form>
+
+      <BarcodeImages
+        barcodeId={id || undefined}
+        barcodeText={watch("form.barcode") || "New Barcode"}
+        open={photoOpen}
+        onOpenChange={setPhotoOpen}
+        staged={!id}
+        stagedFiles={stagedPhotos}
+        onStagedChange={setStagedPhotos}
+      />
     </div>
   );
 };

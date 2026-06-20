@@ -5,6 +5,7 @@ from contacts.models import *
 from barcode import EAN13
 from barcode.writer import ImageWriter
 import qrcode
+import uuid
 from io import BytesIO
 from django.core.files import File
 from django.contrib.auth.models import User
@@ -32,6 +33,10 @@ class BarcodeMain(models.Model):
     making_type = models.CharField(max_length=50, blank=True)  # Added blank=True
     other_chg = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     design_code = models.CharField(max_length=50, blank=True)  # Added blank=True
+    design = models.ForeignKey(
+        "inventory.DesignMain", on_delete=models.SET_NULL,
+        null=True, blank=True, related_name="barcodes",
+    )  # Catalog link; backfilled from design_code -> DesignMain.design_no
     kr_code = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True, default=0)
     size = models.CharField(max_length=50, blank=True, null=True)
@@ -135,6 +140,11 @@ class DesignMain(models.Model):
 
     class Meta:
         db_table = "design_main"
+        constraints = [
+            # A design is unique by item + design_no, company-wide (retail is not
+            # part of the identity).
+            models.UniqueConstraint(fields=["item", "design_no"], name="uniq_design_item_no"),
+        ]
 
 def upload_to_design(instance,filename):
     return f"design/{instance.design.design_no}/{filename}"
@@ -157,6 +167,43 @@ class DesignDetails(models.Model):  # Inherit models.Model
         db_table = "design_details"
 
 
+class DesignImage(models.Model):
+    """Catalog photos for a design. Mirrors BarcodeImage (cover + ordering).
+    Shares the dynamic barcode-image storage root (under design_images/)."""
+    design = models.ForeignKey(DesignMain, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(
+        upload_to='design_images/%Y/%m/',
+        storage='mastersconfig.storage.DynamicBarcodeImageStorage',
+    )
+    original_name = models.CharField(max_length=255, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True, null=True)
+    is_primary = models.BooleanField(default=False)
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'design_images'
+        ordering = ['sort_order', 'id']
+
+
+class CatalogShare(models.Model):
+    """A public, tokenised catalog link. Carries the retail, pricing tier and the
+    filter set captured when the link was created; the public view reprices live."""
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    label = models.CharField(max_length=120, blank=True)
+    retail = models.ForeignKey("mastersconfig.RetailMaster", on_delete=models.CASCADE, null=True)
+    tier = models.CharField(max_length=10, default='retail')   # 'retail' | 'b2b'
+    pricelist_id = models.IntegerField(null=True, blank=True)
+    filters = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = 'catalog_share'
+        ordering = ['-created_at']
+
+
 class CVDTest(models.Model):
     content_type = models.ForeignKey('contenttypes.ContentType', on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
@@ -174,9 +221,12 @@ class BarcodeImage(models.Model):
     )
     original_name = models.CharField(max_length=255, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True, null=True)
+    is_primary = models.BooleanField(default=False)
+    sort_order = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'barcode_images'
+        ordering = ['sort_order', 'id']
 
 
 class BarcodeSplitMerge(models.Model):

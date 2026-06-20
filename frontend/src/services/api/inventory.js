@@ -734,6 +734,177 @@ export async function getBarcodeImages(barcodeId) {
   }
 }
 
+export async function setBarcodeImagePrimary(id) {
+  try {
+    const response = await apiClient.patch(`/inventory/api/barcode-images/${id}/`, { is_primary: true });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function reorderBarcodeImages(barcodeId, orderedIds) {
+  try {
+    const response = await apiClient.post(`/inventory/api/barcode-images/reorder/`, {
+      barcode: barcodeId,
+      order: orderedIds,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Catalog (priced, design-driven) ───────────────────────────────────────────
+export async function fetchCatalog(params = "") {
+  try {
+    const response = await apiClient.get(`/inventory/api/catalog/${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchCatalogDetail(id, params = "") {
+  try {
+    const response = await apiClient.get(`/inventory/api/catalog/${id}/${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function downloadCatalogPdf(params = "") {
+  try {
+    const response = await apiClient.get(`/inventory/api/catalog/pdf/${params}`, { responseType: "blob" });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Catalog share links ───────────────────────────────────────────────────────
+export async function fetchCatalogShares() {
+  try {
+    const r = await apiClient.get("/inventory/api/catalog-shares/");
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+}
+
+export async function createCatalogShare(data) {
+  try {
+    const r = await apiClient.post("/inventory/api/catalog-shares/", data);
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+}
+
+export async function deleteCatalogShare(id) {
+  try {
+    await apiClient.delete(`/inventory/api/catalog-shares/${id}/`);
+    return { success: true };
+  } catch (e) { return { success: false, error: e.response?.data || e.message }; }
+}
+
+export async function fetchPublicCatalog(token, params = "") {
+  try {
+    const r = await apiClient.get(`/inventory/api/catalog-share/${token}/${params}`);
+    return { success: true, data: r.data };
+  } catch (e) { return { success: false, error: e.response?.data || e.message, status: e.response?.status }; }
+}
+
+// ── Design CRUD (catalog designs) ─────────────────────────────────────────────
+export async function fetchDesigns(params = "") {
+  try {
+    const response = await apiClient.get(`/inventory/api/design-main/${params}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function fetchDesignForEdit(id) {
+  try {
+    const response = await apiClient.get(`/inventory/api/design-main/${id}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createDesign(data) {
+  try {
+    const response = await apiClient.post("/inventory/api/design-main/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updateDesign(data, id) {
+  try {
+    const response = await apiClient.put(`/inventory/api/design-main/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteDesign(id) {
+  try {
+    await apiClient.delete(`/inventory/api/design-main/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+// ── Design images (catalog photos) — mirror of barcode image helpers ──────────
+export async function uploadDesignImages(designId, files) {
+  try {
+    const formData = new FormData();
+    formData.append("design", designId);
+    for (const file of files) {
+      formData.append("image", file);
+    }
+    const response = await apiClient.post("/inventory/api/design-images/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getDesignImages(designId) {
+  try {
+    const response = await apiClient.get(`/inventory/api/design-images/?design=${designId}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deleteDesignImage(id) {
+  try {
+    await apiClient.delete(`/inventory/api/design-images/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function reorderDesignImages(designId, orderedIds) {
+  try {
+    const response = await apiClient.post(`/inventory/api/design-images/reorder/`, {
+      design: designId,
+      order: orderedIds,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // ── Barcode Order Ops ─────────────────────────────────────────────────────────
 
 export async function releaseBarcodeFromOrder(id, { mode, remarks = "" }) {

@@ -20,7 +20,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.decorators import api_view, action, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from accounting.utils import peek_next_bill_number
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -1944,6 +1944,11 @@ class DesignMainViewSet(RetailBaseViewset):
     queryset = DesignMain.objects.all()
     serializer_class = DesignMainSerializer
 
+    def get_queryset(self):
+        # Designs are company-global (identity = item + design_no), so they are
+        # NOT scoped to the current branch — override RetailBaseViewset's filter.
+        return DesignMain.objects.all()
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -2260,7 +2265,7 @@ class BarcodeImageListCreate(ListCreateAPIView):
     def get_queryset(self):
         barcode_id = self.request.query_params.get('barcode')
         if barcode_id:
-            return BarcodeImage.objects.select_related('barcode').filter(barcode_id=barcode_id).order_by('-uploaded_at')
+            return BarcodeImage.objects.select_related('barcode').filter(barcode_id=barcode_id).order_by('sort_order', 'id')
         return BarcodeImage.objects.none()
 
     def create(self, request, *args, **kwargs):
@@ -2269,11 +2274,22 @@ class BarcodeImageListCreate(ListCreateAPIView):
         barcode_id = request.data.get('barcode')
         if not barcode_id:
             return Response({"error": "barcode is required"}, status=status.HTTP_400_BAD_REQUEST)
+        # New images append to the end of the existing order. The cover is the
+        # image at position 0 (lowest sort_order); the first image ever added to
+        # a barcode becomes the cover.
+        from django.db.models import Max
+        existing = BarcodeImage.objects.filter(barcode_id=barcode_id)
+        has_primary = existing.filter(is_primary=True).exists()
+        next_order = (existing.aggregate(m=Max('sort_order'))['m'] or -1) + 1
         results = []
         for f in files:
             serializer = BarcodeImageSerializer(data={'barcode': barcode_id, 'image': f})
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            make_primary = not has_primary
+            serializer.save(is_primary=make_primary, sort_order=next_order)
+            if make_primary:
+                has_primary = True
+            next_order += 1
             results.append(serializer.data)
         return Response(results, status=status.HTTP_201_CREATED)
 
@@ -2284,11 +2300,566 @@ class BarcodeImageDelete(APIView):
     def delete(self, request, pk):
         try:
             img = BarcodeImage.objects.get(pk=pk)
+            was_primary = img.is_primary
+            barcode_id = img.barcode_id
             img.image.delete(save=False)
             img.delete()
+            # If the cover image was deleted, promote the first remaining image
+            # (lowest sort_order) so the barcode always keeps a cover.
+            if was_primary:
+                nxt = BarcodeImage.objects.filter(barcode_id=barcode_id).order_by('sort_order', 'id').first()
+                if nxt:
+                    nxt.is_primary = True
+                    nxt.save(update_fields=['is_primary'])
             return Response(status=status.HTTP_204_NO_CONTENT)
         except BarcodeImage.DoesNotExist:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def patch(self, request, pk):
+        """Make this image the cover by moving it to the front of the order."""
+        try:
+            img = BarcodeImage.objects.get(pk=pk)
+        except BarcodeImage.DoesNotExist:
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        if request.data.get('is_primary'):
+            from django.db.models import Min
+            siblings = BarcodeImage.objects.filter(barcode_id=img.barcode_id)
+            min_order = siblings.aggregate(m=Min('sort_order'))['m'] or 0
+            siblings.exclude(pk=pk).update(is_primary=False)
+            img.is_primary = True
+            img.sort_order = min_order - 1   # in front of the current first
+            img.save(update_fields=['is_primary', 'sort_order'])
+        from inventory.serializer import BarcodeImageSerializer
+        return Response(BarcodeImageSerializer(img).data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def barcode_image_reorder(request):
+    """Persist a new photo order. Body: {"barcode": <id>, "order": [id, id, ...]}.
+    sort_order follows the list; the first image becomes the cover (is_primary)."""
+    barcode_id = request.data.get('barcode')
+    order = request.data.get('order') or []
+    if not barcode_id or not isinstance(order, list):
+        return Response({"error": "barcode and order[] are required"}, status=status.HTTP_400_BAD_REQUEST)
+    imgs = {img.id: img for img in BarcodeImage.objects.filter(barcode_id=barcode_id)}
+    for index, img_id in enumerate(order):
+        img = imgs.get(int(img_id))
+        if not img:
+            continue
+        img.sort_order = index
+        img.is_primary = (index == 0)
+        img.save(update_fields=['sort_order', 'is_primary'])
+    from inventory.serializer import BarcodeImageSerializer
+    refreshed = BarcodeImage.objects.filter(barcode_id=barcode_id).order_by('sort_order', 'id')
+    return Response(BarcodeImageSerializer(refreshed, many=True).data, status=status.HTTP_200_OK)
+
+
+# ── Design Images (catalog photos) ─────────────────────────────────────────────
+# Mirror of the Barcode-image endpoints; same dynamic storage root, served by the
+# shared serve_barcode_image_file view (design files live under design_images/).
+
+class DesignImageListCreate(ListCreateAPIView):
+    from rest_framework.parsers import MultiPartParser
+    parser_classes = [MultiPartParser]
+
+    def get_serializer_class(self):
+        from inventory.serializer import DesignImageSerializer
+        return DesignImageSerializer
+
+    def get_queryset(self):
+        design_id = self.request.query_params.get('design')
+        if design_id:
+            return DesignImage.objects.select_related('design').filter(design_id=design_id).order_by('sort_order', 'id')
+        return DesignImage.objects.none()
+
+    def create(self, request, *args, **kwargs):
+        from inventory.serializer import DesignImageSerializer
+        from django.db.models import Max
+        files = request.FILES.getlist('image')
+        design_id = request.data.get('design')
+        if not design_id:
+            return Response({"error": "design is required"}, status=status.HTTP_400_BAD_REQUEST)
+        existing = DesignImage.objects.filter(design_id=design_id)
+        has_primary = existing.filter(is_primary=True).exists()
+        next_order = (existing.aggregate(m=Max('sort_order'))['m'] or -1) + 1
+        results = []
+        for f in files:
+            serializer = DesignImageSerializer(data={'design': design_id, 'image': f})
+            serializer.is_valid(raise_exception=True)
+            make_primary = not has_primary
+            serializer.save(is_primary=make_primary, sort_order=next_order)
+            if make_primary:
+                has_primary = True
+            next_order += 1
+            results.append(serializer.data)
+        return Response(results, status=status.HTTP_201_CREATED)
+
+
+class DesignImageDelete(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        try:
+            img = DesignImage.objects.get(pk=pk)
+            was_primary = img.is_primary
+            design_id = img.design_id
+            img.image.delete(save=False)
+            img.delete()
+            if was_primary:
+                nxt = DesignImage.objects.filter(design_id=design_id).order_by('sort_order', 'id').first()
+                if nxt:
+                    nxt.is_primary = True
+                    nxt.save(update_fields=['is_primary'])
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except DesignImage.DoesNotExist:
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def patch(self, request, pk):
+        """Make this image the cover by moving it to the front of the order."""
+        try:
+            img = DesignImage.objects.get(pk=pk)
+        except DesignImage.DoesNotExist:
+            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        if request.data.get('is_primary'):
+            from django.db.models import Min
+            siblings = DesignImage.objects.filter(design_id=img.design_id)
+            min_order = siblings.aggregate(m=Min('sort_order'))['m'] or 0
+            siblings.exclude(pk=pk).update(is_primary=False)
+            img.is_primary = True
+            img.sort_order = min_order - 1
+            img.save(update_fields=['is_primary', 'sort_order'])
+        from inventory.serializer import DesignImageSerializer
+        return Response(DesignImageSerializer(img).data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def design_image_reorder(request):
+    """Persist a new photo order. Body: {"design": <id>, "order": [id, id, ...]}.
+    sort_order follows the list; the first image becomes the cover (is_primary)."""
+    design_id = request.data.get('design')
+    order = request.data.get('order') or []
+    if not design_id or not isinstance(order, list):
+        return Response({"error": "design and order[] are required"}, status=status.HTTP_400_BAD_REQUEST)
+    imgs = {img.id: img for img in DesignImage.objects.filter(design_id=design_id)}
+    for index, img_id in enumerate(order):
+        img = imgs.get(int(img_id))
+        if not img:
+            continue
+        img.sort_order = index
+        img.is_primary = (index == 0)
+        img.save(update_fields=['sort_order', 'is_primary'])
+    from inventory.serializer import DesignImageSerializer
+    refreshed = DesignImage.objects.filter(design_id=design_id).order_by('sort_order', 'id')
+    return Response(DesignImageSerializer(refreshed, many=True).data, status=status.HTTP_200_OK)
+
+
+# ── Catalog (design-driven, priced) ─────────────────────────────────────────────
+
+def _base_design_qs(retail=None):
+    # Designs are company-global; `retail` is ignored (kept for call-site
+    # compatibility). The catalog shows every design regardless of branch.
+    return (
+        DesignMain.objects.all()
+        .select_related("item")
+        .prefetch_related(
+            "designdetails_set__sub_item", "designdetails_set__metal_purity",
+            "images", "barcodes",
+        )
+    )
+
+
+def _apply_catalog_filters(qs, g):
+    """Apply catalog filters. `g` is a value getter: request.GET.get or dict.get."""
+    from django.db.models import Q
+    search = g("search")
+    if search:
+        qs = qs.filter(Q(design_no__icontains=search) | Q(item_desc__icontains=search))
+    item = g("item")
+    if item:
+        qs = qs.filter(item__short_code=item)
+    purity = g("purity")
+    if purity:
+        qs = qs.filter(designdetails__metal_purity_id=purity).distinct()
+    minw = g("min_weight")
+    if minw:
+        qs = qs.filter(nw__gte=minw)
+    maxw = g("max_weight")
+    if maxw:
+        qs = qs.filter(nw__lte=maxw)
+    if str(g("in_stock") or "") in ("1", "true", "True"):
+        qs = qs.filter(barcodes__stk_status=True).distinct()
+    return qs
+
+
+def _resolve_pricelists(tier, pricelist_id):
+    b2b_pl = retail_pl = None
+    if pricelist_id:
+        if tier == "b2b":
+            from mastersconfig.models import B2BPricelist
+            b2b_pl = B2BPricelist.objects.filter(pk=pricelist_id).first()
+        else:
+            from mastersconfig.models import RetailDiscountPricelist
+            retail_pl = RetailDiscountPricelist.objects.filter(pk=pricelist_id).first()
+    return b2b_pl, retail_pl
+
+
+def _resolve_catalog(request):
+    """Build the (retail-scoped, filtered) design queryset and resolve the pricing
+    tier / pricelist from query params. Shared by catalog_list and catalog_pdf.
+    Returns (queryset, b2b_pricelist, retail_pricelist, tier)."""
+    retail = getattr(request, "retail", None)
+    qs = _apply_catalog_filters(_base_design_qs(retail), request.GET.get)
+
+    tier = request.GET.get("tier", "retail")
+    b2b_pl = retail_pl = None
+    ledger_id = request.GET.get("ledger")
+    if ledger_id:
+        from contacts.models import Ledger
+        ldg = Ledger.objects.filter(pk=ledger_id).first()
+        if ldg:
+            if tier == "b2b":
+                b2b_pl = ldg.b2b_pricelist
+            else:
+                retail_pl = ldg.retail_discount_pricelist
+    b2b_pl2, retail_pl2 = _resolve_pricelists(tier, request.GET.get("pricelist"))
+    return qs, (b2b_pl2 or b2b_pl), (retail_pl2 or retail_pl), tier
+
+
+def _tier_label(b2b_pl, retail_pl):
+    if b2b_pl:
+        return f"B2B: {b2b_pl.name}"
+    if retail_pl:
+        return f"Retail: {retail_pl.name}"
+    return "Retail (list)"
+
+
+def _price_bounds(get):
+    def f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+    return f(get("min_price")), f(get("max_price"))
+
+
+def _in_price(total, lo, hi):
+    return (lo is None or total >= lo) and (hi is None or total <= hi)
+
+
+def _catalog_row(d, b2b_pl, retail_pl):
+    from inventory.catalog_pricing import compute_design_price
+    price = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl)
+    cover = next((im for im in d.images.all() if im.is_primary), None) or next(iter(d.images.all()), None)
+    barcodes = list(d.barcodes.all())
+    return {
+        "id": d.id,
+        "design_no": d.design_no,
+        "variation_suffix": d.variation_suffix,
+        "item": d.item.short_code if d.item else None,
+        "item_name": d.item.item_name if d.item else None,
+        "item_desc": d.item_desc,
+        "pcs": d.pcs,
+        "gw": float(d.gw or 0),
+        "nw": float(d.nw or 0),
+        "making_type": d.making_type,
+        "cover_image": cover.image.url if cover else None,
+        "in_stock_count": sum(1 for b in barcodes if b.stk_status),
+        "total_barcodes": len(barcodes),
+        "price": price,
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def catalog_list(request):
+    """Priced catalog of designs. Filters: search, item, purity, min_weight,
+    max_weight, in_stock=1, min_price, max_price. Pricing: tier=retail|b2b +
+    ledger=<id> or pricelist=<id>."""
+    from jewel_test.pagination_custom import CustomPagination
+
+    qs, b2b_pl, retail_pl, tier = _resolve_catalog(request)
+    qs = qs.order_by("design_no", "id")
+    paginator = CustomPagination()
+
+    # Price is computed live (not a DB column). When a price filter is supplied we
+    # must price the whole filtered set, filter, then paginate the resulting list.
+    def _f(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+    min_price = _f(request.GET.get("min_price"))
+    max_price = _f(request.GET.get("max_price"))
+
+    if min_price is not None or max_price is not None:
+        rows = [_catalog_row(d, b2b_pl, retail_pl) for d in qs]
+        rows = [
+            r for r in rows
+            if (min_price is None or r["price"]["total_price"] >= min_price)
+            and (max_price is None or r["price"]["total_price"] <= max_price)
+        ]
+        page = paginator.paginate_queryset(rows, request)
+        return paginator.get_paginated_response(page)
+
+    page = paginator.paginate_queryset(qs, request)
+    data = [_catalog_row(d, b2b_pl, retail_pl) for d in page]
+    return paginator.get_paginated_response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def catalog_detail(request, pk):
+    """One design, priced — specs, images, component details and available barcodes.
+    Accepts the same tier / pricelist query params as catalog_list."""
+    from inventory.catalog_pricing import compute_design_price
+    try:
+        d = (
+            DesignMain.objects.select_related("item")
+            .prefetch_related(
+                "designdetails_set__sub_item", "designdetails_set__metal_purity",
+                "images", "barcodes",
+            )
+            .get(pk=pk)
+        )
+    except DesignMain.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    tier = request.GET.get("tier", "retail")
+    b2b_pl = retail_pl = None
+    pricelist_id = request.GET.get("pricelist")
+    if pricelist_id:
+        if tier == "b2b":
+            from mastersconfig.models import B2BPricelist
+            b2b_pl = B2BPricelist.objects.filter(pk=pricelist_id).first()
+        else:
+            from mastersconfig.models import RetailDiscountPricelist
+            retail_pl = RetailDiscountPricelist.objects.filter(pk=pricelist_id).first()
+
+    price = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl)
+    barcodes = list(d.barcodes.all())
+    return Response({
+        "id": d.id,
+        "design_no": d.design_no,
+        "variation_suffix": d.variation_suffix,
+        "item": d.item.short_code if d.item else None,
+        "item_name": d.item.item_name if d.item else None,
+        "item_desc": d.item_desc,
+        "pcs": d.pcs,
+        "gw": float(d.gw or 0),
+        "nw": float(d.nw or 0),
+        "making_type": d.making_type,
+        "images": [
+            {"id": im.id, "image": im.image.url, "is_primary": im.is_primary}
+            for im in d.images.all()
+        ],
+        "details": [
+            {
+                "sub_item": x.sub_item.item_name,
+                "purity": x.metal_purity.purity if x.metal_purity else None,
+                "pcs": x.pcs, "ct": float(x.ct or 0), "rate": x.rate, "amt": x.amt,
+            }
+            for x in d.designdetails_set.all()
+        ],
+        "barcodes": [
+            {"barcode": b.barcode, "in_stock": b.stk_status, "gw": float(b.gw or 0), "nw": float(b.nw or 0)}
+            for b in barcodes
+        ],
+        "in_stock_count": sum(1 for b in barcodes if b.stk_status),
+        "total_barcodes": len(barcodes),
+        "price": price,
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def catalog_pdf(request):
+    """Generate a catalog PDF. ?format=summary|detailed|quotation, plus the same
+    filters / tier params as catalog_list. Capped at 300 designs."""
+    from django.http import HttpResponse
+    from django.utils import timezone
+    from inventory.catalog_pricing import compute_design_price
+    from inventory.catalog_pdf import build_catalog_pdf
+
+    # NB: the layout param is `fmt`, NOT `format` — DRF reserves `format` for
+    # renderer selection and 404s on an unknown value.
+    fmt = request.GET.get("fmt", "summary")
+    if fmt not in ("summary", "detailed", "quotation"):
+        fmt = "summary"
+
+    qs, b2b_pl, retail_pl, tier = _resolve_catalog(request)
+    designs = list(qs.order_by("design_no", "id")[:300])
+
+    rows = []
+    for d in designs:
+        price = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl)
+        cover = next((im for im in d.images.all() if im.is_primary), None) or next(iter(d.images.all()), None)
+        img_path = None
+        if cover:
+            try:
+                img_path = cover.image.path
+            except Exception:
+                img_path = None
+        rows.append({
+            "design_no": d.design_no + (f"-{d.variation_suffix}" if d.variation_suffix else ""),
+            "item_name": d.item.item_name if d.item else "",
+            "gw": float(d.gw or 0), "nw": float(d.nw or 0),
+            "in_stock_count": sum(1 for b in d.barcodes.all() if b.stk_status),
+            "image_path": img_path,
+            "price": price,
+        })
+
+    meta = {
+        "title": "Quotation" if fmt == "quotation" else "Catalog",
+        "tier_label": _tier_label(b2b_pl, retail_pl),
+        "date": timezone.localtime().strftime("%d %b %Y"),
+        "count": len(rows),
+    }
+    pdf = build_catalog_pdf(fmt, rows, meta)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = f'attachment; filename="catalog_{fmt}.pdf"'
+    return resp
+
+
+# ── Catalog share links ─────────────────────────────────────────────────────────
+
+class CatalogShareListCreate(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from inventory.serializer import CatalogShareSerializer
+        retail = getattr(request, "retail", None)
+        qs = CatalogShare.objects.filter(retail=retail)
+        return Response(CatalogShareSerializer(qs, many=True).data)
+
+    def post(self, request):
+        from inventory.serializer import CatalogShareSerializer
+        retail = getattr(request, "retail", None)
+        s = CatalogShareSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        s.save(retail=retail, created_by=request.user if request.user.is_authenticated else None)
+        return Response(s.data, status=status.HTTP_201_CREATED)
+
+
+class CatalogShareDelete(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        retail = getattr(request, "retail", None)
+        CatalogShare.objects.filter(pk=pk, retail=retail).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def patch(self, request, pk):
+        from inventory.serializer import CatalogShareSerializer
+        retail = getattr(request, "retail", None)
+        sh = CatalogShare.objects.filter(pk=pk, retail=retail).first()
+        if not sh:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if "is_active" in request.data:
+            sh.is_active = bool(request.data["is_active"])
+            sh.save(update_fields=["is_active"])
+        return Response(CatalogShareSerializer(sh).data)
+
+
+def _get_active_share(token):
+    from django.utils import timezone
+    sh = CatalogShare.objects.filter(token=token, is_active=True).first()
+    if not sh:
+        return None
+    if sh.expires_at and sh.expires_at < timezone.now():
+        return None
+    return sh
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_catalog(request, token):
+    """Public, tokenised catalog grid. Shows sale price only (no cost breakdown)."""
+    from inventory.catalog_pricing import compute_design_price
+    from jewel_test.pagination_custom import CustomPagination
+
+    sh = _get_active_share(token)
+    if not sh:
+        return Response({"error": "This catalog link is no longer available."},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    sh_filters = sh.filters or {}
+    qs = _apply_catalog_filters(_base_design_qs(sh.retail), sh_filters.get)
+    b2b_pl, retail_pl = _resolve_pricelists(sh.tier, sh.pricelist_id)
+    lo, hi = _price_bounds(sh_filters.get)
+
+    # Price the whole set, honour the share's price band, then paginate the list.
+    rows = []
+    for d in qs.order_by("design_no", "id"):
+        price = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl)
+        if not _in_price(price.get("total_price"), lo, hi):
+            continue
+        cover = next((im for im in d.images.all() if im.is_primary), None) or next(iter(d.images.all()), None)
+        rows.append({
+            "id": d.id,
+            "design_no": d.design_no,
+            "item_name": d.item.item_name if d.item else None,
+            "nw": float(d.nw or 0),
+            "gold_purity": price.get("gold_purity"),
+            "cover_image": cover.image.url if cover else None,
+            "in_stock_count": sum(1 for b in d.barcodes.all() if b.stk_status),
+            "price": price.get("total_price"),   # sale price only
+        })
+    paginator = CustomPagination()
+    page = paginator.paginate_queryset(rows, request)
+    resp = paginator.get_paginated_response(page)
+    resp.data["catalog_label"] = sh.label or "Catalog"
+    return resp
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_catalog_pdf(request, token):
+    """Public PDF for a shared catalog link."""
+    from django.http import HttpResponse
+    from django.utils import timezone
+    from inventory.catalog_pricing import compute_design_price
+    from inventory.catalog_pdf import build_catalog_pdf
+
+    sh = _get_active_share(token)
+    if not sh:
+        return Response({"error": "This catalog link is no longer available."},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    fmt = request.GET.get("fmt", "summary")
+    if fmt not in ("summary", "detailed", "quotation"):
+        fmt = "summary"
+    sh_filters = sh.filters or {}
+    qs = _apply_catalog_filters(_base_design_qs(sh.retail), sh_filters.get)
+    b2b_pl, retail_pl = _resolve_pricelists(sh.tier, sh.pricelist_id)
+    lo, hi = _price_bounds(sh_filters.get)
+
+    rows = []
+    for d in qs.order_by("design_no", "id"):
+        price = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl)
+        if not _in_price(price.get("total_price"), lo, hi):
+            continue
+        cover = next((im for im in d.images.all() if im.is_primary), None) or next(iter(d.images.all()), None)
+        ip = None
+        if cover:
+            try:
+                ip = cover.image.path
+            except Exception:
+                ip = None
+        rows.append({
+            "design_no": d.design_no, "item_name": d.item.item_name if d.item else "",
+            "gw": float(d.gw or 0), "nw": float(d.nw or 0),
+            "in_stock_count": 0, "image_path": ip, "price": price,
+        })
+        if len(rows) >= 300:
+            break
+    meta = {"title": sh.label or "Catalog", "tier_label": "",
+            "date": timezone.localtime().strftime("%d %b %Y"), "count": len(rows)}
+    pdf = build_catalog_pdf(fmt, rows, meta)
+    resp = HttpResponse(pdf, content_type="application/pdf")
+    resp["Content-Disposition"] = 'inline; filename="catalog.pdf"'
+    return resp
 
 
 @api_view(['GET'])

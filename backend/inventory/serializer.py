@@ -4,7 +4,7 @@ from rest_framework import serializers
 from mastersconfig.models import Packet
 from goldrates.models import GoldRates, PurityMaster
 from sales.models import CustomerOrder
-from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, InterRetailTransferItem, InterRetailTransferVoucher, OpeningInventory, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
+from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, DesignImage, InterRetailTransferItem, InterRetailTransferVoucher, OpeningInventory, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
 from django.db import transaction
 from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
 
@@ -130,78 +130,88 @@ from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
 
 
 class DesignDetailsSerializer(serializers.ModelSerializer):
-    sub_item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field='name',  # Replace 'name' with the field you want to use as the slug field
-    )
-    sub_item_txt = serializers.CharField(required=False)
+    sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    sub_item_name = serializers.CharField(source='sub_item.item_name', read_only=True)
+    metal_purity = serializers.PrimaryKeyRelatedField(queryset=PurityMaster.objects.all())
+    purity_name = serializers.CharField(source='metal_purity.purity', read_only=True)
 
     class Meta:
         model = DesignDetails
-        fields = [
-            'design_no',
-            'design_no_txt',
-            'sub_item',
-            'sub_item_txt',
-            'metal_purity',
-            'pcs',
-            'ct',
-            'rate',
-            'amt',
-        ]
+        fields = ['id', 'sub_item', 'sub_item_name', 'metal_purity', 'purity_name', 'pcs', 'ct', 'rate', 'amt']
 
 
 class DesignMainSerializer(serializers.ModelSerializer):
-    design_details = DesignDetailsSerializer(many=True)
-
-    asset_type = serializers.SlugRelatedField(
-        queryset=AssetType.objects.all(),
-        slug_field='asset_type',  # Replace 'type_name' with the field you want to use
-    )
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field='short_code',  # Replace 'short_code' with the field you want to use
-    )
-    kr_code = serializers.PrimaryKeyRelatedField(
-        queryset=Ledger.objects.all(),
-        required=False,
-        allow_null=True,
-    )
+    design_details = DesignDetailsSerializer(many=True, source='designdetails_set')
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
+    kr_code = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all(), required=False, allow_null=True)
+    cover_image = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
+    in_stock_count = serializers.SerializerMethodField()
+    total_barcodes = serializers.SerializerMethodField()
 
     class Meta:
         model = DesignMain
         fields = [
-            'design_no',
-            'variation_suffix',
-            'asset_type',
-            'file',
-            'item',
-            'item_desc',
-            'pcs',
-            'gw',
-            'nw',
-            'making',
-            'making_type',
-            'kr_code',
-            'loss_rate',
-            'making_rate',
-            'design_photo',
-            'created_date',
-            'design_details',
+            'id', 'design_no', 'variation_suffix', 'item', 'item_name', 'item_desc',
+            'pcs', 'gw', 'nw', 'making', 'making_type', 'kr_code', 'loss_rate', 'making_rate',
+            'created_date', 'design_details', 'cover_image', 'images',
+            'in_stock_count', 'total_barcodes',
         ]
+        read_only_fields = ['created_date']
+
+    def get_images(self, obj):
+        return [
+            {
+                'id': im.id, 'image': im.image.url, 'is_primary': im.is_primary,
+                'sort_order': im.sort_order, 'original_name': im.original_name,
+            }
+            for im in obj.images.all()
+        ]
+
+    def get_cover_image(self, obj):
+        im = obj.images.filter(is_primary=True).first() or obj.images.first()
+        return im.image.url if im else None
+
+    def get_in_stock_count(self, obj):
+        return obj.barcodes.filter(stk_status=True).count()
+
+    def get_total_barcodes(self, obj):
+        return obj.barcodes.count()
+
+    def validate(self, attrs):
+        # Enforce the (item, design_no) identity with a friendly message.
+        item = attrs.get('item') or (self.instance.item if self.instance else None)
+        design_no = attrs.get('design_no') or (self.instance.design_no if self.instance else None)
+        if item and design_no:
+            qs = DesignMain.objects.filter(item=item, design_no=design_no)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"design_no": f"A design with item '{item.short_code}' and design no '{design_no}' already exists."}
+                )
+        return attrs
 
     def create(self, validated_data):
         with transaction.atomic():
-            details_data = validated_data.pop('design_details')
-            design_main_instance = DesignMain.objects.create(**validated_data)
+            details_data = validated_data.pop('designdetails_set', [])
+            design = DesignMain.objects.create(**validated_data)
+            for d in details_data:
+                DesignDetails.objects.create(design_no=design, **d)
+            return design
 
-            for detail_data in details_data:
-                DesignDetails.objects.create(
-                    design_no=design_main_instance,
-                    **detail_data,
-                )
-
-            return design_main_instance
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            details_data = validated_data.pop('designdetails_set', None)
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            if details_data is not None:
+                instance.designdetails_set.all().delete()
+                for d in details_data:
+                    DesignDetails.objects.create(design_no=instance, **d)
+            return instance
 
 class BarcodeDetailsSerializer(serializers.ModelSerializer):
 
@@ -445,6 +455,12 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 rec_item.pending_pcs = new_pending_pcs
                 rec_item.pending_gw = new_pending_gw
                 rec_item.save()
+        # Link the barcode to its catalog design (identity = item + design_no).
+        from inventory.design_linking import get_or_create_design_for_barcode
+        link = get_or_create_design_for_barcode(child)
+        if link is not None and child.design_id != link.id:
+            child.design = link
+            child.save(update_fields=["design"])
         return child
 
     def update(self, instance, validated_data):
@@ -461,6 +477,12 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 nested_data=grandchildren_data,
                 parent_name="barcode"
             )
+            # Re-link to its catalog design (item / design_code may have changed).
+            from inventory.design_linking import get_or_create_design_for_barcode
+            link = get_or_create_design_for_barcode(instance)
+            if link is not None and instance.design_id != link.id:
+                instance.design = link
+                instance.save(update_fields=["design"])
             return instance
 
 class BarCodeMainListSerializer(serializers.ModelSerializer):
@@ -990,13 +1012,34 @@ class RfidCountResultSerializer(serializers.ModelSerializer):
 class BarcodeImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = BarcodeImage
-        fields = ['id', 'barcode', 'image', 'original_name', 'uploaded_at']
+        fields = ['id', 'barcode', 'image', 'original_name', 'uploaded_at', 'is_primary', 'sort_order']
         read_only_fields = ['original_name', 'uploaded_at']
 
     def create(self, validated_data):
         file = validated_data['image']
         validated_data['original_name'] = file.name
         return super().create(validated_data)
+
+
+class DesignImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DesignImage
+        fields = ['id', 'design', 'image', 'original_name', 'uploaded_at', 'is_primary', 'sort_order']
+        read_only_fields = ['original_name', 'uploaded_at']
+
+    def create(self, validated_data):
+        file = validated_data['image']
+        validated_data['original_name'] = file.name
+        return super().create(validated_data)
+
+
+class CatalogShareSerializer(serializers.ModelSerializer):
+    class Meta:
+        from inventory.models import CatalogShare
+        model = CatalogShare
+        fields = ['id', 'token', 'label', 'tier', 'pricelist_id', 'filters',
+                  'is_active', 'expires_at', 'created_at']
+        read_only_fields = ['token', 'created_at']
 
 
 # ---------------------------------------------------------------------------

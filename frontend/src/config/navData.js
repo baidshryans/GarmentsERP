@@ -201,6 +201,7 @@ export const navData = {
     { title: "Stock Journal",   url: "/inventory/stockjournal/",                         icon: FileText   },
     { title: "Barcode History", url: "/inventory/barcodemanagement/barcodehistory/",     icon: History    },
     { title: "Design",          url: "/inventory/design/list/",                          icon: Palette    },
+    { title: "Catalog",         url: "/inventory/catalog/",                              icon: Package    },
     { title: "Opening Stock",   url: "/inventory/opening-stock",                         icon: Package    },
     {
       title: "Reports",

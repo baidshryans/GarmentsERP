@@ -32,8 +32,12 @@ const HallmarkReceive            = lazy(() => import("./components/manufacturing
 const BarcodeManagementList      = lazy(() => import("./components/Inventory/BarcodeManagement/barcodemanagementlist"));
 const BarcodePrint               = lazy(() => import("./components/Inventory/BarcodeManagement/BarcodePrint"));
 const MergeBarcode               = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeMerge"));
-const DesignList                 = lazy(() => import("./components/Inventory/DesignList"));
+const DesignList                 = lazy(() => import("./components/Inventory/Designs/DesignList"));
 const BarcodeListView            = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeList"));
+const DesignForm                 = lazy(() => import("./components/Inventory/Designs/DesignForm"));
+const CatalogPage                = lazy(() => import("./components/Inventory/Catalog/CatalogPage"));
+const CatalogDetail              = lazy(() => import("./components/Inventory/Catalog/CatalogDetail"));
+const PublicCatalog              = lazy(() => import("./components/Inventory/Catalog/PublicCatalog"));
 const BarcodeSplit               = lazy(() => import("./components/Inventory/BarcodeManagement/barcodeSplit"));
 const SalesVoucherAdd            = lazy(() => import("./components/Sales/SalesVoucherAdd"));
 const POSView                    = lazy(() => import("./components/Sales/POS/POSView"));
@@ -432,6 +436,11 @@ const appRoutes = [
   { path: "inventory/barcodemanagement/list/",      heading: "Barcode List",           component: <BarcodeListView /> },
   { path: "inventory/barcodemanagement/list/add/",  heading: "Create Barcode",         component: <BarcodeManagementList /> },
   { path: "inventory/barcodemanagement/list/:id",   heading: "Edit Barcode",           component: <BarcodeManagementList /> },
+  { path: "inventory/designs/",                     heading: "Designs",                component: <DesignList /> },
+  { path: "inventory/designs/add/",                 heading: "Create Design",          component: <DesignForm /> },
+  { path: "inventory/designs/:id",                  heading: "Edit Design",            component: <DesignForm /> },
+  { path: "inventory/catalog/",                     heading: "Catalog",                component: <CatalogPage /> },
+  { path: "inventory/catalog/:id",                  heading: "Catalog Item",           component: <CatalogDetail /> },
   { path: "inventory/barcodemanagement/split/",     heading: "Split Barcode",          component: <BarcodeSplit /> },
   { path: "inventory/barcodemanagement/merge/",     heading: "Merge Barcode",          component: <MergeBarcode /> },
   { path: "inventory/barcodemanagement/barcodehistory/", heading: "Barcode History",   component: <BarcodeHistoryList /> },
@@ -582,6 +591,9 @@ function App() {
 
         {/* HR Employee Portal (uses ERP Token auth — employees are Django Users) */}
         <Route path="hr-portal/*" element={<HRPortalApp />} />
+
+        {/* Public shared catalog (no auth — tokenised link) */}
+        <Route path="share/:token" element={<PublicCatalog />} />
       </Routes>
     </Suspense>
   );

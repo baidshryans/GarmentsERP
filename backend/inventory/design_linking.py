@@ -18,7 +18,7 @@ from inventory.models import BarcodeMain, BarcodeDetails, DesignMain, DesignDeta
 def _build_design_details(design, barcode):
     """Create DesignDetails for a freshly-created design from the barcode's
     BarcodeDetails (stone / gold lines). metal_purity is PROTECT (non-null)."""
-    for bd in BarcodeDetails.objects.filter(barcode=barcode).select_related("item", "purity"):
+    for bd in BarcodeDetails.objects.filter(barcode=barcode).select_related("item", "purity", "packet"):
         metal_purity = bd.purity or barcode.purity
         if metal_purity is None:
             continue
@@ -26,6 +26,7 @@ def _build_design_details(design, barcode):
             design_no=design,
             sub_item=bd.item,
             metal_purity=metal_purity,
+            packet=bd.packet,
             pcs=bd.pcs or 0,
             ct=bd.ct or 0,
             rate=int(bd.rate or 0),

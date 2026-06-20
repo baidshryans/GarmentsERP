@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package } from "lucide-react";
-import { fetchCatalogDetail } from "@/services/apiService";
+import { ArrowLeft, Package, Printer, Loader2 } from "lucide-react";
+import { fetchCatalogDetail, fetchBarcodeDetailOnly } from "@/services/apiService";
+import { openAndPrint } from "@/services/print/utils";
+import { MultiEstimatePrint } from "@/components/Sales/salesPrintEstimate";
+import { useToast } from "@/hooks/use-toast";
 
 const BASE_URL = sessionStorage.getItem("baseUrl") || "http://127.0.0.1:8000/";
 const imgSrc = (p) =>
@@ -13,10 +16,33 @@ const inr = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFract
 export default function CatalogDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [sp] = useSearchParams();
   const [d, setD] = useState(null);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = useState(null);   // barcode currently being printed
+
+  // Open the estimate print window for a single barcode — without leaving the
+  // catalog page (reuses the Sales Estimate print view).
+  const printEstimate = async (barcode) => {
+    setPrinting(barcode);
+    try {
+      const res = await fetchBarcodeDetailOnly(barcode);
+      if (res.success && res.data) {
+        openAndPrint(<MultiEstimatePrint items={[{ ...res.data, _key: barcode }]} />);
+      } else {
+        toast({
+          title: "Could not load barcode",
+          description: typeof res.error === "string" ? res.error : barcode,
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({ title: "Failed to print estimate", variant: "destructive" });
+    }
+    setPrinting(null);
+  };
 
   useEffect(() => {
     (async () => {
@@ -100,13 +126,24 @@ export default function CatalogDetail() {
           {/* Available barcodes */}
           {d.barcodes?.length > 0 && (
             <div className="rounded-lg border bg-card p-4">
-              <div className="text-xs font-semibold text-muted-foreground mb-2">PIECES ({d.in_stock_count} in stock)</div>
+              <div className="text-xs font-semibold text-muted-foreground mb-2">
+                PIECES ({d.in_stock_count} in stock) — click to print an estimate
+              </div>
               <div className="flex flex-wrap gap-2">
                 {d.barcodes.map((b) => (
-                  <span key={b.barcode}
-                    className={`font-mono text-xs rounded px-2 py-1 border ${b.in_stock ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-muted text-muted-foreground line-through"}`}>
+                  <button
+                    key={b.barcode}
+                    type="button"
+                    title={`Print estimate for ${b.barcode}`}
+                    disabled={printing === b.barcode}
+                    onClick={() => printEstimate(b.barcode)}
+                    className={`group inline-flex items-center gap-1.5 font-mono text-xs rounded px-2 py-1 border transition-colors hover:border-primary hover:text-primary disabled:opacity-60 ${b.in_stock ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-muted text-muted-foreground"}`}
+                  >
+                    {printing === b.barcode
+                      ? <Loader2 className="size-3.5 animate-spin" />
+                      : <Printer className="size-3.5 opacity-60 group-hover:opacity-100" />}
                     {b.barcode}
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>

@@ -101,9 +101,11 @@ def compute_design_price(design, *, b2b_pricelist=None, retail_pricelist=None):
         gold_rate = _latest_gold_rate(gold_purity)
         fine_wt = gold_weight * eff_tunch / Decimal(100)
         gold_value = fine_wt * gold_rate
+        _pn = (gold_purity.purity or "").strip()
+        gold_label = f"Gold {_pn}K" if _pn.replace(".", "", 1).isdigit() else (f"Gold {_pn}".strip() or "Gold")
         component_lines.append({
             "kind": "gold",
-            "name": gold_purity.purity,
+            "name": gold_label,
             "weight_gm": float(gold_weight),
             "tunch": float(eff_tunch),
             "rate": _money(gold_rate),

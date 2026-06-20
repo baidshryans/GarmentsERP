@@ -1065,3 +1065,13 @@ export async function importBarcodeOpeningCSV(fileMain, fileDetails, conflictAct
     return { success: false, error: error.message };
   }
 }
+
+export async function fetchPackets({ page_size = 10000 } = {}) {
+  try {
+    const response = await apiClient.get(`/mastersconfig/api/packet/?page_size=${page_size}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error("Failed to fetch packets:", error.response?.data || error.message);
+    return { success: false, error: error.response?.data || error.message };
+  }
+}

@@ -134,10 +134,11 @@ class DesignDetailsSerializer(serializers.ModelSerializer):
     sub_item_name = serializers.CharField(source='sub_item.item_name', read_only=True)
     metal_purity = serializers.PrimaryKeyRelatedField(queryset=PurityMaster.objects.all())
     purity_name = serializers.CharField(source='metal_purity.purity', read_only=True)
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field='pckt_no', allow_null=True, required=False)
 
     class Meta:
         model = DesignDetails
-        fields = ['id', 'sub_item', 'sub_item_name', 'metal_purity', 'purity_name', 'pcs', 'ct', 'wt_gm', 'rate', 'amt']
+        fields = ['id', 'sub_item', 'sub_item_name', 'metal_purity', 'purity_name', 'packet', 'pcs', 'ct', 'wt_gm', 'rate', 'amt']
 
 
 
@@ -1190,6 +1191,7 @@ class InterRetailTransferVoucherSerializer(serializers.ModelSerializer):
                     snap = self._snapshot_item(instance, item_data)
                     InterRetailTransferItem.objects.create(voucher=instance, **snap)
             return instance
+
 
 
 

@@ -1,4 +1,4 @@
-from django.db import models
+﻿from django.db import models
 from django.forms import ValidationError
 from manufacturing.models import *
 from contacts.models import *
@@ -158,6 +158,7 @@ class DesignDetails(models.Model):  # Inherit models.Model
     design_no = models.ForeignKey(DesignMain, on_delete=models.CASCADE)
     sub_item = models.ForeignKey(Item, on_delete=models.PROTECT)
     metal_purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)
+    packet = models.ForeignKey('mastersconfig.Packet', null=True, blank=True, on_delete=models.SET_NULL)
     pcs = models.IntegerField()
     ct = models.DecimalField(max_digits=10, decimal_places=3)
     wt_gm = models.DecimalField(max_digits=10, decimal_places=3, default=0)
@@ -379,8 +380,8 @@ class OpeningInventory(models.Model):
     pcs = models.PositiveBigIntegerField(default=0)
     ct = models.DecimalField(decimal_places=3,max_digits=10,default=0)
     gw = models.DecimalField(decimal_places=3,max_digits=10,default=0)
-    # Weighted-average rate (per primary qty unit — gw for M/R items, ct for S items).
-    # The closing-stock report aggregates wtd_avg_rate × primary_qty to derive opening value.
+    # Weighted-average rate (per primary qty unit â€” gw for M/R items, ct for S items).
+    # The closing-stock report aggregates wtd_avg_rate Ã— primary_qty to derive opening value.
     wtd_avg_rate = models.DecimalField(decimal_places=2, max_digits=14, default=0)
     type = models.CharField(max_length=10, choices=[('SH', 'Showroom'), ('KR', 'Karigar'), ('CO', 'Customer')])
     packet = models.ForeignKey(Packet,on_delete=models.SET_NULL,null=True,blank=True)
@@ -417,7 +418,7 @@ class StockJournalDetail(models.Model):
         db_table = "stock_journal_detail"
 
 
-# ── Stock Transfer ─────────────────────────────────────────────────────────────
+# â”€â”€ Stock Transfer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class StockTransfer(models.Model):
     date1 = models.DateField()
@@ -442,7 +443,7 @@ class StockTransferMain(models.Model):
         db_table = "stock_transfer_main"
 
 
-# ── Inter-Retail Raw-Material / Stone Transfer ────────────────────────────────
+# â”€â”€ Inter-Retail Raw-Material / Stone Transfer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Distinct from the barcode-level StockTransfer above: this voucher transfers
 # raw materials (gold, stones, diamonds) and snapshots the source retail's
 # weighted-average rate at transfer date so historical valuation is reproducible.
@@ -505,10 +506,10 @@ class InterRetailTransferItem(models.Model):
     # Primary qty = gw for M/R items, ct for S items. Populated on save.
     primary_qty = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     # Snapshotted from source retail's weighted-average rate at transfer_date at save.
-    # Never recomputed — preserves historical reproducibility.
+    # Never recomputed â€” preserves historical reproducibility.
     source_avg_rate = models.DecimalField(max_digits=14, decimal_places=4, default=0)
     transfer_value = models.DecimalField(max_digits=16, decimal_places=4, default=0)
-    # Optional physical-ownership links — when a specific barcode/unbarcoded/packet is transferred,
+    # Optional physical-ownership links â€” when a specific barcode/unbarcoded/packet is transferred,
     # its retail FK is updated to voucher.to_retail on receive.
     barcode = models.ForeignKey(BarcodeMain, on_delete=models.PROTECT, null=True, blank=True)
     unbarcoded_ref = models.ForeignKey(UnBarcodedMain, on_delete=models.PROTECT, null=True, blank=True)

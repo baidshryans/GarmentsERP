@@ -14,7 +14,7 @@ import { Plus, Trash2, ImageIcon } from "lucide-react";
 import { FieldContainer } from "@/Utils";
 import { useToast } from "@/hooks/use-toast";
 import {
-  fetchMainItem, fetchPurity, fetchKarigarIssues,
+  fetchMainItem, fetchPurity, fetchKarigarIssues, fetchPackets,
   createDesign, updateDesign, fetchDesignForEdit, uploadDesignImages,
 } from "@/services/apiService";
 import DesignImages from "./DesignImages";
@@ -32,6 +32,7 @@ export default function DesignForm() {
   const [items, setItems] = useState([]);
   const [purities, setPurities] = useState([]);
   const [karigars, setKarigars] = useState([]);
+  const [packets, setPackets] = useState([]);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [stagedPhotos, setStagedPhotos] = useState([]);
 
@@ -66,14 +67,16 @@ export default function DesignForm() {
 
   useEffect(() => {
     (async () => {
-      const [it, pu, kr] = await Promise.all([
+      const [it, pu, kr, pk] = await Promise.all([
         fetchMainItem({ page_size: 10000 }),
         fetchPurity(),
         fetchKarigarIssues({ page_size: 1000 }),
+        fetchPackets({ page_size: 10000 }),
       ]);
       if (it.success) setItems(it.data?.results ?? it.data ?? []);
       if (pu.success) setPurities(pu.data?.results ?? pu.data ?? []);
       if (kr.success) setKarigars(kr.data?.results ?? kr.data ?? []);
+      if (pk.success) setPackets(pk.data?.results ?? pk.data ?? []);
 
       if (id) {
         const res = await fetchDesignForEdit(id);
@@ -90,6 +93,7 @@ export default function DesignForm() {
             making_rate: d.making_rate ?? 0,
             design_details: (d.design_details ?? []).map((x) => ({
               sub_item: x.sub_item, metal_purity: x.metal_purity,
+              packet: x.packet ?? "",
               pcs: x.pcs, ct: x.ct, wt_gm: x.wt_gm ?? 0, rate: x.rate, amt: x.amt,
             })),
           });
@@ -115,6 +119,7 @@ export default function DesignForm() {
       design_details: (v.design_details || []).map((d) => ({
         sub_item: d.sub_item,
         metal_purity: d.metal_purity,
+        packet: d.packet || null,
         pcs: num(d.pcs), ct: num(d.ct), wt_gm: num(d.wt_gm), rate: num(d.rate), amt: num(d.amt),
       })),
     };
@@ -226,7 +231,7 @@ export default function DesignForm() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-muted-foreground">Components</h3>
             <Button type="button" variant="outline" size="sm" className="gap-2"
-              onClick={() => append({ sub_item: "", metal_purity: "", pcs: 0, ct: 0, wt_gm: 0, rate: 0, amt: 0 })}>
+              onClick={() => append({ sub_item: "", metal_purity: "", packet: "", pcs: 0, ct: 0, wt_gm: 0, rate: 0, amt: 0 })}>
               <Plus className="size-4" /> Add row
             </Button>
           </div>
@@ -234,6 +239,7 @@ export default function DesignForm() {
             <TableHeader>
               <TableRow>
                 <TableHead>Sub-item</TableHead>
+                <TableHead>Packet</TableHead>
                 <TableHead className="text-right">Pcs</TableHead>
                 <TableHead className="text-right">Ct</TableHead>
                 <TableHead className="text-right">Wt (g)</TableHead>
@@ -245,7 +251,7 @@ export default function DesignForm() {
             <TableBody>
               {fields.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-4 text-sm">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-4 text-sm">
                     No components. Add rows as needed.
                   </TableCell>
                 </TableRow>
@@ -265,6 +271,18 @@ export default function DesignForm() {
                         <SelectContent>
                           {items.map((i) => (
                             <SelectItem key={i.short_code} value={i.short_code}>{i.item_name} ({i.short_code})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )} />
+                  </TableCell>
+                  <TableCell className="min-w-32">
+                    <Controller name={`design_details.${idx}.packet`} control={control} render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>
+                          {packets.map((p) => (
+                            <SelectItem key={p.pckt_no} value={p.pckt_no}>{p.pckt_no}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

@@ -29,7 +29,6 @@ export default function DesignForm() {
   const [items, setItems] = useState([]);
   const [purities, setPurities] = useState([]);
   const [karigars, setKarigars] = useState([]);
-  const [goldCodes, setGoldCodes] = useState(new Set());
   const [photoOpen, setPhotoOpen] = useState(false);
   const [stagedPhotos, setStagedPhotos] = useState([]);
 
@@ -41,17 +40,16 @@ export default function DesignForm() {
     },
   });
 
-  // NW = GW − sum of all component gram weights
+  // NW (gold weight) = GW − Σ(wt_gm) − Σ(ct / 5)
+  // Conversion: 5 ct = 1 gm, so ct_to_gm = ct / 5
   const recalcNWFromDetails = (gwRaw) => {
     const gw = parseFloat(gwRaw ?? getValues("gw")) || 0;
     const details = getValues("design_details") || [];
-    const totalWt = details.reduce((s, d) => s + (parseFloat(d.wt_gm) || 0), 0);
-    setValue("nw", parseFloat(Math.max(0, gw - totalWt).toFixed(3)));
+    const totalWtGm = details.reduce((s, d) => s + (parseFloat(d.wt_gm) || 0), 0);
+    const totalCtAsGm = details.reduce((s, d) => s + (parseFloat(d.ct) || 0) / 5, 0);
+    setValue("nw", parseFloat(Math.max(0, gw - totalWtGm - totalCtAsGm).toFixed(3)));
   };
   const { fields, append, remove } = useFieldArray({ control, name: "design_details" });
-
-  // Watch sub_item of each detail row to decide whether to hide it
-  const detailValues = watch("design_details");
 
   useEffect(() => {
     (async () => {
@@ -60,18 +58,7 @@ export default function DesignForm() {
         fetchPurity(),
         fetchKarigarIssues({ page_size: 1000 }),
       ]);
-      if (it.success) {
-        const allItems = it.data?.results ?? it.data ?? [];
-        setItems(allItems);
-        // Hide only base-metal gold items (item_type='R' + name contains 'gold').
-        // Pearl, Beads, Lock etc. are also gram-weighted but must remain visible.
-        setGoldCodes(new Set(
-          allItems
-            .filter((i) => (i.item_type || "").toUpperCase() === "R" &&
-                           (i.item_name || "").toLowerCase().includes("gold"))
-            .map((i) => i.short_code)
-        ));
-      }
+      if (it.success) setItems(it.data?.results ?? it.data ?? []);
       if (pu.success) setPurities(pu.data?.results ?? pu.data ?? []);
       if (kr.success) setKarigars(kr.data?.results ?? kr.data ?? []);
 
@@ -100,7 +87,6 @@ export default function DesignForm() {
     })();
   }, [id]);
 
-
   const onSubmit = async (v) => {
     const payload = {
       design_no: v.design_no,
@@ -111,7 +97,6 @@ export default function DesignForm() {
       making: num(v.making), making_type: v.making_type || "",
       kr_code: v.kr_code || null,
       making_rate: num(v.making_rate),
-      // Send ALL detail rows to backend — gold rows are hidden in UI but still saved
       design_details: (v.design_details || []).map((d) => ({
         sub_item: d.sub_item,
         metal_purity: d.metal_purity,
@@ -222,7 +207,6 @@ export default function DesignForm() {
           </div>
         </div>
 
-        {/* Components / details — Gold rows are hidden (NW in header = gold weight) */}
         <div className="rounded-lg border bg-card p-6 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-muted-foreground">Components</h3>
@@ -244,47 +228,45 @@ export default function DesignForm() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {fields.every((_, idx) => goldCodes.has(detailValues?.[idx]?.sub_item)) && (
+              {fields.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-4 text-sm">
-                    No components. Add stone / charge lines as needed.
+                    No components. Add rows as needed.
                   </TableCell>
                 </TableRow>
               )}
-              {fields.map((f, idx) => {
-                const subItemCode = detailValues?.[idx]?.sub_item;
-                // Hide gold-type rows — their weight is represented by NW in the header
-                if (goldCodes.size > 0 && goldCodes.has(subItemCode)) return null;
-                return (
-                  <TableRow key={f.id}>
-                    <TableCell className="min-w-48">
-                      <Controller name={`design_details.${idx}.sub_item`} control={control} render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <SelectTrigger className="h-8"><SelectValue placeholder="Item" /></SelectTrigger>
-                          <SelectContent>
-                            {items.filter((i) => !goldCodes.has(i.short_code)).map((i) => (
-                              <SelectItem key={i.short_code} value={i.short_code}>{i.item_name} ({i.short_code})</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )} />
-                    </TableCell>
-                    <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.pcs`)} /></TableCell>
-                    <TableCell><Input type="number" step="0.001" className="h-8 text-right" {...register(`design_details.${idx}.ct`)} /></TableCell>
-                    <TableCell><Input type="number" step="0.001" className="h-8 text-right"
-                      {...register(`design_details.${idx}.wt_gm`, {
-                        onChange: () => recalcNWFromDetails(),
-                      })} /></TableCell>
-                    <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.rate`)} /></TableCell>
-                    <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.amt`)} /></TableCell>
-                    <TableCell>
-                      <Button type="button" size="icon" variant="ghost" className="size-7 text-destructive" onClick={() => remove(idx)}>
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {fields.map((f, idx) => (
+                <TableRow key={f.id}>
+                  <TableCell className="min-w-48">
+                    <Controller name={`design_details.${idx}.sub_item`} control={control} render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <SelectTrigger className="h-8"><SelectValue placeholder="Item" /></SelectTrigger>
+                        <SelectContent>
+                          {items.map((i) => (
+                            <SelectItem key={i.short_code} value={i.short_code}>{i.item_name} ({i.short_code})</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )} />
+                  </TableCell>
+                  <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.pcs`)} /></TableCell>
+                  <TableCell><Input type="number" step="0.001" className="h-8 text-right"
+                    {...register(`design_details.${idx}.ct`, {
+                      onChange: () => recalcNWFromDetails(),
+                    })} /></TableCell>
+                  <TableCell><Input type="number" step="0.001" className="h-8 text-right"
+                    {...register(`design_details.${idx}.wt_gm`, {
+                      onChange: () => recalcNWFromDetails(),
+                    })} /></TableCell>
+                  <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.rate`)} /></TableCell>
+                  <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.amt`)} /></TableCell>
+                  <TableCell>
+                    <Button type="button" size="icon" variant="ghost" className="size-7 text-destructive" onClick={() => remove(idx)}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>

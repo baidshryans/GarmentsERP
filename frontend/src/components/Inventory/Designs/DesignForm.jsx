@@ -93,6 +93,8 @@ export default function DesignForm() {
               pcs: x.pcs, ct: x.ct, wt_gm: x.wt_gm ?? 0, rate: x.rate, amt: x.amt,
             })),
           });
+          // Auto-fill gold wt_gm after reset settles
+          setTimeout(() => recalcNWFromDetails(), 0);
         } else {
           toast({ title: "Failed to load design.", variant: "destructive" });
         }
@@ -252,7 +254,13 @@ export default function DesignForm() {
                 <TableRow key={f.id}>
                   <TableCell className="min-w-48">
                     <Controller name={`design_details.${idx}.sub_item`} control={control} render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select
+                        onValueChange={(val) => {
+                          field.onChange(val);
+                          if (val === GOLD_CODE) setTimeout(() => recalcNWFromDetails(), 0);
+                        }}
+                        value={field.value || ""}
+                      >
                         <SelectTrigger className="h-8"><SelectValue placeholder="Item" /></SelectTrigger>
                         <SelectContent>
                           {items.map((i) => (

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, ImageIcon, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, ImageIcon, Package, ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchDesigns, deleteDesign } from "@/services/apiService";
 import { useToast } from "@/hooks/use-toast";
 import DesignImages from "./DesignImages";
@@ -15,49 +15,71 @@ const imgSrc = (p) =>
   !p ? null : p.startsWith("http") ? p
     : `${BASE_URL.replace(/\/$/, "")}${p.startsWith("/") ? "" : "/"}${p}`;
 
+const PAGE_SIZE = 25;
+
+function useDebounce(value, delay) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function DesignList() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [photo, setPhoto] = useState({ open: false, id: null, text: "" });
 
-  const load = async () => {
+  const debouncedQ = useDebounce(q, 400);
+
+  const load = useCallback(async (pageNum, search) => {
     setLoading(true);
-    const res = await fetchDesigns("?page_size=500");
-    if (res.success) setRows(res.data?.results ?? res.data ?? []);
-    else toast({ title: "Failed to load designs.", variant: "destructive" });
+    const params = new URLSearchParams({ page: pageNum, page_size: PAGE_SIZE });
+    if (search) params.set("search", search);
+    const res = await fetchDesigns(`?${params.toString()}`);
+    if (res.success) {
+      const data = res.data;
+      setRows(data?.results ?? []);
+      setTotal(data?.count ?? 0);
+      setTotalPages(data?.total_pages ?? 1);
+    } else {
+      toast({ title: "Failed to load designs.", variant: "destructive" });
+    }
     setLoading(false);
-  };
-  useEffect(() => { load(); }, []);
+  }, []);
+
+  // Reset to page 1 when search changes
+  useEffect(() => { setPage(1); }, [debouncedQ]);
+
+  useEffect(() => { load(page, debouncedQ); }, [page, debouncedQ]);
 
   const onDelete = async (d) => {
     if (!window.confirm(`Delete design ${d.design_no}? This also removes its photos and detail rows.`)) return;
     const res = await deleteDesign(d.id);
     if (res.success) {
       toast({ title: "Design deleted." });
-      setRows((p) => p.filter((x) => x.id !== d.id));
+      load(page, debouncedQ);
     } else {
       toast({ title: "Delete failed.", variant: "destructive" });
     }
   };
 
-  const filtered = rows.filter((d) => {
-    const s = q.trim().toLowerCase();
-    if (!s) return true;
-    return (
-      (d.design_no || "").toLowerCase().includes(s) ||
-      (d.item_desc || "").toLowerCase().includes(s) ||
-      (d.item_name || "").toLowerCase().includes(s)
-    );
-  });
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * PAGE_SIZE + 1;
+  const end = Math.min(safePage * PAGE_SIZE, total);
 
   return (
     <div className="mt-4 space-y-4">
       <div className="flex items-center gap-3">
         <h2 className="text-lg font-semibold">Designs</h2>
-        <span className="text-sm text-muted-foreground">{filtered.length} of {rows.length}</span>
+        <span className="text-sm text-muted-foreground">{total} total</span>
         <div className="flex-1" />
         <Input
           placeholder="Search design no / item…"
@@ -74,6 +96,7 @@ export default function DesignList() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-28">Actions</TableHead>
               <TableHead className="w-16">Photo</TableHead>
               <TableHead>Design No</TableHead>
               <TableHead>Item</TableHead>
@@ -82,18 +105,34 @@ export default function DesignList() {
               <TableHead className="text-right">NW</TableHead>
               <TableHead>Making</TableHead>
               <TableHead className="text-center">In stock</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading && (
               <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
             )}
-            {!loading && filtered.length === 0 && (
+            {!loading && rows.length === 0 && (
               <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground">No designs found.</TableCell></TableRow>
             )}
-            {!loading && filtered.map((d) => (
+            {!loading && rows.map((d) => (
               <TableRow key={d.id}>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" title="Photos"
+                      onClick={() => setPhoto({ open: true, id: d.id, text: d.design_no })}>
+                      <ImageIcon className="size-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" title="Edit"
+                      onClick={() => navigate(`/inventory/designs/${d.id}`)}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" title="Delete"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => onDelete(d)}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </TableCell>
                 <TableCell>
                   {d.cover_image ? (
                     <img src={imgSrc(d.cover_image)} alt={d.design_no} className="size-12 rounded object-cover border" />
@@ -114,28 +153,45 @@ export default function DesignList() {
                     {d.in_stock_count}/{d.total_barcodes}
                   </span>
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button size="icon" variant="ghost" title="Photos"
-                      onClick={() => setPhoto({ open: true, id: d.id, text: d.design_no })}>
-                      <ImageIcon className="size-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" title="Edit"
-                      onClick={() => navigate(`/inventory/designs/${d.id}`)}>
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button size="icon" variant="ghost" title="Delete"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => onDelete(d)}>
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>Showing {start}–{end} of {total}</span>
+          <div className="flex items-center gap-1">
+            <Button size="icon" variant="outline" className="size-8"
+              disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)}>
+              <ChevronLeft className="size-4" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+              .reduce((acc, p, i, arr) => {
+                if (i > 0 && p - arr[i - 1] > 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === "…" ? (
+                  <span key={`e${i}`} className="px-1">…</span>
+                ) : (
+                  <Button key={p} size="icon"
+                    variant={p === safePage ? "default" : "outline"} className="size-8"
+                    onClick={() => setPage(p)}>
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button size="icon" variant="outline" className="size-8"
+              disabled={safePage >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <DesignImages
         designId={photo.id}

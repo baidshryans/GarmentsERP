@@ -1943,11 +1943,30 @@ class ClosingStockCal:
 class DesignMainViewSet(RetailBaseViewset):
     queryset = DesignMain.objects.all()
     serializer_class = DesignMainSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ['design_no', 'variation_suffix', 'item__item_name', 'item_desc']
 
     def get_queryset(self):
-        # Designs are company-global (identity = item + design_no), so they are
-        # NOT scoped to the current branch — override RetailBaseViewset's filter.
-        return DesignMain.objects.all()
+        from django.db.models import Count, Q, Prefetch
+        # Designs are company-global — NOT scoped to the current branch.
+        return (
+            DesignMain.objects
+            .select_related('item')
+            .prefetch_related(
+                Prefetch('images', queryset=DesignImage.objects.order_by('sort_order', 'id'))
+            )
+            .annotate(
+                in_stock_count_ann=Count('barcodes', filter=Q(barcodes__stk_status=True), distinct=True),
+                total_barcodes_ann=Count('barcodes', distinct=True),
+            )
+            .order_by("design_no", "id")
+        )
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            from inventory.serializer import DesignMainListSerializer
+            return DesignMainListSerializer
+        return DesignMainSerializer
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -2863,9 +2882,9 @@ def public_catalog_pdf(request, token):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def serve_barcode_image_file(request, name):
-    """Stream a barcode image from the configured storage root."""
+    """Stream a barcode/design image from the configured storage root."""
     import os, mimetypes
     from urllib.parse import unquote
     from django.http import FileResponse

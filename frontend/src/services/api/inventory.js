@@ -815,7 +815,7 @@ export async function fetchPublicCatalog(token, params = "") {
 // ── Design CRUD (catalog designs) ─────────────────────────────────────────────
 export async function fetchDesigns(params = "") {
   try {
-    const response = await apiClient.get(`/inventory/api/design-main/${params}`);
+    const response = await apiClient.get(`/inventory/design-main/${params}`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -824,7 +824,7 @@ export async function fetchDesigns(params = "") {
 
 export async function fetchDesignForEdit(id) {
   try {
-    const response = await apiClient.get(`/inventory/api/design-main/${id}/`);
+    const response = await apiClient.get(`/inventory/design-main/${id}/`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -833,7 +833,7 @@ export async function fetchDesignForEdit(id) {
 
 export async function createDesign(data) {
   try {
-    const response = await apiClient.post("/inventory/api/design-main/", data);
+    const response = await apiClient.post("/inventory/design-main/", data);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -842,7 +842,7 @@ export async function createDesign(data) {
 
 export async function updateDesign(data, id) {
   try {
-    const response = await apiClient.put(`/inventory/api/design-main/${id}/`, data);
+    const response = await apiClient.put(`/inventory/design-main/${id}/`, data);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };
@@ -851,7 +851,7 @@ export async function updateDesign(data, id) {
 
 export async function deleteDesign(id) {
   try {
-    await apiClient.delete(`/inventory/api/design-main/${id}/`);
+    await apiClient.delete(`/inventory/design-main/${id}/`);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

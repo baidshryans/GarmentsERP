@@ -1,4 +1,4 @@
-from purchase.models import PurchaseVoucher, PurchaseVoucherItems
+﻿from purchase.models import PurchaseVoucher, PurchaseVoucherItems
 from rest_framework import serializers
 
 from mastersconfig.models import Packet
@@ -137,8 +137,36 @@ class DesignDetailsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DesignDetails
-        fields = ['id', 'sub_item', 'sub_item_name', 'metal_purity', 'purity_name', 'pcs', 'ct', 'rate', 'amt']
+        fields = ['id', 'sub_item', 'sub_item_name', 'metal_purity', 'purity_name', 'pcs', 'ct', 'wt_gm', 'rate', 'amt']
 
+
+
+class DesignMainListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for the design list -- no nested details, uses annotated counts."""
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
+    cover_image = serializers.SerializerMethodField()
+    in_stock_count = serializers.SerializerMethodField()
+    total_barcodes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DesignMain
+        fields = [
+            'id', 'design_no', 'variation_suffix', 'item', 'item_name', 'item_desc',
+            'pcs', 'gw', 'nw', 'making', 'making_type', 'cover_image',
+            'in_stock_count', 'total_barcodes',
+        ]
+
+    def get_cover_image(self, obj):
+        images = list(obj.images.all())  # uses prefetch cache -- no extra query
+        primary = next((im for im in images if im.is_primary), None)
+        im = primary or (images[0] if images else None)
+        return im.image.url if im else None
+
+    def get_in_stock_count(self, obj):
+        return getattr(obj, 'in_stock_count_ann', obj.barcodes.filter(stk_status=True).count())
+
+    def get_total_barcodes(self, obj):
+        return getattr(obj, 'total_barcodes_ann', obj.barcodes.count())
 
 class DesignMainSerializer(serializers.ModelSerializer):
     design_details = DesignDetailsSerializer(many=True, source='designdetails_set')
@@ -154,7 +182,7 @@ class DesignMainSerializer(serializers.ModelSerializer):
         model = DesignMain
         fields = [
             'id', 'design_no', 'variation_suffix', 'item', 'item_name', 'item_desc',
-            'pcs', 'gw', 'nw', 'making', 'making_type', 'kr_code', 'loss_rate', 'making_rate',
+            'pcs', 'gw', 'nw', 'making', 'making_type', 'kr_code', 'making_rate',
             'created_date', 'design_details', 'cover_image', 'images',
             'in_stock_count', 'total_barcodes',
         ]
@@ -369,14 +397,14 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
 
             # Auto-tag the barcode with its Customer Order, if traceable.
             # Priority: explicit value from the client > direct CO-item FK on the
-            # PV line > PO→CO-item traversal > PV header order_no.
+            # PV line > POâ†’CO-item traversal > PV header order_no.
             if not validated_data.get('customer_order') and pur is not None:
                 co = None
-                # (1) direct CO → PV path (new line-level FK)
+                # (1) direct CO â†’ PV path (new line-level FK)
                 if getattr(pur, 'customer_order_item_id', None):
                     coi = pur.customer_order_item
                     co = coi.order_no if coi else None
-                # (2) CO → PO → PV path (traverse po_no + po_sl_no back to the PO item)
+                # (2) CO â†’ PO â†’ PV path (traverse po_no + po_sl_no back to the PO item)
                 if not co and pur.po_no and pur.po_sl_no is not None:
                     from purchase.models import PurchaseOrderItems
                     poi = (
@@ -420,7 +448,7 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
                 new_pending_gw = (pur.pending_gw or 0) - (child.gw or 0)
 
                 # NOTE: pending-pcs guard intentionally skipped for PV-based
-                # barcode creation — pieces may be uninitialised (None) on
+                # barcode creation â€” pieces may be uninitialised (None) on
                 # older PV rows, and over-allocation by piece count is allowed.
                 # Weight, however, is still validated.
                 if new_pending_gw < 0:
@@ -431,8 +459,8 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
 
                 pur.pending_pcs = new_pending_pcs
                 pur.pending_gw = new_pending_gw
-                # NOTE: Do NOT mirror child onto pur.barcode — a single PV line
-                # can split into multiple BarcodeMain rows (1→N). The authoritative
+                # NOTE: Do NOT mirror child onto pur.barcode â€” a single PV line
+                # can split into multiple BarcodeMain rows (1â†’N). The authoritative
                 # direction is BarcodeMain.pur_voucher. pur.barcode is a legacy FK
                 # and should be treated as unreliable for traversal.
                 pur.save()
@@ -486,7 +514,7 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             return instance
 
 class BarCodeMainListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for list views — includes barcodedetails_set for modal display."""
+    """Lightweight serializer for list views â€” includes barcodedetails_set for modal display."""
     item = serializers.SlugRelatedField(read_only=True, slug_field="short_code")
     purity = serializers.SlugRelatedField(read_only=True, slug_field="purity")
     item_name = serializers.SerializerMethodField()
@@ -669,7 +697,7 @@ class BarcodeDetToSaleVouDetSerializer(BarcodeDetailsSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         # Use the sub-item's own purity FK when available.
-        # For sub-items with no purity FK (Gold is item_type='R' — Raw, not 'M'),
+        # For sub-items with no purity FK (Gold is item_type='R' â€” Raw, not 'M'),
         # fall back to the parent barcode's purity string passed via context.
         # This covers both Metal ('M') and Raw ('R') item types; stones/diamonds
         # ('S', 'O') rarely have a purity set on BarcodeDetails so they get None.
@@ -809,7 +837,7 @@ class BarcodeCreationReportSerializer(serializers.ModelSerializer):
         ]
 
 
-# ── Stock Transfer ─────────────────────────────────────────────────────────────
+# â”€â”€ Stock Transfer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 from mastersconfig.models import RetailMaster
 
@@ -1162,3 +1190,6 @@ class InterRetailTransferVoucherSerializer(serializers.ModelSerializer):
                     snap = self._snapshot_item(instance, item_data)
                     InterRetailTransferItem.objects.create(voucher=instance, **snap)
             return instance
+
+
+

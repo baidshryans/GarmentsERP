@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.db import  transaction
 # from manufacturing.utils import create_or_update_nested
 from mastersconfig import serializers
+from mastersconfig.storage import DynamicBarcodeImageStorage
 
 
 class BarcodeMain(models.Model):
@@ -130,7 +131,6 @@ class DesignMain(models.Model):
     making = models.DecimalField(max_digits=10, decimal_places=3)
     making_type = models.CharField(max_length=50)
     kr_code = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True, blank=True)
-    loss_rate = models.DecimalField(max_digits=10, decimal_places=2)
     making_rate = models.DecimalField(max_digits=10, decimal_places=2)
    
     created_date = models.DateTimeField(auto_now_add=True)
@@ -158,8 +158,9 @@ class DesignDetails(models.Model):  # Inherit models.Model
     design_no = models.ForeignKey(DesignMain, on_delete=models.CASCADE)
     sub_item = models.ForeignKey(Item, on_delete=models.PROTECT)
     metal_purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)
-    pcs = models.IntegerField() 
+    pcs = models.IntegerField()
     ct = models.DecimalField(max_digits=10, decimal_places=3)
+    wt_gm = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     rate = models.IntegerField()
     amt = models.IntegerField()
 
@@ -173,7 +174,7 @@ class DesignImage(models.Model):
     design = models.ForeignKey(DesignMain, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(
         upload_to='design_images/%Y/%m/',
-        storage='mastersconfig.storage.DynamicBarcodeImageStorage',
+        storage=DynamicBarcodeImageStorage,
     )
     original_name = models.CharField(max_length=255, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True, null=True)
@@ -217,7 +218,7 @@ class BarcodeImage(models.Model):
     barcode = models.ForeignKey(BarcodeMain, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(
         upload_to='barcode_images/%Y/%m/',
-        storage='mastersconfig.storage.DynamicBarcodeImageStorage',
+        storage=DynamicBarcodeImageStorage,
     )
     original_name = models.CharField(max_length=255, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True, null=True)

@@ -18,7 +18,7 @@ const PAYMENT_MODES = [
 ];
 
 export default function SchemePaymentForm() {
-  const { id } = useParams();
+  const { uuid } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [enrollment, setEnrollment] = useState(null);
@@ -29,7 +29,7 @@ export default function SchemePaymentForm() {
   });
 
   useEffect(() => {
-    fetchSchemeEnrollment(id).then((res) => {
+    fetchSchemeEnrollment(uuid).then((res) => {
       if (res.success) {
         setEnrollment(res.data);
         setForm((f) => ({ ...f, amount: String(res.data.installment_amount) }));
@@ -50,7 +50,7 @@ export default function SchemePaymentForm() {
         setCashBankLedgers((prev) => [...prev, ...list]);
       }
     });
-  }, [id]);
+  }, [uuid]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,10 +65,10 @@ export default function SchemePaymentForm() {
       remarks: form.remarks,
     };
 
-    const res = await schemeEnrollmentPay(id, payload);
+    const res = await schemeEnrollmentPay(uuid, payload);
     if (res.success) {
       toast({ title: `Payment of ₹${Number(form.amount).toLocaleString("en-IN")} recorded` });
-      navigate(`/scheme/enrollments/${id}/statement`);
+      navigate(`/scheme/enrollments/${uuid}/statement`);
     } else {
       const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : res.error;
       toast({ title: "Error", description: msg, variant: "destructive" });
@@ -80,7 +80,7 @@ export default function SchemePaymentForm() {
 
   return (
     <div className="space-y-4 max-w-xl">
-      <Button variant="ghost" onClick={() => navigate(`/scheme/enrollments/${id}/statement`)}><ArrowLeft className="size-4 mr-1" /> Back</Button>
+      <Button variant="ghost" onClick={() => navigate(`/scheme/enrollments/${uuid}/statement`)}><ArrowLeft className="size-4 mr-1" /> Back</Button>
 
       <Card>
         <CardHeader>

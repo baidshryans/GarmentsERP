@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Markdown Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; height: 100vh; }
+    .container { display: flex; height: 100%; }
+    textarea { width: 50%; padding: 16px; border: none; outline: none; font-family: monospace; resize: none; }
+    .preview { width: 50%; padding: 24px; overflow-y: auto; border-left: 1px solid #ddd; }
+    .toolbar { position: fixed; top: 10px; right: 10px; display: flex; gap: 8px; z-index: 1000; }
+    button { padding: 8px 12px; border: none; border-radius: 6px; background: black; color: white; cursor: pointer; }
+    .dropzone { position: absolute; top: 0; left: 0; width: 50%; height: 100%; opacity: 0; cursor: copy; }
+    .dropzone.active { background: rgba(0,0,255,0.1); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button id="openPreview">Open Preview</button>
+  <button id="fullPreview">Full Screen</button>
+  <span style="color: #666; font-size: 12px; margin-top: 8px;">Drag .md file here →</span>
+</div>
+
+<div class="container">
+  <div class="dropzone" id="dropzone"></div>
+  <textarea id="editor" placeholder="Drag a .md file here or paste markdown..."></textarea>
+  <div id="preview" class="preview"></div>
+</div>
+
+<script>
+const editor = document.getElementById("editor");
+const preview = document.getElementById("preview");
+const dropzone = document.getElementById("dropzone");
+
+function render() {
+  preview.innerHTML = marked.parse(editor.value || "");
+}
+
+editor.addEventListener("input", render);
+
+// Drag and drop
+dropzone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropzone.classList.add("active");
+});
+
+dropzone.addEventListener("dragleave", () => {
+  dropzone.classList.remove("active");
+});
+
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.classList.remove("active");
+  
+  const files = e.dataTransfer.files;
+  if (files.length === 0) return;
+  
+  const file = Array.from(files).find(f => f.name.endsWith('.md'));
+  if (!file) {
+    alert("Please drop a .md file");
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    editor.value = event.target.result;
+    render();
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById("openPreview").addEventListener("click", function() {
+  const html = marked.parse(editor.value || "");
+  const newWindow = window.open("", "_blank");
+  newWindow.document.open();
+  newWindow.document.write("<!DOCTYPE html>");
+  newWindow.document.write("<html><head><title>Preview</title>");
+  newWindow.document.write("<style>body{font-family:Arial;padding:40px;line-height:1.6;}</style>");
+  newWindow.document.write("</head><body>");
+  newWindow.document.write(html);
+  newWindow.document.write("</body></html>");
+  newWindow.document.close();
+});
+
+let full = false;
+document.getElementById("fullPreview").addEventListener("click", function() {
+  full = !full;
+  if (full) {
+    editor.style.display = "none";
+    preview.style.width = "100%";
+    this.textContent = "Exit";
+  } else {
+    editor.style.display = "block";
+    preview.style.width = "50%";
+    this.textContent = "Full Screen";
+  }
+});
+
+render();
+</script>
+
+</body>
+</html>

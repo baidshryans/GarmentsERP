@@ -175,6 +175,7 @@ def upcoming_payment_dues(retail, window_end):
         {
             'enrollment_no': e.enrollment_no,
             'enrollment_id': e.id,
+            'enrollment_uuid': str(e.uuid),
             'customer': e.customer.ac_name,
             'phone': getattr(e.customer, 'mobile1', '') or '',
             'scheme': e.scheme.name,
@@ -205,6 +206,7 @@ def overdue_matured(retail):
         {
             'enrollment_no': e.enrollment_no,
             'enrollment_id': e.id,
+            'enrollment_uuid': str(e.uuid),
             'customer': e.customer.ac_name,
             'scheme': e.scheme.name,
             'maturity_date': str(e.maturity_date),
@@ -239,6 +241,7 @@ def aged_advances(retail, days=365):
         {
             'enrollment_no': e.enrollment_no,
             'enrollment_id': e.id,
+            'enrollment_uuid': str(e.uuid),
             'customer': e.customer.ac_name,
             'phone': getattr(e.customer, 'mobile1', '') or '',
             'scheme': e.scheme.name,

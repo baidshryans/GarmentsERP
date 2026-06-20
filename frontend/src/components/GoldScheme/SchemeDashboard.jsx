@@ -275,7 +275,7 @@ export default function SchemeDashboard() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/scheme/enrollments/${row.original.enrollment_id}/pay`)}
+          onClick={() => navigate(`/scheme/enrollments/${row.original.enrollment_uuid}/pay`)}
         >
           Open
         </Button>
@@ -313,7 +313,7 @@ export default function SchemeDashboard() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/scheme/enrollments/${row.original.enrollment_id}/pay`)}
+          onClick={() => navigate(`/scheme/enrollments/${row.original.enrollment_uuid}/pay`)}
         >
           Open
         </Button>

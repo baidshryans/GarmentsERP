@@ -75,11 +75,11 @@ export default function SchemeEnrollmentList() {
       cell: ({ row }) => (
         <div className="flex gap-1">
           <Button variant="ghost" size="icon" title="View Statement"
-            onClick={() => navigate(`/scheme/enrollments/${row.original.id}/statement`)}
+            onClick={() => navigate(`/scheme/enrollments/${row.original.uuid}/statement`)}
           ><Eye className="size-4" /></Button>
           {row.original.status === "ACTIVE" && (
             <Button variant="ghost" size="icon" title="Record Payment"
-              onClick={() => navigate(`/scheme/enrollments/${row.original.id}/pay`)}
+              onClick={() => navigate(`/scheme/enrollments/${row.original.uuid}/pay`)}
             ><CreditCard className="size-4 text-green-600" /></Button>
           )}
         </div>

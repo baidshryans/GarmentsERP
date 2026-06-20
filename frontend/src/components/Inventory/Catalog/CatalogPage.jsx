@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import {
   Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from "@/components/ui/select";
@@ -55,7 +56,7 @@ export default function CatalogPage() {
     (async () => {
       const [pu, b2b, rt, it] = await Promise.all([
         fetchPurity(), fetchB2BPricelists(), fetchRetailDiscountPricelists(),
-        fetchMainItem({ page_size: 10000 }),
+        fetchMainItem({ type: "M", page_size: 10000 }),
       ]);
       if (pu.success) setPurities(pu.data?.results ?? pu.data ?? []);
       if (b2b.success) setB2bLists(b2b.data?.results ?? b2b.data ?? []);
@@ -160,15 +161,16 @@ export default function CatalogPage() {
         </div>
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">ITEM</Label>
-          <Select value={item || "all"} onValueChange={(v) => setItem(v === "all" ? "" : v)}>
-            <SelectTrigger className="h-9"><SelectValue placeholder="All" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              {items.map((i) => (
-                <SelectItem key={i.short_code} value={i.short_code}>{i.item_name} ({i.short_code})</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableComboBox
+            options={[{ item_name: "All items", short_code: "" }, ...items]}
+            labelKey="item_name"
+            searchKeys={["short_code"]}
+            value={item ? (items.find((i) => i.short_code === item)?.item_name || item) : ""}
+            onSelect={(opt) => setItem(opt.short_code || "")}
+            renderOption={(o) => (o.short_code ? `${o.item_name} (${o.short_code})` : o.item_name)}
+            placeholder="All items"
+            className="h-9"
+          />
         </div>
         <div>
           <Label className="text-xs font-semibold text-muted-foreground">PURITY</Label>

@@ -21,6 +21,9 @@ import DesignImages from "./DesignImages";
 
 const num = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v));
 
+// Short code of the base gold item — its wt_gm is always = NW (auto-filled, read-only)
+const GOLD_CODE = "Gold";
+
 export default function DesignForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -40,16 +43,26 @@ export default function DesignForm() {
     },
   });
 
-  // NW (gold weight) = GW − Σ(wt_gm) − Σ(ct / 5)
+  // NW (gold weight) = GW − Σ(non-gold wt_gm) − Σ(ct / 5)
+  // Gold row wt_gm is excluded from the sum and auto-filled with NW.
   // Conversion: 5 ct = 1 gm, so ct_to_gm = ct / 5
   const recalcNWFromDetails = (gwRaw) => {
     const gw = parseFloat(gwRaw ?? getValues("gw")) || 0;
     const details = getValues("design_details") || [];
-    const totalWtGm = details.reduce((s, d) => s + (parseFloat(d.wt_gm) || 0), 0);
+    const totalWtGm = details.reduce(
+      (s, d) => (d.sub_item === GOLD_CODE ? s : s + (parseFloat(d.wt_gm) || 0)), 0
+    );
     const totalCtAsGm = details.reduce((s, d) => s + (parseFloat(d.ct) || 0) / 5, 0);
-    setValue("nw", parseFloat(Math.max(0, gw - totalWtGm - totalCtAsGm).toFixed(3)));
+    const nw = parseFloat(Math.max(0, gw - totalWtGm - totalCtAsGm).toFixed(3));
+    setValue("nw", nw);
+    // Write NW back into every gold sub-item row
+    details.forEach((d, idx) => {
+      if (d.sub_item === GOLD_CODE) setValue(`design_details.${idx}.wt_gm`, nw);
+    });
   };
   const { fields, append, remove } = useFieldArray({ control, name: "design_details" });
+
+  const detailValues = watch("design_details");
 
   useEffect(() => {
     (async () => {
@@ -254,10 +267,18 @@ export default function DesignForm() {
                     {...register(`design_details.${idx}.ct`, {
                       onChange: () => recalcNWFromDetails(),
                     })} /></TableCell>
-                  <TableCell><Input type="number" step="0.001" className="h-8 text-right"
-                    {...register(`design_details.${idx}.wt_gm`, {
-                      onChange: () => recalcNWFromDetails(),
-                    })} /></TableCell>
+                  <TableCell>
+                    {detailValues?.[idx]?.sub_item === GOLD_CODE ? (
+                      <Input type="number" step="0.001" className="h-8 text-right bg-muted/30"
+                        readOnly tabIndex={-1}
+                        {...register(`design_details.${idx}.wt_gm`)} />
+                    ) : (
+                      <Input type="number" step="0.001" className="h-8 text-right"
+                        {...register(`design_details.${idx}.wt_gm`, {
+                          onChange: () => recalcNWFromDetails(),
+                        })} />
+                    )}
+                  </TableCell>
                   <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.rate`)} /></TableCell>
                   <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.amt`)} /></TableCell>
                   <TableCell>

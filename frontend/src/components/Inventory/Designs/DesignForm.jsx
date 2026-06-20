@@ -24,6 +24,24 @@ const num = (v) => (v === "" || v === null || v === undefined ? 0 : Number(v));
 // Short code of the base gold item — its wt_gm is always = NW (auto-filled, read-only)
 const GOLD_CODE = "Gold";
 
+// Cache dropdown data in sessionStorage — these master lists don't change mid-session
+const SESSION_TTL = 10 * 60 * 1000; // 10 minutes
+function cachedFetch(key, fetcher) {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (raw) {
+      const { ts, data } = JSON.parse(raw);
+      if (Date.now() - ts < SESSION_TTL) return Promise.resolve({ success: true, data });
+    }
+  } catch {}
+  return fetcher().then((res) => {
+    if (res.success) {
+      try { sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: res.data })); } catch {}
+    }
+    return res;
+  });
+}
+
 export default function DesignForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -68,10 +86,10 @@ export default function DesignForm() {
   useEffect(() => {
     (async () => {
       const [it, pu, kr, pk] = await Promise.all([
-        fetchMainItem({ page_size: 10000 }),
-        fetchPurity(),
-        fetchKarigarIssues({ page_size: 1000 }),
-        fetchPackets(),
+        cachedFetch("df_items", () => fetchMainItem({ page_size: 10000 })),
+        cachedFetch("df_purities", fetchPurity),
+        cachedFetch("df_karigars", () => fetchKarigarIssues({ page_size: 1000 })),
+        cachedFetch("df_packets", fetchPackets),
       ]);
       if (it.success) setItems(it.data?.results ?? it.data ?? []);
       if (pu.success) setPurities(pu.data?.results ?? pu.data ?? []);

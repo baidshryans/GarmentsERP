@@ -1953,7 +1953,11 @@ class DesignMainViewSet(RetailBaseViewset):
             DesignMain.objects
             .select_related('item')
             .prefetch_related(
-                Prefetch('images', queryset=DesignImage.objects.order_by('sort_order', 'id'))
+                Prefetch('images', queryset=DesignImage.objects.order_by('sort_order', 'id')),
+                Prefetch(
+                    'designdetails_set',
+                    queryset=DesignDetails.objects.select_related('sub_item', 'metal_purity', 'packet'),
+                ),
             )
             .annotate(
                 in_stock_count_ann=Count('barcodes', filter=Q(barcodes__stk_status=True), distinct=True),

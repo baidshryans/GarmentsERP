@@ -199,14 +199,16 @@ class DesignMainSerializer(serializers.ModelSerializer):
         ]
 
     def get_cover_image(self, obj):
-        im = obj.images.filter(is_primary=True).first() or obj.images.first()
+        images = list(obj.images.all())  # uses prefetch cache
+        primary = next((im for im in images if im.is_primary), None)
+        im = primary or (images[0] if images else None)
         return im.image.url if im else None
 
     def get_in_stock_count(self, obj):
-        return obj.barcodes.filter(stk_status=True).count()
+        return getattr(obj, 'in_stock_count_ann', obj.barcodes.filter(stk_status=True).count())
 
     def get_total_barcodes(self, obj):
-        return obj.barcodes.count()
+        return getattr(obj, 'total_barcodes_ann', obj.barcodes.count())
 
     def validate(self, attrs):
         # Enforce the (item, design_no) identity with a friendly message.

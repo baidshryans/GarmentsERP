@@ -256,6 +256,7 @@ export default function DesignForm() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Sub-item</TableHead>
                 <TableHead>Purity</TableHead>
                 <TableHead>Packet</TableHead>
@@ -264,7 +265,6 @@ export default function DesignForm() {
                 <TableHead className="text-right">Wt (g)</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
-                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -275,8 +275,16 @@ export default function DesignForm() {
                   </TableCell>
                 </TableRow>
               )}
-              {fields.map((f, idx) => (
+              {fields.map((f, idx) => {
+                const rowItem = items.find(i => i.short_code === detailValues?.[idx]?.sub_item);
+                const hasPurity = rowItem?.item_type === 'R';
+                return (
                 <TableRow key={f.id}>
+                  <TableCell className="w-8 pr-0">
+                    <Button type="button" size="icon" variant="ghost" className="size-7 text-destructive" onClick={() => remove(idx)}>
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </TableCell>
                   <TableCell className="min-w-48">
                     <Controller name={`design_details.${idx}.sub_item`} control={control} render={({ field }) => {
                       const isPacketOwned = !!detailValues?.[idx]?.packet;
@@ -306,19 +314,23 @@ export default function DesignForm() {
                     }} />
                   </TableCell>
                   <TableCell className="min-w-28">
-                    <Controller name={`design_details.${idx}.metal_purity`} control={control} render={({ field }) => (
-                      <Select
-                        onValueChange={(v) => field.onChange(Number(v))}
-                        value={field.value ? String(field.value) : ""}
-                      >
-                        <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
-                        <SelectContent>
-                          {purities.map((p) => (
-                            <SelectItem key={p.id} value={String(p.id)}>{p.purity}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )} />
+                    {hasPurity ? (
+                      <Controller name={`design_details.${idx}.metal_purity`} control={control} render={({ field }) => (
+                        <Select
+                          onValueChange={(v) => field.onChange(Number(v))}
+                          value={field.value ? String(field.value) : ""}
+                        >
+                          <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
+                          <SelectContent>
+                            {purities.map((p) => (
+                              <SelectItem key={p.id} value={String(p.id)}>{p.purity}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )} />
+                    ) : (
+                      <span className="text-muted-foreground/50 px-2 text-sm">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="min-w-32">
                     <Controller name={`design_details.${idx}.packet`} control={control} render={({ field }) => (
@@ -365,13 +377,9 @@ export default function DesignForm() {
                   </TableCell>
                   <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.rate`)} /></TableCell>
                   <TableCell><Input type="number" className="h-8 text-right" {...register(`design_details.${idx}.amt`)} /></TableCell>
-                  <TableCell>
-                    <Button type="button" size="icon" variant="ghost" className="size-7 text-destructive" onClick={() => remove(idx)}>
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>

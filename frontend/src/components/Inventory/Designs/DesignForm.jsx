@@ -257,6 +257,7 @@ export default function DesignForm() {
             <TableHeader>
               <TableRow>
                 <TableHead>Sub-item</TableHead>
+                <TableHead>Purity</TableHead>
                 <TableHead>Packet</TableHead>
                 <TableHead className="text-right">Pcs</TableHead>
                 <TableHead className="text-right">Ct</TableHead>
@@ -269,7 +270,7 @@ export default function DesignForm() {
             <TableBody>
               {fields.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-4 text-sm">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-4 text-sm">
                     No components. Add rows as needed.
                   </TableCell>
                 </TableRow>
@@ -277,18 +278,43 @@ export default function DesignForm() {
               {fields.map((f, idx) => (
                 <TableRow key={f.id}>
                   <TableCell className="min-w-48">
-                    <Controller name={`design_details.${idx}.sub_item`} control={control} render={({ field }) => (
+                    <Controller name={`design_details.${idx}.sub_item`} control={control} render={({ field }) => {
+                      const isPacketOwned = !!detailValues?.[idx]?.packet;
+                      if (isPacketOwned) {
+                        return (
+                          <div className="h-8 flex items-center px-2 text-sm bg-muted/30 rounded-md border border-input text-muted-foreground">
+                            {items.find(i => i.short_code === field.value)?.item_name || field.value || "—"}
+                          </div>
+                        );
+                      }
+                      return (
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            if (val === GOLD_CODE) setTimeout(() => recalcNWFromDetails(), 0);
+                          }}
+                          value={field.value || ""}
+                        >
+                          <SelectTrigger className="h-8"><SelectValue placeholder="Item" /></SelectTrigger>
+                          <SelectContent>
+                            {items.map((i) => (
+                              <SelectItem key={i.short_code} value={i.short_code}>{i.item_name} ({i.short_code})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      );
+                    }} />
+                  </TableCell>
+                  <TableCell className="min-w-28">
+                    <Controller name={`design_details.${idx}.metal_purity`} control={control} render={({ field }) => (
                       <Select
-                        onValueChange={(val) => {
-                          field.onChange(val);
-                          if (val === GOLD_CODE) setTimeout(() => recalcNWFromDetails(), 0);
-                        }}
-                        value={field.value || ""}
+                        onValueChange={(v) => field.onChange(Number(v))}
+                        value={field.value ? String(field.value) : ""}
                       >
-                        <SelectTrigger className="h-8"><SelectValue placeholder="Item" /></SelectTrigger>
+                        <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>
-                          {items.map((i) => (
-                            <SelectItem key={i.short_code} value={i.short_code}>{i.item_name} ({i.short_code})</SelectItem>
+                          {purities.map((p) => (
+                            <SelectItem key={p.id} value={String(p.id)}>{p.purity}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -296,9 +322,22 @@ export default function DesignForm() {
                   </TableCell>
                   <TableCell className="min-w-32">
                     <Controller name={`design_details.${idx}.packet`} control={control} render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <Select
+                        onValueChange={(val) => {
+                          field.onChange(val);
+                          if (val) {
+                            const pkt = packets.find(p => p.pckt_no === val);
+                            if (pkt?.stone_item_short_code) {
+                              setValue(`design_details.${idx}.sub_item`, pkt.stone_item_short_code);
+                              if (pkt.stone_item_short_code === GOLD_CODE) setTimeout(() => recalcNWFromDetails(), 0);
+                            }
+                          }
+                        }}
+                        value={field.value || ""}
+                      >
                         <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="">— None</SelectItem>
                           {packets.map((p) => (
                             <SelectItem key={p.pckt_no} value={p.pckt_no}>{p.pckt_no}</SelectItem>
                           ))}

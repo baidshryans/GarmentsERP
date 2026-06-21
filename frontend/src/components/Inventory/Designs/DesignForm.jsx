@@ -324,9 +324,10 @@ export default function DesignForm() {
                     <Controller name={`design_details.${idx}.packet`} control={control} render={({ field }) => (
                       <Select
                         onValueChange={(val) => {
-                          field.onChange(val);
-                          if (val) {
-                            const pkt = packets.find(p => p.pckt_no === val);
+                          const resolved = val === "__none__" ? "" : val;
+                          field.onChange(resolved);
+                          if (resolved) {
+                            const pkt = packets.find(p => p.pckt_no === resolved);
                             if (pkt?.stone_item_short_code) {
                               setValue(`design_details.${idx}.sub_item`, pkt.stone_item_short_code);
                               if (pkt.stone_item_short_code === GOLD_CODE) setTimeout(() => recalcNWFromDetails(), 0);
@@ -337,7 +338,7 @@ export default function DesignForm() {
                       >
                         <SelectTrigger className="h-8"><SelectValue placeholder="—" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">— None</SelectItem>
+                          <SelectItem value="__none__">— None</SelectItem>
                           {packets.map((p) => (
                             <SelectItem key={p.pckt_no} value={p.pckt_no}>{p.pckt_no}</SelectItem>
                           ))}

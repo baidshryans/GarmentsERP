@@ -2,6 +2,50 @@
 import apiClient from "../apiClient";
 import { deleteResource, handleDelete } from "./_helpers";
 
+// ── Legacy data migration (Import Master Data → Transactions tab) ──────────
+export async function downloadMigrationTemplate(name) {
+  try {
+    const response = await apiClient.get(`/accounting/api/migration/template/?name=${name}`, {
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `legacy_${name}_template.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
+/**
+ * Run a transactional legacy import.
+ * @param {string} kind  one of 'vouchers' | 'sales' | 'purchases' | 'allocations'
+ * @param {Object} files map of field-name -> File (e.g. { main, details })
+ * @param {boolean} apply  false = dry-run (default), true = persist
+ */
+export async function runMigrationImport(kind, files, apply = false) {
+  try {
+    const formData = new FormData();
+    Object.entries(files).forEach(([field, file]) => {
+      if (file) formData.append(field, file);
+    });
+    const response = await apiClient.post(
+      `/accounting/api/migration/${kind}/?apply=${apply ? "true" : "false"}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" }, timeout: 600000 }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    const d = error.response?.data;
+    return { success: false, error: d?.error || error.message, data: d };
+  }
+}
+
 export async function getAccountGroup() {
   try {
     const response = await apiClient.get("/accounting/api/accounts/");

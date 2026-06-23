@@ -37,6 +37,10 @@ class VoucherMain(models.Model):
     voucher_type = models.CharField(max_length=10)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='posted')
     vendor_bill = models.CharField(max_length=20, null=True, blank=True)
+    # Legacy migration key: maps a legacy (v_typ, v_id, ac_yr, rt_code) tuple to
+    # this voucher so the import is idempotent and the amount-table allocation
+    # pass can locate the parent voucher. Null for natively-created vouchers.
+    legacy_key = models.CharField(max_length=60, null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     retail = models.ForeignKey(RetailMaster, on_delete=models.SET_NULL,null=True,related_name="retail_voucher")

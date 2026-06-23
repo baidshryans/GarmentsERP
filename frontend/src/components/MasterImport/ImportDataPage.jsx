@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag, Package } from "lucide-react";
+import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag, Package, ArrowRightLeft } from "lucide-react";
+import TransactionsImport from "./TransactionsImportCard";
 import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers, downloadOpeningStockTemplate, uploadOpeningStockCSV } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
 import BarcodeOpeningUploadCard from './BarcodeOpeningUploadCard';
@@ -26,11 +27,28 @@ const TABLES = [
   { key: "karigar_making", label: "Karigar Making Rates",  uploadFn: uploadKarigarMakingCSV,  hint: "Columns: karigar_name, item_code, purity, making_per_gm, making_per_pc, loss_rate, kr_code (optional)",                           dependsOn: "item" },
 ];
 
+// Master tables selectable for direct MySQL sync. Mirrors TABLES (the CSV-upload
+// masters) plus Retail Master, which is sync-only (no CSV upload card).
+const SYNC_MASTER_TABLES = [
+  ...TABLES.map(({ key, label }) => ({ key, label })),
+  { key: "ledger", label: "Ledger Master" },
+  { key: "retail", label: "Retail Master" },
+];
+
+// Transactional tables for direct MySQL sync (run after masters).
+const TX_SYNC_TABLES = [
+  { key: "gl_vouchers", label: "GL Vouchers" },
+  { key: "sales",       label: "Sales Vouchers" },
+  { key: "purchases",   label: "Purchase Vouchers" },
+  { key: "allocations", label: "Bill Allocations" },
+];
+
 const TABS = [
   { id: "masters",       label: "Masters",       icon: Database  },
   { id: "ledgers",       label: "Ledgers",       icon: Users     },
   { id: "barcode",       label: "Barcode",       icon: Tag       },
   { id: "opening_stock", label: "Opening Stock", icon: Package   },
+  { id: "transactions", label: "Transactions",  icon: ArrowRightLeft },
   { id: "mysql",         label: "MySQL Sync",    icon: RefreshCw },
 ];
 
@@ -308,9 +326,11 @@ function MySQLSyncCard() {
   const [status, setStatus] = useState("idle");
   const [results, setResults] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [selectedTables, setSelectedTables] = useState(
-    Object.fromEntries(TABLES.map(({ key }) => [key, true]))
-  );
+  const [selectedTables, setSelectedTables] = useState({
+    ...Object.fromEntries(SYNC_MASTER_TABLES.map(({ key }) => [key, true])),
+    // transactions default OFF — they should be synced after masters exist
+    ...Object.fromEntries(TX_SYNC_TABLES.map(({ key }) => [key, false])),
+  });
 
   useEffect(() => {
     getMySQLConfig().then(r => {
@@ -408,7 +428,16 @@ function MySQLSyncCard() {
       <div>
         <p className="text-xs text-gray-500 font-medium mb-1.5">Tables to sync</p>
         <div className="flex flex-wrap gap-3">
-          {TABLES.map(({ key, label }) => (
+          {SYNC_MASTER_TABLES.map(({ key, label }) => (
+            <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+              <input type="checkbox" checked={!!selectedTables[key]} onChange={() => toggleTable(key)} className="rounded" />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+        <p className="text-xs font-medium text-gray-500 mt-3 mb-1">Transactions <span className="font-normal">(sync after masters)</span></p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {TX_SYNC_TABLES.map(({ key, label }) => (
             <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
               <input type="checkbox" checked={!!selectedTables[key]} onChange={() => toggleTable(key)} className="rounded" />
               <span>{label}</span>
@@ -441,8 +470,25 @@ function MySQLSyncCard() {
           </div>
           {Object.entries(results).map(([table, r]) => (
             <div key={table} className="bg-white rounded border border-gray-200 px-3 py-2">
-              <p className="text-xs font-semibold capitalize text-gray-700">{table.replace('_', ' ')} master</p>
-              <ResultBadge result={r} />
+              <p className="text-xs font-semibold capitalize text-gray-700">{table.replace(/_/g, ' ')}</p>
+              {r && (r.output != null || r.status) ? (
+                <div className="mt-1">
+                  <span className={`text-xs ${r.status === "error" ? "text-red-600" : "text-green-700"}`}>
+                    {r.status === "error" ? (r.error || "Failed") : "Done"}
+                  </span>
+                  {r.output && (
+                    <pre className="mt-1 text-[11px] bg-gray-900 text-gray-100 rounded p-2 overflow-auto max-h-48 whitespace-pre-wrap">{r.output}</pre>
+                  )}
+                  {r.reports && Object.entries(r.reports).map(([fn, c]) => (
+                    <details key={fn} className="mt-1">
+                      <summary className="text-[11px] text-amber-700 cursor-pointer">{fn}</summary>
+                      <pre className="text-[11px] bg-amber-50 rounded p-2 overflow-auto max-h-40 whitespace-pre-wrap">{c}</pre>
+                    </details>
+                  ))}
+                </div>
+              ) : (
+                <ResultBadge result={r} />
+              )}
             </div>
           ))}
         </div>
@@ -625,6 +671,10 @@ export default function ImportDataPage() {
       )}
 
       {/* MySQL Sync tab */}
+      {activeTab === "transactions" && (
+        <TransactionsImport />
+      )}
+
       {activeTab === "mysql" && (
         <MySQLSyncCard />
       )}

@@ -899,7 +899,10 @@ class PacketCSVUploadView(APIView):
                             'packet_group': packet_group_obj,
                             'cut': (row.get('cut') or '').strip() or None,
                             'clarity': (row.get('clarity') or '').strip() or None,
-                            'seives': (row.get('seives') or row.get('sieve') or '').strip() or None,
+                            'sieve_max': (row.get('sieve_max') or row.get('seives') or row.get('sieve') or '').strip() or None,
+                            'sieve_min': (row.get('sieve_min') or '').strip() or None,
+                            'ct_min': row.get('ct_min') or None,
+                            'ct_max': row.get('ct_max') or None,
                             'color': color_obj,
                             'shape': shape_obj,
                             'op_stock_wtd_avg_rate': row.get('op_stock_wtd_avg_rate') or row.get('op_rate') or '0',
@@ -1042,11 +1045,18 @@ class MySQLSyncView(APIView):
         saved = SystemSettings.get().mysql_sync_config or {}
         fallback = getattr(settings, 'MYSQL_SYNC_CONFIG', {})
 
+        # Honor an explicitly-provided password even when blank: a MySQL whose
+        # root has no password must be able to override a previously-saved (or
+        # settings) password. Only fall back when the field is absent entirely.
+        if 'password' in body:
+            _password = body.get('password') or ''
+        else:
+            _password = saved.get('password') or fallback.get('password', '')
         cfg = {
             'host':     body.get('host')     or saved.get('host')     or fallback.get('host', '127.0.0.1'),
             'port':     int(body.get('port') or saved.get('port')     or fallback.get('port', 3306)),
             'user':     body.get('user')     or saved.get('user')     or fallback.get('user', 'root'),
-            'password': body.get('password') or saved.get('password') or fallback.get('password', ''),
+            'password': _password,
             'database': body.get('database') or saved.get('database') or fallback.get('database', ''),
             'charset':  'utf8mb4',
         }
@@ -1091,10 +1101,295 @@ class MySQLSyncView(APIView):
                 if 'packet' in tables_requested:
                     results['packet'] = self._sync_packet(cursor)
 
+                if 'ledger' in tables_requested:
+                    results['ledger'] = self._sync_ledger(cursor)
+
+                if 'retail' in tables_requested:
+                    results['retail'] = self._sync_retail(cursor)
+
+                for _tx_key in ('gl_vouchers', 'sales', 'purchases', 'allocations'):
+                    if _tx_key in tables_requested:
+                        results[_tx_key] = self._sync_transaction(cursor, _tx_key)
+
         except Exception as e:
             return Response({'error': f'Sync failed: {str(e)}'}, status=500)
 
         return Response({'status': 'ok', 'results': results})
+
+    def _sync_ledger(self, cursor):
+        """Sync legacy account hierarchy (main_group/group_master/subgroup_master)
+        into Account, and ledger_master into Ledger + LedgerRole. Legacy ledger id
+        is preserved as the Django PK (so transactional imports resolve ldgr=id).
+        Role is inferred intelligently: ledger_type if known, else the group name
+        / ledger name. App-created system ledgers are never overwritten."""
+        from contacts.models import Ledger, LedgerRole
+
+        def _rows(table):
+            try:
+                cursor.execute(f"SELECT * FROM {table}")
+            except Exception:
+                return []
+            return cursor.fetchall()
+
+        def _s(v):
+            return '' if v is None else str(v).strip()
+
+        # ── 1. Account hierarchy. Level-prefixed codes avoid cross-level
+        #       collisions (Account.code is not unique). ──
+        main_by_id, group_by_id = {}, {}
+        main_by_name, group_by_name, sub_by_name = {}, {}, {}
+        for r in _rows('main_group'):
+            name = _s(r.get('name')) or f"MG-{_s(r.get('id'))}"
+            acc, _ = Account.objects.update_or_create(
+                code=f"MG-{_s(r.get('id'))}", defaults={'name': name, 'parent': None})
+            main_by_id[_s(r.get('id'))] = acc
+            main_by_name.setdefault(name.lower(), acc)
+        for r in _rows('group_master'):
+            name = _s(r.get('name')) or f"GM-{_s(r.get('id'))}"
+            acc, _ = Account.objects.update_or_create(
+                code=f"GM-{_s(r.get('id'))}",
+                defaults={'name': name, 'parent': main_by_id.get(_s(r.get('mn_grp')))})
+            group_by_id[_s(r.get('id'))] = acc
+            group_by_name.setdefault(name.lower(), acc)
+        for r in _rows('subgroup_master'):
+            name = _s(r.get('name')) or f"SG-{_s(r.get('id'))}"
+            parent = group_by_id.get(_s(r.get('grp'))) or main_by_id.get(_s(r.get('mn_grp')))
+            acc, _ = Account.objects.update_or_create(
+                code=f"SG-{_s(r.get('id'))}", defaults={'name': name, 'parent': parent})
+            sub_by_name.setdefault(name.lower(), acc)
+
+        # ── 2. Ledgers ──
+        rows = _rows('ledger_master')
+        if not rows:
+            return {'created': 0, 'updated': 0, 'errors': ['ledger_master table not found / empty']}
+
+        created = updated = 0
+        errors = []
+        for row in rows:
+            try:
+                lid = _s(row.get('id'))
+                ac_name = _s(row.get('ac_name'))
+                if not lid.isdigit() or not ac_name:
+                    continue
+
+                existing = Ledger.objects.filter(id=int(lid)).first()
+                if existing and getattr(existing, 'is_system', False):
+                    continue  # never clobber app-managed system ledgers
+
+                grp_name = _s(row.get('ac_grp'))
+                ac_group = (sub_by_name.get(grp_name.lower())
+                            or group_by_name.get(grp_name.lower())
+                            or main_by_name.get(grp_name.lower()))
+
+                defaults = {
+                    'ac_name': ac_name[:100],
+                    'display_name': (_s(row.get('ledger_display_name')) or ac_name)[:100],
+                    'mobile1': (_s(row.get('mobile1')) or _s(row.get('mobile')) or _s(row.get('telephone')))[:20],
+                    'add1':    (_s(row.get('address')) or None),
+                    'city':    (_s(row.get('city')) or None),
+                    'pincode': (_s(row.get('pincode')) or None),
+                    'email':   (_s(row.get('email')) or None),
+                    'pan':     (_s(row.get('pan_no')) or None),
+                    'aadhar':  (_s(row.get('aadhar_no')) or None),
+                    'phone1':  (_s(row.get('phone1')) or None),
+                }
+                if ac_group is not None:
+                    defaults['ac_group'] = ac_group
+
+                ledger, flag = Ledger.objects.update_or_create(id=int(lid), defaults=defaults)
+
+                role = self._infer_ledger_role(_s(row.get('ledger_type')), grp_name, ac_name)
+                LedgerRole.objects.get_or_create(
+                    ledger=ledger, role=role,
+                    defaults={'is_primary': not ledger.roles.exists()},
+                )
+
+                if flag:
+                    created += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                errors.append(f"{row.get('id')}: {e}")
+        return {'created': created, 'updated': updated, 'errors': errors}
+
+    def _infer_ledger_role(self, ledger_type, group_name, ac_name):
+        """Pick a LedgerRole: trust ledger_type when it's a known code/synonym,
+        otherwise infer from the group name and ledger name keywords."""
+        DIRECT = {'CO', 'DL', 'KR', 'VD', 'CA', 'BA', 'SC', 'SD', 'REF', 'MLT', 'EXP', 'INC', 'HM', 'OTH'}
+        t = (ledger_type or '').strip().upper()
+        if t in DIRECT:
+            return t
+        SYN = {
+            'C': 'CO', 'CUST': 'CO', 'CUSTOMER': 'CO', 'D': 'DL', 'DEALER': 'DL',
+            'V': 'VD', 'VEND': 'VD', 'VENDOR': 'VD', 'SUPPLIER': 'VD',
+            'K': 'KR', 'KARIGAR': 'KR', 'B': 'BA', 'BANK': 'BA', 'CASH': 'CA',
+            'E': 'EXP', 'EXPENSE': 'EXP', 'I': 'INC', 'INCOME': 'INC',
+        }
+        if t in SYN:
+            return SYN[t]
+        text = f"{group_name} {ac_name}".lower()
+        RULES = [
+            ('bank', 'BA'), ('cash', 'CA'),
+            ('sundry debtor', 'SD'), ('debtor', 'SD'),
+            ('sundry creditor', 'SC'), ('creditor', 'SC'),
+            ('karigar', 'KR'), ('goldsmith', 'KR'),
+            ('refin', 'REF'), ('melt', 'MLT'), ('hallmark', 'HM'),
+            ('supplier', 'VD'), ('vendor', 'VD'),
+            ('customer', 'CO'), ('dealer', 'DL'),
+            ('purchase', 'EXP'), ('expense', 'EXP'), ('charges', 'EXP'),
+            ('sales', 'INC'), ('income', 'INC'), ('revenue', 'INC'),
+            ('discount received', 'INC'), ('interest received', 'INC'),
+        ]
+        for kw, role in RULES:
+            if kw in text:
+                return role
+        return 'OTH'
+
+    def _sync_retail(self, cursor):
+        """Sync legacy retail_master -> RetailMaster, matched by retail_code.
+        Only scalar fields are written; existing FK links (gstin_master, branch,
+        active_fy) are preserved. cash_ldgr is set only when the ledger is free."""
+        from contacts.models import Ledger
+        from .models import State
+
+        rows = None
+        for tbl in ('retail_master', 'retail'):
+            try:
+                cursor.execute(f"SELECT * FROM {tbl}")
+            except Exception:
+                continue
+            rows = cursor.fetchall()
+            break
+        if rows is None:
+            return {'created': 0, 'updated': 0, 'errors': ['retail_master table not found']}
+
+        created = updated = 0
+        errors = []
+        for row in rows:
+            try:
+                rt_code = (row.get('rt_code') or '').strip()
+                if not rt_code:
+                    continue
+
+                # bill_series is unique — fall back to rt_code if taken elsewhere
+                bill_series = ((row.get('bill_series') or '').strip() or rt_code)[:20]
+                if RetailMaster.objects.filter(bill_series=bill_series).exclude(retail_code=rt_code).exists():
+                    bill_series = rt_code[:20]
+                defaults = {
+                    'retail_name': (row.get('rt_nm') or '').strip() or rt_code,
+                    'bill_series': bill_series,
+                }
+                addr = (row.get('rt_add') or '').strip()
+                if addr:
+                    defaults['address_line1'] = addr[:100]
+                phone = (row.get('rt_ph') or '').strip()
+                if phone:
+                    defaults['phone'] = phone[:15]
+                # email is unique — set only if not already used by another retail
+                email = (row.get('rt_email') or '').strip()[:254]
+                if email and not RetailMaster.objects.filter(email=email).exclude(retail_code=rt_code).exists():
+                    defaults['email'] = email
+
+                # state by name, then by code
+                name = (row.get('state_name') or '').strip()
+                code = str(row.get('state_code') or '').strip()
+                st = State.objects.filter(name__iexact=name).first() if name else None
+                if st is None and code and code != '0':
+                    st = State.objects.filter(code=code).first()
+                if st:
+                    defaults['state'] = st
+
+                obj, flag = RetailMaster.objects.update_or_create(
+                    retail_code=rt_code, defaults=defaults,
+                )
+
+                # cash_ldgr is OneToOne — assign only if resolvable and unused
+                ldgr_code = (row.get('ldgr') or '').strip()
+                if ldgr_code.isdigit() and obj.cash_ldgr_id is None:
+                    led = Ledger.objects.filter(id=int(ldgr_code)).first()
+                    if led and not RetailMaster.objects.filter(cash_ldgr=led).exclude(pk=obj.pk).exists():
+                        obj.cash_ldgr = led
+                        obj.save(update_fields=['cash_ldgr'])
+
+                if flag:
+                    created += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                errors.append(f"{row.get('rt_code')}: {e}")
+        return {'created': created, 'updated': updated, 'errors': errors}
+
+    # ── Transactional sync — reuses the legacy import_* management commands ────
+    # NOTE: legacy table names. sales_vou / purchase_voucher / *_amount are
+    # confirmed from the source DB; GL voucher table names (voucher_main /
+    # voucher_details) are the assumed names — a wrong/absent name is reported
+    # gracefully as "missing legacy table", not a crash.
+    _TX_TABLES = {
+        'gl_vouchers': ('import_vouchers',
+                        {'main': ('voucher_main',),
+                         'details': ('voucher_detail', 'voucher_details')},  # legacy uses singular
+                        ['main', 'details']),
+        'sales':       ('import_sales',
+                        {'header': 'sales_vou', 'items': 'sales_vou_main', 'details': 'sales_vou_detail'},
+                        ['header', 'items', 'details']),
+        'purchases':   ('import_purchases',
+                        {'header': 'purchase_voucher', 'items': 'purchase_voucher_main', 'details': 'purchase_voucher_details'},
+                        ['header', 'items', 'details']),
+        'allocations': ('import_voucher_allocations',
+                        {'receive': 'receive_amount', 'payment': 'payment_amount', 'journal': 'journal_amount'},
+                        []),
+    }
+
+    def _sync_transaction(self, cursor, key):
+        """Pull legacy transactional table(s) from MySQL into temp CSVs and run
+        the matching import_* command (apply, continue-on-error)."""
+        import io as _io, os as _os, shutil as _shutil, tempfile as _tempfile
+        import pandas as _pd
+        from django.core.management import call_command as _call
+        from django.core.management.base import CommandError as _CmdErr
+
+        command, file_map, required = self._TX_TABLES[key]
+        tmp = _tempfile.mkdtemp(prefix='mysql_tx_')
+        try:
+            kwargs = {'apply': True, 'continue_on_error': True, 'report_dir': tmp}
+            found = []
+            for cmd_kwarg, table_spec in file_map.items():
+                candidates = [table_spec] if isinstance(table_spec, str) else list(table_spec)
+                rows, used = None, None
+                for tbl in candidates:
+                    try:
+                        cursor.execute(f"SELECT * FROM {tbl}")
+                    except Exception:
+                        continue  # candidate table absent in this DB
+                    rows, used = cursor.fetchall(), tbl
+                    break
+                if not rows:
+                    continue
+                path = _os.path.join(tmp, f"{used}.csv")
+                _pd.DataFrame(rows).to_csv(path, index=False)
+                kwargs[cmd_kwarg] = path
+                found.append(cmd_kwarg)
+
+            missing = [f for f in required if f not in found]
+            if missing:
+                return {'status': 'error', 'error': f"missing legacy table(s): {', '.join(missing)}"}
+            if not found:
+                return {'status': 'error', 'error': 'no source tables found / all empty'}
+
+            buf = _io.StringIO()
+            try:
+                _call(command, stdout=buf, stderr=buf, **kwargs)
+            except _CmdErr as e:
+                return {'status': 'error', 'error': str(e), 'output': buf.getvalue()}
+
+            reports = {}
+            for fn in _os.listdir(tmp):
+                if fn.startswith('unresolved') or fn.startswith('imbalanced'):
+                    with open(_os.path.join(tmp, fn), encoding='utf-8') as r:
+                        reports[fn] = r.read()[:10000]
+            return {'status': 'ok', 'output': buf.getvalue(), 'reports': reports}
+        finally:
+            _shutil.rmtree(tmp, ignore_errors=True)
 
     def _sync_hsn(self, cursor):
         cursor.execute("SELECT hsn_no, description, hsn_type, hsn_per_cgst, hsn_per_igst FROM hsn_master")

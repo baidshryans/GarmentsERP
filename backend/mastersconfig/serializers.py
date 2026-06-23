@@ -269,9 +269,26 @@ class RetailSerializer(ModelSerializer):
     branch_name          = serializers.CharField(source='branch.branch_name', read_only=True, default='')
     gstin_master_str     = serializers.CharField(source='gstin_master.gstin', read_only=True, default='')
     gstin_legal_name     = serializers.CharField(source='gstin_master.legal_name', read_only=True, default='')
+    # Address is optional for exhibition retails (one retail hosts many
+    # exhibitions); enforced for non-exhibition retails in validate().
+    address_line1        = serializers.CharField(required=False, allow_blank=True)
 
     def get_commission_ldgr_name(self, obj):
         return obj.commission_ldgr.ac_name if obj.commission_ldgr else None
+
+    def validate(self, attrs):
+        is_exhibition = attrs.get(
+            'is_exhibition', getattr(self.instance, 'is_exhibition', False)
+        )
+        address = attrs.get(
+            'address_line1',
+            getattr(self.instance, 'address_line1', '') if self.instance else '',
+        )
+        if not is_exhibition and not (address or '').strip():
+            raise serializers.ValidationError(
+                {'address_line1': 'Address is required for non-exhibition retails.'}
+            )
+        return attrs
 
     class Meta:
         model = RetailMaster

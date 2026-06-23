@@ -33,7 +33,10 @@ const emptyForm = {
   clarity: "",
   color: "",
   shape: "",
-  seives: "",
+  sieve_max: "",
+  sieve_min: "",
+  ct_min: "",
+  ct_max: "",
   is_solitaire: false,
   rate_for_retail: "",
   rate_for_wholesale: "",
@@ -96,7 +99,10 @@ export default function PacketMaster() {
     clarity: form.clarity.trim() || null,
     color: form.color ? Number(form.color) : null,
     shape: form.shape ? Number(form.shape) : null,
-    seives: form.seives.trim() || null,
+    sieve_max: form.sieve_max.trim() || null,
+    sieve_min: form.sieve_min.trim() || null,
+    ct_min: form.ct_min !== "" ? Number(form.ct_min) : null,
+    ct_max: form.ct_max !== "" ? Number(form.ct_max) : null,
     is_solitaire: form.is_solitaire,
     rate_for_retail: Number(form.rate_for_retail) || 0,
     rate_for_wholesale: form.rate_for_wholesale ? Number(form.rate_for_wholesale) : null,
@@ -138,7 +144,10 @@ export default function PacketMaster() {
       clarity: row.clarity || "",
       color: fkId(row.color) ? String(fkId(row.color)) : "",
       shape: fkId(row.shape) ? String(fkId(row.shape)) : "",
-      seives: row.seives || "",
+      sieve_max: row.sieve_max || "",
+      sieve_min: row.sieve_min || "",
+      ct_min: row.ct_min != null ? String(row.ct_min) : "",
+      ct_max: row.ct_max != null ? String(row.ct_max) : "",
       is_solitaire: row.is_solitaire || false,
       rate_for_retail: String(row.rate_for_retail ?? ""),
       rate_for_wholesale: row.rate_for_wholesale != null ? String(row.rate_for_wholesale) : "",
@@ -391,14 +400,54 @@ export default function PacketMaster() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <Label className="text-xs">Sieves</Label>
+                <Label className="text-xs">Sieve Max</Label>
                 <Input
-                  name="seives"
-                  value={form.seives}
+                  name="sieve_max"
+                  value={form.sieve_max}
                   onChange={handleChange}
-                  placeholder="e.g. 10/12"
+                  placeholder="e.g. 12"
                   className="h-9"
                   maxLength={10}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Sieve Min</Label>
+                <Input
+                  name="sieve_min"
+                  value={form.sieve_min}
+                  onChange={handleChange}
+                  placeholder="e.g. 10"
+                  className="h-9"
+                  maxLength={10}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">CT Min</Label>
+                <Input
+                  name="ct_min"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.ct_min}
+                  onChange={handleChange}
+                  placeholder="0.000"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">CT Max</Label>
+                <Input
+                  name="ct_max"
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={form.ct_max}
+                  onChange={handleChange}
+                  placeholder="0.000"
+                  className="h-9"
                 />
               </div>
 

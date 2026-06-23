@@ -22,6 +22,9 @@ urlpatterns = [
     path('api/accounts/', include(accounts_router.urls)),
     # path('api/add-journal/', views.AddJournalEntryView.as_view(), name='add_journal_api'),
     path('initial-data/', views.initial_data_view, name='initial_data'),
+    # Legacy data migration (Import Master Data → Transactions tab)
+    path('api/migration/template/', views.MigrationTemplateView.as_view(), name='migration-template'),
+    path('api/migration/<str:kind>/', views.MigrationImportView.as_view(), name='migration-import'),
     path('api/due-payments/',views.PurchaseVoucherView.as_view(),name="due-payments-api"),
     path('api/due-payments/sale/',views.SaleVoucherView.as_view(),name="due-payments-api-sale"),
     path('api/outstanding-bills/', views.OutstandingBillsView.as_view(), name='outstanding-bills'),

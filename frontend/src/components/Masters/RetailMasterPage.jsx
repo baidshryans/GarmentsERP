@@ -331,7 +331,7 @@ export default function RetailMasterPage() {
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
               <div className="flex flex-col gap-1 md:col-span-2">
-                <Label className="text-xs">Address Line 1 *</Label>
+                <Label className="text-xs">Address Line 1 {form.is_exhibition ? "" : "*"}</Label>
                 <Input
                   name="address_line1"
                   value={form.address_line1}
@@ -339,7 +339,7 @@ export default function RetailMasterPage() {
                   placeholder="Street / Door no."
                   className="h-9 text-sm"
                   maxLength={100}
-                  required
+                  required={!form.is_exhibition}
                 />
               </div>
               <div className="flex flex-col gap-1">

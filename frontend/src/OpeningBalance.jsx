@@ -1,4 +1,4 @@
-
+﻿
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Plus, Pencil, Trash2, RefreshCw, TrendingUp, TrendingDown, Scale } from 'lucide-react';
@@ -51,7 +51,7 @@ const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
         }, 250);
     };
 
-    const inputCls = 'h-10 text-sm border-gray-200 focus:border-violet-400 focus:ring-violet-100';
+    const inputCls = 'h-10 text-sm border-gray-200 focus:border-accent-400 focus:ring-accent-100';
 
     const onSubmit = (data) => {
         const amount = parseFloat(data.amount) || 0;
@@ -65,7 +65,7 @@ const EntryForm = ({ activeFyCode, initial, onSave, onClose }) => {
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
-            <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
+            <div className="flex items-center gap-3 px-6 py-4 bg-accent-50 border-b border-accent-100 shrink-0">
                 <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                     {initial ? '✎' : '+'}
                 </span>
@@ -251,17 +251,17 @@ const OpeningBalance = () => {
                         <p className="text-lg font-bold text-red-800 tabular-nums">₹{fmt(grandCr)}</p>
                         <p className="text-[10px] text-red-500 mt-0.5">Liabilities &amp; capital</p>
                     </div>
-                    <div className={`rounded-xl border px-5 py-4 ${diff === 0 ? 'border-violet-100 bg-violet-50' : 'border-amber-100 bg-amber-50'}`}>
+                    <div className={`rounded-xl border px-5 py-4 ${diff === 0 ? 'border-accent-100 bg-accent-50' : 'border-amber-100 bg-amber-50'}`}>
                         <div className="flex items-center gap-1.5 mb-1">
-                            <Scale className={`size-3 ${diff === 0 ? 'text-violet-500' : 'text-amber-500'}`} />
-                            <p className={`text-[10px] font-semibold uppercase tracking-widest ${diff === 0 ? 'text-violet-600' : 'text-amber-600'}`}>
+                            <Scale className={`size-3 ${diff === 0 ? 'text-accent-500' : 'text-amber-500'}`} />
+                            <p className={`text-[10px] font-semibold uppercase tracking-widest ${diff === 0 ? 'text-accent-600' : 'text-amber-600'}`}>
                                 Difference
                             </p>
                         </div>
-                        <p className={`text-lg font-bold tabular-nums ${diff === 0 ? 'text-violet-800' : 'text-amber-800'}`}>
+                        <p className={`text-lg font-bold tabular-nums ${diff === 0 ? 'text-accent-800' : 'text-amber-800'}`}>
                             ₹{fmt(diff)}
                         </p>
-                        <p className={`text-[10px] mt-0.5 ${diff === 0 ? 'text-violet-500' : 'text-amber-500'}`}>
+                        <p className={`text-[10px] mt-0.5 ${diff === 0 ? 'text-accent-500' : 'text-amber-500'}`}>
                             {diff === 0 ? 'Balanced' : diff > 0 ? `Dr exceeds Cr by ₹${fmt(diff)}` : `Cr exceeds Dr by ₹${fmt(diff)}`}
                         </p>
                     </div>
@@ -278,10 +278,10 @@ const OpeningBalance = () => {
             )}
 
             {!loading && balances.length === 0 && (
-                <div className="rounded-xl border border-violet-100 bg-white shadow-sm">
+                <div className="rounded-xl border border-accent-100 bg-white shadow-sm">
                     <div className="flex flex-col items-center gap-4 py-16 text-center">
-                        <div className="size-12 rounded-full bg-violet-50 flex items-center justify-center">
-                            <TrendingUp className="size-6 text-violet-300" />
+                        <div className="size-12 rounded-full bg-accent-50 flex items-center justify-center">
+                            <TrendingUp className="size-6 text-accent-300" />
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-600">No opening balances yet</p>
@@ -304,9 +304,9 @@ const OpeningBalance = () => {
                 const totalCr = rows.reduce((s, r) => s + (Number(r.credit) || 0), 0);
 
                 return (
-                    <div key={year} className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden mb-4">
+                    <div key={year} className="rounded-xl border border-accent-100 bg-white shadow-sm overflow-hidden mb-4">
                         {/* Year header */}
-                        <div className="flex items-center justify-between px-6 py-3 bg-violet-50 border-b border-violet-100">
+                        <div className="flex items-center justify-between px-6 py-3 bg-accent-50 border-b border-accent-100">
                             <div className="flex items-center gap-3">
                                 <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                                     {year.slice(0, 2)}
@@ -338,7 +338,7 @@ const OpeningBalance = () => {
                             </thead>
                             <tbody>
                                 {rows.map((row, idx) => (
-                                    <tr key={row.id} className={`group border-b border-gray-50 last:border-0 hover:bg-violet-50/40 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
+                                    <tr key={row.id} className={`group border-b border-gray-50 last:border-0 hover:bg-accent-50/40 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
                                         <td className="px-6 py-3 font-medium text-gray-800">{row.ledger_name}</td>
                                         <td className="px-4 py-3 text-right tabular-nums">
                                             {Number(row.debit) > 0 ? (
@@ -358,7 +358,7 @@ const OpeningBalance = () => {
                                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => openEdit(row)}
-                                                    className="p-1.5 rounded hover:bg-violet-100 text-primary transition-colors"
+                                                    className="p-1.5 rounded hover:bg-accent-100 text-primary transition-colors"
                                                     title="Edit"
                                                 >
                                                     <Pencil className="w-3.5 h-3.5" />

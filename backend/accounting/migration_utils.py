@@ -191,10 +191,18 @@ def resolve_ledger(code):
     return Ledger.objects.filter(id=i).first() if i is not None else None
 
 
+def norm_id(v):
+    """Normalize an id-ish value to a clean integer string ('368.0' -> '368');
+    pymysql returns ints as floats, so this keeps legacy keys/numbers tidy.
+    Returns the cleaned original when not numeric."""
+    i = to_int(v)
+    return str(i) if i is not None else clean(v)
+
+
 def resolve_ac_voucher(v_typ, v_id, ac_yr, rt_code):
     """Resolve a legacy (v_typ, v_id, ac_yr, rt_code) GL voucher to its
     imported VoucherMain via legacy_key. Returns None if not found."""
     if not clean(v_id):
         return None
-    key = f"{clean(v_typ)}:{clean(v_id)}:{clean(ac_yr)}:{clean(rt_code)}"
+    key = f"{clean(v_typ)}:{norm_id(v_id)}:{clean(ac_yr)}:{clean(rt_code)}"
     return VoucherMain.objects.filter(legacy_key=key).first()

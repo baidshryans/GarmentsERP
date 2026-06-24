@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,7 @@ function Section({ title, badge, children }) {
           {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           {title}
           {badge != null && (
-            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-violet-100 text-primary font-semibold">
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] bg-accent-100 text-primary font-semibold">
               {badge}
             </span>
           )}
@@ -94,7 +94,7 @@ function B2BTable({ data }) {
                 <TD right bold>{fmt(r.val)}</TD>
               </tr>
             ))}
-            <tr className="bg-violet-50 font-semibold">
+            <tr className="bg-accent-50 font-semibold">
               <TD bold colSpan={4}>Total</TD>
               <TD right bold>{fmt(total)}</TD>
               <TD colSpan={4}></TD>

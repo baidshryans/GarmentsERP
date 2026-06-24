@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -712,14 +712,14 @@ useEffect(() => {
                     <TableCell className="px-3 py-2 w-44">
                       {row._co_display ? (
                         <div
-                          className="inline-flex flex-col gap-0.5 max-w-full rounded-md border border-violet-200 bg-violet-50 px-2 py-1 leading-tight"
+                          className="inline-flex flex-col gap-0.5 max-w-full rounded-md border border-accent-200 bg-accent-50 px-2 py-1 leading-tight"
                           title={`Linked to Customer Order ${row._co_display.co_no}\nCustomer: ${row._co_display.customer_name ?? ''}\nCO Sl No: ${row._co_display.sl_no ?? '—'}${row._co_display.co_date ? `\nCO Date: ${row._co_display.co_date}` : ''}`}
                         >
-                          <span className="flex items-center gap-1 text-[11px] font-semibold text-violet-800 truncate">
+                          <span className="flex items-center gap-1 text-[11px] font-semibold text-accent-800 truncate">
                             <Link2 className="size-3 shrink-0" />
                             {row._co_display.co_no}
                           </span>
-                          <span className="text-[10px] text-violet-700/80 truncate">
+                          <span className="text-[10px] text-accent-700/80 truncate">
                             {row._co_display.customer_name ?? '—'} · Sl {row._co_display.sl_no ?? '—'}
                           </span>
                         </div>

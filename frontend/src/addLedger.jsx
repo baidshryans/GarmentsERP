@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useForm, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
@@ -238,7 +238,7 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode, allowFa = false
                 className={`group flex items-center gap-2 py-2 pr-3 rounded-lg transition-colors relative ${
                     isBlocked ? 'opacity-40 cursor-not-allowed' :
                     isSuggested ? 'bg-green-50 ring-1 ring-green-300 hover:bg-green-100 cursor-pointer' :
-                    'hover:bg-violet-50 cursor-pointer'
+                    'hover:bg-accent-50 cursor-pointer'
                 }`}
                 style={{ paddingLeft: `${indent + 8}px` }}
                 onClick={handleClick}
@@ -247,7 +247,7 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode, allowFa = false
                 {hasChildren ? (
                     <button
                         type="button"
-                        className="shrink-0 size-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
+                        className="shrink-0 size-5 flex items-center justify-center rounded hover:bg-accent-100 text-primary"
                         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
                     >
                         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -259,12 +259,12 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode, allowFa = false
                 )}
                 {hasChildren
                     ? open
-                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
-                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
+                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-accent-400'}`} />
+                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-accent-400'}`} />
                     : null
                 }
                 {node.code && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-violet-200 text-primary' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-accent-200 text-primary' : 'bg-gray-100 text-gray-500'}`}>
                         {node.code}
                     </span>
                 )}
@@ -295,7 +295,7 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode, allowFa = false
                 )}
             </div>
             {open && hasChildren && (
-                <div className={level === 0 ? 'ml-3 border-l border-violet-100 pl-1 mb-1' : 'ml-3 border-l border-gray-100 pl-1'}>
+                <div className={level === 0 ? 'ml-3 border-l border-accent-100 pl-1 mb-1' : 'ml-3 border-l border-gray-100 pl-1'}>
                     {node.children.map(child => (
                         <GroupPickerNode key={child.id} node={child} level={level + 1} onSelect={isBlocked ? () => {} : onSelect} suggestedCode={suggestedCode} allowFa={allowFa} />
                     ))}
@@ -308,9 +308,9 @@ const GroupPickerNode = ({ node, level, onSelect, suggestedCode, allowFa = false
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
 const SectionCard = ({ number, title, children }) => (
-    <div className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-accent-100 bg-white shadow-sm overflow-hidden">
         {/* Card header */}
-        <div className="flex items-center gap-3 px-7 py-4 bg-violet-50 border-b border-violet-100">
+        <div className="flex items-center gap-3 px-7 py-4 bg-accent-50 border-b border-accent-100">
             <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">
                 {number}
             </span>
@@ -768,8 +768,8 @@ const LedgerForm = () => {
         setRoleLoading(null);
     };
 
-    const inputCls = "h-10 text-sm border-gray-200 focus:border-violet-400 focus:ring-violet-100";
-    const triggerCls = "h-10 text-sm border-gray-200 focus:border-violet-400";
+    const inputCls = "h-10 text-sm border-gray-200 focus:border-accent-400 focus:ring-accent-100";
+    const triggerCls = "h-10 text-sm border-gray-200 focus:border-accent-400";
 
     return (
         <div className="max-w-4xl mx-auto pb-12">
@@ -938,12 +938,12 @@ const LedgerForm = () => {
                             const blockedByExclusive = hasExclusiveActive && !isChecked;
 
                             // Party roles use violet when active; account roles use slate
-                            const activeCard   = isAccount ? 'bg-slate-50 border-slate-300 shadow-sm'        : 'bg-violet-50 border-violet-300 shadow-sm';
-                            const activeCircle = isAccount ? 'bg-slate-100'                                   : 'bg-violet-100';
-                            const activeIcon   = isAccount ? 'text-slate-500'                                 : 'text-violet-600';
-                            const activeName   = isAccount ? 'text-slate-600'                                 : 'text-violet-700';
-                            const activeDesc   = isAccount ? 'text-slate-400'                                 : 'text-violet-400';
-                            const activeTick   = isAccount ? 'text-slate-400'                                 : 'text-violet-500';
+                            const activeCard   = isAccount ? 'bg-slate-50 border-slate-300 shadow-sm'        : 'bg-accent-50 border-accent-300 shadow-sm';
+                            const activeCircle = isAccount ? 'bg-slate-100'                                   : 'bg-accent-100';
+                            const activeIcon   = isAccount ? 'text-slate-500'                                 : 'text-accent-600';
+                            const activeName   = isAccount ? 'text-slate-600'                                 : 'text-accent-700';
+                            const activeDesc   = isAccount ? 'text-slate-400'                                 : 'text-accent-400';
+                            const activeTick   = isAccount ? 'text-slate-400'                                 : 'text-accent-500';
 
                             return (
                                 <button
@@ -1026,7 +1026,7 @@ const LedgerForm = () => {
                                                     onClick={() => handleSetPrimary(code)}
                                                     className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                                                         isPrimary
-                                                            ? 'bg-violet-600 text-white shadow-sm cursor-default'
+                                                            ? 'bg-accent-600 text-white shadow-sm cursor-default'
                                                             : 'bg-gray-100 text-gray-500 hover:bg-gray-200 cursor-pointer'
                                                     }`}
                                                 >
@@ -1050,7 +1050,7 @@ const LedgerForm = () => {
                                 Account Group <span className="text-red-400">*</span>
                             </p>
                             {groupAutoFilled && (
-                                <span className="text-[10px] text-violet-500 font-medium flex items-center gap-1">
+                                <span className="text-[10px] text-accent-500 font-medium flex items-center gap-1">
                                     <CheckCircle2 className="size-3" /> Auto-set from role — you can override
                                 </span>
                             )}
@@ -1068,14 +1068,14 @@ const LedgerForm = () => {
                                             onClick={() => setPickerOpen(true)}
                                             className={`w-full h-11 flex items-center gap-2 px-3 rounded-md border text-sm text-left transition-colors focus:outline-none ${
                                                 selected
-                                                    ? 'border-violet-200 bg-violet-50 hover:border-violet-400'
-                                                    : 'border-gray-200 bg-white hover:border-violet-400'
+                                                    ? 'border-accent-200 bg-accent-50 hover:border-accent-400'
+                                                    : 'border-gray-200 bg-white hover:border-accent-400'
                                             }`}
                                         >
                                             {selected ? (
                                                 <>
                                                     {selected.code && (
-                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-primary tracking-wider shrink-0">
+                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-100 text-primary tracking-wider shrink-0">
                                                             {selected.code}
                                                         </span>
                                                     )}
@@ -1099,7 +1099,7 @@ const LedgerForm = () => {
                                                     acGroupBtnRef.current?.focus();
                                                 }}
                                             >
-                                                <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
+                                                <div className="flex items-center gap-3 px-6 py-4 bg-accent-50 border-b border-accent-100 shrink-0">
                                                     <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                                                     <div>
                                                         <p className="text-sm font-bold text-primary tracking-widest uppercase">Select Account Group</p>
@@ -1107,7 +1107,7 @@ const LedgerForm = () => {
                                                     </div>
                                                 </div>
                                                 {spellCheckEnabled && (
-                                                    <div className="px-3 pt-3 pb-2 shrink-0 border-b border-violet-50">
+                                                    <div className="px-3 pt-3 pb-2 shrink-0 border-b border-accent-50">
                                                         <div className="relative">
                                                             <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                                                             <input
@@ -1115,7 +1115,7 @@ const LedgerForm = () => {
                                                                 value={groupSearch}
                                                                 onChange={e => setGroupSearch(e.target.value)}
                                                                 placeholder="Search groups…"
-                                                                className="w-full h-9 pl-8 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:border-violet-400"
+                                                                className="w-full h-9 pl-8 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:border-accent-400"
                                                                 autoFocus
                                                             />
                                                         </div>
@@ -1136,7 +1136,7 @@ const LedgerForm = () => {
                                                                         key={acc.id}
                                                                         type="button"
                                                                         onClick={() => handleGroupPickerSelect(acc)}
-                                                                        className={`w-full flex items-center gap-2 py-2 px-3 rounded-lg text-left transition-colors ${_isSugg ? 'bg-green-50 ring-1 ring-green-300 hover:bg-green-100' : 'hover:bg-violet-50'}`}
+                                                                        className={`w-full flex items-center gap-2 py-2 px-3 rounded-lg text-left transition-colors ${_isSugg ? 'bg-green-50 ring-1 ring-green-300 hover:bg-green-100' : 'hover:bg-accent-50'}`}
                                                                         title={_hint || undefined}
                                                                     >
                                                                         {acc.code && (
@@ -1531,7 +1531,7 @@ const LedgerForm = () => {
                                     type="date"
                                     value={faDetails.purchase_date}
                                     onChange={e => setFaDetails(d => ({ ...d, purchase_date: e.target.value }))}
-                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                    className="h-10 text-sm border-gray-200 focus:border-accent-400"
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -1545,7 +1545,7 @@ const LedgerForm = () => {
                                     placeholder="0.00"
                                     value={faDetails.purchase_cost}
                                     onChange={e => setFaDetails(d => ({ ...d, purchase_cost: e.target.value }))}
-                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                    className="h-10 text-sm border-gray-200 focus:border-accent-400"
                                 />
                             </div>
                         </div>
@@ -1563,7 +1563,7 @@ const LedgerForm = () => {
                                     placeholder="0"
                                     value={faDetails.residual_value}
                                     onChange={e => setFaDetails(d => ({ ...d, residual_value: e.target.value }))}
-                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                    className="h-10 text-sm border-gray-200 focus:border-accent-400"
                                 />
                             </div>
                             <div className="flex flex-col gap-1.5">
@@ -1577,7 +1577,7 @@ const LedgerForm = () => {
                                         setFaDetails(d => ({ ...d, it_block_category: v, rate_or_life: String(defaultRate) }));
                                     }}
                                 >
-                                    <SelectTrigger className="h-10 text-sm border-gray-200 focus:border-violet-400">
+                                    <SelectTrigger className="h-10 text-sm border-gray-200 focus:border-accent-400">
                                         <SelectValue placeholder="Select category…" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -1626,7 +1626,7 @@ const LedgerForm = () => {
                                     placeholder={faDetails.depreciation_method === 'WDV' ? 'e.g. 15' : 'e.g. 5'}
                                     value={faDetails.rate_or_life}
                                     onChange={e => setFaDetails(d => ({ ...d, rate_or_life: e.target.value }))}
-                                    className="h-10 text-sm border-gray-200 focus:border-violet-400"
+                                    className="h-10 text-sm border-gray-200 focus:border-accent-400"
                                 />
                             </div>
                         </div>
@@ -1641,7 +1641,7 @@ const LedgerForm = () => {
                                 placeholder="Optional notes about this asset…"
                                 value={faDetails.description}
                                 onChange={e => setFaDetails(d => ({ ...d, description: e.target.value }))}
-                                className="w-full px-3 py-2 text-sm rounded-md border border-gray-200 focus:outline-none focus:border-violet-400 resize-none"
+                                className="w-full px-3 py-2 text-sm rounded-md border border-gray-200 focus:outline-none focus:border-accent-400 resize-none"
                             />
                         </div>
                     </div>

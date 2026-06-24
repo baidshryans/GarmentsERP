@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -394,9 +394,9 @@ const SalesApprovalAdd = () => {
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || (
-                  <span className="text-violet-400 text-xs font-normal">
+                  <span className="text-accent-400 text-xs font-normal">
                     Auto-generating…
                   </span>
                 )}
@@ -562,7 +562,7 @@ const SalesApprovalAdd = () => {
           <Table>
             <TableBody>
               {/* Header row — Packet comes right after Item (col 3) */}
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 {[
                   { h: "Barcode" },
                   { h: "Item" },
@@ -594,7 +594,7 @@ const SalesApprovalAdd = () => {
               {fields.map((field, index) => (
                 <React.Fragment key={field.id}>
                   {/* Main item row */}
-                  <TableRow className="bg-violet-50/60">
+                  <TableRow className="bg-accent-50/60">
                     <TableCell className="px-3 py-1 border text-xs">{field?.barcode}</TableCell>
                     <TableCell className="px-3 py-1 border text-xs font-medium">
                       {field?.item_name || field?.item}
@@ -716,7 +716,7 @@ const SalesApprovalAdd = () => {
                 <div
                   key={i}
                   className={`flex items-center justify-between px-4 py-1.5 ${
-                    row.bold ? "bg-violet-50 font-bold" : "odd:bg-gray-50/50"
+                    row.bold ? "bg-accent-50 font-bold" : "odd:bg-gray-50/50"
                   }`}
                 >
                   <span className="text-xs text-gray-600 whitespace-nowrap">{row.label}</span>

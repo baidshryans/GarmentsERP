@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag, Package, ArrowRightLeft } from "lucide-react";
 import TransactionsImport from "./TransactionsImportCard";
 import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers, downloadOpeningStockTemplate, uploadOpeningStockCSV } from "@/services/apiService";
@@ -247,7 +247,7 @@ function LedgerUploadCard({ type, label, hint }) {
             type="button"
             onClick={handleDownload}
             disabled={downloading}
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-accent-300 bg-accent-50 hover:bg-accent-100 text-primary disabled:opacity-50 transition-colors"
           >
             {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             {downloading ? "…" : "Template"}
@@ -337,7 +337,7 @@ function OpeningStockUploadCard() {
             type="button"
             onClick={handleDownload}
             disabled={downloading}
-            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-accent-300 bg-accent-50 hover:bg-accent-100 text-primary disabled:opacity-50 transition-colors"
           >
             {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             {downloading ? "…" : "Template"}
@@ -405,6 +405,10 @@ function MySQLSyncCard() {
 
   const setField = (k) => (e) => setConn(prev => ({ ...prev, [k]: e.target.value }));
   const toggleTable = (key) => setSelectedTables((prev) => ({ ...prev, [key]: !prev[key] }));
+  const setGroup = (tables, value) =>
+    setSelectedTables((prev) => ({ ...prev, ...Object.fromEntries(tables.map(({ key }) => [key, value])) }));
+  const allOn = (tables) => tables.every(({ key }) => selectedTables[key]);
+  const selectedCount = Object.values(selectedTables).filter(Boolean).length;
 
   const handleSync = async () => {
     if (!conn.database.trim()) {
@@ -433,7 +437,7 @@ function MySQLSyncCard() {
   const inputCls = "h-8 w-full rounded border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary";
 
   return (
-    <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 shadow-sm space-y-4">
+    <div className="rounded-lg border border-accent-200 bg-accent-50 p-4 shadow-sm space-y-4">
       <div className="flex items-center gap-1.5">
         <Database size={15} className="text-primary" />
         <h3 className="font-semibold text-gray-800 text-sm">MySQL Sync</h3>
@@ -481,36 +485,56 @@ function MySQLSyncCard() {
       )}
 
       {/* Table selection */}
-      <div>
-        <p className="text-xs text-gray-500 font-medium mb-1.5">Tables to sync</p>
-        <div className="flex flex-wrap gap-3">
-          {SYNC_MASTER_TABLES.map(({ key, label }) => (
-            <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
-              <input type="checkbox" checked={!!selectedTables[key]} onChange={() => toggleTable(key)} className="rounded" />
-              <span>{label}</span>
-            </label>
-          ))}
-        </div>
-        <p className="text-xs font-medium text-gray-500 mt-3 mb-1">Transactions <span className="font-normal">(sync after masters)</span></p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {TX_SYNC_TABLES.map(({ key, label }) => (
-            <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
-              <input type="checkbox" checked={!!selectedTables[key]} onChange={() => toggleTable(key)} className="rounded" />
-              <span>{label}</span>
-            </label>
-          ))}
-        </div>
+      <div className="space-y-3">
+        {[
+          { title: "Master data", note: null, tables: SYNC_MASTER_TABLES, cols: "sm:grid-cols-3" },
+          { title: "Transactions", note: "sync after masters", tables: TX_SYNC_TABLES, cols: "sm:grid-cols-2" },
+        ].map(({ title, note, tables, cols }) => (
+          <div key={title}>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs font-semibold text-gray-700">
+                {title}
+                {note && <span className="font-normal text-gray-400"> · {note}</span>}
+              </p>
+              <button
+                type="button"
+                onClick={() => setGroup(tables, !allOn(tables))}
+                className="text-[11px] font-medium text-primary hover:underline"
+              >
+                {allOn(tables) ? "Clear all" : "Select all"}
+              </button>
+            </div>
+            <div className={`grid grid-cols-2 ${cols} gap-1 rounded-md border border-gray-200 bg-white p-2`}>
+              {tables.map(({ key, label }) => (
+                <label
+                  key={key}
+                  className={`flex items-center gap-2 text-xs cursor-pointer select-none rounded px-2 py-1.5 transition-colors ${
+                    selectedTables[key] ? "bg-accent-50 text-gray-800" : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!selectedTables[key]}
+                    onChange={() => toggleTable(key)}
+                    className="rounded accent-accent-600"
+                  />
+                  <span className="truncate">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Sync button */}
       <button
         type="button"
         onClick={handleSync}
-        disabled={status === "loading"}
-        className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-md bg-primary text-white disabled:opacity-50 transition-colors"
+        disabled={status === "loading" || selectedCount === 0}
+        className="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-md bg-primary text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {status === "loading" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-        {status === "loading" ? "Syncing…" : "Sync Now"}
+        {status === "loading" ? "Syncing…" : `Sync Now${selectedCount ? ` (${selectedCount})` : ""}`}
       </button>
 
       {/* Feedback */}
@@ -571,7 +595,7 @@ function SeedSystemLedgersCard() {
   };
 
   return (
-    <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 shadow-sm flex items-start justify-between gap-4">
+    <div className="rounded-lg border border-accent-200 bg-accent-50 p-4 shadow-sm flex items-start justify-between gap-4">
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-gray-800 flex items-center gap-1.5">
           <Wand2 size={15} className="text-primary" />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -204,7 +204,7 @@ export default function CompanyMasterPage() {
       header: "Branches",
       accessorKey: "branch_count",
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-primary">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-100 text-primary">
           <GitBranch className="size-3" />
           {row.original.branch_count ?? 0}
         </span>
@@ -527,8 +527,8 @@ export default function CompanyMasterPage() {
           {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
         </div>
       ) : rows.length === 0 && !showForm ? (
-        <div className="rounded-lg border border-dashed border-violet-200 bg-violet-50/40 p-10 text-center">
-          <Building2 className="mx-auto size-8 text-violet-300 mb-2" />
+        <div className="rounded-lg border border-dashed border-accent-200 bg-accent-50/40 p-10 text-center">
+          <Building2 className="mx-auto size-8 text-accent-300 mb-2" />
           <p className="text-sm font-medium text-gray-600">No company set up yet</p>
           <p className="text-xs text-gray-400 mt-1">
             Create your company record to have its details appear on all printed invoices.

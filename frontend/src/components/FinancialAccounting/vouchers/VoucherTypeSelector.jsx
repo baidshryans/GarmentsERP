@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+﻿import { useNavigate } from "react-router-dom";
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BookOpen } from "lucide-react";
 
 const VOUCHER_TYPES = [
@@ -29,8 +29,8 @@ const VOUCHER_TYPES = [
     icon: ArrowLeftRight,
     description: "Transfer funds between cash and bank accounts, or between two bank accounts.",
     color: "text-primary",
-    bg: "bg-violet-50 hover:bg-violet-100 border-violet-200",
-    iconBg: "bg-violet-100",
+    bg: "bg-accent-50 hover:bg-accent-100 border-accent-200",
+    iconBg: "bg-accent-100",
   },
   {
     type: "JRNL",
@@ -39,8 +39,8 @@ const VOUCHER_TYPES = [
     icon: BookOpen,
     description: "General accounting entries — adjustments, provisions, depreciation, and corrections.",
     color: "text-primary",
-    bg: "bg-violet-50 hover:bg-violet-100 border-violet-200",
-    iconBg: "bg-violet-100",
+    bg: "bg-accent-50 hover:bg-accent-100 border-accent-200",
+    iconBg: "bg-accent-100",
   },
 ];
 

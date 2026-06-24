@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -123,7 +123,7 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
               type="button"
               disabled={hasOrder}
               onClick={() => setStep("to-unbarcoded")}
-              className="text-left p-3 rounded border hover:bg-violet-50/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-start gap-3"
+              className="text-left p-3 rounded border hover:bg-accent-50/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-start gap-3"
               title={hasOrder ? "Release from order first" : ""}
             >
               <Repeat2 className="text-primary mt-0.5" size={20} />
@@ -137,7 +137,7 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
               type="button"
               disabled={hasOrder}
               onClick={() => setStep("to-order")}
-              className="text-left p-3 rounded border hover:bg-violet-50/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-start gap-3"
+              className="text-left p-3 rounded border hover:bg-accent-50/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-start gap-3"
               title={hasOrder ? "Already assigned to an order — release first" : ""}
             >
               <ArrowRightCircle className="text-primary mt-0.5" size={20} />
@@ -198,7 +198,7 @@ export default function BarcodeTransferDialog({ open, barcode, onClose, onDone, 
                     type="button"
                     disabled={submitting}
                     onClick={() => handleTransferToOrder(o)}
-                    className="w-full text-left p-3 hover:bg-violet-50/40 disabled:opacity-50 flex items-center justify-between"
+                    className="w-full text-left p-3 hover:bg-accent-50/40 disabled:opacity-50 flex items-center justify-between"
                   >
                     <div>
                       <div className="font-medium">#{o.order_no || o.id}</div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+﻿import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -321,7 +321,7 @@ export default function KarigarMetalLedger() {
 
                       return (
                         <React.Fragment key={`${karigar.id}-${purity}`}>
-                          <tr className="bg-violet-50/60 border-t border-violet-100">
+                          <tr className="bg-accent-50/60 border-t border-accent-100">
                             <td colSpan={9} className="px-3 py-1.5 text-xs font-semibold text-primary">
                               {karigar.ac_name} — {purityLabel(purity)}
                             </td>

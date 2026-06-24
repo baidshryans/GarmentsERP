@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                 key={i}
                 className={`flex items-center justify-between px-6 ${
                   isTotal
-                    ? 'py-3.5 bg-violet-50 dark:bg-violet-950/20'
+                    ? 'py-3.5 bg-accent-50 dark:bg-accent-950/20'
                     : isEditable
                     ? 'py-2'
                     : 'py-2.5'
@@ -63,7 +63,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                 <span
                   className={`text-sm whitespace-nowrap pr-6 ${
                     isTotal
-                      ? 'font-bold text-primary dark:text-violet-300'
+                      ? 'font-bold text-primary dark:text-accent-300'
                       : isEditable
                       ? 'text-foreground/70 font-medium'
                       : 'text-muted-foreground'
@@ -77,14 +77,14 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                     <Input
                       type="text"
                       placeholder={row.captionPlaceholder || "Charge name"}
-                      className="w-32 h-7 text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400"
+                      className="w-32 h-7 text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-accent-400"
                       {...register(row.captionField)}
                     />
                     <Input
                       type="number"
                       step={row.step || '0.01'}
                       disabled={!watch?.(row.captionField)}
-                      className="w-24 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-24 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-accent-400 disabled:opacity-40 disabled:cursor-not-allowed"
                       {...register(row.field, { setValueAs: v => (v === "" || v === null || v === undefined ? 0 : parseFloat(v) || 0) })}
                     />
                   </div>
@@ -93,14 +93,14 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                     <Input
                       type="number"
                       step="0.01"
-                      className="w-36 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400 font-bold text-primary"
+                      className="w-36 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-accent-400 font-bold text-primary"
                       {...register(row.field, { valueAsNumber: true })}
                     />
                     <Button
                       type="button"
                       size="icon"
                       variant="outline"
-                      className="size-7 shrink-0 border-violet-300 text-primary hover:bg-violet-50"
+                      className="size-7 shrink-0 border-accent-300 text-primary hover:bg-accent-50"
                       onClick={onAutoCalc}
                       title="Auto-calculate Discount & GST from this total"
                     >
@@ -111,7 +111,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                   <Input
                     type="number"
                     step={row.step || '0.01'}
-                    className="w-36 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-violet-400"
+                    className="w-36 h-7 text-right text-sm py-0 px-2 bg-muted/30 border-border/60 focus-visible:ring-primary focus-visible:border-accent-400"
                     {...register(row.field, { setValueAs: v => (v === "" || v === null || v === undefined ? 0 : parseFloat(v) || 0) })}
                   />
                 ) : (
@@ -120,7 +120,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                     <span
                       className={`tabular-nums text-right ${
                         isTotal
-                          ? 'text-base font-bold text-primary dark:text-violet-300'
+                          ? 'text-base font-bold text-primary dark:text-accent-300'
                           : 'text-sm font-semibold text-foreground/80'
                       }`}
                     >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -324,7 +324,7 @@ export default function GoldLedgerBalances() {
       {/* ── Compact Filter Card ── */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         {/* Title bar */}
-        <div className="px-5 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-violet-500/5 flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-border bg-gradient-to-r from-primary/5 to-accent-500/5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary/10 p-1.5">
               <Scale className="size-4 text-primary" />
@@ -536,7 +536,7 @@ export default function GoldLedgerBalances() {
                     Karigar
                   </th>
                   {purityKeys.map(({ label }) => (
-                    <th key={label} colSpan={6} className="px-2 py-1.5 text-center text-xs font-bold border-b border-border border-l border-violet-200 bg-violet-100 text-violet-800 whitespace-nowrap">
+                    <th key={label} colSpan={6} className="px-2 py-1.5 text-center text-xs font-bold border-b border-border border-l border-accent-200 bg-accent-100 text-accent-800 whitespace-nowrap">
                       {label}
                     </th>
                   ))}
@@ -544,7 +544,7 @@ export default function GoldLedgerBalances() {
                 <tr className="bg-muted/60">
                   {purityKeys.map(({ label }) => (
                     <React.Fragment key={label}>
-                      <TH className="border-l border-violet-200">Opening</TH>
+                      <TH className="border-l border-accent-200">Opening</TH>
                       <TH>Issued</TH>
                       <TH>Received</TH>
                       <TH>Wastage</TH>
@@ -566,14 +566,14 @@ export default function GoldLedgerBalances() {
                       if (!pd) return (
                         <React.Fragment key={key}>
                           {[...Array(6)].map((_, i) => (
-                            <TD key={i} className={i === 0 ? "border-l border-violet-200 text-muted-foreground/40" : "text-muted-foreground/40"}>—</TD>
+                            <TD key={i} className={i === 0 ? "border-l border-accent-200 text-muted-foreground/40" : "text-muted-foreground/40"}>—</TD>
                           ))}
                         </React.Fragment>
                       );
                       const { opening, periodIssued, periodNW, periodWaste, periodAdd, closing } = computeBalances(pd);
                       return (
                         <React.Fragment key={key}>
-                          <TD className="border-l border-violet-200">{fmt(opening)}</TD>
+                          <TD className="border-l border-accent-200">{fmt(opening)}</TD>
                           <TD>{fmt(periodIssued)}</TD>
                           <TD>{fmt(periodNW)}</TD>
                           <TD>{fmt(periodWaste)}</TD>
@@ -589,18 +589,18 @@ export default function GoldLedgerBalances() {
               </tbody>
 
               <tfoot>
-                <tr className="bg-gradient-to-r from-violet-50 to-indigo-50 border-t-2 border-violet-300">
-                  <td className="px-3 py-2.5 text-xs font-bold text-primary border-b border-violet-200 sticky left-0 bg-gradient-to-r from-violet-50 to-violet-50 z-10">
+                <tr className="bg-gradient-to-r from-accent-50 to-indigo-50 border-t-2 border-accent-300">
+                  <td className="px-3 py-2.5 text-xs font-bold text-primary border-b border-accent-200 sticky left-0 bg-gradient-to-r from-accent-50 to-accent-50 z-10">
                     Grand Total
                   </td>
                   {grandTotals.map((tot, pi) => (
                     <React.Fragment key={pi}>
-                      <TD className="border-l border-violet-200 font-bold text-primary">{fmt(tot.opening)}</TD>
+                      <TD className="border-l border-accent-200 font-bold text-primary">{fmt(tot.opening)}</TD>
                       <TD className="font-bold text-primary">{fmt(tot.periodIssued)}</TD>
                       <TD className="font-bold text-primary">{fmt(tot.periodNW)}</TD>
                       <TD className="font-bold text-primary">{fmt(tot.periodWaste)}</TD>
                       <TD className="font-bold text-primary">{fmt(tot.periodAdd)}</TD>
-                      <td className="px-2.5 py-2.5 text-right border-b border-violet-200">
+                      <td className="px-2.5 py-2.5 text-right border-b border-accent-200">
                         <ClosingBadge value={tot.closing} />
                       </td>
                     </React.Fragment>

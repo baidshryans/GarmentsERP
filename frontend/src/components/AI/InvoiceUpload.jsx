@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+﻿import { useState, useRef } from "react";
 import { Paperclip, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { parseInvoice } from "@/services/apiService";
 
@@ -79,7 +79,7 @@ export default function InvoiceUpload({ onExtracted }) {
       )}
 
       {status === "loading" && (
-        <div className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-violet-200 bg-violet-50 text-primary">
+        <div className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-accent-200 bg-accent-50 text-primary">
           <Loader2 size={13} className="animate-spin" />
           <span className="truncate max-w-36">{message}</span>
         </div>

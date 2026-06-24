@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -146,7 +146,7 @@ function FiscalYearManager() {
 
       {/* Create Form */}
       {showForm && (
-        <div className="rounded-xl border border-violet-100 bg-violet-50 p-6 mb-6 space-y-4">
+        <div className="rounded-xl border border-accent-100 bg-accent-50 p-6 mb-6 space-y-4">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest">Create Fiscal Year</p>
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -203,10 +203,10 @@ function FiscalYearManager() {
               key={fy.id}
               className={`flex items-center justify-between rounded-xl border p-5 transition-colors ${
                 fy.is_active
-                  ? 'border-violet-300 bg-violet-50 shadow-sm'
+                  ? 'border-accent-300 bg-accent-50 shadow-sm'
                   : fy.is_closed
                   ? 'border-gray-200 bg-gray-50'
-                  : 'border-gray-200 bg-white hover:border-violet-200'
+                  : 'border-gray-200 bg-white hover:border-accent-200'
               }`}
             >
               <div className="flex items-center gap-4">
@@ -215,7 +215,7 @@ function FiscalYearManager() {
                     ? 'bg-primary text-white'
                     : fy.is_closed
                     ? 'bg-gray-300 text-gray-600'
-                    : 'bg-violet-100 text-primary'
+                    : 'bg-accent-100 text-primary'
                 }`}>
                   {fy.fy_code}
                 </div>
@@ -223,7 +223,7 @@ function FiscalYearManager() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-900">FY {fy.fy_code}</span>
                     {fy.is_active && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-200 text-primary uppercase tracking-wider">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent-200 text-primary uppercase tracking-wider">
                         Active
                       </span>
                     )}
@@ -250,7 +250,7 @@ function FiscalYearManager() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleSetActive(fy.id, fy.fy_code)}
-                    className="gap-1 text-primary border-violet-300 hover:bg-violet-50"
+                    className="gap-1 text-primary border-accent-300 hover:bg-accent-50"
                   >
                     <Star className="w-3.5 h-3.5" /> Set Active
                   </Button>

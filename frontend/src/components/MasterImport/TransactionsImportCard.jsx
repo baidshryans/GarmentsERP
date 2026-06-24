@@ -131,9 +131,9 @@ function MigrationCard({ def }) {
           type="button"
           disabled={!canRun || running}
           onClick={() => run(false)}
-          className="inline-flex items-center gap-1.5 text-sm border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {running ? <Loader2 size={14} className="animate-spin" /> : null} Dry run
+          {running ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />} Dry run
         </button>
         <button
           type="button"
@@ -141,7 +141,7 @@ function MigrationCard({ def }) {
           onClick={() => {
             if (window.confirm(`Apply ${def.label} import to the database? This writes records.`)) run(true);
           }}
-          className="inline-flex items-center gap-1.5 text-sm bg-blue-600 text-white rounded px-3 py-1.5 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 text-sm bg-primary text-white rounded-md px-3 py-1.5 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Apply
         </button>
@@ -220,7 +220,7 @@ function ResetCard() {
           type="button"
           disabled={running || !selected.length}
           onClick={() => run(false)}
-          className="inline-flex items-center gap-1.5 text-sm border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />} Preview
         </button>
@@ -228,7 +228,7 @@ function ResetCard() {
           type="button"
           disabled={running || !selected.length}
           onClick={() => run(true)}
-          className="inline-flex items-center gap-1.5 text-sm bg-red-600 text-white rounded px-3 py-1.5 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 text-sm bg-red-600 text-white rounded-md px-3 py-1.5 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Delete
         </button>

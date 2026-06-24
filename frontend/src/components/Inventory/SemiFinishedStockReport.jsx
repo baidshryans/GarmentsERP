@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Hammer, Package } from "lucide-react";
@@ -73,12 +73,12 @@ export default function SemiFinishedStockReport() {
           <p className="text-[10px] text-primary uppercase tracking-wider">WIP Pcs</p>
           <p className="text-lg font-semibold text-primary tabular-nums">{fmtQty(wipSummary?.total_pcs || 0)}</p>
         </div>
-        <div className="p-3 rounded-lg border border-violet-200 bg-violet-50/50 text-center">
+        <div className="p-3 rounded-lg border border-accent-200 bg-accent-50/50 text-center">
           <p className="text-[10px] text-primary uppercase tracking-wider">Pending Barcode</p>
           <p className="text-lg font-semibold text-primary tabular-nums">{pendingSummary?.count || 0} items</p>
           <p className="text-xs text-primary">{fmtWt(pendingSummary?.total_gw || 0)} g</p>
         </div>
-        <div className="p-3 rounded-lg border border-violet-200 bg-violet-50/50 text-center">
+        <div className="p-3 rounded-lg border border-accent-200 bg-accent-50/50 text-center">
           <p className="text-[10px] text-primary uppercase tracking-wider">Pending Pcs</p>
           <p className="text-lg font-semibold text-primary tabular-nums">{fmtQty(pendingSummary?.total_pcs || 0)}</p>
         </div>
@@ -181,7 +181,7 @@ export default function SemiFinishedStockReport() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-violet-50 text-xs uppercase tracking-wider text-primary">
+                <tr className="bg-accent-50 text-xs uppercase tracking-wider text-primary">
                   <th className="px-3 py-2.5 text-left font-semibold">Item</th>
                   <th className="px-3 py-2.5 text-left font-semibold">Purity</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Pcs</th>

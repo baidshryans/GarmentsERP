@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1229,8 +1229,8 @@ const PurchaseVoucher = () => {
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+                {watch("form.billno") || <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>}
               </span>
               <input type="hidden" {...register("form.billno")} />
             </div>
@@ -1368,7 +1368,7 @@ const PurchaseVoucher = () => {
           <div className="flex items-center gap-3 my-5">
             <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">2</span>
             <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Main and Sub Item Details</span>
-            <div className="flex-1 h-px bg-violet-100" />
+            <div className="flex-1 h-px bg-accent-100" />
             {!isCustomer && !id && watch("form.ldgr") && (
               <Button
                 type="button"
@@ -1414,7 +1414,7 @@ const PurchaseVoucher = () => {
           <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
-              <TableRow className="w-full bg-violet-50">
+              <TableRow className="w-full bg-accent-50">
                 <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Item</TableCell>
                 <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Pcs</TableCell>
                 <TableCell className="px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">GW</TableCell>
@@ -1531,7 +1531,7 @@ const PurchaseVoucher = () => {
           <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
-              <TableRow className="w-full bg-violet-50">
+              <TableRow className="w-full bg-accent-50">
                 <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
                 <TableCell className={`w-40 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap${!!selectedItem && !selectedPacketData ? " hidden" : ""}`}>Packet</TableCell>
                 <TableCell className="w-48 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Item</TableCell>
@@ -1680,7 +1680,7 @@ const PurchaseVoucher = () => {
           <Table className="w-full table-fixed border-collapse">
 
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TableCell className="w-32 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Options</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Sl No</TableCell>
                 <TableCell className="w-28 px-4 py-2.5 border text-xs font-semibold text-primary uppercase tracking-wider whitespace-nowrap">Packet</TableCell>
@@ -1712,7 +1712,7 @@ const PurchaseVoucher = () => {
               )}
               {[...rs].sort((a, b) => (a.sl_no || 0) - (b.sl_no || 0)).map((item, idx) => (
                 <React.Fragment key={item.sl_no ?? idx}>
-                  <TableRow className={item._editing ? "bg-amber-50 border-t-2 border-amber-400 opacity-70 font-bold" : "bg-violet-50 border-t-2 border-violet-300 border-l-4 border-l-violet-400 font-bold"}>
+                  <TableRow className={item._editing ? "bg-amber-50 border-t-2 border-amber-400 opacity-70 font-bold" : "bg-accent-50 border-t-2 border-accent-300 border-l-4 border-l-accent-400 font-bold"}>
                     <TableCell className="px-4 py-2 border align-middle">
                       <div className="flex flex-row justify-center items-center gap-3">
 
@@ -1727,14 +1727,14 @@ const PurchaseVoucher = () => {
                     <TableCell className="w-28 px-4 py-2 border text-xs font-mono">
                       {item.customer_order_item_id ? (
                         <span
-                          className="inline-flex flex-col gap-0.5 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 leading-tight"
+                          className="inline-flex flex-col gap-0.5 rounded-md border border-accent-200 bg-accent-50 px-1.5 py-0.5 leading-tight"
                           title={`Customer Order ${item.co_no_display || item.order_no || ''} · Sl ${item.co_sl_no_display ?? ''}${item.customer_name_display ? ` · ${item.customer_name_display}` : ''}`}
                         >
-                          <span className="text-[11px] font-semibold text-violet-800">
+                          <span className="text-[11px] font-semibold text-accent-800">
                             {item.co_no_display || item.order_no || '—'}
                           </span>
                           {item.co_sl_no_display != null && (
-                            <span className="text-[10px] text-violet-700/80">Sl {item.co_sl_no_display}</span>
+                            <span className="text-[10px] text-accent-700/80">Sl {item.co_sl_no_display}</span>
                           )}
                         </span>
                       ) : item.po_no ? (
@@ -2156,7 +2156,7 @@ const PurchaseVoucher = () => {
                       return (
                         <TableRow
                           key={p.co_item_id}
-                          className={`odd:bg-muted/10 transition-colors duration-100 ${alreadyAdded ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${checked ? "bg-violet-50 hover:bg-violet-100" : !alreadyAdded ? "hover:bg-muted/20" : ""}`}
+                          className={`odd:bg-muted/10 transition-colors duration-100 ${alreadyAdded ? "opacity-40 cursor-not-allowed" : "cursor-pointer"} ${checked ? "bg-accent-50 hover:bg-accent-100" : !alreadyAdded ? "hover:bg-muted/20" : ""}`}
                           onClick={toggle}
                         >
                           <TableCell className="px-2 py-2">

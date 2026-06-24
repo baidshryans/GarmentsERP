@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -208,7 +208,7 @@ const IssueToAssay = () => {
 
                     <Field label="Bill No">
                         <div className="text-sm font-mono px-3 py-2 bg-gray-50 rounded border border-gray-200 h-9 flex items-center">
-                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating…</span>}
+                            {watch("form.billno") || <span className="text-accent-400 text-xs">Auto-generating…</span>}
                         </div>
                     </Field>
 
@@ -291,7 +291,7 @@ const IssueToAssay = () => {
                             <col />
                         </colgroup>
                         <TableHeader>
-                            <TableRow className="bg-violet-100 text-primary">
+                            <TableRow className="bg-accent-100 text-primary">
                                 <TableHead className="px-3 py-2"></TableHead>
                                 <TableHead className="px-3 py-2">Packet</TableHead>
                                 <TableHead className="px-3 py-2">Item</TableHead>
@@ -303,7 +303,7 @@ const IssueToAssay = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            <TableRow className="bg-violet-50">
+                            <TableRow className="bg-accent-50">
                                 <TableCell className="px-2 py-1 text-center text-gray-400 text-xs">new</TableCell>
 
                                 <TableCell className="px-2 py-1">
@@ -428,7 +428,7 @@ const IssueToAssay = () => {
                                                 <button
                                                     type="button"
                                                     onClick={() => handleEdit(index)}
-                                                    className="text-violet-400 hover:text-primary"
+                                                    className="text-accent-400 hover:text-primary"
                                                     title="Edit"
                                                 >
                                                     <SquarePen className="size-4" />
@@ -463,7 +463,7 @@ const IssueToAssay = () => {
                         variant="outline"
                         size="sm"
                         onClick={handleAddRow}
-                        className="text-primary border-violet-300 hover:bg-violet-50"
+                        className="text-primary border-accent-300 hover:bg-accent-50"
                     >
                         + Add Row
                     </Button>

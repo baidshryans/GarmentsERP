@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -408,7 +408,7 @@ export default function SampleIssue() {
 
       {/* ── Header ── */}
       <div className="rounded-lg border bg-card shadow-sm">
-        <div className="px-4 py-2 bg-violet-50 border-b border-violet-100 rounded-t-lg text-sm font-medium text-primary">
+        <div className="px-4 py-2 bg-accent-50 border-b border-accent-100 rounded-t-lg text-sm font-medium text-primary">
           Issue Details
         </div>
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -419,8 +419,8 @@ export default function SampleIssue() {
           <div>
             <Label htmlFor="si-slipno">Issue Slip No</Label>
             <div id="si-slipno" className="flex items-center gap-2">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                {billno || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+                {billno || <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>}
               </span>
             </div>
           </div>
@@ -505,7 +505,7 @@ export default function SampleIssue() {
         </p>
 
         {pendingSelection && (
-          <div className="border rounded p-3 bg-violet-50/40">
+          <div className="border rounded p-3 bg-accent-50/40">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium">
                 Select items from <span className="text-primary">{pendingSelection.label}</span>
@@ -517,7 +517,7 @@ export default function SampleIssue() {
             </div>
             <Table className="border text-xs bg-white">
               <TableHeader>
-                <TableRow className="bg-violet-100/60">
+                <TableRow className="bg-accent-100/60">
                   <TableHead className="py-1 px-2 w-8"></TableHead>
                   <TableHead className="py-1 px-2">Sl</TableHead>
                   <TableHead className="py-1 px-2">Item</TableHead>
@@ -559,14 +559,14 @@ export default function SampleIssue() {
       {/* ── Items Being Issued ── */}
       {items.length > 0 && (
         <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
-          <div className="px-4 py-2 bg-violet-50 border-b border-violet-100 text-sm font-medium text-primary flex items-center justify-between">
+          <div className="px-4 py-2 bg-accent-50 border-b border-accent-100 text-sm font-medium text-primary flex items-center justify-between">
             <span>Items to Issue</span>
             <span className="text-xs text-muted-foreground font-normal">{items.length} item{items.length === 1 ? "" : "s"}</span>
           </div>
           <div className="overflow-auto max-h-[60vh]">
             <Table className="text-sm tabular-nums">
               <TableHeader className="sticky top-0 z-10">
-                <TableRow className="bg-violet-100/80">
+                <TableRow className="bg-accent-100/80">
                   <TableHead className="py-2 px-3 w-10"></TableHead>
                   <TableHead className="py-2 px-3">Sl</TableHead>
                   <TableHead className="py-2 px-3">Src</TableHead>
@@ -586,7 +586,7 @@ export default function SampleIssue() {
               <TableBody>
                 {items.map((item, idx) => (
                   <React.Fragment key={idx}>
-                    <TableRow className="bg-white border-t-2 border-violet-200/70 hover:bg-violet-50/30 font-semibold">
+                    <TableRow className="bg-white border-t-2 border-accent-200/70 hover:bg-accent-50/30 font-semibold">
                       <TableCell className="py-1.5 px-2">
                         <Button
                           type="button"
@@ -618,7 +618,7 @@ export default function SampleIssue() {
                       </TableCell>
                     </TableRow>
                     {(item.details || []).map((d, di) => (
-                      <TableRow key={`${idx}-d-${di}`} className="bg-violet-50/20 text-muted-foreground border-l-4 border-violet-300">
+                      <TableRow key={`${idx}-d-${di}`} className="bg-accent-50/20 text-muted-foreground border-l-4 border-accent-300">
                         <TableCell className="py-1.5 px-2"></TableCell>
                         <TableCell className="py-1.5 px-3"></TableCell>
                         <TableCell className="py-1.5 px-3"></TableCell>
@@ -641,7 +641,7 @@ export default function SampleIssue() {
             </Table>
           </div>
           {/* Totals strip */}
-          <div className="px-4 py-2 bg-violet-50/60 border-t border-violet-100 text-xs flex flex-wrap items-center gap-x-6 gap-y-1 tabular-nums">
+          <div className="px-4 py-2 bg-accent-50/60 border-t border-accent-100 text-xs flex flex-wrap items-center gap-x-6 gap-y-1 tabular-nums">
             <span className="text-muted-foreground">Totals:</span>
             <span><span className="text-muted-foreground">Pcs</span> <strong>{totals.pcs}</strong></span>
             <span><span className="text-muted-foreground">GW</span> <strong>{totals.gw.toFixed(3)}</strong></span>

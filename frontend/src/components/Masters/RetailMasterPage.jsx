@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -199,7 +199,7 @@ export default function RetailMasterPage() {
     {
       header: "Branch",
       cell: ({ row }) => row.original.branch_name
-        ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-primary">{row.original.branch_name}</span>
+        ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-100 text-primary">{row.original.branch_name}</span>
         : <span className="text-xs text-muted-foreground">—</span>,
     },
   ];
@@ -315,7 +315,7 @@ export default function RetailMasterPage() {
                     name="is_exhibition"
                     checked={form.is_exhibition}
                     onChange={handleChange}
-                    className="size-4 rounded border-gray-300 accent-violet-700 cursor-pointer"
+                    className="size-4 rounded border-gray-300 accent-accent-700 cursor-pointer"
                   />
                   <span className="text-sm text-muted-foreground group-hover:text-foreground flex items-center gap-1">
                     <Zap className="size-3.5 text-amber-500" />

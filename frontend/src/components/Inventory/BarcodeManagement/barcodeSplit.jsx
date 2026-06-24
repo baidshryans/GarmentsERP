@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ const SectionHeader = ({ icon: Icon, title, subtitle }) => (
       <p className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</p>
       {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
     </div>
-    <div className="flex-1 h-px bg-violet-100" />
+    <div className="flex-1 h-px bg-accent-100" />
   </div>
 );
 
@@ -893,9 +893,9 @@ const BarcodeSplit = () => {
                                 }), { pcs: 0, ct: 0, gw: 0, amt: 0 });
 
                                 return (
-                                    <div key={idx} className="rounded-xl border border-violet-100 bg-white overflow-hidden shadow-sm">
+                                    <div key={idx} className="rounded-xl border border-accent-100 bg-white overflow-hidden shadow-sm">
                                         {/* Summary header */}
-                                        <div className="px-5 py-4 bg-gradient-to-r from-violet-50 via-violet-50/60 to-white border-b border-violet-100">
+                                        <div className="px-5 py-4 bg-gradient-to-r from-accent-50 via-accent-50/60 to-white border-b border-accent-100">
                                             <div className="flex flex-wrap items-start justify-between gap-4">
                                                 <div className="flex items-center gap-3">
                                                     <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-primary text-white font-mono text-sm font-semibold tracking-wider shadow-sm">
@@ -948,7 +948,7 @@ const BarcodeSplit = () => {
                                                             const hasAmt = parseFloat(detail.amt) > 0;
                                                             const hasRate = parseFloat(detail.rate) > 0;
                                                             return (
-                                                                <tr key={di} className="border-t border-gray-100 hover:bg-violet-50/40 transition-colors">
+                                                                <tr key={di} className="border-t border-gray-100 hover:bg-accent-50/40 transition-colors">
                                                                     <td className="px-3 py-2 text-gray-700">{subItemName}</td>
                                                                     <td className="px-3 py-2 font-mono text-xs text-gray-500">{detail.packet || "—"}</td>
                                                                     <td className="px-3 py-2 text-right tabular-nums text-gray-700">{detail.pcs || "—"}</td>
@@ -960,7 +960,7 @@ const BarcodeSplit = () => {
                                                                 </tr>
                                                             );
                                                         })}
-                                                        <tr className="border-t-2 border-violet-200 bg-gray-50/70">
+                                                        <tr className="border-t-2 border-accent-200 bg-gray-50/70">
                                                             <td className="px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-semibold" colSpan={2}>Total</td>
                                                             <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.pcs || "—"}</td>
                                                             <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.ct ? totals.ct.toFixed(3) : "—"}</td>
@@ -1229,10 +1229,10 @@ const BarcodeSplit = () => {
                                 return (
                                     <div
                                         key={idx}
-                                        className={`rounded-xl border bg-white overflow-hidden shadow-sm transition-colors ${isEditing ? "border-amber-300 ring-2 ring-amber-200" : "border-violet-100"}`}
+                                        className={`rounded-xl border bg-white overflow-hidden shadow-sm transition-colors ${isEditing ? "border-amber-300 ring-2 ring-amber-200" : "border-accent-100"}`}
                                     >
                                         {/* Header strip */}
-                                        <div className="px-5 py-4 bg-gradient-to-r from-violet-50 via-violet-50/60 to-white border-b border-violet-100">
+                                        <div className="px-5 py-4 bg-gradient-to-r from-accent-50 via-accent-50/60 to-white border-b border-accent-100">
                                             <div className="flex flex-wrap items-start justify-between gap-4">
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <div className="flex items-center gap-1 shrink-0">
@@ -1241,7 +1241,7 @@ const BarcodeSplit = () => {
                                                             onClick={() => handleEdit(idx)}
                                                             aria-label={`Edit barcode ${item.barcode}`}
                                                             title="Edit"
-                                                            className="inline-flex items-center justify-center size-8 rounded-md text-primary hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
+                                                            className="inline-flex items-center justify-center size-8 rounded-md text-primary hover:bg-accent-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
                                                         >
                                                             <Pencil className="size-4" />
                                                         </button>
@@ -1309,7 +1309,7 @@ const BarcodeSplit = () => {
                                                             const hasRate = parseFloat(detail.rate) > 0;
                                                             const hasAmt  = parseFloat(detail.amt) > 0;
                                                             return (
-                                                                <tr key={di} className="border-t border-gray-100 hover:bg-violet-50/40 transition-colors">
+                                                                <tr key={di} className="border-t border-gray-100 hover:bg-accent-50/40 transition-colors">
                                                                     <td className="px-3 py-2">
                                                                         <div className="flex items-center gap-1">
                                                                             <button
@@ -1317,7 +1317,7 @@ const BarcodeSplit = () => {
                                                                                 onClick={() => handleEditSubItem(idx, di)}
                                                                                 aria-label={`Edit sub-item ${subItemName}`}
                                                                                 title="Edit"
-                                                                                className="inline-flex items-center justify-center size-7 rounded-md text-primary hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
+                                                                                className="inline-flex items-center justify-center size-7 rounded-md text-primary hover:bg-accent-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
                                                                             >
                                                                                 <Pencil className="size-3.5" />
                                                                             </button>
@@ -1343,7 +1343,7 @@ const BarcodeSplit = () => {
                                                                 </tr>
                                                             );
                                                         })}
-                                                        <tr className="border-t-2 border-violet-200 bg-gray-50/70">
+                                                        <tr className="border-t-2 border-accent-200 bg-gray-50/70">
                                                             <td></td>
                                                             <td className="px-3 py-2 text-[11px] uppercase tracking-wider text-gray-500 font-semibold" colSpan={2}>Total</td>
                                                             <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{totals.pcs || "—"}</td>

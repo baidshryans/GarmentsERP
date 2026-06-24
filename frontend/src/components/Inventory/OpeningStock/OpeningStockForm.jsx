@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -362,7 +362,7 @@ export default function OpeningStockForm() {
               const total = primaryQty * rate;
               const qtyLabel = isS ? "ct" : "g";
               return (
-                <div className="grid grid-cols-2 gap-3 mb-4 p-3 rounded-lg bg-violet-50/40 border border-violet-100">
+                <div className="grid grid-cols-2 gap-3 mb-4 p-3 rounded-lg bg-accent-50/40 border border-accent-100">
                   <div>
                     <Label className="mb-1 block">Weighted Avg Rate (₹ / {qtyLabel})</Label>
                     <Input

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,8 +231,8 @@ const HallmarkReceive = () => {
             <FieldContainer>
               <Label className="text-nowrap">Receive Slip No</Label>
               <div className="flex items-center gap-2 flex-1">
-                <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate h-9">
-                  {receiveSlipNo || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+                <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate h-9">
+                  {receiveSlipNo || <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>}
                 </span>
                 <input type="hidden" {...register("form.receive_slip_no", { required: true })} />
               </div>

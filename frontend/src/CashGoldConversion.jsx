@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ const SectionHeader = ({ icon: Icon, title, subtitle }) => (
       <p className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</p>
       {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
     </div>
-    <div className="flex-1 h-px bg-violet-100" />
+    <div className="flex-1 h-px bg-accent-100" />
   </div>
 );
 
@@ -36,7 +36,7 @@ const Field = ({ label, children, unit }) => (
 
 // ── Read-only computed value display ────────────────────────────────────────
 const ComputedValue = ({ value, prefix = "" }) => (
-  <div className="flex items-center px-3 py-2 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-[120px]">
+  <div className="flex items-center px-3 py-2 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-[120px]">
     {prefix}{value || "—"}
   </div>
 );
@@ -145,7 +145,7 @@ const CashGoldConversion = () => {
               <Input
                 {...regCG("billno")}
                 readOnly
-                className="bg-violet-50 border-violet-200 text-primary font-semibold cursor-default"
+                className="bg-accent-50 border-accent-200 text-primary font-semibold cursor-default"
               />
             </Field>
             <Field label="Date">
@@ -214,7 +214,7 @@ const CashGoldConversion = () => {
               <Input
                 {...regGC("billno")}
                 readOnly
-                className="bg-violet-50 border-violet-200 text-primary font-semibold cursor-default"
+                className="bg-accent-50 border-accent-200 text-primary font-semibold cursor-default"
               />
             </Field>
             <Field label="Date">

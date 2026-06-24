@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { fetchAllApps } from "@/services/apiService";
 import {
   Package, Heart, Hammer, ShoppingCart, ReceiptText, Calculator,
@@ -140,7 +140,7 @@ function AppCard({ app, installed }) {
       <div className="flex items-center gap-3">
         <div
           className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-            installed ? "bg-violet-100 text-primary" : "bg-gray-200 text-gray-400"
+            installed ? "bg-accent-100 text-primary" : "bg-gray-200 text-gray-400"
           }`}
         >
           <Icon className="size-5" />

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+﻿import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Plus, Store, Hammer, Users, PackageOpen, Loader2 } from "lucide-react";
@@ -142,7 +142,7 @@ export default function OpeningStockList() {
           </div>
         ) : entries.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="size-12 rounded-full bg-violet-50 flex items-center justify-center mb-3">
+            <div className="size-12 rounded-full bg-accent-50 flex items-center justify-center mb-3">
               <PackageOpen size={22} className="text-primary" />
             </div>
             <p className="text-sm font-semibold text-gray-700">No opening stock entries</p>
@@ -183,7 +183,7 @@ export default function OpeningStockList() {
                   return (
                     <tr
                       key={row.id}
-                      className="border-t border-gray-100 hover:bg-violet-50/30 transition-colors"
+                      className="border-t border-gray-100 hover:bg-accent-50/30 transition-colors"
                     >
                       <td className="px-3 py-2 text-center whitespace-nowrap">
                         <div className="inline-flex items-center gap-1">
@@ -192,7 +192,7 @@ export default function OpeningStockList() {
                             onClick={() => handleEdit(row.id)}
                             aria-label={`Edit ${row.item_name}`}
                             title="Edit"
-                            className="inline-flex items-center justify-center size-7 rounded-md text-primary hover:bg-violet-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
+                            className="inline-flex items-center justify-center size-7 rounded-md text-primary hover:bg-accent-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-colors"
                           >
                             <Pencil size={14} />
                           </button>
@@ -246,7 +246,7 @@ export default function OpeningStockList() {
                 })}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-violet-200 bg-violet-50/60">
+                <tr className="border-t-2 border-accent-200 bg-accent-50/60">
                   <td
                     colSpan={totalColSpan}
                     className="px-3 py-2.5 text-right text-[11px] uppercase tracking-wider text-gray-600 font-semibold"

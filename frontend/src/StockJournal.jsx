@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -275,7 +275,7 @@ const StockJournal = () => {
                   readOnly
                   className="bg-muted font-mono font-semibold cursor-not-allowed"
                 />
-                <span className="text-xs whitespace-nowrap text-primary border border-violet-200 rounded px-1.5 py-0.5">
+                <span className="text-xs whitespace-nowrap text-primary border border-accent-200 rounded px-1.5 py-0.5">
                   Auto
                 </span>
               </div>
@@ -286,7 +286,7 @@ const StockJournal = () => {
           <div className="overflow-x-auto rounded-lg border">
             <Table className="w-full border-collapse text-sm">
               <TableHeader>
-                <TableRow className="bg-violet-50">
+                <TableRow className="bg-accent-50">
                   <TableHead className="px-2 py-2 border text-center w-20">Actions</TableHead>
                   <TableHead className="px-3 py-2 border text-center">Packet</TableHead>
                   <TableHead className="px-3 py-2 border text-center">Item</TableHead>
@@ -420,7 +420,7 @@ const StockJournal = () => {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="text-primary hover:text-primary hover:bg-violet-50 text-xs h-7 gap-1"
+                      className="text-primary hover:text-primary hover:bg-accent-50 text-xs h-7 gap-1"
                       onClick={handleAddRow}
                     >
                       + Add Row

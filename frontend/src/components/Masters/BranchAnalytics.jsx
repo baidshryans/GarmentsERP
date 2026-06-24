@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ function fmt(v) {
 
 function KpiTile({ label, value, icon: Icon, color, prefix = "₹" }) {
   const colors = {
-    violet: "bg-violet-50 text-primary border-violet-200",
+    violet: "bg-accent-50 text-primary border-accent-200",
     emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
     sky:    "bg-sky-50    text-sky-700    border-sky-200",
     amber:  "bg-amber-50  text-amber-700  border-amber-200",
@@ -51,7 +51,7 @@ function RetailRow({ stat, maxMonth }) {
     <tr className="border-b border-border hover:bg-muted/40 transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="size-7 rounded-md bg-violet-100 flex items-center justify-center">
+          <div className="size-7 rounded-md bg-accent-100 flex items-center justify-center">
             <Store className="size-3.5 text-primary" />
           </div>
           <div>
@@ -150,7 +150,7 @@ export default function BranchAnalytics() {
           <ArrowLeft className="size-4" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-violet-100 flex items-center justify-center">
+          <div className="size-8 rounded-lg bg-accent-100 flex items-center justify-center">
             <BarChart2 className="size-4 text-primary" />
           </div>
           <div>
@@ -221,7 +221,7 @@ export default function BranchAnalytics() {
               </tbody>
               {/* Totals row */}
               <tfoot>
-                <tr className="bg-violet-50 border-t-2 border-violet-200 font-semibold">
+                <tr className="bg-accent-50 border-t-2 border-accent-200 font-semibold">
                   <td className="px-4 py-2.5 text-sm text-primary">Branch Total</td>
                   <td className="px-4 py-2.5 text-right text-sm text-emerald-700">₹{fmt(totals.today_sales)}</td>
                   <td className="px-4 py-2.5 text-right text-sm text-primary">₹{fmt(totals.month_sales)}</td>

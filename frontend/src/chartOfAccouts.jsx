@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, ChevronDown, Plus, FolderOpen, Folder, RefreshCw, Pencil, Trash2, Users } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 className={`
                     group flex items-center gap-2 py-2 pr-2 rounded-lg transition-colors
                     ${isRoot
-                        ? 'bg-violet-50 border border-violet-100 mb-1 font-semibold'
+                        ? 'bg-accent-50 border border-accent-100 mb-1 font-semibold'
                         : 'hover:bg-muted/50'
                     }
                 `}
@@ -48,7 +48,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 <button
                     onClick={() => hasChildren && onToggle(node.id)}
                     className={`shrink-0 w-5 h-5 flex items-center justify-center rounded transition-colors
-                        ${hasChildren ? 'hover:bg-violet-100 text-primary cursor-pointer' : 'cursor-default opacity-0'}`}
+                        ${hasChildren ? 'hover:bg-accent-100 text-primary cursor-pointer' : 'cursor-default opacity-0'}`}
                     tabIndex={hasChildren ? 0 : -1}
                 >
                     {isOpen
@@ -60,8 +60,8 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 {/* Folder icon */}
                 {hasChildren
                     ? isOpen
-                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-violet-400'}`} />
-                        : <Folder className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-violet-400'}`} />
+                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-accent-400'}`} />
+                        : <Folder className={`w-4 h-4 shrink-0 ${isRoot ? 'text-primary' : 'text-accent-400'}`} />
                     : <span className="size-4 shrink-0 flex items-center justify-center">
                         <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
                     </span>
@@ -71,7 +71,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                 {code && (
                     <span className={`
                         text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider font-mono
-                        ${isRoot ? 'bg-violet-200 text-primary' : 'bg-muted text-muted-foreground'}
+                        ${isRoot ? 'bg-accent-200 text-primary' : 'bg-muted text-muted-foreground'}
                     `}>
                         {code}
                     </span>
@@ -102,7 +102,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
                     {node.can_be_deleted ? (
                         <Link
                             to={`/accounting/account-edit/${node.id}`}
-                            className="p-1 rounded hover:bg-violet-100 text-primary transition-colors"
+                            className="p-1 rounded hover:bg-accent-100 text-primary transition-colors"
                             title="Edit group"
                         >
                             <Pencil className="size-4" />
@@ -142,7 +142,7 @@ const TreeNode = ({ node, level, expanded, onToggle, onDelete }) => {
 
             {/* Children */}
             {isOpen && hasChildren && (
-                <div className={isRoot ? 'ml-3 border-l border-violet-100 pl-1 mb-2' : 'ml-3 border-l border-border pl-1'}>
+                <div className={isRoot ? 'ml-3 border-l border-accent-100 pl-1 mb-2' : 'ml-3 border-l border-border pl-1'}>
                     {node.children.map((child) => (
                         <TreeNode
                             key={child.id}

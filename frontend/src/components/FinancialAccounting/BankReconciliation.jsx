@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -209,7 +209,7 @@ export default function BankReconciliation() {
               </div>
 
               {/* Add entry form */}
-              <div className="rounded-lg border border-dashed border-violet-200 bg-violet-50/30 p-3 flex flex-col gap-2">
+              <div className="rounded-lg border border-dashed border-accent-200 bg-accent-50/30 p-3 flex flex-col gap-2">
                 <p className="text-xs font-medium text-muted-foreground">Add Statement Entry</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -267,7 +267,7 @@ export default function BankReconciliation() {
                         onClick={() => setSelStmt(selStmt === r.id ? null : r.id)}
                         className={`cursor-pointer border-b border-border/30 transition-colors ${
                           r.is_matched ? "bg-green-50" :
-                          selStmt === r.id ? "bg-violet-50 border-l-2 border-violet-400" : "hover:bg-muted/30"
+                          selStmt === r.id ? "bg-accent-50 border-l-2 border-accent-400" : "hover:bg-muted/30"
                         }`}
                       >
                         <td className="px-2 py-1.5">
@@ -329,7 +329,7 @@ export default function BankReconciliation() {
                         onClick={() => setSelBook(selBook === r.id ? null : r.id)}
                         className={`cursor-pointer border-b border-border/30 transition-colors ${
                           r.is_matched ? "bg-green-50" :
-                          selBook === r.id ? "bg-violet-50 border-l-2 border-violet-400" : "hover:bg-muted/30"
+                          selBook === r.id ? "bg-accent-50 border-l-2 border-accent-400" : "hover:bg-muted/30"
                         }`}
                       >
                         <td className="px-2 py-1.5">
@@ -355,7 +355,7 @@ export default function BankReconciliation() {
 
           {/* Match button */}
           {(selStmt || selBook) && (
-            <div className="flex items-center gap-3 p-3 rounded-lg border border-violet-200 bg-violet-50">
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-accent-200 bg-accent-50">
               <span className="text-xs text-primary">
                 {selStmt ? "1 statement entry selected" : "No statement selected"} ·{" "}
                 {selBook ? "1 book entry selected" : "No book entry selected"}

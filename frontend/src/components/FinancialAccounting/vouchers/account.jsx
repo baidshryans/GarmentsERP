@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { fetchDuePayments, fetchDuePaymentsSale } from "@/services/apiService";
@@ -101,7 +101,7 @@ const Account = () => {
           fontSize: "16px",
           fontWeight: 600,
           marginBottom: "16px",
-          borderBottom: "2px solid #7c3aed",
+          borderBottom: "2px solid hsl(var(--primary))",
           paddingBottom: "8px",
         }}
       >
@@ -169,7 +169,7 @@ const Account = () => {
                         fontSize: "13px",
                         outline: "none",
                       }}
-                      onFocus={(e) => (e.target.style.borderColor = "#7c3aed")}
+                      onFocus={(e) => (e.target.style.borderColor = "hsl(var(--primary))")}
                       onBlur={(e) => (e.target.style.borderColor = "#d4d4d8")}
                     />
                   </Td>
@@ -225,7 +225,7 @@ const Account = () => {
                 fontSize: "13px",
                 border: "none",
                 borderRadius: "6px",
-                background: "#7c3aed",
+                background: "hsl(var(--primary))",
                 color: "#fff",
                 fontWeight: 600,
                 cursor: "pointer",

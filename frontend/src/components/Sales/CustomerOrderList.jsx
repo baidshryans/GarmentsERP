@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit, cancelCustomerOrder, fetchPendingCustomerOrderItems, fetchCompanies, fetchRetails } from "@/services/apiService";
@@ -22,7 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const DELIVERY_STATUS_OPTIONS = [
-  { value: 'pending',        label: 'Pending',              color: 'bg-violet-100 text-primary' },
+  { value: 'pending',        label: 'Pending',              color: 'bg-accent-100 text-primary' },
   { value: 'ready',          label: 'Ready for Delivery',   color: 'bg-sky-100 text-sky-800' },
   { value: 'delivered',      label: 'Delivered',             color: 'bg-emerald-100 text-emerald-800' },
   { value: 'returned',       label: 'Returned',              color: 'bg-red-100 text-red-700' },
@@ -128,7 +128,7 @@ function KpiStrip({ overview }) {
     { label: 'Overdue',        value: overview.overdue_count,        icon: <AlertTriangle className="size-4" />, color: 'text-red-600 bg-red-50 border-red-100' },
     { label: 'Due Today',      value: overview.due_today_count,       icon: <Clock className="size-4" />,         color: 'text-amber-600 bg-amber-50 border-amber-100' },
     { label: 'Due This Week',  value: overview.due_this_week_count,   icon: <Bell className="size-4" />,          color: 'text-sky-600 bg-sky-50 border-sky-100' },
-    { label: 'All Open',       value: overview.pending_count,         icon: <Truck className="size-4" />,         color: 'text-primary bg-violet-50 border-violet-100' },
+    { label: 'All Open',       value: overview.pending_count,         icon: <Truck className="size-4" />,         color: 'text-primary bg-accent-50 border-accent-100' },
     { label: 'Delivered (Mo)', value: overview.delivered_this_month,  icon: <CheckCircle2 className="size-4" />, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
   ];
   return (
@@ -395,7 +395,7 @@ function CustomerOrderList() {
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">✓ Reconciled</span>;
     if (reconciled > 0)
       return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800">◑ Partial</span>;
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-primary">● Pending</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-accent-100 text-primary">● Pending</span>;
   };
 
   // ── Columns ───────────────────────────────────────────────────────────────
@@ -527,7 +527,7 @@ function CustomerOrderList() {
         } else if (items.some(i => i.lock_state === 'in_production')) {
           pill = { label: 'In Production', cls: 'bg-amber-100 text-amber-800' };
         } else {
-          pill = { label: 'Open', cls: 'bg-violet-100 text-primary' };
+          pill = { label: 'Open', cls: 'bg-accent-100 text-primary' };
         }
         return (
           <div className="flex items-center gap-2">
@@ -548,7 +548,7 @@ function CustomerOrderList() {
         const colors = {
           'Billed':  'bg-emerald-100 text-emerald-800',
           'Partial': 'bg-amber-100 text-amber-800',
-          'Pending': 'bg-violet-100 text-primary',
+          'Pending': 'bg-accent-100 text-primary',
         };
         return s
           ? <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${colors[s] ?? 'bg-gray-100 text-gray-700'}`}>{s}</span>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,7 +149,7 @@ const ReceiveFromMelting = () => {
 
                     <Field label="Bill No">
                         <div className="text-sm font-mono px-3 py-2 bg-gray-50 rounded border border-gray-200 h-9 flex items-center max-w-[170px]">
-                            {watch("form.billno") || <span className="text-violet-400 text-xs">Auto-generating…</span>}
+                            {watch("form.billno") || <span className="text-accent-400 text-xs">Auto-generating…</span>}
                         </div>
                     </Field>
 
@@ -195,7 +195,7 @@ const ReceiveFromMelting = () => {
                 <div className="overflow-x-auto rounded border border-gray-200">
                     <Table className="w-full text-sm">
                         <TableHeader>
-                            <TableRow className="bg-violet-100 text-primary">
+                            <TableRow className="bg-accent-100 text-primary">
                                 <TableHead className="w-10 px-3 py-2">#</TableHead>
                                 <TableHead className="px-3 py-2 whitespace-nowrap">Issue Voucher</TableHead>
                                 <TableHead className="px-3 py-2">Item</TableHead>

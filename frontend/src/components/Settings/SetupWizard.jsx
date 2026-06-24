@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -69,7 +69,7 @@ function StepIndicator({ steps, current, completed }) {
             key={s.key}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               active
-                ? "bg-violet-100 text-primary border border-violet-200"
+                ? "bg-accent-100 text-primary border border-accent-200"
                 : done
                 ? "bg-green-50 text-green-700"
                 : "text-muted-foreground"
@@ -125,7 +125,7 @@ function AccountTree({ tree }) {
       <div key={node.id}>
         <div
           className={`flex items-center gap-2 py-1.5 px-2 rounded text-sm ${
-            level === 0 ? "font-semibold bg-violet-50 border border-violet-100 mb-0.5" : "hover:bg-gray-50"
+            level === 0 ? "font-semibold bg-accent-50 border border-accent-100 mb-0.5" : "hover:bg-gray-50"
           }`}
           style={{ paddingLeft: `${level * 20 + 8}px` }}
         >
@@ -136,7 +136,7 @@ function AccountTree({ tree }) {
             {has && (open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />)}
           </button>
           {has ? (
-            open ? <FolderOpen className="size-3.5 text-primary" /> : <Folder className="size-3.5 text-violet-400" />
+            open ? <FolderOpen className="size-3.5 text-primary" /> : <Folder className="size-3.5 text-accent-400" />
           ) : (
             <div className="size-3.5" />
           )}

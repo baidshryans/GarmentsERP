@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -527,7 +527,7 @@ export default function SchemeDashboard() {
                     "bg-emerald-500",
                     "bg-amber-500",
                     "bg-rose-500",
-                    "bg-violet-500",
+                    "bg-accent-500",
                   ];
                   return (
                     <div
@@ -547,7 +547,7 @@ export default function SchemeDashboard() {
                     "bg-emerald-500",
                     "bg-amber-500",
                     "bg-rose-500",
-                    "bg-violet-500",
+                    "bg-accent-500",
                   ];
                   const pct = modeTotal > 0 ? (Number(amt) / modeTotal) * 100 : 0;
                   return (

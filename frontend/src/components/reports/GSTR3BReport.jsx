@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ const fmt = (v) =>
 
 function SummaryCard({ label, value, color = "violet", sub }) {
   const colors = {
-    violet: "border-violet-200 bg-violet-50",
+    violet: "border-accent-200 bg-accent-50",
     green:  "border-green-200 bg-green-50",
     amber:  "border-amber-200 bg-amber-50",
     red:    "border-red-200 bg-red-50",
@@ -34,7 +34,7 @@ function SummaryCard({ label, value, color = "violet", sub }) {
 
 function GSTRow({ label, igst, cgst, sgst, bold }) {
   return (
-    <tr className={bold ? "bg-violet-50 font-semibold" : "border-b border-border/50"}>
+    <tr className={bold ? "bg-accent-50 font-semibold" : "border-b border-border/50"}>
       <td className="px-4 py-2.5 text-sm">{label}</td>
       <td className="px-4 py-2.5 text-sm text-right font-mono">₹{fmt(igst)}</td>
       <td className="px-4 py-2.5 text-sm text-right font-mono">₹{fmt(cgst)}</td>
@@ -199,7 +199,7 @@ export default function GSTR3BReport() {
                     <td className="py-2 text-muted-foreground">Less: ITC utilised</td>
                     <td className="py-2 text-right font-mono text-green-700">− ₹{fmt(data.summary?.itc)}</td>
                   </tr>
-                  <tr className="bg-violet-50">
+                  <tr className="bg-accent-50">
                     <td className="py-2.5 px-0 font-bold">Net tax payable (cash)</td>
                     <td className="py-2.5 text-right font-mono font-bold text-primary text-base">
                       ₹{fmt(data.summary?.net_payable)}

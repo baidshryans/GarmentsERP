@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@200..800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@200..800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,7 +15,7 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Thin scrollbars — Excalidraw style */
+/* Thin scrollbars â€” Excalidraw style */
 * {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db transparent;
@@ -64,14 +64,14 @@
     --ring: 242 64% 63%;
     --radius: 0.5rem;
 
-    /* Chart colors — vibrant Excalidraw palette */
+    /* Chart colors â€” vibrant Excalidraw palette */
     --chart-1: 242 64% 63%;
     --chart-2: 173 58% 39%;
     --chart-3: 210 34% 63%;
     --chart-4: 43 74% 66%;
     --chart-5: 1 63% 63%;
 
-    /* Sidebar — light panel with violet accents */
+    /* Sidebar â€” light panel with violet accents */
     --sidebar-background: 240 10% 98%;
     --sidebar-foreground: 240 6% 25%;
     --sidebar-primary: 242 64% 63%;
@@ -83,7 +83,7 @@
   }
 }
 
-/* ── Theme variants (switchable via data-theme on <html>) ─────────────── */
+/* â”€â”€ Theme variants (switchable via data-theme on <html>) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root[data-theme="violet"] {
   --primary: 242 64% 63%;
   --primary-foreground: 0 0% 100%;
@@ -93,6 +93,17 @@
   --sidebar-primary: 242 64% 63%;
   --sidebar-ring: 242 64% 63%;
   --sidebar-accent: 242 90% 96%;
+  --accent-50: 242 90% 98%;
+  --accent-100: 242 90% 95%;
+  --accent-200: 242 76% 91%;
+  --accent-300: 242 76% 84%;
+  --accent-400: 242 64% 74%;
+  --accent-500: 242 64% 63%;
+  --accent-600: 262 70% 50%;
+  --accent-700: 262 70% 35%;
+  --accent-800: 262 70% 25%;
+  --accent-950: 262 70% 12%;
+  --chart-1: 242 64% 63%;
 }
 :root[data-theme="indigo"] {
   --primary: 263 70% 50%;
@@ -103,6 +114,17 @@
   --sidebar-primary: 263 70% 50%;
   --sidebar-ring: 263 70% 50%;
   --sidebar-accent: 263 90% 96%;
+  --accent-50: 263 90% 98%;
+  --accent-100: 263 90% 95%;
+  --accent-200: 263 76% 91%;
+  --accent-300: 263 76% 84%;
+  --accent-400: 263 64% 74%;
+  --accent-500: 263 70% 50%;
+  --accent-600: 263 70% 40%;
+  --accent-700: 263 70% 30%;
+  --accent-800: 263 70% 22%;
+  --accent-950: 263 70% 12%;
+  --chart-1: 263 70% 50%;
 }
 
 @layer base {
@@ -110,9 +132,9 @@
   body { @apply bg-background text-foreground; }
 }
 
-/* ── Input polish ──────────────────────────────────────────── */
+/* â”€â”€ Input polish â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
-/* Date / time / datetime-local — violet calendar icon */
+/* Date / time / datetime-local â€” violet calendar icon */
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
@@ -139,3 +161,5 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 input[type="number"] { -moz-appearance: textfield; }
+
+

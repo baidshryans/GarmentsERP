@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -155,7 +155,7 @@ export default function BranchMasterPage() {
       header: "Retail Locations",
       accessorKey: "retail_count",
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-violet-100 text-primary">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-100 text-primary">
           {row.original.retail_count ?? 0} location{row.original.retail_count !== 1 ? "s" : ""}
         </span>
       ),

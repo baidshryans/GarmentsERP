@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import { SquarePen, Trash2, SendHorizontal, PackageCheck, ArrowUpRight, ArrowDownLeft, ScanBarcode, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ function TabBtn({ active, onClick, children, count }) {
       {children}
       {count != null && (
         <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-          active ? "bg-violet-100 text-primary" : "bg-muted text-muted-foreground"
+          active ? "bg-accent-100 text-primary" : "bg-muted text-muted-foreground"
         }`}>
           {count}
         </span>

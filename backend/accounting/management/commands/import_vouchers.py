@@ -29,7 +29,7 @@ from django.db import transaction
 from accounting.models import VoucherMain, VoucherDetail
 from contacts.models import Ledger
 from mastersconfig.models import RetailMaster, BranchMaster, FiscalYearMaster
-from accounting.migration_utils import resolve_ledger
+from accounting.migration_utils import resolve_ledger, norm_id
 
 
 # Legacy v_typ -> target voucher_type. Most values already line up; this dict
@@ -357,20 +357,20 @@ class Command(BaseCommand):
 
     @staticmethod
     def _legacy_key(row):
-        return (f"{_clean(row['v_typ'])}:{_clean(row['v_id'])}:"
+        return (f"{_clean(row['v_typ'])}:{norm_id(row['v_id'])}:"
                 f"{_clean(row['ac_yr'])}:{_clean(row['rt_code'])}")
 
     @staticmethod
     def _voucher_no(voucher_type, rt_code, ac_yr, v_id):
         fy = _fy_short(ac_yr)
         try:
-            seq = f"{int(v_id):05d}"
+            seq = f"{int(float(v_id)):05d}"  # '368.0' -> '00368'
         except (ValueError, TypeError):
-            seq = str(v_id)
+            seq = norm_id(v_id)
         vn = f"LEG/{voucher_type}/{rt_code}/{fy}/{seq}"
         if len(vn) > 30:
             # fall back to a compact, still-deterministic form
-            vn = f"LEG/{voucher_type}/{v_id}"[:30]
+            vn = f"LEG/{voucher_type}/{seq}"[:30]
         return vn
 
     def _write_reports(self, report_dir, unresolved_rows, imbalance_rows):

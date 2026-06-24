@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -399,7 +399,7 @@ const StoneReturn = () => {
 
       {/* ── Return Details ── */}
       <div className="rounded-lg border bg-card">
-        <div className="px-4 py-2 bg-violet-50 border-b border-violet-100 rounded-t-lg text-sm font-medium text-primary">
+        <div className="px-4 py-2 bg-accent-50 border-b border-accent-100 rounded-t-lg text-sm font-medium text-primary">
           Return Details
         </div>
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -410,9 +410,9 @@ const StoneReturn = () => {
           <div>
             <Label>Return Slip No</Label>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate h-9">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate h-9">
                 {watch("form.billno") || (
-                  <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>
+                  <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>
                 )}
               </span>
               <input type="hidden" {...register("form.billno")} />
@@ -502,7 +502,7 @@ const StoneReturn = () => {
       {/* ── Job Sl No Picker ── */}
       {jobSlNos.length > 0 && (
         <div className="rounded-lg border bg-card">
-          <div className="px-4 py-2 bg-violet-50 border-b border-violet-100 rounded-t-lg text-sm font-medium text-primary flex items-center justify-between">
+          <div className="px-4 py-2 bg-accent-50 border-b border-accent-100 rounded-t-lg text-sm font-medium text-primary flex items-center justify-between">
             <span>Pick Item to Return Stones Against</span>
             {selectedJobSl && rs.length > 0 && (
               <span className="text-xs text-muted-foreground font-normal">
@@ -532,7 +532,7 @@ const StoneReturn = () => {
                   }}
                   className={`rounded-md border p-3 text-sm transition ${
                     isSelected
-                      ? "border-primary bg-violet-50 ring-2 ring-primary cursor-pointer"
+                      ? "border-primary bg-accent-50 ring-2 ring-primary cursor-pointer"
                       : locked
                       ? "border-gray-200 opacity-50 cursor-not-allowed"
                       : "border-gray-200 hover:border-primary hover:bg-muted/40 cursor-pointer"
@@ -566,7 +566,7 @@ const StoneReturn = () => {
 
       {/* ── Stone Return Entry ── */}
       <div className="rounded-lg border bg-card">
-        <div className="px-4 py-2 bg-violet-50 border-b border-violet-100 rounded-t-lg text-sm font-medium text-primary flex items-center justify-between">
+        <div className="px-4 py-2 bg-accent-50 border-b border-accent-100 rounded-t-lg text-sm font-medium text-primary flex items-center justify-between">
           <span>Stones</span>
           <span className="text-xs text-muted-foreground font-normal">Tab on Remarks to add row</span>
         </div>
@@ -592,7 +592,7 @@ const StoneReturn = () => {
         <div className="overflow-x-auto">
           <Table className="w-full text-sm">
             <TableHeader>
-              <TableRow className="bg-violet-50/70 hover:bg-violet-50/70">
+              <TableRow className="bg-accent-50/70 hover:bg-accent-50/70">
                 <TableHead rowSpan={2} className="w-12 py-2 px-2 text-center align-middle border-r">#</TableHead>
                 <TableHead rowSpan={2} className="w-32 py-2 px-2 align-middle border-r">Packet</TableHead>
                 <TableHead rowSpan={2} className="w-28 py-2 px-2 align-middle border-r">Item</TableHead>
@@ -608,7 +608,7 @@ const StoneReturn = () => {
                 <TableHead rowSpan={2} className="w-20 py-2 px-2 text-right align-middle border-r">Rate</TableHead>
                 <TableHead rowSpan={2} className="w-32 py-2 px-2 align-middle">Remarks</TableHead>
               </TableRow>
-              <TableRow className="bg-violet-50/40 hover:bg-violet-50/40">
+              <TableRow className="bg-accent-50/40 hover:bg-accent-50/40">
                 <TableHead className="w-14 py-1 px-1 text-right text-emerald-700 font-normal">Pcs</TableHead>
                 <TableHead className="w-16 py-1 px-1 text-right text-emerald-700 font-normal">Ct</TableHead>
                 <TableHead className="w-16 py-1 px-1 text-right text-emerald-700 font-normal border-r">GW</TableHead>
@@ -750,7 +750,7 @@ const StoneReturn = () => {
               <span className="text-muted-foreground">IGST</span>
               <span className="tabular-nums">{(watch("form.igst_per") || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center px-4 py-2.5 bg-violet-50/60 font-semibold">
+            <div className="flex justify-between items-center px-4 py-2.5 bg-accent-50/60 font-semibold">
               <span>Total Amount</span>
               <span className="tabular-nums">{(watch("total_amt") || 0).toFixed(2)}</span>
             </div>

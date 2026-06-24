@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -339,7 +339,7 @@ export default function BarcodeStockReport() {
                 {/* Level 1: group headers */}
                 <tr className="bg-muted/50">
                   <ColGroup label="Item" span={2} className="text-left !text-[11px]" />
-                  <ColGroup label="Opening" span={1} className="bg-violet-50/60" />
+                  <ColGroup label="Opening" span={1} className="bg-accent-50/60" />
                   <ColGroup label="Inflows" span={8} className="bg-green-50/60" />
                   <ColGroup label="Outflows" span={8} className="bg-red-50/60" />
                   <ColGroup label="Stock" span={1} className="bg-primary/5" />
@@ -350,7 +350,7 @@ export default function BarcodeStockReport() {
                   <SubHead label="Code" className="text-left !font-semibold w-20" />
                   <SubHead label="Name" className="text-left !font-semibold w-32" />
                   {/* Opening */}
-                  <SubHead label={metricLabel} className="bg-violet-50/40" />
+                  <SubHead label={metricLabel} className="bg-accent-50/40" />
                   {/* Inflows */}
                   <SubHead label="Purchase" className="bg-green-50/40" />
                   <SubHead label="Kar Rec" className="bg-green-50/40" />
@@ -397,7 +397,7 @@ export default function BarcodeStockReport() {
                       {d.item_name || d.short_code}
                     </td>
                     {/* Opening */}
-                    <CTd value={d[k("opening")]} onClick={() => openDrill(d, "opening")} className="bg-violet-50/20 font-medium" />
+                    <CTd value={d[k("opening")]} onClick={() => openDrill(d, "opening")} className="bg-accent-50/20 font-medium" />
                     {/* Inflows */}
                     <CTd value={d[k("create_pur")]} onClick={() => openDrill(d, "create_pur")} className="bg-green-50/10" />
                     <CTd value={d[k("create_rec")]} onClick={() => openDrill(d, "create_rec")} className="bg-green-50/10" />
@@ -430,7 +430,7 @@ export default function BarcodeStockReport() {
                     >
                       Total
                     </td>
-                    <Td className="bg-violet-50/30 font-bold">{v(totals[k("opening")])}</Td>
+                    <Td className="bg-accent-50/30 font-bold">{v(totals[k("opening")])}</Td>
                     <Td className="bg-green-50/20">{v(totals[k("create_pur")])}</Td>
                     <Td className="bg-green-50/20">{v(totals[k("create_rec")])}</Td>
                     <Td className="bg-green-50/20">{v(totals[k("sale_ret")])}</Td>

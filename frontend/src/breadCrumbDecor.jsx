@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useLocation, Link } from "react-router-dom";
 import { Home } from "lucide-react";
 import {
@@ -240,7 +240,7 @@ const Header = ({ heading, children }) => {
         </div>
 
         {/* Violet accent line at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-400/0 via-violet-400/40 to-violet-400/0 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-accent-400/0 via-accent-400/40 to-accent-400/0 pointer-events-none" />
       </header>
 
       <div className="flex flex-col gap-4 p-4 pt-4">

@@ -1,4 +1,4 @@
-import * as React from "react"
+﻿import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -18,7 +18,7 @@ const Input = React.forwardRef(({ className, type, ...props }, ref) => {
         // Transitions
         "transition-all duration-200 ease-in-out",
         // Hover
-        "hover:border-violet-400/70 hover:shadow-md",
+        "hover:border-accent-400/70 hover:shadow-md",
         // Focus — violet glow ring
         "focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:shadow-md",
         // File input

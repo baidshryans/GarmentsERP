@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { Loader2, CheckCircle, XCircle, Download, Upload } from 'lucide-react';
 import {
   downloadBarcodeMainTemplate,
@@ -128,7 +128,7 @@ export default function BarcodeOpeningUploadCard() {
                 type="button"
                 onClick={handleDownloadMain}
                 disabled={downloadingMain}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-accent-300 bg-accent-50 hover:bg-accent-100 text-primary disabled:opacity-50 transition-colors"
               >
                 {downloadingMain ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                 {downloadingMain ? '…' : 'Template'}
@@ -170,7 +170,7 @@ export default function BarcodeOpeningUploadCard() {
                 type="button"
                 onClick={handleDownloadDetails}
                 disabled={downloadingDetails}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-violet-300 bg-violet-50 hover:bg-violet-100 text-primary disabled:opacity-50 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-accent-300 bg-accent-50 hover:bg-accent-100 text-primary disabled:opacity-50 transition-colors"
               >
                 {downloadingDetails ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                 {downloadingDetails ? '…' : 'Template'}
@@ -313,7 +313,7 @@ export default function BarcodeOpeningUploadCard() {
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="p-2 bg-violet-50 rounded text-center">
+          <div className="p-2 bg-accent-50 rounded text-center">
             <div className="text-xs text-gray-600">Created</div>
             <div className="text-xl font-bold text-primary">{importResult.created ?? 0}</div>
           </div>

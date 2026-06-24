@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+﻿import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -291,7 +291,7 @@ export default function PacketWiseStoneReport() {
                             )}
                             {!loading && processed.map((pd, pi) => (
                                 <React.Fragment key={pd.packet.id || pi}>
-                                    <tr className="bg-violet-50 border-b border-violet-200">
+                                    <tr className="bg-accent-50 border-b border-accent-200">
                                         <td colSpan={17} className="px-3 py-1.5 text-xs font-semibold text-primary">
                                             {pd.packet.pckt_no}
                                         </td>

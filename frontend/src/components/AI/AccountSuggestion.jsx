@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+﻿import { useState, useCallback, useEffect } from "react";
 import { Lightbulb, CheckCircle, X, Loader2 } from "lucide-react";
 import { suggestAccounts } from "@/services/apiService";
 
@@ -65,7 +65,7 @@ export default function AccountSuggestion({ narration, voucherType = "JRNL", amo
   if (status === "idle" || status === "dismissed") return null;
 
   return (
-    <div className="mt-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm">
+    <div className="mt-1.5 rounded-lg border border-accent-200 bg-accent-50 px-3 py-2 text-sm">
       {status === "loading" && (
         <div className="flex items-center gap-2 text-primary">
           <Loader2 size={13} className="animate-spin" />

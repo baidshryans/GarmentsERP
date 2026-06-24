@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -214,7 +214,7 @@ function KarigarJobWorkReport() {
         }
         if (stage === 'REISSUED') {
           return (
-            <span className="inline-flex items-center gap-1 text-xs bg-violet-100 text-violet-700 rounded-full px-2 py-0.5 font-medium">
+            <span className="inline-flex items-center gap-1 text-xs bg-accent-100 text-accent-700 rounded-full px-2 py-0.5 font-medium">
               <Hammer className="size-3" />Re-Issued
             </span>
           );
@@ -336,7 +336,7 @@ function KarigarJobWorkReport() {
 
 function SummaryCard({ icon, label, value, color }) {
   const colorMap = {
-    violet: "bg-violet-50 border-violet-100",
+    violet: "bg-accent-50 border-accent-100",
     amber:  "bg-amber-50  border-amber-100",
     green:  "bg-green-50  border-green-100",
     red:    "bg-red-50    border-red-100",

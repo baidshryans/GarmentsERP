@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { getLedgers, getFiscalYears } from "@/services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,7 +145,7 @@ export default function CustomerPurchaseHistory() {
               {suggestions.map((s) => (
                 <div
                   key={s.id}
-                  className="px-3 py-2 hover:bg-violet-50 cursor-pointer text-sm"
+                  className="px-3 py-2 hover:bg-accent-50 cursor-pointer text-sm"
                   onMouseDown={() => handleSelect(s)}
                 >
                   <span className="font-medium">{s.ac_name}</span>

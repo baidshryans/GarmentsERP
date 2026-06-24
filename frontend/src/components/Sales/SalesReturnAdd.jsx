@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ const SectionHeader = ({ number, title }) => (
       {number}
     </span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
-    <div className="flex-1 h-px bg-violet-100" />
+    <div className="flex-1 h-px bg-accent-100" />
   </div>
 );
 
@@ -538,7 +538,7 @@ const SalesReturnAdd = () => {
         <div className="flex items-center gap-3 my-5">
           <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">↩</span>
           <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">Sales Return</span>
-          <div className="flex-1 h-px bg-violet-100" />
+          <div className="flex-1 h-px bg-accent-100" />
         </div>
 
         {/* ══ SECTION 1: Return Details ══════════════════════════════════════ */}
@@ -548,15 +548,15 @@ const SalesReturnAdd = () => {
             <Input type="date" {...register("form.date1", { required: true })} />
           </Field>
           <Field label="Bill No">
-            <div className="flex h-10 items-center px-3 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold">
-              {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+            <div className="flex h-10 items-center px-3 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold">
+              {watch("form.billno") || <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>}
             </div>
             <input type="hidden" {...register("form.billno", { required: true })} />
           </Field>
           <Field label="Ref Sale Bill No">
             <div className="flex gap-2">
               <Input type="text" placeholder="Enter bill no and press Fetch" onKeyDown={handleRefBillKeyDown} {...register("form.ref_bill_no")} />
-              <Button type="button" variant="outline" className="shrink-0 border-violet-300 text-primary hover:bg-violet-50" onClick={handleRefBillFetch}>
+              <Button type="button" variant="outline" className="shrink-0 border-accent-300 text-primary hover:bg-accent-50" onClick={handleRefBillFetch}>
                 Fetch
               </Button>
             </div>
@@ -593,17 +593,17 @@ const SalesReturnAdd = () => {
             <div className="overflow-x-auto mb-3">
               <Table className="w-full border-collapse">
                 <TableBody>
-                  <TableRow className="bg-violet-50">
+                  <TableRow className="bg-accent-50">
                     <TH className="w-10">
-                      <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-violet-700 size-4 cursor-pointer" />
+                      <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-accent-700 size-4 cursor-pointer" />
                     </TH>
                     <TH>#</TH><TH>Barcode</TH><TH>Item</TH><TH>Pcs</TH><TH>GW</TH><TH>Making</TH><TH>Amount</TH>
                   </TableRow>
                   {fetchedBillItems.map((item, i) => (
                     <React.Fragment key={i}>
-                      <TableRow className={`cursor-pointer transition-colors ${selectedIndices.has(i) ? "bg-violet-50" : "hover:bg-gray-50"}`} onClick={() => toggleOne(i)}>
+                      <TableRow className={`cursor-pointer transition-colors ${selectedIndices.has(i) ? "bg-accent-50" : "hover:bg-gray-50"}`} onClick={() => toggleOne(i)}>
                         <TableCell className="px-4 py-2 border">
-                          <input type="checkbox" checked={selectedIndices.has(i)} onChange={() => toggleOne(i)} onClick={(e) => e.stopPropagation()} className="accent-violet-700 size-4 cursor-pointer" />
+                          <input type="checkbox" checked={selectedIndices.has(i)} onChange={() => toggleOne(i)} onClick={(e) => e.stopPropagation()} className="accent-accent-700 size-4 cursor-pointer" />
                         </TableCell>
                         <TableCell className="px-4 py-2 border text-xs font-semibold text-gray-500">{i + 1}</TableCell>
                         <TableCell className="px-4 py-2 border text-xs">{item.barcode}</TableCell>
@@ -647,7 +647,7 @@ const SalesReturnAdd = () => {
         <div className="overflow-x-auto mb-5">
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH>Item</TH><TH>Pcs</TH><TH>GW</TH>
                 <TH>Making</TH><TH>Making Type</TH><TH>Discount</TH><TH>Value</TH><TH>Remarks</TH>
               </TableRow>
@@ -712,7 +712,7 @@ const SalesReturnAdd = () => {
         <div className="overflow-x-auto mb-6">
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH className="w-14">Sl No</TH>
                 {!packetLockedByItem && <TH className="w-28">Packet</TH>}
                 {!itemLockedByPacket && <TH className="w-40">Item (R)</TH>}
@@ -821,7 +821,7 @@ const SalesReturnAdd = () => {
             <Table className="w-full border-collapse">
               <TableBody>
                 {/* ── 15-column header matching sales voucher barcode table ── */}
-                <TableRow className="bg-violet-50">
+                <TableRow className="bg-accent-50">
                   <TH className="w-10">Del</TH>
                   <TH className="w-28">Barcode</TH>
                   <TH className="w-24">Packet</TH>
@@ -845,7 +845,7 @@ const SalesReturnAdd = () => {
                   return (
                     <React.Fragment key={idx}>
                       {/* ── Main item row ── */}
-                      <TableRow className={isManual ? "bg-sky-50 border-t-2 border-sky-200" : "bg-violet-50"}>
+                      <TableRow className={isManual ? "bg-sky-50 border-t-2 border-sky-200" : "bg-accent-50"}>
                         <TableCell className="px-3 py-2 border">
                           <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => handleDeleteItem(idx)} />
                         </TableCell>

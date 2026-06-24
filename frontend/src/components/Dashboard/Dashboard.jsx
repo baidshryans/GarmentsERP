@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Gem,
@@ -29,10 +29,10 @@ function GoldRateCard() {
   const sortedRates = [...goldRates].sort((a, b) => a.purity - b.purity);
 
   return (
-    <div className="col-span-full rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50/80 to-white p-6 shadow-sm">
+    <div className="col-span-full rounded-2xl border border-accent-100 bg-gradient-to-br from-accent-50/80 to-white p-6 shadow-sm">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-10 rounded-xl bg-primary shadow-md shadow-violet-200">
+          <div className="flex items-center justify-center size-10 rounded-xl bg-primary shadow-md shadow-accent-200">
             <Gem className="size-5 text-white" />
           </div>
           <div>
@@ -51,7 +51,7 @@ function GoldRateCard() {
         </div>
         <Link
           to="/goldrate/form"
-          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary transition-colors bg-violet-100/60 hover:bg-violet-100 rounded-lg px-3 py-1.5"
+          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary transition-colors bg-accent-100/60 hover:bg-accent-100 rounded-lg px-3 py-1.5"
         >
           <PenSquare className="w-3.5 h-3.5" />
           Update
@@ -63,7 +63,7 @@ function GoldRateCard() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="flex-1 h-20 rounded-xl bg-violet-100/50 animate-pulse"
+              className="flex-1 h-20 rounded-xl bg-accent-100/50 animate-pulse"
             />
           ))}
         </div>
@@ -83,7 +83,7 @@ function GoldRateCard() {
           {sortedRates.map((rate) => (
             <div
               key={rate.purity}
-              className="relative rounded-xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm hover:shadow-md hover:border-violet-200 transition-all group"
+              className="relative rounded-xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm hover:shadow-md hover:border-accent-200 transition-all group"
             >
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 group-hover:text-primary transition-colors">
@@ -157,7 +157,7 @@ function KPICards() {
   ] : [];
 
   const colorMap = {
-    violet:  { bg: "bg-violet-50",  icon: "bg-violet-100 text-primary",  val: "text-primary"  },
+    violet:  { bg: "bg-accent-50",  icon: "bg-accent-100 text-primary",  val: "text-primary"  },
     emerald: { bg: "bg-emerald-50", icon: "bg-emerald-100 text-emerald-600", val: "text-emerald-700" },
     sky:     { bg: "bg-sky-50",     icon: "bg-sky-100 text-sky-600",         val: "text-sky-700"     },
     rose:    { bg: "bg-rose-50",    icon: "bg-rose-100 text-rose-600",       val: "text-rose-700"    },
@@ -196,7 +196,7 @@ function KPICards() {
 /* ── Quick-action shortcut tile ───────────────────────────── */
 function QuickAction({ to, icon: Icon, label, description, color }) {
   const colorMap = {
-    violet: "bg-violet-50 text-primary group-hover:bg-violet-100",
+    violet: "bg-accent-50 text-primary group-hover:bg-accent-100",
     emerald: "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100",
     sky: "bg-sky-50 text-sky-600 group-hover:bg-sky-100",
     rose: "bg-rose-50 text-rose-600 group-hover:bg-rose-100",
@@ -207,7 +207,7 @@ function QuickAction({ to, icon: Icon, label, description, color }) {
   return (
     <Link
       to={to}
-      className="group flex items-start gap-3.5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-violet-200 transition-all"
+      className="group flex items-start gap-3.5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-md hover:border-accent-200 transition-all"
     >
       <div
         className={`flex items-center justify-center w-9 h-9 rounded-lg shrink-0 transition-colors ${colorMap[color] || colorMap.violet}`}
@@ -222,7 +222,7 @@ function QuickAction({ to, icon: Icon, label, description, color }) {
           {description}
         </div>
       </div>
-      <ArrowRight className="size-4 text-gray-300 group-hover:text-violet-400 mt-0.5 shrink-0 transition-colors" />
+      <ArrowRight className="size-4 text-gray-300 group-hover:text-accent-400 mt-0.5 shrink-0 transition-colors" />
     </Link>
   );
 }
@@ -349,7 +349,7 @@ export default function Dashboard() {
               <Link
                 key={to}
                 to={to}
-                className="group flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:border-violet-200 transition-all"
+                className="group flex items-center gap-2.5 rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:border-accent-200 transition-all"
               >
                 <Icon className="size-4 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
                 <span className="text-sm text-gray-700 group-hover:text-primary font-medium transition-colors truncate">

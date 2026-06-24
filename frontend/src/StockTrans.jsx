@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -403,7 +403,7 @@ const RetToRetstockTransfer = () => {
                                 </span>
                             )}
                             {watch('form.billno') && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-violet-50 text-primary border border-violet-200">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono bg-accent-50 text-primary border border-accent-200">
                                     <Hash className="size-3" />{watch('form.billno')}
                                 </span>
                             )}
@@ -454,9 +454,9 @@ const RetToRetstockTransfer = () => {
 
                     {/* Route strip */}
                     {toRetailCode && (
-                        <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg bg-violet-50 border border-violet-100 px-4 py-2 text-sm">
+                        <div className="mx-5 mb-4 flex items-center gap-2 rounded-lg bg-accent-50 border border-accent-100 px-4 py-2 text-sm">
                             <span className="font-mono font-medium text-primary">{fromRetailCode}</span>
-                            <ArrowRight className="size-3.5 text-violet-400" />
+                            <ArrowRight className="size-3.5 text-accent-400" />
                             <span className="font-medium text-primary">{toRetailObj?.retail_name || toRetailCode}</span>
                             <span className="font-mono text-xs text-primary">({toRetailCode})</span>
                         </div>
@@ -499,7 +499,7 @@ const RetToRetstockTransfer = () => {
                         <div className="flex items-center gap-2">
                             <Scale className="size-4 text-muted-foreground" />
                             <span className="text-sm font-semibold">Transfer Items</span>
-                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-violet-100 text-primary text-[11px] font-semibold">
+                            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-accent-100 text-primary text-[11px] font-semibold">
                                 {rs.length}
                             </span>
                         </div>

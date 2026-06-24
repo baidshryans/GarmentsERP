@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -184,7 +184,7 @@ export default function UserManagement() {
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-sm">{row.original.username}</span>
           {row.original.is_staff && (
-            <span className="px-1 py-0.5 rounded text-[9px] bg-violet-100 text-primary font-semibold">admin</span>
+            <span className="px-1 py-0.5 rounded text-[9px] bg-accent-100 text-primary font-semibold">admin</span>
           )}
         </div>
       ),
@@ -219,7 +219,7 @@ export default function UserManagement() {
       cell: ({ row }) => {
         const r = row.original.role;
         if (!r) return <span className="text-xs text-muted-foreground">No role</span>;
-        return <span className="px-1.5 py-0.5 rounded text-[11px] bg-violet-100 text-primary font-medium">{r.name}</span>;
+        return <span className="px-1.5 py-0.5 rounded text-[11px] bg-accent-100 text-primary font-medium">{r.name}</span>;
       },
     },
     { header: "Joined", accessorKey: "date_joined" },

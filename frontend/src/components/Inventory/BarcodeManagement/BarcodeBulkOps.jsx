@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -392,7 +392,7 @@ export default function BarcodeBulkOps() {
                       onClick={() => toggleSelect(b.id)}
                       className={`border-t border-border/50 cursor-pointer transition-colors ${
                         isSelected
-                          ? "bg-violet-50 hover:bg-violet-100/80"
+                          ? "bg-accent-50 hover:bg-accent-100/80"
                           : i % 2 === 1
                             ? "bg-muted/20 hover:bg-accent/30"
                             : "hover:bg-accent/30"

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableRow, TableCell, TableBody, TableHead } from "@/components/ui/table";
@@ -99,7 +99,7 @@ export default function BillAllocationTable({
   }
 
   return (
-    <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-4 mb-4">
+    <div className="rounded-lg border border-accent-200 bg-accent-50/40 p-4 mb-4">
       <div className="flex items-center gap-2 mb-3">
         <FileText className="size-4 text-primary" />
         <span className="text-sm font-semibold text-primary">
@@ -116,7 +116,7 @@ export default function BillAllocationTable({
           <button
             type="button"
             onClick={() => setHintOpen(v => !v)}
-            className="text-[11px] text-violet-400 hover:text-violet-600 flex items-center gap-1 transition-colors"
+            className="text-[11px] text-accent-400 hover:text-accent-600 flex items-center gap-1 transition-colors"
             title="How to use bill allocation"
           >
             <span className={`transition-transform duration-150 ${hintOpen ? "rotate-90" : ""}`}>▶</span>
@@ -129,11 +129,11 @@ export default function BillAllocationTable({
       </div>
 
       {hintOpen && (
-        <div className="mb-3 rounded-md border border-violet-200 bg-white px-3 py-2.5 text-xs text-violet-700">
+        <div className="mb-3 rounded-md border border-accent-200 bg-white px-3 py-2.5 text-xs text-accent-700">
           <ol className="list-decimal list-inside space-y-0.5">
             <li>Select the {kind === "purchase" ? "vendor / supplier" : "customer"} account and enter the {kind === "purchase" ? "payment (Debit)" : "receipt (Credit)"} amount in the row above.</li>
             <li>Enter how much of that amount applies to each bill below, or use <strong>Auto-fill (FIFO)</strong> to fill oldest bills first.</li>
-            <li>Press <kbd className="px-1 py-0.5 rounded bg-violet-100 font-mono">Tab</kbd> from the amount field to commit — one row per bill is added, with any remainder posted <em>on account</em>.</li>
+            <li>Press <kbd className="px-1 py-0.5 rounded bg-accent-100 font-mono">Tab</kbd> from the amount field to commit — one row per bill is added, with any remainder posted <em>on account</em>.</li>
           </ol>
         </div>
       )}
@@ -147,7 +147,7 @@ export default function BillAllocationTable({
       ) : (
         <Table className="w-full">
           <TableBody>
-            <TableRow className="bg-violet-100/60">
+            <TableRow className="bg-accent-100/60">
               <TableCell className="px-3 py-1.5 text-[11px] font-semibold text-primary uppercase">Bill No</TableCell>
               <TableCell className="px-3 py-1.5 text-[11px] font-semibold text-primary uppercase">Date</TableCell>
               <TableCell className="px-3 py-1.5 text-[11px] font-semibold text-primary uppercase text-right">Total</TableCell>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Search, Calendar, FileText, Download } from 'lucide-react';
 import { fetchItemWiseBarcode, getFiscalYears } from './services/apiService';
 import { isValidDateRange } from "@/lib/dateRange";
@@ -241,7 +241,7 @@ const ItemwiseBarcodeReport = () => {
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300">Pcs</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300">Gw</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300">Nw</th>
-                    <th colSpan="4" className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300 bg-violet-50">Stone</th>
+                    <th colSpan="4" className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300 bg-accent-50">Stone</th>
                     <th colSpan="4" className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300 bg-green-50">Other</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300">Making</th>
                     <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border border-gray-300">Value</th>
@@ -252,10 +252,10 @@ const ItemwiseBarcodeReport = () => {
                     <th className="px-4 py-2 border border-gray-300"></th>
                     <th className="px-4 py-2 border border-gray-300"></th>
                     <th className="px-4 py-2 border border-gray-300"></th>
-                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-violet-50">Pcs</th>
-                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-violet-50">Weight</th>
-                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-violet-50">Rate</th>
-                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-violet-50">Value</th>
+                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-accent-50">Pcs</th>
+                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-accent-50">Weight</th>
+                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-accent-50">Rate</th>
+                    <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-accent-50">Value</th>
                     <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-green-50">Item</th>
                     <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-green-50">Pcs</th>
                     <th className="px-2 py-2 text-xs text-gray-500 border border-gray-300 bg-green-50">Weight</th>

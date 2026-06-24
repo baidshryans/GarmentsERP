@@ -1,4 +1,4 @@
-/** @type {import('tailwindcss').Config} */
+﻿/** @type {import('tailwindcss').Config} */
 export default {
 	darkMode: ["class"],
 	content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
@@ -34,7 +34,17 @@ export default {
 				},
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					foreground: 'hsl(var(--accent-foreground))',
+					50:  'hsl(var(--accent-50))',
+					100: 'hsl(var(--accent-100))',
+					200: 'hsl(var(--accent-200))',
+					300: 'hsl(var(--accent-300))',
+					400: 'hsl(var(--accent-400))',
+					500: 'hsl(var(--accent-500))',
+					600: 'hsl(var(--accent-600))',
+					700: 'hsl(var(--accent-700))',
+					800: 'hsl(var(--accent-800))',
+					950: 'hsl(var(--accent-950))',
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
@@ -65,4 +75,5 @@ export default {
 	},
 	plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 }
+
 

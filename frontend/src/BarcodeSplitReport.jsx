@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Loader2, Search, Download, GitBranch, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,7 +165,7 @@ ${tableEl.outerHTML}
                 <th colSpan={5} className="px-3 py-2 text-center text-xs font-bold text-amber-700 bg-amber-50 border-r border-border tracking-wide uppercase">
                   Old Barcode
                 </th>
-                <th colSpan={5} className="px-3 py-2 text-center text-xs font-bold text-primary bg-violet-50 tracking-wide uppercase">
+                <th colSpan={5} className="px-3 py-2 text-center text-xs font-bold text-primary bg-accent-50 tracking-wide uppercase">
                   New Barcode
                 </th>
               </tr>
@@ -176,11 +176,11 @@ ${tableEl.outerHTML}
                 <th className="px-3 py-2 text-right text-xs font-semibold text-amber-700 bg-amber-50/60">Pcs</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-amber-700 bg-amber-50/60">GW</th>
                 <th className="px-3 py-2 text-right text-xs font-semibold text-amber-700 bg-amber-50/60 border-r border-border">NW</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-primary bg-violet-50/60 whitespace-nowrap">Barcode</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-primary bg-violet-50/60">Item</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-violet-50/60">Pcs</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-violet-50/60">GW</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-violet-50/60">NW</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-primary bg-accent-50/60 whitespace-nowrap">Barcode</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-primary bg-accent-50/60">Item</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-accent-50/60">Pcs</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-accent-50/60">GW</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-primary bg-accent-50/60">NW</th>
               </tr>
             </thead>
             <tbody>
@@ -220,15 +220,15 @@ ${tableEl.outerHTML}
                   <TD className="text-right font-mono text-xs bg-amber-50/20">{fmt(row.old_barcode?.gw)}</TD>
                   <TD className="text-right font-mono text-xs bg-amber-50/20 border-r border-border">{fmt(row.old_barcode?.nw)}</TD>
                   {/* New barcode columns */}
-                  <TD className="bg-violet-50/20">
-                    <span className="font-mono text-xs bg-violet-100 text-primary px-1.5 py-0.5 rounded">
+                  <TD className="bg-accent-50/20">
+                    <span className="font-mono text-xs bg-accent-100 text-primary px-1.5 py-0.5 rounded">
                       {row.new_barcode?.barcode ?? "—"}
                     </span>
                   </TD>
-                  <TD className="bg-violet-50/20">{row.new_barcode?.item?.item_name ?? "—"}</TD>
-                  <TD className="text-right bg-violet-50/20">{row.new_barcode?.pcs ?? "—"}</TD>
-                  <TD className="text-right font-mono text-xs bg-violet-50/20">{fmt(row.new_barcode?.gw)}</TD>
-                  <TD className="text-right font-mono text-xs bg-violet-50/20">{fmt(row.new_barcode?.nw)}</TD>
+                  <TD className="bg-accent-50/20">{row.new_barcode?.item?.item_name ?? "—"}</TD>
+                  <TD className="text-right bg-accent-50/20">{row.new_barcode?.pcs ?? "—"}</TD>
+                  <TD className="text-right font-mono text-xs bg-accent-50/20">{fmt(row.new_barcode?.gw)}</TD>
+                  <TD className="text-right font-mono text-xs bg-accent-50/20">{fmt(row.new_barcode?.nw)}</TD>
                 </tr>
               ))}
             </tbody>
@@ -247,15 +247,15 @@ ${tableEl.outerHTML}
                   <td className="px-3 py-2.5 text-right font-mono text-xs bg-amber-50/40 border-r border-border">
                     {fmt(rows.reduce((s, r) => s + parseFloat(r.old_barcode?.nw || 0), 0))}
                   </td>
-                  <td className="px-3 py-2.5 bg-violet-50/40" />
-                  <td className="px-3 py-2.5 bg-violet-50/40" />
-                  <td className="px-3 py-2.5 text-right bg-violet-50/40">
+                  <td className="px-3 py-2.5 bg-accent-50/40" />
+                  <td className="px-3 py-2.5 bg-accent-50/40" />
+                  <td className="px-3 py-2.5 text-right bg-accent-50/40">
                     {rows.reduce((s, r) => s + (r.new_barcode?.pcs || 0), 0)}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono text-xs bg-violet-50/40">
+                  <td className="px-3 py-2.5 text-right font-mono text-xs bg-accent-50/40">
                     {fmt(rows.reduce((s, r) => s + parseFloat(r.new_barcode?.gw || 0), 0))}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-mono text-xs bg-violet-50/40">
+                  <td className="px-3 py-2.5 text-right font-mono text-xs bg-accent-50/40">
                     {fmt(rows.reduce((s, r) => s + parseFloat(r.new_barcode?.nw || 0), 0))}
                   </td>
                 </tr>

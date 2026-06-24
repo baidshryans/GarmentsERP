@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +59,7 @@ const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 my-5">
     <span className="flex items-center justify-center size-6 rounded-full bg-primary text-white text-[11px] font-bold shrink-0">{number}</span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
-    <div className="flex-1 h-px bg-violet-100" />
+    <div className="flex-1 h-px bg-accent-100" />
   </div>
 );
 
@@ -1160,8 +1160,8 @@ const SalesVoucherAdd = () => {
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                {watch("form.billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+                {watch("form.billno") || <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>}
               </span>
               <input type="hidden" {...register("form.billno", { required: true })} />
             </div>
@@ -1281,7 +1281,7 @@ const SalesVoucherAdd = () => {
                     ? { ring: '#dc2626', track: '#fecaca', cls: 'bg-red-50 text-red-700 border-red-200' }
                     : isNearLimit
                     ? { ring: '#d97706', track: '#fde68a', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
-                    : { ring: '#7c3aed', track: '#ddd6fe', cls: 'bg-violet-50 text-violet-700 border-violet-200' };
+                    : { ring: 'hsl(var(--primary))', track: 'hsl(var(--accent-200))', cls: 'bg-accent-50 text-accent-700 border-accent-200' };
                   return (
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border font-semibold ${clr.cls}`}>
                       <svg width="14" height="14" viewBox="0 0 32 32" style={{ flexShrink: 0 }}>
@@ -1303,8 +1303,8 @@ const SalesVoucherAdd = () => {
             <FieldContainer>
               <Label className="text-nowrap">GST Bill No</Label>
               <div className="flex items-center gap-2 flex-1">
-                <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
-                  {watch("form.gst_billno") || <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>}
+                <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+                  {watch("form.gst_billno") || <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>}
                 </span>
                 <input type="hidden" {...register("form.gst_billno", { required: enableGstBill })} />
               </div>
@@ -1534,7 +1534,7 @@ const SalesVoucherAdd = () => {
         <div className="overflow-x-auto">
           <Table>
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH>Del</TH><TH>Barcode</TH><TH>Packet</TH><TH>Item</TH><TH>Pcs</TH>
                 <TH>Ct</TH><TH>GW</TH><TH>Making</TH><TH>Making Type</TH>
                 <TH>Making Value</TH><TH>Purity</TH><TH>Tunch</TH>
@@ -1555,7 +1555,7 @@ const SalesVoucherAdd = () => {
               {watchFields.map((field, index) => (
                 <React.Fragment key={field.id || index}>
                   {/* Main item row */}
-                  <TableRow className="bg-violet-50">
+                  <TableRow className="bg-accent-50">
                     <TableCell className="px-3 py-2 border">
                       <Trash2 color="#d45959" className="size-4 cursor-pointer" onClick={() => remove(index)} />
                     </TableCell>
@@ -1746,7 +1746,7 @@ const SalesVoucherAdd = () => {
         <div className="overflow-x-auto mb-5">
           <Table className="w-full table-fixed border-collapse">
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH>Packet</TH><TH>Item</TH><TH>Pcs</TH><TH>Ct</TH><TH>GW</TH>
                 <TH>Metal Purity</TH><TH>Loss</TH><TH>Tunch</TH><TH>Fine Wt</TH>
                 <TH>Rate</TH><TH>Value</TH>
@@ -1826,7 +1826,7 @@ const SalesVoucherAdd = () => {
             <Table className="w-full table-fixed border-collapse">
               <TableBody>
                 {/* Combined header */}
-                <TableRow className="bg-violet-50">
+                <TableRow className="bg-accent-50">
                   <TH className="w-10">#</TH>
                   <TH>Item</TH>
                   <TH>Description</TH>
@@ -1917,7 +1917,7 @@ const SalesVoucherAdd = () => {
         <div className="overflow-x-auto">
           <Table className="w-full border-collapse">
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH className="w-20">Action</TH>
                 <TH>Mode</TH>
                 <TH>Amount</TH>
@@ -1930,7 +1930,7 @@ const SalesVoucherAdd = () => {
               {/* Bank detail input row */}
               <TableRow>
                 <TableCell className="w-20 px-3 py-2 border">
-                  <PlusCircle size={20} className="cursor-pointer text-violet-600 mx-auto" onClick={handleAddBank} />
+                  <PlusCircle size={20} className="cursor-pointer text-accent-600 mx-auto" onClick={handleAddBank} />
                 </TableCell>
                 <TableCell className="px-3 py-2 border">
                   <select
@@ -2063,7 +2063,7 @@ const SalesVoucherAdd = () => {
           </div>
         )}
           {/* ── Buy Old Gold / Stones (inline) ─────────────────────────────── */}
-          <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50/40 p-4">
+          <div className="mb-4 rounded-lg border border-accent-200 bg-accent-50/40 p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Gem className="size-4 text-primary" />
@@ -2081,7 +2081,7 @@ const SalesVoucherAdd = () => {
               </Button>
             </div>
             {inlineOldGold.length > 0 && (
-              <div className="overflow-x-auto rounded border border-violet-200 bg-white">
+              <div className="overflow-x-auto rounded border border-accent-200 bg-white">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/60">
@@ -2168,7 +2168,7 @@ const SalesVoucherAdd = () => {
                         </TableCell>
                       </TableRow>
                     );})}
-                    <TableRow className="bg-violet-50">
+                    <TableRow className="bg-accent-50">
                       <TableCell colSpan={10} className="px-2 py-1.5 border text-right text-xs font-semibold text-primary">Inline Old Gold Total</TableCell>
                       <TableCell className="px-2 py-1.5 border text-right text-sm font-bold text-primary">₹{inlineOldGoldTotal.toFixed(2)}</TableCell>
                       <TableCell className="border" />
@@ -2181,7 +2181,7 @@ const SalesVoucherAdd = () => {
 
         {/* ══ Order Advance Reconciliation / On-Account Advance ══ */}
         {(customerOrders.length > 0 || onAccountReceipts.length > 0 || loadingOnAccount) && (
-          <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50/60 p-4">
+          <div className="mb-4 rounded-lg border border-accent-200 bg-accent-50/60 p-4">
             <div className="flex items-center gap-2 mb-3">
               <ClipboardList className="size-4 text-primary" />
               <span className="text-sm font-semibold text-primary">
@@ -2232,7 +2232,7 @@ const SalesVoucherAdd = () => {
                 />
               </FieldContainer>
               {selectedOrder && (
-                <div className="rounded-md border border-violet-200 bg-white px-4 py-3 text-sm flex flex-col gap-1.5">
+                <div className="rounded-md border border-accent-200 bg-white px-4 py-3 text-sm flex flex-col gap-1.5">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <CheckCircle2 className="size-3.5 text-emerald-600" />
                     <span className="font-semibold text-primary">{selectedOrder.order_no}</span>
@@ -2248,7 +2248,7 @@ const SalesVoucherAdd = () => {
                       − ₹{parseFloat(selectedOrder.advance_reconciled || 0).toLocaleString('en-IN')}
                     </span>
                   </div>
-                  <div className="flex justify-between text-xs border-t border-violet-100 pt-1 mt-0.5">
+                  <div className="flex justify-between text-xs border-t border-accent-100 pt-1 mt-0.5">
                     <span className="font-semibold text-primary">Available to Apply</span>
                     <span className="font-bold text-primary">
                       ₹{parseFloat(selectedOrder.advance_available ?? selectedOrder.advance_amt ?? 0).toLocaleString('en-IN')}

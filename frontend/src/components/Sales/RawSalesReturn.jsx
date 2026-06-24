@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -740,7 +740,7 @@ const RawSalesReturn = () => {
         <Table>
 
           <TableBody>
-            <TableRow className="bg-violet-100">
+            <TableRow className="bg-accent-100">
               <TableCell className="w-32 px-4 py-2 border">Options</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Barcode</TableCell>
               <TableCell className="w-28 px-4 py-2 border">Item</TableCell>

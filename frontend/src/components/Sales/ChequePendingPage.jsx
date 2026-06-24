@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -83,7 +83,7 @@ export default function ChequePendingPage() {
         <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TableHead>Bill No</TableHead>
                 <TableHead>Sale Date</TableHead>
                 <TableHead>Customer</TableHead>

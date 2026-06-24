@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useState } from 'react';
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { Input } from "@/components/ui/input";
@@ -36,14 +36,14 @@ const GroupPickerNode = ({ node, level, onSelect, disabledId }) => {
     return (
         <div>
             <div
-                className={`group flex items-center gap-2 py-2 pr-3 rounded-lg transition-colors ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-violet-50 cursor-pointer'}`}
+                className={`group flex items-center gap-2 py-2 pr-3 rounded-lg transition-colors ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-accent-50 cursor-pointer'}`}
                 style={{ paddingLeft: `${indent + 8}px` }}
                 onClick={() => { if (!isDisabled) onSelect(node); }}
             >
                 {hasChildren ? (
                     <button
                         type="button"
-                        className="shrink-0 size-5 flex items-center justify-center rounded hover:bg-violet-100 text-primary"
+                        className="shrink-0 size-5 flex items-center justify-center rounded hover:bg-accent-100 text-primary"
                         onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
                     >
                         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
@@ -55,12 +55,12 @@ const GroupPickerNode = ({ node, level, onSelect, disabledId }) => {
                 )}
                 {hasChildren
                     ? open
-                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
-                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-violet-400'}`} />
+                        ? <FolderOpen className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-accent-400'}`} />
+                        : <Folder className={`w-4 h-4 shrink-0 ${level === 0 ? 'text-primary' : 'text-accent-400'}`} />
                     : null
                 }
                 {node.code && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-violet-200 text-primary' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 tracking-wider ${level === 0 ? 'bg-accent-200 text-primary' : 'bg-gray-100 text-gray-500'}`}>
                         {node.code}
                     </span>
                 )}
@@ -72,7 +72,7 @@ const GroupPickerNode = ({ node, level, onSelect, disabledId }) => {
                 )}
             </div>
             {open && hasChildren && (
-                <div className={level === 0 ? 'ml-3 border-l border-violet-100 pl-1 mb-1' : 'ml-3 border-l border-gray-100 pl-1'}>
+                <div className={level === 0 ? 'ml-3 border-l border-accent-100 pl-1 mb-1' : 'ml-3 border-l border-gray-100 pl-1'}>
                     {node.children.map(child => (
                         <GroupPickerNode key={child.id} node={child} level={level + 1} onSelect={onSelect} disabledId={disabledId} />
                     ))}
@@ -186,7 +186,7 @@ const AccountCreate = () => {
         }
     };
 
-    const inputCls = "h-10 text-sm border-gray-200 focus:border-violet-400 focus:ring-violet-100";
+    const inputCls = "h-10 text-sm border-gray-200 focus:border-accent-400 focus:ring-accent-100";
 
     return (
         <div className="max-w-2xl mx-auto pb-12">
@@ -224,8 +224,8 @@ const AccountCreate = () => {
             )}
 
             {/* ── Form card ───────────────────────────────────────────────── */}
-            <div className="rounded-xl border border-violet-100 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-7 py-4 bg-violet-50 border-b border-violet-100">
+            <div className="rounded-xl border border-accent-100 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-7 py-4 bg-accent-50 border-b border-accent-100">
                     <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">1</span>
                     <span className="text-sm font-bold text-primary tracking-widest uppercase">Group Details</span>
                 </div>
@@ -287,12 +287,12 @@ const AccountCreate = () => {
                                         <button
                                             type="button"
                                             onClick={() => setPickerOpen(true)}
-                                            className="w-full h-10 flex items-center gap-2 px-3 rounded-md border border-gray-200 bg-white text-sm text-left hover:border-violet-400 transition-colors focus:outline-none focus:border-violet-400"
+                                            className="w-full h-10 flex items-center gap-2 px-3 rounded-md border border-gray-200 bg-white text-sm text-left hover:border-accent-400 transition-colors focus:outline-none focus:border-accent-400"
                                         >
                                             {selected ? (
                                                 <>
                                                     {selected.code && (
-                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-primary tracking-wider shrink-0">
+                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-accent-100 text-primary tracking-wider shrink-0">
                                                             {selected.code}
                                                         </span>
                                                     )}
@@ -316,7 +316,7 @@ const AccountCreate = () => {
 
                                         <Sheet open={pickerOpen} onOpenChange={setPickerOpen}>
                                             <SheetContent side="right" className="w-[400px] sm:max-w-[400px] flex flex-col p-0">
-                                                <div className="flex items-center gap-3 px-6 py-4 bg-violet-50 border-b border-violet-100 shrink-0">
+                                                <div className="flex items-center gap-3 px-6 py-4 bg-accent-50 border-b border-accent-100 shrink-0">
                                                     <span className="flex items-center justify-center size-7 rounded-full bg-primary text-white text-xs font-bold shrink-0">≡</span>
                                                     <div>
                                                         <p className="text-sm font-bold text-primary tracking-widest uppercase">Select Parent Group</p>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +45,7 @@ const SectionHeader = ({ number, title }) => (
       {number}
     </span>
     <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">{title}</span>
-    <div className="flex-1 h-px bg-violet-100" />
+    <div className="flex-1 h-px bg-accent-100" />
   </div>
 );
 
@@ -747,7 +747,7 @@ const PurchaseReturnAdd = () => {
           <span className="text-sm font-bold text-gray-700 tracking-wider uppercase">
             Purchase Return
           </span>
-          <div className="flex-1 h-px bg-violet-100" />
+          <div className="flex-1 h-px bg-accent-100" />
         </div>
 
         {/* ══ SECTION 1: Header ══════════════════════════════════════════════ */}
@@ -762,9 +762,9 @@ const PurchaseReturnAdd = () => {
           <FieldContainer>
             <Label>Bill No</Label>
             <div className="flex items-center gap-2 flex-1">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-violet-50 border border-violet-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold min-w-0 flex-1 truncate">
                 {watch("form.billno") || (
-                  <span className="text-violet-400 text-xs font-normal">Auto-generating…</span>
+                  <span className="text-accent-400 text-xs font-normal">Auto-generating…</span>
                 )}
               </span>
               <input type="hidden" {...register("form.billno", { required: true })} />
@@ -854,7 +854,7 @@ const PurchaseReturnAdd = () => {
         <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse mb-4">
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH>Sl No</TH>
                 <TH>Item</TH>
                 <TH>Pcs</TH>
@@ -952,7 +952,7 @@ const PurchaseReturnAdd = () => {
         <div className="overflow-x-auto">
           <Table className="w-full table-fixed border-collapse mb-4">
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH>Sl No</TH>
                 {!subPacketHidden && <TH>Packet</TH>}
                 <TH>Item</TH>
@@ -1071,7 +1071,7 @@ const PurchaseReturnAdd = () => {
         <div className="overflow-x-auto">
           <Table>
             <TableBody>
-              <TableRow className="bg-violet-50">
+              <TableRow className="bg-accent-50">
                 <TH></TH>
                 <TH>Sl No</TH>
                 <TH className="w-28">Barcode</TH>
@@ -1095,7 +1095,7 @@ const PurchaseReturnAdd = () => {
                 <React.Fragment key={idx}>
                   {/* Main item row (skipped for shell rows that only host a standalone sub-item) */}
                   {!item.is_shell && (
-                  <TableRow className={item.barcode ? "bg-violet-50" : "bg-sky-50"}>
+                  <TableRow className={item.barcode ? "bg-accent-50" : "bg-sky-50"}>
                     <TableCell className="px-3 py-2 border">
                       <div className="flex items-center gap-1">
                         <span className="text-xs text-gray-400 font-semibold mr-1">{idx + 1}</span>

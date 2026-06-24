@@ -114,3 +114,99 @@ class MigrationImportView(APIView):
             return Response({'applied': apply, 'output': buf.getvalue(), 'reports': reports})
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+class MigrationResetView(APIView):
+    """POST /accounting/api/migration/reset/?apply=true  body: {scope: [...]}
+
+    Clears non-system-seeded migrated data so a migration can be re-run.
+    Scope keys: 'sales', 'purchases', 'gl' (legacy GL vouchers, identified by
+    legacy_key), 'ledgers' (non-system ledgers + all LedgerAlias). System
+    ledgers and core config are always preserved. Records still referenced by
+    out-of-scope data via a PROTECT FK are skipped (kept), never force-deleted.
+    Dry-run by default; ?apply=true performs the deletes in one transaction.
+    """
+
+    def post(self, request):
+        import contextlib
+        from django.db import models as dm, transaction
+        from django.db.models.signals import pre_delete, post_delete
+        from sales.models import SalesVou
+        from purchase.models import PurchaseVoucher
+        from accounting.models import VoucherMain
+        from contacts.models import Ledger, LedgerAlias
+
+        @contextlib.contextmanager
+        def _muted_delete_signals():
+            # A migration teardown removes data wholesale; the per-row delete
+            # side effects (stock/raw-material reversal, due_amt restore, audit)
+            # are for undoing single live transactions and must not run here —
+            # some also crash on legacy data quirks. Temporarily detach all
+            # pre/post_delete receivers, then restore. (Reset is a deliberate
+            # one-off admin action, not run concurrently with normal use.)
+            saved = {}
+            for sig in (pre_delete, post_delete):
+                saved[sig] = sig.receivers
+                sig.receivers = []
+                sig.sender_receivers_cache.clear()
+            try:
+                yield
+            finally:
+                for sig, recv in saved.items():
+                    sig.receivers = recv
+                    sig.sender_receivers_cache.clear()
+
+        apply = request.query_params.get('apply', 'false').lower() == 'true'
+        scope = set(request.data.get('scope') or ['sales', 'purchases', 'gl', 'ledgers'])
+
+        def protected_pks(model):
+            """PKs of `model` referenced by any incoming PROTECT FK (keep these)."""
+            pks = set()
+            for rel in model._meta.related_objects:
+                if getattr(rel, 'on_delete', None) is dm.PROTECT:
+                    attn = rel.field.attname
+                    pks |= set(rel.related_model.objects.exclude(**{attn: None})
+                               .values_list(attn, flat=True))
+            return pks
+
+        report = {}
+
+        def do(label, qs, model):
+            # Count + skipped are computed against the live state at this point in
+            # the ordered run (after prior deletes), then the delete happens. For
+            # dry-run the whole run is rolled back, so the preview counts match a
+            # real apply exactly.
+            prot = protected_pks(model)
+            target = qs.exclude(pk__in=prot)
+            n = target.count()
+            skipped = qs.filter(pk__in=prot).count()
+            target.delete()  # cascades items/details/roles/etc.
+            report[label] = {'deleted': n, 'skipped_protected': skipped}
+
+        def run():
+            # Order matters: sales before purchases (old-gold adjustments PROTECT
+            # purchases), then GL, then ledgers (protections recomputed after the
+            # above are gone within this transaction).
+            if 'sales' in scope:
+                do('sales_vouchers', SalesVou.objects.all(), SalesVou)
+            if 'purchases' in scope:
+                do('purchase_vouchers', PurchaseVoucher.objects.all(), PurchaseVoucher)
+            if 'gl' in scope:
+                do('gl_vouchers', VoucherMain.objects.filter(legacy_key__isnull=False), VoucherMain)
+            if 'ledgers' in scope:
+                report['ledger_aliases'] = {'deleted': LedgerAlias.objects.count()}
+                LedgerAlias.objects.all().delete()
+                do('non_system_ledgers', Ledger.objects.filter(is_system=False), Ledger)
+
+        class _Rollback(Exception):
+            pass
+
+        try:
+            with transaction.atomic(), _muted_delete_signals():
+                run()
+                if not apply:
+                    raise _Rollback  # discard preview deletes
+        except _Rollback:
+            pass
+
+        return Response({'applied': apply, 'scope': sorted(scope), 'report': report})

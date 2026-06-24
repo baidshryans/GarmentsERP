@@ -1,6 +1,13 @@
 import { useState, useRef } from "react";
-import { Upload, Download, Loader2, CheckCircle, XCircle, FileText } from "lucide-react";
-import { runMigrationImport, downloadMigrationTemplate } from "@/services/apiService";
+import { Upload, Download, Loader2, CheckCircle, XCircle, FileText, Trash2, Eye } from "lucide-react";
+import { runMigrationImport, downloadMigrationTemplate, resetMigrationData } from "@/services/apiService";
+
+const RESET_SCOPES = [
+  { key: "gl", label: "GL Vouchers" },
+  { key: "sales", label: "Sales Vouchers" },
+  { key: "purchases", label: "Purchase Vouchers" },
+  { key: "ledgers", label: "Non-system ledgers + aliases" },
+];
 
 // Each transactional import maps to one management command and its CSV file slots.
 const KINDS = [
@@ -174,6 +181,97 @@ function MigrationCard({ def }) {
   );
 }
 
+function ResetCard() {
+  const [scope, setScope] = useState(Object.fromEntries(RESET_SCOPES.map((s) => [s.key, true])));
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState(null);
+  const toggle = (k) => setScope((s) => ({ ...s, [k]: !s[k] }));
+  const selected = RESET_SCOPES.filter((s) => scope[s.key]).map((s) => s.key);
+
+  const run = async (apply) => {
+    if (apply && !window.confirm(
+      "Permanently delete the selected migrated data? System ledgers and any records still referenced by existing data are preserved. This cannot be undone."
+    )) return;
+    setRunning(true);
+    setResult(null);
+    const res = await resetMigrationData(selected, apply);
+    setResult(res);
+    setRunning(false);
+  };
+
+  const rep = result?.data?.report || {};
+  return (
+    <div className="border border-red-200 bg-red-50/40 rounded-lg p-4 mt-6">
+      <h3 className="font-semibold text-red-700">Clear migrated data</h3>
+      <p className="text-xs text-gray-600 mb-3">
+        Delete non-system-seeded migrated data so you can re-run a sync. System ledgers, config, and
+        records referenced by existing data are preserved. Always Preview first.
+      </p>
+      <div className="flex flex-wrap gap-3 mb-3">
+        {RESET_SCOPES.map((s) => (
+          <label key={s.key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="checkbox" checked={!!scope[s.key]} onChange={() => toggle(s.key)} className="rounded" />
+            <span>{s.label}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={running || !selected.length}
+          onClick={() => run(false)}
+          className="inline-flex items-center gap-1.5 text-sm border border-gray-300 rounded px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {running ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />} Preview
+        </button>
+        <button
+          type="button"
+          disabled={running || !selected.length}
+          onClick={() => run(true)}
+          className="inline-flex items-center gap-1.5 text-sm bg-red-600 text-white rounded px-3 py-1.5 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {running ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} Delete
+        </button>
+      </div>
+      {result && (
+        <div className="mt-3">
+          <div className="flex items-center gap-1.5 text-sm mb-1">
+            {result.success ? (
+              <CheckCircle size={15} className="text-green-600" />
+            ) : (
+              <XCircle size={15} className="text-red-600" />
+            )}
+            <span className={result.success ? "text-green-700" : "text-red-700"}>
+              {result.data?.applied ? "Deleted" : "Preview — nothing deleted"}
+              {result.success ? "" : ` — ${result.error || "failed"}`}
+            </span>
+          </div>
+          {Object.keys(rep).length > 0 && (
+            <table className="text-xs w-full max-w-md">
+              <thead className="text-gray-500">
+                <tr>
+                  <th className="text-left">Data</th>
+                  <th className="text-right pr-3">{result.data?.applied ? "Deleted" : "Would delete"}</th>
+                  <th className="text-right">Kept (in use)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(rep).map(([k, v]) => (
+                  <tr key={k} className="border-t border-red-100">
+                    <td className="py-0.5">{k.replace(/_/g, " ")}</td>
+                    <td className="text-right pr-3">{v.deleted}</td>
+                    <td className="text-right">{v.skipped_protected ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TransactionsImport() {
   return (
     <div>
@@ -191,6 +289,7 @@ export default function TransactionsImport() {
           <MigrationCard key={def.kind} def={def} />
         ))}
       </div>
+      <ResetCard />
     </div>
   );
 }

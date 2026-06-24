@@ -23,6 +23,25 @@ export async function downloadMigrationTemplate(name) {
 }
 
 /**
+ * Clear non-system-seeded migrated data so a migration can be re-run.
+ * @param {string[]} scope  any of 'sales' | 'purchases' | 'gl' | 'ledgers'
+ * @param {boolean} apply   false = dry-run preview (default), true = delete
+ */
+export async function resetMigrationData(scope, apply = false) {
+  try {
+    const response = await apiClient.post(
+      `/accounting/api/migration/reset/?apply=${apply ? "true" : "false"}`,
+      { scope },
+      { timeout: 600000 }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    const d = error.response?.data;
+    return { success: false, error: d?.error || error.message, data: d };
+  }
+}
+
+/**
  * Run a transactional legacy import.
  * @param {string} kind  one of 'vouchers' | 'sales' | 'purchases' | 'allocations'
  * @param {Object} files map of field-name -> File (e.g. { main, details })

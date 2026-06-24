@@ -33,7 +33,7 @@ from django.db.models import Q
 from accounting.models import VoucherMain, VoucherDetail
 from sales.models import SalesVou
 from purchase.models import PurchaseVoucher
-from accounting.migration_utils import clean, dec, resolve_ac_voucher
+from accounting.migration_utils import clean, dec, resolve_ac_voucher, resolve_ledger
 
 GROUP_COLS = ['v_typ', 'v_id', 'acc_year', 'rt_code', 'ledger_id']
 
@@ -109,7 +109,10 @@ class Command(BaseCommand):
     def _allocate_group(self, head, group, kind):
         v_typ, v_id = clean(head['v_typ']), clean(head['v_id'])
         ac_yr, rt = clean(head['acc_year']), clean(head['rt_code'])
-        ledger_id = int(clean(head['ledger_id']))
+        _led = resolve_ledger(head['ledger_id'])
+        if _led is None:
+            raise ValueError(f"ledger {clean(head['ledger_id'])!r} not found")
+        ledger_id = _led.id
 
         voucher = resolve_ac_voucher(v_typ, v_id, ac_yr, rt)
         if voucher is None:

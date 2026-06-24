@@ -29,6 +29,7 @@ from django.db import transaction
 from accounting.models import VoucherMain, VoucherDetail
 from contacts.models import Ledger
 from mastersconfig.models import RetailMaster, BranchMaster, FiscalYearMaster
+from accounting.migration_utils import resolve_ledger
 
 
 # Legacy v_typ -> target voucher_type. Most values already line up; this dict
@@ -225,9 +226,8 @@ class Command(BaseCommand):
         total_dr = total_cr = Decimal('0')
         for _, r in group.iterrows():
             ldgr_code = _clean(r['ldgr'])
-            try:
-                account = Ledger.objects.get(id=int(ldgr_code))
-            except (Ledger.DoesNotExist, ValueError):
+            account = resolve_ledger(ldgr_code)
+            if account is None:
                 unresolved.append({
                     'legacy_key': legacy_key, 'ldgr': ldgr_code,
                     'error': 'ledger not found',

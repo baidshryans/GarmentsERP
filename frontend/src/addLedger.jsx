@@ -24,7 +24,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCircle2, XCircle, Loader2, Search, User, ShoppingBag, Hammer, Package, Factory, Flame, BadgeCheck, Banknote, Landmark, TrendingUp, TrendingDown, MoreHorizontal, Crown } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FolderOpen, Paperclip, Copy, CheckCircle2, AlertTriangle, Loader2, Search, User, ShoppingBag, Hammer, Package, Factory, Flame, BadgeCheck, Banknote, Landmark, TrendingUp, TrendingDown, MoreHorizontal, Crown } from 'lucide-react';
 import LedgerDocuments from "@/components/shared/LedgerDocuments";
 import { Checkbox } from "@/components/ui/checkbox";
 import { renderErrorTree } from "@/Utils";
@@ -623,10 +623,6 @@ const LedgerForm = () => {
             toast({ title: "Account group is required", description: "Every ledger must belong to an account group. Please select one.", variant: "destructive" });
             return;
         }
-        if (nameCheck.exists === true) {
-            toast({ title: "Duplicate ledger name", description: "A ledger with this name already exists. Please use a different name.", variant: "destructive" });
-            return;
-        }
         try {
             const payload = {
                 ...data,
@@ -829,7 +825,7 @@ const LedgerForm = () => {
                         <Field label="Party Name" required>
                             <div className="relative">
                                 <Input
-                                    className={`${inputCls} pr-8 ${nameCheck.exists ? 'border-red-400 focus:border-red-400' : nameCheck.exists === false && hasNonCustomerRole ? 'border-green-400 focus:border-green-400' : ''}`}
+                                    className={`${inputCls} pr-8 ${nameCheck.exists ? 'border-amber-400 focus:border-amber-400' : nameCheck.exists === false && hasNonCustomerRole ? 'border-green-400 focus:border-green-400' : ''}`}
                                     {...register("ac_name")}
                                     required
                                     placeholder="Full legal name"
@@ -838,12 +834,12 @@ const LedgerForm = () => {
                                     <span className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
                                         {nameCheck.checking && <Loader2 className="size-4 text-gray-400 animate-spin" />}
                                         {!nameCheck.checking && nameCheck.exists === false && <CheckCircle2 className="size-4 text-green-500" />}
-                                        {!nameCheck.checking && nameCheck.exists === true && <XCircle className="size-4 text-red-500" />}
+                                        {!nameCheck.checking && nameCheck.exists === true && <AlertTriangle className="size-4 text-amber-500" />}
                                     </span>
                                 )}
                             </div>
                             {nameCheck.exists === true && (
-                                <p className="text-xs text-red-500 -mt-1">A ledger with this name already exists.</p>
+                                <p className="text-xs text-amber-600 -mt-1">Another ledger already uses this name — you can still save if this is a different person.</p>
                             )}
                         </Field>
 

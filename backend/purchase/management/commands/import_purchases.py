@@ -26,7 +26,7 @@ from contacts.models import Ledger
 from inventory.models import BarcodeMain
 from mastersconfig.models import Item, Packet
 from accounting.migration_utils import (
-    clean, dec, to_int, parse_date, OrgResolver, PurityResolver, resolve_ac_voucher,
+    clean, dec, to_int, parse_date, OrgResolver, PurityResolver, resolve_ac_voucher, resolve_ledger,
 )
 
 # v_typ -> (voucher_type, is_rcm). PURC-SC = supplier/vendor purchase;
@@ -213,8 +213,7 @@ class Command(BaseCommand):
 
     # ------------------------------------------------------------------ #
     def _ledger(self, code):
-        c = to_int(code)
-        return Ledger.objects.filter(id=c).first() if c else None
+        return resolve_ledger(code)
 
     def _item(self, item_id):
         i = to_int(item_id)

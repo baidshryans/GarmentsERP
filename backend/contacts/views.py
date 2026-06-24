@@ -175,16 +175,10 @@ class ListCreateLedger(ListCreateAPIView):
             except Account.DoesNotExist:
                 pass
 
-        # requested_roles may be passed in the payload for upfront uniqueness check
-        requested_roles = request.data.get('requested_roles', [])
-        is_customer_only = requested_roles and all(r == 'CO' for r in requested_roles)
-        ac_name = (request.data.get('ac_name') or '').strip()
-        if ac_name and requested_roles and not is_customer_only:
-            if _name_conflicts(ac_name):
-                return Response(
-                    {'ac_name': f"A ledger named '{ac_name}' already exists. Duplicate names are only allowed for Customer accounts."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # Duplicate ac_names are permitted for every ledger type — two real people
+        # (or firms) can legitimately share a name. The frontend surfaces a
+        # non-blocking warning (via check_ledger_name) so the user is aware, but
+        # we no longer reject the save here.
         return super().create(request, *args, **kwargs)
 
 
@@ -238,13 +232,7 @@ class RetrieveUpdateDestroyLedger(RetrieveUpdateDestroyAPIView):
         # No special handling needed; fall through to normal update.
 
         # \u2500\u2500 Normal edit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-        new_name = (request.data.get('ac_name') or '').strip()
-        if new_name and new_name.lower() != instance.ac_name.lower():
-            if _has_non_customer_role(instance) and _name_conflicts(new_name, exclude_id=instance.pk):
-                return Response(
-                    {'ac_name': f"A ledger named '{new_name}' already exists. Duplicate names are only allowed for Customer accounts."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # Duplicate names are allowed (see create()); no uniqueness block on edit.
         return super().update(request, *args, **kwargs)
 
     def _reclassify_to_fa(self, request, instance, new_group, *args, **kwargs):

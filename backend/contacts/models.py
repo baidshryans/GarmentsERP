@@ -200,6 +200,22 @@ class LedgerRole(models.Model):
         return f'{self.ledger.ac_name} — {self.get_role_display()}'
 
 
+class LedgerAlias(models.Model):
+    """Maps a legacy-ERP ledger code to an existing Django ledger, so legacy
+    transactions referencing that code resolve to the right ledger without
+    creating a duplicate. Used during migration to fold legacy GST / TCS / TDS
+    (and any other already-present system ledger) onto the canonical ledger.
+    Many legacy codes may map to one ledger; each legacy code maps to one."""
+    legacy_code = models.CharField(max_length=30, unique=True, db_index=True)
+    ledger = models.ForeignKey(Ledger, on_delete=models.CASCADE, related_name='legacy_aliases')
+
+    class Meta:
+        db_table = "ledger_alias"
+
+    def __str__(self):
+        return f'{self.legacy_code} -> {self.ledger.ac_name}'
+
+
 class Documents(models.Model):
     ldgr = models.ForeignKey(Ledger, on_delete=models.CASCADE, related_name='documents')
     document = models.FileField(upload_to="documents-ldgr/%Y/%m/")

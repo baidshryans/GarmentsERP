@@ -1122,7 +1122,13 @@ class MySQLSyncView(APIView):
         is preserved as the Django PK (so transactional imports resolve ldgr=id).
         Role is inferred intelligently: ledger_type if known, else the group name
         / ledger name. App-created system ledgers are never overwritten."""
-        from contacts.models import Ledger, LedgerRole
+        from contacts.models import Ledger, LedgerRole, LedgerAlias
+        from accounting.models import Account
+        import re as _re
+
+        def _norm(name):
+            """Normalize a ledger name for matching: lowercase, collapse spaces."""
+            return _re.sub(r'\s+', ' ', _s(name)).strip().lower()
 
         def _rows(table):
             try:
@@ -1134,28 +1140,55 @@ class MySQLSyncView(APIView):
         def _s(v):
             return '' if v is None else str(v).strip()
 
+        def _pick(row, *keys):
+            """First non-empty value among candidate column names (case-insensitive)."""
+            lower = {str(k).lower(): v for k, v in row.items()}
+            for k in keys:
+                val = _s(lower.get(k.lower()))
+                if val:
+                    return val
+            return ''
+
+        def _int(v):
+            """Parse an int from values that may arrive as float ('5.0'), str or int."""
+            s = _s(v)
+            if not s:
+                return None
+            try:
+                return int(float(s))
+            except (ValueError, TypeError):
+                return None
+
+        def _sid(v):
+            """Clean integer-string id ('5.0' -> '5') for stable hierarchy codes/keys."""
+            i = _int(v)
+            return '' if i is None else str(i)
+
         # ── 1. Account hierarchy. Level-prefixed codes avoid cross-level
         #       collisions (Account.code is not unique). ──
         main_by_id, group_by_id = {}, {}
         main_by_name, group_by_name, sub_by_name = {}, {}, {}
         for r in _rows('main_group'):
-            name = _s(r.get('name')) or f"MG-{_s(r.get('id'))}"
+            sid = _sid(r.get('id'))
+            name = _s(r.get('name')) or f"MG-{sid}"
             acc, _ = Account.objects.update_or_create(
-                code=f"MG-{_s(r.get('id'))}", defaults={'name': name, 'parent': None})
-            main_by_id[_s(r.get('id'))] = acc
+                code=f"MG-{sid}", defaults={'name': name, 'parent': None})
+            main_by_id[sid] = acc
             main_by_name.setdefault(name.lower(), acc)
         for r in _rows('group_master'):
-            name = _s(r.get('name')) or f"GM-{_s(r.get('id'))}"
+            sid = _sid(r.get('id'))
+            name = _s(r.get('name')) or f"GM-{sid}"
             acc, _ = Account.objects.update_or_create(
-                code=f"GM-{_s(r.get('id'))}",
-                defaults={'name': name, 'parent': main_by_id.get(_s(r.get('mn_grp')))})
-            group_by_id[_s(r.get('id'))] = acc
+                code=f"GM-{sid}",
+                defaults={'name': name, 'parent': main_by_id.get(_sid(r.get('mn_grp')))})
+            group_by_id[sid] = acc
             group_by_name.setdefault(name.lower(), acc)
         for r in _rows('subgroup_master'):
-            name = _s(r.get('name')) or f"SG-{_s(r.get('id'))}"
-            parent = group_by_id.get(_s(r.get('grp'))) or main_by_id.get(_s(r.get('mn_grp')))
+            sid = _sid(r.get('id'))
+            name = _s(r.get('name')) or f"SG-{sid}"
+            parent = group_by_id.get(_sid(r.get('grp'))) or main_by_id.get(_sid(r.get('mn_grp')))
             acc, _ = Account.objects.update_or_create(
-                code=f"SG-{_s(r.get('id'))}", defaults={'name': name, 'parent': parent})
+                code=f"SG-{sid}", defaults={'name': name, 'parent': parent})
             sub_by_name.setdefault(name.lower(), acc)
 
         # ── 2. Ledgers ──
@@ -1163,46 +1196,103 @@ class MySQLSyncView(APIView):
         if not rows:
             return {'created': 0, 'updated': 0, 'errors': ['ledger_master table not found / empty']}
 
-        created = updated = 0
+        # Existing system ledgers keyed by normalized name — legacy ledgers matching
+        # these are aliased onto them rather than duplicated. Handles verbatim
+        # matches (Round Off, Hallmark Charges, Ornament Sales, Gold Purchase, …).
+        system_by_name = {_norm(l.ac_name): l for l in Ledger.objects.filter(is_system=True)}
+
+        # GST registers are GSTIN-prefixed ("{gstin}_Input_CGST"), so they never
+        # match legacy names like "INPUT CGST". Map those reliably via GSTINMaster
+        # FK links instead. (Uses the first GSTIN; multi-GSTIN setups should review.)
+        from mastersconfig.models import GSTINMaster
+        _g = GSTINMaster.objects.first()
+        if _g:
+            for _legacy_name, _fk in (
+                ('input cgst', _g.input_cgst_id), ('input sgst', _g.input_sgst_id), ('input igst', _g.input_igst_id),
+                ('output cgst', _g.output_cgst_id), ('output sgst', _g.output_sgst_id), ('output igst', _g.output_igst_id),
+                ('input cgst rcm', _g.input_cgst_rcm_id), ('input sgst rcm', _g.input_sgst_rcm_id), ('input igst rcm', _g.input_igst_rcm_id),
+                ('output cgst rcm', _g.output_cgst_rcm_id), ('output sgst rcm', _g.output_sgst_rcm_id), ('output igst rcm', _g.output_igst_rcm_id),
+            ):
+                if _fk:
+                    system_by_name.setdefault(_legacy_name, Ledger.objects.get(id=_fk))
+
+        # Curated synonyms: legacy ledger name (normalized) -> canonical system
+        # ledger name (normalized). Add entries here for seeded ledgers whose
+        # legacy name differs from the Django name.
+        _SYNONYMS = {
+            'round off': 'round off',
+            'discount': 'sales discount',
+            'hallmark charges': 'hallmark charges',
+            'freight charges': 'freight outward',
+            'tcs': 'tcs payable u/s 206c1h',
+            'tds': 'tds payable',
+        }
+        for _legacy, _canon in _SYNONYMS.items():
+            tgt = system_by_name.get(_norm(_canon))
+            if tgt is not None:
+                system_by_name.setdefault(_legacy, tgt)
+
+        created = updated = aliased = 0
+        skipped_invalid = skipped_system = 0
         errors = []
+        ungrouped = []  # ledgers whose ac_grp didn't resolve to any Account
         for row in rows:
             try:
-                lid = _s(row.get('id'))
-                ac_name = _s(row.get('ac_name'))
-                if not lid.isdigit() or not ac_name:
+                # Use the ledger CODE (ldgr_code / ac_code) as the Django PK —
+                # this is the value transactional vouchers reference via `ldgr`,
+                # NOT ledger_master.id.
+                lid = _int(_pick(row, 'ldgr_code', 'ac_code', 'id'))
+                ac_name = _pick(row, 'ac_name', 'ledger_name', 'account_name', 'name', 'ledger_display_name')
+                if lid is None or not ac_name:
+                    skipped_invalid += 1
                     continue
 
-                existing = Ledger.objects.filter(id=int(lid)).first()
+                # Fold legacy ledgers that match an existing system ledger
+                # (GST in/out, TCS, TDS, etc.) onto that ledger via an alias —
+                # don't create a duplicate. Legacy transactions referencing this
+                # code will resolve to the system ledger via resolve_ledger().
+                sys_ledger = system_by_name.get(_norm(ac_name))
+                if sys_ledger is not None:
+                    LedgerAlias.objects.update_or_create(
+                        legacy_code=str(lid), defaults={'ledger': sys_ledger})
+                    aliased += 1
+                    continue
+
+                existing = Ledger.objects.filter(id=lid).first()
                 if existing and getattr(existing, 'is_system', False):
+                    skipped_system += 1
                     continue  # never clobber app-managed system ledgers
 
-                grp_name = _s(row.get('ac_grp'))
+                grp_name = _pick(row, 'ac_grp', 'group_name', 'gr_name')
                 ac_group = (sub_by_name.get(grp_name.lower())
                             or group_by_name.get(grp_name.lower())
                             or main_by_name.get(grp_name.lower()))
 
                 defaults = {
                     'ac_name': ac_name[:100],
-                    'display_name': (_s(row.get('ledger_display_name')) or ac_name)[:100],
-                    'mobile1': (_s(row.get('mobile1')) or _s(row.get('mobile')) or _s(row.get('telephone')))[:20],
-                    'add1':    (_s(row.get('address')) or None),
-                    'city':    (_s(row.get('city')) or None),
-                    'pincode': (_s(row.get('pincode')) or None),
-                    'email':   (_s(row.get('email')) or None),
-                    'pan':     (_s(row.get('pan_no')) or None),
-                    'aadhar':  (_s(row.get('aadhar_no')) or None),
-                    'phone1':  (_s(row.get('phone1')) or None),
+                    'display_name': (_pick(row, 'ledger_display_name', 'display_name') or ac_name)[:100],
+                    'mobile1': _pick(row, 'mobile1', 'mobile', 'telephone')[:20],
+                    'add1':    (_pick(row, 'address', 'add1', 'adrs_off') or None),
+                    'city':    (_pick(row, 'city') or None),
+                    'pincode': (_pick(row, 'pincode') or None),
+                    'email':   (_pick(row, 'email') or None),
+                    'pan':     (_pick(row, 'pan_no', 'pan', 'panno') or None),
+                    'aadhar':  (_pick(row, 'aadhar_no', 'aadhar') or None),
+                    'phone1':  (_pick(row, 'phone1', 'phone') or None),
                 }
                 if ac_group is not None:
                     defaults['ac_group'] = ac_group
 
-                ledger, flag = Ledger.objects.update_or_create(id=int(lid), defaults=defaults)
+                ledger, flag = Ledger.objects.update_or_create(id=lid, defaults=defaults)
 
-                role = self._infer_ledger_role(_s(row.get('ledger_type')), grp_name, ac_name)
+                role = self._infer_ledger_role(_pick(row, 'ledger_type', 'type', 'sl_type'), grp_name, ac_name)
                 LedgerRole.objects.get_or_create(
                     ledger=ledger, role=role,
                     defaults={'is_primary': not ledger.roles.exists()},
                 )
+
+                if ledger.ac_group_id is None:
+                    ungrouped.append({'id': lid, 'ac_name': ac_name, 'group': grp_name})
 
                 if flag:
                     created += 1
@@ -1210,7 +1300,21 @@ class MySQLSyncView(APIView):
                     updated += 1
             except Exception as e:
                 errors.append(f"{row.get('id')}: {e}")
-        return {'created': created, 'updated': updated, 'errors': errors}
+        if created == 0 and updated == 0:
+            r0 = rows[0] if rows else {}
+            sample = {k: r0.get(k) for k in ('id', 'ac_name', 'ledger_display_name', 'ac_code', 'ledger_type')}
+            errors.append(
+                f"diagnostic: fetched {len(rows)} ledger_master rows; skipped "
+                f"{skipped_invalid} (missing id/name), {skipped_system} (system ledger). "
+                f"row0 id={r0.get('id')!r} ac_name={r0.get('ac_name')!r} "
+                f"picked_id={_pick(r0, 'id', 'ldgr_id', 'ledger_id')!r} "
+                f"picked_name={_pick(r0, 'ac_name', 'ledger_name', 'account_name', 'name', 'ledger_display_name')!r} "
+                f"sample={sample}"
+            )
+        return {
+            'created': created, 'updated': updated, 'aliased': aliased, 'errors': errors,
+            'ungrouped': ungrouped[:1000], 'ungrouped_count': len(ungrouped),
+        }
 
     def _infer_ledger_role(self, ledger_type, group_name, ac_name):
         """Pick a LedgerRole: trust ledger_type when it's a known code/synonym,
@@ -1304,9 +1408,13 @@ class MySQLSyncView(APIView):
                 )
 
                 # cash_ldgr is OneToOne — assign only if resolvable and unused
-                ldgr_code = (row.get('ldgr') or '').strip()
-                if ldgr_code.isdigit() and obj.cash_ldgr_id is None:
-                    led = Ledger.objects.filter(id=int(ldgr_code)).first()
+                ldgr_raw = (str(row.get('ldgr')) if row.get('ldgr') is not None else '').strip()
+                try:
+                    ledger_id = int(float(ldgr_raw)) if ldgr_raw else None
+                except (ValueError, TypeError):
+                    ledger_id = None
+                if ledger_id is not None and obj.cash_ldgr_id is None:
+                    led = Ledger.objects.filter(id=ledger_id).first()
                     if led and not RetailMaster.objects.filter(cash_ldgr=led).exclude(pk=obj.pk).exists():
                         obj.cash_ldgr = led
                         obj.save(update_fields=['cash_ldgr'])

@@ -60,10 +60,16 @@ function ResultBadge({ result }) {
       <div className="flex gap-3 flex-wrap">
         <span className="text-green-700">Created: <strong>{result.created}</strong></span>
         <span className="text-primary">Updated: <strong>{result.updated}</strong></span>
+        {result.aliased > 0 && (
+          <span className="text-indigo-600" title="Folded onto existing system ledgers (GST/TCS/TDS/etc.)">Aliased: <strong>{result.aliased}</strong></span>
+        )}
         {result.items_mapped != null && (
           <span className="text-gray-500">Items mapped: <strong>{result.items_mapped}</strong></span>
         )}
         {hasErrors && <span className="text-red-600">Errors: <strong>{result.errors.length}</strong></span>}
+        {result.ungrouped_count > 0 && (
+          <span className="text-amber-600">No group match: <strong>{result.ungrouped_count}</strong></span>
+        )}
       </div>
 
       {hasErrors && (
@@ -75,8 +81,58 @@ function ResultBadge({ result }) {
           </ul>
         </details>
       )}
+
+      {result.ungrouped?.length > 0 && (
+        <details className="text-amber-700">
+          <summary className="cursor-pointer flex items-center gap-2">
+            Ledgers with no group match ({result.ungrouped_count})
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); downloadUngroupedCsv(result.ungrouped); }}
+              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+            >
+              <Download size={12} /> CSV
+            </button>
+          </summary>
+          <div className="mt-1 max-h-48 overflow-auto">
+            <table className="text-[11px] w-full">
+              <thead className="text-gray-500">
+                <tr><th className="text-left pr-3">ID</th><th className="text-left pr-3">Ledger</th><th className="text-left">Legacy group (ac_grp)</th></tr>
+              </thead>
+              <tbody>
+                {result.ungrouped.slice(0, 300).map((l, i) => (
+                  <tr key={i} className="border-t border-amber-100">
+                    <td className="pr-3 py-0.5">{l.id}</td>
+                    <td className="pr-3 py-0.5">{l.ac_name}</td>
+                    <td className="py-0.5">{l.group || <em className="text-gray-400">(blank)</em>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {result.ungrouped.length > 300 && (
+              <p className="text-gray-400 mt-1">…showing 300 of {result.ungrouped_count}. Download the CSV for the full list.</p>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
+}
+
+// Download the "no group match" ledgers as a CSV (client-side, no server call).
+function downloadUngroupedCsv(rows) {
+  const header = "id,ac_name,legacy_group\n";
+  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const body = rows.map((r) => [r.id, esc(r.ac_name), esc(r.group)].join(",")).join("\n");
+  const blob = new Blob([header + body], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ledgers_without_group.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function CSVUploadCard({ tableKey, label, uploadFn, hint, blockedBy, onSuccess }) {

@@ -24,7 +24,7 @@ from contacts.models import Ledger
 from inventory.models import BarcodeMain
 from mastersconfig.models import Item, Packet, SalesPersonMaster
 from accounting.migration_utils import (
-    clean, dec, to_int, parse_date, OrgResolver, resolve_ac_voucher,
+    clean, dec, to_int, parse_date, OrgResolver, resolve_ac_voucher, resolve_ledger,
 )
 
 
@@ -107,7 +107,7 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------ #
     def _import_header(self, r):
         retail, branch, fy = self.org.get(r.get('rt_code'), r.get('br_code'), r.get('ac_yr'))
-        ldgr = Ledger.objects.filter(id=to_int(r.get('ldgr'))).first()
+        ldgr = resolve_ledger(r.get('ldgr'))
         if ldgr is None:
             raise ValueError(f"ledger {clean(r.get('ldgr'))!r} not found")
         sp = SalesPersonMaster.objects.filter(id=to_int(r.get('sales_person'))).first()

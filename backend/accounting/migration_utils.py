@@ -133,6 +133,25 @@ class PurityResolver:
         return None
 
 
+def resolve_ledger(code):
+    """Resolve a legacy ledger code to a Django Ledger.
+
+    Checks the LedgerAlias map first (legacy GST/TCS/TDS and other system
+    ledgers are folded onto their canonical ledger there), then falls back to
+    the preserved-PK convention (Ledger.id == legacy code). Returns None if
+    neither resolves. Tolerates float-formatted codes ('1038.0')."""
+    from contacts.models import Ledger, LedgerAlias
+    s = clean(code)
+    if not s:
+        return None
+    i = to_int(s)
+    key = str(i) if i is not None else s
+    alias = LedgerAlias.objects.filter(legacy_code=key).first()
+    if alias:
+        return alias.ledger
+    return Ledger.objects.filter(id=i).first() if i is not None else None
+
+
 def resolve_ac_voucher(v_typ, v_id, ac_yr, rt_code):
     """Resolve a legacy (v_typ, v_id, ac_yr, rt_code) GL voucher to its
     imported VoucherMain via legacy_key. Returns None if not found."""

@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -38,17 +39,64 @@ class CustomerOrderView(ListCreateAPIView):
     ordering = ['-order_no']
 
     def get_queryset(self):
-        return CustomerOrder.objects.filter(retail=self.request.retail).select_related('ldgr').prefetch_related('items')
+        from django.db.models import OuterRef, Subquery, Sum, Count, DecimalField, Value
+        from django.db.models.functions import Coalesce
+        from accounting.models import VoucherMain
+
+        _money = DecimalField(max_digits=15, decimal_places=2)
+        adv = (VoucherMain.objects
+               .filter(customer_order=OuterRef('pk'), voucher_type__in=['RCPT', 'RCPT-SALE'], status='posted')
+               .values('customer_order').annotate(s=Sum('amount')).values('s'))
+        rec = (SalesVou.objects
+               .filter(customer_order=OuterRef('pk'))
+               .values('customer_order').annotate(s=Sum('advance_deducted')).values('s'))
+        return (
+            CustomerOrder.objects
+            .filter(retail=self.request.retail)
+            .select_related('ldgr', 'salesman_1', 'salesman_2', 'retail')
+            .prefetch_related('items', 'items__item_id', 'items__purity')
+            .annotate(
+                anno_advance_amt=Coalesce(Subquery(adv, output_field=_money), Value(0), output_field=_money),
+                anno_advance_reconciled=Coalesce(Subquery(rec, output_field=_money), Value(0), output_field=_money),
+                anno_linked_bill_count=Count('linked_vouchers', distinct=True),
+            )
+        )
 
     def perform_create(self, serializer):
         serializer.save(retail=self.request.retail)
+
+
+def _posted_receipts_prefetch():
+    """Prefetch posted advance receipts for customer orders, annotated with the
+    amount already applied to bills. Mirrors the filter/order used by
+    CustomerOrderSerializer.get_linked_receipts so that method can read the
+    prefetched cache instead of issuing one aggregate query per receipt
+    (an N+1 burst on the order list endpoint)."""
+    from django.db.models import Prefetch, Sum, OuterRef, Subquery
+    from django.db.models.functions import Coalesce
+    from accounting.models import VoucherMain, ReferenceBills
+
+    applied_sq = Subquery(
+        ReferenceBills.objects
+        .filter(voucher_id=OuterRef('pk'))
+        .values('voucher_id')
+        .annotate(s=Sum('amount'))
+        .values('s')[:1]
+    )
+    receipts_qs = (
+        VoucherMain.objects
+        .filter(voucher_type__in=['RCPT', 'RCPT-SALE'], status='posted')
+        .annotate(applied_amt=Coalesce(applied_sq, Decimal('0')))
+        .order_by('date', 'id')
+    )
+    return Prefetch('receipts', queryset=receipts_qs, to_attr='posted_receipts')
 
 
 class CustomerOrderViewset(views.RetailBaseViewset):
     queryset = CustomerOrder.objects.select_related(
         'ldgr', 'retail', 'retail__state', 'retail__gstin_master',
         'salesman_1', 'salesman_2',
-    ).prefetch_related('items', 'linked_vouchers').all()
+    ).prefetch_related('items', 'linked_vouchers', _posted_receipts_prefetch()).all()
     serializer_class = CustomerOrderSerializer
     filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
     filterset_fields = ['ldgr', 'status']
@@ -60,6 +108,35 @@ class CustomerOrderViewset(views.RetailBaseViewset):
 
     # Optionally set default ordering
     ordering = ['-date1', '-order_no']
+
+    def get_queryset(self):
+        """Annotate advance/bill-count and prefetch the lock-state relations so
+        the list serializer (advance_* + per-item lock_state) avoids N+1."""
+        from django.db.models import OuterRef, Subquery, Sum, Count, DecimalField, Value
+        from django.db.models.functions import Coalesce
+        from accounting.models import VoucherMain
+
+        _money = DecimalField(max_digits=15, decimal_places=2)
+        adv = (VoucherMain.objects
+               .filter(customer_order=OuterRef('pk'), voucher_type__in=['RCPT', 'RCPT-SALE'], status='posted')
+               .values('customer_order').annotate(s=Sum('amount')).values('s'))
+        rec = (SalesVou.objects
+               .filter(customer_order=OuterRef('pk'))
+               .values('customer_order').annotate(s=Sum('advance_deducted')).values('s'))
+        return (
+            super().get_queryset()
+            .prefetch_related(
+                'items__item_id', 'items__purity',
+                'items__purchaseorderitems_set__po_slip',
+                'items__karigarissueitem_set__issue_slip',
+                'items__purchasevoucheritems_set__billno',
+            )
+            .annotate(
+                anno_advance_amt=Coalesce(Subquery(adv, output_field=_money), Value(0), output_field=_money),
+                anno_advance_reconciled=Coalesce(Subquery(rec, output_field=_money), Value(0), output_field=_money),
+                anno_linked_bill_count=Count('linked_vouchers', distinct=True),
+            )
+        )
 
     def perform_create(self, serializer):
         from accounting.utils import get_next_bill_number

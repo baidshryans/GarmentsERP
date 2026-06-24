@@ -35,34 +35,48 @@ class CustomerOrderItemSerializer(ModelSerializer):
 
 
 def _customer_order_item_lock(obj):
-    """Return (lock_state, lock_reason) for a CustomerOrderItems row."""
-    # Truly delivered: a Sales Voucher exists for a barcode tied to this CO item.
-    sv_billno = _sv_billno_for_co_item(obj)
-    if sv_billno:
-        return 'billed', f"Sold via Sales Voucher {sv_billno}"
+    """Return (lock_state, lock_reason) for a CustomerOrderItems row.
 
-    if obj.sale_status:
-        return 'billed', 'Billed in a sales voucher'
+    Memoized on the instance: lock_state and lock_reason are separate serializer
+    fields that both need this, and the list endpoint serializes hundreds of
+    rows — computing once per row (and reusing the barcode-id set) avoids a large
+    N+1 burst.
+    """
+    cached = getattr(obj, '_lock_cache', None)
+    if cached is not None:
+        return cached
 
-    # Direct CO â†’ PV path: the CO item was billed straight onto a Purchase
-    # Voucher without going through a Purchase Order. This is terminal.
-    pv = obj.purchasevoucheritems_set.select_related('billno').first()
-    if pv:
-        ref = pv.billno.billno if pv.billno else ''
-        return 'billed', f"Billed directly on Purchase Voucher {ref}".rstrip()
-
-    # Barcoded but not yet sold: a barcode exists for this CO item.
+    # Barcode chain is reused for both the "sold" and "barcoded" checks.
     barcode_ids = _barcode_ids_for_co_item(obj)
-    if barcode_ids:
-        return 'barcoded', 'Barcode created â€” ready for delivery'
 
-    ki = obj.karigarissueitem_set.select_related('issue_slip').first()
-    if ki:
-        return 'in_production', f"Issued to Karigar job {ki.issue_slip.issue_slip_no}"
-    po = obj.purchaseorderitems_set.select_related('po_slip').first()
-    if po:
-        return 'in_production', f"Issued to Purchase Order {po.po_slip.po_no}"
-    return 'unlocked', ''
+    # Truly delivered: a Sales Voucher exists for a barcode tied to this CO item.
+    sv_billno = _sv_billno_from_barcodes(barcode_ids)
+    if sv_billno:
+        result = ('billed', f"Sold via Sales Voucher {sv_billno}")
+    elif obj.sale_status:
+        result = ('billed', 'Billed in a sales voucher')
+    else:
+        # Direct CO -> PV path: billed straight onto a Purchase Voucher.
+        # Use the prefetched .all() cache (not .first()) so prefetched list
+        # querysets avoid a fresh query per item.
+        pv = next(iter(obj.purchasevoucheritems_set.all()), None)
+        if pv:
+            ref = pv.billno.billno if pv.billno else ''
+            result = ('billed', f"Billed directly on Purchase Voucher {ref}".rstrip())
+        elif barcode_ids:
+            result = ('barcoded', 'Barcode created — ready for delivery')
+        else:
+            ki = next(iter(obj.karigarissueitem_set.all()), None)
+            po = None if ki else next(iter(obj.purchaseorderitems_set.all()), None)
+            if ki:
+                result = ('in_production', f"Issued to Karigar job {ki.issue_slip.issue_slip_no}")
+            elif po:
+                result = ('in_production', f"Issued to Purchase Order {po.po_slip.po_no}")
+            else:
+                result = ('unlocked', '')
+
+    obj._lock_cache = result
+    return result
 
 
 def _barcode_ids_for_co_item(coi):
@@ -79,8 +93,14 @@ def _barcode_ids_for_co_item(coi):
 
     barcode_ids = set()
 
-    # Chain A: PO â†’ PV
-    po_items = coi.purchaseorderitems_set.select_related('po_slip').all()
+    # Use the prefetched related managers (.all()) rather than fresh values_list
+    # queries, so a CO item with no downstream rows (e.g. freshly-migrated orders)
+    # costs zero extra queries — this is what keeps the list endpoint fast.
+    po_items = list(coi.purchaseorderitems_set.all())
+    ki_items = list(coi.karigarissueitem_set.all())
+    pv_items_direct = list(coi.purchasevoucheritems_set.all())
+
+    # Chain A: PO -> PV
     for po_item in po_items:
         if not po_item.po_slip:
             continue
@@ -91,16 +111,16 @@ def _barcode_ids_for_co_item(coi):
         for bc_id in BarcodeMain.objects.filter(pur_voucher_id__in=list(pv_items)).values_list('id', flat=True):
             barcode_ids.add(bc_id)
 
-    # Chain B: KI â†’ KR
-    ki_ids = list(coi.karigarissueitem_set.values_list('id', flat=True))
+    # Chain B: KI -> KR
+    ki_ids = [k.id for k in ki_items]
     if ki_ids:
         kr_ids = list(KarigarReceiveItem.objects.filter(ref_job_sl_no_id__in=ki_ids).values_list('id', flat=True))
         if kr_ids:
             for bc_id in BarcodeMain.objects.filter(rec_item_id__in=kr_ids).values_list('id', flat=True):
                 barcode_ids.add(bc_id)
 
-    # Chain C: direct CO â†’ PV
-    pv_ids = list(coi.purchasevoucheritems_set.values_list('id', flat=True))
+    # Chain C: direct CO -> PV
+    pv_ids = [p.id for p in pv_items_direct]
     if pv_ids:
         for bc_id in BarcodeMain.objects.filter(pur_voucher_id__in=pv_ids).values_list('id', flat=True):
             barcode_ids.add(bc_id)
@@ -111,9 +131,13 @@ def _barcode_ids_for_co_item(coi):
 def _sv_billno_for_co_item(coi):
     """Return the SalesVou billno of the first Sales Voucher whose barcode
     traces back to this CustomerOrderItems row, or None if not yet sold."""
+    return _sv_billno_from_barcodes(_barcode_ids_for_co_item(coi))
+
+
+def _sv_billno_from_barcodes(barcode_ids):
+    """SalesVou billno for the first sale against any of these barcodes."""
     from sales.models import SalesVouItem
 
-    barcode_ids = _barcode_ids_for_co_item(coi)
     if not barcode_ids:
         return None
 
@@ -188,17 +212,23 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     retail_phone       = serializers.SerializerMethodField(read_only=True)
     retail_city        = serializers.SerializerMethodField(read_only=True)
 
+    # advance_* and linked_bill_count read queryset annotations when the view
+    # provides them (list endpoint), falling back to the model properties (detail
+    # endpoint / un-annotated). The annotations avoid N+1 aggregate queries.
     def get_advance_amt(self, obj):
-        return float(obj.advance_amt)
+        v = getattr(obj, 'anno_advance_amt', None)
+        return float(v) if v is not None else float(obj.advance_amt)
 
     def get_advance_reconciled(self, obj):
-        return float(obj.advance_reconciled)
+        v = getattr(obj, 'anno_advance_reconciled', None)
+        return float(v) if v is not None else float(obj.advance_reconciled)
 
     def get_advance_available(self, obj):
-        return float(obj.advance_available)
+        return self.get_advance_amt(obj) - self.get_advance_reconciled(obj)
 
     def get_linked_bill_count(self, obj):
-        return len(obj.linked_vouchers.all())
+        v = getattr(obj, 'anno_linked_bill_count', None)
+        return int(v) if v is not None else len(obj.linked_vouchers.all())
 
     def get_is_overdue(self, obj):
         from datetime import date
@@ -274,16 +304,26 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
     def get_linked_receipts(self, obj):
         from django.db.models import Sum as _Sum
         from accounting.models import ReferenceBills as _RefBills
-        receipts = obj.receipts.filter(
-            voucher_type__in=['RCPT', 'RCPT-SALE'],
-            status='posted',
-        ).order_by('date', 'id')
+        # Fast path: the list viewset prefetches posted receipts annotated with
+        # `applied_amt` into `posted_receipts`, collapsing the per-receipt
+        # aggregate N+1 into two queries for the whole page. Detail/un-prefetched
+        # callers fall back to the original per-receipt aggregate.
+        prefetched = getattr(obj, 'posted_receipts', None)
+        if prefetched is not None:
+            receipts = prefetched
+        else:
+            receipts = obj.receipts.filter(
+                voucher_type__in=['RCPT', 'RCPT-SALE'],
+                status='posted',
+            ).order_by('date', 'id')
         rows = []
         for v in receipts:
-            applied = (
-                _RefBills.objects.filter(voucher=v)
-                .aggregate(s=_Sum('amount'))['s'] or 0
-            )
+            applied = getattr(v, 'applied_amt', None)
+            if applied is None:
+                applied = (
+                    _RefBills.objects.filter(voucher=v)
+                    .aggregate(s=_Sum('amount'))['s'] or 0
+                )
             rows.append({
                 'id': v.id,
                 'voucher_no': v.voucher_no,

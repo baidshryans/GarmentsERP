@@ -1107,7 +1107,7 @@ class MySQLSyncView(APIView):
                 if 'retail' in tables_requested:
                     results['retail'] = self._sync_retail(cursor)
 
-                for _tx_key in ('gl_vouchers', 'sales', 'purchases', 'allocations'):
+                for _tx_key in ('customer_orders', 'gl_vouchers', 'sales', 'purchases', 'allocations'):
                     if _tx_key in tables_requested:
                         results[_tx_key] = self._sync_transaction(cursor, _tx_key)
 
@@ -1443,6 +1443,9 @@ class MySQLSyncView(APIView):
         'purchases':   ('import_purchases',
                         {'header': 'purchase_voucher', 'items': 'purchase_voucher_main', 'details': 'purchase_voucher_details'},
                         ['header', 'items', 'details']),
+        'customer_orders': ('import_customer_orders',
+                            {'header': 'customer_order', 'items': 'customer_order_main'},
+                            ['header', 'items']),
         'allocations': ('import_voucher_allocations',
                         {'receive': 'receive_amount', 'payment': 'payment_amount', 'journal': 'journal_amount'},
                         []),

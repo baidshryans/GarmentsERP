@@ -37,6 +37,7 @@ const SYNC_MASTER_TABLES = [
 
 // Transactional tables for direct MySQL sync (run after masters).
 const TX_SYNC_TABLES = [
+  { key: "customer_orders", label: "Customer Orders" },
   { key: "gl_vouchers", label: "GL Vouchers" },
   { key: "sales",       label: "Sales Vouchers" },
   { key: "purchases",   label: "Purchase Vouchers" },

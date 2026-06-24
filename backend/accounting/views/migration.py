@@ -33,6 +33,8 @@ IMPORT_KINDS = {
                     ['header', 'items', 'details']),
     'purchases':   ('import_purchases',            {'header': 'header', 'items': 'items', 'details': 'details'},
                     ['header', 'items', 'details']),
+    'customer_orders': ('import_customer_orders',  {'header': 'header', 'items': 'items'},
+                        ['header', 'items']),
     'allocations': ('import_voucher_allocations',  {'receive': 'receive', 'payment': 'payment', 'journal': 'journal'},
                     []),  # at least one (validated below)
 }
@@ -50,6 +52,8 @@ TEMPLATE_FILES = {
     'receive_amount':            'legacy_receive_amount_template.csv',
     'payment_amount':            'legacy_payment_amount_template.csv',
     'journal_amount':            'legacy_journal_amount_template.csv',
+    'customer_order':            'legacy_customer_order_template.csv',
+    'customer_order_main':       'legacy_customer_order_main_template.csv',
 }
 
 
@@ -131,7 +135,7 @@ class MigrationResetView(APIView):
         import contextlib
         from django.db import models as dm, transaction
         from django.db.models.signals import pre_delete, post_delete
-        from sales.models import SalesVou
+        from sales.models import SalesVou, CustomerOrder
         from purchase.models import PurchaseVoucher
         from accounting.models import VoucherMain
         from contacts.models import Ledger, LedgerAlias
@@ -193,6 +197,8 @@ class MigrationResetView(APIView):
                 do('purchase_vouchers', PurchaseVoucher.objects.all(), PurchaseVoucher)
             if 'gl' in scope:
                 do('gl_vouchers', VoucherMain.objects.filter(legacy_key__isnull=False), VoucherMain)
+            if 'customer_orders' in scope:
+                do('customer_orders', CustomerOrder.objects.all(), CustomerOrder)
             if 'ledgers' in scope:
                 report['ledger_aliases'] = {'deleted': LedgerAlias.objects.count()}
                 LedgerAlias.objects.all().delete()

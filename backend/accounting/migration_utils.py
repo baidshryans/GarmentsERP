@@ -59,18 +59,42 @@ def fy_short(ac_yr):
     return f"{a[-2:]}-{b[-2:]}"
 
 
+def fy_dates(ac_yr):
+    """Indian FY date range from a legacy ac_yr. '2025-2026' / '25-26' ->
+    (date(2025,4,1), date(2026,3,31)). Returns (None, None) if unparseable."""
+    from datetime import date
+    s = clean(ac_yr)
+    parts = s.split('-') if '-' in s else [s]
+
+    def _yr(p):
+        p = p.strip()
+        if p.isdigit() and len(p) == 4:
+            return int(p)
+        if p.isdigit() and len(p) == 2:
+            return 2000 + int(p)
+        return None
+
+    start = _yr(parts[0]) if parts else None
+    if start is None:
+        return None, None
+    end = _yr(parts[1]) if len(parts) > 1 and _yr(parts[1]) else start + 1
+    return date(start, 4, 1), date(end, 3, 31)
+
+
 class OrgResolver:
     """Resolves legacy rt_code/br_code/ac_yr to master FKs.
 
-    Retail is a hard requirement (every voucher needs one). Branch and fiscal
-    year are optional — a missing master yields None (with a warning), never an
-    abort, because FiscalYearMaster rows for historical years may not exist yet.
+    Retail is a hard requirement (every voucher needs one). Branch is optional
+    (null when missing). Fiscal year is GET-OR-CREATED per retail when `apply`
+    is set, so vouchers always land in the correct year; dry-run resolves only
+    what already exists.
     """
 
-    def __init__(self, stdout=None, style=None):
+    def __init__(self, stdout=None, style=None, apply=False):
         self.retail = {r.retail_code: r for r in RetailMaster.objects.all()}
         self.branch = {b.branch_code: b for b in BranchMaster.objects.all()}
-        self.fy = {f.fy_code: f for f in FiscalYearMaster.objects.all()}
+        self.apply = apply
+        self._fy_cache = {}  # fy_code -> FiscalYearMaster (FY is company-wide)
         self._stdout = stdout
         self._style = style
         self._warned = set()
@@ -98,11 +122,26 @@ class OrgResolver:
         branch = self.branch.get(clean(br_code))
         if clean(br_code) and branch is None:
             self._warn(f"branch code {clean(br_code)!r} has no BranchMaster — branch_ref null")
+        return retail, branch, self._resolve_fy(retail, ac_yr)
+
+    def _resolve_fy(self, retail, ac_yr):
+        # FY is company-wide (identified by fy_code, not per retail): reuse any
+        # existing row for the code; create one only when none exists.
         short = fy_short(ac_yr)
-        fy = self.fy.get(short)
-        if short and fy is None:
-            self._warn(f"fiscal year {clean(ac_yr)!r} (-> {short!r}) has no FiscalYearMaster — fiscal_year null")
-        return retail, branch, fy
+        if not short:
+            return None
+        if short in self._fy_cache:
+            return self._fy_cache[short]
+        fy = FiscalYearMaster.objects.filter(fy_code=short).first()
+        if fy is None and self.apply and retail is not None:
+            start, end = fy_dates(ac_yr)
+            if start is not None:
+                fy = FiscalYearMaster.objects.create(
+                    retail=retail, fy_code=short, fy_start=start, fy_end=end,
+                )
+                self._warn(f"created FiscalYearMaster {short} ({start}–{end})")
+        self._fy_cache[short] = fy
+        return fy
 
 
 class PurityResolver:

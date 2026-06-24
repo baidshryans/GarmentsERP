@@ -52,7 +52,7 @@ class Command(BaseCommand):
         itm = self._read(opts['items'])
         det = self._read(opts['details'])
 
-        self.org = OrgResolver(self.stdout, self.style)
+        self.org = OrgResolver(self.stdout, self.style, apply=self.apply)
         errs = self.org.validate_retail(set(hdr.get('rt_code', pd.Series(dtype=str)).dropna()))
         if errs:
             for e in errs:

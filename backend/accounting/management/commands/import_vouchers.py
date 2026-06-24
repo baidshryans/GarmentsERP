@@ -77,6 +77,28 @@ def _fy_short(ac_yr):
     return f"{a[-2:]}-{b[-2:]}"
 
 
+def _fy_dates(ac_yr):
+    """Indian FY date range from a legacy ac_yr. '2025-2026' / '25-26' ->
+    (2025-04-01, 2026-03-31). Returns (None, None) if unparseable."""
+    from datetime import date
+    s = _clean(ac_yr)
+    parts = s.split('-') if '-' in s else [s]
+
+    def _yr(p):
+        p = p.strip()
+        if p.isdigit() and len(p) == 4:
+            return int(p)
+        if p.isdigit() and len(p) == 2:
+            return 2000 + int(p)
+        return None
+
+    start = _yr(parts[0]) if parts else None
+    if start is None:
+        return None, None
+    end = _yr(parts[1]) if len(parts) > 1 and _yr(parts[1]) else start + 1
+    return date(start, 4, 1), date(end, 3, 31)
+
+
 class Command(BaseCommand):
     help = "Import legacy GL vouchers (voucher_main + voucher_details CSVs)."
 
@@ -193,13 +215,39 @@ class Command(BaseCommand):
             ))
 
     # ------------------------------------------------------------------ #
+    def _resolve_fy(self, retail, ac, apply):
+        """Get-or-create THE FiscalYearMaster for this legacy ac_yr. FY is
+        company-wide (identified by fy_code, not per retail): reuse any existing
+        row for the code; create one (Apr 1 – Mar 31) when none exists. Cached
+        by fy_code. Dry-run returns existing only."""
+        short = _fy_short(ac)
+        if not short:
+            return None
+        cache = getattr(self, '_fy_cache', None)
+        if cache is None:
+            cache = self._fy_cache = {}
+        if short in cache:
+            return cache[short]
+        fy = FiscalYearMaster.objects.filter(fy_code=short).first()
+        if fy is None and apply:
+            start, end = _fy_dates(ac)
+            if start is not None:
+                fy = FiscalYearMaster.objects.create(
+                    retail=retail, fy_code=short, fy_start=start, fy_end=end,
+                )
+                self.stdout.write(self.style.WARNING(
+                    f"created FiscalYearMaster {short} ({start}–{end})"
+                ))
+        cache[short] = fy
+        return fy
+
     def _import_one(self, group, main_row, legacy_key,
                     retail_map, branch_map, fy_map, apply):
         head = group.iloc[0]
         rt, br, ac = _clean(head['rt_code']), _clean(head['br_code']), _clean(head['ac_yr'])
         retail = retail_map[rt]
         branch = branch_map.get(br)
-        fy = fy_map.get(_fy_short(ac))
+        fy = self._resolve_fy(retail, ac, apply)
 
         v_typ = _clean(head['v_typ'])
         voucher_type = VOUCHER_TYPE_MAP.get(v_typ, v_typ)
@@ -296,11 +344,10 @@ class Command(BaseCommand):
         for c in ac_years:
             short = _fy_short(c)
             if short and short not in fy_map:
-                # fiscal_year is nullable on VoucherMain — a missing FiscalYearMaster
-                # is not a blocker; the voucher imports with fiscal_year left null.
+                # A missing FiscalYearMaster is created on demand per retail in
+                # _resolve_fy(), so vouchers always land in the correct year.
                 self.stdout.write(self.style.WARNING(
-                    f"fiscal year {c!r} (-> {short!r}) has no FiscalYearMaster "
-                    f"— fiscal_year left null"
+                    f"fiscal year {c!r} (-> {short!r}) not found — will be auto-created per retail"
                 ))
         return (retail_map, branch_map, fy_map), errors
 

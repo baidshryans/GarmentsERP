@@ -55,6 +55,9 @@ class SchemeMasterViewSet(RetailBaseViewset):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class SchemeEnrollmentViewSet(RetailBaseViewset):
+    # Enrollments span fiscal years: they start in one FY and mature in the
+    # next, so they must stay visible across years and NOT be FY-scoped.
+    fy_scoped = False
     queryset = SchemeEnrollment.objects.select_related('customer', 'scheme', 'salesperson')
     serializer_class = SchemeEnrollmentListSerializer
     filterset_fields = ['status', 'scheme', 'customer']

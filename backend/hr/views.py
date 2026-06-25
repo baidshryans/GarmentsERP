@@ -115,8 +115,9 @@ class SalarySlipViewSet(RetailBaseViewset):
     serializer_class = SalarySlipSerializer
 
     def get_queryset(self):
-        retail = getattr(self.request, 'retail', None)
-        qs = SalarySlip.objects.filter(retail=retail).select_related('employee')
+        # Route through super() so fiscal-year scoping (SalarySlip has a
+        # fiscal_year field) and retail scoping apply, then layer filters on top.
+        qs = super().get_queryset().select_related('employee')
         month = self.request.query_params.get('month')
         year  = self.request.query_params.get('year')
         emp   = self.request.query_params.get('employee')

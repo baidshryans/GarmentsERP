@@ -2164,9 +2164,18 @@ class StockTransferViewset(RetailBaseViewset):
     def get_queryset(self):
         from inventory.models import StockTransfer
         retail = getattr(self.request, 'retail', None)
-        return StockTransfer.objects.filter(
+        qs = StockTransfer.objects.filter(
             Q(retail=retail) | Q(to_rt_code=retail)
         ).select_related('retail', 'to_rt_code').order_by('-date1', '-billno')
+        # FY-scope the list (custom Q above precludes routing through super(),
+        # which would drop inbound `to_rt_code` transfers). Detail/edit unaffected.
+        if (
+            getattr(self, 'action', None) == 'list'
+            and getattr(retail, 'active_fy_id', None)
+            and self.request.query_params.get('all_fy', '').lower() not in ('1', 'true')
+        ):
+            qs = qs.filter(fiscal_year_id=retail.active_fy_id)
+        return qs
 
     def perform_update(self, serializer):
         if serializer.instance.sent_status:

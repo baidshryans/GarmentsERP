@@ -151,6 +151,151 @@ def _sv_billno_from_barcodes(barcode_ids):
     return sv_item.billno.billno if sv_item and sv_item.billno else None
 
 
+def _prime_co_item_locks(items):
+    """Batch-compute (lock_state, lock_reason) for many CustomerOrderItems rows
+    in a fixed number of queries, then stash each result on the row's
+    `_lock_cache`. This collapses the per-row barcode-chain N+1 in
+    `_customer_order_item_lock` (chains A/B/C + the sales-voucher lookup) into a
+    handful of page-level queries.
+
+    Idempotent: rows that already carry a `_lock_cache` are skipped, and a page
+    of relation-free rows (e.g. freshly-migrated orders) costs zero extra
+    queries. The per-row `_customer_order_item_lock` reads the seeded cache, so
+    output is identical to computing each row individually.
+    """
+    from inventory.models import BarcodeMain
+    from purchase.models import PurchaseVoucherItems
+    from manufacturing.models import KarigarReceiveItem
+    from sales.models import SalesVouItem
+
+    items = [it for it in items if getattr(it, '_lock_cache', None) is None]
+    if not items:
+        return
+
+    item_barcodes = {it.id: set() for it in items}
+    # PurchaseVoucherItems id -> co_item ids that should receive its barcodes
+    # (populated from Chain A's PO->PV pair match and Chain C's direct PV FK).
+    pvitem_to_items = {}
+
+    # ---- Chain A: CO -> PO line -> PV line (po_no/po_sl_no match) ----
+    pair_to_items = {}                      # (po_no, po_sl_no) -> set(co_item_id)
+    po_nos, po_sl_nos = set(), set()
+    for it in items:
+        for po_item in it.purchaseorderitems_set.all():
+            if not po_item.po_slip:
+                continue
+            key = (po_item.po_slip.po_no, po_item.po_sl_no)
+            pair_to_items.setdefault(key, set()).add(it.id)
+            po_nos.add(po_item.po_slip.po_no)
+            po_sl_nos.add(po_item.po_sl_no)
+    if pair_to_items:
+        # Over-fetch by the cross product of (po_no, po_sl_no), then attribute
+        # only exact-pair matches — equivalent to the per-row exact filter.
+        for pv in PurchaseVoucherItems.objects.filter(
+            po_no__in=po_nos, po_sl_no__in=po_sl_nos,
+        ).values('id', 'po_no', 'po_sl_no'):
+            owners = pair_to_items.get((pv['po_no'], pv['po_sl_no']))
+            if owners:
+                pvitem_to_items.setdefault(pv['id'], set()).update(owners)
+
+    # ---- Chain C: direct CO -> PV line (customer_order_item FK) ----
+    for it in items:
+        for pv_item in it.purchasevoucheritems_set.all():
+            pvitem_to_items.setdefault(pv_item.id, set()).add(it.id)
+
+    # Resolve barcodes for all collected PV-item ids in one query (chains A + C).
+    if pvitem_to_items:
+        for bc in BarcodeMain.objects.filter(
+            pur_voucher_id__in=list(pvitem_to_items.keys()),
+        ).values('id', 'pur_voucher_id'):
+            for cid in pvitem_to_items.get(bc['pur_voucher_id'], ()):
+                item_barcodes[cid].add(bc['id'])
+
+    # ---- Chain B: CO -> KarigarIssueItem -> KarigarReceiveItem -> BarcodeMain ----
+    ki_to_item = {}                         # KarigarIssueItem id -> co_item id
+    for it in items:
+        for ki in it.karigarissueitem_set.all():
+            ki_to_item[ki.id] = it.id
+    if ki_to_item:
+        kr_to_item = {}                     # KarigarReceiveItem id -> co_item id
+        for kr in KarigarReceiveItem.objects.filter(
+            ref_job_sl_no_id__in=list(ki_to_item.keys()),
+        ).values('id', 'ref_job_sl_no_id'):
+            owner = ki_to_item.get(kr['ref_job_sl_no_id'])
+            if owner is not None:
+                kr_to_item[kr['id']] = owner
+        if kr_to_item:
+            for bc in BarcodeMain.objects.filter(
+                rec_item_id__in=list(kr_to_item.keys()),
+            ).values('id', 'rec_item_id'):
+                owner = kr_to_item.get(bc['rec_item_id'])
+                if owner is not None:
+                    item_barcodes[owner].add(bc['id'])
+
+    # ---- Earliest Sales Voucher billno per co_item across its barcodes ----
+    all_barcode_ids = set()
+    for bcs in item_barcodes.values():
+        all_barcode_ids.update(bcs)
+    sv_billno_for_item = {}
+    if all_barcode_ids:
+        barcode_owners = {}                 # barcode id -> set(co_item_id)
+        for cid, bcs in item_barcodes.items():
+            for bc in bcs:
+                barcode_owners.setdefault(bc, set()).add(cid)
+        # Walk sales items in the SAME order as _sv_billno_from_barcodes
+        # (billno__date1, id); the first hit per co_item wins, exactly matching
+        # the per-row `.first()`.
+        for sv in (SalesVouItem.objects
+                   .filter(barcode_id__in=list(all_barcode_ids), billno__isnull=False)
+                   .select_related('billno')
+                   .order_by('billno__date1', 'id')):
+            billno = sv.billno.billno if sv.billno else None
+            if not billno:
+                continue
+            for cid in barcode_owners.get(sv.barcode_id, ()):
+                sv_billno_for_item.setdefault(cid, billno)
+
+    # ---- Assemble the same (state, reason) tuple the per-row function returns.
+    # The pv/ki/po reads below hit the prefetched .all() cache (no new queries).
+    for it in items:
+        barcode_ids = item_barcodes[it.id]
+        sv_billno = sv_billno_for_item.get(it.id)
+        if sv_billno:
+            result = ('billed', f"Sold via Sales Voucher {sv_billno}")
+        elif it.sale_status:
+            result = ('billed', 'Billed in a sales voucher')
+        else:
+            pv = next(iter(it.purchasevoucheritems_set.all()), None)
+            if pv:
+                ref = pv.billno.billno if pv.billno else ''
+                result = ('billed', f"Billed directly on Purchase Voucher {ref}".rstrip())
+            elif barcode_ids:
+                result = ('barcoded', 'Barcode created — ready for delivery')
+            else:
+                ki = next(iter(it.karigarissueitem_set.all()), None)
+                po = None if ki else next(iter(it.purchaseorderitems_set.all()), None)
+                if ki:
+                    result = ('in_production', f"Issued to Karigar job {ki.issue_slip.issue_slip_no}")
+                elif po:
+                    result = ('in_production', f"Issued to Purchase Order {po.po_slip.po_no}")
+                else:
+                    result = ('unlocked', '')
+        it._lock_cache = result
+
+
+class CustomerOrderLockListSerializer(serializers.ListSerializer):
+    """ListSerializer that batch-primes per-item lock state for the whole page
+    before per-row serialization, eliminating the lock-state N+1 on the customer
+    order list endpoint."""
+    def to_representation(self, data):
+        iterable = list(data)
+        all_items = []
+        for order in iterable:
+            all_items.extend(order.items.all())   # prefetched
+        _prime_co_item_locks(all_items)
+        return super().to_representation(iterable)
+
+
 class CustomerOrderItemsSerializer(serializers.ModelSerializer):
     item_id = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     item_name = serializers.CharField(source='item_id.item_name', read_only=True)
@@ -370,6 +515,9 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
              'retail_pincode', 'retail_state', 'retail_gstin', 'retail_email',
              'is_deletable', 'is_cancellable', 'has_in_production_items', 'has_advance',
              'linked_receipts']
+        # Batch-prime per-item lock state across the whole page (list endpoint)
+        # to avoid the per-row barcode-chain N+1.
+        list_serializer_class = CustomerOrderLockListSerializer
 
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
@@ -377,6 +525,17 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
             # order_no is generated server-side; frontend may omit or send a stale peek
             'order_no': {'required': False, 'allow_blank': True, 'default': ''},
         }
+
+    def to_representation(self, instance):
+        # Detail / write-return path (single order): batch-prime this order's
+        # item locks so the nested lock_state fields don't issue per-item
+        # barcode-chain queries. Idempotent — the list path primes the whole
+        # page first, after which this is a no-op.
+        try:
+            _prime_co_item_locks(list(instance.items.all()))
+        except Exception:
+            pass
+        return super().to_representation(instance)
 
     def validate(self, attrs):
         # Delivery date must be strictly after today. A same-day delivery is

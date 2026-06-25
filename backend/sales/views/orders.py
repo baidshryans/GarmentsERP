@@ -50,9 +50,10 @@ class CustomerOrderView(ListCreateAPIView):
         rec = (SalesVou.objects
                .filter(customer_order=OuterRef('pk'))
                .values('customer_order').annotate(s=Sum('advance_deducted')).values('s'))
-        return (
+        retail = self.request.retail
+        qs = (
             CustomerOrder.objects
-            .filter(retail=self.request.retail)
+            .filter(retail=retail)
             .select_related('ldgr', 'salesman_1', 'salesman_2', 'retail')
             .prefetch_related('items', 'items__item_id', 'items__purity')
             .annotate(
@@ -61,6 +62,13 @@ class CustomerOrderView(ListCreateAPIView):
                 anno_linked_bill_count=Count('linked_vouchers', distinct=True),
             )
         )
+        # Mirror RetailBaseViewset list scoping for this plain endpoint.
+        if (
+            getattr(retail, 'active_fy_id', None)
+            and self.request.query_params.get('all_fy', '').lower() not in ('1', 'true')
+        ):
+            qs = qs.filter(fiscal_year_id=retail.active_fy_id)
+        return qs
 
     def perform_create(self, serializer):
         serializer.save(retail=self.request.retail)

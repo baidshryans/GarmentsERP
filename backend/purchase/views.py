@@ -54,14 +54,34 @@ def purchase_order_number_view(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
  
 
+def _scope_list_to_retail_and_fy(qs, request):
+    """Scope a list queryset to the active retail and (unless ?all_fy) the active
+    fiscal year. Used by the plain ListCreateAPIView list endpoints that don't
+    inherit RetailBaseViewset."""
+    retail = getattr(request, 'retail', None)
+    qs = qs.filter(retail=retail)
+    if (
+        getattr(retail, 'active_fy_id', None)
+        and request.query_params.get('all_fy', '').lower() not in ('1', 'true')
+    ):
+        qs = qs.filter(fiscal_year_id=retail.active_fy_id)
+    return qs
+
+
 class PurchaseOrderView(ListCreateAPIView):
     serializer_class = PurchaseOrderSerializer
     queryset = PurchaseOrder.objects.all()
+
+    def get_queryset(self):
+        return _scope_list_to_retail_and_fy(PurchaseOrder.objects.all(), self.request)
 
 
 class PurchaseVoucherView(ListCreateAPIView):
     serializer_class = PurchaseVoucherSerializer
     queryset = PurchaseVoucher.objects.all()
+
+    def get_queryset(self):
+        return _scope_list_to_retail_and_fy(PurchaseVoucher.objects.all(), self.request)
 
 class PurchaseReturnViewset(RetailBaseViewset):
     queryset = PurchaseReturn.objects.select_related('ldgr', 'ac_voucher', 'retail').prefetch_related(

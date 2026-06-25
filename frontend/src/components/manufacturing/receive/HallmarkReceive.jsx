@@ -2,6 +2,7 @@
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -47,6 +48,7 @@ const fmt0 = (v) => {
 
 const HallmarkReceive = () => {
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -224,7 +226,7 @@ const HallmarkReceive = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-4">
             <FieldContainer>
               <Label htmlFor="date1">Date</Label>
-              <Input type="date" {...register("form.date1")} required />
+              <Input type="date" min={fyMin} max={fyMax} {...register("form.date1")} required />
             </FieldContainer>
 
             {/* Receive Slip No — auto-generated, read-only, violet pill (matches Sales Voucher billno) */}

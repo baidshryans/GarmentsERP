@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
@@ -24,6 +25,7 @@ import { useEditDirty } from "@/hooks/useEditDirty";
 // ── Main Component ─────────────────────────────────────────────────────────────
 const StockJournal = () => {
   const { toast }  = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id }     = useParams();
   const navigate   = useNavigate();
 
@@ -264,7 +266,7 @@ const StockJournal = () => {
           <div className="grid grid-cols-2 gap-6">
             <FieldContainer>
               <Label className="text-nowrap">Date</Label>
-              <Input type="date" {...register("form.date1")} required />
+              <Input type="date" min={fyMin} max={fyMax} {...register("form.date1")} required />
             </FieldContainer>
             <FieldContainer>
               <Label className="text-nowrap">Bill No</Label>

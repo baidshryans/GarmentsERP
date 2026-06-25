@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
@@ -40,6 +41,7 @@ import { useEditDirty } from "@/hooks/useEditDirty";
 
 const PurchaseVoucher = () => {
   const { toast } = useToast()
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams()
   // Single mutation handles create vs update — chosen by `id` inside the hook.
   // Replaces two broken mutations whose onError called the non-existent
@@ -1224,7 +1226,7 @@ const PurchaseVoucher = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 mb-4 mt-4">
           <FieldContainer>
             <Label htmlFor="date">Date</Label>
-            <Input type="date" {...register("form.date1")} required />
+            <Input type="date" min={fyMin} max={fyMax} {...register("form.date1")} required />
           </FieldContainer>
           <FieldContainer>
             <Label className="text-nowrap">Bill No</Label>

@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -30,6 +31,8 @@ import {
 } from "@/services/apiService";
 
 const SalesApprovalReturnAdd = () => {
+
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -313,7 +316,7 @@ const SalesApprovalReturnAdd = () => {
           </div>
           <div>
             <Label>Date</Label>
-            <Input type="date" {...register("date1")} />
+            <Input type="date" min={fyMin} max={fyMax} {...register("date1")} />
           </div>
           <div className="col-span-2 relative">
             <Label>Reference Approval (optional)</Label>

@@ -15,6 +15,7 @@ import {
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { fetchCustomerOrderForEdit, getGoldRate, updateCustomerOrderForEdit, cancelCustomerOrder } from "./services/apiService";
 import { useEditDirty } from "@/hooks/useEditDirty";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { SquarePen, Trash2, Loader2, Plus, Zap, Lock, ChevronRight, Link2, Unlink } from "lucide-react";
 import { fetchUnlinkedReceipts, linkReceiptToOrder, releaseReceiptFromOrder } from "@/services/api/accounting";
 import { arrayToObject } from "./Utils";
@@ -63,6 +64,7 @@ const CustomerOrderForm = () => {
   };
 
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -322,7 +324,7 @@ const CustomerOrderForm = () => {
             </Field>
 
             <Field label="Order Date" required>
-              <Input type="date" {...register("form.date1")} required />
+              <Input type="date" min={fyMin} max={fyMax} {...register("form.date1")} required />
             </Field>
 
             <Field label="Delivery Date" required>

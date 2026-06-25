@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
@@ -36,6 +37,7 @@ function SectionCard({ title, children, className = "", action, subtitle }) {
 const JobWorkReceive = () => {
   const { id } = useParams()
   const { toast } = useToast()
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { register, control, handleSubmit, reset, watch, setValue, getValues, trigger, formState: { isDirty } } = useForm({
     defaultValues: {
       form: {
@@ -539,7 +541,7 @@ function modifyData(data) {
           <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
             <FieldContainer>
               <Label htmlFor="date">Date</Label>
-              <Input type="date" {...register("form.date1")} required />
+              <Input type="date" min={fyMin} max={fyMax} {...register("form.date1")} required />
             </FieldContainer>
             <FieldContainer>
               <Label htmlFor="receive_slip_no" className="text-nowrap">Receive Slip No</Label>

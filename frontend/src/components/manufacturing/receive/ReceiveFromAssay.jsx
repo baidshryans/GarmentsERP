@@ -2,6 +2,7 @@
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -28,6 +29,7 @@ const Field = ({ label, children }) => (
 
 const ReceiveFromAssay = () => {
     const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
     const { id } = useParams();
     const navigate = useNavigate();
 
@@ -170,7 +172,7 @@ const ReceiveFromAssay = () => {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Field label="Date">
-                        <Input type="date" {...register("form.date1")} required className="max-w-[170px]" />
+                        <Input type="date" min={fyMin} max={fyMax} {...register("form.date1")} required className="max-w-[170px]" />
                     </Field>
 
                     <Field label="Bill No">

@@ -1,5 +1,6 @@
 import React from "react";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 
 const inputCls =
   "border border-input rounded-md px-2.5 py-2 text-[13px] font-[Assistant] text-foreground bg-background outline-none " +
@@ -26,6 +27,7 @@ export default function POSBillHeader({
   setLdgrName,
 }) {
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
 
   const cashReceived = parseFloat(customerCashInfo?.cash_received) || 0;
   const cashOver     = cashReceived >= 200000;
@@ -50,6 +52,8 @@ export default function POSBillHeader({
           <input
             type="date"
             className={inputCls}
+            min={fyMin}
+            max={fyMax}
             value={form.date1}
             onChange={e => set("date1", e.target.value)}
           />

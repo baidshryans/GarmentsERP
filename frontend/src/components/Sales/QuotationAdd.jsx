@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -97,6 +98,7 @@ export default function QuotationAdd() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const inputRef = useRef(null);
 
   // ── Header state ────────────────────────────────────────────────────────
@@ -509,7 +511,7 @@ export default function QuotationAdd() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div className="flex flex-col gap-1">
             <Label className="text-xs">Date</Label>
-            <Input type="date" value={date1} onChange={(e) => setDate1(e.target.value)} className="h-9" />
+            <Input type="date" min={fyMin} max={fyMax} value={date1} onChange={(e) => setDate1(e.target.value)} className="h-9" />
           </div>
           <div className="flex flex-col gap-1">
             <Label className="text-xs">Gold Rate Date</Label>

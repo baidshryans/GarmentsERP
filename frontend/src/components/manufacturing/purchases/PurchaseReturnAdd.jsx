@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -103,6 +104,7 @@ function removeIds(obj) {
 // ─── Component ───────────────────────────────────────────────────────────────
 const PurchaseReturnAdd = () => {
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -756,7 +758,7 @@ const PurchaseReturnAdd = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <FieldContainer>
             <Label>Date</Label>
-            <Input type="date" {...register("form.date1", { required: true })} />
+            <Input type="date" min={fyMin} max={fyMax} {...register("form.date1", { required: true })} />
           </FieldContainer>
 
           <FieldContainer>

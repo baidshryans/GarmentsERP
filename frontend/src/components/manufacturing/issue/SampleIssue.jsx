@@ -2,6 +2,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { Table, TableRow, TableCell, TableHead, TableBody, TableHeader } from "@/components/ui/table";
 import { Trash2, Download, PackageSearch, Loader2 } from "lucide-react";
@@ -53,6 +54,7 @@ const blankItem = {
 export default function SampleIssue() {
   const { id } = useParams();
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const navigate = useNavigate();
 
   // ── header ────────────────────────────────────────────────────────────────
@@ -414,7 +416,7 @@ export default function SampleIssue() {
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="si-date">Date</Label>
-            <Input id="si-date" type="date" value={date1} onChange={(e) => setDate1(e.target.value)} />
+            <Input id="si-date" type="date" min={fyMin} max={fyMax} value={date1} onChange={(e) => setDate1(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="si-slipno">Issue Slip No</Label>

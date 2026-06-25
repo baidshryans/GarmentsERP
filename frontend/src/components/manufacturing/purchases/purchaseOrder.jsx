@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
@@ -51,6 +52,7 @@ function Field({ label, required, children, className = "" }) {
 /* ─── component ────────────────────────────────────────────── */
 const PurchaseOrder = () => {
   const { toast } = useToast()
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams()
   const { register, handleSubmit, control, reset, watch, setValue, getValues, setFocus, formState: { isDirty } } = useForm({
     defaultValues: {
@@ -526,7 +528,7 @@ useEffect(() => {
             </Field>
 
             <Field label="Date" required>
-              <Input type="date" tabIndex={2} {...register("form.date1")} required />
+              <Input type="date" tabIndex={2} min={fyMin} max={fyMax} {...register("form.date1")} required />
             </Field>
 
             <Field label="PO Type">

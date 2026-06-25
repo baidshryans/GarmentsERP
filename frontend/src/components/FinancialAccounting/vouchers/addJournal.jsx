@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
@@ -30,6 +31,7 @@ import { useEditDirty } from "@/hooks/useEditDirty";
 
 const AddJournal = () => {
   const { toast } = useToast()
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const navigate = useNavigate();
   const {id} = useParams()
   const { journal_type } = useParams();
@@ -511,7 +513,7 @@ const AddJournal = () => {
         <div className="grid grid-cols-4 gap-4 mb-4">
           <FieldContainer>
             <Label htmlFor="date">Date</Label>
-            <Input type="date" {...register("form.date")} required />
+            <Input type="date" min={fyMin} max={fyMax} {...register("form.date")} required />
           </FieldContainer>
 
           <FieldContainer>

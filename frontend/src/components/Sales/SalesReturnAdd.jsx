@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -74,6 +75,7 @@ const emptyDetail = {
 // ─── Component ───────────────────────────────────────────────────────────────
 const SalesReturnAdd = () => {
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -545,7 +547,7 @@ const SalesReturnAdd = () => {
         <SectionHeader number="1" title="Return Details" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 mb-6">
           <Field label="Date">
-            <Input type="date" {...register("form.date1", { required: true })} />
+            <Input type="date" min={fyMin} max={fyMax} {...register("form.date1", { required: true })} />
           </Field>
           <Field label="Bill No">
             <div className="flex h-10 items-center px-3 rounded-md bg-accent-50 border border-accent-200 text-primary text-sm font-semibold">

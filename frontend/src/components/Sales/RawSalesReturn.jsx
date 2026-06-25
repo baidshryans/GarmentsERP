@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -51,6 +52,7 @@ import { useEditDirty } from "@/hooks/useEditDirty";
 
 const RawSalesReturn = () => {
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
     const {id } = useParams()
   
   const {
@@ -498,6 +500,8 @@ const RawSalesReturn = () => {
             <Label htmlFor="date1" className="text-nowrap">Date</Label>
             <Input
               type="date"
+              min={fyMin}
+              max={fyMax}
               {...register("form.date1", { required: true })}
             />
           </FieldContainer>

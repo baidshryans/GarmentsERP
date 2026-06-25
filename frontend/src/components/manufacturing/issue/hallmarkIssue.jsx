@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -47,6 +48,7 @@ const fmt0 = (v) => {
 
 const HallmarkIssue = () => {
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -290,7 +292,7 @@ const HallmarkIssue = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-4">
             <FieldContainer>
               <Label htmlFor="date1">Date</Label>
-              <Input type="date" {...register("form.date1")} required />
+              <Input type="date" min={fyMin} max={fyMax} {...register("form.date1")} required />
             </FieldContainer>
             <FieldContainer>
               <Label htmlFor="issue_slip_no" className="text-nowrap">Issue Slip No</Label>

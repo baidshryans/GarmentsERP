@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Save, Loader2 } from "lucide-react";
 import {
@@ -18,6 +19,7 @@ export default function InterRetailTransferAdd() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
 
   const [retails, setRetails] = useState([]);
   const [items, setItems] = useState([]);
@@ -128,7 +130,7 @@ export default function InterRetailTransferAdd() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-lg border border-border bg-muted/20">
         <div className="flex flex-col gap-1.5">
           <Label className="text-xs">Transfer Date</Label>
-          <Input type="date" value={form.transfer_date}
+          <Input type="date" min={fyMin} max={fyMax} value={form.transfer_date}
                  onChange={(e) => setForm((f) => ({ ...f, transfer_date: e.target.value }))} className="h-9" />
         </div>
         <div className="flex flex-col gap-1.5">

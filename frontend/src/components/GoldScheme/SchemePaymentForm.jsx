@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,6 +22,7 @@ export default function SchemePaymentForm() {
   const { uuid } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const [enrollment, setEnrollment] = useState(null);
   const [cashBankLedgers, setCashBankLedgers] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -101,7 +103,7 @@ export default function SchemePaymentForm() {
               </div>
               <div>
                 <Label>Date</Label>
-                <Input type="date" value={form.date}
+                <Input type="date" min={fyMin} max={fyMax} value={form.date}
                   onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
               </div>
             </div>

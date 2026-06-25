@@ -2,6 +2,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast"
 import { useF4Submit } from "@/hooks/useF4Submit"
@@ -39,6 +40,7 @@ const tableDefaultValue = {
 const StoneIssue = () => {
   const {id } = useParams()
   const { toast } = useToast()
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { register, handleSubmit, control, reset, watch, setValue, getValues,setFocus, formState: { isDirty } } = useForm({
     defaultValues: {
       form:{
@@ -448,7 +450,7 @@ const StoneIssue = () => {
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="si-date">Date</Label>
-            <Input id="si-date" type="date" {...register("form.date1")} required />
+            <Input id="si-date" type="date" min={fyMin} max={fyMax} {...register("form.date1")} required />
           </div>
           <div>
             <Label>Issue Slip No</Label>

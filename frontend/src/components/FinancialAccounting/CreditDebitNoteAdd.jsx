@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Save, Loader2 } from "lucide-react";
@@ -19,6 +20,7 @@ const fmt = (v) =>
 export default function CreditDebitNoteAdd() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
 
   // Form state
   const [noteType, setNoteType] = useState("CN");
@@ -160,7 +162,7 @@ export default function CreditDebitNoteAdd() {
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Date</Label>
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
+          <Input type="date" min={fyMin} max={fyMax} value={date} onChange={(e) => setDate(e.target.value)} className="h-9" />
         </div>
       </div>
 

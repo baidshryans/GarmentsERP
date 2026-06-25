@@ -2,6 +2,7 @@
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -66,6 +67,7 @@ const SectionHeader = ({ number, title }) => (
 /* ─── component ─────────────────────────────────────────────── */
 const SalesApprovalAdd = () => {
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -408,7 +410,7 @@ const SalesApprovalAdd = () => {
           {/* Date */}
           <FieldContainer>
             <Label className="text-nowrap">Date</Label>
-            <Input type="date" {...register("form.date1", { required: true })} />
+            <Input type="date" min={fyMin} max={fyMax} {...register("form.date1", { required: true })} />
           </FieldContainer>
 
           {/* Party Name */}

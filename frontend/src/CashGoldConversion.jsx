@@ -2,6 +2,7 @@
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 import { Label } from "@/components/ui/label";
 import { createGC, getcgbillno, getgcbillno, getLedgers } from "@/services/apiService";
 import { useToast } from "@/hooks/use-toast";
@@ -43,6 +44,7 @@ const ComputedValue = ({ value, prefix = "" }) => (
 
 const CashGoldConversion = () => {
   const { toast } = useToast();
+  const { min: fyMin, max: fyMax } = useActiveFiscalYear();
   const [customers, setCustomers] = useState([]);
 
   // ── Cash → Gold form ────────────────────────────────────────────────────
@@ -149,7 +151,7 @@ const CashGoldConversion = () => {
               />
             </Field>
             <Field label="Date">
-              <Input type="date" {...regCG("date", { required: true })} className="bg-white" />
+              <Input type="date" min={fyMin} max={fyMax} {...regCG("date", { required: true })} className="bg-white" />
             </Field>
             <div className="sm:col-span-2">
               <PartySelect
@@ -218,7 +220,7 @@ const CashGoldConversion = () => {
               />
             </Field>
             <Field label="Date">
-              <Input type="date" {...regGC("date", { required: true })} className="bg-white" />
+              <Input type="date" min={fyMin} max={fyMax} {...regGC("date", { required: true })} className="bg-white" />
             </Field>
             <div className="sm:col-span-2">
               <PartySelect

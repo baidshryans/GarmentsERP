@@ -189,6 +189,27 @@ class HRSettings(models.Model):
     pt_payable_ldgr       = models.ForeignKey('contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL, related_name='hr_pt_payable')
     tds_payable_ldgr      = models.ForeignKey('contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL, related_name='hr_tds_payable')
 
+    # ── Statutory payroll rates / ceilings (configurable per retail) ──────────
+    # Defaults match the EPFO/ESIC figures and Karnataka PT slab in force at the
+    # time of writing; update here when the government revises rates rather than
+    # editing the payroll calculation code.
+    pf_employee_rate  = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal('0.12'),
+                                            help_text='Employee PF contribution rate (e.g. 0.12 = 12%)')
+    pf_ceiling        = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('15000'),
+                                            help_text='EPFO wage ceiling for PF base (Basic + DA)')
+    esi_employee_rate = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal('0.0075'),
+                                            help_text='Employee ESI contribution rate (e.g. 0.0075 = 0.75%)')
+    esi_employer_rate = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal('0.0325'),
+                                            help_text='Employer ESI contribution rate (e.g. 0.0325 = 3.25%)')
+    esi_ceiling       = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('21000'),
+                                            help_text='Gross salary ceiling above which ESI does not apply')
+    pt_threshold      = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('15000'),
+                                            help_text='Monthly gross at or below which Professional Tax is nil')
+    pt_amount         = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('200'),
+                                            help_text='Professional Tax charged when gross exceeds the threshold')
+    working_days_basis = models.PositiveSmallIntegerField(default=26,
+                                            help_text='Days-per-month basis used to prorate salary (e.g. 26, 30)')
+
     class Meta:
         db_table = 'hr_settings'
 

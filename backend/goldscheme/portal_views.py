@@ -1,5 +1,6 @@
 import random
 
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -153,8 +154,9 @@ class PortalVerifyOTPView(APIView):
             return Response({'error': 'OTP has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Brute-force protection
+        max_attempts = getattr(settings, 'OTP_MAX_ATTEMPTS', 5)
         otp_record.attempts += 1
-        if otp_record.attempts >= 5:
+        if otp_record.attempts >= max_attempts:
             otp_record.delete()
             return Response(
                 {'error': 'Too many failed attempts. Please request a new OTP.'},
@@ -163,7 +165,7 @@ class PortalVerifyOTPView(APIView):
 
         if otp_record.otp_code != ser.validated_data['otp'].strip():
             otp_record.save()
-            remaining = 5 - otp_record.attempts
+            remaining = max_attempts - otp_record.attempts
             return Response(
                 {'error': f'Invalid OTP. {remaining} attempt(s) remaining.'},
                 status=status.HTTP_400_BAD_REQUEST,

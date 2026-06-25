@@ -97,6 +97,27 @@ OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 AI_NL_MODEL = config('AI_NL_MODEL', default='gpt-4o-mini')
 AI_VISION_MODEL = config('AI_VISION_MODEL', default='gpt-4o')
 
+# ── App identity ──────────────────────────────────────────────────────────────
+# Used for white-label deployments (e.g. backup filenames). Override via .env.
+APP_NAME = config('APP_NAME', default='jewel_erp')
+
+# ── WhatsApp / CRM provider configuration ─────────────────────────────────────
+# Meta Graph API version — bump when Meta deprecates the current version.
+META_GRAPH_API_VERSION = config('META_GRAPH_API_VERSION', default='v20.0')
+# AiSensy campaign API endpoint and source identifier.
+AISENSY_API_URL = config('AISENSY_API_URL', default='https://backend.aisensy.com/campaign/t1/api/v2')
+AISENSY_SOURCE_ID = config('AISENSY_SOURCE_ID', default='JEWEL_ERP')
+
+# ── Customer portal security / session limits ─────────────────────────────────
+OTP_EXPIRY_MINUTES = config('OTP_EXPIRY_MINUTES', default=5, cast=int)
+OTP_MAX_ATTEMPTS = config('OTP_MAX_ATTEMPTS', default=5, cast=int)
+PORTAL_TOKEN_EXPIRY_HOURS = config('PORTAL_TOKEN_EXPIRY_HOURS', default=24, cast=int)
+
+# ── Log list pagination ───────────────────────────────────────────────────────
+# Page size for the login-log and audit-log endpoints (these paginate manually,
+# independent of DRF's global REST_FRAMEWORK PAGE_SIZE).
+LOG_PAGE_SIZE = config('LOG_PAGE_SIZE', default=50, cast=int)
+
 # MySQL Sync configuration — source database for master data import
 MYSQL_SYNC_CONFIG = {
     'host': config('MYSQL_SYNC_HOST', default='127.0.0.1'),
@@ -260,9 +281,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = config('LANGUAGE_CODE', default='en-us')
 USE_TZ = True
-TIME_ZONE =  'Asia/Kolkata'
+TIME_ZONE = config('TIME_ZONE', default='Asia/Kolkata')
 
 USE_I18N = True
 

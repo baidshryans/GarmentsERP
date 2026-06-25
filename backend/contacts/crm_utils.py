@@ -1,6 +1,39 @@
 from datetime import date
 
 
+# ISO 3166-1 alpha-2 → international dialing code.
+# RetailMaster.default_country_code stores the ISO code (e.g. 'IN', 'AE');
+# WhatsApp APIs need the numeric dial prefix. Covers India + common NRI markets.
+ISO_TO_DIAL_CODE = {
+    'IN': '91', 'AE': '971', 'US': '1', 'GB': '44', 'SG': '65', 'SA': '966',
+    'QA': '974', 'KW': '965', 'OM': '968', 'BH': '973', 'AU': '61', 'CA': '1',
+    'NZ': '64', 'MY': '60', 'LK': '94', 'NP': '977', 'BD': '880', 'HK': '852',
+    'ZA': '27', 'TH': '66', 'ID': '62', 'PH': '63', 'KE': '254', 'TZ': '255',
+    'NG': '234', 'MU': '230', 'FR': '33', 'DE': '49', 'IT': '39', 'ES': '34',
+}
+
+DEFAULT_DIAL_CODE = '91'
+
+
+def dial_code_for_retail(retail):
+    """
+    Resolve the international dialing prefix (without '+') for a retail.
+
+    Reads RetailMaster.default_country_code (an ISO 3166-1 alpha-2 code) and
+    maps it to a dial code. Falls back to India ('91') when the retail is
+    missing, the code is blank, or the ISO code is unrecognised. If the stored
+    value is already numeric (a dial code), it is used as-is.
+    """
+    if retail is None:
+        return DEFAULT_DIAL_CODE
+    raw = (getattr(retail, 'default_country_code', '') or '').strip().upper()
+    if not raw:
+        return DEFAULT_DIAL_CODE
+    if raw.isdigit():
+        return raw
+    return ISO_TO_DIAL_CODE.get(raw, DEFAULT_DIAL_CODE)
+
+
 def clean_mobile(raw):
     """
     Strip country code prefix and non-digits. Returns local digits or None.

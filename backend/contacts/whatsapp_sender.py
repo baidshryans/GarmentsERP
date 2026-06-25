@@ -2,6 +2,9 @@ import requests
 import logging
 import json as _json
 
+from django.conf import settings as django_settings
+from contacts.crm_utils import dial_code_for_retail
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,14 +42,16 @@ def _send_meta(mobile, customer_name, occasion, settings):
     )
     if not settings.phone_number_id or not settings.api_key:
         return False, "Meta: phone_number_id and api_key are required"
-    url = f"https://graph.facebook.com/v20.0/{settings.phone_number_id}/messages"
+    api_version = getattr(django_settings, 'META_GRAPH_API_VERSION', 'v20.0')
+    dial = dial_code_for_retail(getattr(settings, 'retail', None))
+    url = f"https://graph.facebook.com/{api_version}/{settings.phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {settings.api_key}",
         "Content-Type": "application/json",
     }
     payload = {
         "messaging_product": "whatsapp",
-        "to": f"91{mobile}",
+        "to": f"{dial}{mobile}",
         "type": "template",
         "template": {
             "name": template_name,
@@ -77,7 +82,8 @@ def _send_wati(mobile, customer_name, occasion, settings):
         return False, "WATI: set webhook_url to your WATI server URL (e.g. https://live-server-XXXXX.wati.io)"
     if not settings.api_key:
         return False, "WATI: api_key (Bearer token) is required"
-    url = f"{base_url}/api/v1/sendTemplateMessage?whatsappNumber=91{mobile}"
+    dial = dial_code_for_retail(getattr(settings, 'retail', None))
+    url = f"{base_url}/api/v1/sendTemplateMessage?whatsappNumber={dial}{mobile}"
     headers = {"Authorization": f"Bearer {settings.api_key}", "Content-Type": "application/json"}
     payload = {
         "template_name": template_name,
@@ -101,14 +107,15 @@ def _send_aisensy(mobile, customer_name, occasion, settings):
     )
     if not settings.api_key:
         return False, "AiSensy: api_key is required"
-    url = "https://backend.aisensy.com/campaign/t1/api/v2"
+    dial = dial_code_for_retail(getattr(settings, 'retail', None))
+    url = getattr(django_settings, 'AISENSY_API_URL', 'https://backend.aisensy.com/campaign/t1/api/v2')
     payload = {
         "apiKey": settings.api_key,
         "campaignName": template_name,
-        "destination": f"91{mobile}",
+        "destination": f"{dial}{mobile}",
         "userName": customer_name,
         "templateParams": [customer_name, "20"],
-        "source": "JEWEL_ERP",
+        "source": getattr(django_settings, 'AISENSY_SOURCE_ID', 'JEWEL_ERP'),
         "media": {},
         "buttons": [],
         "carouselCards": [],
@@ -135,8 +142,9 @@ def _send_webhook(mobile, message, customer_name, occasion, settings):
             headers.update(extra)
         except Exception:
             pass
+    dial = dial_code_for_retail(getattr(settings, 'retail', None))
     payload = {
-        "to": f"91{mobile}",
+        "to": f"{dial}{mobile}",
         "mobile": mobile,
         "message": message,
         "customer_name": customer_name,

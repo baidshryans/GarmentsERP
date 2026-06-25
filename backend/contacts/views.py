@@ -575,7 +575,7 @@ def crm_occasions(request):
     """
     import urllib.parse
     from datetime import date
-    from contacts.crm_utils import clean_mobile, get_mobile, days_until_this_year, build_message
+    from contacts.crm_utils import clean_mobile, get_mobile, days_until_this_year, build_message, dial_code_for_retail
 
     try:
         days = int(request.query_params.get('days', 30))
@@ -585,6 +585,7 @@ def crm_occasions(request):
 
     retail      = getattr(request, 'retail', None)
     retail_name = retail.retail_name if retail else "Us"
+    dial_code   = dial_code_for_retail(retail)
     today       = date.today()
 
     customers = Ledger.objects.filter(
@@ -616,7 +617,7 @@ def crm_occasions(request):
             message = build_message(name, occasion, retail_name)
             wa_url  = None
             if mobile:
-                wa_url = f"https://wa.me/91{mobile}?text={urllib.parse.quote(message)}"
+                wa_url = f"https://wa.me/{dial_code}{mobile}?text={urllib.parse.quote(message)}"
 
             row = {
                 'id':         ldgr.id,

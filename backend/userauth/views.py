@@ -227,8 +227,14 @@ def change_password(request):
         return Response({'detail': 'old_password and new_password are required.'}, status=400)
     if not request.user.check_password(old_password):
         return Response({'detail': 'Current password is incorrect.'}, status=400)
-    if len(new_password) < 8:
-        return Response({'detail': 'New password must be at least 8 characters.'}, status=400)
+    min_len = next(
+        (v.get('OPTIONS', {}).get('min_length', 8)
+         for v in django_settings.AUTH_PASSWORD_VALIDATORS
+         if 'MinimumLength' in v.get('NAME', '')),
+        8,
+    )
+    if len(new_password) < min_len:
+        return Response({'detail': f'New password must be at least {min_len} characters.'}, status=400)
     if new_password == old_password:
         return Response({'detail': 'New password must be different from the current password.'}, status=400)
 
@@ -493,7 +499,8 @@ def backup_database(request):
 
     db_path = str(django_settings.DATABASES['default']['NAME'])
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_filename = f'jewel_erp_backup_{timestamp}.sqlite3'
+    app_name = getattr(django_settings, 'APP_NAME', 'jewel_erp')
+    backup_filename = f'{app_name}_backup_{timestamp}.sqlite3'
 
     # Create a safe online backup using sqlite3.backup()
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.sqlite3')
@@ -690,7 +697,7 @@ def login_log(request):
         qs = qs.filter(username_attempted__icontains=username)
 
     page      = max(int(request.GET.get('page', 1)), 1)
-    page_size = 50
+    page_size = getattr(django_settings, 'LOG_PAGE_SIZE', 50)
     total     = qs.count()
     rows      = qs[(page - 1) * page_size: page * page_size]
 

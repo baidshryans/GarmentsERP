@@ -11,6 +11,7 @@ simple-history-backed view so AuditLog.jsx renders without any changes.
 import re
 
 from django.apps import apps
+from django.conf import settings
 from django.utils.timezone import localtime
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -230,7 +231,7 @@ def _log_list_impl(request) -> Response:
         page = max(int(request.GET.get('page', 1)), 1)
     except (TypeError, ValueError):
         page = 1
-    page_size = 50
+    page_size = getattr(settings, 'LOG_PAGE_SIZE', 50)
     total = qs.count()
     offset = (page - 1) * page_size
     cache = {}

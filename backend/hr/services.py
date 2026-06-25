@@ -1,18 +1,45 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 
-# Karnataka Professional Tax slabs (monthly gross)
-PT_SLABS_KA = [
-    (Decimal('15000'), Decimal('0')),
-    (Decimal('9999999'), Decimal('200')),
-]
+# Statutory defaults — used when a retail has no HRSettings row yet.
+# These mirror the EPFO/ESIC figures and Karnataka PT slab that were previously
+# hardcoded, so behaviour is unchanged for existing data.
+_DEFAULTS = {
+    'pf_employee_rate':  Decimal('0.12'),
+    'pf_ceiling':        Decimal('15000'),
+    'esi_employee_rate': Decimal('0.0075'),
+    'esi_employer_rate': Decimal('0.0325'),
+    'esi_ceiling':       Decimal('21000'),
+    'pt_threshold':      Decimal('15000'),
+    'pt_amount':         Decimal('200'),
+    'working_days_basis': 26,
+}
 
 
-def _pt_from_gross(gross):
-    for threshold, amount in PT_SLABS_KA:
-        if gross <= threshold:
-            return amount
-    return Decimal('200')
+def _payroll_settings(employee):
+    """
+    Return the HRSettings row for the employee's retail, or None.
+    Reads are tolerant: a missing row falls back to _DEFAULTS via _cfg().
+    """
+    from hr.models import HRSettings
+    retail = getattr(employee, 'retail', None)
+    if retail is None:
+        return None
+    return HRSettings.objects.filter(retail=retail).first()
+
+
+def _cfg(settings, key):
+    """Read a payroll rate/ceiling from HRSettings, falling back to defaults."""
+    if settings is not None:
+        val = getattr(settings, key, None)
+        if val is not None:
+            return val
+    return _DEFAULTS[key]
+
+
+def _pt_from_gross(gross, threshold, amount):
+    """Two-slab Professional Tax: nil at/below threshold, flat amount above."""
+    return Decimal('0') if gross <= threshold else amount
 
 
 def generate_salary_slip(employee, month, year, days_worked=None):
@@ -39,7 +66,9 @@ def generate_salary_slip(employee, month, year, days_worked=None):
     except PayrollDeductionConfig.DoesNotExist:
         config = None
 
-    pay_basis = Decimal('26')
+    hr_settings = _payroll_settings(employee)
+
+    pay_basis = Decimal(str(_cfg(hr_settings, 'working_days_basis')))
     dw = Decimal(str(days_worked)) if days_worked is not None else pay_basis
 
     def prorate(amount):
@@ -57,25 +86,28 @@ def generate_salary_slip(employee, month, year, days_worked=None):
     pf_employee = Decimal('0')
     pf_employer = Decimal('0')
     if config is None or config.pf_applicable:
-        pf_ceiling = Decimal('15000')
+        pf_ceiling = _cfg(hr_settings, 'pf_ceiling')
+        pf_rate = _cfg(hr_settings, 'pf_employee_rate')
         pf_base_full = basic_earned + da_earned  # EPFO: PF is on Basic + DA
         pf_base = pf_base_full if (config and config.pf_above_ceiling) else min(pf_base_full, pf_ceiling)
-        pf_employee = (pf_base * Decimal('0.12')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        pf_employee = (pf_base * pf_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         pf_employer = pf_employee
 
-    # ESI (employee 0.75%, employer 3.25%) — only if gross ≤ 21000
+    # ESI — only if gross ≤ ceiling. Rates/ceiling configurable per retail.
     # Default to applicable when no deduction config exists
     esi_employee = Decimal('0')
     esi_employer = Decimal('0')
     esi_applicable = config.esi_applicable if config else True
-    if esi_applicable and gross_salary <= Decimal('21000'):
-        esi_employee = (gross_salary * Decimal('0.0075')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        esi_employer = (gross_salary * Decimal('0.0325')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if esi_applicable and gross_salary <= _cfg(hr_settings, 'esi_ceiling'):
+        esi_employee = (gross_salary * _cfg(hr_settings, 'esi_employee_rate')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        esi_employer = (gross_salary * _cfg(hr_settings, 'esi_employer_rate')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     # Professional Tax
     professional_tax = Decimal('0')
     if config is None or config.pt_applicable:
-        professional_tax = _pt_from_gross(gross_salary)
+        professional_tax = _pt_from_gross(
+            gross_salary, _cfg(hr_settings, 'pt_threshold'), _cfg(hr_settings, 'pt_amount')
+        )
 
     # TDS + Advance
     tds_deducted     = Decimal(str(config.tds_monthly))     if config else Decimal('0')
@@ -86,7 +118,7 @@ def generate_salary_slip(employee, month, year, days_worked=None):
     net_salary = gross_salary - total_deductions
 
     return {
-        'working_days': 26,
+        'working_days': int(pay_basis),
         'days_worked': dw,
         'basic_earned': basic_earned,
         'hra_earned': hra_earned,

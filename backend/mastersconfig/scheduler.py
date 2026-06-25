@@ -20,8 +20,9 @@ def start():
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
         from apscheduler.triggers.interval import IntervalTrigger
+        from django.conf import settings
 
-        _scheduler = BackgroundScheduler(timezone='Asia/Kolkata')
+        _scheduler = BackgroundScheduler(timezone=settings.TIME_ZONE)
         _scheduler.add_job(
             run_crm_scheduler,
             trigger=IntervalTrigger(minutes=1),

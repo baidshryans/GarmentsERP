@@ -2,6 +2,7 @@ import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.utils import timezone
@@ -350,7 +351,8 @@ class CustomerPortalOTP(models.Model):
 
     @property
     def is_expired(self):
-        return timezone.now() > self.created_at + timedelta(minutes=5)
+        minutes = getattr(settings, 'OTP_EXPIRY_MINUTES', 5)
+        return timezone.now() > self.created_at + timedelta(minutes=minutes)
 
 
 class CustomerPortalToken(models.Model):
@@ -375,5 +377,6 @@ class CustomerPortalToken(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(hours=24)
+            hours = getattr(settings, 'PORTAL_TOKEN_EXPIRY_HOURS', 24)
+            self.expires_at = timezone.now() + timedelta(hours=hours)
         super().save(*args, **kwargs)

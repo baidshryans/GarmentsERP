@@ -1,0 +1,45 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { formatMoney, formatNumber, setFormatConfig, INR_CONFIG } from './format';
+
+beforeEach(() => setFormatConfig(INR_CONFIG));
+
+describe('formatNumber', () => {
+  it('Indian grouping with 2 decimals', () => {
+    expect(formatNumber(200000, { decimals: 2 })).toBe('2,00,000.00');
+  });
+  it('min decimals only pads to at least 2 (matches legacy minimumFractionDigits:2)', () => {
+    expect(formatNumber(1234.5, { minDecimals: 2 })).toBe('1,234.50');
+  });
+  it('abs strips sign', () => {
+    expect(formatNumber(-2500, { decimals: 2, abs: true })).toBe('2,500.00');
+  });
+  it('blankOnZero returns empty for 0 and empty input', () => {
+    expect(formatNumber(0, { blankOnZero: true })).toBe('');
+    expect(formatNumber('', { blankOnZero: true })).toBe('');
+  });
+  it('empty input without blankOnZero formats as zero', () => {
+    expect(formatNumber('', { decimals: 2 })).toBe('0.00');
+  });
+});
+
+describe('formatMoney', () => {
+  it('prefix symbol with space by default', () => {
+    expect(formatMoney(12500, { decimals: 0 })).toBe('₹ 12,500');
+  });
+  it('prefix symbol without space', () => {
+    expect(formatMoney(12500, { decimals: 0, space: false })).toBe('₹12,500');
+  });
+  it('showSymbol false delegates to number', () => {
+    expect(formatMoney(12500, { decimals: 2, showSymbol: false })).toBe('12,500.00');
+  });
+  it('blankOnZero yields empty (no stray symbol)', () => {
+    expect(formatMoney(0, { blankOnZero: true })).toBe('');
+  });
+});
+
+describe('config swap (forward-looking)', () => {
+  it('suffix symbol + western grouping', () => {
+    setFormatConfig({ ...INR_CONFIG, symbol: 'AED', symbolPosition: 'suffix', locale: 'en-US' });
+    expect(formatMoney(200000, { decimals: 2 })).toBe('200,000.00 AED');
+  });
+});

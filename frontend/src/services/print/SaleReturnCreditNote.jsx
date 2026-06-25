@@ -1,5 +1,6 @@
 ﻿import React from "react";
 import { fmt, fmtDate, numberToWords } from "./printHelpers";
+import { formatNumber } from "@/lib/format";
 
 // ── CSS (self-contained — injected into the print popup) ──────────────────────
 const CN_CSS = `
@@ -219,7 +220,7 @@ function fmt3(n) {
   if (n === null || n === undefined || n === "") return "";
   const num = parseFloat(n);
   if (isNaN(num) || num === 0) return "";
-  return num.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  return formatNumber(num, { decimals: 3 });
 }
 
 export default function SaleReturnCreditNote({ data: d }) {

@@ -1,5 +1,5 @@
 // frontend/src/services/print/printHelpers.js
-import { formatWords } from '@/lib/format';
+import { formatWords, formatNumber } from '@/lib/format';
 
 /* ─── number / date formatters ─────────────────────────────────── */
 
@@ -7,7 +7,7 @@ export const fmt = (n) => {
   if (n === null || n === undefined || n === "") return "";
   const num = parseFloat(n);
   if (isNaN(num) || num === 0) return "";
-  return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(num, { decimals: 2 });
 };
 
 export const fmtDate = (s) => {

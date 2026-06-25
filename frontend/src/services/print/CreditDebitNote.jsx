@@ -1,10 +1,11 @@
 import React from "react";
+import { formatNumber } from "@/lib/format";
 
 const fmt = (n, dec = 2) => {
   if (n === null || n === undefined || n === "") return "";
   const num = parseFloat(n);
   if (isNaN(num)) return "";
-  return num.toLocaleString("en-IN", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return formatNumber(num, { decimals: dec });
 };
 
 const fmtDate = (s) => {

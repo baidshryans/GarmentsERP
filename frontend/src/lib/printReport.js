@@ -1,3 +1,5 @@
+import { formatDate } from './format';
+
 /**
  * Opens a new browser window with a clean A4-formatted report and triggers
  * the browser print dialog (which allows saving as PDF).
@@ -209,7 +211,7 @@ export function printReport({ title, subtitle, html, landscape = false, company 
   </div>
 
   <div class="report-footer">
-    <span>Printed on ${new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+    <span>Printed on ${formatDate(new Date(), "short")} at ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
     <span>Jewel India ERP</span>
   </div>
 </body>

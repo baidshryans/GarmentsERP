@@ -1,4 +1,5 @@
 import React from "react";
+import { formatNumber } from "@/lib/format";
 
 /* ────────────────────────────────────────────────────────────────────────────
    PurchaseReturnDebitNote — Debit Note print format for a Purchase Return.
@@ -15,17 +16,14 @@ const fmt = (n, dec = 2) => {
   if (n === null || n === undefined || n === "") return "";
   const num = parseFloat(n);
   if (isNaN(num)) return "";
-  return num.toLocaleString("en-IN", {
-    minimumFractionDigits: dec,
-    maximumFractionDigits: dec,
-  });
+  return formatNumber(num, { decimals: dec });
 };
 
 const fmtInt = (n) => {
   if (n === null || n === undefined || n === "") return "";
   const num = parseFloat(n);
   if (isNaN(num)) return "";
-  return Math.round(num).toLocaleString("en-IN");
+  return formatNumber(Math.round(num), { decimals: 0 });
 };
 
 const fmtDate = (s) => {

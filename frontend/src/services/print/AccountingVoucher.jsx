@@ -1,5 +1,6 @@
 ﻿import React from "react";
 import { fmt, fmtDate, numberToWords, isGst, isRcpt, isPmnt, detectParty, detectMode } from "./printHelpers";
+import { formatMoney } from "@/lib/format";
 
 /* ─── voucher type helpers ────────────────────────────────────────────────── */
 
@@ -274,10 +275,10 @@ const AccountingVoucher = ({ data = {} }) => {
           Total
         </div>
         <div className="av-total-num" style={{padding:"5px 8px",borderRight:"1px solid #ddd",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
-          {totalDr > 0 ? "₹ " + fmt(totalDr) : ""}
+          {totalDr > 0 ? formatMoney(totalDr, { decimals: 2 }) : ""}
         </div>
         <div className="av-total-num" style={{padding:"5px 8px",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
-          {totalCr > 0 ? "₹ " + fmt(totalCr) : ""}
+          {totalCr > 0 ? formatMoney(totalCr, { decimals: 2 }) : ""}
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 ﻿import React from "react";
+import { formatMoney, formatNumber, formatDate } from "@/lib/format";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ const fmtDate = (val) => {
   if (!val) return '—';
   const d = new Date(val);
   if (isNaN(d)) return val;
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return formatDate(val, 'numeric');
 };
 
 const fmtWt = (v) => {
@@ -22,7 +23,7 @@ const fmtWt = (v) => {
 const fmtAmt = (v) => {
   const n = parseFloat(v);
   if (isNaN(n) || n === 0) return '—';
-  return '₹ ' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  return formatMoney(n, { decimals: 0 });
 };
 
 const MAKING_LABELS = {
@@ -194,11 +195,11 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
           marginBottom: 10, fontVariantNumeric: 'tabular-nums', fontFamily: FONT,
         }}>
           <span style={{ fontSize: 7.5, letterSpacing: '1.4px', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>Fixed Gold Rates</span>
-          {data.rate_14kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>14K &nbsp;₹ {Number(data.rate_14kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_14kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>14K &nbsp;₹ {formatNumber(data.rate_14kt)} / gm</span> : null}
           {data.rate_14kt && data.rate_18kt ? <span style={{ color: '#cbd5e1' }}>·</span> : null}
-          {data.rate_18kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>18K &nbsp;₹ {Number(data.rate_18kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_18kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>18K &nbsp;₹ {formatNumber(data.rate_18kt)} / gm</span> : null}
           {data.rate_18kt && data.rate_22kt ? <span style={{ color: '#cbd5e1' }}>·</span> : null}
-          {data.rate_22kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>22K &nbsp;₹ {Number(data.rate_22kt).toLocaleString('en-IN')} / gm</span> : null}
+          {data.rate_22kt ? <span style={{ fontSize: 10, color: '#0f172a', fontWeight: 500 }}>22K &nbsp;₹ {formatNumber(data.rate_22kt)} / gm</span> : null}
         </div>
       )}
 
@@ -258,7 +259,7 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
               <td style={td({  textAlign: 'center' })}>{row.size || '—'}</td>
               <td style={td({  textAlign: 'center', fontSize: 9 })}>{MAKING_LABELS[row.making_type] || row.making_type || '—'}</td>
               <td style={td({  textAlign: 'right'  })}>
-                {row.making_amt ? Number(row.making_amt).toLocaleString('en-IN') : '—'}
+                {row.making_amt ? formatNumber(row.making_amt) : '—'}
               </td>
               <td style={td({  textAlign: 'left', fontSize: 9, color: '#555' })}>{row.remarks || ''}</td>
             </tr>

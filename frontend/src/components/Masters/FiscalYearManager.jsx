@@ -10,6 +10,7 @@ import {
   setActiveFiscalYear,
   closeFiscalYear,
   reopenFiscalYear,
+  syncOpeningBalances,
 } from '@/services/apiService';
 import {
   CalendarDays,
@@ -18,6 +19,7 @@ import {
   Unlock,
   Plus,
   Star,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 function FiscalYearManager() {
@@ -106,6 +108,18 @@ function FiscalYearManager() {
       fetchData();
     } else {
       toast({ title: 'Error', description: JSON.stringify(result.error), variant: 'destructive' });
+    }
+  };
+
+  const handleSyncOB = async (id, fyCode) => {
+    if (!window.confirm(`Compute FY ${fyCode} closing balance and write it as the next year's opening balance?`)) return;
+    const result = await syncOpeningBalances(id);
+    if (result.success) {
+      toast({ title: 'Opening balances synced', description: result.data?.message || `FY ${fyCode} closing carried forward to next year.` });
+      fetchData();
+    } else {
+      const msg = typeof result.error === 'string' ? result.error : (result.error?.error || 'Failed to sync opening balances');
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     }
   };
 
@@ -241,6 +255,11 @@ function FiscalYearManager() {
                       </span>
                     )}
                   </p>
+                  {fy.last_synced_at && (
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Last synced: {new Date(fy.last_synced_at).toLocaleString('en-GB')}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -274,6 +293,14 @@ function FiscalYearManager() {
                     <Unlock className="w-3.5 h-3.5" /> Reopen
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleSyncOB(fy.id, fy.fy_code)}
+                  className="gap-1 text-primary border-accent-300 hover:bg-accent-50"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" /> Sync opening balances
+                </Button>
               </div>
             </div>
           ))}

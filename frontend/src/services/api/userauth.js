@@ -314,6 +314,15 @@ export async function reopenFiscalYear(id) {
   }
 }
 
+export async function syncOpeningBalances(id) {
+  try {
+    const response = await apiClient.post(`/mastersconfig/api/fiscal-years/${id}/sync-opening-balances/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // ── Setup Wizard ──────────────────────────────────────────────────────────────
 
 export async function getSetupStatus() {

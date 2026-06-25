@@ -134,6 +134,8 @@ class KarigarStoneIssueSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('karigarstoneissue_set', [])
             parent_instance = KarigarStoneIssueHeader.objects.create(**validated_data)
@@ -259,6 +261,8 @@ class KarigarStoneReceiveSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('karigarstonereceive_set', [])
             parent_instance = KarigarStoneReceiveHeader.objects.create(**validated_data)
@@ -349,6 +353,8 @@ class KarigarGoldIssueSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop("karigargoldissue_set", [])
             parent_instance = KarigarGoldIssueHeader.objects.create(**validated_data)
@@ -627,6 +633,8 @@ class KarigarIssueForPostSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             if _retail:
+                from mastersconfig.fy_validation import assert_date_in_active_fy
+                assert_date_in_active_fy(_retail, validated_data.get("date1"))
                 validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         with transaction.atomic():
             karigar_issue_instance = KarigarIssue.objects.create(**validated_data,bill_id=int( validated_data['issue_slip_no'].split('/')[-1]))
@@ -1045,6 +1053,8 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             if _retail:
+                from mastersconfig.fy_validation import assert_date_in_active_fy
+                assert_date_in_active_fy(_retail, validated_data.get("date1"))
                 validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         with transaction.atomic():
             slip_no = validated_data.get('receive_slip_no')
@@ -1435,6 +1445,8 @@ class HallmarkIssueForPostSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             items_data = validated_data.pop('hallmarkissueitem_set')
             hallmark_issue_instance = HallmarkIssue.objects.create(**validated_data)
@@ -1556,6 +1568,8 @@ class HallmarkReceiveForPostSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             items_data = validated_data.pop('hallmarkreceiveitem_set')
             hallmark_receive_instance = HallmarkReceive.objects.create(**validated_data)
@@ -1685,6 +1699,8 @@ class RefinaryIssueSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('refinaryissuedetail_set', [])
             parent_instance = RefinaryIssue.objects.create(**validated_data)
@@ -1732,6 +1748,8 @@ class RefinaryReceiveSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('refinaryreceivedetail_set', [])
             parent_instance = RefinaryReceive.objects.create(**validated_data)
@@ -1781,6 +1799,8 @@ class MeltingIssueSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('meltingissuedetail_set', [])
             parent_instance = MeltingIssue.objects.create(**validated_data)
@@ -1830,6 +1850,8 @@ class MeltingReceiveSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('meltingreceivedetail_set', [])
             parent_instance = MeltingReceive.objects.create(**validated_data)
@@ -1884,6 +1906,8 @@ class AssayIssueSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('assayissuedetail_set', [])
             parent_instance = AssayIssue.objects.create(**validated_data)
@@ -1933,6 +1957,8 @@ class AssayReceiveSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('assayreceivedetail_set', [])
             parent_instance = AssayReceive.objects.create(**validated_data)
@@ -2151,6 +2177,8 @@ class RepairJobCardSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         _retail = validated_data.get('retail') or getattr(request, 'retail', None)
         if _retail:
+            from mastersconfig.fy_validation import assert_date_in_active_fy
+            assert_date_in_active_fy(_retail, validated_data.get("date1"))
             validated_data.setdefault('fiscal_year', getattr(_retail, 'active_fy', None))
         with transaction.atomic():
             job_card = RepairJobCard.objects.create(**validated_data)

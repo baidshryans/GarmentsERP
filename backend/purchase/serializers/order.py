@@ -160,6 +160,8 @@ class PurchaseOrderForPostSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             purchase_order_instance = PurchaseOrder.objects.create(**validated_data)
 

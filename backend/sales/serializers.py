@@ -557,6 +557,8 @@ class CustomerOrderSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             order_instance = CustomerOrder.objects.create(**validated_data)
 
@@ -1339,6 +1341,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
             if 'fiscal_year' not in validated_data:
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             sales_vou_instance = SalesVou.objects.create(**validated_data)
 
@@ -2197,6 +2201,8 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             if 'fiscal_year' not in validated_data:
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             sale_return_instance = SaleReturn.objects.create(**validated_data)
 
@@ -2771,6 +2777,8 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
             if 'fiscal_year' not in validated_data:
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             sale_return_instance = SalesApproval.objects.create(**validated_data)
 
@@ -2932,6 +2940,8 @@ class SalesApprovalReturnSerializer(serializers.ModelSerializer):
             validated_data['billno'] = get_next_bill_number(
                 request.retail, 'SAR', request.retail.active_fy,
             )
+            from mastersconfig.fy_validation import assert_date_in_active_fy
+            assert_date_in_active_fy(getattr(request, 'retail', None), validated_data.get("date1"))
             validated_data.setdefault('fiscal_year', getattr(getattr(request, 'retail', None), 'active_fy', None))
             sar = SalesApprovalReturn.objects.create(**validated_data)
 
@@ -3100,6 +3110,8 @@ class QuotationSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items', [])
         with transaction.atomic():
             request = self.context.get('request')
+            from mastersconfig.fy_validation import assert_date_in_active_fy
+            assert_date_in_active_fy(getattr(request, 'retail', None), validated_data.get("date1"))
             validated_data.setdefault('fiscal_year', getattr(getattr(request, 'retail', None), 'active_fy', None))
             quotation = Quotation.objects.create(**validated_data)
             for item_data in items_data:

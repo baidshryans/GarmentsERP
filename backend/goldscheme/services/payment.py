@@ -67,6 +67,8 @@ def record_payment(enrollment, amount, payment_mode, payment_ledger, payment_dat
 
     pay_date = payment_date or date.today()
     retail = enrollment.retail
+    from mastersconfig.fy_validation import assert_date_in_active_fy
+    assert_date_in_active_fy(retail, pay_date, field="date")
     fiscal_year = enrollment.fiscal_year or getattr(retail, 'active_fy', None)
 
     payment_no = get_next_bill_number(retail, "SCHM-P", fiscal_year)

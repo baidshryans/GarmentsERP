@@ -775,6 +775,8 @@ class StockJournalSerializer(serializers.ModelSerializer):
                 request = self.context.get('request')
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             parent_instance = StockJournal.objects.create(**validated_data)
             create_or_update_nested(StockJournalDetailSerializer, parent_instance, 'stockjournaldetail_set', 'billno', StockJournalDetailSerializer(detail_data,many=True).data)
@@ -929,6 +931,8 @@ class StockTransferSerializer(serializers.ModelSerializer):
             if 'fiscal_year' not in validated_data:
                 _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
+                    from mastersconfig.fy_validation import assert_date_in_active_fy
+                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             parent_instance = StockTransfer.objects.create(**validated_data)
             create_or_update_nested(
@@ -1168,6 +1172,8 @@ class InterRetailTransferVoucherSerializer(serializers.ModelSerializer):
             req_user = getattr(request, 'user', None)
             if req_user is not None and getattr(req_user, 'is_authenticated', False):
                 validated_data['created_by'] = req_user
+            from mastersconfig.fy_validation import assert_date_in_active_fy
+            assert_date_in_active_fy(retail, validated_data.get("transfer_date"), field="transfer_date")
             validated_data['fiscal_year'] = getattr(retail, 'active_fy', None)
             validated_data['status'] = InterRetailTransferVoucher.STATUS_DRAFT
             voucher = InterRetailTransferVoucher.objects.create(**validated_data)

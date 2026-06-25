@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Send, PackageCheck, XCircle, Loader2, ArrowLeft } from "lucide-react";
@@ -14,8 +15,8 @@ const STATUS_STYLES = {
   cancelled:  "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
 };
 
-const fmt = (v) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtWt = (v) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const fmt = (v) => formatNumber(v, { decimals: 2 });
+const fmtWt = (v) => formatNumber(v, { decimals: 3 });
 
 export default function InterRetailTransferDetail() {
   const { id } = useParams();

@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -111,7 +112,7 @@ export default function TCSSectionMasterPage() {
   };
 
   const fmtRate = (v) => v != null ? `${parseFloat(v).toFixed(3)}%` : "-";
-  const fmtAmt = (v) => v != null ? `₹${parseFloat(v).toLocaleString('en-IN')}` : "-";
+  const fmtAmt = (v) => v != null ? `₹${formatNumber(v)}` : "-";
 
   const columns = [
     {

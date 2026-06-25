@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
@@ -15,7 +16,7 @@ import {
 } from "@/hooks/queries/creditDebitNoteQueries";
 
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(v, { decimals: 2 });
 
 export default function CreditDebitNoteAdd() {
   const navigate = useNavigate();

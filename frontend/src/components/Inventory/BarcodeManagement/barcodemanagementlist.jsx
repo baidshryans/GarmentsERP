@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { formatNumber } from "@/lib/format";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -899,7 +900,7 @@ const BarcodeManagementList = () => {
                 {fields.length > 0 && (
                   <TableRow className="bg-muted/30 font-semibold border-t-2">
                     <TableCell colSpan={7} className="text-right p-2 text-sm">TOTAL</TableCell>
-                    <TableCell className="text-right p-2 text-sm font-bold">{subTotalAmt.toLocaleString("en-IN")}</TableCell>
+                    <TableCell className="text-right p-2 text-sm font-bold">{formatNumber(subTotalAmt)}</TableCell>
                     <TableCell></TableCell>
                   </TableRow>
                 )}

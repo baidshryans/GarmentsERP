@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -389,7 +390,7 @@ export default function UnbarcodedStockReport() {
           <span><b>Pcs:</b> {totals.pcs}</span>
           <span><b>Gross Wt:</b> {Number(totals.gw || 0).toFixed(3)}</span>
           <span><b>Net Wt:</b> {Number(totals.nw || 0).toFixed(3)}</span>
-          <span><b>Value:</b> ₹ {Number(totals.value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>
+          <span><b>Value:</b> ₹ {formatNumber(totals.value, { maxDecimals: 2 })}</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -456,7 +457,7 @@ export default function UnbarcodedStockReport() {
                       </span>
                     </td>
                     <td className="p-2 text-right">
-                      {Number(r.total_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                      {formatNumber(r.total_amount, { maxDecimals: 2 })}
                     </td>
                   </tr>
                 ))

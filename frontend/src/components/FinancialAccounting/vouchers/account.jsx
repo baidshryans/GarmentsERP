@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useParams } from "react-router-dom";
 import { useF4Submit } from "@/hooks/useF4Submit";
 import { fetchDuePayments, fetchDuePaymentsSale } from "@/services/apiService";
@@ -10,7 +11,7 @@ const fmtDate = (d) => {
 
 const fmtAmt = (n) => {
   const v = parseFloat(n) || 0;
-  return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(v, { decimals: 2 });
 };
 
 const Account = () => {

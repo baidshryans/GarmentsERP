@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { getFormatConfig } from "@/lib/format";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   fetchRepairJobCardNextNo,
@@ -294,7 +295,7 @@ export default function RepairJobCardForm() {
               )}
             </Field>
           </div>
-          <Field label="Estimated Making (₹)">
+          <Field label={`Estimated Making (${getFormatConfig().symbol})`}>
             <Input
               type="number"
               step="0.01"

@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,12 +35,12 @@ const SectionHeader = ({ icon: Icon, title, subtitle }) => (
 const inr = (v) => {
   const n = parseFloat(v);
   if (!isFinite(n)) return null;
-  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(n, { decimals: 2 });
 };
 const inrCompact = (v) => {
   const n = parseFloat(v);
   if (!isFinite(n)) return null;
-  return n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  return formatNumber(n, { maxDecimals: 2 });
 };
 
 // ── Compact table header cell ────────────────────────────────────────────────

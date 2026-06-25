@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { formatNumber } from "@/lib/format"
 import { useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -31,7 +32,7 @@ const TRANS_COLORS = {
   ADJUSTMENT:       "bg-orange-50 text-orange-700 border-orange-200",
 }
 
-const fmtWt = (v) => v != null ? Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "-"
+const fmtWt = (v) => v != null ? formatNumber(v, { decimals: 3 }) : "-"
 const fmtDate = (v) => new Date(v).toLocaleString("en-GB").replaceAll("/", "-")
 
 export default function BarcodeHistoryList() {

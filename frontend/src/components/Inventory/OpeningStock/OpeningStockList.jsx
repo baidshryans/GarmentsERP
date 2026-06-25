@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState, useMemo } from "react";
+import { formatNumber, getFormatConfig } from "@/lib/format";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Plus, Store, Hammer, Users, PackageOpen, Loader2 } from "lucide-react";
@@ -14,7 +15,7 @@ const TABS = [
 const inr = (v) => {
   const n = parseFloat(v);
   if (!isFinite(n)) return "—";
-  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(n, { decimals: 2 });
 };
 
 // Primary qty for valuation: ct for Stone (S) items, gw for everything else.
@@ -119,15 +120,15 @@ export default function OpeningStockList() {
       {!loading && entries.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[
-            { label: "Entries", value: summary.count, format: (v) => v.toLocaleString("en-IN") },
-            { label: "Total Pcs", value: summary.pcs, format: (v) => v.toLocaleString("en-IN") },
+            { label: "Entries", value: summary.count, format: (v) => formatNumber(v) },
+            { label: "Total Pcs", value: summary.pcs, format: (v) => formatNumber(v) },
             { label: activeTab === "KR" ? "Total GW (g)" : "Total Weight", value: summary.gw, format: (v) => v.toFixed(3) },
             { label: "Total Amount", value: summary.amt, format: inr, emphasis: true },
           ].map((m) => (
             <div key={m.label} className="rounded-lg border border-gray-100 bg-white px-4 py-3 shadow-sm">
               <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">{m.label}</p>
               <p className={`mt-1 text-lg tabular-nums ${m.emphasis ? "font-bold text-primary" : "font-semibold text-gray-800"}`}>
-                {m.emphasis && "₹ "}{m.format(m.value)}
+                {m.emphasis && `${getFormatConfig().symbol} `}{m.format(m.value)}
               </p>
             </div>
           ))}

@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { formatNumber, getFormatConfig } from "@/lib/format";
 import { useParams, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -19,10 +20,10 @@ import { fetchBranchAnalytics } from "@/services/apiService";
 
 function fmt(v) {
   if (v === null || v === undefined) return "—";
-  return Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+  return formatNumber(v, { maxDecimals: 0 });
 }
 
-function KpiTile({ label, value, icon: Icon, color, prefix = "₹" }) {
+function KpiTile({ label, value, icon: Icon, color, prefix = getFormatConfig().symbol }) {
   const colors = {
     violet: "bg-accent-50 text-primary border-accent-200",
     emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",

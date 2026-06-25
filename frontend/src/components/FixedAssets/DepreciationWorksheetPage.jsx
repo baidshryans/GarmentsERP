@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,7 +115,7 @@ export default function DepreciationWorksheetPage() {
     setWorksheet(null);
   }
 
-  const fmt = n => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+  const fmt = n => formatNumber(n, { minDecimals: 2 });
 
   return (
     <div className="p-4 space-y-6">

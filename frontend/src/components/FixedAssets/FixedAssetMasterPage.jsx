@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber, getFormatConfig } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,7 +123,7 @@ export default function FixedAssetMasterPage() {
     }
   }
 
-  const fmt = n => Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+  const fmt = n => formatNumber(n, { minDecimals: 2 });
 
   return (
     <div className="p-4 space-y-4">
@@ -150,8 +151,8 @@ export default function FixedAssetMasterPage() {
                     <Textarea rows={2} value={form.description} onChange={e => set("description", e.target.value)} />
                   </F>
                   <F label="Purchase Date *"><Input type="date" value={form.purchase_date} onChange={e => set("purchase_date", e.target.value)} /></F>
-                  <F label="Purchase Cost (₹) *"><Input type="number" min="0" value={form.purchase_cost} onChange={e => onCostChange(e.target.value)} /></F>
-                  <F label="Residual Value (₹)">
+                  <F label={`Purchase Cost (${getFormatConfig().symbol}) *`}><Input type="number" min="0" value={form.purchase_cost} onChange={e => onCostChange(e.target.value)} /></F>
+                  <F label={`Residual Value (${getFormatConfig().symbol})`}>
                     <Input type="number" min="0" value={form.residual_value} onChange={e => set("residual_value", e.target.value)} />
                     <p className="text-xs text-muted-foreground mt-0.5">Default = 5% of cost (Companies Act 2013)</p>
                   </F>

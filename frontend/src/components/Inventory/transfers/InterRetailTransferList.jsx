@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ const StatusBadge = ({ status }) => (
   </span>
 );
 
-const fmt = (v) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (v) => formatNumber(v, { decimals: 2 });
 
 export default function InterRetailTransferList() {
   const [vouchers, setVouchers] = useState([]);

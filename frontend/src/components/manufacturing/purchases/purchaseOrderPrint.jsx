@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import { formatDate } from '@/lib/format';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ const fmtDate = (val) => {
   if (!val) return '—';
   const d = new Date(val);
   if (isNaN(d)) return val;
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return formatDate(d, 'numeric');
 };
 
 const fmtWt = (v) => {

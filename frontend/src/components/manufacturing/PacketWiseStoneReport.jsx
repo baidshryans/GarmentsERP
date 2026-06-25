@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState, useCallback } from "react";
+import { formatDate as formatDateLib } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +11,7 @@ import { isValidDateRange } from "@/lib/dateRange";
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-IN");
+    return formatDateLib(dateStr, "numeric");
 }
 
 const today = new Date().toISOString().split("T")[0];

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { formatNumber } from '@/lib/format'
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchSalesApproval, fetchBarcodeList } from "@/services/apiService";
@@ -156,7 +157,7 @@ function BarcodeListView() {
     {
       header: "Total Amount",
       accessorKey: "total_amount",
-      cell: ({ getValue }) => getValue() != null ? Number(getValue()).toLocaleString("en-IN") : "-",
+      cell: ({ getValue }) => getValue() != null ? formatNumber(getValue()) : "-",
     },
     {
       header: "Stock Status",

@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState, useRef, useMemo } from "react";
+import { formatNumber } from "@/lib/format";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -192,7 +193,7 @@ const AddJournal = () => {
       return;
     }
     if (Math.abs(totalCredit - totalDebit) > 0.01) {
-      toast({ title: "Debit and Credit should be equal", description: `Difference: ₹${Math.abs(totalCredit - totalDebit).toLocaleString("en-IN")}`, variant: "destructive" });
+      toast({ title: "Debit and Credit should be equal", description: `Difference: ₹${formatNumber(totalCredit - totalDebit, { abs: true })}`, variant: "destructive" });
       return;
     }
 
@@ -344,7 +345,7 @@ const AddJournal = () => {
         if (totalAlloc > partyAmt + 0.01) {
           toast({
             title: "Allocation exceeds amount",
-            description: `You've allocated ₹${totalAlloc.toLocaleString("en-IN")} across bills but the party row is only ₹${partyAmt.toLocaleString("en-IN")}.`,
+            description: `You've allocated ₹${formatNumber(totalAlloc)} across bills but the party row is only ₹${formatNumber(partyAmt)}.`,
             variant: "destructive",
           });
           e.preventDefault();
@@ -436,7 +437,7 @@ const AddJournal = () => {
           if (totalUsed > cashBankBalance + 0.01) {
             toast({
               title: "Insufficient balance",
-              description: `${row.account} has an available balance of ₹${cashBankBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}. You are trying to pay ₹${totalUsed.toLocaleString("en-IN", { maximumFractionDigits: 2 })}.`,
+              description: `${row.account} has an available balance of ₹${formatNumber(cashBankBalance, { maxDecimals: 2 })}. You are trying to pay ₹${formatNumber(totalUsed, { maxDecimals: 2 })}.`,
               variant: "destructive",
             });
             e.preventDefault();
@@ -689,7 +690,7 @@ const AddJournal = () => {
                       }`}>
                         {cashBankBalance === null
                           ? "Fetching balance…"
-                          : `Available: ₹${cashBankBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`}
+                          : `Available: ₹${formatNumber(cashBankBalance, { maxDecimals: 2 })}`}
                       </span>
                     )}
                   </div>

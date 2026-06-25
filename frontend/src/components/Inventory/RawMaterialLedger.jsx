@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +11,8 @@ import { Download, Filter, BookOpen } from "lucide-react";
 import { getRawMaterialLedger, fetchMainItem, getFiscalYears } from "@/services/apiService";
 import { isValidDateRange } from "@/lib/dateRange";
 
-const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-const fmtAmt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtWt = (v) => formatNumber(v, { decimals: 3 });
+const fmtAmt = (v) => formatNumber(v, { decimals: 2 });
 const today = new Date().toISOString().split("T")[0];
 
 const TRANS_LABELS = {

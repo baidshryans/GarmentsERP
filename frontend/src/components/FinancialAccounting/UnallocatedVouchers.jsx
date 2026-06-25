@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import BillAllocationTable from "./vouchers/BillAllocationTable";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 
-const fmt = (n) => Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt = (n) => formatNumber(n, { decimals: 2 });
 
 export default function UnallocatedVouchers() {
   const { toast } = useToast();

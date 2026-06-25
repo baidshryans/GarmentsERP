@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableRow, TableCell, TableBody, TableHead } from "@/components/ui/table";
@@ -162,10 +163,10 @@ export default function BillAllocationTable({
                 </TableCell>
                 <TableCell className="px-3 py-1.5 text-xs text-gray-600">{b.date}</TableCell>
                 <TableCell className="px-3 py-1.5 text-xs text-right">
-                  ₹{parseFloat(b.total).toLocaleString("en-IN")}
+                  ₹{formatNumber(b.total)}
                 </TableCell>
                 <TableCell className="px-3 py-1.5 text-xs text-right font-medium text-rose-600">
-                  ₹{parseFloat(b.due_amt).toLocaleString("en-IN")}
+                  ₹{formatNumber(b.due_amt)}
                 </TableCell>
                 <TableCell className="px-3 py-1.5 text-right">
                   <Input
@@ -190,19 +191,19 @@ export default function BillAllocationTable({
         <div className="flex items-center gap-1.5">
           <span className="text-gray-600">Party amount:</span>
           <span className="font-semibold">
-            ₹{parseFloat(partyAmount || 0).toLocaleString("en-IN")}
+            ₹{formatNumber(partyAmount || 0)}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-gray-600">Allocated:</span>
           <span className={`font-semibold ${overAllocated ? "text-rose-600" : "text-emerald-700"}`}>
-            ₹{totalAllocated.toLocaleString("en-IN")}
+            ₹{formatNumber(totalAllocated)}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-gray-600">Unallocated (on account):</span>
           <span className="font-semibold text-amber-700">
-            ₹{unallocated.toLocaleString("en-IN")}
+            ₹{formatNumber(unallocated)}
           </span>
         </div>
         {overAllocated && (

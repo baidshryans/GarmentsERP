@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,7 @@ const empty = {
 const inr = (v) => {
   const n = parseFloat(v);
   if (!isFinite(n)) return "0.00";
-  return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(n, { decimals: 2 });
 };
 
 export default function OpeningStockForm() {

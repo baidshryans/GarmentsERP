@@ -1,11 +1,12 @@
 ﻿import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Hammer, Package } from "lucide-react";
 import { getSemiFinishedStock } from "@/services/apiService";
 
-const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-const fmtQty = (v) => Number(v).toLocaleString("en-IN");
+const fmtWt = (v) => formatNumber(v, { decimals: 3 });
+const fmtQty = (v) => formatNumber(v);
 
 function exportCSV(wipData, pendingData) {
   let csv = "\uFEFF";

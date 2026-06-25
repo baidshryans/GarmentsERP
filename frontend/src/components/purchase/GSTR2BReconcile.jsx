@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Upload, CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react";
@@ -47,7 +48,7 @@ export default function GSTR2BReconcile() {
     : [];
 
   const fmt = (v) =>
-    v == null ? "—" : parseFloat(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+    v == null ? "—" : formatNumber(v, { minDecimals: 2 });
 
   const diffCell = (v) => {
     if (v == null) return <span className="text-gray-400">—</span>;

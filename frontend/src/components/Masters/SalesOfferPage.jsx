@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getFormatConfig } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -32,7 +33,7 @@ const emptyForm = {
 };
 
 const MAKING_TYPES = [
-  { value: "flat",     label: "Flat ₹/g" },
+  { value: "flat",     label: `Flat ${getFormatConfig().symbol}/g` },
   { value: "discount", label: "% Discount on Making" },
 ];
 
@@ -251,9 +252,9 @@ export default function SalesOfferPage() {
                   type="number" step="0.01" min="0"
                   value={r.making_value}
                   onChange={e => updateRule(i, 'making_value', e.target.value)}
-                  placeholder={r.making_type === 'flat' ? "₹/g" : "%"}
+                  placeholder={r.making_type === 'flat' ? `${getFormatConfig().symbol}/g` : "%"}
                 />
-                <span className="text-xs text-muted-foreground">{r.making_type === 'flat' ? '₹/g' : '%'}</span>
+                <span className="text-xs text-muted-foreground">{r.making_type === 'flat' ? `${getFormatConfig().symbol}/g` : '%'}</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => removeRule(i)}>
                 <Trash2 className="w-3.5 h-3.5 text-destructive" />

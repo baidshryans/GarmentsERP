@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber, getFormatConfig } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -38,7 +39,7 @@ const emptyForm = {
 // ── Helper ────────────────────────────────────────────────────────────────────
 function fmt(v) {
   if (v === null || v === undefined || v === "") return "—";
-  return Number(v).toLocaleString("en-IN");
+  return formatNumber(v);
 }
 
 export default function KarigarMakingPage() {
@@ -208,7 +209,7 @@ export default function KarigarMakingPage() {
       ),
     },
     {
-      header: "Making / Gm (₹)",
+      header: `Making / Gm (${getFormatConfig().symbol})`,
       accessorKey: "making_per_gm",
       cell: ({ getValue }) => (
         <span className="font-mono text-sm font-semibold text-primary">
@@ -217,7 +218,7 @@ export default function KarigarMakingPage() {
       ),
     },
     {
-      header: "Making / Pc (₹)",
+      header: `Making / Pc (${getFormatConfig().symbol})`,
       accessorKey: "making_per_pc",
       cell: ({ getValue }) => (
         <span className="font-mono text-sm">₹{fmt(getValue())}</span>

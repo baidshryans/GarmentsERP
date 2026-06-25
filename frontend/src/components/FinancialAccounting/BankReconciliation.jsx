@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,7 @@ import {
 import { isValidDateRange } from "@/lib/dateRange";
 
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(v, { decimals: 2 });
 
 const emptyEntry = {
   date: new Date().toISOString().split("T")[0],

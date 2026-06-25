@@ -87,6 +87,7 @@ function StockJournalPrintView({ data }) {
       </table>
 
       <p style={{ marginTop: 24, fontSize: 10, textAlign: "right", color: "#555" }}>
+        {/* eslint-disable-next-line no-restricted-syntax -- date+time print timestamp; locale datetime formatter is future scope */}
         Printed on {new Date().toLocaleString("en-IN")}
       </p>
     </div>

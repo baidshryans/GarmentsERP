@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -242,7 +243,7 @@ export default function PacketMaster() {
       header: "Rate (Retail)",
       accessorKey: "rate_for_retail",
       cell: ({ getValue }) =>
-        Number(getValue()).toLocaleString("en-IN"),
+        formatNumber(getValue()),
     },
     {
       header: "Solitaire",

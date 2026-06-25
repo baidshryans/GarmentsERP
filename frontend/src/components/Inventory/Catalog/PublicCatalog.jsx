@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatMoney } from "@/lib/format";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Package, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -8,7 +9,7 @@ const BASE_URL = sessionStorage.getItem("baseUrl") || "http://127.0.0.1:8000/";
 const imgSrc = (p) =>
   !p ? null : p.startsWith("http") ? p
     : `${BASE_URL.replace(/\/$/, "")}${p.startsWith("/") ? "" : "/"}${p}`;
-const inr = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const inr = (n) => formatMoney(n, { decimals: 0, space: false });
 
 export default function PublicCatalog() {
   const { token } = useParams();

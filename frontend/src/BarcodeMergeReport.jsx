@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatDate } from "@/lib/format";
 import { Loader2, Search, Download, Merge, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ function fmt(v, dec = 3) {
 }
 function fmtDate(d) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-IN");
+  return formatDate(d, "numeric");
 }
 
 const TH = ({ children, className = "", ...props }) => (

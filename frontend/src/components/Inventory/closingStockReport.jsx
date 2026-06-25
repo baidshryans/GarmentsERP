@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
+import { formatNumber, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,11 +31,11 @@ const TXN_LABELS = {
   refinery_receives:"Refinery Receives",
 };
 
-const fmt   = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const fmt   = (v) => formatNumber(v, { decimals: 2 });
+const fmtWt = (v) => formatNumber(v, { decimals: 3 });
 const fmtK  = (v) => { const n = Number(v); if (n >= 1e7) return (n/1e7).toFixed(2)+"Cr"; if (n >= 1e5) return (n/1e5).toFixed(2)+"L"; return fmt(n); };
 const isNonZero = (v) => Math.abs(Number(v)) > 0.001;
-const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const fmtDate = (d) => d ? formatDate(d + "T00:00:00", "short") : "—";
 
 /* ─── KPI Card ──────────────────────────────────────────────────────────── */
 function KpiCard({ icon: Icon, label, value, sub }) {
@@ -303,7 +304,7 @@ export default function ClosingStockTable() {
   );
 
   const formattedDate = asOnDate
-    ? new Date(asOnDate + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    ? formatDate(asOnDate + "T00:00:00", "short")
     : "";
 
   const handlePrint = () => {

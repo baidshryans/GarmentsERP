@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,8 +18,8 @@ const ITEM_TYPES = [
   { value: "C", label: "Coin" },
 ];
 
-const fmtWt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-const fmtQty = (v) => Number(v).toLocaleString("en-IN");
+const fmtWt = (v) => formatNumber(v, { decimals: 3 });
+const fmtQty = (v) => formatNumber(v);
 
 function exportCSV(data) {
   const headers = ["Item", "Item Name", "Type", "Packet", "Purity", "Pcs", "Ct", "Gw"];

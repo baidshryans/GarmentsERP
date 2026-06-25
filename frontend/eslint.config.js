@@ -37,7 +37,7 @@ export default [
       // routed through @/lib/format. Starts as 'warn' during the codemod sweep,
       // promoted to 'error' once every site is converted.
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector: "Literal[value=/₹/]",
           message: "Don't hardcode ₹. Use formatMoney() from @/lib/format.",
@@ -54,8 +54,9 @@ export default [
     },
   },
   {
-    // The formatter module legitimately contains the symbol and locale.
-    files: ['src/lib/format.js'],
+    // The formatter module legitimately contains the symbol and locale; test
+    // files legitimately assert on the literal ₹ output.
+    files: ['src/lib/format.js', '**/*.test.{js,jsx}'],
     rules: { 'no-restricted-syntax': 'off' },
   },
 ]

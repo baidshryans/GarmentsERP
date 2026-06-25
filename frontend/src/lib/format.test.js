@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { formatMoney, formatNumber, formatDate, setFormatConfig, INR_CONFIG } from './format';
+import { formatMoney, formatNumber, formatDate, formatWords, setFormatConfig, INR_CONFIG } from './format';
 
 beforeEach(() => setFormatConfig(INR_CONFIG));
 
@@ -49,6 +49,14 @@ describe('formatDate', () => {
   });
   it('invalid date → original string', () => {
     expect(formatDate('not-a-date', 'short')).toBe('not-a-date');
+  });
+});
+
+describe('formatWords (indian-rupee)', () => {
+  it('lakh/crore wording preserved', () => {
+    expect(formatWords(12500)).toBe('Rupees Twelve Thousand Five Hundred Only');
+    expect(formatWords(10000000)).toBe('Rupees One Crore Only');
+    expect(formatWords(0)).toBe('Rupees Zero Only');
   });
 });
 

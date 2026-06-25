@@ -1,4 +1,5 @@
 // frontend/src/components/Sales/SalesApprovalReturnAdd.jsx
+import { formatNumber } from "@/lib/format";
 import React, { useEffect, useState, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -388,10 +389,7 @@ const SalesApprovalReturnAdd = () => {
                     <TableCell className="text-sm tabular-nums">{ai.gw}</TableCell>
                     <TableCell className="text-sm">{ai.purity}</TableCell>
                     <TableCell className="text-sm tabular-nums">
-                      {Number(ai.amount || 0).toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatNumber(ai.amount, { decimals: 2 })}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -548,9 +546,7 @@ const SalesApprovalReturnAdd = () => {
                         <TableCell className="py-3.5 text-right">
                           {isBarcodeItem ? (
                             <span className="text-sm tabular-nums font-medium">
-                              {Number(field.amount || 0).toLocaleString("en-IN", {
-                                minimumFractionDigits: 2, maximumFractionDigits: 2,
-                              })}
+                              {formatNumber(field.amount, { decimals: 2 })}
                             </span>
                           ) : (
                             <Input
@@ -712,7 +708,7 @@ const SalesApprovalReturnAdd = () => {
                                       <TableCell className="py-1.5 text-right">
                                         {isBarcodeItem ? (
                                           <span className="text-xs tabular-nums">
-                                            {Number(sub.rate || 0).toLocaleString("en-IN")}
+                                            {formatNumber(sub.rate || 0)}
                                           </span>
                                         ) : (
                                           <Input
@@ -728,9 +724,7 @@ const SalesApprovalReturnAdd = () => {
                                       <TableCell className="py-1.5 text-right">
                                         {isBarcodeItem ? (
                                           <span className="text-xs tabular-nums">
-                                            {Number(sub.amount || 0).toLocaleString("en-IN", {
-                                              minimumFractionDigits: 2, maximumFractionDigits: 2,
-                                            })}
+                                            {formatNumber(sub.amount, { decimals: 2 })}
                                           </span>
                                         ) : (
                                           <Input

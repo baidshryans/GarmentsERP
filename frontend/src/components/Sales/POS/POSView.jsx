@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { formatNumber } from "@/lib/format";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
@@ -332,7 +333,7 @@ export default function POSView() {
     if (cashAmt > 200000) {
       toast({
         title: "⚠️ Cash Limit Exceeded — Section 269ST",
-        description: `Cash of ₹${cashAmt.toLocaleString("en-IN")} exceeds the ₹2,00,000 limit under Section 269ST.`,
+        description: `Cash of ₹${formatNumber(cashAmt)} exceeds the ₹2,00,000 limit under Section 269ST.`,
         variant: "destructive",
       });
       return;

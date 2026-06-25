@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,10 +147,10 @@ function KanbanCard({ order, col, onMove }) {
       <div className="flex gap-3 text-xs text-gray-500 border-t border-gray-100 pt-1.5 mt-0.5">
         <span>{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
         {estAmt > 0 && (
-          <span>Est ₹{estAmt.toLocaleString("en-IN")}</span>
+          <span>Est ₹{formatNumber(estAmt)}</span>
         )}
         {advanceAvail > 0 && (
-          <span className="text-emerald-600">Adv ₹{advanceAvail.toLocaleString("en-IN")}</span>
+          <span className="text-emerald-600">Adv ₹{formatNumber(advanceAvail)}</span>
         )}
       </div>
 

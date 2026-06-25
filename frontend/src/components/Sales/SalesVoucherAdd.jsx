@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -987,7 +988,7 @@ const SalesVoucherAdd = () => {
       if (cashAmt > 200000) {
         toast({
           title: "⚠️ Cash Limit Exceeded — Section 269ST",
-          description: `Cash of ₹${cashAmt.toLocaleString("en-IN")} exceeds the ₹2,00,000 limit. Accepting this amount in cash is a violation of Section 269ST of the Income Tax Act and carries a 100% penalty. Please collect via cheque/bank transfer.`,
+          description: `Cash of ₹${formatNumber(cashAmt)} exceeds the ₹2,00,000 limit. Accepting this amount in cash is a violation of Section 269ST of the Income Tax Act and carries a 100% penalty. Please collect via cheque/bank transfer.`,
           variant: "destructive",
         });
         return;
@@ -1250,7 +1251,7 @@ const SalesVoucherAdd = () => {
                       <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
                       </svg>
-                      ₹{bal.toLocaleString('en-IN')}
+                      ₹{formatNumber(bal)}
                     </span>
                   );
                 })()}
@@ -1278,7 +1279,7 @@ const SalesVoucherAdd = () => {
                   const offset = circ * (1 - pct / 100);
                   const fmt = (n) => n >= 100000 ? `₹${n % 100000 === 0 ? n / 100000 : (n / 100000).toFixed(1)}L`
                                    : n >= 1000   ? `₹${n % 1000 === 0 ? n / 1000 : (n / 1000).toFixed(1)}k`
-                                   : `₹${n.toLocaleString('en-IN')}`;
+                                   : `₹${formatNumber(n)}`;
                   const clr = isAtLimit
                     ? { ring: '#dc2626', track: '#fecaca', cls: 'bg-red-50 text-red-700 border-red-200' }
                     : isNearLimit
@@ -1442,7 +1443,7 @@ const SalesVoucherAdd = () => {
                         <SelectItem value="__none__">— No old gold linked —</SelectItem>
                         {customerPurchases.map(p => (
                           <SelectItem key={p.id} value={String(p.id)}>
-                            {p.billno} · ₹{parseFloat(p.available_balance || 0).toLocaleString('en-IN')} available
+                            {p.billno} · ₹{formatNumber(p.available_balance || 0)} available
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1461,18 +1462,18 @@ const SalesVoucherAdd = () => {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Purchase Bill Value</span>
-                    <span className="font-medium">₹{parseFloat(selectedPurchase.bill_value || 0).toLocaleString('en-IN')}</span>
+                    <span className="font-medium">₹{formatNumber(selectedPurchase.bill_value || 0)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Already Adjusted</span>
                     <span className="font-medium text-rose-600">
-                      − ₹{parseFloat(selectedPurchase.total_adjusted || 0).toLocaleString('en-IN')}
+                      − ₹{formatNumber(selectedPurchase.total_adjusted || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs border-t border-amber-100 pt-1 mt-0.5">
                     <span className="font-semibold text-amber-800">Available to Adjust</span>
                     <span className="font-bold text-amber-800">
-                      ₹{parseFloat(selectedPurchase.available_balance || 0).toLocaleString('en-IN')}
+                      ₹{formatNumber(selectedPurchase.available_balance || 0)}
                     </span>
                   </div>
                 </div>
@@ -2225,7 +2226,7 @@ const SalesVoucherAdd = () => {
                         <SelectItem value="__none__">— No order linked —</SelectItem>
                         {customerOrders.map(o => (
                           <SelectItem key={o.id} value={String(o.id)}>
-                            {o.order_no} · ₹{parseFloat(o.advance_available ?? o.advance_amt ?? 0).toLocaleString('en-IN')} available
+                            {o.order_no} · ₹{formatNumber(o.advance_available ?? o.advance_amt ?? 0)} available
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -2242,18 +2243,18 @@ const SalesVoucherAdd = () => {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Total Advance</span>
-                    <span className="font-medium">₹{parseFloat(selectedOrder.advance_amt || 0).toLocaleString('en-IN')}</span>
+                    <span className="font-medium">₹{formatNumber(selectedOrder.advance_amt || 0)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Already Reconciled</span>
                     <span className="font-medium text-rose-600">
-                      − ₹{parseFloat(selectedOrder.advance_reconciled || 0).toLocaleString('en-IN')}
+                      − ₹{formatNumber(selectedOrder.advance_reconciled || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs border-t border-accent-100 pt-1 mt-0.5">
                     <span className="font-semibold text-primary">Available to Apply</span>
                     <span className="font-bold text-primary">
-                      ₹{parseFloat(selectedOrder.advance_available ?? selectedOrder.advance_amt ?? 0).toLocaleString('en-IN')}
+                      ₹{formatNumber(selectedOrder.advance_available ?? selectedOrder.advance_amt ?? 0)}
                     </span>
                   </div>
                 </div>
@@ -2325,7 +2326,7 @@ const SalesVoucherAdd = () => {
                           <span className="font-mono flex-1">{r.voucher_no}</span>
                           <span className="text-muted-foreground">{r.date}</span>
                           <span className="font-medium text-emerald-700">
-                            ₹{r.amount_remaining.toLocaleString("en-IN")} available
+                            ₹{formatNumber(r.amount_remaining)} available
                           </span>
                         </label>
                       );

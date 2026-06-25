@@ -1,9 +1,10 @@
 import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { formatMoney } from "@/lib/format";
 import { Trash2 } from "lucide-react";
 
 // ── formatters ────────────────────────────────────────────────────────────────
 const fmtN  = (v, d = 3) => (parseFloat(v) || 0).toFixed(d);
-const fmtINR = v => `₹${(parseFloat(v) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+const fmtINR = v => formatMoney(v, { decimals: 0, space: false });
 
 const POSItemsTable = forwardRef(function POSItemsTable({
   barcodeItems,

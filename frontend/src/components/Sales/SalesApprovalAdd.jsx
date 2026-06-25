@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,10 +48,7 @@ import { useEditDirty } from "@/hooks/useEditDirty";
 
 /* ─── helpers ──────────────────────────────────────────────── */
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  formatNumber(v, { decimals: 2 });
 
 const SectionHeader = ({ number, title }) => (
   <div className="flex items-center gap-3 mb-4">

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,7 @@ const fmt = (v, d = 3) => {
 
 const fmtINR = (v) => {
   const n = parseFloat(v);
-  return isNaN(n) ? "—" : n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return isNaN(n) ? "—" : formatNumber(n, { decimals: 0 });
 };
 
 export default function SalesEstimate() {

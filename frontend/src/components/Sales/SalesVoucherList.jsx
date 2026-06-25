@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatNumber } from '@/lib/format'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
@@ -243,7 +244,7 @@ function SalesVoucherList() {
       accessorKey: "total_gw",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
+        return v > 0 ? formatNumber(v, { decimals: 3 }) : "—";
       },
     },
     {
@@ -251,7 +252,7 @@ function SalesVoucherList() {
       accessorKey: "total_net_wt",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
+        return v > 0 ? formatNumber(v, { decimals: 3 }) : "—";
       },
     },
     {
@@ -259,7 +260,7 @@ function SalesVoucherList() {
       accessorKey: "total_diamond_ct",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—";
+        return v > 0 ? formatNumber(v, { decimals: 3 }) : "—";
       },
     },
     {
@@ -267,7 +268,7 @@ function SalesVoucherList() {
       accessorKey: "discount",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+        return v > 0 ? formatNumber(v, { minDecimals: 2 }) : "—";
       },
     },
     {
@@ -275,7 +276,7 @@ function SalesVoucherList() {
       accessorKey: "total_bill_value",
       cell: ({ getValue }) => {
         const v = parseFloat(getValue() || 0);
-        return v > 0 ? v.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "—";
+        return v > 0 ? formatNumber(v, { minDecimals: 2 }) : "—";
       },
     },
   ];

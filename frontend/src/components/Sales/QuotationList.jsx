@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatNumber, formatDate } from "@/lib/format";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -139,7 +140,7 @@ export default function QuotationList() {
     {
       header: "Date",
       accessorKey: "date1",
-      cell: ({ row }) => new Date(row.original.date1).toLocaleDateString("en-IN"),
+      cell: ({ row }) => formatDate(row.original.date1, "numeric"),
     },
     {
       header: "Party",
@@ -155,7 +156,7 @@ export default function QuotationList() {
       accessorKey: "net_total",
       cell: ({ row }) => (
         <span className="tabular-nums font-medium">
-          ₹ {parseFloat(row.original.net_total || 0).toLocaleString("en-IN")}
+          ₹ {formatNumber(row.original.net_total || 0)}
         </span>
       ),
     },
@@ -180,7 +181,7 @@ export default function QuotationList() {
         const isExpired = d < new Date();
         return (
           <span className={isExpired ? "text-red-500" : ""}>
-            {d.toLocaleDateString("en-IN")}
+            {formatDate(d, "numeric")}
           </span>
         );
       },

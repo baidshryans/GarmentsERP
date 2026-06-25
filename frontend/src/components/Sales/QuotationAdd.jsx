@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import { formatNumber } from "@/lib/format";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -805,7 +806,7 @@ export default function QuotationAdd() {
                 <tr className="text-sm">
                   <td colSpan={19} className="px-2 py-2 text-right font-bold">Net Total</td>
                   <td className="px-2 py-2 text-right tabular-nums font-bold text-primary text-sm">
-                    ₹ {netTotal.toLocaleString("en-IN")}
+                    ₹ {formatNumber(netTotal)}
                   </td>
                   <td></td>
                 </tr>

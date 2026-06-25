@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { formatNumber } from '@/lib/format';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -130,17 +131,13 @@ function SalesApprovalList() {
       header: "Discount",
       accessorKey: "discount",
       cell: ({ getValue }) =>
-        Number(getValue() || 0).toLocaleString("en-IN", {
-          minimumFractionDigits: 2, maximumFractionDigits: 2,
-        }),
+        formatNumber(getValue(), { decimals: 2 }),
     },
     {
       header: "Total Bill",
       accessorKey: "total_bill_value",
       cell: ({ getValue }) =>
-        Number(getValue() || 0).toLocaleString("en-IN", {
-          minimumFractionDigits: 2, maximumFractionDigits: 2,
-        }),
+        formatNumber(getValue(), { decimals: 2 }),
     },
   ];
 

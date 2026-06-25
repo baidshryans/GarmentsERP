@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatNumber } from '@/lib/format';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -10,12 +11,12 @@ const fmtN = (v, d = 3) => {
 const fmtC = (v, d = 0) => {
   const n = parseFloat(v);
   if (isNaN(n) || n === 0) return '';
-  return n.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
+  return formatNumber(n, { decimals: d });
 };
 
 const fmtCForce = (v, d = 0) => {
   const n = parseFloat(v) || 0;
-  return n.toLocaleString('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
+  return formatNumber(n, { decimals: d });
 };
 
 const getItemTotals = (data) => {
@@ -94,7 +95,7 @@ const ItemBlock = ({ data, idx, totalItems }) => {
 
   // Gold rate from the metal sub-item, formatted for display
   const goldRate = t.metalItem?.rate
-    ? parseFloat(t.metalItem.rate).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+    ? formatNumber(t.metalItem.rate, { maxDecimals: 0 })
     : '';
 
   return (

@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { getFormatConfig } from '@/lib/format';
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,7 +176,7 @@ const CashGoldConversion = () => {
                 className="bg-white"
               />
             </Field>
-            <Field label="Rate (₹/gm)">
+            <Field label={`Rate (${getFormatConfig().symbol}/gm)`}>
               <Input
                 type="number" step="0.01"
                 {...regCG("rate", { required: true })}
@@ -183,8 +184,8 @@ const CashGoldConversion = () => {
                 className="bg-white"
               />
             </Field>
-            <Field label="Cash Amount (₹)">
-              <ComputedValue value={watchCG("cash")} prefix="₹ " />
+            <Field label={`Cash Amount (${getFormatConfig().symbol})`}>
+              <ComputedValue value={watchCG("cash")} prefix={`${getFormatConfig().symbol} `} />
               <input type="hidden" {...regCG("cash")} />
             </Field>
             <div className="flex items-end">
@@ -236,7 +237,7 @@ const CashGoldConversion = () => {
 
           {/* Row 2 – transaction fields */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
-            <Field label="Cash Amount (₹)">
+            <Field label={`Cash Amount (${getFormatConfig().symbol})`}>
               <Input
                 type="number" step="0.01"
                 {...regGC("cash", { required: true })}
@@ -244,7 +245,7 @@ const CashGoldConversion = () => {
                 className="bg-white"
               />
             </Field>
-            <Field label="Rate (₹/gm)">
+            <Field label={`Rate (${getFormatConfig().symbol}/gm)`}>
               <Input
                 type="number" step="0.01"
                 {...regGC("rate", { required: true })}

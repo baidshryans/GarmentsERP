@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
+import { formatNumber } from '@/lib/format';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { fetchCustomerOrders, fetchDeliveryOverview, updateOrderDeliveryStatus, fetchCustomerOrderForEdit, cancelCustomerOrder, fetchPendingCustomerOrderItems, fetchCompanies, fetchRetails } from "@/services/apiService";
@@ -600,7 +601,7 @@ function CustomerOrderList() {
         if (adv === 0) return <span className="text-xs text-muted-foreground">—</span>;
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-semibold">₹{adv.toLocaleString('en-IN')}</span>
+            <span className="text-sm font-semibold">₹{formatNumber(adv)}</span>
             {advanceBadge(row.original)}
           </div>
         );

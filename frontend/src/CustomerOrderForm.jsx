@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
+import { formatNumber, getFormatConfig } from "@/lib/format";
 import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -571,8 +572,8 @@ const CustomerOrderForm = () => {
                             <TableRow key={r.id}>
                               <TableCell className="font-mono text-xs">{r.voucher_no}</TableCell>
                               <TableCell className="text-xs">{r.date}</TableCell>
-                              <TableCell className="text-right text-xs">₹{r.amount.toLocaleString("en-IN")}</TableCell>
-                              <TableCell className="text-right text-xs">₹{r.amount_remaining.toLocaleString("en-IN")}</TableCell>
+                              <TableCell className="text-right text-xs">₹{formatNumber(r.amount)}</TableCell>
+                              <TableCell className="text-right text-xs">₹{formatNumber(r.amount_remaining)}</TableCell>
                               <TableCell>
                                 <Button
                                   size="sm"
@@ -627,8 +628,8 @@ const CustomerOrderForm = () => {
                         <TableRow key={r.id}>
                           <TableCell className="font-mono text-xs">{r.voucher_no}</TableCell>
                           <TableCell className="text-xs">{r.date}</TableCell>
-                          <TableCell className="text-right text-xs">₹{r.amount.toLocaleString("en-IN")}</TableCell>
-                          <TableCell className="text-right text-xs">₹{r.amount_applied.toLocaleString("en-IN")}</TableCell>
+                          <TableCell className="text-right text-xs">₹{formatNumber(r.amount)}</TableCell>
+                          <TableCell className="text-right text-xs">₹{formatNumber(r.amount_applied)}</TableCell>
                           <TableCell>
                             <Button
                               type="button"
@@ -691,17 +692,17 @@ const CustomerOrderForm = () => {
               <Field label="Rate Date" className="w-36">
                 <Input type="date" {...register("form.gold_rate_date")} disabled={!fix_gold_rate} />
               </Field>
-              <Field label="14K (₹/g)" className="w-28">
+              <Field label={`14K (${getFormatConfig().symbol}/g)`} className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_14kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="18K (₹/g)" className="w-28">
+              <Field label={`18K (${getFormatConfig().symbol}/g)`} className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_18kt", { valueAsNumber: true })}
                 />
               </Field>
-              <Field label="22K (₹/g)" className="w-28">
+              <Field label={`22K (${getFormatConfig().symbol}/g)`} className="w-28">
                 <Input type="number" disabled={!fix_gold_rate}
                   {...register("form.rate_22kt", { valueAsNumber: true })}
                 />

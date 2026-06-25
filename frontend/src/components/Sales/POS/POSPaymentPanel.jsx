@@ -1,9 +1,9 @@
 import React, { useState } from "react";
+import { formatMoney } from "@/lib/format";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 
 // ── formatters ────────────────────────────────────────────────────────────────
-const fmtINR = (v) =>
-  `₹${(parseFloat(v) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+const fmtINR = (v) => formatMoney(v, { decimals: 0, space: false });
 
 const PAYMENT_MODES = ["UPI", "CARD", "NEFT", "CHEQUE"];
 

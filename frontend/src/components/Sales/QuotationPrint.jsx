@@ -1,4 +1,5 @@
 import React from "react";
+import { formatNumber, formatDate } from "@/lib/format";
 
 const fmtN = (v, d = 3) => {
   const n = parseFloat(v);
@@ -6,7 +7,7 @@ const fmtN = (v, d = 3) => {
 };
 const fmtI = (v) => {
   const n = parseInt(v);
-  return isNaN(n) || n === 0 ? "" : n.toLocaleString("en-IN");
+  return isNaN(n) || n === 0 ? "" : formatNumber(n);
 };
 
 // ── Cell primitives ──────────────────────────────────────────────────────────
@@ -162,8 +163,8 @@ export default function QuotationPrint({ data }) {
   const baseUrl = window.location.origin.replace(":5173", ":8000");
 
   const currentDate = data.date1
-    ? new Date(data.date1).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
-    : new Date().toLocaleDateString("en-IN");
+    ? formatDate(data.date1, "numeric")
+    : formatDate(new Date(), "numeric");
 
   const partyName = data.ldgr_name || data.party_name || "—";
 
@@ -346,7 +347,7 @@ export default function QuotationPrint({ data }) {
               Net Total :
             </td>
             <td style={{ border: "1px solid #888", padding: "4px 10px", fontSize: 13, textAlign: "right", fontWeight: 800 }}>
-              {netTotal.toLocaleString("en-IN")}
+              {formatNumber(netTotal)}
             </td>
           </tr>
         </table>
@@ -355,7 +356,7 @@ export default function QuotationPrint({ data }) {
       {/* ── Valid Until ────────────────────────────────────────────────── */}
       {data.valid_until && (
         <div style={{ fontSize: 9, color: "#888", marginTop: 10 }}>
-          Valid until: {new Date(data.valid_until).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+          Valid until: {formatDate(data.valid_until, "short")}
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { formatNumber } from "@/lib/format";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
 import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
 
@@ -86,7 +87,7 @@ export default function POSBillHeader({
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                   cashOver ? "bg-red-50 text-red-700 border-red-200" : "bg-muted text-muted-foreground border-border"
                 }`}>
-                  Cash ₹{cashReceived.toLocaleString("en-IN")} / ₹2,00,000{cashOver && " ⚠️"}
+                  Cash ₹{formatNumber(cashReceived)} / ₹2,00,000{cashOver && " ⚠️"}
                 </span>
               )}
             </div>

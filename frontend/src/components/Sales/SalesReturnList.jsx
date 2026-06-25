@@ -1,4 +1,5 @@
 import {useState} from 'react'
+import { formatNumber } from '@/lib/format'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
@@ -110,7 +111,7 @@ function SalesReturnList() {
                accessorKey: "discount",
                cell: ({ getValue }) => {
                  const v = parseFloat(getValue());
-                 return isNaN(v) ? "-" : v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                 return isNaN(v) ? "-" : formatNumber(v, { decimals: 2 });
                },
              },
              {
@@ -118,7 +119,7 @@ function SalesReturnList() {
                accessorKey: "total_bill_value",
                cell: ({ getValue }) => {
                  const v = parseFloat(getValue());
-                 return isNaN(v) ? "-" : v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                 return isNaN(v) ? "-" : formatNumber(v, { decimals: 2 });
                },
              },
             

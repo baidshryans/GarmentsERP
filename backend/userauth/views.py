@@ -22,9 +22,34 @@ from rest_framework.permissions import AllowAny
 
 class RetailBaseViewset(viewsets.ModelViewSet):
     permission_classes = [RBACPermission]
+    # Subclasses may set this False to opt a fiscal_year-bearing model OUT of
+    # automatic fiscal-year scoping (e.g. scheme enrollments that span years).
+    fy_scoped = True
+
+    def _model_has_fiscal_year(self):
+        model = None
+        if getattr(self, "queryset", None) is not None:
+            model = self.queryset.model
+        else:
+            try:
+                model = self.get_serializer_class().Meta.model
+            except Exception:
+                return False
+        return any(f.name == "fiscal_year" for f in model._meta.get_fields())
+
     def get_queryset(self):
         retail = getattr(self.request, "retail", None)
-        return super().get_queryset().filter(retail=retail)
+        qs = super().get_queryset().filter(retail=retail)
+        if (
+            self.fy_scoped
+            and self.request.query_params.get("all_fy") not in ("1", "true", "True")
+            and retail is not None
+            and getattr(retail, "active_fy_id", None)
+            and self._model_has_fiscal_year()
+        ):
+            qs = qs.filter(fiscal_year_id=retail.active_fy_id)
+        return qs
+
     def perform_create(self, serializer):
         retail = getattr(self.request, "retail", None)
 

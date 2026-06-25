@@ -1174,29 +1174,39 @@ The saved design list acts as a catalogue of your product range. Use the search/
 
 ### 10.6 RFID Inventory Counting
 
-The ERP supports RFID-based inventory counting. Each jewellery piece can be assigned an RFID tag, allowing fast bulk inventory audits without manual barcode scanning.
+The ERP supports RFID-based inventory counting. Each jewellery piece can be assigned an RFID tag (EPC), allowing fast bulk inventory audits without manual barcode scanning. There are two screens:
+
+- **RFID Tag Assignment** — links an RFID tag (EPC) to a barcode item.
+- **RFID Inventory Count** — scans a batch of tags and reconciles them against stock.
+
+> **How to open these screens:** In the left sidebar, go to **Inventory > RFID**, which expands to **Tag Assignment** and **Inventory Count**. (You can also reach them directly at `/inventory/rfid/tag-assign` and `/inventory/rfid/count`; opening `/inventory/rfid` redirects to Tag Assignment.)
 
 #### Assigning RFID Tags
 
-1. Navigate to **Inventory > RFID**
-2. Select a barcode from stock
-3. Click **Assign Tag** and enter or scan the RFID tag number
-4. Save — the tag is now linked to that barcode
+1. Open the **RFID Tag Assignment** screen (`/inventory/rfid/tag-assign`).
+2. Use the **search box** to find an item by barcode number or item name. Use the **All items / Tagged only / Untagged only** filter to narrow the list, then click **Refresh** if needed.
+3. **Click the row** for the item you want to tag. An assignment panel opens with that barcode selected.
+4. In the **RFID Tag (EPC)** field, type the tag number or scan it with a reader (e.g. `E28011700000020FA2B45678`). Press **Enter** or click **Assign Tag**.
+5. The tag is now linked to that barcode and shown in green in the **RFID Tag** column.
 
-#### Running an RFID Inventory Session
+> **To remove a tag:** select the row, clear the tag field, and the button changes to **Clear Tag** — click it to unlink. Each EPC can only be assigned to one barcode; assigning a duplicate tag is rejected with an error.
 
-1. Navigate to **Inventory > RFID > New Session**
-2. Give the session a name (e.g., "Monthly Count — May 2026")
-3. Use an RFID reader to scan all tags in the display or vault
-4. Tags are read into the session automatically
-5. Click **Reconcile** — the system compares:
-   - Tags **found**: items physically present
-   - Tags **missing**: items in stock records but not scanned
-   - Tags **extra**: scanned tags not in stock records (possible misplaced items)
-6. Review the discrepancy report and investigate any mismatches
-7. **Close Session** once reconciliation is complete
+#### Running an RFID Inventory Count
 
-> RFID sessions do not automatically adjust stock. Use **Inventory > Stock Journal** to make corrections after investigating discrepancies.
+1. Open the **RFID Inventory Count** screen (`/inventory/rfid/count`).
+2. Enter the scanned tags using **either** method:
+   - **USB HID reader (live):** click into the **"USB HID Reader"** field and scan tags one by one. Each scan adds the EPC to the list automatically (the reader types the tag followed by Enter).
+   - **Bulk paste:** paste a list of tag IDs into the **Tag list** box — one per line or comma-separated (e.g. exported from your reader software). Duplicates are removed automatically; the screen shows a live count of unique tags ready.
+3. (Optional) Add a **Session note** for the audit trail, e.g. "Counter check after closing".
+4. Click **Run Count** to compare the scanned tags against current stock. The system returns three categories:
+   - **Matched** — scanned tags found in stock records (also shows whether each is *In Stock* or *Sold/Out*).
+   - **Missing** — items that have an RFID tag assigned but were **not** scanned (in records, physically absent).
+   - **Unexpected** — scanned tags that are **not** linked to any stock item (possible misplaced or foreign items).
+5. Review each category using the **Matched / Missing / Unexpected** tabs. The summary bar shows total scanned and per-category counts.
+6. Investigate any **Missing** or **Unexpected** items physically.
+7. (Optional) Click **Run & Save Session** to persist this count as an audit record. The system assigns it a session number (e.g. `RFID…`) and stores it with your note. There is no separate "close" step — a saved session is a permanent snapshot. Use **Run Count** alone if you only want a quick check without saving.
+
+> RFID sessions do **not** automatically adjust stock. After investigating discrepancies, use **Inventory > Stock Journal** to make any corrections (see section 10.4).
 
 ### 10.7 Raw Material Inventory
 

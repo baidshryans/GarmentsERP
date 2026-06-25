@@ -24,6 +24,7 @@ import {
   ReceiptTextIcon,
   Scale,
   ScanLine,
+  Nfc,
   Settings,
   ShieldCheck,
   ShoppingCart,
@@ -194,6 +195,15 @@ export const navData = {
         { title: "Merge",               url: "/inventory/barcodemanagement/merge"      },
         { title: "Stock Report",        url: "/inventory/reports/barcodestockreport"   },
         { title: "Bulk Print / Export", url: "/inventory/barcode-bulk"                },
+      ],
+    },
+    {
+      title: "RFID",
+      url: "#",
+      icon: Nfc,
+      items: [
+        { title: "Tag Assignment",  url: "/inventory/rfid/tag-assign" },
+        { title: "Inventory Count", url: "/inventory/rfid/count"      },
       ],
     },
     { title: "Stock Transfer",  url: "/inventory/stocktransfer",                         icon: Package    },

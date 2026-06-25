@@ -144,13 +144,14 @@ export async function createStockJournal(data) {
   }
 }
 
-export async function fetchStockJournal({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchStockJournal({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
 
     // Add query parameters conditionally
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
 
     const response = await apiClient.get(`/inventory/stock-journal/?${params.toString()}`);
@@ -943,11 +944,12 @@ export async function fetchStockTransferForEdit(id) {
   }
 }
 
-export async function fetchStockTransferForList({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchStockTransferForList({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`/inventory/stock-transfer/?${params.toString()}`);
     return { success: true, data: response.data };

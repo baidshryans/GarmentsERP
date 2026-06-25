@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { fetchPurchaseRetun, fetchCompanies, fetchRetails, fetchPurchaseReturnForEdit } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,7 @@ function PurchaseReturnList() {
   const queryClient = useQueryClient();
   const[params, setParams] = useSearchParams();
   const [page, setPage] = useState(1);
+  const [allFy, setAllFy] = useState(false);
   const [companyInfo, setCompanyInfo] = useState({});
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
@@ -61,9 +64,9 @@ function PurchaseReturnList() {
     isFetching,
     error: queryError,
   } = useQuery({
-    queryKey: ['purchaseReturns', { search, page, sortby }],
+    queryKey: ['purchaseReturns', { search, page, sortby, allFy }],
     queryFn: async () => {
-      const result = await fetchPurchaseRetun({ search, page, ordering: sortby });
+      const result = await fetchPurchaseRetun({ search, page, ordering: sortby, allFy });
       if (!result.success) {
         throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
       }
@@ -169,6 +172,10 @@ function PurchaseReturnList() {
                 <SelectItem value="-billno">Bill No (Desc)</SelectItem>
               </SelectContent>
             </Select>
+            <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+              <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+              All years
+            </Label>
           </div>
           <Link to="add/">
             <Button size="sm" className="gap-1.5">

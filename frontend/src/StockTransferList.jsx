@@ -3,6 +3,8 @@ import { SquarePen, Trash2, SendHorizontal, PackageCheck, ArrowUpRight, ArrowDow
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +78,7 @@ const StockTransferList = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [actionLoading, setActionLoading] = useState(null);
+  const [allFy, setAllFy] = useState(false);
 
   // In Transit tab state
   const [inTransitBarcodes, setInTransitBarcodes] = useState([]);
@@ -88,7 +91,7 @@ const StockTransferList = () => {
   const loadTransfers = useCallback(async () => {
     if (transfers.length === 0) setLoadingTransfers(true);
     else setTransitioningTransfers(true);
-    const result = await fetchStockTransferForList({ search, page });
+    const result = await fetchStockTransferForList({ search, page, allFy });
     if (result.success) {
       setTransfers(result.data.results ?? result.data ?? []);
       setTotalPages(result.data.total_pages ?? 1);
@@ -97,7 +100,7 @@ const StockTransferList = () => {
     }
     setLoadingTransfers(false);
     setTransitioningTransfers(false);
-  }, [search, page]);
+  }, [search, page, allFy]);
 
   useEffect(() => { loadTransfers(); }, [loadTransfers]);
 
@@ -342,6 +345,10 @@ const StockTransferList = () => {
               placeholder="Search bill no..."
               className="max-w-xs h-9"
             />
+            <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+              <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+              All years
+            </Label>
           </div>
 
           {/* Legend */}

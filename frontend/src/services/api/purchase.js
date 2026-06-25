@@ -36,7 +36,7 @@ export async function fetchPoNoNext() {
 
 // ── List fetchers ──────────────────────────────────────────────────────────────
 
-export async function fetchPurchaseVoucher({ search = "", page = 1, ordering = "", voucher_type = "" } = {}) {
+export async function fetchPurchaseVoucher({ search = "", page = 1, ordering = "", voucher_type = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
 
@@ -44,6 +44,7 @@ export async function fetchPurchaseVoucher({ search = "", page = 1, ordering = "
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
     if (voucher_type) params.append("voucher_type", voucher_type);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
 
     const response = await apiClient.get(`/purchase/api/purchase-voucher/?${params.toString()}`);
@@ -54,13 +55,14 @@ export async function fetchPurchaseVoucher({ search = "", page = 1, ordering = "
   }
 }
 
-export async function fetchPurchaseOrder({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchPurchaseOrder({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
 
     // Add query parameters conditionally
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
 
     const response = await apiClient.get(`/purchase/api/purchase-order/?${params.toString()}`);
@@ -71,13 +73,14 @@ export async function fetchPurchaseOrder({ search = "", page = 1, ordering = "" 
   }
 }
 
-export async function fetchPurchaseRetun({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchPurchaseRetun({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
 
     // Add query parameters conditionally
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
 
     const response = await apiClient.get(`/purchase/api/purchase-return/?${params.toString()}`);

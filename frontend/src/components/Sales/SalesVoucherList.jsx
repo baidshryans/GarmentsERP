@@ -6,6 +6,7 @@ import { fetchSalesVoucher, updateEwayTransport } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table"
 import { SquarePen, Plus, Printer, Trash2, FileJson, Truck } from "lucide-react";
@@ -26,6 +27,7 @@ function SalesVoucherList() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState(1);
+  const [allFy, setAllFy] = useState(false);
   const search = params.get('search') || "";
   const sortby = params.get('sortby') || "";
 
@@ -46,9 +48,9 @@ function SalesVoucherList() {
     isLoading: loading,
     error: queryError,
   } = useQuery({
-    queryKey: ['salesVouchers', { search, page, sortby }],
+    queryKey: ['salesVouchers', { search, page, sortby, allFy }],
     queryFn: async () => {
-      const result = await fetchSalesVoucher({ search, page, ordering: sortby });
+      const result = await fetchSalesVoucher({ search, page, ordering: sortby, allFy });
       if (!result.success) {
         throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
       }
@@ -301,6 +303,10 @@ function SalesVoucherList() {
               <SelectItem value="-billno">Bill No (Desc)</SelectItem>
             </SelectContent>
           </Select>
+          <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+            <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+            All years
+          </Label>
         </div>
         <Link to="/sales/add/">
           <Button size="sm" className="gap-1.5">

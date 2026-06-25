@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -33,6 +34,7 @@ export default function QuotationList() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState(1);
+  const [allFy, setAllFy] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [extendTarget, setExtendTarget] = useState(null); // { id, valid_until }
   const [extendDate, setExtendDate] = useState("");
@@ -45,12 +47,13 @@ export default function QuotationList() {
     data: queryData,
     isLoading: loading,
   } = useQuery({
-    queryKey: ['quotations', { search, status: statusFilter, page }],
+    queryKey: ['quotations', { search, status: statusFilter, page, allFy }],
     queryFn: async () => {
       const qs = new URLSearchParams();
       if (search) qs.set("search", search);
       if (statusFilter) qs.set("status", statusFilter);
       qs.set("page", page);
+      if (allFy) qs.set("all_fy", "1");
       const res = await fetchQuotations(qs.toString());
       if (!res.success) {
         throw new Error(typeof res.error === 'string' ? res.error : JSON.stringify(res.error));
@@ -253,6 +256,10 @@ export default function QuotationList() {
             </SelectContent>
           </Select>
         </div>
+        <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+          <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+          All years
+        </Label>
         <div className="ml-auto">
           <Link to="/sales/quotation/add/">
             <Button className="gap-1.5 h-9">

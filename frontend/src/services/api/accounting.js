@@ -524,12 +524,13 @@ export async function getNextGCno() {
 
 // ── Accounting Voucher ────────────────────────────────────────────────────────
 
-export async function fetchAccountingVoucher({ search = "", page = 1, ordering = "", voucher_type = "" } = {}) {
+export async function fetchAccountingVoucher({ search = "", page = 1, ordering = "", voucher_type = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
     if (voucher_type) params.append("voucher_type", voucher_type);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
 
     const response = await apiClient.get(`/accounting/api/journal/?${params.toString()}`);

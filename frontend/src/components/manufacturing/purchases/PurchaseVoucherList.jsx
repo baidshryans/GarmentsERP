@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { fetchPurchaseVoucher, fetchCompanies, fetchRetails } from "@/services/apiService";
 import { useQuery ,useQueryClient,useMutation} from '@tanstack/react-query';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +45,7 @@ function PurchaseVoucherList({ voucherType = "" }) {
   const [params,setParams] = useSearchParams()
   const navigate = useNavigate()
   const [page, setPage] = useState(1);
+  const [allFy, setAllFy] = useState(false);
   const [details, setDetails] = useState({ purchasevoucheritems_set: [] }); // Default ordering by 'Name'
   const [showPanel, setShowPanel] = useState(false); // New state for panel visibility
   const [companyInfo, setCompanyInfo] = useState({});
@@ -82,13 +85,14 @@ function PurchaseVoucherList({ voucherType = "" }) {
     error,
     isFetching,
   } = useQuery({
-    queryKey: ['purchaseVouchers', { search, page, sortby, voucherType: voucherType || "Vendor" }],
+    queryKey: ['purchaseVouchers', { search, page, sortby, voucherType: voucherType || "Vendor", allFy }],
     queryFn: async ({ signal }) => {
       const result = await fetchPurchaseVoucher({
         search,
         page,
         ordering: sortby,
         voucher_type: voucherType || "Vendor",
+        allFy,
         signal, // optional
       });
 
@@ -213,6 +217,10 @@ const totalPages = data?.data?.total_pages ?? 1;
                   <SelectItem value="-billno">Bill No (Desc)</SelectItem>
                 </SelectContent>
               </Select>
+              <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+                <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+                All years
+              </Label>
             </div>
             <Link to={voucherType ? `/purchase/customerpurchase/list/add/?vou_type=${voucherType}` : "/purchase/add/"}>
               <Button size="sm" className="gap-1.5">

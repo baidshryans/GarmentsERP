@@ -269,6 +269,9 @@ function CustomerOrderList() {
   // Filter by delivery status
   const [deliveryFilter, setDeliveryFilter] = useState('');
 
+  // Show records across all fiscal years (default: active FY only)
+  const [allFy, setAllFy] = useState(false);
+
   const search = params.get('search') || '';
   const sortby = params.get('sortby') || '';
 
@@ -301,13 +304,13 @@ function CustomerOrderList() {
   // Load order list
   const loadOrders = useCallback(async () => {
     setLoading(true);
-    const result = await fetchCustomerOrders({ search, page, ordering: sortby });
+    const result = await fetchCustomerOrders({ search, page, ordering: sortby, allFy });
     if (result.success) {
       setOrders(result.data.results);
       setTotalPages(result.data.total_pages);
     }
     setLoading(false);
-  }, [search, page, sortby]);
+  }, [search, page, sortby, allFy]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
@@ -661,6 +664,11 @@ function CustomerOrderList() {
               ))}
             </SelectContent>
           </Select>
+          {/* All fiscal years toggle */}
+          <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+            <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+            All years
+          </Label>
         </div>
         <div className="flex gap-2">
           <Link to="/sales/customerorder/kanban/">

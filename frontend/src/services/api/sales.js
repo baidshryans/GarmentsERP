@@ -179,13 +179,14 @@ export async function fetchDetailsforSaleReturn(billno) {
 
 // ── List fetchers ──────────────────────────────────────────────────────────────
 
-export async function fetchSalesVoucher({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchSalesVoucher({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
 
     // Add query parameters conditionally
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
 
     const response = await apiClient.get(`/sales/api/sale-voucher/?${params.toString()}`);
@@ -196,13 +197,14 @@ export async function fetchSalesVoucher({ search = "", page = 1, ordering = "" }
   }
 }
 
-export async function fetchSalesReturn({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchSalesReturn({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
 
     // Add query parameters conditionally
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
 
     const response = await apiClient.get(`/sales/api/sale-return/?${params.toString()}`);
@@ -587,11 +589,12 @@ export async function finalizeQuotation(id) {
 
 // ── Customer Orders ───────────────────────────────────────────────────────────
 
-export async function fetchCustomerOrders({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchCustomerOrders({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`/sales/api/customer-orders-vs/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -601,10 +604,11 @@ export async function fetchCustomerOrders({ search = "", page = 1, ordering = ""
   }
 }
 
-export async function fetchCustomerOrdersKanban({ search = "" } = {}) {
+export async function fetchCustomerOrdersKanban({ search = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams({ page_size: 500, ordering: "-date1" });
     if (search) params.append("search", search);
+    if (allFy) params.append("all_fy", "1");
     const response = await apiClient.get(`/sales/api/customer-orders-vs/?${params.toString()}`);
     return { success: true, data: response.data?.results ?? response.data ?? [] };
   } catch (error) {

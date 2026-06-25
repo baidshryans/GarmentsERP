@@ -4,6 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
 import { openAndPrint } from "@/services/print/utils";
@@ -101,6 +103,7 @@ const StockJournalList = () => {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [allFy, setAllFy] = useState(false);
 
   const search = params.get("search") || "";
   const sortby = params.get("sortby") || "";
@@ -109,7 +112,7 @@ const StockJournalList = () => {
     const fetchLedgers = async () => {
       if (ledgers.length === 0) setLoading(true);
       else setTransitioning(true);
-      const result = await fetchStockJournal({ search, page, ordering: sortby });
+      const result = await fetchStockJournal({ search, page, ordering: sortby, allFy });
       if (result.success) {
         setLedgers(result.data.results);
         setTotalPages(result.data.total_pages);
@@ -120,7 +123,7 @@ const StockJournalList = () => {
       setTransitioning(false);
     };
     fetchLedgers();
-  }, [search, page, sortby]);
+  }, [search, page, sortby, allFy]);
 
   const handlePrint = async (id) => {
     const res = await fetchStockJournalForEdit(id);
@@ -189,6 +192,10 @@ const StockJournalList = () => {
             <SelectItem value="-billno">(Desc) Bill No</SelectItem>
           </SelectContent>
         </Select>
+        <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+          <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+          All years
+        </Label>
       </div>
 
       {loading ? (

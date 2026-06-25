@@ -6,6 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectTrigger, SelectContent, SelectItem,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { DataTable } from "@/table";
 import { SquarePen, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +20,7 @@ export default function SampleIssueList() {
   const [search, setSearch] = useState("");
   const [sortby, setSortby] = useState("-date1");
   const [page, setPage] = useState(1);
+  const [allFy, setAllFy] = useState(false);
   const [data, setData] = useState({ results: [], count: 0, total_pages: 1 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,7 +30,7 @@ export default function SampleIssueList() {
   const load = async () => {
     setLoading(true);
     setError(null);
-    const res = await fetchSampleIssues({ search, page, ordering: sortby });
+    const res = await fetchSampleIssues({ search, page, ordering: sortby, allFy });
     if (res.success) {
       const r = res.data || {};
       const results = Array.isArray(r) ? r : (r.results || []);
@@ -40,7 +43,7 @@ export default function SampleIssueList() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [page, sortby]);
+  useEffect(() => { load(); }, [page, sortby, allFy]);
 
   const onSearch = () => {
     setPage(1);
@@ -149,6 +152,10 @@ export default function SampleIssueList() {
               <SelectItem value="-billno">Bill No (Desc)</SelectItem>
             </SelectContent>
           </Select>
+          <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+            <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+            All years
+          </Label>
         </div>
         <Link to="/manufacturing/issue/sample-issue/new">
           <Button size="sm" className="gap-1.5">

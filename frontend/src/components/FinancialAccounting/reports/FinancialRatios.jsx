@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,7 @@ const firstOfYear = `${fy}-04-01`;
 const fmtCur = (v) => {
   const n = Number(v);
   if (!n && n !== 0) return "—";
-  return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(n, { decimals: 2, abs: true });
 };
 
 const fmtRatio = (v, unit) => {

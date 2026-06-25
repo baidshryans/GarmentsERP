@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,7 +8,7 @@ import { Link } from "react-router-dom";
 import { fetchAdvanceRegister } from "@/services/apiService";
 
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(v, { decimals: 2 });
 
 const STATUS_STYLES = {
   Billed:  "bg-emerald-100 text-emerald-800",

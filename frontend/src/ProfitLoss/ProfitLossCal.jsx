@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
+import { formatNumber, formatDate, getFormatConfig } from '@/lib/format';
 import { ChevronRight, ChevronDown, X, Loader2, TrendingUp, TrendingDown, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,12 +16,12 @@ const firstOfYear = `${fy}-04-01`;
 
 const fmt = (v) =>
   v != null && !isNaN(Number(v))
-    ? Math.abs(Number(v)).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+    ? formatNumber(v, { minDecimals: 2, abs: true })
     : '0.00';
 
 const fmtDate = (d) => {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-IN');
+  return formatDate(d, 'numeric');
 };
 
 const toDdMm = (s) => {
@@ -138,7 +139,7 @@ function buildPnlHtml(data, ledgersByGroupId = {}) {
   // Returns empty string for zero or null so cells stay blank
   const f = (v) =>
     v != null && !isNaN(Number(v)) && Math.abs(Number(v)) >= 0.005
-      ? Math.abs(Number(v)).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+      ? formatNumber(v, { minDecimals: 2, abs: true })
       : '';
 
   const row = (cls, label, dr, cr, indent = 0) =>
@@ -335,7 +336,7 @@ function TransactionModal({ ledger, startDate, endDate, onClose }) {
             <table className="w-full text-sm border-collapse">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
-                  {['Date', 'Voucher No', 'Type', 'Narration', 'Dr (₹)', 'Cr (₹)'].map((h, i) => (
+                  {['Date', 'Voucher No', 'Type', 'Narration', `Dr (${getFormatConfig().symbol})`, `Cr (${getFormatConfig().symbol})`].map((h, i) => (
                     <th key={h} className={`px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide ${i >= 4 ? 'text-right' : 'text-left'}`}>{h}</th>
                   ))}
                 </tr>

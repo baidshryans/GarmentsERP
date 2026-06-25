@@ -1,4 +1,5 @@
 ﻿import { useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,7 +9,7 @@ import { fetchGSTR1Report } from "@/services/apiService";
 import { isValidDateRange } from "@/lib/dateRange";
 
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(v, { decimals: 2 });
 
 // ── Collapsible Section ────────────────────────────────────────────────────────
 function Section({ title, badge, children }) {
@@ -301,6 +302,7 @@ export default function GSTR1Report() {
             <B2BTable data={data.b2b} />
           </Section>
 
+          {/* eslint-disable-next-line no-restricted-syntax -- ₹2.5L is an India GST regulatory threshold label, not a formatted amount */}
           <Section title="5 — B2CL: Large B2C Inter-State Invoices (≥₹2.5L)" badge={data.b2cl?.length}>
             <B2CLTable data={data.b2cl} />
           </Section>

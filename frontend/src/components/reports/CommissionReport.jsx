@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { formatMoney, formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -185,7 +186,7 @@ function CommissionReport() {
     {
       header: "Base Amount",
       accessorKey: "base_amount",
-      cell: ({ getValue }) => "₹" + Number(getValue()).toLocaleString("en-IN", { minimumFractionDigits: 2 }),
+      cell: ({ getValue }) => formatMoney(getValue(), { minDecimals: 2, space: false }),
     },
     {
       header: "Rate %",
@@ -197,7 +198,7 @@ function CommissionReport() {
       accessorKey: "commission_amt",
       cell: ({ getValue }) => (
         <span className="font-semibold text-primary">
-          ₹{Number(getValue()).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+          ₹{formatNumber(getValue(), { minDecimals: 2 })}
         </span>
       ),
     },
@@ -210,7 +211,7 @@ function CommissionReport() {
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-red-600 font-medium text-xs">
-              −₹{Number(r.reversal_amt).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              −₹{formatNumber(r.reversal_amt, { minDecimals: 2 })}
             </span>
             {r.has_reversal_jv && (
               <span className="text-[10px] text-green-700 bg-green-50 rounded px-1">JV posted</span>
@@ -230,7 +231,7 @@ function CommissionReport() {
         const net = Number(r.net_commission);
         return (
           <span className={`font-bold text-sm ${net <= 0 ? "text-muted-foreground line-through" : "text-foreground"}`}>
-            ₹{net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            ₹{formatNumber(net, { minDecimals: 2 })}
           </span>
         );
       },
@@ -311,21 +312,21 @@ function CommissionReport() {
           <span>
             Gross:{" "}
             <span className="font-semibold text-foreground">
-              ₹{Number(totalCommission).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              ₹{formatNumber(totalCommission, { minDecimals: 2 })}
             </span>
           </span>
           {totalReversal > 0 && (
             <span>
               Reversed:{" "}
               <span className="font-semibold text-red-600">
-                −₹{Number(totalReversal).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                −₹{formatNumber(totalReversal, { minDecimals: 2 })}
               </span>
             </span>
           )}
           <span>
             Net:{" "}
             <span className="font-semibold text-primary">
-              ₹{Number(totalNet).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              ₹{formatNumber(totalNet, { minDecimals: 2 })}
             </span>
           </span>
           {selectedCount > 0 && (

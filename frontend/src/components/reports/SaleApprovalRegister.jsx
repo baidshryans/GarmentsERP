@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { fetchSaleApprovalRegister, fetchSalesperson } from "@/services/apiServi
 import { isValidDateRange } from "@/lib/dateRange";
 
 const fmtINR = (n) =>
-  Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(n, { decimals: 2 });
 
 const fmtDate = (d) => {
   if (!d) return "";

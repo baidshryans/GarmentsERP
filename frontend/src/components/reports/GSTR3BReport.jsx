@@ -1,4 +1,5 @@
 ﻿import { useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,7 +9,7 @@ import { fetchGSTR3BReport } from "@/services/apiService";
 import { isValidDateRange } from "@/lib/dateRange";
 
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(v, { decimals: 2 });
 
 function SummaryCard({ label, value, color = "violet", sub }) {
   const colors = {

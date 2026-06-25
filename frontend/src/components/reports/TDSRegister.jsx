@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -80,7 +81,7 @@ export default function TDSRegister() {
     URL.revokeObjectURL(url);
   };
 
-  const fmt = (v) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (v) => formatNumber(v, { decimals: 2 });
   const totalTDS = rows.reduce((sum, r) => sum + (parseFloat(r.tds_amt) || 0), 0);
 
   const columns = [

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -85,10 +86,7 @@ export default function TCSRegister() {
   };
 
   const fmt = (v) =>
-    Number(v || 0).toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    formatNumber(v, { decimals: 2 });
 
   const totalTCS = rows.reduce((sum, r) => sum + (parseFloat(r.tcs_amt) || 0), 0);
   const totalTaxable = rows.reduce((sum, r) => sum + (parseFloat(r.taxable_value) || 0), 0);

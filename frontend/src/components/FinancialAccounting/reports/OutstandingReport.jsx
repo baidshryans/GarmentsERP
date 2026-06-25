@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +40,7 @@ export default function OutstandingReport() {
   };
 
   const toggle = (name) => setExpanded((prev) => ({ ...prev, [name]: !prev[name] }));
-  const fmt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+  const fmt = (v) => formatNumber(v, { minDecimals: 2 });
 
   const bucketColor = (key) => {
     if (key === "0_30") return "text-emerald-700";

@@ -1,5 +1,6 @@
 ﻿
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { formatNumber } from '@/lib/format';
 import { useForm, Controller } from 'react-hook-form';
 import { Plus, Pencil, Trash2, RefreshCw, TrendingUp, TrendingDown, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -210,7 +211,7 @@ const OpeningBalance = () => {
     const grandDr = balances.reduce((s, b) => s + (Number(b.debit) || 0), 0);
     const grandCr = balances.reduce((s, b) => s + (Number(b.credit) || 0), 0);
     const diff = grandDr - grandCr;
-    const fmt = (n) => Math.abs(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmt = (n) => formatNumber(n, { decimals: 2, abs: true });
 
     return (
         <div className="max-w-4xl mx-auto pb-12">
@@ -318,10 +319,10 @@ const OpeningBalance = () => {
                             </div>
                             <div className="flex gap-6 text-xs">
                                 <span className="text-green-700 font-medium">
-                                    Dr: ₹{totalDr.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                    Dr: ₹{formatNumber(totalDr, { maxDecimals: 2 })}
                                 </span>
                                 <span className="text-red-600 font-medium">
-                                    Cr: ₹{totalCr.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                    Cr: ₹{formatNumber(totalCr, { maxDecimals: 2 })}
                                 </span>
                             </div>
                         </div>
@@ -343,14 +344,14 @@ const OpeningBalance = () => {
                                         <td className="px-4 py-3 text-right tabular-nums">
                                             {Number(row.debit) > 0 ? (
                                                 <span className="text-green-700 font-medium">
-                                                    ₹{Number(row.debit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    ₹{formatNumber(row.debit, { minDecimals: 2 })}
                                                 </span>
                                             ) : <span className="text-gray-300">—</span>}
                                         </td>
                                         <td className="px-4 py-3 text-right tabular-nums">
                                             {Number(row.credit) > 0 ? (
                                                 <span className="text-red-600 font-medium">
-                                                    ₹{Number(row.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    ₹{formatNumber(row.credit, { minDecimals: 2 })}
                                                 </span>
                                             ) : <span className="text-gray-300">—</span>}
                                         </td>

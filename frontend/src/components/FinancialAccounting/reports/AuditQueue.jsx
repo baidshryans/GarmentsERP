@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +31,7 @@ const VOUCHER_TYPE_LABELS = {
 };
 
 const fmt = (v) =>
-  Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(v, { decimals: 2 });
 
 const isImage = (url) => /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(url);
 

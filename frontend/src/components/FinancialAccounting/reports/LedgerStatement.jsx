@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { formatNumber } from "@/lib/format";
 import { getLedgers, getFiscalYears, fetchCompanies } from "@/services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,7 @@ import { isValidDateRange } from "@/lib/dateRange";
 
 const today = new Date().toISOString().split("T")[0];
 
-const fmt = (v) => Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+const fmt = (v) => formatNumber(v, { minDecimals: 2 });
 const balLabel = (v) => {
   const n = Number(v);
   if (n === 0) return "—";

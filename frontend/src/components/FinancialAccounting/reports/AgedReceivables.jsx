@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -6,7 +7,7 @@ import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import { fetchAgedReceivables } from "@/services/apiService";
 
 const fmt = (v) =>
-  Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatNumber(v, { decimals: 2 });
 
 const BUCKETS = [
   { key: "b0_30",    label: "0–30 days",  color: "text-emerald-700" },

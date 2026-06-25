@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { formatNumber, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +19,7 @@ const today = new Date().toISOString().split("T")[0];
 const fmt = (v) => {
   const n = Number(v);
   if (!n) return "—";
-  return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(n, { decimals: 2, abs: true });
 };
 
 // Fine-gold gram formatter — 3 decimals, no Indian-lakh grouping (gold weights
@@ -27,7 +28,7 @@ const fmtGrams = (v) => {
   if (v === null || v === undefined) return "—";
   const n = Number(v);
   if (!n) return "—";
-  return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  return formatNumber(n, { decimals: 3, abs: true });
 };
 
 // Positive = debit balance, negative = credit balance (our Dr-Cr convention)
@@ -88,7 +89,7 @@ function FineGoldBreakdownModal({ endDate, scope, selectedRetailIds, onClose }) 
       .finally(() => setLoad(false));
   }, [endDate, scope, selectedRetailIds]);
 
-  const num = (v, dp = 2) => Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  const num = (v, dp = 2) => formatNumber(v, { decimals: dp });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
@@ -244,7 +245,7 @@ function LedgerModal({ groupId, groupName, endDate, unit, sideType, onClose }) {
           <div>
             <p className="font-semibold text-foreground text-sm">{groupName}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ledger balances as on {new Date(endDate + "T00:00:00").toLocaleDateString("en-IN")}
+              Ledger balances as on {formatDate(endDate + "T00:00:00", "numeric")}
             </p>
           </div>
           <button

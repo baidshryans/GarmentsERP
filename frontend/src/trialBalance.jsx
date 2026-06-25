@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from "react";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,7 @@ const firstOfYear = `${fy}-04-01`;
 const fmt = (v) => {
   const n = Number(v);
   if (!n) return "";
-  return Math.abs(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatNumber(n, { decimals: 2, abs: true });
 };
 
 /* Recursively sum all ledger balances within a node (including children) */

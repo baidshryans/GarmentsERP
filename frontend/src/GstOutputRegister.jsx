@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { formatNumber, formatDate } from '@/lib/format';
 import { Search, Printer } from 'lucide-react';
 import { fetchGSTOutputReport, fetchGstins, getFiscalYears } from "./services/apiService";
 import { Button } from "@/components/ui/button";
@@ -82,11 +83,11 @@ const GstOutputRegister = () => {
   };
 
   const fmt = (v) =>
-    new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
+    formatNumber(v, { decimals: 2 });
   const fmt3 = (v) =>
-    new Intl.NumberFormat('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(v || 0);
+    formatNumber(v, { decimals: 3 });
   const formatDate = (d) =>
-    new Date(d).toLocaleDateString('en-IN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    formatDate(d, 'numeric');
 
   const rows = getMergedAndSortedData();
 

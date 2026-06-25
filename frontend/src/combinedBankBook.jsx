@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { getLedgers, fetchBankBookReport } from "./services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ const fyStart = (() => {
 })();
 
 const fmt = (v) =>
-  Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+  formatNumber(v, { minDecimals: 2 });
 
 export default function CombinedBankBook() {
   const [ledgers, setLedgers] = useState([]);

@@ -11,7 +11,7 @@ import { isValidDateRange } from "@/lib/dateRange";
 
 function formatDate(dateStr) {
     if (!dateStr) return '';
-    return formatDateLib(dateStr, "numeric");
+    return formatDateLib(dateStr, {});
 }
 
 const today = new Date().toISOString().split("T")[0];

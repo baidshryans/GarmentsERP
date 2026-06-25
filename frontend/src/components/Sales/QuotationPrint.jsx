@@ -164,7 +164,7 @@ export default function QuotationPrint({ data }) {
 
   const currentDate = data.date1
     ? formatDate(data.date1, "numeric")
-    : formatDate(new Date(), "numeric");
+    : formatDate(new Date(), {});
 
   const partyName = data.ldgr_name || data.party_name || "—";
 

@@ -140,7 +140,7 @@ export default function QuotationList() {
     {
       header: "Date",
       accessorKey: "date1",
-      cell: ({ row }) => formatDate(row.original.date1, "numeric"),
+      cell: ({ row }) => formatDate(row.original.date1, {}),
     },
     {
       header: "Party",
@@ -181,7 +181,7 @@ export default function QuotationList() {
         const isExpired = d < new Date();
         return (
           <span className={isExpired ? "text-red-500" : ""}>
-            {formatDate(d, "numeric")}
+            {formatDate(d, {})}
           </span>
         );
       },

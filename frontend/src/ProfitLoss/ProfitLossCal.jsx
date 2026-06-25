@@ -21,7 +21,7 @@ const fmt = (v) =>
 
 const fmtDate = (d) => {
   if (!d) return '—';
-  return formatDate(d, 'numeric');
+  return formatDate(d, {});
 };
 
 const toDdMm = (s) => {

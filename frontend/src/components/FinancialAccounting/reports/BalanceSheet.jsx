@@ -245,7 +245,7 @@ function LedgerModal({ groupId, groupName, endDate, unit, sideType, onClose }) {
           <div>
             <p className="font-semibold text-foreground text-sm">{groupName}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Ledger balances as on {formatDate(endDate + "T00:00:00", "numeric")}
+              Ledger balances as on {formatDate(endDate + "T00:00:00", {})}
             </p>
           </div>
           <button

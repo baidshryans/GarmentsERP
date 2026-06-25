@@ -13,7 +13,7 @@ function fmt(v, dec = 3) {
 }
 function fmtDate(d) {
   if (!d) return "—";
-  return formatDate(d, "numeric");
+  return formatDate(d, {});
 }
 
 const TH = ({ children, className = "" }) => (

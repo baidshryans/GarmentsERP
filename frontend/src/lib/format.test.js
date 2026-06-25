@@ -50,6 +50,9 @@ describe('formatDate', () => {
   it('invalid date → original string', () => {
     expect(formatDate('not-a-date', 'short')).toBe('not-a-date');
   });
+  it('empty options object → en-IN locale default (unpadded), matching bare toLocaleDateString', () => {
+    expect(formatDate('2026-06-05', {})).toBe('5/6/2026');
+  });
 });
 
 describe('formatWords (indian-rupee)', () => {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -137,7 +138,7 @@ export default function SchemeMasterPage() {
     { accessorKey: "name", header: "Scheme Name" },
     { accessorKey: "scheme_type", header: "Type" },
     { accessorKey: "tenure_months", header: "Tenure (m)" },
-    { accessorKey: "min_amount", header: "Min Amount", cell: ({ row }) => `₹${Number(row.original.min_amount).toLocaleString("en-IN")}` },
+    { accessorKey: "min_amount", header: "Min Amount", cell: ({ row }) => `₹${formatNumber(row.original.min_amount)}` },
     { accessorKey: "active_enrollments", header: "Enrollments" },
     { accessorKey: "is_active", header: "Active", cell: ({ row }) => row.original.is_active ? "Yes" : "No" },
     {

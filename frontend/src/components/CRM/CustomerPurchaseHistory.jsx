@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useRef, useCallback } from "react";
+import { formatNumber } from "@/lib/format";
 import { getLedgers, getFiscalYears } from "@/services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -182,9 +183,9 @@ export default function CustomerPurchaseHistory() {
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
             {[
-              { label: "Total Sales", value: `₹${report.summary.total_sales.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, color: "text-green-700" },
-              { label: "Total Returns", value: `₹${report.summary.total_returns.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, color: "text-red-600" },
-              { label: "Net Purchases", value: `₹${report.summary.net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, color: "text-primary font-semibold" },
+              { label: "Total Sales", value: `₹${formatNumber(report.summary.total_sales, { minDecimals: 2 })}`, color: "text-green-700" },
+              { label: "Total Returns", value: `₹${formatNumber(report.summary.total_returns, { minDecimals: 2 })}`, color: "text-red-600" },
+              { label: "Net Purchases", value: `₹${formatNumber(report.summary.net, { minDecimals: 2 })}`, color: "text-primary font-semibold" },
               { label: "Open Orders", value: report.summary.order_count, color: "text-amber-700" },
             ].map((c) => (
               <div key={c.label} className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
@@ -238,8 +239,8 @@ export default function CustomerPurchaseHistory() {
                         </span>
                       </td>
                       <td className="px-3 py-2 font-mono text-xs">{r.doc_no}</td>
-                      <td className="px-3 py-2 text-right">{r.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-                      <td className="px-3 py-2 text-right text-gray-500">{r.tax.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                      <td className="px-3 py-2 text-right">{formatNumber(r.amount, { minDecimals: 2 })}</td>
+                      <td className="px-3 py-2 text-right text-gray-500">{formatNumber(r.tax, { minDecimals: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>

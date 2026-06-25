@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
+import { formatNumber, formatDate, getFormatConfig } from "@/lib/format";
 import { Link } from "react-router-dom";
 import {
   Gem,
@@ -40,7 +41,7 @@ function GoldRateCard() {
               Today's Gold Rates
             </h2>
             <p className="text-xs text-gray-500">
-              {new Date().toLocaleDateString("en-IN", {
+              {formatDate(new Date(), {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
@@ -92,8 +93,8 @@ function GoldRateCard() {
                 <span className="text-[10px] text-gray-400">per gram</span>
               </div>
               <div className="text-xl font-bold text-gray-900 tabular-nums">
-                {"\u20B9"}
-                {rate.rate.toLocaleString("en-IN")}
+                {getFormatConfig().symbol}
+                {formatNumber(rate.rate)}
               </div>
             </div>
           ))}
@@ -116,7 +117,7 @@ function KPICards() {
   }, []);
 
   const fmt = (n) =>
-    Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+    formatNumber(n, { maxDecimals: 0 });
 
   const cards = kpi ? [
     {

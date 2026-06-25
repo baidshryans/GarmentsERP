@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatMoney } from "@/lib/format";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { ArrowLeft, CheckCircle, Loader2, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalFetchEnrollment, portalPayInstallment } from "../api/portalApiService";
 
-const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+const inr = (v) => formatMoney(v, { space: false });
 
 export default function PortalPayment() {
   const { enrollmentNo } = useParams();

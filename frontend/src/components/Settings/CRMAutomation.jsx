@@ -439,6 +439,7 @@ export default function CRMAutomation() {
                       <TableCell className="px-3 py-2 text-sm font-mono">{log.mobile || "—"}</TableCell>
                       <TableCell className="px-3 py-2 text-sm capitalize">{log.occasion}</TableCell>
                       <TableCell className="px-3 py-2 text-sm text-muted-foreground">
+                        {/* eslint-disable-next-line no-restricted-syntax -- date+time log timestamp; locale datetime formatter is future scope */}
                         {new Date(log.sent_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
                       </TableCell>
                       <TableCell className="px-3 py-2">

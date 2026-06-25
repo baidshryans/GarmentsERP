@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber, getFormatConfig } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -141,13 +142,13 @@ export default function SalaryStructurePage() {
               {structures.map(s => (
                 <TableRow key={s.id}>
                   <TableCell>{s.effective_from}</TableCell>
-                  <TableCell>₹{Number(s.basic).toLocaleString("en-IN")}</TableCell>
-                  <TableCell>₹{Number(s.hra).toLocaleString("en-IN")}</TableCell>
-                  <TableCell>₹{Number(s.da).toLocaleString("en-IN")}</TableCell>
-                  <TableCell>₹{Number(s.conveyance_allowance).toLocaleString("en-IN")}</TableCell>
-                  <TableCell>₹{Number(s.medical_allowance).toLocaleString("en-IN")}</TableCell>
-                  <TableCell>₹{Number(s.special_allowance).toLocaleString("en-IN")}</TableCell>
-                  <TableCell className="font-semibold">₹{Number(s.gross_ctc).toLocaleString("en-IN")}</TableCell>
+                  <TableCell>₹{formatNumber(s.basic)}</TableCell>
+                  <TableCell>₹{formatNumber(s.hra)}</TableCell>
+                  <TableCell>₹{formatNumber(s.da)}</TableCell>
+                  <TableCell>₹{formatNumber(s.conveyance_allowance)}</TableCell>
+                  <TableCell>₹{formatNumber(s.medical_allowance)}</TableCell>
+                  <TableCell>₹{formatNumber(s.special_allowance)}</TableCell>
+                  <TableCell className="font-semibold">₹{formatNumber(s.gross_ctc)}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${s.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>{s.is_active ? "Yes" : "No"}</span>
                   </TableCell>
@@ -179,15 +180,15 @@ export default function SalaryStructurePage() {
           {tab === "structure" && (
             <div className="space-y-3">
               <EF label="Effective From *" type="date" value={form.effective_from} onChange={v => setF("effective_from", v)} />
-              <EF label="Basic (₹)" type="number" value={form.basic} onChange={v => setF("basic", v)} />
-              <EF label="HRA (₹)" type="number" value={form.hra} onChange={v => setF("hra", v)} />
-              <EF label="DA (₹)" type="number" value={form.da} onChange={v => setF("da", v)} />
-              <EF label="Conveyance Allowance (₹)" type="number" value={form.conveyance_allowance} onChange={v => setF("conveyance_allowance", v)} />
-              <EF label="Medical Allowance (₹)" type="number" value={form.medical_allowance} onChange={v => setF("medical_allowance", v)} />
-              <EF label="Special Allowance (₹)" type="number" value={form.special_allowance} onChange={v => setF("special_allowance", v)} />
+              <EF label={`Basic (${getFormatConfig().symbol})`} type="number" value={form.basic} onChange={v => setF("basic", v)} />
+              <EF label={`HRA (${getFormatConfig().symbol})`} type="number" value={form.hra} onChange={v => setF("hra", v)} />
+              <EF label={`DA (${getFormatConfig().symbol})`} type="number" value={form.da} onChange={v => setF("da", v)} />
+              <EF label={`Conveyance Allowance (${getFormatConfig().symbol})`} type="number" value={form.conveyance_allowance} onChange={v => setF("conveyance_allowance", v)} />
+              <EF label={`Medical Allowance (${getFormatConfig().symbol})`} type="number" value={form.medical_allowance} onChange={v => setF("medical_allowance", v)} />
+              <EF label={`Special Allowance (${getFormatConfig().symbol})`} type="number" value={form.special_allowance} onChange={v => setF("special_allowance", v)} />
               <div className="flex justify-between items-center p-3 rounded bg-muted text-sm">
                 <span className="text-muted-foreground">Gross CTC</span>
-                <span className="font-semibold">₹{gross(form).toLocaleString("en-IN")}</span>
+                <span className="font-semibold">₹{formatNumber(gross(form))}</span>
               </div>
               <Button onClick={saveStructure} disabled={saving} className="w-full">
                 {saving ? "Saving…" : "Save Earnings → Next"}
@@ -201,15 +202,15 @@ export default function SalaryStructurePage() {
               {config.pf_applicable && (
                 <SwitchRow
                   label="PF on Full Basic (uncap ceiling)"
-                  sub="If off, PF is 12% of min(Basic, ₹15,000)"
+                  sub={`If off, PF is 12% of min(Basic, ${getFormatConfig().symbol}15,000)`}
                   checked={config.pf_above_ceiling}
                   onChange={v => setC("pf_above_ceiling", v)}
                 />
               )}
-              <SwitchRow label="ESI Applicable" sub="Active only if gross ≤ ₹21,000" checked={config.esi_applicable} onChange={v => setC("esi_applicable", v)} />
+              <SwitchRow label="ESI Applicable" sub={`Active only if gross ≤ ${getFormatConfig().symbol}21,000`} checked={config.esi_applicable} onChange={v => setC("esi_applicable", v)} />
               <SwitchRow label="Professional Tax" checked={config.pt_applicable} onChange={v => setC("pt_applicable", v)} />
-              <EF label="TDS Monthly (₹)" type="number" value={config.tds_monthly} onChange={v => setC("tds_monthly", v)} />
-              <EF label="Advance Recovery (₹)" type="number" value={config.advance_recovery} onChange={v => setC("advance_recovery", v)} />
+              <EF label={`TDS Monthly (${getFormatConfig().symbol})`} type="number" value={config.tds_monthly} onChange={v => setC("tds_monthly", v)} />
+              <EF label={`Advance Recovery (${getFormatConfig().symbol})`} type="number" value={config.advance_recovery} onChange={v => setC("advance_recovery", v)} />
               <Button onClick={saveConfig} disabled={saving} className="w-full">
                 {saving ? "Saving…" : "Save Deduction Config"}
               </Button>

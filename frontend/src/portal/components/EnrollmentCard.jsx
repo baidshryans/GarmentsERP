@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { formatMoney } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CreditCard, ChevronRight } from "lucide-react";
@@ -11,7 +12,7 @@ const STATUS_COLORS = {
   CANCELLED: "bg-gray-100 text-gray-800",
 };
 
-const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+const inr = (v) => formatMoney(v, { space: false });
 
 export default function EnrollmentCard({ enrollment }) {
   const navigate = useNavigate();

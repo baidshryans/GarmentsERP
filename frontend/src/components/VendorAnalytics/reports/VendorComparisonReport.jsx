@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { formatNumber } from '@/lib/format';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell,
@@ -29,7 +30,7 @@ import {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 const fmtCcy = (v) =>
-  `₹${Number(v).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  `₹${formatNumber(v, { maxDecimals: 0 })}`;
 const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
 const fmtDays = (v) => `${Number(v).toFixed(1)}d`;
 

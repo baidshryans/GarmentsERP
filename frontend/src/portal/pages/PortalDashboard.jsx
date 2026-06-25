@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatMoney } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Gem, IndianRupee, Clock } from "lucide-react";
@@ -6,7 +7,7 @@ import { portalFetchDashboard } from "../api/portalApiService";
 import EnrollmentCard from "../components/EnrollmentCard";
 import OrderTracker from "../components/OrderTracker";
 
-const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+const inr = (v) => formatMoney(v, { space: false });
 
 export default function PortalDashboard() {
   const [data, setData] = useState(null);

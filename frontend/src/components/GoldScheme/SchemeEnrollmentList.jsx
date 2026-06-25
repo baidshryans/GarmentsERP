@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,10 +47,10 @@ export default function SchemeEnrollmentList() {
       }
     },
     { accessorKey: "installment_amount", header: "Installment",
-      cell: ({ row }) => `₹${Number(row.original.installment_amount).toLocaleString("en-IN")}`
+      cell: ({ row }) => `₹${formatNumber(row.original.installment_amount)}`
     },
     { accessorKey: "total_paid", header: "Total Paid",
-      cell: ({ row }) => `₹${Number(row.original.total_paid).toLocaleString("en-IN")}`
+      cell: ({ row }) => `₹${formatNumber(row.original.total_paid)}`
     },
     { accessorKey: "payments_made", header: "Payments" },
     { accessorKey: "gold_accumulated_wt", header: "Gold (g)",

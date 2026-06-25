@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useNavigate } from "react-router-dom";
 import { hrPortalFetchSlips } from "../hrPortalApiService";
 
@@ -37,8 +38,8 @@ export default function HRPortalSlipList() {
             <div>
               <p className="font-medium">{MONTHS[s.month]} {s.year}</p>
               <p className="text-sm text-muted-foreground">
-                Gross: ₹{Number(s.gross_salary).toLocaleString("en-IN")} &nbsp;·&nbsp;
-                Net: ₹{Number(s.net_salary).toLocaleString("en-IN")}
+                Gross: ₹{formatNumber(s.gross_salary)} &nbsp;·&nbsp;
+                Net: ₹{formatNumber(s.net_salary)}
               </p>
             </div>
             <button

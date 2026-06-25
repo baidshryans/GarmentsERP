@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
+import { formatNumber, formatDate } from "@/lib/format";
 import { fetchAllApps } from "@/services/apiService";
 import {
   Package, Heart, Hammer, ShoppingCart, ReceiptText, Calculator,
@@ -82,7 +83,7 @@ export default function AppsPage() {
               {" · "}
               Valid until{" "}
               <span className="font-medium text-gray-700">
-                {new Date(subscription.end_date).toLocaleDateString("en-IN", {
+                {formatDate(subscription.end_date, {
                   day: "numeric",
                   month: "short",
                   year: "numeric",
@@ -162,7 +163,7 @@ function AppCard({ app, installed }) {
       <div className="mt-auto flex items-center justify-between pt-2 border-t border-gray-100">
         {app.monthly_price > 0 ? (
           <span className="text-xs font-medium text-gray-600">
-            ₹{app.monthly_price.toLocaleString("en-IN")}/mo
+            ₹{formatNumber(app.monthly_price)}/mo
           </span>
         ) : (
           <span className="text-xs text-gray-400">Free</span>

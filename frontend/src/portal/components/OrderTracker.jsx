@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ShoppingCart, Clock, CheckCircle2, AlertTriangle, Hammer, XCircle } from "lucide-react";
@@ -102,7 +103,7 @@ function OrderCard({ order }) {
           {order.est_amount && (
             <p>
               <span className="font-medium">Amount:</span> ₹
-              {Number(order.est_amount).toLocaleString("en-IN")}
+              {formatNumber(order.est_amount)}
             </p>
           )}
         </div>

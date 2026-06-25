@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatNumber } from '@/lib/format';
 import { useSearchParams } from 'react-router-dom';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -91,19 +92,19 @@ const columns = [
     accessorKey: 'purchase_cost',
     header: 'Purchase Cost',
     cell: ({ getValue }) =>
-      `₹${Number(getValue()).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+      `₹${formatNumber(getValue(), { maxDecimals: 0 })}`,
   },
   {
     accessorKey: 'sale_value',
     header: 'Sale Value',
     cell: ({ getValue }) =>
-      `₹${Number(getValue()).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+      `₹${formatNumber(getValue(), { maxDecimals: 0 })}`,
   },
   {
     accessorKey: 'gross_margin',
     header: 'Gross Margin',
     cell: ({ getValue }) =>
-      `₹${Number(getValue()).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+      `₹${formatNumber(getValue(), { maxDecimals: 0 })}`,
   },
   {
     accessorKey: 'margin_pct',

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -177,8 +178,8 @@ export default function SchemeEnrollmentForm() {
               </Select>
               {selectedScheme && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {selectedScheme.tenure_months} months | Min ₹{Number(selectedScheme.min_amount).toLocaleString("en-IN")}
-                  {selectedScheme.max_amount ? ` | Max ₹${Number(selectedScheme.max_amount).toLocaleString("en-IN")}` : " | No max"}
+                  {selectedScheme.tenure_months} months | Min ₹{formatNumber(selectedScheme.min_amount)}
+                  {selectedScheme.max_amount ? ` | Max ₹${formatNumber(selectedScheme.max_amount)}` : " | No max"}
                 </p>
               )}
             </div>

@@ -1,4 +1,6 @@
-const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+import { formatMoney } from "@/lib/format";
+
+const inr = (v) => formatMoney(v, { space: false });
 
 const MODE_LABELS = {
   CASH: "Cash",

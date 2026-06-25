@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatNumber } from "@/lib/format";
 import { useNavigate, useParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
@@ -69,7 +70,7 @@ export default function SchemePaymentForm() {
 
     const res = await schemeEnrollmentPay(uuid, payload);
     if (res.success) {
-      toast({ title: `Payment of ₹${Number(form.amount).toLocaleString("en-IN")} recorded` });
+      toast({ title: `Payment of ₹${formatNumber(form.amount)} recorded` });
       navigate(`/scheme/enrollments/${uuid}/statement`);
     } else {
       const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : res.error;
@@ -130,7 +131,7 @@ export default function SchemePaymentForm() {
             <div><Label>Remarks</Label><Input value={form.remarks} onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))} /></div>
 
             <div className="text-sm text-muted-foreground">
-              Paid so far: ₹{Number(enrollment.total_paid).toLocaleString("en-IN")} ({enrollment.payments_made} payments)
+              Paid so far: ₹{formatNumber(enrollment.total_paid)} ({enrollment.payments_made} payments)
               {enrollment.gold_accumulated_wt > 0 && ` | Gold: ${Number(enrollment.gold_accumulated_wt).toFixed(3)}g`}
             </div>
 

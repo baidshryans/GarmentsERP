@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatMoney } from "@/lib/format";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ const STATUS_COLORS = {
   CANCELLED: "bg-gray-100 text-gray-800",
 };
 
-const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+const inr = (v) => formatMoney(v, { space: false });
 
 export default function PortalEnrollment() {
   const { enrollmentNo } = useParams();

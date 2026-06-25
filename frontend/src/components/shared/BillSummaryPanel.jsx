@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import { formatNumber } from '@/lib/format';
 import { Calculator } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -124,10 +125,7 @@ const BillSummaryPanel = ({ rows, register, watch, standalone = true, autoCalcTo
                           : 'text-sm font-semibold text-foreground/80'
                       }`}
                     >
-                      {Number(value || 0).toLocaleString('en-IN', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatNumber(value, { decimals: 2 })}
                     </span>
                   </>
                 )}

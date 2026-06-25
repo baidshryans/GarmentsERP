@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { formatMoney } from "@/lib/format";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,7 +95,7 @@ export default function SchemeStatement() {
 
   const e = data.enrollment;
   const payments = data.payments || [];
-  const inr = (v) => `₹${Number(v).toLocaleString("en-IN")}`;
+  const inr = (v) => formatMoney(v, { space: false });
 
   const paymentColumns = [
     { accessorKey: "installment_number", header: "#" },

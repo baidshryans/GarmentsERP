@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatNumber } from "@/lib/format";
 import { useNavigate } from "react-router-dom";
 import { hrPortalFetchSlips } from "../hrPortalApiService";
 
@@ -35,7 +36,7 @@ export default function HRPortalDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold">{MONTHS[latest.month]} {latest.year}</p>
-              <p className="text-sm text-muted-foreground">Net: ₹{Number(latest.net_salary).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+              <p className="text-sm text-muted-foreground">Net: ₹{formatNumber(latest.net_salary, { minDecimals: 2 })}</p>
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[latest.status] || ""}`}>
@@ -63,7 +64,7 @@ export default function HRPortalDashboard() {
             <div key={s.id} className="flex items-center justify-between py-1 border-b last:border-0">
               <span className="text-sm">{MONTHS[s.month]} {s.year}</span>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">₹{Number(s.net_salary).toLocaleString("en-IN")}</span>
+                <span className="text-sm font-medium">₹{formatNumber(s.net_salary)}</span>
                 <button
                   onClick={() => navigate(`/hr-portal/slip/${s.month}/${s.year}`)}
                   className="text-xs text-primary underline"

@@ -81,6 +81,11 @@ export function formatDate(value, style = 'short') {
   if (isEmpty(value)) return '';
   const d = new Date(value);
   if (isNaN(d.getTime())) return value;
+  // An options object is forwarded to toLocaleDateString with the config locale
+  // (used for custom shapes like weekday-long headers).
+  if (style && typeof style === 'object') {
+    return d.toLocaleDateString(_config.dateLocale, style);
+  }
   if (style === 'numeric') {
     const dd = String(d.getDate()).padStart(2, '0');
     const mm = String(d.getMonth() + 1).padStart(2, '0');

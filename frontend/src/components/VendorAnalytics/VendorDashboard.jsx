@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatMoney, formatNumber } from '@/lib/format';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import VendorFilterBar from './components/VendorFilterBar';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 function fmt(v, type = 'number') {
   if (v === undefined || v === null) return '—';
-  if (type === 'currency') return `₹${Number(v).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  if (type === 'currency') return formatMoney(v, { decimals: 0, space: false });
   if (type === 'pct') return `${Number(v).toFixed(1)}%`;
   if (type === 'days') return `${Number(v).toFixed(1)}d`;
   if (type === 'ratio') return Number(v).toFixed(2);
@@ -148,7 +149,7 @@ export default function VendorDashboard() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Purchases']} />
+                    <Tooltip formatter={(v) => [`₹${formatNumber(v)}`, 'Purchases']} />
                     <Bar dataKey="value" fill="#6366f1" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

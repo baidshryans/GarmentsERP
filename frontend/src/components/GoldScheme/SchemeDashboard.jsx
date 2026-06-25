@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from "react";
+import { formatMoney, formatNumber } from "@/lib/format";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,12 +25,12 @@ import {
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────────────────
-const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
+const inr = (v) => formatMoney(v, { space: false });
 const inrCompact = (v) => {
   const n = Number(v || 0);
   if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)}Cr`;
   if (n >= 1e5) return `₹${(n / 1e5).toFixed(2)}L`;
-  return `₹${n.toLocaleString("en-IN")}`;
+  return `₹${formatNumber(n)}`;
 };
 
 // Single KPI card primitive — consistent layout, sizing, focus, contrast.

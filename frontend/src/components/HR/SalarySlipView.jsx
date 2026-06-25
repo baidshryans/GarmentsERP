@@ -3,6 +3,7 @@
  * Shared between the ERP (SalaryProcessingPage) and the HR Employee Portal.
  */
 import { Button } from "@/components/ui/button";
+import { formatNumber } from "@/lib/format";
 import { Printer } from "lucide-react";
 
 const MONTHS = ["", "January", "February", "March", "April", "May", "June",
@@ -12,7 +13,7 @@ function Row({ label, value }) {
   return (
     <tr>
       <td className="py-0.5 pr-4 text-sm text-muted-foreground">{label}</td>
-      <td className="py-0.5 text-sm text-right font-medium">₹{Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+      <td className="py-0.5 text-sm text-right font-medium">₹{formatNumber(value, { minDecimals: 2 })}</td>
     </tr>
   );
 }
@@ -62,7 +63,7 @@ export default function SalarySlipView({ slip, company }) {
               <tfoot>
                 <tr className="border-t font-bold">
                   <td className="pt-1 pr-4 text-sm">Gross Salary</td>
-                  <td className="pt-1 text-sm text-right">₹{Number(slip.gross_salary || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                  <td className="pt-1 text-sm text-right">₹{formatNumber(slip.gross_salary, { minDecimals: 2 })}</td>
                 </tr>
               </tfoot>
             </table>
@@ -82,7 +83,7 @@ export default function SalarySlipView({ slip, company }) {
               <tfoot>
                 <tr className="border-t font-bold">
                   <td className="pt-1 pr-4 text-sm">Total Deductions</td>
-                  <td className="pt-1 text-sm text-right">₹{Number(slip.total_deductions || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                  <td className="pt-1 text-sm text-right">₹{formatNumber(slip.total_deductions, { minDecimals: 2 })}</td>
                 </tr>
               </tfoot>
             </table>
@@ -92,7 +93,7 @@ export default function SalarySlipView({ slip, company }) {
         {/* Net Salary */}
         <div className="mt-4 border-t pt-3 flex justify-between items-center">
           <span className="font-bold text-base">Net Salary</span>
-          <span className="font-bold text-lg">₹{Number(slip.net_salary || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          <span className="font-bold text-lg">₹{formatNumber(slip.net_salary, { minDecimals: 2 })}</span>
         </div>
 
         <p className="mt-4 text-xs text-gray-400 text-center">This is a computer-generated salary slip and does not require a signature.</p>

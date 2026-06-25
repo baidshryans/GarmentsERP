@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatNumber, getFormatConfig } from '@/lib/format';
 import { useSearchParams } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer,
@@ -82,9 +83,9 @@ const columns = [
   },
   {
     accessorKey: 'total_value',
-    header: 'Value (₹)',
+    header: `Value (${getFormatConfig().symbol})`,
     cell: ({ getValue }) =>
-      `₹${Number(getValue()).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
+      `₹${formatNumber(getValue(), { maxDecimals: 0 })}`,
   },
   {
     accessorKey: 'velocity_status',

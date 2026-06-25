@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatNumber } from '@/lib/format';
 import { useSearchParams } from 'react-router-dom';
 import {
   AreaChart, Area, BarChart, Bar,
@@ -16,7 +17,7 @@ import { Activity, Package, X } from 'lucide-react';
 const fmtRatio = (v) => Number(v).toFixed(2);
 const fmtDays  = (v) => `${Number(v).toFixed(1)}d`;
 const fmtCcy   = (v) =>
-  `₹${Number(v).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+  `₹${formatNumber(v, { maxDecimals: 0 })}`;
 
 // ─── Metric Card ──────────────────────────────────────────────────────────────
 

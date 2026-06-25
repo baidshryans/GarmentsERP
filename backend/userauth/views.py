@@ -41,8 +41,9 @@ class RetailBaseViewset(viewsets.ModelViewSet):
         retail = getattr(self.request, "retail", None)
         qs = super().get_queryset().filter(retail=retail)
         if (
-            self.fy_scoped
-            and self.request.query_params.get("all_fy") not in ("1", "true", "True")
+            getattr(self, "action", None) == "list"
+            and self.fy_scoped
+            and self.request.query_params.get("all_fy", "").lower() not in ("1", "true")
             and retail is not None
             and getattr(retail, "active_fy_id", None)
             and self._model_has_fiscal_year()

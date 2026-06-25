@@ -14,6 +14,7 @@ from rest_framework.test import APIClient
 
 from mastersconfig.models import RetailMaster, FiscalYearMaster
 from sales.models import CustomerOrder
+from hr.models import Employee
 
 User = get_user_model()
 
@@ -89,3 +90,53 @@ class FiscalYearScopingTests(TestCase):
         resp = self.client.get(LIST_URL, HTTP_X_RETAIL_ID=self.retail.retail_code)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(self._order_nos(resp), {"C/25"})
+
+
+class ModelWithoutFiscalYearNotScopedTests(TestCase):
+    """A RetailBaseViewset over a model that has NO `fiscal_year` field must
+    not be fiscal-year-scoped, even when an active FY is set. The HR Employee
+    viewset is such an endpoint (Employee has no fiscal_year column)."""
+
+    EMPLOYEE_LIST_URL = "/hr/api/employees/"
+
+    def setUp(self):
+        self.retail = make_retail()
+        self.fy_26_27 = FiscalYearMaster.objects.create(
+            retail=self.retail,
+            fy_code="26-27",
+            fy_start=datetime.date(2026, 4, 1),
+            fy_end=datetime.date(2027, 3, 31),
+        )
+        # Two employees under the retail (no fiscal_year on the model).
+        emp_user_1 = User.objects.create_user(username="emp1", password="pass12345")
+        emp_user_2 = User.objects.create_user(username="emp2", password="pass12345")
+        Employee.objects.create(
+            user=emp_user_1, retail=self.retail,
+            employee_code="E001", full_name="Employee One",
+            date_of_joining=datetime.date(2025, 1, 1),
+        )
+        Employee.objects.create(
+            user=emp_user_2, retail=self.retail,
+            employee_code="E002", full_name="Employee Two",
+            date_of_joining=datetime.date(2026, 5, 1),
+        )
+
+        self.user = User.objects.create_user(
+            username="admin", password="pass12345",
+            is_staff=True, is_superuser=True,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_employee_list_not_scoped_by_active_fy(self):
+        # Set an active FY — it must NOT hide rows from a model without fiscal_year.
+        self.retail.active_fy = self.fy_26_27
+        self.retail.save(update_fields=["active_fy"])
+        cache.clear()
+
+        resp = self.client.get(
+            self.EMPLOYEE_LIST_URL, HTTP_X_RETAIL_ID=self.retail.retail_code,
+        )
+        self.assertEqual(resp.status_code, 200)
+        codes = {row["employee_code"] for row in resp.json()["results"]}
+        self.assertEqual(codes, {"E001", "E002"})

@@ -33,6 +33,29 @@ export default [
         'warn',
         { allowConstantExport: true },
       ],
+      // Multi-Country Phase 1 guardrail: keep all currency/locale formatting
+      // routed through @/lib/format. Starts as 'warn' during the codemod sweep,
+      // promoted to 'error' once every site is converted.
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: "Literal[value=/₹/]",
+          message: "Don't hardcode ₹. Use formatMoney() from @/lib/format.",
+        },
+        {
+          selector: "CallExpression[callee.property.name='toLocaleString'][arguments.0.value='en-IN']",
+          message: "Don't hardcode toLocaleString('en-IN'). Use formatNumber()/formatMoney() from @/lib/format.",
+        },
+        {
+          selector: "CallExpression[callee.property.name='toLocaleDateString'][arguments.0.value='en-IN']",
+          message: "Don't hardcode toLocaleDateString('en-IN'). Use formatDate() from @/lib/format.",
+        },
+      ],
     },
+  },
+  {
+    // The formatter module legitimately contains the symbol and locale.
+    files: ['src/lib/format.js'],
+    rules: { 'no-restricted-syntax': 'off' },
   },
 ]

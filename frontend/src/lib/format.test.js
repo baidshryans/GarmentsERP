@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { formatMoney, formatNumber, setFormatConfig, INR_CONFIG } from './format';
+import { formatMoney, formatNumber, formatDate, setFormatConfig, INR_CONFIG } from './format';
 
 beforeEach(() => setFormatConfig(INR_CONFIG));
 
@@ -34,6 +34,21 @@ describe('formatMoney', () => {
   });
   it('blankOnZero yields empty (no stray symbol)', () => {
     expect(formatMoney(0, { blankOnZero: true })).toBe('');
+  });
+});
+
+describe('formatDate', () => {
+  it('short style → "DD Mon YYYY"', () => {
+    expect(formatDate('2026-06-26', 'short')).toBe('26 Jun 2026');
+  });
+  it('numeric style → "DD/MM/YYYY"', () => {
+    expect(formatDate('2026-06-26', 'numeric')).toBe('26/06/2026');
+  });
+  it('empty input → empty string', () => {
+    expect(formatDate('', 'short')).toBe('');
+  });
+  it('invalid date → original string', () => {
+    expect(formatDate('not-a-date', 'short')).toBe('not-a-date');
   });
 });
 

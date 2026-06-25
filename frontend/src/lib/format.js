@@ -39,6 +39,21 @@ export function formatNumber(value, opts = {}) {
   return num.toLocaleString(_config.locale, o);
 }
 
+const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+export function formatDate(value, style = 'short') {
+  if (isEmpty(value)) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  if (style === 'numeric') {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+  // 'short'
+  return `${String(d.getDate()).padStart(2, '0')} ${_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export function formatMoney(value, opts = {}) {
   const { showSymbol = true, space = _config.symbolSpace, ...numOpts } = opts;
   const numStr = formatNumber(value, numOpts);

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { fetchKarigarIssues, fetchStoneIssues, getLedgers, fetchSalesApproval, fetchBarcodeList, fetchHallmarkIssue, fetchHallmarkReceive, fetchStoneReturn } from "@/services/apiService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ function StoneReturnAdd() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
+  const [allFy, setAllFy] = useState(false);
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
 
@@ -34,6 +37,7 @@ function StoneReturnAdd() {
         search,
         page,
         ordering:sortby,
+        allFy,
       });
 
       if (result.success) {
@@ -46,7 +50,7 @@ function StoneReturnAdd() {
     };
 
     fetchLedgers();
-  }, [search, page, sortby]);
+  }, [search, page, sortby, allFy]);
 
 
 
@@ -116,6 +120,10 @@ function StoneReturnAdd() {
                 <SelectItem value="-billno">Bill No (Desc)</SelectItem>
               </SelectContent>
             </Select>
+            <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+              <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+              All years
+            </Label>
           </div>
           <Link to="add/">
             <Button size="sm" className="gap-1.5">

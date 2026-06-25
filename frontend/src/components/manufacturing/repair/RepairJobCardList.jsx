@@ -8,6 +8,8 @@ import RepairJobCardPrint from "@/services/print/RepairJobCard";
 import { DataTable } from "@/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -32,13 +34,14 @@ export default function RepairJobCardList() {
   const [loading, setLoading] = useState(true);
   const [page, setPage]       = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [allFy, setAllFy]     = useState(false);
 
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
 
   const load = async () => {
     setLoading(true);
-    const res = await fetchRepairJobCards({ search, page, status });
+    const res = await fetchRepairJobCards({ search, page, status, allFy });
     if (res.success) {
       const results = Array.isArray(res.data) ? res.data : res.data?.results ?? [];
       setData(results);
@@ -47,7 +50,7 @@ export default function RepairJobCardList() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [search, page, status]);
+  useEffect(() => { load(); }, [search, page, status, allFy]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this repair job card?")) return;
@@ -164,6 +167,10 @@ export default function RepairJobCardList() {
               ))}
             </SelectContent>
           </Select>
+          <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+            <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+            All years
+          </Label>
         </div>
         <Link to="/manufacturing/repair/new">
           <Button size="sm" className="gap-1.5">

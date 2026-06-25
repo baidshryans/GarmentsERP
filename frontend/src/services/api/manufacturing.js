@@ -657,11 +657,12 @@ export async function fetchKarigarJobs() {
 
 // ── Karigar Receive ───────────────────────────────────────────────────────────
 
-export async function fetchKarigarReceive({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchKarigarReceive({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`manufacturing/api/karigar-receive/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -794,11 +795,12 @@ export async function updateGoldIssue(id, data) {
 
 // ── Hallmark Issue ────────────────────────────────────────────────────────────
 
-export async function fetchHallmarkIssue({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchHallmarkIssue({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`/manufacturing/api/hallmark-issue/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -850,11 +852,12 @@ export async function updateHallmarkIssue(id, data) {
 
 // ── Hallmark Receive ──────────────────────────────────────────────────────────
 
-export async function fetchHallmarkReceive({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchHallmarkReceive({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`/manufacturing/api/hallmark-receive/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -975,11 +978,12 @@ export async function updateMeltingIssueForEdit(data, id) {
 
 // ── Melting Receive ───────────────────────────────────────────────────────────
 
-export async function fetchMeltingReceive({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchMeltingReceive({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`manufacturing/api/melting-receive/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -1111,11 +1115,12 @@ export async function updateRefinaryIssueForEdit(data, id) {
 
 // ── Refinery Receive ──────────────────────────────────────────────────────────
 
-export async function fetchRefinaryReceive({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchRefinaryReceive({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`manufacturing/api/refinery-receive/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -1250,11 +1255,12 @@ export async function updateAssayIssueForEdit(data, id) {
 
 // ── Assay Receive ─────────────────────────────────────────────────────────────
 
-export async function fetchAssayReceive({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchAssayReceive({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`manufacturing/api/assay-receive/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -1365,11 +1371,12 @@ export async function fetchNextStoneBillNo() {
 
 // ── Stone Return ──────────────────────────────────────────────────────────────
 
-export async function fetchStoneReturn({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchStoneReturn({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
+    if (allFy) params.append("all_fy", "1");
     params.append("page", page);
     const response = await apiClient.get(`/manufacturing/api/karigar-stone-receive/?${params.toString()}`);
     return { success: true, data: response.data };
@@ -1391,11 +1398,12 @@ export async function fetchStoneReceiveBillNo() {
 
 // ── Repair Job Cards ──────────────────────────────────────────────────────────
 
-export async function fetchRepairJobCards({ search = "", page = 1, status = "" } = {}) {
+export async function fetchRepairJobCards({ search = "", page = 1, status = "", allFy = false } = {}) {
   try {
     const params = new URLSearchParams({ page });
     if (search) params.set("search", search);
     if (status) params.set("status", status);
+    if (allFy) params.set("all_fy", "1");
     const response = await apiClient.get(`/manufacturing/api/repair-job-card/?${params.toString()}`);
     return { success: true, data: response.data };
   } catch (error) {

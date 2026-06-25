@@ -54,10 +54,10 @@ export async function fetchNextSARNo() {
   }
 }
 
-export async function fetchSalesApprovalReturns({ search = "", page = 1, ordering = "" } = {}) {
+export async function fetchSalesApprovalReturns({ search = "", page = 1, ordering = "", allFy = false } = {}) {
   try {
     const response = await apiClient.get(`/sales/api/sale-approval-return/`, {
-      params: { search, page, ordering },
+      params: { search, page, ordering, ...(allFy ? { all_fy: "1" } : {}) },
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -215,7 +215,7 @@ export async function fetchSalesReturn({ search = "", page = 1, ordering = "", a
   }
 }
 
-export async function fetchSalesApproval({ search = "", page = 1, ordering = "", pendingOnly = false } = {}) {
+export async function fetchSalesApproval({ search = "", page = 1, ordering = "", pendingOnly = false, allFy = false } = {}) {
   try {
     const params = new URLSearchParams();
 
@@ -224,6 +224,7 @@ export async function fetchSalesApproval({ search = "", page = 1, ordering = "",
     if (ordering) params.append("ordering", ordering);
     params.append("page", page);
     if (pendingOnly) params.append("pending_only", "true");
+    if (allFy) params.append("all_fy", "1");
 
     const response = await apiClient.get(`/sales/api/sale-approval/?${params.toString()}`);
     return { success: true, data: response.data };

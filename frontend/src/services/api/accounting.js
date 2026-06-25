@@ -609,10 +609,13 @@ export async function fetchCreditDebitNote(id) {
   }
 }
 
-export async function fetchCreditDebitNotes(noteType) {
+export async function fetchCreditDebitNotes(noteType, allFy = false) {
   try {
-    const params = noteType ? `?note_type=${noteType}` : "";
-    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${params}`);
+    const sp = new URLSearchParams();
+    if (noteType) sp.append("note_type", noteType);
+    if (allFy) sp.append("all_fy", "1");
+    const qs = sp.toString();
+    const response = await apiClient.get(`/accounting/api/credit-debit-notes/${qs ? `?${qs}` : ""}`);
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data || error.message };

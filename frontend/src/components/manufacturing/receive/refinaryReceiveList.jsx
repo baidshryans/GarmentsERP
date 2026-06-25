@@ -3,6 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
 import { SquarePen, Trash2, Plus } from "lucide-react";
@@ -19,6 +21,7 @@ function RefinaryReceiveList() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [allFy, setAllFy] = useState(false);
 
   const search = params.get('search') || "";
   const sortby = params.get('sortby') || "-date1";
@@ -26,7 +29,7 @@ function RefinaryReceiveList() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const result = await fetchRefinaryReceive({ search, page, ordering: sortby });
+      const result = await fetchRefinaryReceive({ search, page, ordering: sortby, allFy });
       if (result.success) {
         setRecords(result.data.results);
         setTotalPages(result.data.total_pages);
@@ -36,7 +39,7 @@ function RefinaryReceiveList() {
       setLoading(false);
     };
     load();
-  }, [search, page, sortby]);
+  }, [search, page, sortby, allFy]);
 
   const handleDelete = async (id) => {
     await deleteRefineryReceive(id, toast);
@@ -143,6 +146,10 @@ function RefinaryReceiveList() {
                 <SelectItem value="-billno">Bill No (Desc)</SelectItem>
               </SelectContent>
             </Select>
+            <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+              <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+              All years
+            </Label>
           </div>
           <Link to="add/">
             <Button size="sm" className="gap-1.5">

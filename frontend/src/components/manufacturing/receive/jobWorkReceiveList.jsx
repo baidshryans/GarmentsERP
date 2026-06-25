@@ -4,6 +4,8 @@ import { fetchKarigarIssues, fetchKarigarReceive, getLedgers } from "@/services/
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Link, useNavigate } from "react-router-dom";
@@ -31,6 +33,7 @@ const KarigarReceive = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [ordering, setOrdering] = useState("ac_name");
+  const [allFy, setAllFy] = useState(false);
   const [details, setDetails] = useState({ items: [] });
   const [showPanel, setShowPanel] = useState(false); // Changed to false by default
   const search=params.get('search')||"";
@@ -46,6 +49,7 @@ const KarigarReceive = () => {
         search,
         page,
         ordering:sortby,
+        allFy,
       });
 
       if (result.success) {
@@ -59,7 +63,7 @@ const KarigarReceive = () => {
     };
 
     fetchLedgers();
-  }, [search, page, sortby]);
+  }, [search, page, sortby, allFy]);
 
 
   // Column definition
@@ -156,6 +160,10 @@ const KarigarReceive = () => {
                     <SelectItem value="-receive_slip_no">Slip No (Desc)</SelectItem>
                   </SelectContent>
                 </Select>
+                <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+                  <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+                  All years
+                </Label>
               </div>
               <Link to="add/">
                 <Button size="sm" className="gap-1.5">

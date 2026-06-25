@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Plus, Search, Printer, RefreshCw, XCircle,
 } from "lucide-react";
@@ -23,11 +25,12 @@ export default function CreditDebitNoteList() {
   const [transitioning, setTransitioning] = useState(false);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [allFy, setAllFy] = useState(false);
 
   const load = async () => {
     if (notes.length === 0) setLoading(true);
     else setTransitioning(true);
-    const res = await fetchCreditDebitNotes(typeFilter);
+    const res = await fetchCreditDebitNotes(typeFilter, allFy);
     if (res.success) {
       setNotes(Array.isArray(res.data) ? res.data : res.data.results || []);
     } else {
@@ -37,7 +40,7 @@ export default function CreditDebitNoteList() {
     setTransitioning(false);
   };
 
-  useEffect(() => { load(); }, [typeFilter]);
+  useEffect(() => { load(); }, [typeFilter, allFy]);
 
   const filtered = notes.filter((n) => {
     if (!search.trim()) return true;
@@ -105,6 +108,10 @@ export default function CreditDebitNoteList() {
           <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </Button>
+        <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+          <Checkbox checked={allFy} onCheckedChange={(v) => setAllFy(!!v)} />
+          All years
+        </Label>
         <Link to="/accounting/credit-debit-notes/add" className="ml-auto">
           <Button size="sm" className="h-9 gap-2">
             <Plus className="size-4" /> New Note

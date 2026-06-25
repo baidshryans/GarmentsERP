@@ -3,6 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import { DataTable } from "@/table";
 import { SquarePen, Trash2, RotateCcw, Loader2 } from "lucide-react";
@@ -31,6 +33,7 @@ function SalesApprovalList() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [allFy, setAllFy] = useState(false);
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -43,7 +46,7 @@ function SalesApprovalList() {
 
   const fetchList = useCallback(async () => {
     setLoading(true);
-    const result = await fetchSalesApproval({ search, page, ordering: sortby });
+    const result = await fetchSalesApproval({ search, page, ordering: sortby, allFy });
     if (result.success) {
       setLedgers(result.data.results);
       setTotalPages(result.data.total_pages);
@@ -51,7 +54,7 @@ function SalesApprovalList() {
       setError(result.error);
     }
     setLoading(false);
-  }, [search, page, sortby]);
+  }, [search, page, sortby, allFy]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
@@ -163,6 +166,10 @@ function SalesApprovalList() {
               <SelectItem value="-billno">(Desc) Bill No</SelectItem>
             </SelectContent>
           </Select>
+          <Label className="flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+            <Checkbox checked={allFy} onCheckedChange={(v) => { setAllFy(!!v); setPage(1); }} />
+            All years
+          </Label>
         </div>
 
         {loading ? (

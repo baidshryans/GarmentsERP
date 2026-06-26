@@ -1635,7 +1635,13 @@ class MySQLSyncView(APIView):
                 if not rows:
                     continue
                 path = _os.path.join(tmp, f"{used}.csv")
-                _pd.DataFrame(rows).to_csv(path, index=False)
+                _df = _pd.DataFrame(rows)
+                # Legacy data can contain NUL bytes / stray CRs in text columns
+                # (e.g. a corrupted billno), which the CSV writer cannot escape.
+                for _col in _df.select_dtypes(include='object').columns:
+                    _df[_col] = _df[_col].map(
+                        lambda v: v.replace('\x00', '').replace('\r', '') if isinstance(v, str) else v)
+                _df.to_csv(path, index=False)
                 kwargs[cmd_kwarg] = path
                 found.append(cmd_kwarg)
 

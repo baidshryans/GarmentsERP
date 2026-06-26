@@ -186,6 +186,82 @@ def _build_barcode_details_kwargs(row, barcode_main_instance):
     return kwargs
 
 
+def import_barcode_rows(main_rows, details_rows, conflict_action='update'):
+    """Validate and upsert barcode_main/details rows.
+
+    `main_rows`/`details_rows` are iterables of (row_num, row_dict) using the
+    barcode CSV column keys. Shared by the CSV import view AND the MySQL sync so
+    total/order_no/voucher_no/etc. behave identically for both. Returns a result
+    dict ({'success': bool, ...}); row-level problems are collected in 'errors'
+    rather than raised.
+    """
+    main_rows = list(main_rows)
+    details_rows = list(details_rows)
+
+    errors = []
+    existing_barcodes = set()
+    main_barcodes = set()
+    for row_num, row in main_rows:
+        _validate_main_row(row, row_num, main_barcodes, existing_barcodes, errors)
+    for row_num, row in details_rows:
+        _validate_details_row(row, row_num, main_barcodes, errors)
+    if errors:
+        return {'success': False, 'error': 'Validation failed',
+                'errors': errors[:MAX_REPORTED_ERRORS],
+                'errors_truncated': len(errors) > MAX_REPORTED_ERRORS}
+    if conflict_action == 'error' and existing_barcodes:
+        return {'success': False,
+                'error': f"{len(existing_barcodes)} existing barcode(s) found and conflict_action is 'error'",
+                'existing_barcodes': sorted(existing_barcodes)[:100],
+                'existing_barcodes_count': len(existing_barcodes)}
+
+    created = updated = skipped = details_created = details_replaced = 0
+    skipped_barcodes = set()
+    cache = {}
+    with transaction.atomic():
+        for row_num, row in main_rows:
+            barcode = str(row.get('barcode') or '').strip()
+            kwargs = _build_barcode_main_kwargs(row)
+            kwargs['op_retail'] = kwargs['retail']
+            existing = BarcodeMain.objects.filter(barcode=barcode).first()
+            if existing and conflict_action == 'skip':
+                skipped += 1
+                skipped_barcodes.add(barcode)
+                continue
+            if existing and conflict_action == 'update':
+                details_replaced += BarcodeDetails.objects.filter(barcode=existing).delete()[0]
+                for field, value in kwargs.items():
+                    setattr(existing, field, value)
+                existing.save()
+                cache[barcode] = existing
+                updated += 1
+            else:
+                new_bm = BarcodeMain(barcode=barcode, **kwargs)
+                new_bm.save()
+                cache[barcode] = new_bm
+                created += 1
+
+        details_barcodes = {str(r.get('barcode') or '').strip() for _, r in details_rows}
+        missing = details_barcodes - set(cache) - skipped_barcodes
+        if missing:
+            for bm in BarcodeMain.objects.filter(barcode__in=missing):
+                cache[bm.barcode] = bm
+
+        for row_num, row in details_rows:
+            barcode = str(row.get('barcode') or '').strip()
+            if barcode in skipped_barcodes:
+                continue
+            bm = cache.get(barcode)
+            if bm is None:
+                raise BarcodeOpeningCSVError(
+                    f"Row {row_num} (barcode_details): barcode '{barcode}' no longer exists")
+            BarcodeDetails(**_build_barcode_details_kwargs(row, bm)).save()
+            details_created += 1
+
+    return {'success': True, 'created': created, 'updated': updated, 'skipped': skipped,
+            'details_created': details_created, 'details_replaced': details_replaced}
+
+
 class BarcodeOpeningValidateView(APIView):
     """Dry-run validate barcode opening CSV files. No DB writes."""
 
@@ -268,123 +344,22 @@ class BarcodeOpeningImportView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Re-validate (handles race conditions where data changed since validate/)
-        errors = []
-        existing_barcodes = set()
-        main_barcodes = set()
-
-        for row_num, row in main_rows:
-            _validate_main_row(row, row_num, main_barcodes, existing_barcodes, errors)
-        for row_num, row in details_rows:
-            _validate_details_row(row, row_num, main_barcodes, errors)
-
-        if errors:
-            return Response(
-                {
-                    'success': False,
-                    'error': 'Validation failed during import',
-                    'errors': errors[:MAX_REPORTED_ERRORS],
-                    'errors_truncated': len(errors) > MAX_REPORTED_ERRORS,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if conflict_action == 'error' and existing_barcodes:
-            return Response(
-                {
-                    'success': False,
-                    'error': f"{len(existing_barcodes)} existing barcode(s) found and conflict_action is 'error'",
-                    'existing_barcodes': sorted(existing_barcodes)[:100],
-                    'existing_barcodes_count': len(existing_barcodes),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # All-or-nothing import
+        # Validate + upsert via the shared routine (also used by the MySQL sync).
         try:
-            with transaction.atomic():
-                created_count = 0
-                updated_count = 0
-                skipped_count = 0
-                details_created_count = 0
-                details_replaced_count = 0
-                skipped_barcodes = set()
-                barcode_main_cache = {}  # barcode → BarcodeMain instance
-
-                # Main pass
-                for row_num, row in main_rows:
-                    barcode = str(row.get('barcode') or '').strip()
-                    kwargs = _build_barcode_main_kwargs(row)
-                    kwargs['op_retail'] = kwargs['retail']  # avoid second save() to set op_retail
-
-                    existing = BarcodeMain.objects.filter(barcode=barcode).first()
-
-                    if existing and conflict_action == 'skip':
-                        skipped_count += 1
-                        skipped_barcodes.add(barcode)
-                        continue
-
-                    if existing and conflict_action == 'update':
-                        deleted_old = BarcodeDetails.objects.filter(barcode=existing).delete()[0]
-                        details_replaced_count += deleted_old
-                        for field, value in kwargs.items():
-                            setattr(existing, field, value)
-                        existing.save()
-                        barcode_main_cache[barcode] = existing
-                        updated_count += 1
-                    else:
-                        new_bm = BarcodeMain(barcode=barcode, **kwargs)
-                        new_bm.save()
-                        barcode_main_cache[barcode] = new_bm
-                        created_count += 1
-
-                # Pre-fetch any barcodes referenced in details_rows that weren't in the main pass
-                # (these must exist in DB by validation rule)
-                details_barcodes = {
-                    str(r.get('barcode') or '').strip()
-                    for _, r in details_rows
-                }
-                missing_in_cache = details_barcodes - set(barcode_main_cache.keys()) - skipped_barcodes
-                if missing_in_cache:
-                    for bm in BarcodeMain.objects.filter(barcode__in=missing_in_cache):
-                        barcode_main_cache[bm.barcode] = bm
-
-                # Details pass
-                for row_num, row in details_rows:
-                    barcode = str(row.get('barcode') or '').strip()
-                    if barcode in skipped_barcodes:
-                        continue
-                    barcode_main = barcode_main_cache.get(barcode)
-                    if barcode_main is None:
-                        # Race condition: barcode disappeared between validate and import
-                        raise BarcodeOpeningCSVError(
-                            f"Row {row_num} (barcode_details): barcode '{barcode}' no longer exists"
-                        )
-                    details_kwargs = _build_barcode_details_kwargs(row, barcode_main)
-                    BarcodeDetails(**details_kwargs).save()
-                    details_created_count += 1
-
+            result = import_barcode_rows(main_rows, details_rows, conflict_action)
         except BarcodeOpeningCSVError as e:
-            # Should be unreachable (we re-validated above), but defend against race conditions
-            return Response(
-                {'success': False, 'error': f'Import failed: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({'success': False, 'error': f'Import failed: {str(e)}'},
+                            status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response(
-                {'success': False, 'error': f'Unexpected import error: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return Response({'success': False, 'error': f'Unexpected import error: {str(e)}'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        if not result.get('success'):
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
         return Response({
             'success': True,
-            'data': {
-                'created': created_count,
-                'updated': updated_count,
-                'skipped': skipped_count,
-                'details_created': details_created_count,
-                'details_replaced': details_replaced_count,
-            },
+            'data': {k: result[k] for k in
+                     ('created', 'updated', 'skipped', 'details_created', 'details_replaced')},
         })
 
 

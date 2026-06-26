@@ -1107,7 +1107,14 @@ class MySQLSyncView(APIView):
                 if 'retail' in tables_requested:
                     results['retail'] = self._sync_retail(cursor)
 
-                for _tx_key in ('customer_orders', 'gl_vouchers', 'sales', 'purchases', 'allocations'):
+                # customer_orders first (barcode order_no -> customer_order link),
+                # then barcodes (purchases below set barcode.pur_voucher).
+                if 'customer_orders' in tables_requested:
+                    results['customer_orders'] = self._sync_transaction(cursor, 'customer_orders')
+                if 'barcode' in tables_requested:
+                    results['barcode'] = self._sync_barcodes(cursor)
+
+                for _tx_key in ('gl_vouchers', 'sales', 'purchases', 'allocations'):
                     if _tx_key in tables_requested:
                         results[_tx_key] = self._sync_transaction(cursor, _tx_key)
 
@@ -1426,6 +1433,108 @@ class MySQLSyncView(APIView):
             except Exception as e:
                 errors.append(f"{row.get('rt_code')}: {e}")
         return {'created': created, 'updated': updated, 'errors': errors}
+
+    def _sync_barcodes(self, cursor):
+        """Sync legacy barcode_main + barcode_details via the SAME logic the CSV
+        importer uses (inventory.api_views.import_barcode_rows) — so total ->
+        total_amount, order_no -> customer_order, voucher_no, etc. behave
+        identically for sync and import. Unresolvable rows (bad item/purity/
+        retail) are skipped and reported rather than failing the whole batch."""
+        from inventory.api_views import import_barcode_rows
+        from inventory.csv_parsers import (
+            match_item_id, match_purity, match_retail_code, match_packet, BarcodeOpeningCSVError,
+        )
+
+        def _s(v):
+            return '' if v is None else str(v).strip()
+
+        def _rows(table):
+            try:
+                cursor.execute(f"SELECT * FROM {table}")
+            except Exception:
+                return []
+            return cursor.fetchall()
+
+        # ── map legacy barcode_main -> CSV import row keys ──
+        main_rows, errors, valid_barcodes = [], [], set()
+        for i, r in enumerate(_rows('barcode_main'), start=2):
+            barcode = _s(r.get('barcode'))
+            if not barcode:
+                continue
+            row = {
+                'barcode': barcode,
+                'item_id': _s(r.get('item_id')),
+                'purity': _s(r.get('purity')),
+                'quantity_pieces': _s(r.get('qty')) or '0',
+                'gross_weight': _s(r.get('gw')) or '0',
+                'net_weight': _s(r.get('nw')) or '0',
+                'value': _s(r.get('amount')) or '0',
+                'making_value': _s(r.get('making_value')) or '0',
+                'total': _s(r.get('total')),
+                'other_charges': _s(r.get('making_other')),
+                'making_type': _s(r.get('making_type')),
+                'huid': _s(r.get('huid')),
+                'design_code': _s(r.get('design_code')),
+                'retail_code': _s(r.get('rt_code')),
+                'order_no': _s(r.get('order_no')),
+                'voucher_no': _s(r.get('voucher_no')),
+            }
+            # Pre-filter so one bad row doesn't fail the whole (all-or-nothing) batch.
+            try:
+                match_item_id(row['item_id'])
+                match_purity(row['purity'])
+                match_retail_code(row['retail_code'])
+            except BarcodeOpeningCSVError as e:
+                errors.append(f"{barcode}: {e}")
+                continue
+            main_rows.append((i, row))
+            valid_barcodes.add(barcode)
+
+        # ── map legacy barcode_details -> CSV details keys (valid barcodes only) ──
+        details_rows = []
+        for i, r in enumerate(_rows('barcode_details'), start=2):
+            barcode = _s(r.get('barcode'))
+            if not barcode or barcode not in valid_barcodes:
+                continue
+            item_id = _s(r.get('item_id'))
+            try:
+                match_item_id(item_id)
+            except BarcodeOpeningCSVError as e:
+                errors.append(f"detail {barcode}: {e}")
+                continue
+            # legacy '0'/blank metal_purity = no metal purity on stone lines
+            _mp = _s(r.get('metal_purity'))
+            purity = '' if _mp in ('', '0', '0.0', '0.00') else _mp
+            # drop an unresolvable packet rather than fail the row
+            packet = _s(r.get('packet_id'))
+            if packet and packet not in ('0', '0.0'):
+                try:
+                    match_packet(packet)
+                except BarcodeOpeningCSVError:
+                    packet = ''
+            else:
+                packet = ''
+            details_rows.append((i, {
+                'barcode': barcode,
+                'item_id': item_id,
+                'purity': purity,
+                'quantity_pieces': _s(r.get('qty')) or '0',
+                'carat_weight': _s(r.get('ct')) or '0',
+                'gross_weight': _s(r.get('gw')) or '0',
+                'rate': _s(r.get('rate_stock')) or '0',
+                'amount': _s(r.get('amount')) or '0',
+                'packet_number': packet,
+            }))
+
+        result = import_barcode_rows(main_rows, details_rows, conflict_action='update')
+        if not result.get('success'):
+            errors = (result.get('errors') or [result.get('error', 'failed')]) + errors
+            return {'created': 0, 'updated': 0, 'errors': errors[:50]}
+        return {
+            'created': result['created'], 'updated': result['updated'],
+            'details_created': result.get('details_created', 0),
+            'errors': errors[:50],
+        }
 
     # ── Transactional sync — reuses the legacy import_* management commands ────
     # NOTE: legacy table names. sales_vou / purchase_voucher / *_amount are

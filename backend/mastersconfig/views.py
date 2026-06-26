@@ -666,6 +666,47 @@ class HSNCSVUploadView(APIView):
         return Response({'created': created, 'updated': updated, 'errors': errors})
 
 
+class SalespersonCSVUploadView(APIView):
+    """POST multipart 'file' (CSV). Upserts SalesPersonMaster, preserving the
+    legacy id (sales/customer-order vouchers reference salesperson by id).
+    Columns: id, s_name (or salesperson_name), rt_code."""
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=400)
+
+        created = updated = 0
+        errors = []
+        retail_map = {r.retail_code: r for r in RetailMaster.objects.all()}
+        try:
+            decoded = file.read().decode('utf-8-sig')
+            with transaction.atomic():
+                reader = csv.DictReader(io.StringIO(decoded))
+                for i, row in enumerate(reader, start=2):
+                    try:
+                        sid = (row.get('id') or '').strip()
+                        name = (row.get('s_name') or row.get('salesperson_name') or '').strip()
+                        if not sid or not name:
+                            continue
+                        retail = retail_map.get((row.get('rt_code') or '').strip())
+                        _, flag = SalesPersonMaster.objects.update_or_create(
+                            id=int(float(sid)),
+                            defaults={'salesperson_name': name[:100], 'retail': retail},
+                        )
+                        if flag:
+                            created += 1
+                        else:
+                            updated += 1
+                    except Exception as e:
+                        errors.append(f"Row {i}: {str(e)}")
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+        return Response({'created': created, 'updated': updated, 'errors': errors})
+
+
 class ItemCSVUploadView(APIView):
     """POST multipart/form-data with field 'file' (CSV). Upserts Item records."""
     parser_classes = [MultiPartParser]
@@ -1100,6 +1141,9 @@ class MySQLSyncView(APIView):
 
                 if 'packet' in tables_requested:
                     results['packet'] = self._sync_packet(cursor)
+
+                if 'salesperson' in tables_requested:
+                    results['salesperson'] = self._sync_salesperson(cursor)
 
                 if 'ledger' in tables_requested:
                     results['ledger'] = self._sync_ledger(cursor)
@@ -1615,6 +1659,36 @@ class MySQLSyncView(APIView):
             return {'status': 'ok', 'output': buf.getvalue(), 'reports': reports}
         finally:
             _shutil.rmtree(tmp, ignore_errors=True)
+
+    def _sync_salesperson(self, cursor):
+        """Sync legacy salesperson_master -> SalesPersonMaster, preserving the
+        legacy id (sales / customer-order vouchers reference salesperson by id)."""
+        try:
+            cursor.execute("SELECT id, s_name, rt_code FROM salesperson_master")
+        except Exception:
+            return {'created': 0, 'updated': 0, 'errors': ['salesperson_master table not found']}
+        rows = cursor.fetchall()
+        retail_map = {r.retail_code: r for r in RetailMaster.objects.all()}
+        created = updated = 0
+        errors = []
+        for row in rows:
+            try:
+                sid = (str(row.get('id')) if row.get('id') is not None else '').strip()
+                name = (row.get('s_name') or '').strip()
+                if not sid or not name:
+                    continue
+                retail = retail_map.get((row.get('rt_code') or '').strip())
+                _, flag = SalesPersonMaster.objects.update_or_create(
+                    id=int(float(sid)),
+                    defaults={'salesperson_name': name[:100], 'retail': retail},
+                )
+                if flag:
+                    created += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                errors.append(f"{row.get('id')}: {e}")
+        return {'created': created, 'updated': updated, 'errors': errors}
 
     def _sync_hsn(self, cursor):
         cursor.execute("SELECT hsn_no, description, hsn_type, hsn_per_cgst, hsn_per_igst FROM hsn_master")

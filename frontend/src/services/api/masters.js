@@ -826,6 +826,19 @@ export async function uploadHSNCSV(file) {
   }
 }
 
+export async function uploadSalespersonCSV(file) {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await apiClient.post("/mastersconfig/api/salesperson/csv-upload/", formData, {
+      headers: { "Content-Type": "multipart/form-data" }, timeout: 120000,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
 export async function uploadItemGroupCSV(file) {
   try {
     const formData = new FormData();

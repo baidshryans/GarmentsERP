@@ -52,6 +52,7 @@ urlpatterns = [
 
     # CSV Upload endpoints
     path('api/hsn/csv-upload/', views.HSNCSVUploadView.as_view(), name='hsn_csv_upload'),
+    path('api/salesperson/csv-upload/', views.SalespersonCSVUploadView.as_view(), name='salesperson_csv_upload'),
     path('api/item/csv-upload/', views.ItemCSVUploadView.as_view(), name='item_csv_upload'),
     path('api/item_group/csv-upload/', views.ItemGroupCSVUploadView.as_view(), name='item_group_csv_upload'),
     path('api/packet_group/csv-upload/', views.PacketGroupCSVUploadView.as_view(), name='packet_group_csv_upload'),

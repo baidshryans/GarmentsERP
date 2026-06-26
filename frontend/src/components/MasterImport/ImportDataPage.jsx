@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useEffect } from "react";
 import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag, Package, ArrowRightLeft } from "lucide-react";
 import TransactionsImport from "./TransactionsImportCard";
-import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers, downloadOpeningStockTemplate, uploadOpeningStockCSV } from "@/services/apiService";
+import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, uploadSalespersonCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers, downloadOpeningStockTemplate, uploadOpeningStockCSV } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
 import BarcodeOpeningUploadCard from './BarcodeOpeningUploadCard';
 
@@ -25,6 +25,7 @@ const TABLES = [
   { key: "packet_group",   label: "Packet Group Master",   uploadFn: uploadPacketGroupCSV,    hint: "Columns: packet_group (or packet_group_name)",                                                                                     dependsOn: "item" },
   { key: "packet",         label: "Packet Master",         uploadFn: uploadPacketCSV,         hint: "Columns: pckt_no, stone_id, rate_for_retail, rate_for_wholesale, solitare, customer, packet_group",                               dependsOn: "item" },
   { key: "karigar_making", label: "Karigar Making Rates",  uploadFn: uploadKarigarMakingCSV,  hint: "Columns: karigar_name, item_code, purity, making_per_gm, making_per_pc, loss_rate, kr_code (optional)",                           dependsOn: "item" },
+  { key: "salesperson",    label: "Salesperson Master",    uploadFn: uploadSalespersonCSV,    hint: "Columns: id (required — must match old ERP id), s_name (or salesperson_name), rt_code",                                          dependsOn: null },
 ];
 
 // Master tables selectable for direct MySQL sync. Mirrors TABLES (the CSV-upload

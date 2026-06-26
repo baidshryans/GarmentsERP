@@ -100,8 +100,8 @@ export const navData = {
       items: [
         { title: "Job Work",        url: "/manufacturing/issue/jobwork/", module: "manufacturing.karigarissue" },
         { title: "Sample Issue",    url: "/manufacturing/issue/sample-issue", module: "manufacturing.sampleissue" },
-        { title: "Gold Issue",      url: "/manufacturing/issue/goldissue/"     },
-        { title: "Stone Issue",     url: "/manufacturing/issue/stoneissue/"    },
+        { title: "Gold Issue",      url: "/manufacturing/issue/goldissue/", module: "manufacturing.karigargoldissueheader" },
+        { title: "Stone Issue",     url: "/manufacturing/issue/stoneissue/", module: "manufacturing.karigarstoneissueheader" },
         { title: "Hallmark Issue",  url: "/manufacturing/issue/hallmarkissue/", module: "manufacturing.hallmarkissue" },
         { title: "Refinery Issue",  url: "/manufacturing/issue/refinary/", module: "manufacturing.refinaryissue" },
         { title: "Melting Issue",   url: "/manufacturing/issue/melting/", module: "manufacturing.meltingissue" },
@@ -114,7 +114,7 @@ export const navData = {
       icon: PackageCheckIcon,
       items: [
         { title: "Job Work Receive", url: "/manufacturing/receive/jobworkreceive/", module: "manufacturing.karigarreceive" },
-        { title: "Stone Return",     url: "/manufacturing/receive/stonereturn/"     },
+        { title: "Stone Return",     url: "/manufacturing/receive/stonereturn/", module: "manufacturing.karigarstonereceiveheader" },
         { title: "Hallmark Receive", url: "/manufacturing/receive/hallmarkreceive/", module: "manufacturing.hallmarkreceive" },
         { title: "Refinery Receive", url: "/manufacturing/receive/refinary/", module: "manufacturing.refinaryreceive" },
         { title: "Melting Receive",  url: "/manufacturing/receive/melting/", module: "manufacturing.meltingreceive" },
@@ -308,8 +308,8 @@ export const navData = {
   // ── Gold Schemes ───────────────────────────────────────────────────────────
   navGoldScheme: [
     { title: "Dashboard",    url: "/scheme/dashboard",    icon: LayoutDashboard },
-    { title: "Scheme Master", url: "/scheme/master",      icon: Gem             },
-    { title: "Enrollments",  url: "/scheme/enrollments",  icon: ClipboardList   },
+    { title: "Scheme Master", url: "/scheme/master",      icon: Gem, module: "goldscheme.schememaster" },
+    { title: "Enrollments",  url: "/scheme/enrollments",  icon: ClipboardList, module: "goldscheme.schemeenrollment" },
   ],
 
   // ── AI ─────────────────────────────────────────────────────────────────────

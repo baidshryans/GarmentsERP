@@ -259,6 +259,8 @@ RELEVANT_APPS = {
     'contacts':      'Contacts & Ledgers',
     'mastersconfig': 'Masters & Config',
     'goldrates':     'Gold Rates',
+    'hr':            'Human Resources',
+    'goldscheme':    'Gold Schemes',
 }
 
 # Models that inherit permissions from a parent — skip in UI (they get access automatically)

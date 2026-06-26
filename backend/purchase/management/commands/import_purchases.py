@@ -19,7 +19,10 @@ import os
 
 import pandas as pd
 from django.core.management.base import BaseCommand, CommandError
+import contextlib
+
 from django.db import transaction
+from django.db.models.signals import pre_save, post_save, pre_delete, post_delete
 
 from purchase.models import PurchaseVoucher, PurchaseVoucherItems, PurchaseVoucherDetails
 from contacts.models import Ledger
@@ -28,6 +31,27 @@ from mastersconfig.models import Item, Packet
 from accounting.migration_utils import (
     clean, dec, to_int, parse_date, OrgResolver, PurityResolver, resolve_ac_voucher, resolve_ledger,
 )
+
+@contextlib.contextmanager
+def _muted_signals():
+    """Mute per-row save/delete signals during the bulk import. They recompute
+    stock / raw-material inventory per detail row — which we don't want for a
+    historical migration (current stock comes from the opening-stock / barcode
+    sync), and which crash on legacy data quirks (e.g. duplicate
+    RawMaterialInventory -> get_or_create MultipleObjectsReturned). One-off admin
+    import, not run concurrently with normal use."""
+    saved = {}
+    for sig in (pre_save, post_save, pre_delete, post_delete):
+        saved[sig] = sig.receivers
+        sig.receivers = []
+        sig.sender_receivers_cache.clear()
+    try:
+        yield
+    finally:
+        for sig, recv in saved.items():
+            sig.receivers = recv
+            sig.sender_receivers_cache.clear()
+
 
 # v_typ -> (voucher_type, is_rcm). PURC-SC = supplier/vendor purchase;
 # PURC-CO = purchase from customer (old gold, reverse charge).
@@ -78,11 +102,12 @@ class Command(BaseCommand):
         self.purity = PurityResolver()
         self.unresolved = []
 
-        counts = {
-            'header': self._pass(hdr, self._import_header, 'PurchaseVoucher', PurchaseVoucher),
-            'items':  self._pass(itm, self._import_item, 'PurchaseVoucherItems', PurchaseVoucherItems),
-            'details': self._pass(det, self._import_detail, 'PurchaseVoucherDetails', PurchaseVoucherDetails),
-        }
+        with _muted_signals():
+            counts = {
+                'header': self._pass(hdr, self._import_header, 'PurchaseVoucher', PurchaseVoucher),
+                'items':  self._pass(itm, self._import_item, 'PurchaseVoucherItems', PurchaseVoucherItems),
+                'details': self._pass(det, self._import_detail, 'PurchaseVoucherDetails', PurchaseVoucherDetails),
+            }
 
         self._report(report_dir)
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"

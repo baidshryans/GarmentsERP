@@ -62,14 +62,22 @@ class Command(BaseCommand):
                 self.stderr.write(self.style.ERROR(e))
             raise CommandError("Unresolved retail codes — import masters first.")
         self.unresolved = []
+        # Legacy sales ids are NOT globally unique (the A-bill and C-bill series
+        # reuse the same id space), so vouchers/items/details are keyed by billno,
+        # not by preserving the id. Items/details are imported only for headers
+        # created in this run (idempotent re-runs skip everything).
+        self._new_billnos = set()
+        self._item_map = {}  # (billno, legacy sales_vou_main.id) -> SalesVouItem
 
         counts = {
-            'header': self._pass(hdr, self._import_header, 'SalesVou', SalesVou, skip_cancelled=True),
-            'items':  self._pass(itm, self._import_item, 'SalesVouItem', SalesVouItem),
-            'details': self._pass(det, self._import_detail, 'SalesVouItemDetails', SalesVouItemDetails),
+            'header': self._pass(hdr, self._import_header, 'SalesVou', skip_cancelled=True,
+                                 skip_fn=lambda r: SalesVou.objects.filter(billno=clean(r.get('billno'))).exists()),
+            'items':  self._pass(itm, self._import_item, 'SalesVouItem',
+                                 skip_fn=lambda r: clean(r.get('billno')) not in self._new_billnos),
+            'details': self._pass(det, self._import_detail, 'SalesVouItemDetails',
+                                 skip_fn=lambda r: clean(r.get('billno')) not in self._new_billnos),
         }
-        ids = {to_int(i) for i in hdr.get('id', pd.Series(dtype=str)).dropna()} - {None}
-        gst_updated = self._apply_gst(ids)
+        gst_updated = self._apply_gst(set(self._new_billnos))
         self.stdout.write(self.style.SUCCESS(f"GST recomputed from HSN for {gst_updated} voucher(s)"))
 
         self._report(report_dir)
@@ -88,14 +96,13 @@ class Command(BaseCommand):
         df.columns = [c.strip() for c in df.columns]
         return df
 
-    def _pass(self, df, fn, label, model, skip_cancelled=False):
+    def _pass(self, df, fn, label, skip_cancelled=False, skip_fn=None):
         created = skipped = errored = cancelled = 0
         for _, row in df.iterrows():
             if skip_cancelled and to_int(row.get('cancel_status')) == 1:
                 cancelled += 1
                 continue
-            pk = to_int(row.get('id'))
-            if pk and model.objects.filter(id=pk).exists():
+            if skip_fn and skip_fn(row):
                 skipped += 1
                 continue
             try:
@@ -104,8 +111,8 @@ class Command(BaseCommand):
                 created += 1
             except Exception as exc:
                 errored += 1
-                self.unresolved.append({'table': label, 'id': clean(row.get('id')), 'error': str(exc)})
-                self.stderr.write(self.style.ERROR(f"{label} id={clean(row.get('id'))}: {exc}"))
+                self.unresolved.append({'table': label, 'billno': clean(row.get('billno')), 'error': str(exc)})
+                self.stderr.write(self.style.ERROR(f"{label} billno={clean(row.get('billno'))}: {exc}"))
                 if not self.cont:
                     raise CommandError(str(exc))
         return created, skipped, errored, cancelled
@@ -116,16 +123,17 @@ class Command(BaseCommand):
         ldgr = resolve_ledger(r.get('ldgr'))
         if ldgr is None:
             raise ValueError(f"ledger {clean(r.get('ldgr'))!r} not found")
-        sp = SalesPersonMaster.objects.filter(id=to_int(r.get('sales_person'))).first()
+        # sales_person is a required FK; legacy 0/missing falls back to a default.
+        sp = SalesPersonMaster.objects.filter(id=to_int(r.get('sales_person'))).first() or self._default_sp(retail)
         if sp is None:
-            raise ValueError(f"sales_person {clean(r.get('sales_person'))!r} not found")
+            raise ValueError("no salesperson available — import the salesperson master first")
         sp2 = SalesPersonMaster.objects.filter(id=to_int(r.get('sales_persons2'))).first() if to_int(r.get('sales_persons2')) else None
         order = CustomerOrder.objects.filter(order_no=clean(r.get('order_no'))).first() if clean(r.get('order_no')) else None
 
+        billno = clean(r.get('billno'))[:30]
         obj = SalesVou(
-            id=to_int(r.get('id')),
             date1=parse_date(r.get('date1')),
-            billno=clean(r.get('billno'))[:30],
+            billno=billno,
             gst_billno=clean(r.get('gst_billno'))[:20],
             ldgr=ldgr,
             sales_person=sp,
@@ -152,15 +160,32 @@ class Command(BaseCommand):
             retail=retail, branch_ref=branch, fiscal_year=fy,
         )
         if self.apply:
-            obj.save(force_insert=True)
+            obj.save()
+        self._new_billnos.add(billno)
+
+    def _default_sp(self, retail):
+        """Fallback salesperson for vouchers whose legacy sales_person is 0/missing:
+        first salesperson for the retail, else any."""
+        cache = getattr(self, '_def_sp_cache', None)
+        if cache is None:
+            cache = self._def_sp_cache = {}
+        key = retail.id if retail else None
+        if key not in cache:
+            cache[key] = (SalesPersonMaster.objects.filter(retail=retail).order_by('id').first()
+                          or SalesPersonMaster.objects.order_by('id').first())
+        return cache[key]
 
     def _import_item(self, r):
         retail, _, _ = self.org.get(r.get('rt_code'), '', r.get('ac_yr'))
-        header = self._sales_by_billno(r.get('billno'))
+        billno = clean(r.get('billno'))
+        header = SalesVou.objects.filter(billno=billno).order_by('id').first()
+        if header is None:
+            if not self.apply:
+                return  # dry-run: header not persisted yet
+            raise ValueError(f"no SalesVou header for billno {billno!r}")
         item = self._item(r.get('item_id'))
         bc = clean(r.get('barcode'))
         obj = SalesVouItem(
-            id=to_int(r.get('id')),
             billno=header,
             barcode=(BarcodeMain.objects.filter(barcode=bc).first() if bc else None),
             item=item,
@@ -175,14 +200,19 @@ class Command(BaseCommand):
             retail=retail,
         )
         if self.apply:
-            obj.save(force_insert=True)
+            obj.save()
+        self._item_map[(billno, to_int(r.get('id')))] = obj
 
     def _import_detail(self, r):
         retail, _, _ = self.org.get(r.get('rt_code'), r.get('br_code'), r.get('ac_yr'))
-        header = self._sales_by_billno(r.get('billno'))
-        main_item = SalesVouItem.objects.filter(id=to_int(r.get('main_id'))).first() if to_int(r.get('main_id')) else None
+        billno = clean(r.get('billno'))
+        header = SalesVou.objects.filter(billno=billno).order_by('id').first()
+        if header is None:
+            if not self.apply:
+                return  # dry-run: header not persisted yet
+            raise ValueError(f"no SalesVou header for billno {billno!r}")
+        main_item = self._item_map.get((billno, to_int(r.get('main_id'))))
         obj = SalesVouItemDetails(
-            id=to_int(r.get('id')),
             billno=header,
             main_item=main_item,
             item=self._item(r.get('item_id')),
@@ -197,23 +227,23 @@ class Command(BaseCommand):
             retail=retail,
         )
         if self.apply:
-            obj.save(force_insert=True)
+            obj.save()
 
-    def _apply_gst(self, ids):
+    def _apply_gst(self, billnos):
         """Recompute each sale's GST percentages from its item's HSN master rate:
         pick the HSN (main item, then stone-detail fallback) and set cgst_per/
         sgst_per (local) or igst_per (interstate) per which legacy rate was
         non-zero. SalesVou amounts are computed properties off these percentages."""
         updated = 0
-        for sid in ids:
-            sv = SalesVou.objects.filter(id=sid).first()
+        for billno in billnos:
+            sv = SalesVou.objects.filter(billno=billno).order_by('id').first()
             if sv is None:
                 continue
             main_items = [it.item for it in sv.salesvouitem_set.select_related('item__hsn_no').all()]
             detail_items = [d.item for d in sv.salesvouitemdetails_set.select_related('item__hsn_no').all()]
             hsn = hsn_for_voucher_items(main_items, detail_items)
             if hsn is None:
-                self.unresolved.append({'table': 'gst', 'id': sid, 'error': 'no HSN on any item'})
+                self.unresolved.append({'table': 'gst', 'billno': billno, 'error': 'no HSN on any item'})
                 continue
             is_central = bool(sv.igst_per) and not (sv.cgst_per or sv.sgst_per)
             if is_central:

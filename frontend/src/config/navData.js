@@ -98,7 +98,7 @@ export const navData = {
       url: "#",
       icon: ArrowUpFromLine,
       items: [
-        { title: "Job Work",        url: "/manufacturing/issue/jobwork/"       },
+        { title: "Job Work",        url: "/manufacturing/issue/jobwork/", module: "manufacturing.jobworkissue", perm: "post" },
         { title: "Sample Issue",    url: "/manufacturing/issue/sample-issue"   },
         { title: "Gold Issue",      url: "/manufacturing/issue/goldissue/"     },
         { title: "Stone Issue",     url: "/manufacturing/issue/stoneissue/"    },
@@ -151,7 +151,7 @@ export const navData = {
 
   // ── Purchases ──────────────────────────────────────────────────────────────
   navPurchases: [
-    { title: "Purchase Voucher",       url: "/purchase/list/",                  icon: ShoppingCart     },
+    { title: "Purchase Voucher",       url: "/purchase/list/",                  icon: ShoppingCart, module: "purchase.purchasevoucher", perm: "post" },
     { title: "Purchase Return",        url: "/purchase/purchasereturn/list/",    icon: PackageXIcon     },
     { title: "Purchase Approval",      url: "/purchase/purchaseapproval/list/",  icon: PackageCheckIcon },
     { title: "Purchase Order",         url: "/purchase/purchaseorder/list/",     icon: ClipboardList    },
@@ -164,7 +164,7 @@ export const navData = {
     { title: "Estimate",       url: "/sales/estimate",            icon: Calculator       },
     { title: "Quotation",     url: "/sales/quotation/list/",     icon: FileText         },
     { title: "Customer Order", url: "/sales/customerorder/list/", icon: ClipboardList    },
-    { title: "Sales Voucher",  url: "/sales/list/",               icon: ReceiptTextIcon  },
+    { title: "Sales Voucher",  url: "/sales/list/",               icon: ReceiptTextIcon, module: "sales.salesvou", perm: "post" },
     { title: "Sales Return",   url: "/sales/salesreturn/list/",   icon: PackageXIcon     },
     { title: "Sales Approval",  url: "/sales/salesapproval/list/",        icon: PackageCheckIcon },
     { title: "Approval Return", url: "/sales/salesapprovalreturn/list/", icon: PackageXIcon     },
@@ -190,7 +190,7 @@ export const navData = {
       url: "#",
       icon: ScanLine,
       items: [
-        { title: "List",                url: "/inventory/barcodemanagement/list/"      },
+        { title: "List",                url: "/inventory/barcodemanagement/list/", module: "inventory.barcodemain", perm: "list" },
         { title: "Split",               url: "/inventory/barcodemanagement/split/"     },
         { title: "Merge",               url: "/inventory/barcodemanagement/merge"      },
         { title: "Stock Report",        url: "/inventory/reports/barcodestockreport"   },
@@ -234,7 +234,7 @@ export const navData = {
 
   // ── Financial Accounting ───────────────────────────────────────────────────
   navMain4: [
-    { title: "New Voucher Entry",    url: "/accounting/vouchers/select",      icon: ReceiptTextIcon  },
+    { title: "New Voucher Entry",    url: "/accounting/vouchers/select",      icon: ReceiptTextIcon, module: "accounting.vouchermain", perm: "post" },
     { title: "Opening Balances",     url: "/accounting/opening-balance",      icon: Scale            },
     {
       title: "Voucher Lists",

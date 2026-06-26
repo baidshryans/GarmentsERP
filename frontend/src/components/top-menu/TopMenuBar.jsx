@@ -19,16 +19,18 @@ import { RetailSwitcher } from "@/components/shared/RetailSwitcher"
 import { navSections } from "@/config/navData"
 import { useLayout } from "@/contexts/LayoutContext"
 import { useLicense } from "@/contexts/LicenseContext"
+import { usePermissions } from "@/contexts/PermissionContext"
+import { filterNavItems } from "@/lib/permissions"
 import { useState, useEffect } from "react"
 
 /** Build visible items for each section by merging licensed parts */
-function useLicensedSections(isNavGroupLicensed) {
+function useLicensedSections(isNavGroupLicensed, canAccess) {
   return navSections
     .map(({ label, parts }) => {
       const items = parts
         .filter(({ key }) => isNavGroupLicensed(key))
         .flatMap(({ items }) => items)
-      return { label, items }
+      return { label, items: filterNavItems(items, canAccess) }
     })
     .filter(({ items }) => items.length > 0)
 }
@@ -96,7 +98,8 @@ function SectionDropdown({ label, items }) {
 export function TopMenuBar() {
   const { setLayout } = useLayout()
   const { isNavGroupLicensed } = useLicense()
-  const filteredSections = useLicensedSections(isNavGroupLicensed)
+  const { canAccess } = usePermissions()
+  const filteredSections = useLicensedSections(isNavGroupLicensed, canAccess)
 
   // Read user from sessionStorage inside the component so it updates after login
   const [user, setUser] = useState(() => {

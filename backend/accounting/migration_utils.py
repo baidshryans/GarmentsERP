@@ -172,6 +172,35 @@ class PurityResolver:
         return None
 
 
+def hsn_for_voucher_items(main_items, detail_items):
+    """Pick the HSN for a voucher: the first main-line item that has an HSN
+    (Item.hsn_no), falling back to the first detail/component item with an HSN.
+    `main_items`/`detail_items` are iterables of Item-or-None. Returns Hsn|None."""
+    for it in main_items:
+        hsn = getattr(it, 'hsn_no', None) if it is not None else None
+        if hsn is not None:
+            return hsn
+    for it in detail_items:
+        hsn = getattr(it, 'hsn_no', None) if it is not None else None
+        if hsn is not None:
+            return hsn
+    return None
+
+
+def split_gst(taxable, hsn, is_central):
+    """(cgst, sgst, igst) amounts for a taxable value given an Hsn row and whether
+    the supply is interstate (IGST) vs local (CGST+SGST)."""
+    from decimal import Decimal, ROUND_HALF_UP
+    t = Decimal(str(taxable or 0))
+
+    def q(rate):
+        return (t * Decimal(str(rate or 0)) / 100).quantize(Decimal('0.01'), ROUND_HALF_UP)
+
+    if is_central:
+        return Decimal('0.00'), Decimal('0.00'), q(hsn.igst)
+    return q(hsn.cgst), q(hsn.sgst), Decimal('0.00')
+
+
 def resolve_ledger(code):
     """Resolve a legacy ledger code to a Django Ledger.
 

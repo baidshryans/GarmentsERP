@@ -23,8 +23,11 @@ from sales.models import SalesVou, SalesVouItem, SalesVouItemDetails, CustomerOr
 from contacts.models import Ledger
 from inventory.models import BarcodeMain
 from mastersconfig.models import Item, Packet, SalesPersonMaster
+from decimal import Decimal
+
 from accounting.migration_utils import (
     clean, dec, to_int, parse_date, OrgResolver, resolve_ac_voucher, resolve_ledger,
+    hsn_for_voucher_items,
 )
 
 
@@ -65,6 +68,9 @@ class Command(BaseCommand):
             'items':  self._pass(itm, self._import_item, 'SalesVouItem', SalesVouItem),
             'details': self._pass(det, self._import_detail, 'SalesVouItemDetails', SalesVouItemDetails),
         }
+        ids = {to_int(i) for i in hdr.get('id', pd.Series(dtype=str)).dropna()} - {None}
+        gst_updated = self._apply_gst(ids)
+        self.stdout.write(self.style.SUCCESS(f"GST recomputed from HSN for {gst_updated} voucher(s)"))
 
         self._report(report_dir)
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
@@ -192,6 +198,36 @@ class Command(BaseCommand):
         )
         if self.apply:
             obj.save(force_insert=True)
+
+    def _apply_gst(self, ids):
+        """Recompute each sale's GST percentages from its item's HSN master rate:
+        pick the HSN (main item, then stone-detail fallback) and set cgst_per/
+        sgst_per (local) or igst_per (interstate) per which legacy rate was
+        non-zero. SalesVou amounts are computed properties off these percentages."""
+        updated = 0
+        for sid in ids:
+            sv = SalesVou.objects.filter(id=sid).first()
+            if sv is None:
+                continue
+            main_items = [it.item for it in sv.salesvouitem_set.select_related('item__hsn_no').all()]
+            detail_items = [d.item for d in sv.salesvouitemdetails_set.select_related('item__hsn_no').all()]
+            hsn = hsn_for_voucher_items(main_items, detail_items)
+            if hsn is None:
+                self.unresolved.append({'table': 'gst', 'id': sid, 'error': 'no HSN on any item'})
+                continue
+            is_central = bool(sv.igst_per) and not (sv.cgst_per or sv.sgst_per)
+            if is_central:
+                sv.cgst_per = Decimal('0')
+                sv.sgst_per = Decimal('0')
+                sv.igst_per = Decimal(str(hsn.igst or 0))
+            else:
+                sv.cgst_per = Decimal(str(hsn.cgst or 0))
+                sv.sgst_per = Decimal(str(hsn.sgst or 0))
+                sv.igst_per = Decimal('0')
+            if self.apply:
+                sv.save(update_fields=['cgst_per', 'sgst_per', 'igst_per'])
+            updated += 1
+        return updated
 
     # ------------------------------------------------------------------ #
     def _item(self, item_id):

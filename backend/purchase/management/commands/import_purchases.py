@@ -28,8 +28,11 @@ from purchase.models import PurchaseVoucher, PurchaseVoucherItems, PurchaseVouch
 from contacts.models import Ledger
 from inventory.models import BarcodeMain
 from mastersconfig.models import Item, Packet
+from decimal import Decimal
+
 from accounting.migration_utils import (
     clean, dec, to_int, parse_date, OrgResolver, PurityResolver, resolve_ac_voucher, resolve_ledger,
+    hsn_for_voucher_items, split_gst,
 )
 
 @contextlib.contextmanager
@@ -108,6 +111,9 @@ class Command(BaseCommand):
                 'items':  self._pass(itm, self._import_item, 'PurchaseVoucherItems', PurchaseVoucherItems),
                 'details': self._pass(det, self._import_detail, 'PurchaseVoucherDetails', PurchaseVoucherDetails),
             }
+            billnos = {clean(b) for b in hdr.get('billno', pd.Series(dtype=str)).dropna()} - {''}
+            gst_updated = self._apply_gst(billnos)
+        self.stdout.write(self.style.SUCCESS(f"GST recomputed from HSN for {gst_updated} voucher(s)"))
 
         self._report(report_dir)
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
@@ -240,6 +246,40 @@ class Command(BaseCommand):
         )
         if self.apply:
             obj.save(force_insert=True)
+
+    def _apply_gst(self, billnos):
+        """Recompute each voucher's GST from its item's HSN master rate (not the
+        legacy amounts): pick the HSN (main item, then component fallback), split
+        the rate into CGST+SGST (local) or IGST (interstate) per which legacy GST
+        column was non-zero, and recompute the GST amounts + bill total."""
+        updated = 0
+        for billno in billnos:
+            pv = PurchaseVoucher.objects.filter(billno=billno).first()
+            if pv is None:
+                continue
+            main_items = [it.item for it in
+                          PurchaseVoucherItems.objects.filter(billno=pv).select_related('item__hsn_no')]
+            detail_items = [d.sub_item for d in
+                            PurchaseVoucherDetails.objects.filter(billno=pv).select_related('sub_item__hsn_no')]
+            hsn = hsn_for_voucher_items(main_items, detail_items)
+            if hsn is None:
+                self.unresolved.append({'table': 'gst', 'id': billno, 'error': 'no HSN on any item'})
+                continue
+            # interstate if the legacy voucher carried IGST and no CGST/SGST
+            is_central = bool(pv.igst) and not (pv.cgst or pv.sgst)
+            taxable = pv.item_total or Decimal('0')
+            cgst, sgst, igst = split_gst(taxable, hsn, is_central)
+            pv.hsn = hsn
+            pv.cgst, pv.sgst, pv.igst = cgst, sgst, igst
+            total = (taxable - (pv.discount_amt or 0) + (pv.hallmark_charge or 0)
+                     + (pv.freight_amt or 0) + cgst + sgst + igst
+                     + (pv.tcs_amt or 0) + (pv.round_off or 0))
+            pv.total_incl_gst = total
+            pv.bill_value = total
+            if self.apply:
+                pv.save(update_fields=['hsn', 'cgst', 'sgst', 'igst', 'total_incl_gst', 'bill_value'])
+            updated += 1
+        return updated
 
     # ------------------------------------------------------------------ #
     def _ledger(self, code):

@@ -432,6 +432,47 @@ def list_modules(request):
     return Response(result)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_permissions(request):
+    """Effective module→verb permission map for the calling user.
+
+    Mirrors RBACPermission: superusers get everything, inline child models
+    inherit their parent's verbs. Used by the frontend to hide menu items and
+    dashboard tiles the user cannot access.
+    """
+    from userauth.permissions import INLINE_MODEL_MAP
+
+    user = request.user
+    if user.is_superuser:
+        return Response({'is_superuser': True, 'modules': {}})
+
+    try:
+        user_role = UserRole.objects.select_related('role').get(user=user)
+    except UserRole.DoesNotExist:
+        return Response({'is_superuser': False, 'modules': {}})
+
+    modules = {}
+    for p in user_role.role.permissions.select_related('module').all():
+        ct = p.module
+        label = f"{ct.app_label}.{ct.model}"
+        modules[label] = {
+            'list':   p.can_list,
+            'get':    p.can_get,
+            'post':   p.can_post,
+            'put':    p.can_put,
+            'patch':  p.can_patch,
+            'delete': p.can_delete,
+        }
+
+    # Inline children inherit the parent's verbs (matches RBACPermission fallback).
+    for child_label, parent_label in INLINE_MODEL_MAP.items():
+        if parent_label in modules and child_label not in modules:
+            modules[child_label] = modules[parent_label]
+
+    return Response({'is_superuser': False, 'modules': modules})
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def assign_user_role(request, pk):

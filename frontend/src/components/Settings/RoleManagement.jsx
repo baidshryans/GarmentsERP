@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
+import { usePermissions } from "@/contexts/PermissionContext";
 import {
   fetchRoles, createRole, updateRole, deleteRole,
   fetchRolePermissions, saveRolePermissions, fetchModules,
@@ -25,6 +26,7 @@ const EDIT_SYNC = { can_put: "can_patch" };
 
 export default function RoleManagement() {
   const { toast } = useToast();
+  const { refreshPermissions } = usePermissions();
 
   const [roles,   setRoles]   = useState([]);
   const [modules, setModules] = useState([]);
@@ -145,6 +147,7 @@ export default function RoleManagement() {
       .map(([module_id, p]) => ({ module_id: Number(module_id), ...p }));
     const res = await saveRolePermissions(selectedRole.id, payload);
     if (res.success) {
+      refreshPermissions();
       toast({ title: `Permissions saved for "${selectedRole.name}".` });
     } else {
       toast({ title: "Failed to save permissions.", variant: "destructive" });

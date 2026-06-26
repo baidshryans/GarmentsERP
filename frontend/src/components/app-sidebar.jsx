@@ -11,6 +11,8 @@ import { navData, navSections } from "@/config/navData"
 import { NavSearch } from "@/components/NavSearch"
 import { useLayout } from "@/contexts/LayoutContext"
 import { useLicense } from "@/contexts/LicenseContext"
+import { usePermissions } from "@/contexts/PermissionContext"
+import { filterNavItems } from "@/lib/permissions"
 import { getRetails } from "@/services/apiService"
 import {
   Sidebar,
@@ -32,12 +34,13 @@ const user = {
 /** Build visible items for each section by merging licensed parts */
 function useLicensedSections() {
   const { isNavGroupLicensed } = useLicense()
+  const { canAccess } = usePermissions()
   return navSections
     .map(({ label, parts }) => {
       const items = parts
         .filter(({ key }) => isNavGroupLicensed(key))
         .flatMap(({ items }) => items)
-      return { label, items }
+      return { label, items: filterNavItems(items, canAccess) }
     })
     .filter(({ items }) => items.length > 0)
 }

@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
+import { usePermissions } from "@/contexts/PermissionContext";
 import { formatNumber, formatDate, getFormatConfig } from "@/lib/format";
 import { Link } from "react-router-dom";
 import {
@@ -245,6 +246,28 @@ export default function Dashboard() {
     return "Good evening";
   })();
 
+  const { canAccess } = usePermissions();
+
+  const quickActions = [
+    { to: "/sales/list/", icon: ReceiptText, label: "Sales Voucher", description: "Create or view sales bills", color: "violet", module: "sales.salesvou", perm: "post" },
+    { to: "/purchase/list/", icon: ShoppingCart, label: "Purchase Voucher", description: "Record purchases", color: "emerald", module: "purchase.purchasevoucher", perm: "post" },
+    { to: "/sales/estimate", icon: Calculator, label: "Estimate", description: "Create a new estimate", color: "sky", module: "sales.salesvou", perm: "post" },
+    { to: "/manufacturing/issue/jobwork/", icon: Hammer, label: "Job Work Issue", description: "Issue to karigar", color: "amber", module: "manufacturing.jobworkissue", perm: "post" },
+    { to: "/inventory/barcodemanagement/list/", icon: Package, label: "Barcode Management", description: "Manage inventory barcodes", color: "gray", module: "inventory.barcodemain", perm: "list" },
+    { to: "/accounting/vouchers/select", icon: Wallet, label: "Accounting Voucher", description: "Receipt, payment, journal", color: "rose", module: "accounting.vouchermain", perm: "post" },
+  ].filter((a) => canAccess(a.module, a.perm));
+
+  const reports = [
+    { to: "/accounting/ledger-statement", icon: FileText, label: "Ledger Statement", module: "accounting.vouchermain" },
+    { to: "/accounting/day-book", icon: BookOpen, label: "Day Book", module: "accounting.vouchermain" },
+    { to: "/accounting/outstanding", icon: Wallet, label: "Outstanding", module: "accounting.vouchermain" },
+    { to: "/accounting/trialbalance", icon: BookOpen, label: "Trial Balance", module: "accounting.vouchermain" },
+    { to: "/accounting/balancesheet", icon: BookOpen, label: "Balance Sheet", module: "accounting.vouchermain" },
+    { to: "/accounting/profitloss", icon: BookOpen, label: "Profit & Loss", module: "accounting.vouchermain" },
+    { to: "/inventory/reports/closing-stock", icon: Package, label: "Closing Stock", module: "inventory.barcodemain" },
+    { to: "/inventory/reports/barcodestockreport", icon: Package, label: "Stock Report", module: "inventory.barcodemain" },
+  ].filter((r) => canAccess(r.module, "list"));
+
   return (
     <div className="min-h-[calc(100svh-4rem)]">
       {/* ── Top bar ────────────────────────────────────────── */}
@@ -281,72 +304,34 @@ export default function Dashboard() {
         <GoldRateCard />
 
         {/* Quick Actions */}
+        {quickActions.length > 0 && (
         <div>
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
             Quick Actions
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <QuickAction
-              to="/sales/list/"
-              icon={ReceiptText}
-              label="Sales Voucher"
-              description="Create or view sales bills"
-              color="violet"
-            />
-            <QuickAction
-              to="/purchase/list/"
-              icon={ShoppingCart}
-              label="Purchase Voucher"
-              description="Record purchases"
-              color="emerald"
-            />
-            <QuickAction
-              to="/sales/estimate"
-              icon={Calculator}
-              label="Estimate"
-              description="Create a new estimate"
-              color="sky"
-            />
-            <QuickAction
-              to="/manufacturing/issue/jobwork/"
-              icon={Hammer}
-              label="Job Work Issue"
-              description="Issue to karigar"
-              color="amber"
-            />
-            <QuickAction
-              to="/inventory/barcodemanagement/list/"
-              icon={Package}
-              label="Barcode Management"
-              description="Manage inventory barcodes"
-              color="gray"
-            />
-            <QuickAction
-              to="/accounting/vouchers/select"
-              icon={Wallet}
-              label="Accounting Voucher"
-              description="Receipt, payment, journal"
-              color="rose"
-            />
+            {quickActions.map((a) => (
+              <QuickAction
+                key={a.to}
+                to={a.to}
+                icon={a.icon}
+                label={a.label}
+                description={a.description}
+                color={a.color}
+              />
+            ))}
           </div>
         </div>
+        )}
 
         {/* Reports shortcuts */}
+        {reports.length > 0 && (
         <div>
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
             Reports
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {[
-              { to: "/accounting/ledger-statement", icon: FileText, label: "Ledger Statement" },
-              { to: "/accounting/day-book", icon: BookOpen, label: "Day Book" },
-              { to: "/accounting/outstanding", icon: Wallet, label: "Outstanding" },
-              { to: "/accounting/trialbalance", icon: BookOpen, label: "Trial Balance" },
-              { to: "/accounting/balancesheet", icon: BookOpen, label: "Balance Sheet" },
-              { to: "/accounting/profitloss", icon: BookOpen, label: "Profit & Loss" },
-              { to: "/inventory/reports/closing-stock", icon: Package, label: "Closing Stock" },
-              { to: "/inventory/reports/barcodestockreport", icon: Package, label: "Stock Report" },
-            ].map(({ to, icon: Icon, label }) => (
+            {reports.map(({ to, icon: Icon, label }) => (
               <Link
                 key={to}
                 to={to}
@@ -360,6 +345,7 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

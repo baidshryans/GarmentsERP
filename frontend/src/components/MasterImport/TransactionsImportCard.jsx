@@ -5,6 +5,7 @@ import { runMigrationImport, downloadMigrationTemplate, resetMigrationData } fro
 const RESET_SCOPES = [
   { key: "gl", label: "GL Vouchers" },
   { key: "customer_orders", label: "Customer Orders" },
+  { key: "ledger_opening", label: "Ledger Opening Balances" },
   { key: "sales", label: "Sales Vouchers" },
   { key: "purchases", label: "Purchase Vouchers" },
   { key: "ledgers", label: "Non-system ledgers + aliases" },
@@ -28,6 +29,14 @@ const KINDS = [
     fields: [
       { name: "header", label: "customer_order (header)", template: "customer_order" },
       { name: "items",  label: "customer_order_main (items)", template: "customer_order_main" },
+    ],
+  },
+  {
+    kind: "ledger_opening",
+    label: "Ledger Opening Balances",
+    desc: "Opening debit/credit per ledger per year (ldgr_open_balance). Import ledgers first.",
+    fields: [
+      { name: "file", label: "ldgr_open_balance", template: "ldgr_open_balance" },
     ],
   },
   {

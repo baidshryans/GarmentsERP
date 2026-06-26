@@ -1114,7 +1114,7 @@ class MySQLSyncView(APIView):
                 if 'barcode' in tables_requested:
                     results['barcode'] = self._sync_barcodes(cursor)
 
-                for _tx_key in ('gl_vouchers', 'sales', 'purchases', 'allocations'):
+                for _tx_key in ('ledger_opening', 'gl_vouchers', 'sales', 'purchases', 'allocations'):
                     if _tx_key in tables_requested:
                         results[_tx_key] = self._sync_transaction(cursor, _tx_key)
 
@@ -1557,6 +1557,9 @@ class MySQLSyncView(APIView):
         'customer_orders': ('import_customer_orders',
                             {'header': 'customer_order', 'items': 'customer_order_main'},
                             ['header', 'items']),
+        'ledger_opening':  ('import_ledger_opening',
+                            {'file': ('ldgr_open_balance',)},
+                            ['file']),
         'allocations': ('import_voucher_allocations',
                         {'receive': 'receive_amount', 'payment': 'payment_amount', 'journal': 'journal_amount'},
                         []),

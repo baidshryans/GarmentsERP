@@ -72,21 +72,32 @@ class Command(BaseCommand):
 
         self._report(opts['report_dir'])
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
-        for name, (alloc, skipped, errored) in totals.items():
+        for name, (alloc, skipped, errored, unresolved) in totals.items():
             self.stdout.write(self.style.SUCCESS(
-                f"[{mode}] {name}: vouchers-allocated={alloc} skipped(existing)={skipped} errored={errored}"
+                f"[{mode}] {name}: vouchers-allocated={alloc} skipped(existing)={skipped} "
+                f"bill-unresolved={unresolved} errored={errored}"
             ))
         if not self.apply:
             self.stdout.write(self.style.WARNING("Dry run — re-run with --apply to persist."))
 
     # ------------------------------------------------------------------ #
+    # Prior-year amount rows reference vouchers that aren't in the migrated
+    # voucher_main (only 2026-2027 exists), so skip them.
+    SKIP_ACC_YEARS = {'2025-2026', '25-26'}
+
     def _run(self, path, kind):
         if not os.path.exists(path):
             raise CommandError(f"File not found: {path}")
         df = pd.read_csv(path, dtype=str)
         df.columns = [c.strip() for c in df.columns]
 
-        allocated = skipped = errored = 0
+        year_skipped = 0
+        if 'acc_year' in df.columns:
+            mask = df['acc_year'].astype(str).str.strip().isin(self.SKIP_ACC_YEARS)
+            year_skipped = int(mask.sum())
+            df = df[~mask]
+
+        allocated = skipped = errored = unresolved = 0
         grouped = df.groupby([df[c] for c in GROUP_COLS], sort=False)
         for _, group in grouped:
             head = group.iloc[0]
@@ -95,6 +106,8 @@ class Command(BaseCommand):
                     res = self._allocate_group(head, group, kind)
                 if res == 'skipped':
                     skipped += 1
+                elif res == 'unresolved':
+                    unresolved += 1
                 elif res == 'done':
                     allocated += 1
             except Exception as exc:
@@ -104,7 +117,10 @@ class Command(BaseCommand):
                 self.stderr.write(self.style.ERROR(f"{kind} {key}: {exc}"))
                 if not self.cont:
                     raise CommandError(str(exc))
-        return allocated, skipped, errored
+        if year_skipped:
+            self.stdout.write(self.style.WARNING(
+                f"{kind}: skipped {year_skipped} prior-year (2025-2026) row(s)"))
+        return allocated, skipped, errored, unresolved
 
     def _allocate_group(self, head, group, kind):
         v_typ, v_id = clean(head['v_typ']), clean(head['v_id'])
@@ -151,15 +167,21 @@ class Command(BaseCommand):
             amt = dec(r['amount'])
             bill = self._resolve_bill(billno, is_sales)
             if bill is None:
+                # The bill isn't a migrated SalesVou/PurchaseVoucher — e.g. a
+                # journal-recorded purchase invoice. Report and skip it (don't
+                # error), leaving the party leg on-account.
                 self.unresolved.append({
                     'kind': kind, 'voucher': f"{v_typ}:{v_id}", 'billno': billno,
-                    'error': 'bill not found',
+                    'error': 'bill not in migrated vouchers (e.g. journal-recorded)',
                 })
-                raise ValueError(f"bill {billno!r} not found")
+                continue
             allocated_total += amt
             new_lines.append((bill, amt, billno))
             tracker = self.sales_alloc if is_sales else self.purch_alloc
             tracker[bill] = tracker.get(bill, Decimal('0')) + amt
+
+        if not new_lines:
+            return 'unresolved'  # no bill in this group resolved to a voucher
 
         if allocated_total > original_total + Decimal('0.01'):
             raise ValueError(

@@ -3632,15 +3632,13 @@ def inter_retail_transfer_next_no(request):
 
 def _sync_opening_to_raw_material(item, purity, packet, retail, pcs, ct, gw):
     from decimal import Decimal
-    rm, created = RawMaterialInventory.objects.get_or_create(
-        item=item, packet=packet, purity=purity, retail=retail,
-        defaults={'pcs': pcs, 'ct': Decimal(str(ct)), 'gw': Decimal(str(gw))},
-    )
-    if not created:
-        rm.pcs += pcs
-        rm.ct += Decimal(str(ct))
-        rm.gw += Decimal(str(gw))
-        rm.save(update_fields=['pcs', 'ct', 'gw'])
+    # get_or_merge tolerates duplicate rows (NULL packet/purity bypass the
+    # unique_together) and creates with zeroes, so we add the delta unconditionally.
+    rm = RawMaterialInventory.get_or_merge(item, packet, purity, retail)
+    rm.pcs += pcs
+    rm.ct += Decimal(str(ct))
+    rm.gw += Decimal(str(gw))
+    rm.save(update_fields=['pcs', 'ct', 'gw'])
 
 
 class OpeningInventoryViewSet(RetailBaseViewset):

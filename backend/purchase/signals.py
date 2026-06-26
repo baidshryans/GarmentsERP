@@ -13,10 +13,9 @@ from purchase.models import (
 # ── helpers ────────────────────────────────────────────────────────────────────
 
 def _update_raw_material(item, packet, purity, retail, pcs=0, ct=Decimal('0'), gw=Decimal('0')):
-    rm, _ = RawMaterialInventory.objects.get_or_create(
-        item=item, packet=packet, purity=purity, retail=retail,
-        defaults={'pcs': 0, 'ct': Decimal('0'), 'gw': Decimal('0')},
-    )
+    # get_or_merge tolerates duplicate inventory rows (NULL packet/purity bypass
+    # the unique_together), so this never raises MultipleObjectsReturned.
+    rm = RawMaterialInventory.get_or_merge(item, packet, purity, retail)
     rm.pcs += pcs
     rm.ct += ct
     rm.gw += gw

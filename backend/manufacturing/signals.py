@@ -18,11 +18,9 @@ from purchase.models import PurchaseVoucherDetails
 # ── helpers ────────────────────────────────────────────────────────────────────
 
 def _update_raw_material(item, packet, purity, retail, pcs=0, ct=Decimal('0'), gw=Decimal('0')):
-    """get_or_create an inventory row and adjust quantities."""
-    rm, _ = RawMaterialInventory.objects.get_or_create(
-        item=item, packet=packet, purity=purity, retail=retail,
-        defaults={'pcs': 0, 'ct': Decimal('0'), 'gw': Decimal('0')},
-    )
+    """Adjust an inventory row's quantities; tolerates duplicate rows (NULL
+    packet/purity bypass the unique_together) via get_or_merge."""
+    rm = RawMaterialInventory.get_or_merge(item, packet, purity, retail)
     rm.pcs += pcs
     rm.ct += ct
     rm.gw += gw

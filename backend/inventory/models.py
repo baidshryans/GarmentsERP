@@ -350,6 +350,29 @@ class RawMaterialInventory(models.Model):
         db_table = "raw_material_inventory"
         unique_together = ['item', 'packet', 'purity', 'retail']
 
+    @classmethod
+    def get_or_merge(cls, item, packet, purity, retail):
+        """Return the single canonical inventory row for this key.
+
+        `unique_together` includes nullable packet/purity, and SQL treats NULL as
+        distinct — so duplicate rows can slip in (races / bulk inserts). This
+        folds any duplicates into the lowest-pk row (summing pcs/ct/gw) and
+        deletes the extras, so callers never hit MultipleObjectsReturned.
+        """
+        rows = list(cls.objects.filter(
+            item=item, packet=packet, purity=purity, retail=retail).order_by('pk'))
+        if not rows:
+            return cls.objects.create(item=item, packet=packet, purity=purity, retail=retail)
+        rm = rows[0]
+        if len(rows) > 1:
+            for extra in rows[1:]:
+                rm.pcs += extra.pcs
+                rm.ct += extra.ct
+                rm.gw += extra.gw
+            rm.save(update_fields=['pcs', 'ct', 'gw'])
+            cls.objects.filter(pk__in=[e.pk for e in rows[1:]]).delete()
+        return rm
+
 
 class RawMaterialTransaction(models.Model):
     date = models.DateTimeField(auto_now_add=True)

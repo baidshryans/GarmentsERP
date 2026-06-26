@@ -34,6 +34,7 @@ urlpatterns += [
     path('api/roles/<int:pk>/', views.role_detail),
     path('api/roles/<int:pk>/permissions/', views.role_permissions),
     path('api/modules/', views.list_modules),
+    path('api/my-permissions/', views.my_permissions),
     path('api/backup-database/', views.backup_database),
     path('api/logout/', views.logout_view),
     path('api/login-log/', views.login_log),

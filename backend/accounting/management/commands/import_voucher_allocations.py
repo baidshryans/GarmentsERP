@@ -72,10 +72,10 @@ class Command(BaseCommand):
 
         self._report(opts['report_dir'])
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
-        for name, (alloc, skipped, errored, unresolved) in totals.items():
+        for name, (alloc, skipped, errored, unresolved, recorded) in totals.items():
             self.stdout.write(self.style.SUCCESS(
                 f"[{mode}] {name}: vouchers-allocated={alloc} skipped(existing)={skipped} "
-                f"bill-unresolved={unresolved} errored={errored}"
+                f"vendor-bill-recorded={recorded} bill-unresolved={unresolved} errored={errored}"
             ))
         if not self.apply:
             self.stdout.write(self.style.WARNING("Dry run — re-run with --apply to persist."))
@@ -97,7 +97,7 @@ class Command(BaseCommand):
             year_skipped = int(mask.sum())
             df = df[~mask]
 
-        allocated = skipped = errored = unresolved = 0
+        allocated = skipped = errored = unresolved = recorded = 0
         grouped = df.groupby([df[c] for c in GROUP_COLS], sort=False)
         for _, group in grouped:
             head = group.iloc[0]
@@ -108,6 +108,8 @@ class Command(BaseCommand):
                     skipped += 1
                 elif res == 'unresolved':
                     unresolved += 1
+                elif res == 'recorded':
+                    recorded += 1
                 elif res == 'done':
                     allocated += 1
             except Exception as exc:
@@ -120,7 +122,7 @@ class Command(BaseCommand):
         if year_skipped:
             self.stdout.write(self.style.WARNING(
                 f"{kind}: skipped {year_skipped} prior-year (2025-2026) row(s)"))
-        return allocated, skipped, errored, unresolved
+        return allocated, skipped, errored, unresolved, recorded
 
     def _allocate_group(self, head, group, kind):
         v_typ, v_id = clean(head['v_typ']), clean(head['v_id'])
@@ -162,18 +164,22 @@ class Command(BaseCommand):
 
         allocated_total = Decimal('0')
         new_lines = []
+        vendor_refs = []  # journal-recorded bills -> ReferenceBills.vendor_bill_no
         for _, r in group.iterrows():
             billno = clean(r['billno'])
             amt = dec(r['amount'])
             bill = self._resolve_bill(billno, is_sales)
             if bill is None:
-                # The bill isn't a migrated SalesVou/PurchaseVoucher — e.g. a
-                # journal-recorded purchase invoice. Report and skip it (don't
-                # error), leaving the party leg on-account.
-                self.unresolved.append({
-                    'kind': kind, 'voucher': f"{v_typ}:{v_id}", 'billno': billno,
-                    'error': 'bill not in migrated vouchers (e.g. journal-recorded)',
-                })
+                # The bill isn't a migrated SalesVou/PurchaseVoucher. For payments
+                # this is a journal-recorded vendor invoice — record the number on
+                # the voucher (ReferenceBills.vendor_bill_no) instead of dropping it.
+                if not is_sales and billno:
+                    vendor_refs.append((billno, amt))
+                else:
+                    self.unresolved.append({
+                        'kind': kind, 'voucher': f"{v_typ}:{v_id}", 'billno': billno,
+                        'error': 'bill not in migrated vouchers (e.g. journal-recorded)',
+                    })
                 continue
             allocated_total += amt
             new_lines.append((bill, amt, billno))
@@ -181,6 +187,9 @@ class Command(BaseCommand):
             tracker[bill] = tracker.get(bill, Decimal('0')) + amt
 
         if not new_lines:
+            if vendor_refs:
+                self._record_vendor_bills(voucher, ledger_id, vendor_refs)
+                return 'recorded'
             return 'unresolved'  # no bill in this group resolved to a voucher
 
         if allocated_total > original_total + Decimal('0.01'):
@@ -207,7 +216,22 @@ class Command(BaseCommand):
                     credit=(remainder if is_sales else Decimal('0')),
                     ref_bill_no='',
                 )
+            if vendor_refs:
+                self._record_vendor_bills(voucher, ledger_id, vendor_refs)
         return 'done'
+
+    def _record_vendor_bills(self, voucher, ledger_id, vendor_refs):
+        """Record journal-recorded vendor invoices on the voucher as
+        ReferenceBills.vendor_bill_no (no migrated PurchaseVoucher to link)."""
+        if not self.apply:
+            return
+        from accounting.models import ReferenceBills
+        for billno, amt in vendor_refs:
+            vb = billno[:20]  # field is CharField(20)
+            ReferenceBills.objects.get_or_create(
+                voucher=voucher, ldgr_id=ledger_id, vendor_bill_no=vb,
+                defaults={'amount': amt, 'ref_bill_txt': vb},
+            )
 
     def _tag_journal(self, voucher, ledger_id, group):
         """Journals are not split — tag the matching party line with the bill

@@ -184,6 +184,11 @@ class Command(BaseCommand):
         )
         if self.apply:
             obj.save(force_insert=True)
+            # Reciprocal link: the barcode points back to this purchase-voucher
+            # line (so BarcodeMain.pur_voucher resolves once purchases are synced).
+            if obj.barcode_id and obj.barcode.pur_voucher_id is None:
+                obj.barcode.pur_voucher = obj
+                obj.barcode.save(update_fields=['pur_voucher'])
 
     def _import_detail(self, r):
         retail, _, _ = self.org.get(r.get('rt_code'), r.get('br_code'), r.get('ac_yr'))

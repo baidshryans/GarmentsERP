@@ -73,8 +73,11 @@ def _validate_main_row(row, row_num, main_barcodes, existing_barcodes, errors):
     _check(lambda: parse_decimal_field(row.get('value'), 'value', 2))
     _check(lambda: parse_decimal_field(row.get('making_value'), 'making_value', 2))
 
-    if str(row.get('total_amount') or '').strip():
-        _check(lambda: parse_decimal_field(row.get('total_amount'), 'total_amount', 2))
+    _total = row.get('total_amount')
+    if not str(_total or '').strip():
+        _total = row.get('total')
+    if str(_total or '').strip():
+        _check(lambda: parse_decimal_field(_total, 'total_amount', 2))
     if str(row.get('other_charges') or '').strip():
         _check(lambda: parse_decimal_field(row.get('other_charges'), 'other_charges', 2))
 
@@ -130,22 +133,37 @@ def _build_barcode_main_kwargs(row):
         'retail': match_retail_code(row.get('retail_code')),
         'op_stk': True,
     }
-    # Optional string fields — only set when non-empty
+    # Optional string fields — only set when non-empty. voucher_no carries the
+    # legacy purchase-voucher number as text (its pur_voucher FK is linked when
+    # the purchase voucher is imported).
     for csv_col, model_field in [
         ('huid', 'huid'),
         ('design_code', 'design_code'),
         ('metal_color', 'metal_color'),
         ('size', 'size'),
         ('making_type', 'making_type'),
+        ('voucher_no', 'voucher_no'),
     ]:
         val = str(row.get(csv_col) or '').strip()
         if val:
             kwargs[model_field] = val
-    # Optional decimals
-    if str(row.get('total_amount') or '').strip():
-        kwargs['total_amount'] = parse_decimal_field(row.get('total_amount'), 'total_amount', 2)
+    # Optional decimals — accept the legacy `total` column as an alias for the
+    # `total_amount` field (legacy barcode_main names it `total`).
+    total_raw = row.get('total_amount')
+    if not str(total_raw or '').strip():
+        total_raw = row.get('total')
+    if str(total_raw or '').strip():
+        kwargs['total_amount'] = parse_decimal_field(total_raw, 'total_amount', 2)
     if str(row.get('other_charges') or '').strip():
         kwargs['other_chg'] = parse_decimal_field(row.get('other_charges'), 'other_charges', 2)
+    # Resolve the legacy order_no text -> CustomerOrder FK (when the order exists),
+    # which drives customer-order tracking for the barcode.
+    order_no = str(row.get('order_no') or '').strip()
+    if order_no:
+        from sales.models import CustomerOrder
+        co = CustomerOrder.objects.filter(order_no=order_no).first()
+        if co:
+            kwargs['customer_order'] = co
     return kwargs
 
 
@@ -380,6 +398,7 @@ class BarcodeMainTemplateView(APIView):
             'barcode', 'item_id', 'purity', 'quantity_pieces', 'gross_weight',
             'net_weight', 'value', 'making_value', 'total_amount', 'retail_code',
             'huid', 'design_code', 'metal_color', 'size', 'making_type', 'other_charges',
+            'order_no', 'voucher_no',
         ]
         example = {
             'barcode': 'B001',
@@ -398,6 +417,8 @@ class BarcodeMainTemplateView(APIView):
             'size': '6.5',
             'making_type': 'Hand',
             'other_charges': '500.00',
+            'order_no': 'CO/R001/25-26/00001',
+            'voucher_no': 'C2526/00001',
         }
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="barcode_main_template.csv"'

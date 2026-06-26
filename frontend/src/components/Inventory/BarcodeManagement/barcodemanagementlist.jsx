@@ -43,7 +43,7 @@ const BarcodeManagementList = () => {
     defaultValues: {
       form: {
         barcode: "", item: "", purity: "", pcs: "", gw: "", nw: "",
-        huid: "", value: "", making_val: "", making_type: "", other_chg: 0,
+        huid: "", rfid_tag: "", value: "", making_val: "", making_type: "", other_chg: 0,
         design_code: "", kr_code: "", voucher_no: "", size: "", metal_color: "",
         total_amount: 0, order_no: "", add_to_design: false,
         created_date: new Date().toISOString().split("T")[0],
@@ -525,6 +525,10 @@ const BarcodeManagementList = () => {
             <FieldContainer>
               <Label className="text-xs font-semibold text-muted-foreground">HUID</Label>
               <Input type="text" {...register("form.huid")} />
+            </FieldContainer>
+            <FieldContainer>
+              <Label className="text-xs font-semibold text-muted-foreground">RFID TAG</Label>
+              <Input type="text" className="font-mono" placeholder="Scan or type EPC" {...register("form.rfid_tag")} />
             </FieldContainer>
             <FieldContainer>
               <Label className="text-xs font-semibold text-muted-foreground">SIZE</Label>

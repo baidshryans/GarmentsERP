@@ -359,6 +359,7 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             'gw',
             'nw',
             'huid',
+            'rfid_tag',
             'purity',
             'value',
             'making_val',
@@ -383,7 +384,22 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             'item_name': {'read_only': True},
             'purity_name': {'read_only': True},
             'customer_order': {'required': False, 'allow_null': True},
+            'rfid_tag': {'required': False, 'allow_null': True, 'allow_blank': True},
         }
+
+    def validate_rfid_tag(self, value):
+        """Reject an RFID EPC already assigned to a different barcode."""
+        rfid = (value or '').strip()
+        if not rfid:
+            return None
+        qs = BarcodeMain.objects.filter(rfid_tag=rfid)
+        if self.instance is not None:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                'This RFID tag is already assigned to another item.'
+            )
+        return rfid
 
 
     def to_representation(self, instance):

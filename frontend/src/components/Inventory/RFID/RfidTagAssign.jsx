@@ -141,7 +141,7 @@ export default function RfidTagAssign() {
           <DataTable
             columns={columns}
             data={rows}
-            onRowClick={handleSelect}
+            rowClick={handleSelect}
           />
           {rows.length === 0 && <p className="text-center text-muted-foreground py-6">No items found.</p>}
         </div>

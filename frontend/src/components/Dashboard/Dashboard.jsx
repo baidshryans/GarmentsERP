@@ -252,7 +252,7 @@ export default function Dashboard() {
     { to: "/sales/list/", icon: ReceiptText, label: "Sales Voucher", description: "Create or view sales bills", color: "violet", module: "sales.salesvou", perm: "post" },
     { to: "/purchase/list/", icon: ShoppingCart, label: "Purchase Voucher", description: "Record purchases", color: "emerald", module: "purchase.purchasevoucher", perm: "post" },
     { to: "/sales/estimate", icon: Calculator, label: "Estimate", description: "Create a new estimate", color: "sky", module: "sales.salesvou", perm: "post" },
-    { to: "/manufacturing/issue/jobwork/", icon: Hammer, label: "Job Work Issue", description: "Issue to karigar", color: "amber", module: "manufacturing.jobworkissue", perm: "post" },
+    { to: "/manufacturing/issue/jobwork/", icon: Hammer, label: "Job Work Issue", description: "Issue to karigar", color: "amber", module: "manufacturing.karigarissue", perm: "post" },
     { to: "/inventory/barcodemanagement/list/", icon: Package, label: "Barcode Management", description: "Manage inventory barcodes", color: "gray", module: "inventory.barcodemain", perm: "list" },
     { to: "/accounting/vouchers/select", icon: Wallet, label: "Accounting Voucher", description: "Receipt, payment, journal", color: "rose", module: "accounting.vouchermain", perm: "post" },
   ].filter((a) => canAccess(a.module, a.perm));

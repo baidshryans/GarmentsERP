@@ -132,11 +132,14 @@ class Command(BaseCommand):
             return 'skipped'
 
         # the unallocated party leg(s) for this ledger
+        # A party leg is "unallocated" when it has no ref_sales_vou/ref_purchase_vou
+        # FK yet. We deliberately do NOT filter on ref_bill_no: the GL import seeds
+        # it from the legacy rmks (e.g. "Against Reference" / "On Account"), which
+        # is descriptive text, not an allocation. The idempotency guard above
+        # (a ref_* FK already set for this ledger -> skip) prevents re-splitting.
         party = list(voucher.transactions.filter(
             account_id=ledger_id, **{f'{side}__gt': 0},
-        ).filter(Q(ref_bill_no='') | Q(ref_bill_no__isnull=True)).filter(
-            **{f'{ref_field}__isnull': True}
-        ))
+        ).filter(**{f'{ref_field}__isnull': True}))
         if not party:
             raise ValueError(f"no unallocated {side} party leg for ledger {ledger_id}")
         original_total = sum((getattr(l, side) for l in party), Decimal('0'))

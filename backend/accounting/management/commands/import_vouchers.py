@@ -286,7 +286,10 @@ class Command(BaseCommand):
             total_cr += cr
             lines.append(dict(
                 account=account, debit=dr, credit=cr,
-                ref_bill_no=(_clean(r.get('rmks'))[:30] or None),
+                # rmks is descriptive ("Against Reference" / "On Account"), not a
+                # bill number — leave ref_bill_no empty so the allocation pass can
+                # populate it with the real bill it settles.
+                ref_bill_no='',
                 chq_no=(_clean(r.get('chq_no'))[:200] or None),
                 chq_date=_date(r.get('chq_date')),
                 party_bank_name=(bank_nm or None),

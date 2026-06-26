@@ -249,27 +249,37 @@ class Command(BaseCommand):
 
     def _apply_gst(self, billnos):
         """Recompute each voucher's GST from its item's HSN master rate (not the
-        legacy amounts): pick the HSN (main item, then component fallback), split
-        the rate into CGST+SGST (local) or IGST (interstate) per which legacy GST
-        column was non-zero, and recompute the GST amounts + bill total."""
+        legacy amounts). Only PURC-SC (Vendor) purchases carry GST; PURC-CO
+        (Customer / old-gold) purchases get zero GST. HSN = first main-line item
+        with an HSN, else the component (stock_inward_detail) item's HSN. The rate
+        is split CGST+SGST (local) or IGST (interstate) per which legacy GST
+        column was non-zero. Bill total is recomputed to stay consistent."""
         updated = 0
         for billno in billnos:
             pv = PurchaseVoucher.objects.filter(billno=billno).first()
             if pv is None:
                 continue
-            main_items = [it.item for it in
-                          PurchaseVoucherItems.objects.filter(billno=pv).select_related('item__hsn_no')]
-            detail_items = [d.sub_item for d in
-                            PurchaseVoucherDetails.objects.filter(billno=pv).select_related('sub_item__hsn_no')]
-            hsn = hsn_for_voucher_items(main_items, detail_items)
-            if hsn is None:
-                self.unresolved.append({'table': 'gst', 'id': billno, 'error': 'no HSN on any item'})
-                continue
-            # interstate if the legacy voucher carried IGST and no CGST/SGST
-            is_central = bool(pv.igst) and not (pv.cgst or pv.sgst)
             taxable = pv.item_total or Decimal('0')
-            cgst, sgst, igst = split_gst(taxable, hsn, is_central)
-            pv.hsn = hsn
+            cgst = sgst = igst = Decimal('0')
+
+            if pv.voucher_type == 'Customer':
+                # PURC-CO (purchase from customer / old gold) — no GST.
+                pv.hsn = None
+            else:
+                # PURC-SC (vendor) — derive GST from the HSN master.
+                main_items = [it.item for it in
+                              PurchaseVoucherItems.objects.filter(billno=pv).select_related('item__hsn_no')]
+                detail_items = [d.sub_item for d in
+                                PurchaseVoucherDetails.objects.filter(billno=pv).select_related('sub_item__hsn_no')]
+                hsn = hsn_for_voucher_items(main_items, detail_items)
+                if hsn is None:
+                    self.unresolved.append({'table': 'gst', 'id': billno, 'error': 'no HSN on any item'})
+                    continue
+                # interstate if the legacy voucher carried IGST and no CGST/SGST
+                is_central = bool(pv.igst) and not (pv.cgst or pv.sgst)
+                cgst, sgst, igst = split_gst(taxable, hsn, is_central)
+                pv.hsn = hsn
+
             pv.cgst, pv.sgst, pv.igst = cgst, sgst, igst
             total = (taxable - (pv.discount_amt or 0) + (pv.hallmark_charge or 0)
                      + (pv.freight_amt or 0) + cgst + sgst + igst

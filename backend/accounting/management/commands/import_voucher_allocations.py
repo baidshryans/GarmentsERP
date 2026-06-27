@@ -58,6 +58,7 @@ class Command(BaseCommand):
         # bill object -> Decimal allocated (for final due_amt reconciliation)
         self.sales_alloc = {}
         self.purch_alloc = {}
+        self.text_tagged = 0  # bills tagged by number only (no migrated voucher FK)
 
         totals = {}
         if opts['receive']:
@@ -75,8 +76,12 @@ class Command(BaseCommand):
         for name, (alloc, skipped, errored, unresolved, recorded) in totals.items():
             self.stdout.write(self.style.SUCCESS(
                 f"[{mode}] {name}: vouchers-allocated={alloc} skipped(existing)={skipped} "
-                f"vendor-bill-recorded={recorded} bill-unresolved={unresolved} errored={errored}"
+                f"bill-unresolved={unresolved} errored={errored}"
             ))
+        if self.text_tagged:
+            self.stdout.write(self.style.SUCCESS(
+                f"  ({self.text_tagged} bill(s) tagged by vendor bill-no only — "
+                f"journal-recorded, no migrated voucher to link)"))
         if not self.apply:
             self.stdout.write(self.style.WARNING("Dry run — re-run with --apply to persist."))
 
@@ -155,54 +160,46 @@ class Command(BaseCommand):
         side = 'credit' if is_sales else 'debit'
         ref_field = 'ref_sales_vou' if is_sales else 'ref_purchase_vou'
 
-        # idempotency: already has allocated lines for this ledger?
+        # idempotency: a line already carrying a bill reference for this ledger —
+        # either the FK or a non-empty ref_bill_no (text, for journal-recorded
+        # bills) — means this voucher was already allocated -> skip.
         if voucher.transactions.filter(account_id=ledger_id).filter(
-            **{f'{ref_field}__isnull': False}
+            Q(**{f'{ref_field}__isnull': False})
+            | (Q(ref_bill_no__isnull=False) & ~Q(ref_bill_no=''))
         ).exists():
             return 'skipped'
 
-        # the unallocated party leg(s) for this ledger
-        # A party leg is "unallocated" when it has no ref_sales_vou/ref_purchase_vou
-        # FK yet. We deliberately do NOT filter on ref_bill_no: the GL import seeds
-        # it from the legacy rmks (e.g. "Against Reference" / "On Account"), which
-        # is descriptive text, not an allocation. The idempotency guard above
-        # (a ref_* FK already set for this ledger -> skip) prevents re-splitting.
+        # the unallocated party leg(s) for this ledger: no FK and no bill text yet.
         party = list(voucher.transactions.filter(
             account_id=ledger_id, **{f'{side}__gt': 0},
-        ).filter(**{f'{ref_field}__isnull': True}))
+        ).filter(**{f'{ref_field}__isnull': True}).filter(
+            Q(ref_bill_no__isnull=True) | Q(ref_bill_no='')
+        ))
         if not party:
             raise ValueError(f"no unallocated {side} party leg for ledger {ledger_id}")
         original_total = sum((getattr(l, side) for l in party), Decimal('0'))
 
         allocated_total = Decimal('0')
-        new_lines = []
-        vendor_refs = []  # journal-recorded bills -> ReferenceBills.vendor_bill_no
+        new_lines = []  # (bill_or_None, amt, billno)
         for _, r in group.iterrows():
             billno = clean(r['billno'])
             amt = dec(r['amount'])
-            bill = self._resolve_bill(billno, is_sales)
-            if bill is None:
-                # The bill isn't a migrated SalesVou/PurchaseVoucher. For payments
-                # this is a journal-recorded vendor invoice — record the number on
-                # the voucher (ReferenceBills.vendor_bill_no) instead of dropping it.
-                if not is_sales and billno:
-                    vendor_refs.append((billno, amt))
-                else:
-                    self.unresolved.append({
-                        'kind': kind, 'voucher': f"{v_typ}:{v_id}", 'billno': billno,
-                        'error': 'bill not in migrated vouchers (e.g. journal-recorded)',
-                    })
+            if not billno:
                 continue
+            # bill may be None: the bill wasn't migrated as a SalesVou/PurchaseVoucher
+            # (e.g. a journal-recorded vendor invoice). We still tag the party leg
+            # with the bill number so the voucher reads as allocated.
+            bill = self._resolve_bill(billno, is_sales)
             allocated_total += amt
             new_lines.append((bill, amt, billno))
-            tracker = self.sales_alloc if is_sales else self.purch_alloc
-            tracker[bill] = tracker.get(bill, Decimal('0')) + amt
+            if bill is not None:
+                tracker = self.sales_alloc if is_sales else self.purch_alloc
+                tracker[bill] = tracker.get(bill, Decimal('0')) + amt
+            else:
+                self.text_tagged += 1
 
         if not new_lines:
-            if vendor_refs:
-                self._record_vendor_bills(voucher, ledger_id, vendor_refs)
-                return 'recorded'
-            return 'unresolved'  # no bill in this group resolved to a voucher
+            return 'unresolved'  # no bill number in this group
 
         if allocated_total > original_total + Decimal('0.01'):
             # Corrupt/inconsistent source rows (e.g. a bill listed twice with
@@ -216,14 +213,22 @@ class Command(BaseCommand):
             return 'unresolved'
 
         if self.apply:
+            from accounting.models import ReferenceBills
             VoucherDetail.objects.filter(id__in=[l.id for l in party]).delete()
             for bill, amt, billno in new_lines:
-                VoucherDetail.objects.create(
+                vd = VoucherDetail.objects.create(
                     voucher_main=voucher, voucher_no=voucher.voucher_no,
                     voucher_type=voucher.voucher_type, account_id=ledger_id,
                     debit=(Decimal('0') if is_sales else amt),
                     credit=(amt if is_sales else Decimal('0')),
-                    ref_bill_no=billno, **{ref_field: bill},
+                    ref_bill_no=billno[:30], **{ref_field: bill},
+                )
+                # Mirror the live allocate-bills: one ReferenceBills per bill. For
+                # journal-recorded bills (bill is None) this carries the vendor
+                # bill number as text on the voucher.
+                ReferenceBills.objects.get_or_create(
+                    voucher=voucher, ldgr_id=ledger_id, vendor_bill_no=billno[:50],
+                    defaults={'amount': amt, 'ref_bill': vd, 'ref_bill_txt': billno[:50]},
                 )
             remainder = original_total - allocated_total
             if remainder > Decimal('0.005'):
@@ -234,26 +239,9 @@ class Command(BaseCommand):
                     credit=(remainder if is_sales else Decimal('0')),
                     ref_bill_no='',
                 )
-            if vendor_refs:
-                self._record_vendor_bills(voucher, ledger_id, vendor_refs)
             if not is_sales:
-                self._set_vendor_bill(
-                    voucher,
-                    [bn for _, _, bn in new_lines] + [bn for bn, _ in vendor_refs],
-                )
+                self._set_vendor_bill(voucher, [bn for _, _, bn in new_lines])
         return 'done'
-
-    def _record_vendor_bills(self, voucher, ledger_id, vendor_refs):
-        """Record journal-recorded vendor invoices on the voucher as
-        ReferenceBills.vendor_bill_no (no migrated PurchaseVoucher to link)."""
-        if not self.apply:
-            return
-        from accounting.models import ReferenceBills
-        for billno, amt in vendor_refs:
-            ReferenceBills.objects.get_or_create(
-                voucher=voucher, ldgr_id=ledger_id, vendor_bill_no=billno,
-                defaults={'amount': amt, 'ref_bill_txt': billno},
-            )
 
     def _set_vendor_bill(self, voucher, billnos):
         """Populate the header VoucherMain.vendor_bill — the 'Vendor Bill No' field

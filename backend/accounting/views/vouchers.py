@@ -614,6 +614,7 @@ class UnallocatedVouchersView(APIView):
                 credit_lines = [
                     t for t in v.transactions.all()
                     if t.credit > 0 and not t.ref_sales_vou_id
+                    and not (t.ref_bill_no or '').strip()
                 ]
                 unalloc = sum(t.credit for t in credit_lines)
                 if unalloc <= 0:
@@ -648,6 +649,7 @@ class UnallocatedVouchersView(APIView):
                 debit_lines = [
                     t for t in v.transactions.all()
                     if t.debit > 0 and not t.ref_purchase_vou_id
+                    and not (t.ref_bill_no or '').strip()
                 ]
                 unalloc = sum(t.debit for t in debit_lines)
                 if unalloc <= 0:

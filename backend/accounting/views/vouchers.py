@@ -609,12 +609,20 @@ class UnallocatedVouchersView(APIView):
                 .distinct()
                 .order_by('-date', '-id')
             )
+            qs = list(qs)
+            # A (voucher, ledger) that carries a ReferenceBills row has been
+            # allocated bill-wise (covers journal-recorded bills with no FK).
+            # ref_bill_no alone is unreliable — GL import seeds it with legacy
+            # rmks like "Advance" / "On Account".
+            from ..models import ReferenceBills as _RB
+            alloc_pairs = set(_RB.objects.filter(voucher__in=qs)
+                              .values_list('voucher_id', 'ldgr_id'))
             rows = []
             for v in qs:
                 credit_lines = [
                     t for t in v.transactions.all()
                     if t.credit > 0 and not t.ref_sales_vou_id
-                    and not (t.ref_bill_no or '').strip()
+                    and (v.id, t.account_id) not in alloc_pairs
                 ]
                 unalloc = sum(t.credit for t in credit_lines)
                 if unalloc <= 0:
@@ -644,12 +652,16 @@ class UnallocatedVouchersView(APIView):
                 .distinct()
                 .order_by('-date', '-id')
             )
+            qs = list(qs)
+            from ..models import ReferenceBills as _RB
+            alloc_pairs = set(_RB.objects.filter(voucher__in=qs)
+                              .values_list('voucher_id', 'ldgr_id'))
             rows = []
             for v in qs:
                 debit_lines = [
                     t for t in v.transactions.all()
                     if t.debit > 0 and not t.ref_purchase_vou_id
-                    and not (t.ref_bill_no or '').strip()
+                    and (v.id, t.account_id) not in alloc_pairs
                 ]
                 unalloc = sum(t.debit for t in debit_lines)
                 if unalloc <= 0:

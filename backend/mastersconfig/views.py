@@ -1283,6 +1283,15 @@ class MySQLSyncView(APIView):
             if tgt is not None:
                 system_by_name.setdefault(_legacy, tgt)
 
+        # Retail cash ledgers: explicit legacy ledger code -> that retail's
+        # cash_ldgr. Legacy cash names ("Cash") don't match the Django
+        # "R00x_Cash" system ledger, so these must be mapped by code.
+        cash_by_code = {}
+        for _legacy_code, _rt in (('1422', 'R001'), ('60438', 'R002')):
+            _r = RetailMaster.objects.filter(retail_code=_rt).first()
+            if _r and _r.cash_ldgr_id:
+                cash_by_code[_legacy_code] = _r.cash_ldgr
+
         created = updated = aliased = 0
         skipped_invalid = skipped_system = 0
         errors = []
@@ -1296,6 +1305,15 @@ class MySQLSyncView(APIView):
                 ac_name = _pick(row, 'ac_name', 'ledger_name', 'account_name', 'name', 'ledger_display_name')
                 if lid is None or not ac_name:
                     skipped_invalid += 1
+                    continue
+
+                # Retail cash ledger: alias the legacy cash code onto the
+                # retail's cash_ldgr (e.g. 1422 -> R001_Cash, 60438 -> R002_Cash).
+                cash_led = cash_by_code.get(str(lid))
+                if cash_led is not None:
+                    LedgerAlias.objects.update_or_create(
+                        legacy_code=str(lid), defaults={'ledger': cash_led})
+                    aliased += 1
                     continue
 
                 # Fold legacy ledgers that match an existing system ledger

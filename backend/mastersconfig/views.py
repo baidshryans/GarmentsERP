@@ -1388,6 +1388,11 @@ class MySQLSyncView(APIView):
     def _infer_ledger_role(self, ledger_type, group_name, ac_name):
         """Pick a LedgerRole: trust ledger_type when it's a known code/synonym,
         otherwise infer from the group name and ledger name keywords."""
+        # The account group is the authoritative signal for bank ledgers: legacy
+        # bank accounts (group "Bank Accounts") carry ledger_type 'OTH', so the
+        # group must override the type — otherwise they'd be tagged OTHER.
+        if 'bank account' in (group_name or '').strip().lower():
+            return 'BA'
         DIRECT = {'CO', 'DL', 'KR', 'VD', 'CA', 'BA', 'SC', 'SD', 'REF', 'MLT', 'EXP', 'INC', 'HM', 'OTH'}
         t = (ledger_type or '').strip().upper()
         if t in DIRECT:

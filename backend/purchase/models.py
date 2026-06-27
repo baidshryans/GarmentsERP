@@ -22,30 +22,63 @@ class PurchaseVoucher(models.Model):
     billno = models.CharField(max_length=30) #
     voucher_type = models.CharField(max_length=10, choices=VOUCHER_TYPE_CHOICES) #
     fiscal_year = models.ForeignKey("mastersconfig.FiscalYearMaster", on_delete=models.SET_NULL, null=True, blank=True)
-    hallmark_charge = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    ref_no = models.CharField(max_length=10, null=True,blank=True) #
-    ref_date = models.DateField(null=True) #
-    ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True, related_name='ldgr_code') #
-    item_total = models.DecimalField(null=True, max_digits=12, decimal_places=2) #
-    discount_amt = models.DecimalField(default=Decimal(0.00), max_digits=10, decimal_places =2) #
-    round_off = models.DecimalField(default=Decimal(0.00), max_digits=10, decimal_places =2) #
-    add_chrg_cap1 = models.CharField(max_length=10, null=True,blank=True) #
-    add_chrg_cap2 = models.CharField(max_length=10, null=True,blank=True) #
-    add_chrg_amt1 = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    add_chrg_amt2 = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    freight_amt = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    cgst = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    sgst = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    igst = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    tcs_amt = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
+    hallmark_charge = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+    ref_no = models.CharField(max_length=10, null=True, blank=True)
+    ref_date = models.DateField(null=True)
+    ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True, related_name='ldgr_code')
+
+    # ── Line-item aggregate ───────────────────────────────────────────────────
+    # item_total = SUM(PurchaseVoucherItems.item_value) + SUM(direct PurchaseVoucherDetails.value)
+    # "Direct" details are stone/sub-items that have no parent main item (main_item=NULL).
+    item_total = models.DecimalField(null=True, max_digits=12, decimal_places=2)
+
+    # ── Adjustments applied on top of item_total ─────────────────────────────
+    discount_amt = models.DecimalField(default=Decimal(0), max_digits=10, decimal_places=2)
+    round_off    = models.DecimalField(default=Decimal(0), max_digits=10, decimal_places=2)
+    add_chrg_cap1 = models.CharField(max_length=10, null=True, blank=True)   # label for add_chrg_amt1
+    add_chrg_cap2 = models.CharField(max_length=10, null=True, blank=True)   # label for add_chrg_amt2
+    add_chrg_amt1 = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+    add_chrg_amt2 = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+    freight_amt   = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+
+    # ── GST ──────────────────────────────────────────────────────────────────
+    # gst_base    = item_total + hallmark_charge + freight_amt + add_chrg_amt1 + add_chrg_amt2 − discount_amt
+    # cgst        = gst_base × cgst_rate%   (intra-state; mutually exclusive with igst)
+    # sgst        = gst_base × sgst_rate%   (intra-state; mutually exclusive with igst)
+    # igst        = gst_base × igst_rate%   (inter-state; mutually exclusive with cgst/sgst)
+    cgst = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+    sgst = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+    igst = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+
+    # ── TCS ──────────────────────────────────────────────────────────────────
+    # tcs_amt = total_incl_gst × tcs_rate%
+    tcs_amt = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+
+    # ── TDS ──────────────────────────────────────────────────────────────────
+    # tds_taxable_value = SUM(PurchaseVoucherItems.item_value)  — bare item sum, excl. charges/discount
+    #                     (also the "Subtotal" shown on the printed voucher)
+    # tds_amt           = tds_taxable_value × tds_rate%
     tds_section       = models.ForeignKey('mastersconfig.TDSSectionMaster', on_delete=models.SET_NULL, null=True, blank=True, related_name='purchase_vouchers')
     tds_rate          = models.DecimalField(max_digits=6, decimal_places=3, default=0)
     tds_taxable_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     tds_amt           = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    narration = models.CharField(max_length=100, null=True,blank=True) #
-    total_incl_gst = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    bill_value = models.DecimalField(null=True, max_digits=10, decimal_places =2) #
-    due_amt = models.DecimalField(null=True, max_digits=10, decimal_places =2) 
+
+    narration = models.CharField(max_length=100, null=True, blank=True)
+
+    # ── Totals ────────────────────────────────────────────────────────────────
+    # total_incl_gst = gst_base + cgst + sgst + igst
+    #                  (frontend-computed and stored as-is; excludes TCS and round_off)
+    total_incl_gst = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+
+    # bill_value = item_total + hallmark_charge + freight_amt + add_chrg_amt1 + add_chrg_amt2
+    #              + cgst + sgst + igst + tcs_amt + round_off
+    #              (backend-recomputed in serializer from saved rows; used for journal credit and due_amt)
+    bill_value = models.DecimalField(null=True, max_digits=10, decimal_places=2)
+
+    # due_amt = bill_value − amount_already_paid
+    # On creation: due_amt = bill_value (nothing paid yet).
+    # On edit: due_amt = new bill_value − (old bill_value − old due_amt).
+    due_amt = models.DecimalField(null=True, max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_return = models.BooleanField(default=False)

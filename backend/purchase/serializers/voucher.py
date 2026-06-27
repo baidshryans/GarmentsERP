@@ -73,8 +73,13 @@ def _making_ldgr_name_for_purity(co, purity_obj):
 
 class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
     sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    sub_item_name = serializers.SerializerMethodField()
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity",allow_null=True, required=False)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True,)
+
+    def get_sub_item_name(self, obj):
+        item = obj.get('sub_item') if isinstance(obj, dict) else obj.sub_item
+        return item.item_name if item else None
 
     class Meta:
         model = PurchaseVoucherDetails
@@ -82,6 +87,7 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
             'id',
             'date1',
             'sub_item',
+            'sub_item_name',
             'sub_pcs',
             'sub_gw',
             'sub_ct',

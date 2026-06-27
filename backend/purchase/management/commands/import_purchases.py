@@ -21,7 +21,7 @@ import pandas as pd
 from django.core.management.base import BaseCommand, CommandError
 import contextlib
 
-from django.db import transaction
+from django.db import transaction, models
 from django.db.models.signals import pre_save, post_save, pre_delete, post_delete
 
 from purchase.models import PurchaseVoucher, PurchaseVoucherItems, PurchaseVoucherDetails
@@ -262,6 +262,15 @@ class Command(BaseCommand):
             taxable = pv.item_total or Decimal('0')
             cgst = sgst = igst = Decimal('0')
 
+            # Bare line-item subtotal (excl. hallmark/freight/discount) — this is
+            # what the print template shows as "Subtotal" (d.tds_taxable_value) and
+            # then adds charges / subtracts discount to reach Total Before Tax. The
+            # live add-form sets the same field, so migrated vouchers must match or
+            # the printed Subtotal renders as 0.
+            item_sum = (PurchaseVoucherItems.objects.filter(billno=pv)
+                        .aggregate(s=models.Sum('item_value'))['s']) or Decimal('0')
+            pv.tds_taxable_value = item_sum
+
             if pv.voucher_type == 'Customer':
                 # PURC-CO (purchase from customer / old gold) — no GST.
                 pv.hsn = None
@@ -274,20 +283,35 @@ class Command(BaseCommand):
                 hsn = hsn_for_voucher_items(main_items, detail_items)
                 if hsn is None:
                     self.unresolved.append({'table': 'gst', 'id': billno, 'error': 'no HSN on any item'})
+                    # Still persist the subtotal so the print isn't left at 0.
+                    if self.apply:
+                        pv.save(update_fields=['tds_taxable_value'])
                     continue
                 # interstate if the legacy voucher carried IGST and no CGST/SGST
                 is_central = bool(pv.igst) and not (pv.cgst or pv.sgst)
-                cgst, sgst, igst = split_gst(taxable, hsn, is_central)
                 pv.hsn = hsn
 
+            # GST base = bare items + all charges − discount (matches print's "Total Before Tax").
+            # We use item_sum (tds_taxable_value) rather than item_total because the
+            # old ERP's sub_total (→ item_total) already included hallmark charges.
+            # Using item_total here would cause hallmark to be counted twice in the total.
+            gst_base = (item_sum
+                        + (pv.hallmark_charge or Decimal('0'))
+                        + (pv.freight_amt or Decimal('0'))
+                        + (pv.add_chrg_amt1 or Decimal('0'))
+                        + (pv.add_chrg_amt2 or Decimal('0'))
+                        - (pv.discount_amt or Decimal('0')))
+            if pv.voucher_type != 'Customer':
+                cgst, sgst, igst = split_gst(gst_base, hsn, is_central)
             pv.cgst, pv.sgst, pv.igst = cgst, sgst, igst
-            total = (taxable - (pv.discount_amt or 0) + (pv.hallmark_charge or 0)
-                     + (pv.freight_amt or 0) + cgst + sgst + igst
-                     + (pv.tcs_amt or 0) + (pv.round_off or 0))
-            pv.total_incl_gst = total
-            pv.bill_value = total
+            # total_incl_gst = gst_base + tax (excludes TCS and round_off, consistent with live form)
+            # bill_value     = total_incl_gst + tcs + round_off (gross payable, drives due_amt)
+            total_incl_gst = gst_base + cgst + sgst + igst
+            bill_value = total_incl_gst + (pv.tcs_amt or Decimal('0')) + (pv.round_off or Decimal('0'))
+            pv.total_incl_gst = total_incl_gst
+            pv.bill_value = bill_value
             if self.apply:
-                pv.save(update_fields=['hsn', 'cgst', 'sgst', 'igst', 'total_incl_gst', 'bill_value'])
+                pv.save(update_fields=['hsn', 'cgst', 'sgst', 'igst', 'total_incl_gst', 'bill_value', 'tds_taxable_value'])
             updated += 1
         return updated
 

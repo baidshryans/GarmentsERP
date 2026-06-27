@@ -97,6 +97,18 @@ class Command(BaseCommand):
             year_skipped = int(mask.sum())
             df = df[~mask]
 
+        # Drop exact-duplicate allocation rows (legacy double-inserts). The legacy
+        # `id` repeats per branch so it isn't part of the identity; an allocation
+        # is identified by voucher + ledger + bill + amount.
+        idcols = [c for c in ('v_typ', 'v_id', 'acc_year', 'rt_code',
+                              'ledger_id', 'billno', 'amount') if c in df.columns]
+        before = len(df)
+        df = df.drop_duplicates(subset=idcols)
+        dup_dropped = before - len(df)
+        if dup_dropped:
+            self.stdout.write(self.style.WARNING(
+                f"{kind}: dropped {dup_dropped} exact-duplicate row(s)"))
+
         allocated = skipped = errored = unresolved = recorded = 0
         grouped = df.groupby([df[c] for c in GROUP_COLS], sort=False)
         for _, group in grouped:
@@ -193,9 +205,15 @@ class Command(BaseCommand):
             return 'unresolved'  # no bill in this group resolved to a voucher
 
         if allocated_total > original_total + Decimal('0.01'):
-            raise ValueError(
-                f"allocations {allocated_total} exceed party leg {original_total}"
-            )
+            # Corrupt/inconsistent source rows (e.g. a bill listed twice with
+            # different amounts). Don't force it — report and leave the leg
+            # on-account for manual review rather than over-allocating the GL.
+            self.unresolved.append({
+                'kind': kind, 'voucher': f"{v_typ}:{v_id}", 'billno': '',
+                'error': f"allocations {allocated_total} exceed party leg "
+                         f"{original_total} (corrupt/duplicate source rows)",
+            })
+            return 'unresolved'
 
         if self.apply:
             VoucherDetail.objects.filter(id__in=[l.id for l in party]).delete()
@@ -256,7 +274,14 @@ class Command(BaseCommand):
         reference (FK if a unique bill resolves, plus ref_bill_no text)."""
         line = voucher.transactions.filter(account_id=ledger_id).first()
         if line is None:
-            raise ValueError(f"no line for ledger {ledger_id} on journal {voucher.voucher_no}")
+            # The journal_amount references a ledger that has no line in the
+            # imported GL voucher — report and skip rather than error.
+            self.unresolved.append({
+                'kind': 'journal', 'voucher': voucher.voucher_no,
+                'billno': clean(group.iloc[0]['billno']),
+                'error': f"no GL line for ledger {ledger_id} on this journal",
+            })
+            return 'unresolved'
         billnos = [b for b in (clean(x) for x in group['billno']) if b]
         billno = billnos[0] if billnos else ''
         sv = SalesVou.objects.filter(billno=billno).order_by('id').first()

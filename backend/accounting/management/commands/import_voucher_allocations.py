@@ -227,10 +227,9 @@ class Command(BaseCommand):
             return
         from accounting.models import ReferenceBills
         for billno, amt in vendor_refs:
-            vb = billno[:20]  # field is CharField(20)
             ReferenceBills.objects.get_or_create(
-                voucher=voucher, ldgr_id=ledger_id, vendor_bill_no=vb,
-                defaults={'amount': amt, 'ref_bill_txt': vb},
+                voucher=voucher, ldgr_id=ledger_id, vendor_bill_no=billno,
+                defaults={'amount': amt, 'ref_bill_txt': billno},
             )
 
     def _tag_journal(self, voucher, ledger_id, group):

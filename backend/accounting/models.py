@@ -111,9 +111,9 @@ class ReferenceBills(models.Model):
     ldgr = models.ForeignKey(Ledger, on_delete=models.CASCADE)
     voucher = models.ForeignKey(VoucherMain, on_delete = models.CASCADE)
     amount = models.DecimalField(max_digits=10,decimal_places=2)
-    vendor_bill_no = models.CharField(max_length=20, null=True, blank=True)
+    vendor_bill_no = models.CharField(max_length=50, null=True, blank=True)
     ref_bill = models.ForeignKey(VoucherDetail, on_delete=models.CASCADE, null=True, blank=True)
-    ref_bill_txt = models.CharField(max_length=20, null=True, blank=True)
+    ref_bill_txt = models.CharField(max_length=50, null=True, blank=True)
     class Meta:
         db_table = "reference_bills"
 

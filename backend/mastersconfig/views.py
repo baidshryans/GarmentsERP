@@ -1287,7 +1287,7 @@ class MySQLSyncView(APIView):
         # cash_ldgr. Legacy cash names ("Cash") don't match the Django
         # "R00x_Cash" system ledger, so these must be mapped by code.
         cash_by_code = {}
-        for _legacy_code, _rt in (('1422', 'R001'), ('60438', 'R002')):
+        for _legacy_code, _rt in (('1422', 'R001'), ('60438', 'R002'), ('1424', 'R004')):
             _r = RetailMaster.objects.filter(retail_code=_rt).first()
             if _r and _r.cash_ldgr_id:
                 cash_by_code[_legacy_code] = _r.cash_ldgr
@@ -1308,11 +1308,15 @@ class MySQLSyncView(APIView):
                     continue
 
                 # Retail cash ledger: alias the legacy cash code onto the
-                # retail's cash_ldgr (e.g. 1422 -> R001_Cash, 60438 -> R002_Cash).
+                # retail's cash_ldgr (e.g. 1422 -> R001_Cash, 60438 -> R002_Cash,
+                # 1424 -> R004_Cash). Also fold any duplicate cash ledger that a
+                # prior sync created under this code (repoint its txns + delete),
+                # so the legacy "Cash (...)" ledger doesn't linger.
                 cash_led = cash_by_code.get(str(lid))
                 if cash_led is not None:
                     LedgerAlias.objects.update_or_create(
                         legacy_code=str(lid), defaults={'ledger': cash_led})
+                    self._merge_ledger_into(lid, cash_led)
                     aliased += 1
                     continue
 
@@ -1384,6 +1388,42 @@ class MySQLSyncView(APIView):
             'created': created, 'updated': updated, 'aliased': aliased, 'errors': errors,
             'ungrouped': ungrouped[:1000], 'ungrouped_count': len(ungrouped),
         }
+
+    def _merge_ledger_into(self, old_id, target):
+        """Repoint every ForeignKey reference from a duplicate legacy ledger
+        (created by an earlier sync, before the cash alias existed) onto the
+        target system ledger, then delete the duplicate. Scans all models for
+        FKs to Ledger — _meta.related_objects misses fields with related_name='+'
+        (e.g. VoucherDetail.account). Idempotent: a no-op once removed."""
+        from contacts.models import Ledger
+        from django.apps import apps
+        from django.db import IntegrityError, transaction as _tx
+        old = Ledger.objects.filter(id=old_id).first()
+        if old is None or old.id == target.id or getattr(old, 'is_system', False):
+            return
+        for model in apps.get_models():
+            for f in model._meta.concrete_fields:
+                # Only plain FKs (skip O2O — repointing those onto a ledger that
+                # already owns one would violate the constraint and risk deleting
+                # the parent record in the fallback).
+                if not (f.is_relation and f.many_to_one and f.related_model is Ledger):
+                    continue
+                try:
+                    with _tx.atomic():
+                        model.objects.filter(**{f.name: old}).update(**{f.name: target})
+                except IntegrityError:
+                    for obj in model.objects.filter(**{f.name: old}):
+                        setattr(obj, f.attname, target.id)
+                        try:
+                            with _tx.atomic():
+                                obj.save(update_fields=[f.name])
+                        except IntegrityError:
+                            obj.delete()
+        try:
+            with _tx.atomic():
+                old.delete()
+        except Exception:
+            pass
 
     def _infer_ledger_role(self, ledger_type, group_name, ac_name):
         """Pick a LedgerRole: trust ledger_type when it's a known code/synonym,

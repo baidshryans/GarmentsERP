@@ -36,7 +36,7 @@ class VoucherMain(models.Model):
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     voucher_type = models.CharField(max_length=10)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='posted')
-    vendor_bill = models.CharField(max_length=20, null=True, blank=True)
+    vendor_bill = models.CharField(max_length=50, null=True, blank=True)
     # Legacy migration key: maps a legacy (v_typ, v_id, ac_yr, rt_code) tuple to
     # this voucher so the import is idempotent and the amount-table allocation
     # pass can locate the parent voucher. Null for natively-created vouchers.

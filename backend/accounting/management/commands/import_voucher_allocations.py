@@ -218,6 +218,11 @@ class Command(BaseCommand):
                 )
             if vendor_refs:
                 self._record_vendor_bills(voucher, ledger_id, vendor_refs)
+            if not is_sales:
+                self._set_vendor_bill(
+                    voucher,
+                    [bn for _, _, bn in new_lines] + [bn for bn, _ in vendor_refs],
+                )
         return 'done'
 
     def _record_vendor_bills(self, voucher, ledger_id, vendor_refs):
@@ -232,13 +237,28 @@ class Command(BaseCommand):
                 defaults={'amount': amt, 'ref_bill_txt': billno},
             )
 
+    def _set_vendor_bill(self, voucher, billnos):
+        """Populate the header VoucherMain.vendor_bill — the 'Vendor Bill No' field
+        shown on the voucher form — with the bill number(s) this voucher settles."""
+        if not self.apply:
+            return
+        new = [b for b in dict.fromkeys(billnos) if b]
+        if not new:
+            return
+        existing = [b.strip() for b in (voucher.vendor_bill or '').split(',') if b.strip()]
+        val = ', '.join(dict.fromkeys(existing + new))[:50]
+        if val != (voucher.vendor_bill or ''):
+            voucher.vendor_bill = val
+            voucher.save(update_fields=['vendor_bill'])
+
     def _tag_journal(self, voucher, ledger_id, group):
         """Journals are not split — tag the matching party line with the bill
         reference (FK if a unique bill resolves, plus ref_bill_no text)."""
         line = voucher.transactions.filter(account_id=ledger_id).first()
         if line is None:
             raise ValueError(f"no line for ledger {ledger_id} on journal {voucher.voucher_no}")
-        billno = clean(group.iloc[0]['billno'])
+        billnos = [b for b in (clean(x) for x in group['billno']) if b]
+        billno = billnos[0] if billnos else ''
         sv = SalesVou.objects.filter(billno=billno).order_by('id').first()
         pv = None if sv else PurchaseVoucher.objects.filter(billno=billno).order_by('id').first()
         if self.apply:
@@ -248,6 +268,7 @@ class Command(BaseCommand):
             elif pv:
                 line.ref_purchase_vou = pv
             line.save(update_fields=['ref_bill_no', 'ref_sales_vou', 'ref_purchase_vou'])
+            self._set_vendor_bill(voucher, billnos)
         return 'done'
 
     # ------------------------------------------------------------------ #

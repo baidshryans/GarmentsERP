@@ -70,7 +70,7 @@ const AV_CSS = [
   ".av-ctr{text-align:center;color:#777;font-size:10px}",
   ".av-dr td{font-weight:500;font-size:10.5px}",
   ".av-cr td{font-size:10.5px;color:#222}",
-  ".av-gst td{font-size:9.5px;color:#555}",
+  ".av-gst td{font-size:10.5px;color:#222}",
 
   /* total row */
   ".av-total-row{border:1px solid #111;border-top:none}",
@@ -251,8 +251,8 @@ const AccountingVoucher = ({ data = {} }) => {
               const label = (g.account || "").replace(/^input\s*/i, "") + (pct > 0 ? " @ " + pct + "%" : "");
               return (
                 <tr key={"g" + i} className="av-gst">
-                  <td></td>
-                  <td style={{paddingLeft:28,fontStyle:"italic"}}>{label}</td>
+                  <td className="av-ctr">{mainLines.length + i + 1}</td>
+                  <td style={{paddingLeft:28}}>{label}</td>
                   <td className="av-num">{!isRcpt(vType) && amt > 0 ? fmt(amt) : ""}</td>
                   <td className="av-num">{ isRcpt(vType) && amt > 0 ? fmt(amt) : ""}</td>
                 </tr>
@@ -274,10 +274,10 @@ const AccountingVoucher = ({ data = {} }) => {
         <div className="av-total-lbl" style={{padding:"5px 8px",fontWeight:700,textAlign:"right",borderRight:"1px solid #ddd",fontSize:11}}>
           Total
         </div>
-        <div className="av-total-num" style={{padding:"5px 8px",borderRight:"1px solid #ddd",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
+        <div className="av-total-num" style={{padding:"5px 8px",borderRight:"1px solid #ddd",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>
           {totalDr > 0 ? formatMoney(totalDr, { decimals: 2 }) : ""}
         </div>
-        <div className="av-total-num" style={{padding:"5px 8px",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums"}}>
+        <div className="av-total-num" style={{padding:"5px 8px",textAlign:"right",fontWeight:700,fontSize:11,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>
           {totalCr > 0 ? formatMoney(totalCr, { decimals: 2 }) : ""}
         </div>
       </div>

@@ -923,9 +923,13 @@ class StockReportView(APIView):
         # Exclude barcodes that are old_barcode in split/merge operations.
         # When a barcode is split/merged, the old barcode should not contribute to
         # stock reports — only the new child barcodes should be counted.
-        split_merged_barcode_ids = BarcodeSplitMerge.objects.values_list(
-            'old_barcode_id', flat=True
-        )
+        # Must exclude NULL old_barcode_id: a split whose parent barcode no longer
+        # exists (consumed) stores old_barcode=NULL. A NULL in a `NOT IN (...)`
+        # subquery makes the whole predicate evaluate to NULL/false for every row
+        # (SQL three-valued logic), which would silently zero out the entire report.
+        split_merged_barcode_ids = BarcodeSplitMerge.objects.filter(
+            old_barcode__isnull=False
+        ).values_list('old_barcode_id', flat=True)
 
         # op_stk seed barcodes still in inventory as of end of prev_date.
         # stk_status is intentionally NOT filtered — an op_stk barcode held with a

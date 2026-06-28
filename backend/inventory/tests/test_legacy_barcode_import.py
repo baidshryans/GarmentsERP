@@ -335,3 +335,31 @@ class ResetScopeTests(TestCase):
         self.assertTrue(BarcodeTransaction.objects.filter(pk=self.live_txn.pk).exists())
         self.assertFalse(BarcodeSplitMerge.objects.filter(legacy_key="split:1").exists())
         self.assertTrue(BarcodeSplitMerge.objects.filter(pk=self.live_sm.pk).exists())
+
+
+# ─── Stock report: NULL split-parent must not zero the report ──────────────────
+
+from inventory.views import StockReportView
+
+
+class StockReportNullSplitParentTests(TestCase):
+    def test_null_old_barcode_does_not_zero_report(self):
+        r = _retail("R001")
+        it = _item()
+        p = _purity()
+        _barcode("OPN", it, r, p, op_stk=True, op_retail=r, pcs=1)
+        # A split whose parent barcode was consumed -> old_barcode is NULL. This
+        # used to poison the report's NOT IN (...) subqueries (SQL three-valued
+        # logic) and zero every item.
+        BarcodeSplitMerge.objects.create(
+            transaction_type="Split", old_barcode=None, new_barcode=None, retail=r)
+        U = get_user_model()
+        user = U.objects.create_user(username="rep", password="x", is_superuser=True, is_staff=True)
+        rf = APIRequestFactory()
+        # far-future as_on so the (auto_now_add) created_date is always <= as_on
+        req = rf.get("/x", {"as_on_date": "2099-01-01"})
+        force_authenticate(req, user=user)
+        req.retail = r
+        resp = StockReportView.as_view()(req)
+        self.assertTrue(any(row.get("stock_count", 0) > 0 for row in resp.data),
+                        "report was zeroed by a NULL-parent split record")

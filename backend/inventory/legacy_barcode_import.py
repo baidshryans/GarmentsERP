@@ -28,6 +28,12 @@ TRANS_TYPE_MAP = {
 }
 
 
+# A barcode is genesis'd exactly once. The legacy log sometimes holds a duplicate
+# "New Create" row (re-save), which would double-count the piece as phantom stock
+# at the create retail in the stock report.
+CREATE_TYPES = ("CREATE-PUR", "CREATE-REC")
+
+
 def map_trans_type(code):
     """(canonical_code, is_known). Unknown codes are returned verbatim with False."""
     code = (code or "").strip()
@@ -124,6 +130,23 @@ def import_transactions(rows, barcodes, retails, users, *, apply):
             stats["created"] += 1
         else:
             stats["existing"] += 1
+
+    # Dedupe duplicate genesis rows: keep the earliest create per barcode, drop the
+    # rest (legacy double "New Create" otherwise shows as phantom stock).
+    if apply:
+        from django.db.models import Count, Min
+        removed = 0
+        for d in (BarcodeTransaction.objects
+                  .filter(trans_type__in=CREATE_TYPES)
+                  .values("barcode_id").annotate(n=Count("id"), keep=Min("id"))
+                  .filter(n__gt=1)):
+            extra = BarcodeTransaction.objects.filter(
+                barcode_id=d["barcode_id"], trans_type__in=CREATE_TYPES,
+            ).exclude(id=d["keep"])
+            removed += extra.count()
+            extra.delete()
+        if removed:
+            stats["deduped_creates"] = removed
     return stats
 
 

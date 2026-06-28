@@ -64,7 +64,7 @@ export default function BarcodeHistoryList() {
   useEffect(() => {
     let cancelled = false
     const t = setTimeout(() => {
-      fetchBarcodeList({ search: barcodeSearch, page: 1, page_size: 20 }).then((res) => {
+      fetchBarcodeList({ search: barcodeSearch, page: 1, page_size: 20, allRetails: true }).then((res) => {
         if (cancelled) return
         if (res.success) {
           const list = res.data.results ?? res.data ?? []

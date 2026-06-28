@@ -499,9 +499,13 @@ class BarCodeView(RetailBaseViewset):
             qs = (
                 BarcodeMain.objects
                 .select_related('item', 'purity', 'customer_order', 'customer_order__ldgr')
-                .filter(retail=retail)
                 .annotate(dia_ct=Sum('barcodedetails__ct'))
             )
+            # Opt-in global search (used by the barcode-history lookup): a barcode
+            # may currently belong to another retail (after a transfer), so the
+            # history page must be able to find it regardless of the active retail.
+            if self.request.query_params.get('all_retails', '').lower() not in ('1', 'true'):
+                qs = qs.filter(retail=retail)
             ids_param = self.request.query_params.get('ids', '').strip()
             if ids_param:
                 try:
@@ -1221,43 +1225,153 @@ class StockReportBarcodesView(APIView):
         return Response(rows)
 
 
-class BarcodeDetailsSerializer(serializers.ModelSerializer):
+# ── In-stock helper (shared semantics with the Barcode Stock Report) ─────────
+def in_stock_barcode_ids(retail, as_on_date):
+    """Return the set of BarcodeMain ids in stock as of end of `as_on_date` for
+    `retail`. Mirrors the 'stock' branch of StockReportBarcodesView so the Value
+    Report's barcode set matches the Barcode Stock Report's stock column:
+      stock = op_stk seeds (created <= date) + net inflow/outflow movements,
+              minus split/merge-consumed barcodes (#SPL/#MER + old_barcode).
+    Retail-less transactions (legacy/import) are included defensively.
+    """
+    inflow_types = {
+        'CREATE-PUR', 'CREATE-REC', 'SALE-RET', 'SALE-APP-RET',
+        'TRF-RR-IN', 'BAR-MER-CRT', 'BAR-SPLIT-CRT',
+    }
+    outflow_types = {
+        'SALE', 'SALE-APP', 'TRF-RR-OUT',
+        'BAR-MER', 'BAR-SPLIT', 'BAR-TRF-UNB', 'PURCHASE-RET',
+    }
+
+    split_merged = set(
+        BarcodeSplitMerge.objects.filter(old_barcode__isnull=False)
+        .values_list('old_barcode_id', flat=True)
+    ) | set(
+        BarcodeMain.objects.filter(
+            Q(barcode__icontains='#SPL') | Q(barcode__icontains='#MER')
+        ).values_list('id', flat=True)
+    )
+
+    opening_ids = set(
+        BarcodeMain.objects.filter(
+            op_retail=retail, op_stk=True, created_date__lte=as_on_date,
+        ).values_list('pk', flat=True)
+    )
+
+    txn_qs = BarcodeTransaction.objects.filter(
+        date__date__lte=as_on_date,
+    ).filter(Q(retail=retail) | Q(retail__isnull=True))
+
+    per_barcode = {}
+    for barcode_id, trans_type in txn_qs.order_by('date').values_list('barcode_id', 'trans_type'):
+        net = per_barcode.get(barcode_id, 0)
+        if trans_type in inflow_types:
+            net += 1
+        elif trans_type in outflow_types:
+            net -= 1
+        per_barcode[barcode_id] = net
+
+    in_stock = set(opening_ids)
+    for bid, net in per_barcode.items():
+        if net > 0:
+            in_stock.add(bid)
+        elif net < 0:
+            in_stock.discard(bid)
+
+    return in_stock - split_merged
+
+
+# `serializers` is bound to mastersconfig.serializers in this module; use the
+# real DRF serializers (with field classes) under an explicit alias here.
+from rest_framework import serializers as rf_serializers
+
+
+class ValueReportLineSerializer(rf_serializers.ModelSerializer):
+    """One stone or 'other' (HMC/RHC/making-component) line under a barcode."""
+    code = rf_serializers.CharField(source='item.short_code', read_only=True, default=None)
+    name = rf_serializers.CharField(source='item.item_name', read_only=True, default=None)
+    sub = rf_serializers.CharField(source='packet.pckt_no', read_only=True, default=None)
+    value = rf_serializers.DecimalField(source='amt', max_digits=12, decimal_places=2, read_only=True)
+
     class Meta:
         model = BarcodeDetails
-        fields = "__all__"
+        fields = ['code', 'name', 'sub', 'pcs', 'ct', 'gw', 'rate', 'value']
 
-class BarcodeMainSerializer(serializers.ModelSerializer):
-    stone = BarcodeDetailsSerializer(many=True)
-    other = BarcodeDetailsSerializer(many=True)
+
+class ValueReportBarcodeSerializer(rf_serializers.ModelSerializer):
+    """A single barcode row with its weights, purity, stone/other breakdown,
+    making and total value. `stone`/`other` come from the to_attr prefetch."""
+    purity = rf_serializers.CharField(source='purity.purity', read_only=True, default=None)
+    item_name = rf_serializers.CharField(source='item.item_name', read_only=True, default=None)
+    order_no = rf_serializers.CharField(source='customer_order.order_no', read_only=True, default=None)
+    stone = ValueReportLineSerializer(many=True, read_only=True)
+    other = ValueReportLineSerializer(many=True, read_only=True)
+
     class Meta:
         model = BarcodeMain
-        fields = ['barcode','stone','other']
+        fields = [
+            'barcode', 'design_code', 'order_no', 'pcs', 'gw', 'nw', 'purity', 'item_name',
+            'making_val', 'other_chg', 'value', 'total_amount', 'stone', 'other',
+        ]
 
-class ItemBarcodeSerializer(serializers.ModelSerializer):
 
-    barcodemain_set = BarcodeMainSerializer(many=True)
+class ItemBarcodeSerializer(rf_serializers.ModelSerializer):
+    barcodemain_set = ValueReportBarcodeSerializer(many=True, read_only=True)
+
     class Meta:
         model = Item
-        fields = ['barcodemain_set','short_code']
+        fields = ['short_code', 'item_name', 'barcodemain_set']
 
 
 class ItemwiseBarcodeReport(APIView):
+    """Barcode Value Report — lists in-stock barcodes (as of a date, current
+    branch) grouped by item, with per-barcode stone/other/making/value detail."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from_date = request.query_params.get('from_date')
-        to_date = request.query_params.get('to_date')
+        as_on_raw = request.query_params.get('as_on_date')
+        if as_on_raw:
+            try:
+                as_on_date = datetime.strptime(as_on_raw, '%Y-%m-%d').date()
+            except ValueError:
+                return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            as_on_date = timezone.localdate()
 
-        if not from_date or not to_date:
-            return Response({"error": "from_date and to_date are required"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        qs = Item.objects.all().prefetch_related(Prefetch('barcodemain_set',queryset=BarcodeMain.objects.filter(created_date__range=[from_date,to_date]).prefetch_related(
-            Prefetch('barcodedetails_set',queryset=BarcodeDetails.objects.filter(item__item_type="S"),to_attr='stone'),
-            Prefetch('barcodedetails_set',queryset=BarcodeDetails.objects.exclude(item__item_type="S"),to_attr='other'),
+        retail = request.retail
+        ids = in_stock_barcode_ids(retail, as_on_date)
 
-            
-            )))
-        return Response(ItemBarcodeSerializer(qs,many=True).data)
+        # Optional filters: item (short_code of the parent Item) and purity (label).
+        item_code = (request.query_params.get('item') or '').strip()
+        purity_label = (request.query_params.get('purity') or '').strip()
+        base = BarcodeMain.objects.filter(id__in=ids)
+        if item_code:
+            base = base.filter(item__short_code=item_code)
+        if purity_label:
+            base = base.filter(purity__purity=purity_label)
+        keep_ids = set(base.values_list('id', flat=True))
+
+        barcode_qs = BarcodeMain.objects.filter(id__in=keep_ids).select_related(
+            'purity', 'item', 'customer_order',
+        ).prefetch_related(
+            Prefetch('barcodedetails_set',
+                     queryset=BarcodeDetails.objects.select_related('item', 'packet').filter(item__item_type='S'),
+                     to_attr='stone'),
+            # Other = non-stone lines, EXCLUDING the base metal line (Gold): its
+            # weight is already shown in the barcode's Gw/Nw columns.
+            Prefetch('barcodedetails_set',
+                     queryset=BarcodeDetails.objects.select_related('item', 'packet')
+                     .exclude(item__item_type='S')
+                     .exclude(item__short_code__iexact='Gold'),
+                     to_attr='other'),
+        ).order_by('item__short_code', 'barcode')
+
+        # Only items that actually have matching in-stock barcodes (no empty rows).
+        qs = Item.objects.filter(barcodemain__id__in=keep_ids).distinct().order_by(
+            'short_code',
+        ).prefetch_related(Prefetch('barcodemain_set', queryset=barcode_qs))
+
+        return Response(ItemBarcodeSerializer(qs, many=True).data)
     
 
 class ClosingStockCal:
@@ -2091,6 +2205,11 @@ class BarcodeTransactionView(RetailBaseViewset):
     filterset_fields = ['trans_type']
     search_fields = ['barcode__barcode', 'billno', 'barcode__item__item_name']
     ordering_fields = ['date', 'trans_type']
+
+    def get_queryset(self):
+        # Barcode history is a global audit trail: a barcode can move between
+        # retails (transfers), so its full life must NOT be retail-scoped.
+        return BarcodeTransaction.objects.select_related('barcode__item').order_by('-date')
 
 
 class BarcodeCreationReportView(APIView):

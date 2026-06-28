@@ -415,9 +415,12 @@ export async function fetchBarcodeStockReportBarcodes({ itemId, column, asOnDate
   }
 }
 
-export async function fetchItemWiseBarcode(fromDate,toDate) {
+export async function fetchItemWiseBarcode(asOnDate, { item, purity } = {}) {
   try {
-    const response = await apiClient.get(`/inventory/api/item-barcode-report/?from_date=${fromDate}&to_date=${toDate}`);
+    const params = new URLSearchParams({ as_on_date: asOnDate });
+    if (item) params.set("item", item);
+    if (purity) params.set("purity", purity);
+    const response = await apiClient.get(`/inventory/api/item-barcode-report/?${params.toString()}`);
     return response.data;
   } catch (error) {
     console.error("Failed to fetch itemwise barcode report:", error.response?.data || error.message);
@@ -571,13 +574,14 @@ export async function fetchBarcodes({ search = "", page = 1, ordering = "" } = {
   }
 }
 
-export async function fetchBarcodeList({ search = "", page = 1, ordering = "", ids = "", page_size = "" } = {}) {
+export async function fetchBarcodeList({ search = "", page = 1, ordering = "", ids = "", page_size = "", allRetails = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (search) params.append("search", search);
     if (ordering) params.append("ordering", ordering);
     if (ids) params.append("ids", ids);
     if (page_size) params.append("page_size", page_size);
+    if (allRetails) params.append("all_retails", "true");
     params.append("page", page);
     const response = await apiClient.get(`inventory/barcode/?${params.toString()}`);
     return { success: true, data: response.data };

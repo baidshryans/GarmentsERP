@@ -94,35 +94,39 @@ def _summary(changes, unchanged):
 
 
 # ── Sales (debtors) ─────────────────────────────────────────────────────────
-def compute_sales_due_rebuild(retail=None, as_of=None):
+def compute_sales_due_rebuild(retail=None, as_of=None, ldgr=None):
     from sales.models import SalesVou
     qs = SalesVou.objects.filter(ret_status=False)
     if retail is not None:
         qs = qs.filter(retail=retail)
+    if ldgr is not None:
+        qs = qs.filter(ldgr=ldgr)
     return _compute_rebuild(list(qs), lambda b: _D(b.total_bill_value),
                             Decimal("1"), as_of)
 
 
-def rebuild_sales_due(retail=None, as_of=None, apply=False):
-    changes, unchanged = compute_sales_due_rebuild(retail=retail, as_of=as_of)
+def rebuild_sales_due(retail=None, as_of=None, apply=False, ldgr=None):
+    changes, unchanged = compute_sales_due_rebuild(retail=retail, as_of=as_of, ldgr=ldgr)
     if apply:
         _apply(changes)
     return _summary(changes, unchanged)
 
 
 # ── Purchases (creditors) ───────────────────────────────────────────────────
-def compute_purchase_due_rebuild(retail=None, as_of=None):
+def compute_purchase_due_rebuild(retail=None, as_of=None, ldgr=None):
     from purchase.models import PurchaseVoucher
     qs = PurchaseVoucher.objects.filter(is_return=False)
     if retail is not None:
         qs = qs.filter(retail=retail)
+    if ldgr is not None:
+        qs = qs.filter(ldgr=ldgr)
     return _compute_rebuild(list(qs),
                             lambda b: _D(b.total_incl_gst or b.bill_value),
                             Decimal("-1"), as_of)
 
 
-def rebuild_purchase_due(retail=None, as_of=None, apply=False):
-    changes, unchanged = compute_purchase_due_rebuild(retail=retail, as_of=as_of)
+def rebuild_purchase_due(retail=None, as_of=None, apply=False, ldgr=None):
+    changes, unchanged = compute_purchase_due_rebuild(retail=retail, as_of=as_of, ldgr=ldgr)
     if apply:
         _apply(changes)
     return _summary(changes, unchanged)

@@ -288,8 +288,8 @@ class JournalEntryViewSet(RetailBaseViewset):
                         sv = _SV.objects.select_for_update().get(pk=alloc['bill_id'], retail=voucher.retail)
                     except _SV.DoesNotExist:
                         raise ValidationError(f"Invoice id={alloc['bill_id']} not found.")
-                    if amt > sv.due_amt + _D('0.01'):
-                        raise ValidationError(f"Allocation ₹{amt} exceeds outstanding ₹{sv.due_amt} on {sv.billno}.")
+                    if amt > _D(str(sv.total_bill_value)) + _D('0.01'):
+                        raise ValidationError(f"Allocation ₹{amt} exceeds bill total ₹{sv.total_bill_value} on {sv.billno}.")
                     vd = _VD.objects.create(
                         voucher_main=voucher, voucher_no=voucher.voucher_no,
                         voucher_type=voucher.voucher_type, account=party_acct,
@@ -297,8 +297,6 @@ class JournalEntryViewSet(RetailBaseViewset):
                         ref_sales_vou=sv, ref_bill_no=sv.billno,
                     )
                     _RB.objects.create(ldgr=party_acct, voucher=voucher, amount=amt, ref_bill=vd, ref_bill_txt=sv.billno)
-                    sv.due_amt = max(_D('0'), sv.due_amt - amt)
-                    sv.save(update_fields=['due_amt'])
                 remainder = total_unalloc - alloc_total
                 if remainder > _D('0.005'):
                     _VD.objects.create(
@@ -306,6 +304,11 @@ class JournalEntryViewSet(RetailBaseViewset):
                         voucher_type=voucher.voucher_type, account=party_acct,
                         debit=_D('0'), credit=remainder, ref_bill_no='',
                     )
+                # due_amt is GL-derived: re-linking these legs leaves the ledger
+                # balance unchanged, so recompute (don't subtract — that would
+                # double-count a receipt already reflected in the balance).
+                from accounting.due_rebuild import rebuild_sales_due
+                rebuild_sales_due(retail=voucher.retail, ldgr=party_acct, apply=True)
             else:
                 from purchase.models import PurchaseVoucher as _PV
                 unalloc_lines = list(voucher.transactions.filter(
@@ -327,8 +330,9 @@ class JournalEntryViewSet(RetailBaseViewset):
                         pv = _PV.objects.select_for_update().get(pk=alloc['bill_id'], retail=voucher.retail)
                     except _PV.DoesNotExist:
                         raise ValidationError(f"Purchase invoice id={alloc['bill_id']} not found.")
-                    if amt > pv.due_amt + _D('0.01'):
-                        raise ValidationError(f"Allocation ₹{amt} exceeds outstanding ₹{pv.due_amt} on {pv.billno}.")
+                    pv_total = _D(str(pv.total_incl_gst or pv.bill_value or 0))
+                    if amt > pv_total + _D('0.01'):
+                        raise ValidationError(f"Allocation ₹{amt} exceeds bill total ₹{pv_total} on {pv.billno}.")
                     vd = _VD.objects.create(
                         voucher_main=voucher, voucher_no=voucher.voucher_no,
                         voucher_type=voucher.voucher_type, account=party_acct,
@@ -336,8 +340,6 @@ class JournalEntryViewSet(RetailBaseViewset):
                         ref_purchase_vou=pv, ref_bill_no=pv.billno,
                     )
                     _RB.objects.create(ldgr=party_acct, voucher=voucher, amount=amt, ref_bill=vd, ref_bill_txt=pv.billno)
-                    pv.due_amt = max(_D('0'), pv.due_amt - amt)
-                    pv.save(update_fields=['due_amt'])
                 remainder = total_unalloc - alloc_total
                 if remainder > _D('0.005'):
                     _VD.objects.create(
@@ -345,6 +347,11 @@ class JournalEntryViewSet(RetailBaseViewset):
                         voucher_type=voucher.voucher_type, account=party_acct,
                         debit=remainder, credit=_D('0'), ref_bill_no='',
                     )
+                # due_amt is GL-derived: re-linking these legs leaves the ledger
+                # balance unchanged, so recompute (don't subtract — that would
+                # double-count a payment already reflected in the balance).
+                from accounting.due_rebuild import rebuild_purchase_due
+                rebuild_purchase_due(retail=voucher.retail, ldgr=party_acct, apply=True)
 
         return Response({'detail': 'Allocations saved.', 'voucher_id': voucher.id})
 

@@ -158,30 +158,45 @@ def import_transactions(rows, barcodes, retails, users, *, apply):
         if removed:
             stats["deduped"] = removed
 
-        # Balance returns against their out: a barcode can't be returned more times
-        # than it went out. The legacy log sometimes holds a SALE-APP-RET with no
-        # SALE-APP (or a SALE-RET with no SALE), which adds a phantom inflow and
-        # keeps a sold barcode showing in stock. Drop the unmatched (earliest) ones.
+        # Synthesize a missing approval-out: a SALE-APP-RET with no SALE-APP means
+        # the barcode went out on approval in a period not covered by this export
+        # (typically the prior FY) — the approval VOUCHER still exists. Recreate the
+        # SALE-APP from the migrated approval so the barcode balances out, instead of
+        # a sold/out barcode lingering in stock.
         from collections import defaultdict as _dd
-        rebalanced = 0
-        for ret_type, out_type in (("SALE-APP-RET", "SALE-APP"), ("SALE-RET", "SALE")):
-            outs = _dd(int)
-            for t in BarcodeTransaction.objects.filter(trans_type=out_type).values("barcode_id"):
-                outs[t["barcode_id"]] += 1
-            ret_rows = _dd(list)
-            for t in (BarcodeTransaction.objects.filter(trans_type=ret_type)
-                      .order_by("date", "id").values("id", "barcode_id")):
-                ret_rows[t["barcode_id"]].append(t["id"])
-            excess_ids = []
-            for bid, ids in ret_rows.items():
-                n_excess = len(ids) - outs.get(bid, 0)
-                if n_excess > 0:
-                    excess_ids.extend(ids[:n_excess])
-            if excess_ids:
-                rebalanced += len(excess_ids)
-                BarcodeTransaction.objects.filter(id__in=excess_ids).delete()
-        if rebalanced:
-            stats["unmatched_returns_removed"] = rebalanced
+        from datetime import timedelta as _td
+        from sales.models import SalesApprovalItem
+        outs = _dd(int)
+        for t in BarcodeTransaction.objects.filter(trans_type="SALE-APP").values("barcode_id"):
+            outs[t["barcode_id"]] += 1
+        rets = _dd(list)
+        for t in (BarcodeTransaction.objects.filter(trans_type="SALE-APP-RET")
+                  .order_by("date", "id").values("barcode_id", "date")):
+            rets[t["barcode_id"]].append(t["date"])
+        synthesized = 0
+        for bid, ret_dates in rets.items():
+            missing = len(ret_dates) - outs.get(bid, 0)
+            if missing <= 0:
+                continue
+            appr_item = (SalesApprovalItem.objects
+                         .filter(barcode_id=bid).select_related("billno", "billno__retail").first())
+            if appr_item is None:
+                continue  # no approval voucher to source the out from
+            appr = appr_item.billno  # the SalesApproval header
+            for i in range(missing):
+                obj, created = BarcodeTransaction.objects.get_or_create(
+                    legacy_key=f"SYNTH-SAPP-{bid}-{appr.id}-{i}",
+                    defaults=dict(barcode_id=bid, billno=(appr.billno or "")[:50],
+                                  trans_type="SALE-APP", retail=appr.retail,
+                                  user=None, ip_address="0.0.0.0"),
+                )
+                if created:
+                    # place just before the matching return so stock flow is ordered
+                    BarcodeTransaction.objects.filter(pk=obj.pk).update(
+                        date=ret_dates[i] - _td(seconds=1))
+                    synthesized += 1
+        if synthesized:
+            stats["synthesized_approvals"] = synthesized
     return stats
 
 

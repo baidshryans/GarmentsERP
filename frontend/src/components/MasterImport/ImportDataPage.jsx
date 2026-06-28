@@ -43,6 +43,8 @@ const TX_SYNC_TABLES = [
   { key: "barcode", label: "Barcodes" },
   { key: "gl_vouchers", label: "GL Vouchers" },
   { key: "sales",       label: "Sales Vouchers" },
+  { key: "sales_approval", label: "Sale Approvals" },
+  { key: "sales_approval_return", label: "Sale Approval Returns" },
   { key: "purchases",   label: "Purchase Vouchers" },
   { key: "allocations", label: "Bill Allocations" },
   { key: "barcode_transactions", label: "Barcode Transactions" },

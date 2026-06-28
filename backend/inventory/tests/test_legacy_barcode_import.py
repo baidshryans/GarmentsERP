@@ -275,3 +275,10 @@ class CommandCsvTests(TestCase):
     def test_requires_a_source(self):
         with self.assertRaises(CommandError):
             call_command("import_barcode_transactions")
+
+    def test_accepts_migration_endpoint_kwargs(self):
+        # MigrationImportView always passes apply/continue_on_error/report_dir.
+        out = StringIO()
+        call_command("import_barcode_transactions", txn_csv=self._txn_csv(),
+                     apply=True, continue_on_error=True, report_dir=self.tmp, stdout=out)
+        self.assertEqual(BarcodeTransaction.objects.filter(legacy_key="1").count(), 1)

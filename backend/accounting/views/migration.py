@@ -39,6 +39,9 @@ IMPORT_KINDS = {
                         ['file']),
     'allocations': ('import_voucher_allocations',  {'receive': 'receive', 'payment': 'payment', 'journal': 'journal'},
                     []),  # at least one (validated below)
+    'barcode_transactions': ('import_barcode_transactions',
+                    {'txn': 'txn_csv', 'split': 'split_csv', 'merge': 'merge_csv'},
+                    []),  # at least one (command validates)
 }
 
 # download name -> template filename
@@ -57,6 +60,9 @@ TEMPLATE_FILES = {
     'customer_order':            'legacy_customer_order_template.csv',
     'customer_order_main':       'legacy_customer_order_main_template.csv',
     'ldgr_open_balance':         'legacy_ldgr_open_balance_template.csv',
+    'barcode_wise_all_transaction': 'legacy_barcode_wise_all_transaction_template.csv',
+    'barcode_split':             'legacy_barcode_split_template.csv',
+    'barcode_merge':             'legacy_barcode_merge_template.csv',
 }
 
 

@@ -131,22 +131,32 @@ def import_transactions(rows, barcodes, retails, users, *, apply):
         else:
             stats["existing"] += 1
 
-    # Dedupe duplicate genesis rows: keep the earliest create per barcode, drop the
-    # rest (legacy double "New Create" otherwise shows as phantom stock).
+    # Remove redundant duplicate transactions that would distort the stock report.
     if apply:
         from django.db.models import Count, Min
         removed = 0
+        # 1. Exact duplicates — same barcode, type, bill AND timestamp. The legacy
+        #    log records e.g. "Barcode Split" once per resulting child, which
+        #    over-counts the parent's outflow (a barcode is split only once).
         for d in (BarcodeTransaction.objects
-                  .filter(trans_type__in=CREATE_TYPES)
+                  .values("barcode_id", "trans_type", "billno", "date")
+                  .annotate(n=Count("id"), keep=Min("id")).filter(n__gt=1)):
+            extra = BarcodeTransaction.objects.filter(
+                barcode_id=d["barcode_id"], trans_type=d["trans_type"],
+                billno=d["billno"], date=d["date"]).exclude(id=d["keep"])
+            removed += extra.count()
+            extra.delete()
+        # 2. Duplicate genesis — a barcode is created once, but a re-save can log a
+        #    second "New Create" with a different timestamp the exact pass misses.
+        for d in (BarcodeTransaction.objects.filter(trans_type__in=CREATE_TYPES)
                   .values("barcode_id").annotate(n=Count("id"), keep=Min("id"))
                   .filter(n__gt=1)):
             extra = BarcodeTransaction.objects.filter(
-                barcode_id=d["barcode_id"], trans_type__in=CREATE_TYPES,
-            ).exclude(id=d["keep"])
+                barcode_id=d["barcode_id"], trans_type__in=CREATE_TYPES).exclude(id=d["keep"])
             removed += extra.count()
             extra.delete()
         if removed:
-            stats["deduped_creates"] = removed
+            stats["deduped"] = removed
     return stats
 
 

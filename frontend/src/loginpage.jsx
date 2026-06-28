@@ -47,9 +47,8 @@ const RetailSelection = () => {
         const currentStoredRetail = sessionStorage.getItem('retail_code');
         if (currentStoredRetail !== selectedRetail.retail_code) {
           sessionStorage.setItem('retail_code', selectedRetail.retail_code);
-          console.log(selectedRetail)
-          sessionStorage.setItem('state_code', selectedRetail.retail.state?.code ?? '');
-          sessionStorage.setItem('state_name', selectedRetail.retail.state?.name ?? '');
+          sessionStorage.setItem('state_code', selectedRetail.state?.code ?? '');
+          sessionStorage.setItem('state_name', selectedRetail.state?.name ?? '');
           window.location.reload();
         }
       }

@@ -11,6 +11,7 @@ from django.db import transaction
 
 from inventory.legacy_barcode_import import (
     build_lookups, import_transactions, reconcile_op_stk, import_split_merge,
+    mark_consumed_barcodes,
 )
 
 
@@ -93,6 +94,7 @@ class Command(BaseCommand):
             op = reconcile_op_stk(txn_rows, barcodes, retails, apply=apply)
             s = import_split_merge(split_rows, "Split", barcodes, retails, apply=apply)
             m = import_split_merge(merge_rows, "Merge", barcodes, retails, apply=apply)
+            c = mark_consumed_barcodes(apply=apply)
             if not apply:
                 transaction.set_rollback(True)
 
@@ -107,5 +109,6 @@ class Command(BaseCommand):
                           f"{s['skipped_both_missing']}")
         self.stdout.write(f"  merges: created={m['created']} skipped_both_missing="
                           f"{m['skipped_both_missing']}")
+        self.stdout.write(f"  consumed (#SPL/#MER) barcodes flagged out of stock: {c['consumed_marked']}")
         if not apply:
             self.stdout.write(self.style.NOTICE("\nDry run — re-run with --apply to persist."))

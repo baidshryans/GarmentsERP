@@ -920,16 +920,21 @@ class StockReportView(APIView):
             'BAR-MER', 'BAR-SPLIT', 'BAR-TRF-UNB', 'PURCHASE-RET',
         ]
 
-        # Exclude barcodes that are old_barcode in split/merge operations.
-        # When a barcode is split/merged, the old barcode should not contribute to
-        # stock reports — only the new child barcodes should be counted.
-        # Must exclude NULL old_barcode_id: a split whose parent barcode no longer
-        # exists (consumed) stores old_barcode=NULL. A NULL in a `NOT IN (...)`
-        # subquery makes the whole predicate evaluate to NULL/false for every row
-        # (SQL three-valued logic), which would silently zero out the entire report.
-        split_merged_barcode_ids = BarcodeSplitMerge.objects.filter(
-            old_barcode__isnull=False
-        ).values_list('old_barcode_id', flat=True)
+        # Barcodes consumed by a split/merge must not count as stock. Two sources:
+        #  1. old_barcode of a BarcodeSplitMerge row (skip NULLs — a NULL in a
+        #     `NOT IN (...)` subquery makes the predicate NULL/false for every row
+        #     under SQL three-valued logic, which would zero out the whole report).
+        #  2. barcodes whose name carries the #SPL / #MER marker — the consumed
+        #     parent is renamed this way and often isn't linked as old_barcode
+        #     (the legacy split table stores the pre-rename id).
+        # Materialised as a plain list of ints so the subqueries stay NULL-safe.
+        split_merged_barcode_ids = list(
+            set(BarcodeSplitMerge.objects.filter(old_barcode__isnull=False)
+                .values_list('old_barcode_id', flat=True))
+            | set(BarcodeMain.objects.filter(
+                Q(barcode__icontains='#SPL') | Q(barcode__icontains='#MER')
+            ).values_list('id', flat=True))
+        )
 
         # op_stk seed barcodes still in inventory as of end of prev_date.
         # stk_status is intentionally NOT filtered — an op_stk barcode held with a

@@ -363,3 +363,36 @@ class StockReportNullSplitParentTests(TestCase):
         resp = StockReportView.as_view()(req)
         self.assertTrue(any(row.get("stock_count", 0) > 0 for row in resp.data),
                         "report was zeroed by a NULL-parent split record")
+
+
+# ─── Consumed (#SPL/#MER) barcodes excluded from stock ────────────────────────
+
+from inventory.legacy_barcode_import import mark_consumed_barcodes
+
+
+class ConsumedBarcodeTests(TestCase):
+    def test_mark_consumed_flags_out_of_stock(self):
+        r = _retail("R001"); it = _item(); p = _purity()
+        spl = _barcode("123#SPL", it, r, p, op_stk=True, op_retail=r, stk_status=True, pcs=1)
+        keep = _barcode("123A", it, r, p, op_stk=True, op_retail=r, stk_status=True, pcs=1)
+        res = mark_consumed_barcodes(apply=True)
+        self.assertEqual(res["consumed_marked"], 1)
+        spl.refresh_from_db(); keep.refresh_from_db()
+        self.assertFalse(spl.op_stk)
+        self.assertFalse(spl.stk_status)
+        self.assertTrue(keep.op_stk)
+
+    def test_report_excludes_spl_named_barcode_even_if_op_stk(self):
+        # A #SPL barcode left op_stk=True must still be excluded by the report's
+        # name-based filter (defence in depth, independent of mark_consumed).
+        r = _retail("R001"); it = _item(); p = _purity()
+        _barcode("999#SPL", it, r, p, op_stk=True, op_retail=r, pcs=1)
+        _barcode("999A", it, r, p, op_stk=True, op_retail=r, pcs=1)
+        U = get_user_model()
+        user = U.objects.create_user(username="rep2", password="x", is_superuser=True, is_staff=True)
+        rf = APIRequestFactory()
+        req = rf.get("/x", {"as_on_date": "2099-01-01"})
+        force_authenticate(req, user=user)
+        req.retail = r
+        resp = StockReportView.as_view()(req)
+        self.assertEqual(sum(row.get("stock_count", 0) for row in resp.data), 1)

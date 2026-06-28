@@ -164,6 +164,23 @@ def reconcile_op_stk(rows, barcodes, retails, *, apply):
     return stats
 
 
+def mark_consumed_barcodes(*, apply):
+    """Barcodes whose name carries the #SPL / #MER marker are consumed parents of a
+    split/merge and must not count as stock — flag them op_stk=False, stk_status=False.
+
+    The legacy split/merge tables store the pre-rename id, so these often aren't
+    linked as a BarcodeSplitMerge.old_barcode; the name marker is the reliable signal.
+    """
+    from django.db.models import Q
+    from inventory.models import BarcodeMain
+
+    qs = BarcodeMain.objects.filter(Q(barcode__icontains="#SPL") | Q(barcode__icontains="#MER"))
+    n = qs.filter(Q(op_stk=True) | Q(stk_status=True)).count()
+    if apply:
+        qs.update(op_stk=False, stk_status=False)
+    return {"consumed_marked": n}
+
+
 def import_split_merge(rows, kind, barcodes, retails, *, apply):
     """Create BarcodeSplitMerge rows. kind is 'Split' or 'Merge'. legacy_key is
     namespaced ('split:<id>' / 'merge:<id>') since the two legacy tables share ids."""

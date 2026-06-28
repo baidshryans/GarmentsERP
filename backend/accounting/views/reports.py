@@ -1493,13 +1493,13 @@ class FinancialRatiosView(APIView):
         equity            = total_assets - total_liabilities
 
         # ── Outstanding debtors / creditors ──────────────────────────────
-        total_debtors = SalesVou.objects.filter(
-            retail=request.retail, due_amt__gt=0
-        ).aggregate(total=Sum("due_amt"))["total"] or Decimal(0)
-
-        total_creditors = PurchaseVoucher.objects.filter(
-            retail=request.retail, due_amt__gt=0
-        ).aggregate(total=Sum("due_amt"))["total"] or Decimal(0)
+        # GL-based (sum of positive Sundry Debtor / Sundry Creditor balances),
+        # not per-invoice due_amt. Single source of truth; matches the ledger
+        # statement and is correct after a fresh sync. Respects the report's
+        # retail scope (None = combined).
+        from accounting.receivables import outstanding_receivable, outstanding_payable
+        total_debtors = outstanding_receivable(retail, as_of=end_date)
+        total_creditors = outstanding_payable(retail, as_of=end_date)
 
         # ── Ratio helpers ────────────────────────────────────────────────
         def ratio(num, den, pct=False, dp=2):

@@ -825,11 +825,13 @@ def dashboard_summary(request):
     # ── Pending purchase orders ────────────────────────────────
     pending_po = PurchaseOrder.objects.filter(retail=retail).count()
 
-    # ── Outstanding receivable (due_amt on sales vouchers) ────
-    outstanding = float(
-        SalesVou.objects.filter(retail=retail, ret_status=False)
-        .aggregate(total=Sum('due_amt'))['total'] or 0
-    )
+    # ── Outstanding receivable ─────────────────────────────────
+    # Derived from the General Ledger (sum of positive Sundry Debtor balances),
+    # not from per-invoice due_amt — the GL is the single source of truth and
+    # matches the ledger statement. Resync-safe: reads only opening balances +
+    # posted vouchers.
+    from accounting.receivables import outstanding_receivable
+    outstanding = float(outstanding_receivable(retail, as_of=today))
 
     # ── Total sales bills this month ───────────────────────────
     sales_month_count = SalesVou.objects.filter(

@@ -69,7 +69,18 @@ class Command(BaseCommand):
             totals['journal'] = self._run(opts['journal'], kind='journal')
 
         if self.apply:
-            self._reconcile_due_amts()
+            # Re-derive due_amt authoritatively from the GL (FIFO across each
+            # party's open bills). This supersedes the old per-allocation
+            # reconciliation and correctly accounts for advances, old gold,
+            # at-sale receipts and on-account payments — so a fresh sync yields
+            # correct outstanding without relying on legacy allocation amounts.
+            from accounting.due_rebuild import rebuild_sales_due, rebuild_purchase_due
+            s = rebuild_sales_due(apply=True)
+            p = rebuild_purchase_due(apply=True)
+            self.stdout.write(self.style.SUCCESS(
+                f"  due_amt rebuilt from GL: sales {s['changed']} bill(s) "
+                f"(total {s['new_sum']:,.2f}), purchase {p['changed']} bill(s) "
+                f"(total {p['new_sum']:,.2f})"))
 
         self._report(opts['report_dir'])
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
@@ -288,17 +299,6 @@ class Command(BaseCommand):
     def _resolve_bill(self, billno, is_sales):
         model = SalesVou if is_sales else PurchaseVoucher
         return model.objects.filter(billno=clean(billno)).order_by('id').first()
-
-    def _reconcile_due_amts(self):
-        """due_amt = max(0, gross total − total allocated) for each touched bill."""
-        for sv, alloc in self.sales_alloc.items():
-            gross = Decimal(str(sv.total_bill_value or 0))
-            sv.due_amt = max(Decimal('0'), gross - alloc)
-            sv.save(update_fields=['due_amt'])
-        for pv, alloc in self.purch_alloc.items():
-            gross = pv.total_incl_gst or pv.bill_value or Decimal('0')
-            pv.due_amt = max(Decimal('0'), gross - alloc)
-            pv.save(update_fields=['due_amt'])
 
     def _report(self, report_dir):
         if not self.unresolved:

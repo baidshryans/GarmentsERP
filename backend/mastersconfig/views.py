@@ -1158,7 +1158,7 @@ class MySQLSyncView(APIView):
                 if 'barcode' in tables_requested:
                     results['barcode'] = self._sync_barcodes(cursor)
 
-                for _tx_key in ('ledger_opening', 'gl_vouchers', 'sales', 'purchases', 'allocations'):
+                for _tx_key in ('ledger_opening', 'gl_vouchers', 'sales', 'purchases', 'allocations', 'barcode_transactions'):
                     if _tx_key in tables_requested:
                         results[_tx_key] = self._sync_transaction(cursor, _tx_key)
 
@@ -1670,6 +1670,11 @@ class MySQLSyncView(APIView):
         'allocations': ('import_voucher_allocations',
                         {'receive': 'receive_amount', 'payment': 'payment_amount', 'journal': 'journal_amount'},
                         []),
+        'barcode_transactions': ('import_barcode_transactions',
+                        {'txn_csv': 'barcode_wise_all_transaction',
+                         'split_csv': 'barcode_split',
+                         'merge_csv': 'barcode_merge'},
+                        []),  # at least one source table must exist
     }
 
     def _sync_transaction(self, cursor, key):

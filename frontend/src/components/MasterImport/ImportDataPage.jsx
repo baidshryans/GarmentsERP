@@ -45,6 +45,7 @@ const TX_SYNC_TABLES = [
   { key: "sales",       label: "Sales Vouchers" },
   { key: "purchases",   label: "Purchase Vouchers" },
   { key: "allocations", label: "Bill Allocations" },
+  { key: "barcode_transactions", label: "Barcode Transactions" },
 ];
 
 const TABS = [

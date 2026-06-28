@@ -206,6 +206,14 @@ class MigrationResetView(APIView):
                 do('purchase_vouchers', PurchaseVoucher.objects.all(), PurchaseVoucher)
             if 'gl' in scope:
                 do('gl_vouchers', VoucherMain.objects.filter(legacy_key__isnull=False), VoucherMain)
+            if 'barcode_transactions' in scope:
+                from inventory.models import BarcodeTransaction, BarcodeSplitMerge
+                # Only the legacy-imported rows (legacy_key set); live-created
+                # rows are preserved. op_stk is re-reconciled on the next import.
+                do('barcode_transactions',
+                   BarcodeTransaction.objects.filter(legacy_key__isnull=False), BarcodeTransaction)
+                do('barcode_split_merge',
+                   BarcodeSplitMerge.objects.filter(legacy_key__isnull=False), BarcodeSplitMerge)
             if 'customer_orders' in scope:
                 do('customer_orders', CustomerOrder.objects.all(), CustomerOrder)
             if 'ledger_opening' in scope:

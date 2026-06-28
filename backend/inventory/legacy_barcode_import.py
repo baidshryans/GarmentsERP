@@ -157,6 +157,31 @@ def import_transactions(rows, barcodes, retails, users, *, apply):
             extra.delete()
         if removed:
             stats["deduped"] = removed
+
+        # Balance returns against their out: a barcode can't be returned more times
+        # than it went out. The legacy log sometimes holds a SALE-APP-RET with no
+        # SALE-APP (or a SALE-RET with no SALE), which adds a phantom inflow and
+        # keeps a sold barcode showing in stock. Drop the unmatched (earliest) ones.
+        from collections import defaultdict as _dd
+        rebalanced = 0
+        for ret_type, out_type in (("SALE-APP-RET", "SALE-APP"), ("SALE-RET", "SALE")):
+            outs = _dd(int)
+            for t in BarcodeTransaction.objects.filter(trans_type=out_type).values("barcode_id"):
+                outs[t["barcode_id"]] += 1
+            ret_rows = _dd(list)
+            for t in (BarcodeTransaction.objects.filter(trans_type=ret_type)
+                      .order_by("date", "id").values("id", "barcode_id")):
+                ret_rows[t["barcode_id"]].append(t["id"])
+            excess_ids = []
+            for bid, ids in ret_rows.items():
+                n_excess = len(ids) - outs.get(bid, 0)
+                if n_excess > 0:
+                    excess_ids.extend(ids[:n_excess])
+            if excess_ids:
+                rebalanced += len(excess_ids)
+                BarcodeTransaction.objects.filter(id__in=excess_ids).delete()
+        if rebalanced:
+            stats["unmatched_returns_removed"] = rebalanced
     return stats
 
 

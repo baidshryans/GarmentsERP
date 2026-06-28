@@ -66,6 +66,11 @@ class Command(BaseCommand):
         parser.add_argument("--txn-csv", default=None)
         parser.add_argument("--split-csv", default=None)
         parser.add_argument("--merge-csv", default=None)
+        # Accepted for parity with the migration import endpoint (which passes
+        # these to every importer); this command is already per-row resilient and
+        # reports to stdout, so they are no-ops here.
+        parser.add_argument("--continue-on-error", action="store_true")
+        parser.add_argument("--report-dir", default=None)
 
     def handle(self, *args, **o):
         apply = o["apply"]

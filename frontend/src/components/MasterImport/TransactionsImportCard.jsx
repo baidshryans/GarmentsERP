@@ -70,6 +70,17 @@ const KINDS = [
       { name: "journal", label: "journal_amount", template: "journal_amount" },
     ],
   },
+  {
+    kind: "barcode_transactions",
+    label: "Barcode Transactions",
+    desc: "Barcode movement log + split/merge records. Reconciles opening stock for correct stock reports. Run AFTER barcodes are imported. Any one file is enough.",
+    optional: true,
+    fields: [
+      { name: "txn",   label: "barcode_wise_all_transaction", template: "barcode_wise_all_transaction" },
+      { name: "split", label: "barcode_split", template: "barcode_split" },
+      { name: "merge", label: "barcode_merge", template: "barcode_merge" },
+    ],
+  },
 ];
 
 function FileSlot({ field, file, onPick }) {

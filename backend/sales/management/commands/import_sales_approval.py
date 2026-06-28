@@ -64,8 +64,7 @@ class Command(BaseCommand):
         self._item_map = {}  # (billno, legacy sales_vou_main_appr.id) -> SalesApprovalItem
 
         counts = {
-            'header':  self._pass(hdr, self._import_header, 'SalesApproval',
-                                  skip_fn=lambda r: SalesApproval.objects.filter(billno=clean(r.get('billno'))).exists()),
+            'header':  self._pass(hdr, self._import_header, 'SalesApproval'),
             'items':   self._pass(itm, self._import_item, 'SalesApprovalItem',
                                   skip_fn=lambda r: clean(r.get('billno')) not in self._new_billnos),
             'details': self._pass(det, self._import_detail, 'SalesApprovalItemDetails',
@@ -118,9 +117,8 @@ class Command(BaseCommand):
         sp2 = SalesPersonMaster.objects.filter(id=to_int(r.get('sales_persons2'))).first() if to_int(r.get('sales_persons2')) else None
 
         billno = clean(r.get('billno'))[:30]
-        obj = SalesApproval(
+        defaults = dict(
             date1=parse_date(r.get('date1')),
-            billno=billno,
             ldgr=ldgr,
             narration=clean(r.get('narration'))[:100],
             sales_person=sp,
@@ -134,7 +132,12 @@ class Command(BaseCommand):
             retail=retail, fiscal_year=fy,
         )
         if self.apply:
-            obj.save()
+            # Upsert + refresh: re-syncing converges to the source (also completes
+            # any partial prior import). Existing lines are dropped and re-imported.
+            obj, created = SalesApproval.objects.update_or_create(billno=billno, defaults=defaults)
+            if not created:
+                obj.items.all().delete()
+                obj.bill_set.all().delete()
         self._new_billnos.add(billno)
 
     def _default_sp(self, retail):
@@ -157,8 +160,13 @@ class Command(BaseCommand):
             raise ValueError(f"no SalesApproval header for billno {billno!r}")
         bc = clean(r.get('barcode'))
         barcode = BarcodeMain.objects.filter(barcode=bc).first() if bc else None
-        if barcode is None:
-            raise ValueError(f"barcode {bc!r} not found (required) — import barcodes first")
+        if bc and barcode is None:
+            # Orphan barcode (no record in the source) — keep the line, drop the
+            # link. The item FK still preserves what was sent on approval.
+            self.unresolved.append({
+                'table': 'SalesApprovalItem', 'billno': billno,
+                'error': f"barcode {bc!r} not in master — imported without barcode link",
+            })
         obj = SalesApprovalItem(
             billno=header,
             barcode=barcode,

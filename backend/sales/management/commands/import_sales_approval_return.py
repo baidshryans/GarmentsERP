@@ -65,8 +65,7 @@ class Command(BaseCommand):
         self._item_map = {}  # (billno, legacy sales_vou_appr_return_main.id) -> SalesApprovalReturnItem
 
         counts = {
-            'header':  self._pass(hdr, self._import_header, 'SalesApprovalReturn',
-                                  skip_fn=lambda r: SalesApprovalReturn.objects.filter(billno=clean(r.get('billno'))).exists()),
+            'header':  self._pass(hdr, self._import_header, 'SalesApprovalReturn'),
             'items':   self._pass(itm, self._import_item, 'SalesApprovalReturnItem',
                                   skip_fn=lambda r: clean(r.get('billno')) not in self._new_billnos),
             'details': self._pass(det, self._import_detail, 'SalesApprovalReturnItemDetails',
@@ -108,15 +107,18 @@ class Command(BaseCommand):
     def _import_header(self, r):
         retail, branch, fy = self.org.get(r.get('rt_code'), r.get('br_code'), r.get('ac_yr'))
         billno = clean(r.get('billno'))[:30]
-        obj = SalesApprovalReturn(
-            billno=billno,
+        defaults = dict(
             date1=parse_date(r.get('date1')),
-            ref_approval=None,  # set from the items' appr_billno
+            ref_approval=None,  # re-set from the items' appr_billno
             narration=clean(r.get('narration'))[:100],
             retail=retail, fiscal_year=fy,
         )
         if self.apply:
-            obj.save()
+            # Upsert + refresh: re-syncing converges to the source / completes partials.
+            obj, created = SalesApprovalReturn.objects.update_or_create(billno=billno, defaults=defaults)
+            if not created:
+                obj.items.all().delete()
+                SalesApprovalReturnItemDetails.objects.filter(billno=obj).delete()
         self._new_billnos.add(billno)
 
     def _import_item(self, r):

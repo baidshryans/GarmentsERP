@@ -490,7 +490,9 @@ class SalesApproval(models.Model):
 class SalesApprovalItem(models.Model):
     billno = models.ForeignKey(SalesApproval, on_delete=models.CASCADE,related_name='items')
     # sl_no = models.IntegerField()
-    barcode = models.ForeignKey(BarcodeMain, on_delete=models.PROTECT)
+    # Nullable: historical/migrated approvals may reference a barcode whose record
+    # no longer exists in the source (consistent with the return item models).
+    barcode = models.ForeignKey(BarcodeMain, on_delete=models.PROTECT, null=True, blank=True)
     item = models.ForeignKey(Item, on_delete=models.PROTECT)
     pcs = models.IntegerField()
     gw = models.DecimalField(max_digits=10, decimal_places=3)

@@ -111,6 +111,7 @@ class BarcodeTransaction(models.Model):  # Inherit models.Model
     user = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True)
     ip_address = models.GenericIPAddressField(auto_created=True)
     retail = models.ForeignKey("mastersconfig.RetailMaster",on_delete=models.SET_NULL,null=True,blank=True)
+    legacy_key = models.CharField(max_length=50, null=True, blank=True, db_index=True)
 
     class Meta:
         db_table = "barcode_transaction"
@@ -237,6 +238,7 @@ class BarcodeSplitMerge(models.Model):
     old_barcode = models.ForeignKey(BarcodeMain, on_delete=models.SET_NULL, null=True, related_name='old_barcode')
     new_barcode = models.ForeignKey(BarcodeMain, on_delete=models.SET_NULL, null=True, related_name='new_barcode')
     retail = models.ForeignKey(RetailMaster, on_delete=models.SET_NULL, null=True)
+    legacy_key = models.CharField(max_length=50, null=True, blank=True, db_index=True)
     #when the transaction type is Split, the new barcode will be "<oldbarcode>"&"A"
     #when the transaction type is Merge, the new barcode will be a new random barcode
 

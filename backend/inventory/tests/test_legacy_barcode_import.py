@@ -225,3 +225,53 @@ class ImportSplitMergeTests(TestCase):
         self._run([_sm_row(1, "100", "100A")], kind="Merge")
         self.assertTrue(BarcodeSplitMerge.objects.filter(legacy_key="merge:1",
                                                          transaction_type="Merge").exists())
+
+
+# ─── Task 8: management command (CSV) ─────────────────────────────────────────
+
+import csv
+import os
+import tempfile
+from io import StringIO
+from django.core.management import call_command
+from django.core.management.base import CommandError
+
+
+def _write_csv(path, fieldnames, rows):
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow(r)
+
+
+class CommandCsvTests(TestCase):
+    def setUp(self):
+        self.r = _retail("R001")
+        self.it = _item()
+        self.p = _purity()
+        self.bc = _barcode("100A", self.it, self.r, self.p, op_stk=True, op_retail=self.r)
+        self.tmp = tempfile.mkdtemp()
+
+    def _txn_csv(self):
+        p = os.path.join(self.tmp, "txn.csv")
+        _write_csv(p, ["id", "date1", "barcode", "billno", "tran_type", "user_id",
+                       "ip", "rt_code"],
+                   [_txn_row(1, "100A", "SALE", date1="2026-05-01")])
+        return p
+
+    def test_dry_run_writes_nothing(self):
+        out = StringIO()
+        call_command("import_barcode_transactions", "--txn-csv", self._txn_csv(), stdout=out)
+        self.assertEqual(BarcodeTransaction.objects.count(), 0)
+        self.assertIn("DRY RUN", out.getvalue())
+
+    def test_apply_creates_rows(self):
+        out = StringIO()
+        call_command("import_barcode_transactions", "--txn-csv", self._txn_csv(),
+                     "--apply", stdout=out)
+        self.assertEqual(BarcodeTransaction.objects.filter(legacy_key="1").count(), 1)
+
+    def test_requires_a_source(self):
+        with self.assertRaises(CommandError):
+            call_command("import_barcode_transactions")

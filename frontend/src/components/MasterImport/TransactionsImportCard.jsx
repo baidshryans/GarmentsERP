@@ -8,6 +8,7 @@ const RESET_SCOPES = [
   { key: "ledger_opening", label: "Ledger Opening Balances" },
   { key: "sales", label: "Sales Vouchers" },
   { key: "purchases", label: "Purchase Vouchers" },
+  { key: "barcode_transactions", label: "Barcode Transactions (+ split/merge)" },
   { key: "ledgers", label: "Non-system ledgers + aliases" },
 ];
 

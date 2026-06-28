@@ -282,3 +282,56 @@ class CommandCsvTests(TestCase):
         call_command("import_barcode_transactions", txn_csv=self._txn_csv(),
                      apply=True, continue_on_error=True, report_dir=self.tmp, stdout=out)
         self.assertEqual(BarcodeTransaction.objects.filter(legacy_key="1").count(), 1)
+
+
+# ─── Reset scope (Clear migrated data) ────────────────────────────────────────
+
+from rest_framework.test import APIRequestFactory, force_authenticate
+from accounting.views.migration import MigrationResetView
+
+
+class ResetScopeTests(TestCase):
+    def setUp(self):
+        self.r = _retail("R001")
+        self.it = _item()
+        self.p = _purity()
+        self.bc = _barcode("100A", self.it, self.r, self.p)
+        # one legacy-imported txn + one live txn
+        self.legacy_txn = BarcodeTransaction.objects.create(
+            barcode=self.bc, billno="x", trans_type="SALE", ip_address="0.0.0.0",
+            retail=self.r, legacy_key="1")
+        self.live_txn = BarcodeTransaction.objects.create(
+            barcode=self.bc, billno="y", trans_type="SALE", ip_address="0.0.0.0",
+            retail=self.r)  # legacy_key stays NULL
+        self.legacy_sm = BarcodeSplitMerge.objects.create(
+            transaction_type="Split", new_barcode=self.bc, retail=self.r, legacy_key="split:1")
+        self.live_sm = BarcodeSplitMerge.objects.create(
+            transaction_type="Split", new_barcode=self.bc, retail=self.r)
+
+    def _reset(self, apply):
+        rf = APIRequestFactory()
+        U = get_user_model()
+        user = U.objects.create_user(username="admin", password="x", is_staff=True, is_superuser=True)
+        req = rf.post("/x", {"scope": ["barcode_transactions"]}, format="json")
+        force_authenticate(req, user=user)
+        return MigrationResetView.as_view()(req)
+
+    def test_dry_run_deletes_nothing(self):
+        resp = self._reset(apply=False)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(BarcodeTransaction.objects.count(), 2)
+        self.assertEqual(BarcodeSplitMerge.objects.count(), 2)
+
+    def test_apply_deletes_only_legacy_rows(self):
+        # the view reads ?apply=true from query params
+        rf = APIRequestFactory()
+        U = get_user_model()
+        user = U.objects.create_user(username="admin2", password="x", is_staff=True, is_superuser=True)
+        req = rf.post("/x?apply=true", {"scope": ["barcode_transactions"]}, format="json")
+        force_authenticate(req, user=user)
+        resp = MigrationResetView.as_view()(req)
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(BarcodeTransaction.objects.filter(legacy_key="1").exists())
+        self.assertTrue(BarcodeTransaction.objects.filter(pk=self.live_txn.pk).exists())
+        self.assertFalse(BarcodeSplitMerge.objects.filter(legacy_key="split:1").exists())
+        self.assertTrue(BarcodeSplitMerge.objects.filter(pk=self.live_sm.pk).exists())

@@ -1481,12 +1481,17 @@ class ClosingStockCal:
         # ── Sales ────────────────────────────────────────────────────────────
         sa_main_qs = SalesVouItem.objects.filter(item_id__in=item_ids).filter(_retail_q())
         sa_main_qs = _date_filter(sa_main_qs)
-        sa_main = _batch(sa_main_qs, 'item_id', {'total_gw': Coalesce(Sum('gw'), zero)})
+        _amt_field = DecimalField(max_digits=20, decimal_places=2)
+        sa_main = _batch(sa_main_qs, 'item_id', {
+            'total_gw': Coalesce(Sum('gw'), zero),
+            'total_amt': Coalesce(Sum('amount', output_field=_amt_field), zero),
+        })
         sa_det_qs = SalesVouItemDetails.objects.filter(item_id__in=item_ids).filter(_retail_q())
         sa_det_qs = _date_filter(sa_det_qs, 'main_item__billno__date1')
         sa_det = _batch(sa_det_qs, 'item_id', {
             'total_gw': Coalesce(Sum('gw'), zero),
             'total_ct': Coalesce(Sum('ct'), zero),
+            'total_amt': Coalesce(Sum('amount', output_field=_amt_field), zero),
         })
 
         # ── Sale returns ─────────────────────────────────────────────────────
@@ -1570,15 +1575,20 @@ class ClosingStockCal:
                 pr_amt = _get(pr_det, iid, 'total_amt')
             purc_ret = {'gw': pr_gw, 'ct': pr_ct, 'amt': pr_amt}
 
-            # Sales
+            # Sales — amount shown at ACTUAL sale value (matches the drill-down),
+            # mirroring the gw aggregation to avoid double-counting. Closing value
+            # is unaffected: it is derived from quantities (sa_qty), not this amount.
             sa_gw = _get(sa_main, iid, 'total_gw')
+            sa_amt = _get(sa_main, iid, 'total_amt')
             sa_ct = zero
             if item.item_type == 'S':
                 sa_gw = _get(sa_det, iid, 'total_gw')
                 sa_ct = _get(sa_det, iid, 'total_ct')
+                sa_amt = _get(sa_det, iid, 'total_amt')
             elif item.item_type == 'R':
                 sa_gw += _get(sa_det, iid, 'total_gw')
-            sales = {'gw': sa_gw, 'ct': sa_ct, 'amt': zero}
+                sa_amt += _get(sa_det, iid, 'total_amt')
+            sales = {'gw': sa_gw, 'ct': sa_ct, 'amt': sa_amt}
 
             # Sale returns
             sr_gw = _get(sr_main, iid, 'total_gw')
@@ -1617,8 +1627,7 @@ class ClosingStockCal:
             if total_in_qty > 0:
                 weighted_avg_rate = total_in_value / total_in_qty
 
-            sa_qty = sales[pq]
-            sales_value = sa_qty * weighted_avg_rate
+            sa_qty = sales[pq]  # quantity drives the closing balance (cost), below
 
             sr_qty = sale_ret[pq]
             sale_return_value = sr_qty * weighted_avg_rate
@@ -1646,7 +1655,7 @@ class ClosingStockCal:
             results['total_purc'] += purchase['amt']
             results['total_purc_ret'] += purc_ret['amt']
             results['total_sale_ret'] += sale_return_value
-            results['total_sale'] += sales_value
+            results['total_sale'] += sales['amt']
 
             results['details'].append({
                 'item_id': item.id,
@@ -1667,7 +1676,7 @@ class ClosingStockCal:
                 # Sales
                 'sales_gw': float(sales['gw']),
                 'sales_ct': float(sales['ct']),
-                'sales_amt': float(sales_value),
+                'sales_amt': float(sales['amt']),
                 # Sale Returns
                 'sale_ret_gw': float(sale_ret['gw']),
                 'sale_ret_ct': float(sale_ret['ct']),

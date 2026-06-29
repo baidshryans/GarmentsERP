@@ -68,6 +68,21 @@ class Command(BaseCommand):
         self.unresolved = []
         purities = {str(p.purity).strip().lower(): p for p in PurityMaster.objects.all()}
 
+        # Opening stock is a snapshot — the legacy rawstone is authoritative. Clear
+        # any existing opening stock for the retails in this file first, so seed /
+        # stale / prior-run rows don't accumulate alongside the synced ones.
+        if self.apply:
+            retail_ids = set()
+            for rt in {clean(x) for x in df.get('rt_code', pd.Series(dtype=str)).dropna()} - {''}:
+                r, _, _ = self.org.get(rt, '', '')
+                if r:
+                    retail_ids.add(r.id)
+            if retail_ids:
+                cleared = OpeningInventory.objects.filter(retail_id__in=retail_ids).delete()[0]
+                if cleared:
+                    self.stdout.write(self.style.WARNING(
+                        f"cleared {cleared} existing opening-stock row(s) for the synced retail(s)"))
+
         created = updated = errored = 0
         for _, r in df.iterrows():
             if not any((str(v) or '').strip() for v in r.values):

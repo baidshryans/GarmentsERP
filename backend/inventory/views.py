@@ -749,45 +749,6 @@ from purchase.models import (
                             PurchaseReturnDetails
                             )
 
-def resolve_report_retail_ids(request):
-    """Resolve the retail scope for the closing-stock report AND its drill-down so
-    the two always match. Non-admins are pinned to their own request.retail; admins
-    may pass retail_ids / retail_id or combined=true (all retails).
-
-    Returns (retail_ids, error_response). retail_ids is a list, or None for the
-    combined/all view. error_response is non-None only on a bad/forbidden request.
-    """
-    from accounting.views.ledger import _can_view_combined  # lazy: avoid circular import
-    is_admin = _can_view_combined(request.user)
-    combined_flag = request.query_params.get('combined', '').lower() in ('true', '1')
-    retail_ids_raw = (request.query_params.getlist('retail_ids')
-                      or request.query_params.getlist('retail_ids[]'))
-    if not retail_ids_raw:
-        single = request.query_params.get('retail_ids') or request.query_params.get('retail_id')
-        if single:
-            retail_ids_raw = [s for s in str(single).split(',') if s]
-    parsed = []
-    if retail_ids_raw:
-        try:
-            parsed = [int(x) for x in retail_ids_raw if str(x).strip() != '']
-        except (TypeError, ValueError):
-            return None, Response({'error': 'retail_ids must be integers'},
-                                  status=status.HTTP_400_BAD_REQUEST)
-    if not is_admin:
-        if combined_flag or len(set(parsed)) > 1:
-            return None, Response(
-                {'error': 'You do not have permission to view combined / multi-retail reports.'},
-                status=status.HTTP_403_FORBIDDEN)
-        r = getattr(request, 'retail', None)
-        return ([r.id] if r else None), None
-    if combined_flag:
-        return None, None
-    if parsed:
-        return sorted(set(parsed)), None
-    r = getattr(request, 'retail', None)
-    return ([r.id] if r else None), None
-
-
 class ClosingStockCalculator(APIView):
     """
     API endpoint to calculate closing stock value using weighted average method.
@@ -814,9 +775,9 @@ class ClosingStockCalculator(APIView):
         # fall back to legacy single `retail_id`. Empty / missing = all retails combined.
         # Scope/combined access is gated to admin/superadmin; other users are pinned to
         # their own request.retail regardless of what they pass.
-        retail_ids, retail_err = resolve_report_retail_ids(request)
-        if retail_err is not None:
-            return retail_err
+        # Closing stock is always reported company-wide (all retails combined),
+        # never per-branch.
+        retail_ids = None
 
         # Calculate closing stock
         try:
@@ -3461,12 +3422,8 @@ class ClosingStockTxnView(APIView):
         if not item_id or not txn_type:
             return Response({'error': 'item_id and txn_type are required'}, status=400)
 
-        # Scope retail exactly like the closing-stock report, so the drill-down
-        # totals match the report row the user clicked.
-        retail_ids, retail_err = resolve_report_retail_ids(request)
-        if retail_err is not None:
-            return retail_err
-        retail_q = (Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True)) if retail_ids else Q()
+        # Closing stock is always company-wide; the drill-down matches (all retails).
+        retail_q = Q()
 
         try:
             item = Item.objects.get(id=item_id)

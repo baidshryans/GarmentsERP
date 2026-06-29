@@ -4,12 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getClosingStockValuation, getClosingStockTxns, fetchCompanies, fetchRetails } from "../../services/apiService";
-import { Package, Printer, TrendingUp, Weight, Gem, BarChart3, X, Loader2, Store, ChevronDown, Check } from "lucide-react";
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
+import { getClosingStockValuation, getClosingStockTxns, fetchCompanies } from "../../services/apiService";
+import { Package, Printer, TrendingUp, Weight, Gem, BarChart3, X, Loader2, Check } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 
 const today = new Date().toISOString().split("T")[0];
@@ -124,10 +120,7 @@ function TxnModal({ drill, asOnDate, onClose }) {
     setLoading(true);
     setError("");
     setVouchers(null);
-    getClosingStockTxns({
-      item_id: drill.item_id, txn_type: drill.txn_type, to_date: asOnDate,
-      retail_ids: scope === "selected" ? selectedRetailIds : undefined,
-    })
+    getClosingStockTxns({ item_id: drill.item_id, txn_type: drill.txn_type, to_date: asOnDate })
       .then((res) => {
         if (res.success) setVouchers(res.data.vouchers);
         else setError("Failed to load transactions.");
@@ -230,24 +223,11 @@ export default function ClosingStockTable() {
   const [category, setCategory] = useState("all");
   const [drill, setDrill]       = useState(null); // { item_id, item_name, txn_type }
   const [companyName, setCompanyName] = useState("");
-  const [retails, setRetails] = useState([]);
-  const [scope, setScope] = useState("all"); // 'all' | 'selected'
-  const [selectedRetailIds, setSelectedRetailIds] = useState([]);
-
-  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
-  const canViewCombined = user.is_superuser || ["admin", "super admin"].includes((user.role || "").toLowerCase());
-
   useEffect(() => {
     fetchCompanies().then((res) => {
       if (res.success) {
         const results = res.data?.results || res.data || [];
         if (results.length > 0) setCompanyName(results[0].company_name || "");
-      }
-    });
-    fetchRetails().then((res) => {
-      if (res.success) {
-        const results = res.data?.results || res.data || [];
-        setRetails(results);
       }
     });
   }, []);
@@ -256,13 +236,8 @@ export default function ClosingStockTable() {
     setError("");
     setLoading(true);
     setData(null);
-    const retail_ids = scope === "selected" ? selectedRetailIds : undefined;
-    if (scope === "selected" && (!retail_ids || retail_ids.length === 0)) {
-      setError("Select at least one retail, or choose 'All retails combined'.");
-      setLoading(false);
-      return;
-    }
-    const res = await getClosingStockValuation({ to_date: asOnDate, retail_ids });
+    // Closing stock is always company-wide (all retails combined).
+    const res = await getClosingStockValuation({ to_date: asOnDate });
     if (res.success) setData(res.data);
     else setError(typeof res.error === "string" ? res.error : res.error?.error || "Failed to load report.");
     setLoading(false);
@@ -378,70 +353,6 @@ export default function ClosingStockTable() {
             className="h-9 w-40"
           />
         </div>
-
-        {canViewCombined && (
-        <div className="flex flex-col gap-1.5 min-w-[16rem]">
-          <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Retails</Label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 w-full justify-between gap-2 font-normal px-3 cursor-pointer"
-              >
-                <span className="flex items-center gap-2 truncate">
-                  <Store className="size-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
-                  <span className="truncate">
-                    {scope === "all"
-                      ? "All retails (combined)"
-                      : selectedRetailIds.length === 0
-                        ? <span className="text-muted-foreground">Select retails…</span>
-                        : selectedRetailIds.length === 1
-                          ? (retails.find((r) => r.id === selectedRetailIds[0])?.retail_name || `#${selectedRetailIds[0]}`)
-                          : `${selectedRetailIds.length} retails selected`}
-                  </span>
-                </span>
-                <ChevronDown className="size-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Scope
-              </DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                checked={scope === "all"}
-                onCheckedChange={() => { setScope("all"); setSelectedRetailIds([]); }}
-                onSelect={(e) => e.preventDefault()}
-              >
-                All retails (combined)
-              </DropdownMenuCheckboxItem>
-              {retails.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Individual retails
-                  </DropdownMenuLabel>
-                  {retails.map((r) => (
-                    <DropdownMenuCheckboxItem
-                      key={r.id}
-                      checked={scope === "selected" && selectedRetailIds.includes(r.id)}
-                      onCheckedChange={(checked) => {
-                        setScope("selected");
-                        setSelectedRetailIds((prev) =>
-                          checked ? [...new Set([...prev, r.id])] : prev.filter((x) => x !== r.id),
-                        );
-                      }}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {r.retail_name || r.retail_code || `#${r.id}`}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        )}
 
         <div className="flex items-end gap-2">
           <Button

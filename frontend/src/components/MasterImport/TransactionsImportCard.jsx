@@ -69,6 +69,16 @@ const KINDS = [
     ],
   },
   {
+    kind: "purchase_returns",
+    label: "Purchase Returns",
+    desc: "Purchase returns, item lines and sub-items. Import items & GL vouchers first.",
+    fields: [
+      { name: "header",  label: "purchase_return (header)",     template: "purchase_return" },
+      { name: "items",   label: "purchase_return_main (items)", template: "purchase_return_main" },
+      { name: "details", label: "purchase_return_detail (subs)", template: "purchase_return_detail" },
+    ],
+  },
+  {
     kind: "allocations",
     label: "Bill Allocations",
     desc: "Link receipts/payments to bills (amount tables). Run AFTER vouchers, sales & purchases. Any one file is enough.",

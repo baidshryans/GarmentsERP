@@ -1503,6 +1503,7 @@ class ClosingStockCal:
         sr_det = _batch(sr_det_qs, 'item_id', {
             'total_gw': Coalesce(Sum('gw'), zero),
             'total_ct': Coalesce(Sum('ct'), zero),
+            'total_amt': Coalesce(Sum('amount'), zero),
         })
 
         # ── Refinery issues / receives ───────────────────────────────────────
@@ -1590,15 +1591,20 @@ class ClosingStockCal:
                 sa_amt += _get(sa_det, iid, 'total_amt')
             sales = {'gw': sa_gw, 'ct': sa_ct, 'amt': sa_amt}
 
-            # Sale returns
+            # Sale returns — amount at ACTUAL return value (matches the drill-down),
+            # from the detail rows (SaleReturnItem has no amount). Closing value is
+            # unaffected: it is derived from quantities (sr_qty), not this amount.
             sr_gw = _get(sr_main, iid, 'total_gw')
             sr_ct = zero
+            sr_amt = zero
             if item.item_type == 'S':
                 sr_gw = _get(sr_det, iid, 'total_gw')
                 sr_ct = _get(sr_det, iid, 'total_ct')
+                sr_amt = _get(sr_det, iid, 'total_amt')
             elif item.item_type == 'R':
                 sr_gw += _get(sr_det, iid, 'total_gw')
-            sale_ret = {'gw': sr_gw, 'ct': sr_ct, 'amt': zero}
+                sr_amt = _get(sr_det, iid, 'total_amt')
+            sale_ret = {'gw': sr_gw, 'ct': sr_ct, 'amt': sr_amt}
 
             # Refinery + transfers
             ref_iss = {'gw': _get(ri, iid, 'total_gw'), 'ct': _get(ri, iid, 'total_ct'), 'amt': zero}
@@ -1629,8 +1635,7 @@ class ClosingStockCal:
 
             sa_qty = sales[pq]  # quantity drives the closing balance (cost), below
 
-            sr_qty = sale_ret[pq]
-            sale_return_value = sr_qty * weighted_avg_rate
+            sr_qty = sale_ret[pq]  # quantity drives the closing balance (cost), below
 
             ri_qty = ref_iss[pq]
             rr_qty = ref_rec[pq]
@@ -1654,7 +1659,7 @@ class ClosingStockCal:
             results['opening_value'] += opening['amt']
             results['total_purc'] += purchase['amt']
             results['total_purc_ret'] += purc_ret['amt']
-            results['total_sale_ret'] += sale_return_value
+            results['total_sale_ret'] += sale_ret['amt']
             results['total_sale'] += sales['amt']
 
             results['details'].append({
@@ -1680,7 +1685,7 @@ class ClosingStockCal:
                 # Sale Returns
                 'sale_ret_gw': float(sale_ret['gw']),
                 'sale_ret_ct': float(sale_ret['ct']),
-                'sale_ret_amt': float(sale_return_value),
+                'sale_ret_amt': float(sale_ret['amt']),
                 # Refinery
                 'ref_iss_gw': float(ref_iss['gw']),
                 'ref_iss_ct': float(ref_iss['ct']),

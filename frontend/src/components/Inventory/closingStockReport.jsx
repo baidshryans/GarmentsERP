@@ -27,7 +27,7 @@ const TXN_LABELS = {
   refinery_receives:"Refinery Receives",
 };
 
-const fmt   = (v) => formatNumber(v, { decimals: 2 });
+const fmt   = (v) => formatNumber(v, { decimals: 0 });  // currency amounts — no paise
 const fmtWt = (v) => formatNumber(v, { decimals: 3 });
 const fmtK  = (v) => { const n = Number(v); if (n >= 1e7) return (n/1e7).toFixed(2)+"Cr"; if (n >= 1e5) return (n/1e5).toFixed(2)+"L"; return fmt(n); };
 const isNonZero = (v) => Math.abs(Number(v)) > 0.001;

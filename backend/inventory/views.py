@@ -1630,9 +1630,14 @@ class ClosingStockCal:
             pr_qty = purc_ret[pq]
             tr_in_qty = trn_rec[pq]
             tr_out_qty = trn_iss[pq]
+            sr_qty = sale_ret[pq]
 
-            total_in_qty = op_qty + pu_qty - pr_qty + tr_in_qty
-            total_in_value = opening['amt'] + purchase['amt'] - purc_ret['amt'] + trn_rec['amt']
+            # Weighted-average cost pool: opening + inward movements. Customer
+            # returns (sale returns) re-enter the pool at their return value,
+            # matching the legacy ERP's valuation.
+            total_in_qty = op_qty + pu_qty - pr_qty + tr_in_qty + sr_qty
+            total_in_value = (opening['amt'] + purchase['amt'] - purc_ret['amt']
+                              + trn_rec['amt'] + sale_ret['amt'])
 
             weighted_avg_rate = Decimal('0.00')
             if total_in_qty > 0:
@@ -1640,14 +1645,12 @@ class ClosingStockCal:
 
             sa_qty = sales[pq]  # quantity drives the closing balance (cost), below
 
-            sr_qty = sale_ret[pq]  # quantity drives the closing balance (cost), below
-
             ri_qty = ref_iss[pq]
             rr_qty = ref_rec[pq]
 
             adjustment = mfg_adj_total if item.item_name == "GOLD" else zero
 
-            closing_qty = total_in_qty - sa_qty + sr_qty - ri_qty + rr_qty - tr_out_qty - adjustment
+            closing_qty = total_in_qty - sa_qty - ri_qty + rr_qty - tr_out_qty - adjustment
             closing_value = closing_qty * weighted_avg_rate
 
             # Closing gw and ct

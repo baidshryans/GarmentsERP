@@ -1159,8 +1159,8 @@ class MySQLSyncView(APIView):
                     results['barcode'] = self._sync_barcodes(cursor)
 
                 for _tx_key in ('ledger_opening', 'opening_stock', 'gl_vouchers', 'sales', 'sales_approval',
-                                'sales_approval_return', 'purchases', 'purchase_returns', 'allocations',
-                                'barcode_transactions'):
+                                'sales_approval_return', 'sale_returns', 'purchases', 'purchase_returns',
+                                'allocations', 'barcode_transactions'):
                     if _tx_key in tables_requested:
                         results[_tx_key] = self._sync_transaction(cursor, _tx_key)
 
@@ -1663,6 +1663,10 @@ class MySQLSyncView(APIView):
                         ['header', 'items', 'details']),
         'sales_approval_return': ('import_sales_approval_return',
                         {'header': 'sales_vou_appr_return', 'items': 'sales_vou_appr_return_main', 'details': 'sales_vou_appr_return_detail'},
+                        ['header', 'items', 'details']),
+        'sale_returns': ('import_sale_returns',
+                        {'header': 'sale_return', 'items': 'sale_return_main',
+                         'details': ('sale_return_detail', 'sale_return_details')},
                         ['header', 'items', 'details']),
         'purchases':   ('import_purchases',
                         {'header':  ('stock_inward', 'purchase_voucher'),

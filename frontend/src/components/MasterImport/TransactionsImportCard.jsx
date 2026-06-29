@@ -59,6 +59,16 @@ const KINDS = [
     ],
   },
   {
+    kind: "sale_returns",
+    label: "Sale Returns",
+    desc: "Sale-return credit notes, item lines and stone sub-items. Import sales, barcodes & items first.",
+    fields: [
+      { name: "header",  label: "sale_return (header)",     template: "sale_return" },
+      { name: "items",   label: "sale_return_main (items)", template: "sale_return_main" },
+      { name: "details", label: "sale_return_detail (subs)", template: "sale_return_detail" },
+    ],
+  },
+  {
     kind: "purchases",
     label: "Purchase Vouchers",
     desc: "Purchase vouchers, item lines and sub-items. Import barcodes & items first.",

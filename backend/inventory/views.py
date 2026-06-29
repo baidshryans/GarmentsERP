@@ -1474,6 +1474,7 @@ class ClosingStockCal:
         pr_det_qs = PurchaseReturnDetails.objects.filter(sub_item_id__in=item_ids).filter(_retail_q())
         pr_det_qs = _date_filter(pr_det_qs)
         pr_det = _batch(pr_det_qs, 'sub_item_id', {
+            'total_gw': Coalesce(Sum('sub_gw'), zero),
             'total_ct': Coalesce(Sum('sub_ct'), zero),
             'total_amt': Coalesce(Sum('value'), zero),
         })
@@ -1567,13 +1568,17 @@ class ClosingStockCal:
                 pu_amt += _get(pu_det, iid, 'total_amt')
             purchase = {'gw': pu_gw, 'ct': pu_ct, 'amt': pu_amt}
 
-            # Purchase returns
+            # Purchase returns (mirror the Purchases aggregation: stone GW/CT/amount
+            # live on the detail rows, so pull them from pr_det for S/R items).
             pr_gw = _get(pr_main, iid, 'total_gw')
             pr_amt = _get(pr_main, iid, 'total_amt')
-            pr_ct = zero
+            pr_ct = _get(pr_det, iid, 'total_ct')
             if item.item_type == 'S':
-                pr_ct = _get(pr_det, iid, 'total_ct')
+                pr_gw = _get(pr_det, iid, 'total_gw')
                 pr_amt = _get(pr_det, iid, 'total_amt')
+            elif item.item_type == 'R':
+                pr_gw += _get(pr_det, iid, 'total_gw')
+                pr_amt += _get(pr_det, iid, 'total_amt')
             purc_ret = {'gw': pr_gw, 'ct': pr_ct, 'amt': pr_amt}
 
             # Sales — amount shown at ACTUAL sale value (matches the drill-down),

@@ -41,6 +41,14 @@ const KINDS = [
     ],
   },
   {
+    kind: "opening_stock",
+    label: "Opening Stock",
+    desc: "Opening stock lots from barcode_detail_rawstone → OpeningInventory. Import items, packets & retails first.",
+    fields: [
+      { name: "file", label: "barcode_detail_rawstone", template: "barcode_detail_rawstone" },
+    ],
+  },
+  {
     kind: "sales",
     label: "Sales Vouchers",
     desc: "Sales invoices, item lines and stone sub-items. Import barcodes & items first.",

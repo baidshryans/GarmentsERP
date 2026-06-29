@@ -1158,7 +1158,7 @@ class MySQLSyncView(APIView):
                 if 'barcode' in tables_requested:
                     results['barcode'] = self._sync_barcodes(cursor)
 
-                for _tx_key in ('ledger_opening', 'gl_vouchers', 'sales', 'sales_approval',
+                for _tx_key in ('ledger_opening', 'opening_stock', 'gl_vouchers', 'sales', 'sales_approval',
                                 'sales_approval_return', 'purchases', 'allocations', 'barcode_transactions'):
                     if _tx_key in tables_requested:
                         results[_tx_key] = self._sync_transaction(cursor, _tx_key)
@@ -1673,6 +1673,9 @@ class MySQLSyncView(APIView):
                             ['header', 'items']),
         'ledger_opening':  ('import_ledger_opening',
                             {'file': ('ldgr_open_balance',)},
+                            ['file']),
+        'opening_stock':   ('import_opening_stock',
+                            {'file': ('barcode_detail_rawstone',)},
                             ['file']),
         'allocations': ('import_voucher_allocations',
                         {'receive': 'receive_amount', 'payment': 'payment_amount', 'journal': 'journal_amount'},

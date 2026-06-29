@@ -124,7 +124,10 @@ function TxnModal({ drill, asOnDate, onClose }) {
     setLoading(true);
     setError("");
     setVouchers(null);
-    getClosingStockTxns({ item_id: drill.item_id, txn_type: drill.txn_type, to_date: asOnDate })
+    getClosingStockTxns({
+      item_id: drill.item_id, txn_type: drill.txn_type, to_date: asOnDate,
+      retail_ids: scope === "selected" ? selectedRetailIds : undefined,
+    })
       .then((res) => {
         if (res.success) setVouchers(res.data.vouchers);
         else setError("Failed to load transactions.");

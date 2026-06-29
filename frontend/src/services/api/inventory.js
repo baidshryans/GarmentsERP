@@ -110,9 +110,12 @@ export async function getNextInterRetailTransferNo() {
   }
 }
 
-export async function getClosingStockTxns({ item_id, txn_type, to_date } = {}) {
+export async function getClosingStockTxns({ item_id, txn_type, to_date, retail_ids } = {}) {
   try {
     const params = new URLSearchParams({ item_id, txn_type, to_date });
+    if (Array.isArray(retail_ids) && retail_ids.length > 0) {
+      retail_ids.forEach((rid) => params.append("retail_ids", String(rid)));
+    }
     const response = await apiClient.get(`/inventory/api/closing-stock-txns/?${params.toString()}`);
     return { success: true, data: response.data };
   } catch (error) {

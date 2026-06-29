@@ -749,6 +749,45 @@ from purchase.models import (
                             PurchaseReturnDetails
                             )
 
+def resolve_report_retail_ids(request):
+    """Resolve the retail scope for the closing-stock report AND its drill-down so
+    the two always match. Non-admins are pinned to their own request.retail; admins
+    may pass retail_ids / retail_id or combined=true (all retails).
+
+    Returns (retail_ids, error_response). retail_ids is a list, or None for the
+    combined/all view. error_response is non-None only on a bad/forbidden request.
+    """
+    from accounting.views.ledger import _can_view_combined  # lazy: avoid circular import
+    is_admin = _can_view_combined(request.user)
+    combined_flag = request.query_params.get('combined', '').lower() in ('true', '1')
+    retail_ids_raw = (request.query_params.getlist('retail_ids')
+                      or request.query_params.getlist('retail_ids[]'))
+    if not retail_ids_raw:
+        single = request.query_params.get('retail_ids') or request.query_params.get('retail_id')
+        if single:
+            retail_ids_raw = [s for s in str(single).split(',') if s]
+    parsed = []
+    if retail_ids_raw:
+        try:
+            parsed = [int(x) for x in retail_ids_raw if str(x).strip() != '']
+        except (TypeError, ValueError):
+            return None, Response({'error': 'retail_ids must be integers'},
+                                  status=status.HTTP_400_BAD_REQUEST)
+    if not is_admin:
+        if combined_flag or len(set(parsed)) > 1:
+            return None, Response(
+                {'error': 'You do not have permission to view combined / multi-retail reports.'},
+                status=status.HTTP_403_FORBIDDEN)
+        r = getattr(request, 'retail', None)
+        return ([r.id] if r else None), None
+    if combined_flag:
+        return None, None
+    if parsed:
+        return sorted(set(parsed)), None
+    r = getattr(request, 'retail', None)
+    return ([r.id] if r else None), None
+
+
 class ClosingStockCalculator(APIView):
     """
     API endpoint to calculate closing stock value using weighted average method.
@@ -775,38 +814,9 @@ class ClosingStockCalculator(APIView):
         # fall back to legacy single `retail_id`. Empty / missing = all retails combined.
         # Scope/combined access is gated to admin/superadmin; other users are pinned to
         # their own request.retail regardless of what they pass.
-        from accounting.views.ledger import _can_view_combined  # lazy import to avoid circular
-        is_admin = _can_view_combined(request.user)
-        combined_flag = request.query_params.get('combined', '').lower() in ('true', '1')
-        retail_ids_raw = request.query_params.getlist('retail_ids') or request.query_params.getlist('retail_ids[]')
-        if not retail_ids_raw:
-            single = request.query_params.get('retail_ids') or request.query_params.get('retail_id')
-            if single:
-                retail_ids_raw = [s for s in str(single).split(',') if s]
-        parsed = []
-        if retail_ids_raw:
-            try:
-                parsed = [int(x) for x in retail_ids_raw if str(x).strip() != '']
-            except (TypeError, ValueError):
-                return Response({'error': 'retail_ids must be integers'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not is_admin:
-            # Non-admin cannot request combined view or multiple retails.
-            if combined_flag or len(set(parsed)) > 1:
-                return Response(
-                    {'error': 'You do not have permission to view combined / multi-retail reports.'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            r = getattr(request, 'retail', None)
-            retail_ids = [r.id] if r else None
-        else:
-            if combined_flag:
-                retail_ids = None
-            elif parsed:
-                retail_ids = sorted(set(parsed))
-            else:
-                r = getattr(request, 'retail', None)
-                retail_ids = [r.id] if r else None
+        retail_ids, retail_err = resolve_report_retail_ids(request)
+        if retail_err is not None:
+            return retail_err
 
         # Calculate closing stock
         try:
@@ -3447,10 +3457,16 @@ class ClosingStockTxnView(APIView):
         item_id   = request.query_params.get('item_id')
         txn_type  = request.query_params.get('txn_type')
         to_date   = request.query_params.get('to_date', str(datetime.today().date()))
-        retail_id = request.query_params.get('retail_id') or None
 
         if not item_id or not txn_type:
             return Response({'error': 'item_id and txn_type are required'}, status=400)
+
+        # Scope retail exactly like the closing-stock report, so the drill-down
+        # totals match the report row the user clicked.
+        retail_ids, retail_err = resolve_report_retail_ids(request)
+        if retail_err is not None:
+            return retail_err
+        retail_q = (Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True)) if retail_ids else Q()
 
         try:
             item = Item.objects.get(id=item_id)
@@ -3464,8 +3480,7 @@ class ClosingStockTxnView(APIView):
                 item=item, is_return=False, is_finished=False,
                 billno__date1__lte=to_date,
             ).select_related('billno', 'billno__ldgr')
-            if retail_id:
-                qs = qs.filter(retail_id=retail_id)
+            qs = qs.filter(retail_q)
             for r in qs:
                 vouchers.append({
                     'date': str(r.billno.date1),
@@ -3490,8 +3505,7 @@ class ClosingStockTxnView(APIView):
                     # _real_value fallback above.
                     main_item__item_id=item.id,
                 ).select_related('billno', 'billno__ldgr')
-                if retail_id:
-                    dq = dq.filter(retail_id=retail_id)
+                dq = dq.filter(retail_q)
                 for r in dq:
                     vouchers.append({
                         'date': str(r.billno.date1),
@@ -3506,8 +3520,7 @@ class ClosingStockTxnView(APIView):
             qs = PurchaseReturnItems.objects.filter(
                 item=item, billno__date1__lte=to_date,
             ).select_related('billno', 'billno__ldgr')
-            if retail_id:
-                qs = qs.filter(retail_id=retail_id)
+            qs = qs.filter(retail_q)
             for r in qs:
                 vouchers.append({
                     'date': str(r.billno.date1),
@@ -3521,8 +3534,7 @@ class ClosingStockTxnView(APIView):
                 dq = PurchaseReturnDetails.objects.filter(
                     sub_item=item, billno__date1__lte=to_date,
                 ).select_related('billno', 'billno__ldgr')
-                if retail_id:
-                    dq = dq.filter(retail_id=retail_id)
+                dq = dq.filter(retail_q)
                 for r in dq:
                     vouchers.append({
                         'date': str(r.billno.date1),
@@ -3537,8 +3549,7 @@ class ClosingStockTxnView(APIView):
             qs = SalesVouItem.objects.filter(
                 item=item, billno__date1__lte=to_date,
             ).select_related('billno', 'billno__ldgr')
-            if retail_id:
-                qs = qs.filter(retail_id=retail_id)
+            qs = qs.filter(retail_q)
             for r in qs:
                 vouchers.append({
                     'date': str(r.billno.date1),
@@ -3552,8 +3563,7 @@ class ClosingStockTxnView(APIView):
                 dq = SalesVouItemDetails.objects.filter(
                     item=item, main_item__billno__date1__lte=to_date,
                 ).select_related('main_item__billno', 'main_item__billno__ldgr')
-                if retail_id:
-                    dq = dq.filter(retail_id=retail_id)
+                dq = dq.filter(retail_q)
                 for r in dq:
                     vou = r.main_item.billno if r.main_item else r.billno
                     vouchers.append({
@@ -3569,8 +3579,7 @@ class ClosingStockTxnView(APIView):
             qs = SaleReturnItem.objects.filter(
                 item=item, billno__date1__lte=to_date,
             ).select_related('billno', 'billno__ldgr')
-            if retail_id:
-                qs = qs.filter(retail_id=retail_id)
+            qs = qs.filter(retail_q)
             for r in qs:
                 vouchers.append({
                     'date': str(r.billno.date1),
@@ -3584,8 +3593,7 @@ class ClosingStockTxnView(APIView):
                 dq = SaleReturnDetails.objects.filter(
                     item=item, main_item__billno__date1__lte=to_date,
                 ).select_related('main_item__billno', 'main_item__billno__ldgr')
-                if retail_id:
-                    dq = dq.filter(retail_id=retail_id)
+                dq = dq.filter(retail_q)
                 for r in dq:
                     vou = r.main_item.billno
                     vouchers.append({
@@ -3602,8 +3610,7 @@ class ClosingStockTxnView(APIView):
             qs = RID.objects.filter(
                 item=item, billno__date1__lte=to_date,
             ).select_related('billno', 'billno__ldgr')
-            if retail_id:
-                qs = qs.filter(retail_id=retail_id)
+            qs = qs.filter(retail_q)
             for r in qs:
                 vouchers.append({
                     'date': str(r.billno.date1),
@@ -3619,8 +3626,7 @@ class ClosingStockTxnView(APIView):
             qs = RRD.objects.filter(
                 item=item, billno__date1__lte=to_date,
             ).select_related('billno', 'billno__ldgr')
-            if retail_id:
-                qs = qs.filter(retail_id=retail_id)
+            qs = qs.filter(retail_q)
             for r in qs:
                 vouchers.append({
                     'date': str(r.billno.date1),

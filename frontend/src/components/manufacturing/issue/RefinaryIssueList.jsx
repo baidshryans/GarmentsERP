@@ -75,73 +75,37 @@ function RefinaryIssueList() {
     },
     {
       header: "Date",
-      accessorKey: "date",
-      cell: ({ getValue }) => new Date(getValue()).toLocaleDateString('en-GB').replaceAll('/', '-'),
+      accessorKey: "date1",
+      cell: ({ getValue }) => {
+        const v = getValue();
+        const d = v ? new Date(v) : null;
+        return d && !isNaN(d) ? d.toLocaleDateString('en-GB').replaceAll('/', '-') : "";
+      },
     },
     {
       header: "Bill No",
       accessorKey: "billno",
     },
     {
-      header: "Job No",
-      accessorKey: "job_no",
-      cell: ({ row }) => (
-        <div>
-          {row.original.slip_type === "Purchase Order" ? row.original.ref_job_no?.po_no : row.original.ref_job_no?.issue_slip_no}
-
-        </div>
-      ),
-
+      header: "Refinery Name",
+      accessorKey: "ldgr_name",
     },
     {
-      header: "Design code",
-      accessorKey: "design_code",
-      cell: ({ row }) => (
-        <div>
-          {row.original.slip_type !== "Purchase Order" ? row.original?.ref_job_no?.items.map(item => (<div>
-            {String(item.design_code)}
-          </div>)) : ""}
-
-
-        </div>
-      ),
-
+      header: "Item",
+      accessorKey: "item",
+      cell: ({ row }) => {
+        const items = [...new Set((row.original.refinaryissuedetail_set || []).map((d) => d.item_name || d.item).filter(Boolean))];
+        return <div>{items.join(", ")}</div>;
+      },
     },
     {
-      header: "Main Item",
-      accessorKey: "main_item",
-      cell: ({ row }) => (
-        <div>
-          {row.original.slip_type !== "Purchase Order" ? row.original?.ref_job_no?.items.map(item => (<div>
-            {String(item.customer_order_item)}
-          </div>)) : ""}
-
-
-        </div>
-      ),
-
-    },
-    {
-      header: "Karigar Name",
-      accessorKey: "karigar_name",
-      cell: ({ row }) => (
-        <div>
-          {row.original?.ref_job_no?.karigar_ldgr?.display_name}
-
-        </div>
-      ),
-
-    },
-    {
-      header: "Job Sl no",
-      accessorKey: "job_sl_no",
-      cell: ({ row }) => (
-        <div>
-          {row.original?.sl_no}
-
-        </div>
-      ),
-
+      header: "Gross Weight",
+      accessorKey: "gw",
+      cell: ({ row }) => {
+        const total = (row.original.refinaryissuedetail_set || [])
+          .reduce((sum, d) => sum + (parseFloat(d.gw) || 0), 0);
+        return <div>{total.toFixed(3)}</div>;
+      },
     },
   ]
 

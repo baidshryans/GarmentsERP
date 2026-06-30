@@ -266,6 +266,7 @@ export default function Dashboard() {
     { to: "/accounting/profitloss", icon: BookOpen, label: "Profit & Loss", module: "accounting.vouchermain" },
     { to: "/inventory/reports/closing-stock", icon: Package, label: "Closing Stock", module: "inventory.barcodemain" },
     { to: "/inventory/reports/barcodestockreport", icon: Package, label: "Stock Report", module: "inventory.barcodemain" },
+    { to: "/inventory/reports/itemwisebarcode", icon: Package, label: "Value Report", module: "inventory.barcodemain" },
   ].filter((r) => canAccess(r.module, "list"));
 
   return (

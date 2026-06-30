@@ -41,6 +41,9 @@ export function NavSearch({ className = "" }) {
         .flatMap(({ items }) => items)
       return flattenItems(items, label)
     })
+    // De-dupe by destination URL — a page linked from more than one menu
+    // spot should only appear once in search (keep the first wiring).
+    .filter((item, i, arr) => arr.findIndex((x) => x.url === item.url) === i)
 
   const results = query.trim()
     ? allItems.filter((item) => item.searchText.includes(query.toLowerCase()))

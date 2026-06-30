@@ -234,7 +234,7 @@ const SECTIONS = {
       { title: "Closing Stock Valuation", url: "/inventory/reports/closing-stock",      icon: Package,          desc: "" },
       { title: "Barcode Split",           url: "/inventory/reports/barcodesplit",       icon: SquareTerminal,   desc: "" },
       { title: "Barcode Merge",           url: "/inventory/reports/barcodemerge",       icon: SquareTerminal,   desc: "" },
-      { title: "ItemWise Barcode",        url: "/inventory/reports/itemwisebarcode",    icon: SquareTerminal,   desc: "" },
+      { title: "Value Report",            url: "/inventory/reports/itemwisebarcode",    icon: FileBarChartIcon, desc: "Barcode-wise value / detail report" },
       { title: "Stock Report",            url: "/inventory/reports/barcodestockreport", icon: FileBarChartIcon, desc: "" },
     ],
   },

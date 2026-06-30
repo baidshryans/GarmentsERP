@@ -467,7 +467,7 @@ const appRoutes = [
   { path: "inventory/reports/closing-stock",        heading: "Closing Stock",          component: <ClosingStockTable /> },
   { path: "inventory/reports/barcodesplit",         heading: "Barcode Split Report",   component: <BarcodeSplitRepot /> },
   { path: "inventory/reports/barcodemerge",         heading: "Barcode Merge Report",   component: <BarcodeMergeReport /> },
-  { path: "inventory/reports/itemwisebarcode",      heading: "Item Wise Barcode Report", component: <ItemWiseBarcodeReport /> },
+  { path: "inventory/reports/itemwisebarcode",      heading: "Barcode Value Report", component: <ItemWiseBarcodeReport /> },
   { path: "inventory/reports/barcodestockreport",   heading: "Barcode Stock Report",   component: <BarcodeStockReport /> },
   { path: "inventory/reports/stockvalue",           heading: "Stock Value Report",     component: <StockValueReport /> },
   { path: "inventory/reports/raw-material",              heading: "Raw Material Balance",       component: <RawMaterialBalanceReport /> },

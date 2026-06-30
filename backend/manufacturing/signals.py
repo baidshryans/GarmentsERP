@@ -344,16 +344,19 @@ def on_refinary_receive_detail_delete(sender, instance, **kwargs):
 def on_melting_issue_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
+    # Raw metal rows (item_type == "R") carry no pcs/ct — treat them as 0.
+    pcs = instance.pcs or 0
+    ct = instance.ct or Decimal('0')
     _update_raw_material(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
-        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        pcs=-pcs, ct=-ct, gw=-instance.gw,
     )
     _log_raw_txn(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
         trans_type='MELT_ISS',
-        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        pcs=-pcs, ct=-ct, gw=-instance.gw,
         billno=instance.billno.billno,
     )
 
@@ -361,16 +364,18 @@ def on_melting_issue_detail_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=MeltingIssueDetail,
           dispatch_uid='mfg_signals.on_melting_issue_detail_delete')
 def on_melting_issue_detail_delete(sender, instance, **kwargs):
+    pcs = instance.pcs or 0
+    ct = instance.ct or Decimal('0')
     _update_raw_material(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
-        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        pcs=pcs, ct=ct, gw=instance.gw,
     )
     _log_raw_txn(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
         trans_type='MELT_ISS_DEL',
-        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        pcs=pcs, ct=ct, gw=instance.gw,
         billno=instance.billno.billno,
     )
 
@@ -420,16 +425,19 @@ def on_melting_receive_detail_delete(sender, instance, **kwargs):
 def on_assay_issue_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
+    # Raw metal rows (item_type == "R") carry no pcs/ct — treat them as 0.
+    pcs = instance.pcs or 0
+    ct = instance.ct or Decimal('0')
     _update_raw_material(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
-        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        pcs=-pcs, ct=-ct, gw=-instance.gw,
     )
     _log_raw_txn(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
         trans_type='ASSAY_ISS',
-        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        pcs=-pcs, ct=-ct, gw=-instance.gw,
         billno=instance.billno.billno,
     )
 
@@ -437,16 +445,18 @@ def on_assay_issue_detail_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=AssayIssueDetail,
           dispatch_uid='mfg_signals.on_assay_issue_detail_delete')
 def on_assay_issue_detail_delete(sender, instance, **kwargs):
+    pcs = instance.pcs or 0
+    ct = instance.ct or Decimal('0')
     _update_raw_material(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
-        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        pcs=pcs, ct=ct, gw=instance.gw,
     )
     _log_raw_txn(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
         trans_type='ASSAY_ISS_DEL',
-        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        pcs=pcs, ct=ct, gw=instance.gw,
         billno=instance.billno.billno,
     )
 

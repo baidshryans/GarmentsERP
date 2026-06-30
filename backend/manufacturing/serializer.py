@@ -1671,34 +1671,30 @@ class KarigarIssueItemforJobStatusSerializer(serializers.ModelSerializer):
         ]
 
 
-class RefinaryIssueDetailSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    item_name = serializers.CharField(source="item.item_name", read_only=True)
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
-    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
-    pcs = serializers.IntegerField(required=False, allow_null=True)
-    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
+class RawMetalDetailSerializerMixin:
+    """Shared validation for manufacturing detail rows (refinery / melting /
+    assay). pcs, ct and packet are only meaningful for non-raw items; raw metal
+    (item_type == "R") submits blanks, which we normalise to NULL and exempt
+    from the required-field checks.
 
-    class Meta:
-        model = RefinaryIssueDetail
-        fields = [ 'id','item', 'item_name', 'pcs', 'ct', 'gw', 'packet', 'metal_purity', 'rec_status', 'retail']
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-        }
+    Use on a ModelSerializer whose model exposes pcs / ct / packet, and declare
+    those three fields with required=False, allow_null=True on the serializer."""
+
+    _RAW_OPTIONAL_FIELDS = ('pcs', 'ct', 'packet')
 
     def to_internal_value(self, data):
         # Blank inputs from the form arrive as "" — normalise to None so the
-        # optional fields below validate cleanly (and stay NULL for raw items).
+        # optional fields validate cleanly (and stay NULL for raw metal).
         if isinstance(data, dict):
             data = data.copy()
-            for f in ('pcs', 'ct', 'packet'):
+            for f in self._RAW_OPTIONAL_FIELDS:
                 if data.get(f) == "":
                     data[f] = None
         return super().to_internal_value(data)
 
     def validate(self, attrs):
         # pcs / ct / packet are only required for non-raw items. For raw metal
-        # (item_type == "R") only the gross weight is meaningful.
+        # (item_type == "R") only the weights are meaningful.
         item = attrs.get('item') or getattr(self.instance, 'item', None)
         if getattr(item, 'item_type', None) != "R":
             errors = {}
@@ -1715,6 +1711,22 @@ class RefinaryIssueDetailSerializer(serializers.ModelSerializer):
             if errors:
                 raise serializers.ValidationError(errors)
         return attrs
+
+
+class RefinaryIssueDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
+    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_name = serializers.CharField(source="item.item_name", read_only=True)
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
+    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+    pcs = serializers.IntegerField(required=False, allow_null=True)
+    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
+
+    class Meta:
+        model = RefinaryIssueDetail
+        fields = [ 'id','item', 'item_name', 'pcs', 'ct', 'gw', 'packet', 'metal_purity', 'rec_status', 'retail']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+        }
 class RefinaryIssueSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
     refinaryissuedetail_set = RefinaryIssueDetailSerializer(many=True)
@@ -1750,7 +1762,7 @@ class RefinaryIssueSerializer(serializers.ModelSerializer):
             return instance
 
 
-class RefinaryReceiveDetailSerializer(serializers.ModelSerializer):
+class RefinaryReceiveDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
@@ -1766,34 +1778,6 @@ class RefinaryReceiveDetailSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'id': {'read_only': False, 'required': False},
         }
-
-    def to_internal_value(self, data):
-        # Blank inputs from the form arrive as "" — normalise to None so the
-        # optional fields below validate cleanly (and stay NULL for raw metal).
-        if isinstance(data, dict):
-            data = data.copy()
-            for f in ('pcs', 'ct', 'packet'):
-                if data.get(f) == "":
-                    data[f] = None
-        return super().to_internal_value(data)
-
-    def validate(self, attrs):
-        # pcs / ct / packet are only required for non-raw items. Refinery gold
-        # (item_type == "R") is raw metal — only the weights are meaningful.
-        item = attrs.get('item') or getattr(self.instance, 'item', None)
-        if getattr(item, 'item_type', None) != "R":
-            errors = {}
-            checks = {
-                'pcs': "A valid integer is required.",
-                'ct': "A valid number is required.",
-                'packet': "This field may not be null.",
-            }
-            for field, message in checks.items():
-                if (not self.partial or field in attrs) and attrs.get(field) is None:
-                    errors[field] = [message]
-            if errors:
-                raise serializers.ValidationError(errors)
-        return attrs
 
 class RefinaryReceiveSerializer(serializers.ModelSerializer):
     ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
@@ -1832,10 +1816,12 @@ class RefinaryReceiveSerializer(serializers.ModelSerializer):
 
 # ── Melting Issue / Receive ──────────────────────────────────────────────────
 
-class MeltingIssueDetailSerializer(serializers.ModelSerializer):
+class MeltingIssueDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+    pcs = serializers.IntegerField(required=False, allow_null=True)
+    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
 
     class Meta:
         model = MeltingIssueDetail
@@ -1881,12 +1867,14 @@ class MeltingIssueSerializer(serializers.ModelSerializer):
             return instance
 
 
-class MeltingReceiveDetailSerializer(serializers.ModelSerializer):
+class MeltingReceiveDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     conv_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     issue_no = serializers.SlugRelatedField(queryset=MeltingIssue.objects.all(), slug_field="billno")
+    pcs = serializers.IntegerField(required=False, allow_null=True)
+    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
 
     class Meta:
         model = MeltingReceiveDetail
@@ -1934,10 +1922,12 @@ class MeltingReceiveSerializer(serializers.ModelSerializer):
 
 # ── Fire Assay Issue / Receive ───────────────────────────────────────────────
 
-class AssayIssueDetailSerializer(serializers.ModelSerializer):
+class AssayIssueDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
+    pcs = serializers.IntegerField(required=False, allow_null=True)
+    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
 
     class Meta:
         model = AssayIssueDetail
@@ -1988,12 +1978,14 @@ class AssayIssueSerializer(serializers.ModelSerializer):
             return instance
 
 
-class AssayReceiveDetailSerializer(serializers.ModelSerializer):
+class AssayReceiveDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
     item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no")
+    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     conv_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     issue_no = serializers.SlugRelatedField(queryset=AssayIssue.objects.all(), slug_field="billno")
+    pcs = serializers.IntegerField(required=False, allow_null=True)
+    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
 
     class Meta:
         model = AssayReceiveDetail

@@ -265,16 +265,19 @@ def reverse_raw_material_on_stone_receive_delete(sender, instance, **kwargs):
 def on_refinary_issue_detail_save(sender, instance, created, **kwargs):
     if not created:
         return
+    # Raw metal rows (item_type == "R") carry no pcs/ct — treat them as 0.
+    pcs = instance.pcs or 0
+    ct = instance.ct or Decimal('0')
     _update_raw_material(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
-        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        pcs=-pcs, ct=-ct, gw=-instance.gw,
     )
     _log_raw_txn(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
         trans_type='REF_ISS',
-        pcs=-instance.pcs, ct=-instance.ct, gw=-instance.gw,
+        pcs=-pcs, ct=-ct, gw=-instance.gw,
         billno=instance.billno.billno,
     )
 
@@ -282,16 +285,18 @@ def on_refinary_issue_detail_save(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=RefinaryIssueDetail,
           dispatch_uid='mfg_signals.on_refinary_issue_detail_delete')
 def on_refinary_issue_detail_delete(sender, instance, **kwargs):
+    pcs = instance.pcs or 0
+    ct = instance.ct or Decimal('0')
     _update_raw_material(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
-        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        pcs=pcs, ct=ct, gw=instance.gw,
     )
     _log_raw_txn(
         item=instance.item, packet=instance.packet,
         purity=instance.metal_purity, retail=instance.retail,
         trans_type='REF_ISS_DEL',
-        pcs=instance.pcs, ct=instance.ct, gw=instance.gw,
+        pcs=pcs, ct=ct, gw=instance.gw,
         billno=instance.billno.billno,
     )
 

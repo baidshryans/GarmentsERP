@@ -974,7 +974,77 @@ Record results after purity testing:
 3. Enter the certified purity percentage and weight from the assay report
 4. Save — the system updates the item's fine gold value accordingly
 
-### 9.4 Repair Jobs
+### 9.4 How the Refining Flows Work (Refinery, Melting & Fire Assay)
+
+The ERP models three parallel "send metal out, get refined metal back" processes. They share one structure, so once you understand one, you understand all three.
+
+| Flow | What it is for | Ledger type |
+|------|----------------|-------------|
+| **Refinery** | Send impure or old gold to a refiner and receive purer gold back | Refinery (REF) |
+| **Melting** | Melt scrap or old gold down and receive a homogenised bar back | Melting House (MLT) |
+| **Fire assay** | Cup-test a sample to measure true purity; the refined "cornet" comes back as near-pure gold | Refinery (REF) |
+
+#### The repeating unit: Issue → Receive
+
+Every flow is a two-step pair, and each step is a header (date, bill no, the house you dealt with) plus line items:
+
+- **Issue** records what you *sent out* — item, gross weight, and (for stone/jewellery items) pieces, carats, and packet.
+- **Receive** records what *came back*, adding the conversion result: converted purity, converted weight, loss weight, and loss %.
+
+```mermaid
+flowchart LR
+    S[Raw / old gold stock] -->|Issue| I[Issue voucher]
+    I -->|metal sent out| H[Refiner / Melter / Assay lab]
+    H -->|refined metal back| R[Receive voucher]
+    R -->|+ converted wt, − loss| S
+```
+
+#### Loss is calculated for you
+
+On the Receive forms, as you type the **Conv. wt** (the refined weight that came back), the system fills in:
+
+- **Loss wt** = Gross wt − Conv. wt
+- **Loss %** = Loss wt ÷ Gross wt × 100
+
+Both stay editable if you need to override them, and a **totals row** plus a **summary strip** show the combined gross, converted, and overall loss % at a glance.
+
+#### How stock moves
+
+You do not adjust stock by hand — it follows the vouchers automatically:
+
+- Saving an **Issue** *decrements* raw-metal stock (the metal left your premises).
+- Saving a **Receive** *increments* stock with the converted weight that came back.
+
+These movements appear in **Inventory > Reports > Raw Material Ledger** and **Raw Material Balance** (Section 10.7), and are summarised in the **Refinery Report** and **Assay Report** (Section 16.7).
+
+#### How the three chain together
+
+The flows are not isolated — two links wire them into a pipeline:
+
+1. **Melting Receive → Assay Issue.** When you create an Assay Issue, you point it at the **melting receipt the sample was drawn from**. This is the issue lineage shown on the form.
+2. **Assay Receive → fine gold vs refinery.** The assay result is split by a **cornet** flag: the refined cornet (≈99.5% pure) goes **straight to fine-gold stock**, bypassing the refinery; any remaining output flows on through the refinery.
+
+```mermaid
+flowchart LR
+    M[Melting receive] -->|sample drawn| AI[Assay issue]
+    AI --> AR[Assay receive]
+    AR -->|cornet ≈99.5%| F[Fine gold stock]
+    AR -->|other output| RF[Refinery flow]
+```
+
+#### A note on old gold (raw metal)
+
+Old gold is *raw metal* — it has no pieces, no stone carat, and no packet, only weight. On these forms it is normal to leave **Pcs**, **Ct**, and **Packet** blank; those fields are only required for stone or jewellery items. The gross and converted weights are what matter.
+
+#### Where to find them
+
+| Flow | Issue | Receive |
+|------|-------|---------|
+| Refinery | Manufacturing > Issue > Refinery Issue | Manufacturing > Receive > Refinery Receive |
+| Melting | Manufacturing > Issue > Melting Issue | Manufacturing > Receive > Melting Receive |
+| Fire assay | Manufacturing > Issue > Assay Issue | Manufacturing > Receive > Assay Receive |
+
+### 9.5 Repair Jobs
 
 Repair jobs track customer-owned items (rings, bangles, etc.) taken in for repair, alteration, or polishing. Each job card records the item in, the work done, and the item out — maintaining a clear audit trail of customer property.
 

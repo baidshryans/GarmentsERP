@@ -6,7 +6,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.views import APIView
 from inventory.models import OpeningInventory
 from manufacturing.filters import JobCompletedFilter, KarigarReceiveItemFilter
-from manufacturing.serializer import HallmarkIssueForPostSerializer, HallmarkReceiveForPostSerializer, KarigarGoldIssueSerializer, KarigarIssueForPostSerializer, KarigarIssueFullReportSerializer, KarigarIssueItemforJobStatusSerializer, KarigarIssueSerializer, KarigarMasterSerializer , KarigarIssueforJobsSerializer, KarigarReceiveForPostSerializer, KarigarReceiveItemForGetSerializer, KarigarReceiveSerializer, KarigarReceiveforNoSerializer, KarigarStoneIssueGetSerializer, KarigarStoneIssueReportSerializer,KarigarStoneIssueSerializer, KarigarStoneReceiveSerializer, LedgerReceiveReportSerializer, LedgerReportSerializer, HallmarkIssueReportSerializer, RefinaryIssueSerializer, RefinaryReceiveSerializer, MeltingIssueSerializer, MeltingReceiveSerializer, AssayIssueSerializer, AssayReceiveSerializer
+from manufacturing.serializer import HallmarkIssueForPostSerializer, HallmarkReceiveForPostSerializer, KarigarGoldIssueSerializer, KarigarIssueForPostSerializer, KarigarIssueFullReportSerializer, KarigarIssueItemforJobStatusSerializer, KarigarIssueSerializer, KarigarMasterSerializer , KarigarIssueforJobsSerializer, KarigarReceiveForPostSerializer, KarigarReceiveItemForGetSerializer, KarigarReceiveSerializer, KarigarReceiveforNoSerializer, KarigarStoneIssueGetSerializer, KarigarStoneIssueReportSerializer,KarigarStoneIssueSerializer, KarigarStoneReceiveSerializer, LedgerReceiveReportSerializer, LedgerReportSerializer, HallmarkIssueReportSerializer, RefinaryIssueSerializer, RefinaryReceiveSerializer, MeltingIssueSerializer, MeltingReceiveSerializer
 from mastersconfig.serializers import PacketSerializer, PacketWithTotalSerializer
 from userauth.permissions import RBACPermission
 from .models import *
@@ -547,28 +547,6 @@ def melting_issue_billno_view(request):
 def melting_receive_billno_view(request):
     try:
         bill_no = peek_next_bill_number(request.retail, 'MLT/REC')
-        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
-    except ValueError as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def assay_issue_billno_view(request):
-    try:
-        bill_no = peek_next_bill_number(request.retail, 'ASY/ISS')
-        return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
-    except ValueError as e:
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def assay_receive_billno_view(request):
-    try:
-        bill_no = peek_next_bill_number(request.retail, 'ASY/REC')
         return Response({"bill_no": bill_no}, status=status.HTTP_200_OK)
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -1400,67 +1378,6 @@ class MeltingReceiveViewset(views.RetailBaseViewset):
         return self.serializer_class.Meta.fields
 
     ordering = ['-date1', '-id']
-
-
-class AssayIssueViewset(views.RetailBaseViewset):
-    queryset = AssayIssue.objects.all()
-    serializer_class = AssayIssueSerializer
-    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
-    search_fields = ['billno']
-
-    @property
-    def ordering_fields(self):
-        return self.serializer_class.Meta.fields
-
-    ordering = ['-date1', '-id']
-
-
-class AssayReceiveViewset(views.RetailBaseViewset):
-    queryset = AssayReceive.objects.all()
-    serializer_class = AssayReceiveSerializer
-    filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
-    search_fields = ['billno']
-
-    @property
-    def ordering_fields(self):
-        return self.serializer_class.Meta.fields
-
-    ordering = ['-date1', '-id']
-
-
-class AvailableMeltingReceivesView(APIView):
-    """
-    Returns MeltingReceive vouchers available to be referenced by a new (or edited) AssayIssue.
-
-    A receive is "available" if it has no AssayIssue linked to it yet.
-    In edit mode pass ?exclude_assay_issue=<id> so the currently-linked receive is
-    also included (otherwise it would vanish from the picker on edit).
-    """
-    def get(self, request):
-        exclude_id = request.query_params.get("exclude_assay_issue")
-        retail = getattr(request, "retail", None)
-
-        # Receives that are still unclaimed
-        available_qs = MeltingReceive.objects.filter(
-            retail=retail, assay_issues__isnull=True
-        )
-
-        if exclude_id:
-            # Also include the receive that is already linked to the assay issue being edited
-            try:
-                current_issue = AssayIssue.objects.get(pk=exclude_id)
-                if current_issue.melt_recv_id:
-                    already_linked = MeltingReceive.objects.filter(
-                        pk=current_issue.melt_recv_id, retail=retail
-                    )
-                    from django.db.models import QuerySet
-                    available_qs = (available_qs | already_linked).distinct()
-            except AssayIssue.DoesNotExist:
-                pass
-
-        available_qs = available_qs.prefetch_related("meltingreceivedetail_set").order_by("-date1")
-        serializer = MeltingReceiveSerializer(available_qs, many=True)
-        return Response({"results": serializer.data})
 
 
 class HallmarkIssueReportView(APIView):

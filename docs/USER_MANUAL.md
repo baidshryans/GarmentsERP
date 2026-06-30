@@ -851,7 +851,7 @@ When a customer brings old gold (jewellery, coins, bars) to exchange or sell, re
    - **Gross Weight**: Weigh the item on the scale and enter the gross weight in grams
    - **Stone Weight**: If the item has stones/enamel, enter stone weight to deduct
    - **Net Gold Weight**: Auto-calculated = Gross Weight − Stone Weight
-   - **Purity (Tunch %)**: Enter the tested purity percentage (e.g., 91.6 for 22K). If the purity is unknown, do an assay first.
+   - **Purity (Tunch %)**: Enter the tested purity percentage (e.g., 91.6 for 22K). If the purity is unknown, test it first.
    - **Fine Gold Weight**: Auto-calculated = Net Weight × Purity% / 100
    - **Rate**: The buying rate per gram of fine gold (auto-filled from today's buying rate set in Gold Rates; editable if you negotiate a different rate)
    - **Amount**: Auto-calculated = Fine Gold Weight × Rate
@@ -867,7 +867,7 @@ When a customer brings old gold (jewellery, coins, bars) to exchange or sell, re
 
 > **Making deduction**: Some stores deduct a melting/refining charge (typically 2–5%) before arriving at the buying rate. Apply this by reducing the rate or adding a deduction row before saving.
 
-> **Purity testing**: For items of unknown purity, issue them to a karigar or refinery for assay (Section 9.2 → Assay Issue) before creating the Customer Purchase.
+> **Purity testing**: For items of unknown purity, issue them to a karigar or refinery for purity testing before creating the Customer Purchase.
 
 ---
 
@@ -941,7 +941,6 @@ Issue diamonds/precious stones to karigars for setting.
 - **Hallmark Issue**: Send items for BIS hallmarking
 - **Refinery Issue**: Send scrap/old gold to refinery
 - **Melting Issue**: Send items for melting
-- **Assay Issue**: Send for purity testing (to determine fine gold content)
 
 ### 9.3 Receive Operations
 
@@ -966,23 +965,14 @@ Receive unused stones back from karigar.
 #### Hallmark Receive
 Record hallmarked items received back, including HUID numbers.
 
-#### Assay Receive
-Record results after purity testing:
+### 9.4 How the Refining Flows Work (Refinery & Melting)
 
-1. Navigate to **Manufacturing > Receive > Assay Receive**
-2. Select the original Assay Issue slip
-3. Enter the certified purity percentage and weight from the assay report
-4. Save — the system updates the item's fine gold value accordingly
-
-### 9.4 How the Refining Flows Work (Refinery, Melting & Fire Assay)
-
-The ERP models three parallel "send metal out, get refined metal back" processes. They share one structure, so once you understand one, you understand all three.
+The ERP models two parallel "send metal out, get refined metal back" processes. They share one structure, so once you understand one, you understand the other.
 
 | Flow | What it is for | Ledger type |
 |------|----------------|-------------|
 | **Refinery** | Send impure or old gold to a refiner and receive purer gold back | Refinery (REF) |
 | **Melting** | Melt scrap or old gold down and receive a homogenised bar back | Melting House (MLT) |
-| **Fire assay** | Cup-test a sample to measure true purity; the refined "cornet" comes back as near-pure gold | Refinery (REF) |
 
 #### The repeating unit: Issue → Receive
 
@@ -994,7 +984,7 @@ Every flow is a two-step pair, and each step is a header (date, bill no, the hou
 ```mermaid
 flowchart LR
     S[Raw / old gold stock] -->|Issue| I[Issue voucher]
-    I -->|metal sent out| H[Refiner / Melter / Assay lab]
+    I -->|metal sent out| H[Refiner / Melter]
     H -->|refined metal back| R[Receive voucher]
     R -->|+ converted wt, − loss| S
 ```
@@ -1015,22 +1005,7 @@ You do not adjust stock by hand — it follows the vouchers automatically:
 - Saving an **Issue** *decrements* raw-metal stock (the metal left your premises).
 - Saving a **Receive** *increments* stock with the converted weight that came back.
 
-These movements appear in **Inventory > Reports > Raw Material Ledger** and **Raw Material Balance** (Section 10.7), and are summarised in the **Refinery Report** and **Assay Report** (Section 16.7).
-
-#### How the three chain together
-
-The flows are not isolated — two links wire them into a pipeline:
-
-1. **Melting Receive → Assay Issue.** When you create an Assay Issue, you point it at the **melting receipt the sample was drawn from**. This is the issue lineage shown on the form.
-2. **Assay Receive → fine gold vs refinery.** The assay result is split by a **cornet** flag: the refined cornet (≈99.5% pure) goes **straight to fine-gold stock**, bypassing the refinery; any remaining output flows on through the refinery.
-
-```mermaid
-flowchart LR
-    M[Melting receive] -->|sample drawn| AI[Assay issue]
-    AI --> AR[Assay receive]
-    AR -->|cornet ≈99.5%| F[Fine gold stock]
-    AR -->|other output| RF[Refinery flow]
-```
+These movements appear in **Inventory > Reports > Raw Material Ledger** and **Raw Material Balance** (Section 10.7), and are summarised in the **Refinery Report** (Section 16.7).
 
 #### A note on old gold (raw metal)
 
@@ -1042,7 +1017,6 @@ Old gold is *raw metal* — it has no pieces, no stone carat, and no packet, onl
 |------|-------|---------|
 | Refinery | Manufacturing > Issue > Refinery Issue | Manufacturing > Receive > Refinery Receive |
 | Melting | Manufacturing > Issue > Melting Issue | Manufacturing > Receive > Melting Receive |
-| Fire assay | Manufacturing > Issue > Assay Issue | Manufacturing > Receive > Assay Receive |
 
 ### 9.5 Repair Jobs
 
@@ -2326,7 +2300,6 @@ flowchart LR
 | **Hallmark Issue/Receive** | Status of items sent for hallmarking | Status, Date range | Follow up on items pending HUID assignment |
 | **Finished Item Receive** | Items received from karigars with weight details | Karigar, Date range | Manufacturing inward register |
 | **Refinery Report** | Gold sent to refinery and returns | Date range | Reconcile refined gold received vs. issued |
-| **Assay Report** | Purity test results per batch | Date range | Verify gold purity before purchase/issue |
 | **Repair Job Status** | Open and closed repair job cards | Status, Date range | Customer follow-up on pending repairs |
 
 > **Daily use**: Run **Job Work Status** every morning to see gold balances with each karigar. Any item older than your standard manufacturing cycle needs immediate follow-up.

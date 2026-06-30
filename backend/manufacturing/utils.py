@@ -52,12 +52,6 @@ def generate_melting_iss_bill(retail):
 def generate_melting_rec_bill(retail):
     return get_next_bill_number(retail, 'MLT/REC')
 
-def generate_assay_iss_bill(retail):
-    return get_next_bill_number(retail, 'ASY/ISS')
-
-def generate_assay_rec_bill(retail):
-    return get_next_bill_number(retail, 'ASY/REC')
-
 def generate_slip_no(retail):
     return get_next_bill_number(retail, 'IV')
 

@@ -108,7 +108,7 @@ def list_modules() -> str:
         "sales": "Customer orders, sales vouchers, returns, GST registers, e-way bills",
         "purchase": "Purchase orders, purchase vouchers, returns, TDS/RCM registers",
         "inventory": "Barcoded stock, stock journals, stock transfers, raw materials, stock valuation",
-        "manufacturing": "Karigar issue/receive, hallmark, refinery, melting, assay, repair job cards",
+        "manufacturing": "Karigar issue/receive, hallmark, refinery, melting, repair job cards",
         "contacts": "Ledger accounts (customers, vendors, banks, karigar, etc.)",
         "goldrates": "Daily gold rates by purity",
         "mastersconfig": "Company, branch, retail, items, HSN, fiscal year masters",

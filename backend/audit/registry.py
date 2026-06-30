@@ -56,8 +56,6 @@ PARENT_MODELS = {
     'manufacturing.RefinaryReceive',
     'manufacturing.MeltingIssue',
     'manufacturing.MeltingReceive',
-    'manufacturing.AssayIssue',
-    'manufacturing.AssayReceive',
     'manufacturing.RepairJobCard',
 
     # Inventory transactions

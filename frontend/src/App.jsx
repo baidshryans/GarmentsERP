@@ -101,12 +101,8 @@ const RefinaryIssueList          = lazy(() => import("./components/manufacturing
 const RefinaryReceiveList        = lazy(() => import("./components/manufacturing/receive/refinaryReceiveList.jsx"));
 const MeltingIssueList           = lazy(() => import("./components/manufacturing/issue/MeltingIssueList.jsx"));
 const MeltingReceiveList         = lazy(() => import("./components/manufacturing/receive/meltingReceiveList.jsx"));
-const AssayIssueList             = lazy(() => import("./components/manufacturing/issue/AssayIssueList.jsx"));
-const AssayReceiveList           = lazy(() => import("./components/manufacturing/receive/assayReceiveList.jsx"));
 const IssueToMelting             = lazy(() => import("./components/manufacturing/issue/IssueToMelting.jsx"));
 const ReceiveFromMelting         = lazy(() => import("./components/manufacturing/receive/ReceiveFromMelting.jsx"));
-const IssueToAssay               = lazy(() => import("./components/manufacturing/issue/IssueToAssay.jsx"));
-const ReceiveFromAssay           = lazy(() => import("./components/manufacturing/receive/ReceiveFromAssay.jsx"));
 const StockTransferList          = lazy(() => import("./StockTransferList.jsx"));
 const AccountingVoucherList      = lazy(() => import("./accountingVoucherList.jsx"));
 const VoucherTypeSelector        = lazy(() => import("./components/FinancialAccounting/vouchers/VoucherTypeSelector"));
@@ -344,9 +340,6 @@ const appRoutes = [
   { path: "manufacturing/issue/melting/add",  heading: "Issue To Melting",         component: <IssueToMelting /> },
   { path: "manufacturing/issue/melting/:id",  heading: "Edit Issue To Melting",    component: <IssueToMelting /> },
   { path: "manufacturing/issue/melting/",     heading: "Melting Issue List",       component: <MeltingIssueList /> },
-  { path: "manufacturing/issue/assay/add",    heading: "Issue To Assay",           component: <IssueToAssay /> },
-  { path: "manufacturing/issue/assay/:id",    heading: "Edit Issue To Assay",      component: <IssueToAssay /> },
-  { path: "manufacturing/issue/assay/",       heading: "Assay Issue List",         component: <AssayIssueList /> },
   { path: "manufacturing/receive/jobworkreceive/",    heading: "Receive From Karigar",     component: <KarigarReceiveList /> },
   { path: "manufacturing/receive/jobworkreceive/add", heading: "Add Receive From Karigar", component: <JobWorkReceive /> },
   { path: "manufacturing/receive/jobworkreceive/:id", heading: "Edit Receive From Karigar", component: <JobWorkReceive /> },
@@ -362,9 +355,6 @@ const appRoutes = [
   { path: "manufacturing/receive/melting/add",  heading: "Add Melting Receive",    component: <ReceiveFromMelting /> },
   { path: "manufacturing/receive/melting/:id",  heading: "Edit Melting Receive",   component: <ReceiveFromMelting /> },
   { path: "manufacturing/receive/melting/",     heading: "Melting Receive List",   component: <MeltingReceiveList /> },
-  { path: "manufacturing/receive/assay/add",    heading: "Add Assay Receive",      component: <ReceiveFromAssay /> },
-  { path: "manufacturing/receive/assay/:id",    heading: "Edit Assay Receive",     component: <ReceiveFromAssay /> },
-  { path: "manufacturing/receive/assay/",       heading: "Assay Receive List",     component: <AssayReceiveList /> },
   { path: "manufacturing/repair/list/",  heading: "Repair Job Cards",      component: <RepairJobCardList /> },
   { path: "manufacturing/repair/new",    heading: "New Repair Job Card",   component: <RepairJobCardForm /> },
   { path: "manufacturing/repair/:id",    heading: "Edit Repair Job Card",  component: <RepairJobCardForm /> },

@@ -744,7 +744,7 @@ class Command(BaseCommand):
             # ── Open karigar jobs (full chain) ────────────────────
             count += self._copy_open_karigar_jobs(retail)
 
-            # ── Open hallmark/refinery/melting/assay issues ───────
+            # ── Open hallmark/refinery/melting issues ───────
             count += self._copy_open_processing_slips(retail)
 
             # ── Open repair job cards ─────────────────────────────
@@ -931,14 +931,13 @@ class Command(BaseCommand):
         return count
 
     def _copy_open_processing_slips(self, retail):
-        """Copy open hallmark/refinery/melting/assay issues and their items."""
+        """Copy open hallmark/refinery/melting issues and their items."""
         count = 0
 
         # Refinery issues (has rec_status field)
         for header_name, detail_name, header_fk in [
             ('RefinaryIssue', 'RefinaryIssueDetail', 'billno'),
             ('MeltingIssue', 'MeltingIssueDetail', 'billno'),
-            ('AssayIssue', 'AssayIssueDetail', 'billno'),
         ]:
             Header = self._get_model('manufacturing', header_name)
             Detail = self._get_model('manufacturing', detail_name)
@@ -954,7 +953,6 @@ class Command(BaseCommand):
         for recv_name, recv_detail_name, recv_fk in [
             ('RefinaryReceive', 'RefinaryReceiveDetail', 'billno'),
             ('MeltingReceive', 'MeltingReceiveDetail', 'billno'),
-            ('AssayReceive', 'AssayReceiveDetail', 'billno'),
         ]:
             # These don't have rec_status — they're receive records that exist for open issues
             # Copy all for this retail (they're small in number)

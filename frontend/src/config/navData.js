@@ -105,7 +105,6 @@ export const navData = {
         { title: "Hallmark Issue",  url: "/manufacturing/issue/hallmarkissue/", module: "manufacturing.hallmarkissue" },
         { title: "Refinery Issue",  url: "/manufacturing/issue/refinary/", module: "manufacturing.refinaryissue" },
         { title: "Melting Issue",   url: "/manufacturing/issue/melting/", module: "manufacturing.meltingissue" },
-        { title: "Assay Issue",     url: "/manufacturing/issue/assay/", module: "manufacturing.assayissue" },
       ],
     },
     {
@@ -118,7 +117,6 @@ export const navData = {
         { title: "Hallmark Receive", url: "/manufacturing/receive/hallmarkreceive/", module: "manufacturing.hallmarkreceive" },
         { title: "Refinery Receive", url: "/manufacturing/receive/refinary/", module: "manufacturing.refinaryreceive" },
         { title: "Melting Receive",  url: "/manufacturing/receive/melting/", module: "manufacturing.meltingreceive" },
-        { title: "Assay Receive",    url: "/manufacturing/receive/assay/", module: "manufacturing.assayreceive" },
       ],
     },
     {

@@ -15,12 +15,9 @@ from .views import (
     RefineryReceiveViewset,
     MeltingIssueViewset,
     MeltingReceiveViewset,
-    AssayIssueViewset,
-    AssayReceiveViewset,
     CombinedGoldTransactionView,
     RepairJobCardViewSet,
     KarigarSubcontractorLedgerView,
-    AvailableMeltingReceivesView,
     SampleIssueViewSet,
     UnbarcodedForPickerView,
     KarigarReceiveForSamplePickerView,
@@ -48,8 +45,6 @@ router.register(r'refinery-issue', RefineryIssueViewset)
 router.register(r'refinery-receive', RefineryReceiveViewset)
 router.register(r'melting-issue', MeltingIssueViewset)
 router.register(r'melting-receive', MeltingReceiveViewset)
-router.register(r'assay-issue', AssayIssueViewset)
-router.register(r'assay-receive', AssayReceiveViewset)
 router.register(r'repair-job-card', RepairJobCardViewSet, basename='repair-job-card')
 router.register(r'sample-issue', SampleIssueViewSet, basename='sample-issue')
 app_name = "manufacturing"
@@ -80,8 +75,6 @@ urlpatterns = [
     path('api/next_ref_rec_no', views.refinery_receive_billno_view, name='refinery_receive_billno'),
     path('api/next_melt_iss_no', views.melting_issue_billno_view, name='melting_issue_billno'),
     path('api/next_melt_rec_no', views.melting_receive_billno_view, name='melting_receive_billno'),
-    path('api/next_assay_iss_no', views.assay_issue_billno_view, name='assay_issue_billno'),
-    path('api/next_assay_rec_no', views.assay_receive_billno_view, name='assay_receive_billno'),
     path('api/karigar-jobs/', views.KarigarJobsView.as_view(), name='karigar_jobs_view_api'),
     
     
@@ -127,6 +120,5 @@ urlpatterns = [
     path('api/sample-issue-initial-data/', sample_issue_initial_data, name='sample_issue_initial_data'),
     path('api/purchase-voucher-for-sample/', PurchaseVoucherForSampleView.as_view(), name='purchase_voucher_for_sample'),
     path('api/purchase-vouchers-for-sample/', PurchaseVoucherListForSampleView.as_view(), name='purchase_vouchers_for_sample'),
-    path('api/available-melting-receives/', AvailableMeltingReceivesView.as_view(), name='available_melting_receives'),
 ]
 urlpatterns+= staticfiles_urlpatterns()

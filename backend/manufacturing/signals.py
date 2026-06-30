@@ -9,7 +9,6 @@ from manufacturing.models import (
     KarigarStoneIssue, KarigarStoneReceive,
     RefinaryIssueDetail, RefinaryReceiveDetail,
     MeltingIssueDetail, MeltingReceiveDetail,
-    AssayIssueDetail, AssayReceiveDetail,
     SampleIssueItem,
 )
 from purchase.models import PurchaseVoucherDetails
@@ -411,91 +410,6 @@ def on_melting_receive_detail_delete(sender, instance, **kwargs):
         item=instance.item, packet=instance.packet,
         purity=instance.conv_purity, retail=instance.retail,
         trans_type='MELT_REC_DEL',
-        gw=-instance.conv_nw,
-        billno=instance.billno.billno,
-    )
-
-
-# ── Fire Assay Issue/Receive detail → raw material ───────────────────────────
-# Assay Receive branches on is_cornet: cornet goes to (item, packet=None, conv_purity)
-# so that the refined cornet lands in fine-gold stock, bypassing packet-level tracking.
-
-@receiver(post_save, sender=AssayIssueDetail,
-          dispatch_uid='mfg_signals.on_assay_issue_detail_save')
-def on_assay_issue_detail_save(sender, instance, created, **kwargs):
-    if not created:
-        return
-    # Raw metal rows (item_type == "R") carry no pcs/ct — treat them as 0.
-    pcs = instance.pcs or 0
-    ct = instance.ct or Decimal('0')
-    _update_raw_material(
-        item=instance.item, packet=instance.packet,
-        purity=instance.metal_purity, retail=instance.retail,
-        pcs=-pcs, ct=-ct, gw=-instance.gw,
-    )
-    _log_raw_txn(
-        item=instance.item, packet=instance.packet,
-        purity=instance.metal_purity, retail=instance.retail,
-        trans_type='ASSAY_ISS',
-        pcs=-pcs, ct=-ct, gw=-instance.gw,
-        billno=instance.billno.billno,
-    )
-
-
-@receiver(post_delete, sender=AssayIssueDetail,
-          dispatch_uid='mfg_signals.on_assay_issue_detail_delete')
-def on_assay_issue_detail_delete(sender, instance, **kwargs):
-    pcs = instance.pcs or 0
-    ct = instance.ct or Decimal('0')
-    _update_raw_material(
-        item=instance.item, packet=instance.packet,
-        purity=instance.metal_purity, retail=instance.retail,
-        pcs=pcs, ct=ct, gw=instance.gw,
-    )
-    _log_raw_txn(
-        item=instance.item, packet=instance.packet,
-        purity=instance.metal_purity, retail=instance.retail,
-        trans_type='ASSAY_ISS_DEL',
-        pcs=pcs, ct=ct, gw=instance.gw,
-        billno=instance.billno.billno,
-    )
-
-
-@receiver(post_save, sender=AssayReceiveDetail,
-          dispatch_uid='mfg_signals.on_assay_receive_detail_save')
-def on_assay_receive_detail_save(sender, instance, created, **kwargs):
-    if not created:
-        return
-    packet = None if instance.is_cornet else instance.packet
-    trans_type = 'ASSAY_REC_CORNET' if instance.is_cornet else 'ASSAY_REC'
-    _update_raw_material(
-        item=instance.item, packet=packet,
-        purity=instance.conv_purity, retail=instance.retail,
-        gw=instance.conv_nw,
-    )
-    _log_raw_txn(
-        item=instance.item, packet=packet,
-        purity=instance.conv_purity, retail=instance.retail,
-        trans_type=trans_type,
-        gw=instance.conv_nw,
-        billno=instance.billno.billno,
-    )
-
-
-@receiver(post_delete, sender=AssayReceiveDetail,
-          dispatch_uid='mfg_signals.on_assay_receive_detail_delete')
-def on_assay_receive_detail_delete(sender, instance, **kwargs):
-    packet = None if instance.is_cornet else instance.packet
-    trans_type = 'ASSAY_REC_CORNET_DEL' if instance.is_cornet else 'ASSAY_REC_DEL'
-    _update_raw_material(
-        item=instance.item, packet=packet,
-        purity=instance.conv_purity, retail=instance.retail,
-        gw=-instance.conv_nw,
-    )
-    _log_raw_txn(
-        item=instance.item, packet=packet,
-        purity=instance.conv_purity, retail=instance.retail,
-        trans_type=trans_type,
         gw=-instance.conv_nw,
         billno=instance.billno.billno,
     )

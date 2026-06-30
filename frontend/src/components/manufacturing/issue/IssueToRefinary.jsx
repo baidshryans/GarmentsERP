@@ -9,7 +9,7 @@ import { useF4Submit } from "@/hooks/useF4Submit";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Table, TableRow, TableCell, TableBody, TableHeader, TableHead } from "@/components/ui/table";
 import { SearchableComboBox } from "@/components/ui/SearchableComboBox";
-import { fetchMainItem, fetchPurity, getLedgers, fetchPackets, fetchMeltingReceive, fetchAssayReceive } from "@/services/apiService";
+import { fetchMainItem, fetchPurity, getLedgers, fetchPackets, fetchMeltingReceive } from "@/services/apiService";
 import { createRefinaryIssue, fetchNextRefinaryIssueNo, fetchRefinaryIssueForEdit, updateRefinaryIssueForEdit } from "../../../services/apiService";
 import { useEditDirty } from "@/hooks/useEditDirty";
 import { useParams, useNavigate } from "react-router-dom";
@@ -61,7 +61,7 @@ const IssueToRefinary = () => {
     const [packets, setPackets] = useState([]);
 
     // Source-receive picker state
-    const [sourceType, setSourceType] = useState("");          // "melting" | "assay" | ""
+    const [sourceType, setSourceType] = useState("");          // "melting" | ""
     const [sourceOptions, setSourceOptions] = useState([]);     // list of receives for the picked type
     const [selectedSourceId, setSelectedSourceId] = useState(""); // chosen receive id
 
@@ -107,9 +107,6 @@ const IssueToRefinary = () => {
             if (sourceType === "melting") {
                 const res = await fetchMeltingReceive({ page: 1 });
                 setSourceOptions(res.success ? (res.data.results || []) : []);
-            } else if (sourceType === "assay") {
-                const res = await fetchAssayReceive({ page: 1 });
-                setSourceOptions(res.success ? (res.data.results || []) : []);
             } else {
                 setSourceOptions([]);
             }
@@ -126,7 +123,7 @@ const IssueToRefinary = () => {
         const receive = sourceOptions.find((o) => String(o.id) === String(selectedSourceId));
         if (!receive) return;
 
-        const detailKey = sourceType === "melting" ? "meltingreceivedetail_set" : "assayreceivedetail_set";
+        const detailKey = "meltingreceivedetail_set";
         const details = receive[detailKey] || [];
         // Skip cornet rows — cornet is already fine gold, bypasses the refinery.
         const newRows = details
@@ -256,7 +253,6 @@ const IssueToRefinary = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="melting">Melting Receive</SelectItem>
-                                    <SelectItem value="assay">Assay Receive</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -292,7 +288,7 @@ const IssueToRefinary = () => {
                         </Button>
                     </div>
                     <p className="text-[11px] text-gray-500 mt-2">
-                        Loads rows from the selected melting or assay receive (cornet rows are skipped — cornet bypasses the refinery).
+                        Loads rows from the selected melting receive.
                     </p>
                 </div>
 

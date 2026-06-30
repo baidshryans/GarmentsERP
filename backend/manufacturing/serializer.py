@@ -15,7 +15,7 @@ from inventory.models import BarcodeMain, BarcodeTransaction
 from inventory.serializer import UnBarcodedMainSerializer
 from manufacturing.utils import create_or_update_nested
 from purchase.serializers import PurchaseOrderItemsSerializer, PurchaseOrderSerializer
-from .models import HallmarkIssue, HallmarkIssueDetails, HallmarkIssueItem, HallmarkReceive, HallmarkReceiveDetails, HallmarkReceiveItem, KarigarGoldIssueHeader, KarigarMaster,KarigarIssueItem,KarigarIssue, KarigarReceive, KarigarReceiveItem, KarigarReceiveItemDetails, KarigarStoneIssueHeader, KarigarStoneReceive, KarigarStoneReceiveHeader, RefinaryIssue, RefinaryIssueDetail, RefinaryReceive, RefinaryReceiveDetail, MeltingIssue, MeltingIssueDetail, MeltingReceive, MeltingReceiveDetail, AssayIssue, AssayIssueDetail, AssayReceive, AssayReceiveDetail, RepairJobCard, RepairStone, RepairLoss, RepairKarigarLink
+from .models import HallmarkIssue, HallmarkIssueDetails, HallmarkIssueItem, HallmarkReceive, HallmarkReceiveDetails, HallmarkReceiveItem, KarigarGoldIssueHeader, KarigarMaster,KarigarIssueItem,KarigarIssue, KarigarReceive, KarigarReceiveItem, KarigarReceiveItemDetails, KarigarStoneIssueHeader, KarigarStoneReceive, KarigarStoneReceiveHeader, RefinaryIssue, RefinaryIssueDetail, RefinaryReceive, RefinaryReceiveDetail, MeltingIssue, MeltingIssueDetail, MeltingReceive, MeltingReceiveDetail, RepairJobCard, RepairStone, RepairLoss, RepairKarigarLink
 
 from rest_framework import serializers
 from django.utils.dateparse import parse_date
@@ -1672,8 +1672,8 @@ class KarigarIssueItemforJobStatusSerializer(serializers.ModelSerializer):
 
 
 class RawMetalDetailSerializerMixin:
-    """Shared validation for manufacturing detail rows (refinery / melting /
-    assay). pcs, ct and packet are only meaningful for non-raw items; raw metal
+    """Shared validation for manufacturing detail rows (refinery / melting).
+    pcs, ct and packet are only meaningful for non-raw items; raw metal
     (item_type == "R") submits blanks, which we normalise to NULL and exempt
     from the required-field checks.
 
@@ -1917,117 +1917,6 @@ class MeltingReceiveSerializer(serializers.ModelSerializer):
                 setattr(instance, attr, value)
             instance.save()
             create_or_update_nested(MeltingReceiveDetailSerializer, instance, 'meltingreceivedetail_set', 'billno', MeltingReceiveDetailSerializer(detail_data, many=True).data)
-            return instance
-
-
-# ── Fire Assay Issue / Receive ───────────────────────────────────────────────
-
-class AssayIssueDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
-    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
-    pcs = serializers.IntegerField(required=False, allow_null=True)
-    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
-
-    class Meta:
-        model = AssayIssueDetail
-        fields = ['id', 'item', 'pcs', 'ct', 'gw', 'packet', 'metal_purity', 'rec_status', 'retail']
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-        }
-
-
-class AssayIssueSerializer(serializers.ModelSerializer):
-    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
-    melt_recv = serializers.SlugRelatedField(
-        queryset=MeltingReceive.objects.all(), slug_field="billno",
-        allow_null=True, required=False
-    )
-    assayissuedetail_set = AssayIssueDetailSerializer(many=True)
-
-    class Meta:
-        model = AssayIssue
-        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'melt_recv', 'melt_recv_billno', 'rec_status', 'retail', 'assayissuedetail_set']
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-            'ldgr_name': {'read_only': True},
-            'melt_recv_billno': {'read_only': True},
-        }
-
-    def create(self, validated_data):
-        with transaction.atomic():
-            if 'fiscal_year' not in validated_data:
-                request = self.context.get('request')
-                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
-                if _retail:
-                    from mastersconfig.fy_validation import assert_date_in_active_fy
-                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
-                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
-            detail_data = validated_data.pop('assayissuedetail_set', [])
-            parent_instance = AssayIssue.objects.create(**validated_data)
-            create_or_update_nested(AssayIssueDetailSerializer, parent_instance, 'assayissuedetail_set', 'billno', AssayIssueDetailSerializer(detail_data, many=True).data)
-            return parent_instance
-
-    def update(self, instance, validated_data):
-        with transaction.atomic():
-            detail_data = validated_data.pop('assayissuedetail_set', [])
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
-            create_or_update_nested(AssayIssueDetailSerializer, instance, 'assayissuedetail_set', 'billno', AssayIssueDetailSerializer(detail_data, many=True).data)
-            return instance
-
-
-class AssayReceiveDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
-    packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
-    metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
-    conv_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
-    issue_no = serializers.SlugRelatedField(queryset=AssayIssue.objects.all(), slug_field="billno")
-    pcs = serializers.IntegerField(required=False, allow_null=True)
-    ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True)
-
-    class Meta:
-        model = AssayReceiveDetail
-        fields = ['id', 'issue_no', 'item', 'pcs', 'ct', 'gw', 'loss_per', 'loss_wt', 'remarks', 'packet', 'metal_purity', 'conv_purity', 'conv_nw', 'is_cornet', 'rec_status', 'retail']
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-        }
-
-
-class AssayReceiveSerializer(serializers.ModelSerializer):
-    ldgr = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all())
-    assayreceivedetail_set = AssayReceiveDetailSerializer(many=True)
-
-    class Meta:
-        model = AssayReceive
-        fields = ['id', 'date1', 'billno', 'ldgr', 'ldgr_name', 'retail', 'assayreceivedetail_set']
-        extra_kwargs = {
-            'id': {'read_only': False, 'required': False},
-            'ldgr_name': {'read_only': True},
-        }
-
-    def create(self, validated_data):
-        with transaction.atomic():
-            if 'fiscal_year' not in validated_data:
-                request = self.context.get('request')
-                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
-                if _retail:
-                    from mastersconfig.fy_validation import assert_date_in_active_fy
-                    assert_date_in_active_fy(_retail, validated_data.get("date1"))
-                    validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
-            detail_data = validated_data.pop('assayreceivedetail_set', [])
-            parent_instance = AssayReceive.objects.create(**validated_data)
-            create_or_update_nested(AssayReceiveDetailSerializer, parent_instance, 'assayreceivedetail_set', 'billno', AssayReceiveDetailSerializer(detail_data, many=True).data)
-            return parent_instance
-
-    def update(self, instance, validated_data):
-        with transaction.atomic():
-            detail_data = validated_data.pop('assayreceivedetail_set', [])
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
-            create_or_update_nested(AssayReceiveDetailSerializer, instance, 'assayreceivedetail_set', 'billno', AssayReceiveDetailSerializer(detail_data, many=True).data)
             return instance
 
 

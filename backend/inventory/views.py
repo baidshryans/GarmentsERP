@@ -1488,7 +1488,9 @@ class ClosingStockCal:
             'total_amt': Coalesce(Sum('amount', output_field=_amt_field), zero),
         })
         sa_det_qs = SalesVouItemDetails.objects.filter(item_id__in=item_ids).filter(_retail_q())
-        sa_det_qs = _date_filter(sa_det_qs, 'main_item__billno__date1')
+        # Filter on the detail's own billno date, not main_item's — direct sale
+        # details (main_id=0 -> main_item NULL) would otherwise be dropped.
+        sa_det_qs = _date_filter(sa_det_qs, 'billno__date1')
         sa_det = _batch(sa_det_qs, 'item_id', {
             'total_gw': Coalesce(Sum('gw'), zero),
             'total_ct': Coalesce(Sum('ct'), zero),
@@ -1869,9 +1871,9 @@ class ClosingStockCal:
         if retail_ids:
             detail_q = detail_q.filter(Q(retail_id__in=retail_ids) | Q(retail_id__isnull=True))
         if from_date:
-            detail_q = detail_q.filter(main_item__billno__date1__gte=from_date)
+            detail_q = detail_q.filter(billno__date1__gte=from_date)
         if to_date:
-            detail_q = detail_q.filter(main_item__billno__date1__lte=to_date)
+            detail_q = detail_q.filter(billno__date1__lte=to_date)
 
         detail_agg = detail_q.aggregate(
             total_gw=Coalesce(Sum('gw'), Decimal('0.00')),
@@ -3540,8 +3542,8 @@ class ClosingStockTxnView(APIView):
                 })
             if item.item_type in ['S', 'R']:
                 dq = SalesVouItemDetails.objects.filter(
-                    item=item, main_item__billno__date1__lte=to_date,
-                ).select_related('main_item__billno', 'main_item__billno__ldgr')
+                    item=item, billno__date1__lte=to_date,
+                ).select_related('billno', 'billno__ldgr', 'main_item__billno', 'main_item__billno__ldgr')
                 dq = dq.filter(retail_q)
                 for r in dq:
                     vou = r.main_item.billno if r.main_item else r.billno

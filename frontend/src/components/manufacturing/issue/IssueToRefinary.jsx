@@ -123,22 +123,18 @@ const IssueToRefinary = () => {
         const receive = sourceOptions.find((o) => String(o.id) === String(selectedSourceId));
         if (!receive) return;
 
-        const detailKey = "meltingreceivedetail_set";
-        const details = receive[detailKey] || [];
-        // Skip cornet rows — cornet is already fine gold, bypasses the refinery.
-        const newRows = details
-            .filter((d) => !d.is_cornet)
-            .map((d) => ({
-                packet: d.packet,
-                item: d.item,
-                metal_purity: d.conv_purity,   // refinery input uses the converted purity from melting
-                pcs: d.pcs,
-                ct: d.ct,
-                gw: d.conv_nw,                 // use the converted weight (actually received back)
-                remarks: `From ${sourceType} receive ${receive.billno}`,
-            }));
+        const details = receive.meltingreceivedetail_set || [];
+        const newRows = details.map((d) => ({
+            packet: d.packet,
+            item: d.item,
+            metal_purity: d.conv_purity,   // refinery input uses the converted purity from melting
+            pcs: d.pcs,
+            ct: d.ct,
+            gw: d.conv_nw,                 // use the converted weight (actually received back)
+            remarks: `From melting receive ${receive.billno}`,
+        }));
         if (newRows.length === 0) {
-            toast({ title: "No loadable items in this receive (all rows may be cornet)." });
+            toast({ title: "No loadable items in this receive." });
             return;
         }
         setRows((prev) => [...prev, ...newRows]);

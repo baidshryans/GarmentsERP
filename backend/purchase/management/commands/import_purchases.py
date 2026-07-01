@@ -192,7 +192,7 @@ class Command(BaseCommand):
 
     def _import_item(self, r):
         retail, _, _ = self.org.get(r.get('rt_code'), r.get('br_code') if 'br_code' in r else '', r.get('ac_yr'))
-        header = self._header_by_billno(r.get('billno'))
+        header = self._header_by_billno(r.get('billno'), r.get('v_typ'))
         bc_code = _first_barcode(r.get('barcode'))
         obj = PurchaseVoucherItems(
             id=to_int(r.get('id')),
@@ -223,9 +223,17 @@ class Command(BaseCommand):
 
     def _import_detail(self, r):
         retail, _, _ = self.org.get(r.get('rt_code'), r.get('br_code'), r.get('ac_yr'))
-        header = self._header_by_billno(r.get('billno'))
         main_id = to_int(r.get('main_id'))
         main_item = PurchaseVoucherItems.objects.filter(id=main_id).first() if main_id else None
+        # A component/stone line belongs to the same voucher as its parent main
+        # item. The main item is matched by PK, so its header is unambiguous even
+        # when billnos collide (and even if this line row carries no v_typ).
+        # Main-less lines (e.g. old-gold customer purchases) fall back to the
+        # (billno, v_typ) match.
+        if main_item is not None and main_item.billno_id:
+            header = main_item.billno
+        else:
+            header = self._header_by_billno(r.get('billno'), r.get('v_typ'))
         obj = PurchaseVoucherDetails(
             id=to_int(r.get('id')),
             main_item=main_item,
@@ -255,10 +263,10 @@ class Command(BaseCommand):
         is split CGST+SGST (local) or IGST (interstate) per which legacy GST
         column was non-zero. Bill total is recomputed to stay consistent."""
         updated = 0
-        for billno in billnos:
-            pv = PurchaseVoucher.objects.filter(billno=billno).first()
-            if pv is None:
-                continue
+        # Iterate over voucher objects, not billno strings: a colliding billno
+        # maps to two vouchers (Customer + Vendor), and a per-billno .first()
+        # would recompute only one of them and silently skip the other.
+        for pv in PurchaseVoucher.objects.filter(billno__in=billnos):
             taxable = pv.item_total or Decimal('0')
             cgst = sgst = igst = Decimal('0')
 
@@ -282,7 +290,7 @@ class Command(BaseCommand):
                                 PurchaseVoucherDetails.objects.filter(billno=pv).select_related('sub_item__hsn_no')]
                 hsn = hsn_for_voucher_items(main_items, detail_items)
                 if hsn is None:
-                    self.unresolved.append({'table': 'gst', 'id': billno, 'error': 'no HSN on any item'})
+                    self.unresolved.append({'table': 'gst', 'id': pv.billno, 'error': 'no HSN on any item'})
                     # Still persist the subtotal so the print isn't left at 0.
                     if self.apply:
                         pv.save(update_fields=['tds_taxable_value'])
@@ -326,11 +334,26 @@ class Command(BaseCommand):
             self.unresolved.append({'table': 'item', 'id': str(i), 'error': 'Item not found'})
         return obj
 
-    def _header_by_billno(self, billno):
+    def _header_by_billno(self, billno, v_typ=None):
         b = clean(billno)
-        h = PurchaseVoucher.objects.filter(billno=b).first() if b else None
-        if b and h is None:
-            raise ValueError(f"no PurchaseVoucher header for billno {b!r}")
+        if not b:
+            return None
+        qs = PurchaseVoucher.objects.filter(billno=b)
+        # Disambiguate colliding billnos. The Customer (PURC-CO) and Vendor
+        # (PURC-SC) series both number from C..../00001, so one billno can map
+        # to two different vouchers. Match the same voucher_type / is_return the
+        # header import derives from v_typ, so each line lands on its own
+        # voucher instead of whichever happens to share the number (.first()).
+        vt = clean(v_typ)
+        if vt:
+            voucher_type, _ = VTYPE_MAP.get(vt, ('Vendor', False))
+            is_return = 'RET' in vt.upper()
+            typed = qs.filter(voucher_type=voucher_type, is_return=is_return)
+            if typed.exists():
+                qs = typed
+        h = qs.first()
+        if h is None:
+            raise ValueError(f"no PurchaseVoucher header for billno {b!r} (v_typ={vt!r})")
         return h
 
     def _report(self, report_dir):

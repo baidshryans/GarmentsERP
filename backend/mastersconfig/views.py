@@ -1911,12 +1911,12 @@ class MySQLSyncView(APIView):
         cursor.execute("SELECT item_id AS id, short_code FROM item_master")
         item_id_map = {r['id']: r['short_code'] for r in cursor.fetchall()}
 
+        # packet_master has no group-link column and packet_group_master carries no
+        # usable mapping, so packets have no group in the legacy data.
         cursor.execute("""
-            SELECT pm.pckt_no, pm.stone_id, pm.rate_for_retail, pm.rate_for_wholesale,
-                   pm.solitare, pm.customer,
-                   pgm.packet_group
-            FROM packet_master pm
-            LEFT JOIN packet_group_master pgm ON pm.packet_group_id = pgm.id
+            SELECT pckt_no, stone_id, rate_for_retail, rate_for_wholesale,
+                   solitare, customer
+            FROM packet_master
         """)
         rows = cursor.fetchall()
         created = updated = 0
@@ -1938,8 +1938,6 @@ class MySQLSyncView(APIView):
                             stone_item = Item.objects.filter(short_code=short_code).first()
                 is_solitaire = (row.get('solitare') or 'N').upper() == 'Y'
                 is_customer = str(row.get('customer') or '0') == '1'
-                pg_name = (row.get('packet_group') or '').strip()
-                pg_obj = PacketGroup.objects.filter(packet_group_name=pg_name).first() if pg_name else None
                 _, flag = Packet.objects.update_or_create(
                     pckt_no=pckt_no,
                     defaults={
@@ -1948,7 +1946,7 @@ class MySQLSyncView(APIView):
                         'rate_for_wholesale': int(float(row.get('rate_for_wholesale') or 0)) or None,
                         'is_solitaire': is_solitaire,
                         'is_customer_stone': is_customer,
-                        'packet_group': pg_obj,
+                        'packet_group': None,
                     }
                 )
                 if flag:

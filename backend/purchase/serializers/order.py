@@ -163,7 +163,13 @@ class PurchaseOrderForPostSerializer(serializers.ModelSerializer):
                     from mastersconfig.fy_validation import assert_date_in_active_fy
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
-            purchase_order_instance = PurchaseOrder.objects.create(**validated_data)
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+            validated_data.pop('po_no', None)
+            purchase_order_instance = PurchaseOrder(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(purchase_order_instance, _retail, 'PO', field='po_no',
+                                  fy=validated_data.get('fiscal_year'))
 
             # Create related PurchaseVoucherItems instances
             for item_data in items_data:

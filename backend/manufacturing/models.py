@@ -23,6 +23,11 @@ class KarigarGoldIssueHeader(models.Model):
     def karigar_ldgr_name(self):
         return self.karigar_ldgr.ac_name
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_krgoldissue_number'),
+        ]
+
 
 class KarigarGoldIssue(models.Model):
     header = models.ForeignKey(KarigarGoldIssueHeader, on_delete=models.CASCADE)
@@ -73,6 +78,9 @@ class KarigarIssue(models.Model):
     
     class Meta:
         db_table="issue_to_karigar"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'issue_slip_no'], name='uniq_krissue_number'),
+        ]
 
 class KarigarIssueItem(models.Model):
     issue_slip = models.ForeignKey(KarigarIssue, on_delete=models.CASCADE,related_name="items")
@@ -132,6 +140,9 @@ class SampleIssue(models.Model):
 
     class Meta:
         db_table = "sample_issue_main"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_sampleissue_number'),
+        ]
 
 
 class SampleIssueItem(models.Model):
@@ -211,7 +222,7 @@ class SampleIssueItemDetails(models.Model):
 
 class KarigarStoneIssueHeader(models.Model):
     SLIP_TYPE_CHOICES = [('JO', 'Job Order'), ('PO', 'Purchase Order')]
-    
+
     billno = models.CharField(max_length=25)
     date1 = models.DateField()
     karigar_ldgr = models.ForeignKey(Ledger, on_delete=models.SET_NULL, null=True)
@@ -222,6 +233,11 @@ class KarigarStoneIssueHeader(models.Model):
     @property
     def karigar_ldgr_name(self):
         return self.karigar_ldgr.ac_name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_krstoneissue_number'),
+        ]
 
 class KarigarStoneIssue(models.Model):
     header = models.ForeignKey(KarigarStoneIssueHeader,on_delete=models.CASCADE)
@@ -271,6 +287,11 @@ class KarigarStoneReceiveHeader(models.Model):
     @property
     def karigar_ldgr_name(self):
         return self.karigar_ldgr.ac_name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_krstonereceive_number'),
+        ]
 
 class KarigarStoneReceive(models.Model):
 
@@ -352,6 +373,9 @@ class KarigarReceive(models.Model):
     
     class Meta:
         db_table = "receive_from_karigar"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'receive_slip_no'], name='uniq_krreceive_number'),
+        ]
 
 class KarigarReceiveItem(models.Model):
     receive_slip_no = models.ForeignKey(KarigarReceive, on_delete=models.CASCADE) 
@@ -504,6 +528,9 @@ class HallmarkIssue(models.Model):
 
     class Meta:
         db_table = "issue_to_hallmark"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'issue_slip_no'], name='uniq_hmkissue_number'),
+        ]
 
 class HallmarkIssueItem(models.Model):
     issue_slip_no = models.ForeignKey(HallmarkIssue, on_delete = models.CASCADE)
@@ -556,6 +583,9 @@ class HallmarkReceive(models.Model):
 
     class Meta:
         db_table = "receive_from_hallmark"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'receive_slip_no'], name='uniq_hmkreceive_number'),
+        ]
 
 class HallmarkReceiveItem(models.Model):
     date1 = models.DateField(auto_now_add=True)
@@ -610,6 +640,9 @@ class RefinaryIssue(models.Model):
 
     class Meta:
         db_table = "issue_to_refinary"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_refissue_number'),
+        ]
 
 class RefinaryIssueDetail(models.Model):
     billno = models.ForeignKey(RefinaryIssue, on_delete=models.CASCADE)
@@ -634,6 +667,9 @@ class RefinaryReceive(models.Model):
 
     class Meta:
         db_table = "receive_from_refinary"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_refreceive_number'),
+        ]
 
 
     @property
@@ -677,6 +713,9 @@ class MeltingIssue(models.Model):
 
     class Meta:
         db_table = "issue_to_melting"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_meltissue_number'),
+        ]
 
 
 class MeltingIssueDetail(models.Model):
@@ -707,6 +746,9 @@ class MeltingReceive(models.Model):
 
     class Meta:
         db_table = "receive_from_melting"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_meltreceive_number'),
+        ]
 
 
 class MeltingReceiveDetail(models.Model):
@@ -779,6 +821,9 @@ class RepairJobCard(models.Model):
 
     class Meta:
         db_table = 'repair_job_card'
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'rjc_no'], name='uniq_rjc_number'),
+        ]
 
     def __str__(self):
         return f"{self.rjc_no} — {self.customer.ac_name}"

@@ -227,6 +227,9 @@ class PurchaseOrder(models.Model):
         indexes = [
             models.Index(fields=['retail', '-po_no'], name='idx_po_retail_pono'),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'po_no'], name='uniq_po_number'),
+        ]
 
 class PurchaseOrderItems(models.Model):
     po_slip = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE)
@@ -301,6 +304,9 @@ class PurchaseReturn(models.Model):
         db_table = "purchase_return"
         indexes = [
             models.Index(fields=['retail', '-billno'], name='idx_pr_retail_billno'),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_pr_number'),
         ]
 
 class PurchaseReturnItems(models.Model): #main item

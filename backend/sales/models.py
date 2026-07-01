@@ -687,6 +687,9 @@ class Quotation(models.Model):
     class Meta:
         db_table = "quotation"
         ordering = ['-id']
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'quotation_no'], name='uniq_quotation_number'),
+        ]
 
     def __str__(self):
         return f"{self.quotation_no} â€” {self.party_name or (self.ldgr.ac_name if self.ldgr else 'Walk-in')}"

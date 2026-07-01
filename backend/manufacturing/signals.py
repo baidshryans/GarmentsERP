@@ -452,6 +452,25 @@ def on_melting_issue_postdelete(sender, instance, **kwargs):
             receive.delete()
 
 
+@receiver(pre_delete, sender=RefinaryIssue,
+          dispatch_uid='mfg_signals.refinary_issue_stash_receives')
+def on_refinary_issue_predelete(sender, instance, **kwargs):
+    instance._cascade_receive_ids = list(
+        RefinaryReceive.objects
+        .filter(refinaryreceivedetail__issue_no=instance)
+        .values_list('id', flat=True).distinct()
+    )
+
+
+@receiver(post_delete, sender=RefinaryIssue,
+          dispatch_uid='mfg_signals.refinary_issue_cleanup_receives')
+def on_refinary_issue_postdelete(sender, instance, **kwargs):
+    for rid in getattr(instance, '_cascade_receive_ids', []):
+        receive = RefinaryReceive.objects.filter(id=rid).first()
+        if receive and not receive.refinaryreceivedetail_set.exists():
+            receive.delete()
+
+
 # ── Raw material purchases (sub-item details with no main item) ────────────────
 
 @receiver(post_save, sender=PurchaseVoucherDetails,

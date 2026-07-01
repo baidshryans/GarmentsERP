@@ -151,3 +151,77 @@ class MeltingIssueDeleteCascadeTest(TestCase):
         self.assertEqual(remaining.count(), 1, "Only issue_a's row should be removed")
         self.assertEqual(remaining.first().issue_no_id, issue_b.id,
                          "The surviving row must be issue_b's")
+
+
+# --------------------------------------------------------------------------- #
+# Refinery                                                                     #
+# --------------------------------------------------------------------------- #
+
+class RefinaryIssueDeleteCascadeTest(TestCase):
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("RDC")
+        self.ldgr = _make_ledger("Ref Vendor RDC")
+        self.item = _make_item("RDCRAW")
+        self.purity = _make_purity("91.6")
+
+    def _make_issue(self):
+        issue = RefinaryIssue(
+            date1=datetime.date(2025, 4, 1), ldgr=self.ldgr,
+            retail=self.retail, fiscal_year=self.fy, rec_status=False,
+        )
+        save_with_bill_number(issue, self.retail, "REF/ISS", field="billno", fy=self.fy)
+        RefinaryIssueDetail.objects.create(
+            billno=issue, item=self.item, gw=Decimal("10.000"),
+            metal_purity=self.purity, retail=self.retail,
+        )
+        return issue
+
+    def _make_receive(self, issue_rows):
+        receive = RefinaryReceive(
+            date1=datetime.date(2025, 4, 2), ldgr=self.ldgr,
+            retail=self.retail, fiscal_year=self.fy,
+        )
+        save_with_bill_number(receive, self.retail, "REF/REC", field="billno", fy=self.fy)
+        for issue in issue_rows:
+            RefinaryReceiveDetail.objects.create(
+                billno=receive, issue_no=issue, item=self.item,
+                gw=Decimal("10.000"), loss_per=Decimal("0.000"),
+                loss_wt=Decimal("0.000"), metal_purity=self.purity,
+                conv_purity=self.purity, conv_nw=Decimal("9.500"),
+                rec_status=False, retail=self.retail,
+            )
+        return receive
+
+    def test_only_source_receive_is_deleted_entirely(self):
+        issue = self._make_issue()
+        receive = self._make_receive([issue])
+        receive_id = receive.id
+
+        issue.delete()
+
+        self.assertFalse(RefinaryReceive.objects.filter(id=receive_id).exists())
+        self.assertFalse(RefinaryReceiveDetail.objects.filter(billno_id=receive_id).exists())
+        self.assertEqual(_total_raw_gw(self.retail), Decimal("0"))
+
+    def test_only_source_receive_bill_number_is_reclaimed(self):
+        issue = self._make_issue()
+        self._make_receive([issue])
+
+        issue.delete()
+
+        nxt = peek_next_bill_number(self.retail, "REF/REC", self.fy)
+        self.assertTrue(nxt.endswith("00001"), f"got {nxt!r}")
+
+    def test_multi_source_receive_survives_with_other_rows(self):
+        issue_a = self._make_issue()
+        issue_b = self._make_issue()
+        receive = self._make_receive([issue_a, issue_b])
+        receive_id = receive.id
+
+        issue_a.delete()
+
+        self.assertTrue(RefinaryReceive.objects.filter(id=receive_id).exists())
+        remaining = RefinaryReceiveDetail.objects.filter(billno_id=receive_id)
+        self.assertEqual(remaining.count(), 1)
+        self.assertEqual(remaining.first().issue_no_id, issue_b.id)

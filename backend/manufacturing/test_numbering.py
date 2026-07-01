@@ -662,3 +662,505 @@ class SampleIssueNumberingTest(TestCase):
             second.billno.endswith("00002"),
             f"Second billno {second.billno!r} does not end in 00002",
         )
+
+
+# ===========================================================================
+# Task 14a -- KarigarGoldIssue (IV/GL) -- fallback: bare sequence + stub
+# ===========================================================================
+
+class KarigarGoldIssueNumberingFallbackTest(TestCase):
+    """
+    Fallback path for KarigarGoldIssueSerializer (KarigarGoldIssueHeader).
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 360:
+        ``parent_instance = KarigarGoldIssueHeader.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno' at that point.
+      generate_gold_issue_billno() in manufacturing/utils.py exists but is NOT
+      called by create().
+
+    Tests:
+      (a) Bare save_with_bill_number sequence test for IV/GL prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("KGIT")
+        self.karigar = _make_ledger("Gold Issue Karigar T14a")
+
+    # -- (a) Bare sequence test -----------------------------------------------
+
+    def test_iv_gl_sequence_increments(self):
+        """save_with_bill_number advances the IV/GL sequence correctly."""
+        from manufacturing.models import KarigarGoldIssueHeader
+        r1 = KarigarGoldIssueHeader(
+            billno="",
+            date1=datetime.date(2025, 6, 1),
+            slip_type="JO",
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r1, self.retail, "IV/GL", field="billno", fy=self.fy)
+
+        r2 = KarigarGoldIssueHeader(
+            billno="",
+            date1=datetime.date(2025, 6, 1),
+            slip_type="JO",
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r2, self.retail, "IV/GL", field="billno", fy=self.fy)
+
+        self.assertTrue(r1.billno.endswith("00001"), f"First billno {r1.billno!r} must end in 00001")
+        self.assertTrue(r2.billno.endswith("00002"), f"Second billno {r2.billno!r} must end in 00002")
+        self.assertNotEqual(r1.billno, r2.billno)
+
+    # -- (b) Stub-level regression: save_with_bill_number is called -----------
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """After conversion: KarigarGoldIssueSerializer.create() must call save_with_bill_number."""
+        from manufacturing.models import KarigarGoldIssueHeader
+        from manufacturing.serializer import KarigarGoldIssueSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: setattr(
+                inst, "billno", "IV/GL/KGIT/25-26/00001"
+            )
+
+            with patch(
+                "manufacturing.serializer.KarigarGoldIssueHeader.objects.create",
+                return_value=KarigarGoldIssueHeader(
+                    pk=1,
+                    billno="IV/GL/KGIT/25-26/00001",
+                    date1=datetime.date(2025, 6, 1),
+                    slip_type="JO",
+                    karigar_ldgr=self.karigar,
+                    retail=self.retail,
+                    fiscal_year=self.fy,
+                ),
+            ):
+                request = _make_request(self.retail)
+                payload = {
+                    "billno": "CLIENT-BOGUS-IVGL-99",
+                    "date1": "2025-06-01",
+                    "slip_type": "JO",
+                    "karigar_ldgr": self.karigar.pk,
+                    "retail": self.retail.pk,
+                    "karigargoldissue_set": [],
+                }
+                ser = KarigarGoldIssueSerializer(data=payload, context={"request": request})
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called -- conversion not applied to KarigarGoldIssueSerializer.",
+                )
+
+
+# ===========================================================================
+# Task 14b -- KarigarStoneIssue (IV/STN) -- fallback: bare sequence + stub
+# ===========================================================================
+
+class KarigarStoneIssueNumberingFallbackTest(TestCase):
+    """
+    Fallback path for KarigarStoneIssueSerializer (KarigarStoneIssueHeader).
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 141:
+        ``parent_instance = KarigarStoneIssueHeader.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno'.
+      generate_stone_issue_billno() in manufacturing/utils.py exists but NOT called.
+
+    Tests:
+      (a) Bare save_with_bill_number sequence test for IV/STN prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("KSIT")
+        self.karigar = _make_ledger("Stone Issue Karigar T14b")
+
+    # -- (a) Bare sequence test -----------------------------------------------
+
+    def test_iv_stn_sequence_increments(self):
+        """save_with_bill_number advances the IV/STN sequence correctly."""
+        from manufacturing.models import KarigarStoneIssueHeader
+        r1 = KarigarStoneIssueHeader(
+            billno="",
+            date1=datetime.date(2025, 6, 1),
+            slip_type="JO",
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r1, self.retail, "IV/STN", field="billno", fy=self.fy)
+
+        r2 = KarigarStoneIssueHeader(
+            billno="",
+            date1=datetime.date(2025, 6, 1),
+            slip_type="JO",
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r2, self.retail, "IV/STN", field="billno", fy=self.fy)
+
+        self.assertTrue(r1.billno.endswith("00001"), f"First billno {r1.billno!r} must end in 00001")
+        self.assertTrue(r2.billno.endswith("00002"), f"Second billno {r2.billno!r} must end in 00002")
+        self.assertNotEqual(r1.billno, r2.billno)
+
+    # -- (b) Stub-level regression: save_with_bill_number is called -----------
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """After conversion: KarigarStoneIssueSerializer.create() must call save_with_bill_number."""
+        from manufacturing.models import KarigarStoneIssueHeader
+        from manufacturing.serializer import KarigarStoneIssueSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: setattr(
+                inst, "billno", "IV/STN/KSIT/25-26/00001"
+            )
+
+            with patch(
+                "manufacturing.serializer.KarigarStoneIssueHeader.objects.create",
+                return_value=KarigarStoneIssueHeader(
+                    pk=1,
+                    billno="IV/STN/KSIT/25-26/00001",
+                    date1=datetime.date(2025, 6, 1),
+                    slip_type="JO",
+                    karigar_ldgr=self.karigar,
+                    retail=self.retail,
+                    fiscal_year=self.fy,
+                ),
+            ):
+                request = _make_request(self.retail)
+                payload = {
+                    "billno": "CLIENT-BOGUS-IVSTN-99",
+                    "date1": "2025-06-01",
+                    "slip_type": "JO",
+                    "karigar_ldgr": self.karigar.pk,
+                    "retail": self.retail.pk,
+                    "karigarstoneissue_set": [],
+                }
+                ser = KarigarStoneIssueSerializer(data=payload, context={"request": request})
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called -- conversion not applied to KarigarStoneIssueSerializer.",
+                )
+
+
+# ===========================================================================
+# Task 14c -- KarigarStoneReceive (REC/STN) -- fallback: bare sequence + stub
+# ===========================================================================
+
+class KarigarStoneReceiveNumberingFallbackTest(TestCase):
+    """
+    Fallback path for KarigarStoneReceiveSerializer (KarigarStoneReceiveHeader).
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 268:
+        ``parent_instance = KarigarStoneReceiveHeader.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno'.
+      generate_stone_rec_billno() in manufacturing/utils.py exists but NOT called.
+
+    Tests:
+      (a) Bare save_with_bill_number sequence test for REC/STN prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("KSRT")
+        self.karigar = _make_ledger("Stone Receive Karigar T14c")
+
+    # -- (a) Bare sequence test -----------------------------------------------
+
+    def test_rec_stn_sequence_increments(self):
+        """save_with_bill_number advances the REC/STN sequence correctly."""
+        from manufacturing.models import KarigarStoneReceiveHeader
+        r1 = KarigarStoneReceiveHeader(
+            billno="",
+            date1=datetime.date(2025, 6, 1),
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r1, self.retail, "REC/STN", field="billno", fy=self.fy)
+
+        r2 = KarigarStoneReceiveHeader(
+            billno="",
+            date1=datetime.date(2025, 6, 1),
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r2, self.retail, "REC/STN", field="billno", fy=self.fy)
+
+        self.assertTrue(r1.billno.endswith("00001"), f"First billno {r1.billno!r} must end in 00001")
+        self.assertTrue(r2.billno.endswith("00002"), f"Second billno {r2.billno!r} must end in 00002")
+        self.assertNotEqual(r1.billno, r2.billno)
+
+    # -- (b) Stub-level regression: save_with_bill_number is called -----------
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """After conversion: KarigarStoneReceiveSerializer.create() must call save_with_bill_number."""
+        from manufacturing.models import KarigarStoneReceiveHeader
+        from manufacturing.serializer import KarigarStoneReceiveSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: setattr(
+                inst, "billno", "REC/STN/KSRT/25-26/00001"
+            )
+
+            with patch(
+                "manufacturing.serializer.KarigarStoneReceiveHeader.objects.create",
+                return_value=KarigarStoneReceiveHeader(
+                    pk=1,
+                    billno="REC/STN/KSRT/25-26/00001",
+                    date1=datetime.date(2025, 6, 1),
+                    karigar_ldgr=self.karigar,
+                    retail=self.retail,
+                    fiscal_year=self.fy,
+                ),
+            ):
+                request = _make_request(self.retail)
+                payload = {
+                    "billno": "CLIENT-BOGUS-RECSTN-99",
+                    "date1": "2025-06-01",
+                    "karigar_ldgr": self.karigar.pk,
+                    "retail": self.retail.pk,
+                    "karigarstonereceive_set": [],
+                }
+                ser = KarigarStoneReceiveSerializer(data=payload, context={"request": request})
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called -- conversion not applied to KarigarStoneReceiveSerializer.",
+                )
+
+
+# ===========================================================================
+# Task 14d -- KarigarIssue (IV) -- fallback: bare sequence + stub
+# ===========================================================================
+
+class KarigarIssueNumberingFallbackTest(TestCase):
+    """
+    Fallback path for KarigarIssueForPostSerializer (KarigarIssue).
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 645:
+        ``karigar_issue_instance = KarigarIssue.objects.create(
+            **validated_data,
+            bill_id=int(validated_data['issue_slip_no'].split('/')[-1]))``
+      validated_data still contains the client-supplied 'issue_slip_no'.
+      generate_slip_no() in manufacturing/utils.py exists but is NOT called.
+
+    Note: bill_id is derived from the trailing integer of issue_slip_no.
+    After conversion, bill_id must be extracted from the server-generated number.
+
+    Tests:
+      (a) Bare save_with_bill_number sequence test for IV prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("KIVT")
+        self.karigar = _make_ledger("Issue Karigar T14d")
+
+    # -- (a) Bare sequence test -----------------------------------------------
+
+    def test_iv_sequence_increments(self):
+        """save_with_bill_number advances the IV sequence correctly."""
+        from manufacturing.models import KarigarIssue
+        r1 = KarigarIssue(
+            issue_slip_no="",
+            bill_id=0,
+            date1=datetime.date(2025, 6, 1),
+            issue_slip_type="Stock",
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r1, self.retail, "IV", field="issue_slip_no", fy=self.fy)
+
+        r2 = KarigarIssue(
+            issue_slip_no="",
+            bill_id=0,
+            date1=datetime.date(2025, 6, 1),
+            issue_slip_type="Stock",
+            karigar_ldgr=self.karigar,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r2, self.retail, "IV", field="issue_slip_no", fy=self.fy)
+
+        self.assertTrue(r1.issue_slip_no.endswith("00001"), f"First issue_slip_no {r1.issue_slip_no!r} must end in 00001")
+        self.assertTrue(r2.issue_slip_no.endswith("00002"), f"Second issue_slip_no {r2.issue_slip_no!r} must end in 00002")
+        self.assertNotEqual(r1.issue_slip_no, r2.issue_slip_no)
+
+    # -- (b) Stub-level regression: save_with_bill_number is called -----------
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """After conversion: KarigarIssueForPostSerializer.create() must call save_with_bill_number."""
+        from manufacturing.models import KarigarIssue
+        from manufacturing.serializer import KarigarIssueForPostSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: (
+                setattr(inst, "issue_slip_no", "IV/KIVT/25-26/00001") or
+                setattr(inst, "bill_id", 1)
+            )
+
+            with patch(
+                "manufacturing.serializer.KarigarIssue.objects.create",
+                return_value=KarigarIssue(
+                    pk=1,
+                    issue_slip_no="IV/KIVT/25-26/00001",
+                    bill_id=1,
+                    date1=datetime.date(2025, 6, 1),
+                    issue_slip_type="Stock",
+                    karigar_ldgr=self.karigar,
+                    retail=self.retail,
+                    fiscal_year=self.fy,
+                ),
+            ):
+                request = _make_request(self.retail)
+                payload = {
+                    "issue_slip_no": "CLIENT-BOGUS-IV-99",
+                    "date1": "2025-06-01",
+                    "issue_slip_type": "Stock",
+                    "karigar_ldgr": self.karigar.pk,
+                    "retail": self.retail.pk,
+                    "items": [],
+                }
+                ser = KarigarIssueForPostSerializer(data=payload, context={"request": request})
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called -- conversion not applied to KarigarIssueForPostSerializer.",
+                )
+
+
+# ===========================================================================
+# Task 14e -- KarigarReceive (RS) -- fallback: bare sequence + stub
+# ===========================================================================
+
+class KarigarReceiveNumberingFallbackTest(TestCase):
+    """
+    Fallback path for KarigarReceiveForPostSerializer (KarigarReceive).
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 1073:
+        ``karigar_receive_instance = KarigarReceive.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'receive_slip_no'.
+      A manual duplicate-slip-no check exists at lines 1065-1072 that becomes
+      redundant once the number is server-generated.
+      generate_kr_rec_slip_no() in manufacturing/utils.py exists but NOT called.
+
+    Tests:
+      (a) Bare save_with_bill_number sequence test for RS prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("KRST")
+        self.karigar = _make_ledger("Receive Karigar T14e")
+
+    # -- (a) Bare sequence test -----------------------------------------------
+
+    def test_rs_sequence_increments(self):
+        """save_with_bill_number advances the RS sequence correctly."""
+        from manufacturing.models import KarigarReceive
+        r1 = KarigarReceive(
+            receive_slip_no="",
+            date1=datetime.date(2025, 6, 1),
+            karigar_ldgr=self.karigar,
+            place_of_supply="Maharashtra",
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r1, self.retail, "RS", field="receive_slip_no", fy=self.fy)
+
+        r2 = KarigarReceive(
+            receive_slip_no="",
+            date1=datetime.date(2025, 6, 1),
+            karigar_ldgr=self.karigar,
+            place_of_supply="Maharashtra",
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r2, self.retail, "RS", field="receive_slip_no", fy=self.fy)
+
+        self.assertTrue(r1.receive_slip_no.endswith("00001"), f"First {r1.receive_slip_no!r} must end in 00001")
+        self.assertTrue(r2.receive_slip_no.endswith("00002"), f"Second {r2.receive_slip_no!r} must end in 00002")
+        self.assertNotEqual(r1.receive_slip_no, r2.receive_slip_no)
+
+    # -- (b) Stub-level regression: save_with_bill_number is called -----------
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """After conversion: KarigarReceiveForPostSerializer.create() must call save_with_bill_number."""
+        from manufacturing.models import KarigarReceive
+        from manufacturing.serializer import KarigarReceiveForPostSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: setattr(
+                inst, "receive_slip_no", "RS/KRST/25-26/00001"
+            )
+
+            karigar_receive_mock = KarigarReceive(
+                pk=1,
+                receive_slip_no="RS/KRST/25-26/00001",
+                date1=datetime.date(2025, 6, 1),
+                karigar_ldgr=self.karigar,
+                place_of_supply="Maharashtra",
+                retail=self.retail,
+                fiscal_year=self.fy,
+            )
+            karigar_receive_mock.save = lambda **kw: None  # prevent actual DB save
+
+            with patch(
+                "manufacturing.serializer.KarigarReceive.objects.create",
+                return_value=karigar_receive_mock,
+            ):
+                request = _make_request(self.retail)
+                # KarigarReceiveForPostSerializer requires items; pass empty list
+                payload = {
+                    "receive_slip_no": "CLIENT-BOGUS-RS-99",
+                    "date1": "2025-06-01",
+                    "karigar_ldgr": self.karigar.pk,
+                    "place_of_supply": "Maharashtra",
+                    "retail": self.retail.pk,
+                    "items": [],
+                }
+                ser = KarigarReceiveForPostSerializer(data=payload, context={"request": request})
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called -- conversion not applied to KarigarReceiveForPostSerializer.",
+                )

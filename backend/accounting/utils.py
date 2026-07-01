@@ -171,7 +171,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
 
     from sales.models import CustomerOrder as CustomerOrderModel
     from sales.models import Quotation
-    from manufacturing.models import RefinaryIssue, RefinaryReceive, MeltingIssue, MeltingReceive, HallmarkIssue, HallmarkReceive, RepairJobCard, SampleIssue
+    from manufacturing.models import RefinaryIssue, RefinaryReceive, MeltingIssue, MeltingReceive, HallmarkIssue, HallmarkReceive, RepairJobCard, SampleIssue, KarigarGoldIssueHeader, KarigarStoneIssueHeader, KarigarStoneReceiveHeader, KarigarIssue, KarigarReceive
     model_map_resolved = {
         'SV': (SalesVou, 'billno'),
         'SR': (SaleReturn, 'billno'),
@@ -201,6 +201,12 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'HM/RE':   (HallmarkReceive, 'receive_slip_no'),
         'RJC':     (RepairJobCard, 'rjc_no'),
         'IS':      (SampleIssue, 'billno'),
+        # Karigar-family vouchers
+        'IV/GL':   (KarigarGoldIssueHeader, 'billno'),
+        'IV/STN':  (KarigarStoneIssueHeader, 'billno'),
+        'REC/STN': (KarigarStoneReceiveHeader, 'billno'),
+        'IV':      (KarigarIssue, 'issue_slip_no'),
+        'RS':      (KarigarReceive, 'receive_slip_no'),
     }
 
     # Build FY date filter if fiscal year is provided

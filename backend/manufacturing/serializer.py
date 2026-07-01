@@ -130,15 +130,18 @@ class KarigarStoneIssueSerializer(serializers.ModelSerializer):
         }
     def create(self, validated_data):
         with transaction.atomic():
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             if 'fiscal_year' not in validated_data:
-                request = self.context.get('request')
-                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
                     from mastersconfig.fy_validation import assert_date_in_active_fy
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('karigarstoneissue_set', [])
-            parent_instance = KarigarStoneIssueHeader.objects.create(**validated_data)
+            validated_data.pop('billno', None)
+            parent_instance = KarigarStoneIssueHeader(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(parent_instance, _retail, 'IV/STN', field='billno', fy=validated_data.get('fiscal_year'))
             for item_data in detail_data:
                 item_data.pop('id', None)
                 KarigarStoneIssue.objects.create(header=parent_instance, **item_data)
@@ -257,17 +260,20 @@ class KarigarStoneReceiveSerializer(serializers.ModelSerializer):
                     }
     def create(self, validated_data):
         with transaction.atomic():
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             if 'fiscal_year' not in validated_data:
-                request = self.context.get('request')
-                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
                     from mastersconfig.fy_validation import assert_date_in_active_fy
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('karigarstonereceive_set', [])
-            parent_instance = KarigarStoneReceiveHeader.objects.create(**validated_data)
+            validated_data.pop('billno', None)
+            parent_instance = KarigarStoneReceiveHeader(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(parent_instance, _retail, 'REC/STN', field='billno', fy=validated_data.get('fiscal_year'))
             create_or_update_nested(
-                KarigarStoneReceiveDetailSerializer, parent_instance, 
+                KarigarStoneReceiveDetailSerializer, parent_instance,
                 'karigarstonereceive_set', 'header',
                 KarigarStoneReceiveDetailSerializer(detail_data, many=True).data
             )
@@ -349,17 +355,20 @@ class KarigarGoldIssueSerializer(serializers.ModelSerializer):
         }
     def create(self, validated_data):
         with transaction.atomic():
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             if 'fiscal_year' not in validated_data:
-                request = self.context.get('request')
-                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
                     from mastersconfig.fy_validation import assert_date_in_active_fy
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop("karigargoldissue_set", [])
-            parent_instance = KarigarGoldIssueHeader.objects.create(**validated_data)
+            validated_data.pop('billno', None)
+            parent_instance = KarigarGoldIssueHeader(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(parent_instance, _retail, 'IV/GL', field='billno', fy=validated_data.get('fiscal_year'))
             create_or_update_nested(
-                KarigarGoldIssueDetailSerializer, parent_instance, 
+                KarigarGoldIssueDetailSerializer, parent_instance,
                 "karigargoldissue_set", "header",
                 KarigarGoldIssueDetailSerializer(detail_data, many=True).data
             )
@@ -634,15 +643,24 @@ class KarigarIssueForPostSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
+        request = self.context.get('request')
+        _retail = validated_data.get('retail') or getattr(request, 'retail', None)
         if 'fiscal_year' not in validated_data:
-            request = self.context.get('request')
-            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             if _retail:
                 from mastersconfig.fy_validation import assert_date_in_active_fy
                 assert_date_in_active_fy(_retail, validated_data.get("date1"))
                 validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         with transaction.atomic():
-            karigar_issue_instance = KarigarIssue.objects.create(**validated_data,bill_id=int( validated_data['issue_slip_no'].split('/')[-1]))
+            validated_data.pop('issue_slip_no', None)
+            karigar_issue_instance = KarigarIssue(**validated_data, bill_id=0)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(karigar_issue_instance, _retail, 'IV', field='issue_slip_no', fy=validated_data.get('fiscal_year'))
+            # Derive bill_id from the trailing integer of the generated issue_slip_no
+            import re as _re
+            _m = _re.search(r'(\d+)$', karigar_issue_instance.issue_slip_no)
+            if _m:
+                karigar_issue_instance.bill_id = int(_m.group(1))
+                karigar_issue_instance.save(update_fields=['bill_id'])
 
             for item_data in items_data:
                 KarigarIssueItem.objects.create(
@@ -1054,23 +1072,18 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('karigarreceiveitem_set')
+        request = self.context.get('request')
+        _retail = validated_data.get('retail') or getattr(request, 'retail', None)
         if 'fiscal_year' not in validated_data:
-            request = self.context.get('request')
-            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             if _retail:
                 from mastersconfig.fy_validation import assert_date_in_active_fy
                 assert_date_in_active_fy(_retail, validated_data.get("date1"))
                 validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
         with transaction.atomic():
-            slip_no = validated_data.get('receive_slip_no')
-            if slip_no and KarigarReceive.objects.filter(
-                retail=validated_data.get('retail'),
-                receive_slip_no=slip_no,
-            ).exists():
-                raise serializers.ValidationError({
-                    'receive_slip_no': f"Receive slip {slip_no} already exists."
-                })
-            karigar_receive_instance = KarigarReceive.objects.create(**validated_data,)
+            validated_data.pop('receive_slip_no', None)
+            karigar_receive_instance = KarigarReceive(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(karigar_receive_instance, _retail, 'RS', field='receive_slip_no', fy=validated_data.get('fiscal_year'))
 
             # Create related KarigarReceiveItem instances
             for item_data in items_data:

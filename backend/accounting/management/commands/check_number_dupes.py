@@ -43,6 +43,26 @@ MODEL_CHECKS = [
     # manufacturing — karigar issue / receive (header models, not line items)
     ("manufacturing.KarigarIssue",          ["retail", "fiscal_year"],                 "issue_slip_no"),
     ("manufacturing.KarigarReceive",        ["retail", "fiscal_year"],                 "receive_slip_no"),
+    # -----------------------------------------------------------------------
+    # Already-race-safe models — added for dup pre-check before constraints
+    # -----------------------------------------------------------------------
+    # sales
+    ("sales.SalesVou",                      ["retail", "fiscal_year"],                 "billno"),
+    ("sales.SaleReturn",                    ["retail", "fiscal_year"],                 "billno"),
+    ("sales.SalesApproval",                 ["retail", "fiscal_year"],                 "billno"),
+    ("sales.SalesApprovalReturn",           ["retail", "fiscal_year"],                 "billno"),
+    ("sales.CustomerOrder",                 ["retail", "fiscal_year"],                 "order_no"),
+    # inventory
+    ("inventory.StockTransfer",             ["retail", "fiscal_year"],                 "billno"),
+    # InterRetailTransferVoucher skipped — no retail field
+    ("inventory.StockJournal",              ["retail", "fiscal_year"],                 "billno"),
+    # accounting
+    ("accounting.VoucherMain",              ["retail", "fiscal_year"],                 "voucher_no"),
+    ("accounting.CreditDebitNote",          ["retail", "fiscal_year"],                 "note_no"),
+    ("accounting.CashGoldConversion",       ["retail", "fiscal_year"],                 "billno"),
+    # goldscheme
+    ("goldscheme.SchemeEnrollment",         ["retail", "fiscal_year"],                 "enrollment_no"),
+    ("goldscheme.SchemePayment",            ["retail", "fiscal_year"],                 "payment_no"),
 ]
 
 

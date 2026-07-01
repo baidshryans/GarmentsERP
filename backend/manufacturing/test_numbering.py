@@ -578,6 +578,7 @@ class RepairJobCardNumberingTest(TestCase):
             "date1": "2025-06-01",
             "customer": self.customer.pk,
             "retail": self.retail.pk,
+            "fiscal_year": self.fy.pk,
             "stones": [],
             "losses": [],
             "karigar_links": [],
@@ -635,6 +636,7 @@ class SampleIssueNumberingTest(TestCase):
             "date1": "2025-06-01",
             "karigar_ldgr": self.karigar.pk,
             "retail": self.retail.pk,
+            "fiscal_year": self.fy.pk,
             "items": [],
         }
         ser = SampleIssueSerializer(data=payload, context={"request": request})

@@ -74,6 +74,7 @@ class QuotationNumberingTest(TestCase):
             "date1": "2025-06-01",
             "quotation_no": bogus_quotation_no,
             "retail": self.retail.pk,
+            "fiscal_year": self.fy.pk,
             "items": [],
         }
 

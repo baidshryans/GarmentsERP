@@ -66,26 +66,32 @@ class CheckNumberDupesCommandTest(TestCase):
         return out.getvalue(), err.getvalue(), exit_code
 
     def test_detects_colliding_refinery_issue_rows(self):
-        """Two RefinaryIssue rows with same retail+fiscal_year+billno → exit 1."""
+        """Two RefinaryIssue rows the command groups as a duplicate → exit 1.
+
+        RefinaryIssue now carries uniq_refissue_number (retail, fiscal_year,
+        billno), so we seed with fiscal_year=None: SQLite treats NULLs as
+        distinct in a UniqueConstraint (both rows insert), while the command
+        groups them by (retail, fiscal_year=None, billno) and flags the pair.
+        """
         from manufacturing.models import RefinaryIssue
         retail = self._get_or_create_retail()
-        fy = self._get_or_create_fy(retail)
         ldgr = self._get_or_create_ledger()
 
-        # Create two rows with an identical scoped number.
+        # Same (retail, billno) with NULL fiscal_year — allowed by the DB
+        # (NULLs distinct) but reported by the command's grouping.
         RefinaryIssue.objects.create(
             date1="2024-05-01",
             billno="RI-001",
             ldgr=ldgr,
             retail=retail,
-            fiscal_year=fy,
+            fiscal_year=None,
         )
         RefinaryIssue.objects.create(
             date1="2024-06-01",
             billno="RI-001",   # same number — collision
             ldgr=ldgr,
             retail=retail,
-            fiscal_year=fy,
+            fiscal_year=None,
         )
 
         stdout, _stderr, exit_code = self._run_command()

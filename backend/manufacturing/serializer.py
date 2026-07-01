@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer
+﻿from rest_framework.serializers import ModelSerializer
 from rest_framework.exceptions import ValidationError as _LedgerConfigError
 
 def _raise_missing_ledger(label):
@@ -1748,7 +1748,12 @@ class RefinaryIssueSerializer(serializers.ModelSerializer):
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('refinaryissuedetail_set', [])
-            parent_instance = RefinaryIssue.objects.create(**validated_data)
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+            validated_data.pop('billno', None)
+            parent_instance = RefinaryIssue(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(parent_instance, _retail, 'REF/ISS', field='billno', fy=validated_data.get('fiscal_year'))
             create_or_update_nested(RefinaryIssueDetailSerializer, parent_instance, 'refinaryissuedetail_set','billno', RefinaryIssueDetailSerializer(detail_data,many=True).data )
             return parent_instance
     

@@ -1,0 +1,403 @@
+"""
+Race-safe voucher numbering tests for manufacturing serializers.
+
+Tasks 6–9
+----------
+Task 6 — RefinaryIssue   (REF/ISS)
+Task 7 — RefinaryReceive (REF/REC)
+Task 8 — MeltingIssue   (MLT/ISS)
+Task 9 — MeltingReceive  (MLT/REC)
+
+Test strategy
+--------------
+The four serializers all require deep nested payloads (RefinaryReceive /
+MeltingReceive detail rows cross-reference an existing Issue billno via a
+SlugRelatedField, meaning the Issue record must exist in the DB before the
+Receive can be validated). Additionally the detail rows require Item,
+PurityMaster, and Packet master records, plus real Ledger records, making
+full integration feasible.
+
+We therefore use a TWO-TIER approach:
+  (a) Full integration test for RefinaryIssue and MeltingIssue (parent-only
+      payload, no detail rows required for the billno test).
+  (b) For RefinaryReceive and MeltingReceive: bare save_with_bill_number
+      sequence test (model instantiation + helper call, no serializer path) PLUS
+      a stub test patching `accounting.utils.save_with_bill_number` to assert
+      it is called by the serializer's create().
+
+Pre-conversion failure (Tasks 6–9):
+  manufacturing/serializer.py lines 1751, 1803, 1856, 1909:
+    ``parent_instance = <Model>.objects.create(**validated_data)``
+  At those points validated_data still contains the client-supplied 'billno'.
+  Confirmed by manual code inspection for all four tasks.
+"""
+
+import datetime
+from decimal import Decimal
+from unittest.mock import patch
+
+from django.test import TestCase
+from rest_framework.test import APIRequestFactory
+
+from contacts.models import Ledger
+from goldrates.models import PurityMaster
+from mastersconfig.models import FiscalYearMaster, Item, RetailMaster
+from manufacturing.models import (
+    MeltingIssue,
+    MeltingReceive,
+    RefinaryIssue,
+    RefinaryReceive,
+)
+from accounting.utils import save_with_bill_number
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+def _make_retail_and_fy(retail_code: str):
+    retail = RetailMaster.objects.create(
+        retail_name=f"Test Retail {retail_code}",
+        retail_code=retail_code,
+        phone="0000000000",
+        address_line1="Test Address",
+        bill_series=retail_code,
+    )
+    fy = FiscalYearMaster.objects.create(
+        retail=retail,
+        fy_code="25-26",
+        fy_start=datetime.date(2025, 4, 1),
+        fy_end=datetime.date(2026, 3, 31),
+    )
+    retail.active_fy = fy
+    retail.save(update_fields=["active_fy"])
+    return retail, fy
+
+
+def _make_ledger(name: str):
+    return Ledger.objects.create(
+        ac_name=name,
+        display_name=name,
+        b2b=False,
+        tds_applicable=False,
+        is_system=False,
+    )
+
+
+def _make_request(retail):
+    factory = APIRequestFactory()
+    request = factory.post("/")
+    request.retail = retail
+    return request
+
+
+# ===========================================================================
+# Task 6 — RefinaryIssue (full integration, fail-first TDD)
+# ===========================================================================
+
+class RefinaryIssueNumberingTest(TestCase):
+    """
+    Full serializer-level integration test for RefinaryIssueSerializer.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 1751:
+        ``parent_instance = RefinaryIssue.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno' at that point.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("TSRI")
+        self.ledger = _make_ledger("Refinery Vendor RI")
+
+    def _base_payload(self, bogus_billno: str) -> dict:
+        return {
+            "date1": "2025-06-01",
+            "billno": bogus_billno,
+            "ldgr": self.ledger.pk,
+            "retail": self.retail.pk,
+            "refinaryissuedetail_set": [],
+        }
+
+    def _create_via_serializer(self, bogus: str):
+        from manufacturing.serializer import RefinaryIssueSerializer
+        request = _make_request(self.retail)
+        ser = RefinaryIssueSerializer(
+            data=self._base_payload(bogus),
+            context={"request": request},
+        )
+        ser.is_valid(raise_exception=True)
+        return ser.save()
+
+    def test_bogus_billno_not_persisted(self):
+        """After conversion: the client-supplied bogus billno must not be saved."""
+        obj = self._create_via_serializer("BOGUS-REF-ISS-9999")
+        self.assertNotEqual(
+            obj.billno, "BOGUS-REF-ISS-9999",
+            "Bogus billno was persisted — conversion not applied.",
+        )
+
+    def test_two_creates_produce_sequential_numbers(self):
+        """After conversion: two successive creates yield ..00001 then ..00002."""
+        first = self._create_via_serializer("BOGUS-A")
+        second = self._create_via_serializer("BOGUS-B")
+
+        self.assertNotEqual(first.billno, second.billno, "Both RefinaryIssues got the same number.")
+        self.assertTrue(
+            first.billno.endswith("00001"),
+            f"First billno {first.billno!r} does not end in 00001",
+        )
+        self.assertTrue(
+            second.billno.endswith("00002"),
+            f"Second billno {second.billno!r} does not end in 00002",
+        )
+
+
+# ===========================================================================
+# Task 7 — RefinaryReceive (fallback: bare sequence + stub)
+# ===========================================================================
+
+class RefinaryReceiveNumberingFallbackTest(TestCase):
+    """
+    Fallback path: RefinaryReceiveDetail rows require an existing RefinaryIssue
+    billno via a SlugRelatedField, adding mandatory cross-entity fixture setup.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 1803:
+        ``parent_instance = RefinaryReceive.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno'.
+
+    Tests here:
+      (a) Bare save_with_bill_number sequence test for REF/REC prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("TSRR")
+        self.ledger = _make_ledger("Refinery Vendor RR")
+
+    # -- (a) Bare sequence test -----------------------------------------------
+
+    def test_ref_rec_sequence_increments(self):
+        """save_with_bill_number advances the REF/REC sequence correctly."""
+        r1 = RefinaryReceive(
+            date1=datetime.date(2025, 6, 1),
+            retail=self.retail,
+            fiscal_year=self.fy,
+            ldgr=self.ledger,
+        )
+        save_with_bill_number(r1, self.retail, "REF/REC", field="billno", fy=self.fy)
+
+        r2 = RefinaryReceive(
+            date1=datetime.date(2025, 6, 1),
+            retail=self.retail,
+            fiscal_year=self.fy,
+            ldgr=self.ledger,
+        )
+        save_with_bill_number(r2, self.retail, "REF/REC", field="billno", fy=self.fy)
+
+        self.assertTrue(r1.billno.endswith("00001"), f"First billno {r1.billno!r} must end in 00001")
+        self.assertTrue(r2.billno.endswith("00002"), f"Second billno {r2.billno!r} must end in 00002")
+        self.assertNotEqual(r1.billno, r2.billno)
+
+    # -- (b) Stub-level regression: save_with_bill_number is called -----------
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """
+        After conversion: RefinaryReceiveSerializer.create() must call
+        save_with_bill_number (not pass billno directly to .objects.create).
+        """
+        from manufacturing.serializer import RefinaryReceiveSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: setattr(
+                inst, "billno", "RR/TSRR/25-26/00001"
+            )
+
+            with patch(
+                "manufacturing.serializer.RefinaryReceive.objects.create",
+                return_value=RefinaryReceive(
+                    pk=1,
+                    date1=datetime.date(2025, 6, 1),
+                    billno="RR/TSRR/25-26/00001",
+                    ldgr=self.ledger,
+                    retail=self.retail,
+                    fiscal_year=self.fy,
+                ),
+            ):
+                request = _make_request(self.retail)
+                payload = {
+                    "date1": "2025-06-01",
+                    "billno": "CLIENT-BOGUS-RR-99",
+                    "ldgr": self.ledger.pk,
+                    "retail": self.retail.pk,
+                    "refinaryreceivedetail_set": [],
+                }
+                ser = RefinaryReceiveSerializer(
+                    data=payload, context={"request": request}
+                )
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called — conversion not applied to RefinaryReceiveSerializer.",
+                )
+
+
+# ===========================================================================
+# Task 8 — MeltingIssue (full integration, fail-first TDD)
+# ===========================================================================
+
+class MeltingIssueNumberingTest(TestCase):
+    """
+    Full serializer-level integration test for MeltingIssueSerializer.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 1856:
+        ``parent_instance = MeltingIssue.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno'.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("TSMI")
+        self.ledger = _make_ledger("Melting Vendor MI")
+
+    def _base_payload(self, bogus_billno: str) -> dict:
+        return {
+            "date1": "2025-06-01",
+            "billno": bogus_billno,
+            "ldgr": self.ledger.pk,
+            "retail": self.retail.pk,
+            "meltingissuedetail_set": [],
+        }
+
+    def _create_via_serializer(self, bogus: str):
+        from manufacturing.serializer import MeltingIssueSerializer
+        request = _make_request(self.retail)
+        ser = MeltingIssueSerializer(
+            data=self._base_payload(bogus),
+            context={"request": request},
+        )
+        ser.is_valid(raise_exception=True)
+        return ser.save()
+
+    def test_bogus_billno_not_persisted(self):
+        """After conversion: the client-supplied bogus billno must not be saved."""
+        obj = self._create_via_serializer("BOGUS-MLT-ISS-9999")
+        self.assertNotEqual(
+            obj.billno, "BOGUS-MLT-ISS-9999",
+            "Bogus billno was persisted — conversion not applied.",
+        )
+
+    def test_two_creates_produce_sequential_numbers(self):
+        """After conversion: two successive creates yield ..00001 then ..00002."""
+        first = self._create_via_serializer("BOGUS-A")
+        second = self._create_via_serializer("BOGUS-B")
+
+        self.assertNotEqual(first.billno, second.billno, "Both MeltingIssues got the same number.")
+        self.assertTrue(
+            first.billno.endswith("00001"),
+            f"First billno {first.billno!r} does not end in 00001",
+        )
+        self.assertTrue(
+            second.billno.endswith("00002"),
+            f"Second billno {second.billno!r} does not end in 00002",
+        )
+
+
+# ===========================================================================
+# Task 9 — MeltingReceive (fallback: bare sequence + stub)
+# ===========================================================================
+
+class MeltingReceiveNumberingFallbackTest(TestCase):
+    """
+    Fallback path: MeltingReceiveDetail rows require an existing MeltingIssue
+    billno via a SlugRelatedField, adding mandatory cross-entity fixture setup.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 1909:
+        ``parent_instance = MeltingReceive.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno'.
+
+    Tests here:
+      (a) Bare save_with_bill_number sequence test for MLT/REC prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("TSMR")
+        self.ledger = _make_ledger("Melting Vendor MR")
+
+    # -- (a) Bare sequence test -----------------------------------------------
+
+    def test_mlt_rec_sequence_increments(self):
+        """save_with_bill_number advances the MLT/REC sequence correctly."""
+        r1 = MeltingReceive(
+            date1=datetime.date(2025, 6, 1),
+            retail=self.retail,
+            fiscal_year=self.fy,
+            ldgr=self.ledger,
+        )
+        save_with_bill_number(r1, self.retail, "MLT/REC", field="billno", fy=self.fy)
+
+        r2 = MeltingReceive(
+            date1=datetime.date(2025, 6, 1),
+            retail=self.retail,
+            fiscal_year=self.fy,
+            ldgr=self.ledger,
+        )
+        save_with_bill_number(r2, self.retail, "MLT/REC", field="billno", fy=self.fy)
+
+        self.assertTrue(r1.billno.endswith("00001"), f"First billno {r1.billno!r} must end in 00001")
+        self.assertTrue(r2.billno.endswith("00002"), f"Second billno {r2.billno!r} must end in 00002")
+        self.assertNotEqual(r1.billno, r2.billno)
+
+    # -- (b) Stub-level regression: save_with_bill_number is called -----------
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """
+        After conversion: MeltingReceiveSerializer.create() must call
+        save_with_bill_number (not pass billno directly to .objects.create).
+        """
+        from manufacturing.serializer import MeltingReceiveSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: setattr(
+                inst, "billno", "MR/TSMR/25-26/00001"
+            )
+
+            with patch(
+                "manufacturing.serializer.MeltingReceive.objects.create",
+                return_value=MeltingReceive(
+                    pk=1,
+                    date1=datetime.date(2025, 6, 1),
+                    billno="MR/TSMR/25-26/00001",
+                    ldgr=self.ledger,
+                    retail=self.retail,
+                    fiscal_year=self.fy,
+                ),
+            ):
+                request = _make_request(self.retail)
+                payload = {
+                    "date1": "2025-06-01",
+                    "billno": "CLIENT-BOGUS-MR-99",
+                    "ldgr": self.ledger.pk,
+                    "retail": self.retail.pk,
+                    "meltingreceivedetail_set": [],
+                }
+                ser = MeltingReceiveSerializer(
+                    data=payload, context={"request": request}
+                )
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called — conversion not applied to MeltingReceiveSerializer.",
+                )

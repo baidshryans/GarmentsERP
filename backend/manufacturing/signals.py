@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
 
 from inventory.models import RawMaterialInventory, RawMaterialTransaction, UnBarcodedDetails, UnBarcodedMain
@@ -420,6 +420,36 @@ def on_melting_receive_detail_delete(sender, instance, **kwargs):
         gw=-instance.conv_nw,
         billno=instance.billno.billno,
     )
+
+
+# ── Issue delete → cascade to only-source receive slips ──────────────────────
+# Deleting an issue removes any receive slip that drew ONLY from it (header +
+# all rows). Receives that also draw from other issues keep their header and
+# their other-issue rows.
+#
+# The existing issue_no=CASCADE already deletes the receive DETAIL rows linked
+# to this issue (reversing stock via their post_delete). We must NOT delete
+# those rows again here (that would double-reverse stock and re-fire signals on
+# a header that's already gone). So: stash the affected receive ids before the
+# cascade runs, then in post_delete drop any header the cascade left empty.
+
+@receiver(pre_delete, sender=MeltingIssue,
+          dispatch_uid='mfg_signals.melting_issue_stash_receives')
+def on_melting_issue_predelete(sender, instance, **kwargs):
+    instance._cascade_receive_ids = list(
+        MeltingReceive.objects
+        .filter(meltingreceivedetail__issue_no=instance)
+        .values_list('id', flat=True).distinct()
+    )
+
+
+@receiver(post_delete, sender=MeltingIssue,
+          dispatch_uid='mfg_signals.melting_issue_cleanup_receives')
+def on_melting_issue_postdelete(sender, instance, **kwargs):
+    for rid in getattr(instance, '_cascade_receive_ids', []):
+        receive = MeltingReceive.objects.filter(id=rid).first()
+        if receive and not receive.meltingreceivedetail_set.exists():
+            receive.delete()
 
 
 # ── Raw material purchases (sub-item details with no main item) ────────────────

@@ -607,3 +607,58 @@ class RepairJobCardNumberingTest(TestCase):
             second.rjc_no.endswith("00002"),
             f"Second rjc_no {second.rjc_no!r} does not end in 00002",
         )
+
+
+# ===========================================================================
+# Task 13 -- SampleIssue (IS) -- full integration
+# ===========================================================================
+
+class SampleIssueNumberingTest(TestCase):
+    """
+    Full serializer-level integration test for SampleIssueSerializer.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 540:
+        ``inst = SampleIssue.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'billno' at that point.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("SIIS")
+        self.karigar = _make_ledger("Karigar T13")
+
+    def _create_via_serializer(self, bogus: str):
+        from manufacturing.serializer import SampleIssueSerializer
+        request = _make_request(self.retail)
+        payload = {
+            "billno": bogus,
+            "date1": "2025-06-01",
+            "karigar_ldgr": self.karigar.pk,
+            "retail": self.retail.pk,
+            "items": [],
+        }
+        ser = SampleIssueSerializer(data=payload, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        return ser.save()
+
+    def test_bogus_billno_not_persisted(self):
+        """After conversion: the client-supplied bogus billno must not be saved."""
+        obj = self._create_via_serializer("BOGUS-IS-9999")
+        self.assertNotEqual(
+            obj.billno, "BOGUS-IS-9999",
+            "Bogus billno was persisted -- conversion not applied.",
+        )
+
+    def test_two_creates_produce_sequential_numbers(self):
+        """After conversion: two successive creates yield ..00001 then ..00002."""
+        first = self._create_via_serializer("BOGUS-A")
+        second = self._create_via_serializer("BOGUS-B")
+        self.assertNotEqual(first.billno, second.billno)
+        self.assertTrue(
+            first.billno.endswith("00001"),
+            f"First billno {first.billno!r} does not end in 00001",
+        )
+        self.assertTrue(
+            second.billno.endswith("00002"),
+            f"Second billno {second.billno!r} does not end in 00002",
+        )

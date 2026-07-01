@@ -536,8 +536,13 @@ class SampleIssueSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
+        request = self.context.get('request')
+        _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+        validated_data.pop('billno', None)
         with transaction.atomic():
-            inst = SampleIssue.objects.create(**validated_data)
+            inst = SampleIssue(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(inst, _retail, 'IS', field='billno', fy=validated_data.get('fiscal_year'))
             for idx, item_data in enumerate(items_data, start=1):
                 self._save_item(item_data, inst, idx)
             return inst

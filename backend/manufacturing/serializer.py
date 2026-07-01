@@ -1863,7 +1863,12 @@ class MeltingIssueSerializer(serializers.ModelSerializer):
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             detail_data = validated_data.pop('meltingissuedetail_set', [])
-            parent_instance = MeltingIssue.objects.create(**validated_data)
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+            validated_data.pop('billno', None)
+            parent_instance = MeltingIssue(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(parent_instance, _retail, 'MLT/ISS', field='billno', fy=validated_data.get('fiscal_year'))
             create_or_update_nested(MeltingIssueDetailSerializer, parent_instance, 'meltingissuedetail_set', 'billno', MeltingIssueDetailSerializer(detail_data, many=True).data)
             return parent_instance
 

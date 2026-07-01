@@ -1179,12 +1179,12 @@ class InterRetailTransferVoucherSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        from accounting.utils import get_next_bill_number
+        from accounting.utils import save_with_bill_number
         items_data = validated_data.pop('items', [])
         request = self.context.get('request')
         with transaction.atomic():
             retail = validated_data['from_retail']
-            validated_data['voucher_no'] = get_next_bill_number(retail, 'IRT')
+            validated_data.pop('voucher_no', None)
             req_user = getattr(request, 'user', None)
             if req_user is not None and getattr(req_user, 'is_authenticated', False):
                 validated_data['created_by'] = req_user
@@ -1192,7 +1192,11 @@ class InterRetailTransferVoucherSerializer(serializers.ModelSerializer):
             assert_date_in_active_fy(retail, validated_data.get("transfer_date"), field="transfer_date")
             validated_data['fiscal_year'] = getattr(retail, 'active_fy', None)
             validated_data['status'] = InterRetailTransferVoucher.STATUS_DRAFT
-            voucher = InterRetailTransferVoucher.objects.create(**validated_data)
+            # Number series is owned by the source retail; generate authoritatively
+            # under the locked sequence with retry (SQLite-safe).
+            voucher = InterRetailTransferVoucher(**validated_data)
+            save_with_bill_number(voucher, retail, 'IRT', field='voucher_no',
+                                  fy=validated_data.get('fiscal_year'))
             for item_data in items_data:
                 snap = self._snapshot_item(voucher, item_data)
                 InterRetailTransferItem.objects.create(voucher=voucher, **snap)

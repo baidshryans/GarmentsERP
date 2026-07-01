@@ -54,7 +54,8 @@ MODEL_CHECKS = [
     ("sales.CustomerOrder",                 ["retail", "fiscal_year"],                 "order_no"),
     # inventory
     ("inventory.StockTransfer",             ["retail", "fiscal_year"],                 "billno"),
-    # InterRetailTransferVoucher skipped — no retail field
+    # IRT number series is owned by the SOURCE retail (no plain `retail` field).
+    ("inventory.InterRetailTransferVoucher",["from_retail", "fiscal_year"],            "voucher_no"),
     ("inventory.StockJournal",              ["retail", "fiscal_year"],                 "billno"),
     # accounting
     ("accounting.VoucherMain",              ["retail", "fiscal_year"],                 "voucher_no"),

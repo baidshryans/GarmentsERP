@@ -273,6 +273,19 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
             if match:
                 return int(match.group(1))
 
+    # Inter-retail transfer voucher (IRT): the series is owned by the SOURCE
+    # retail, so it has no plain `retail` field — resync against from_retail.
+    if prefix == 'IRT':
+        from inventory.models import InterRetailTransferVoucher as IRTV
+        qs = IRTV.objects.filter(from_retail=retail)
+        if fiscal_year:
+            qs = qs.filter(fiscal_year=fiscal_year)
+        last = qs.order_by('-voucher_no').values_list('voucher_no', flat=True).first()
+        if last:
+            match = re.search(r'(\d+)$', last)
+            if match:
+                return int(match.group(1))
+
     return 0
 
 

@@ -3694,7 +3694,12 @@ class InterRetailTransferVoucherViewSet(ModelViewSet):
                 {'detail': f"Cannot delete voucher in status '{voucher.status}'. Cancel it instead."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return super().destroy(request, *args, **kwargs)
+        # Capture before delete so the latest number can be reclaimed for reuse.
+        from_retail, voucher_no, fiscal_year = voucher.from_retail, voucher.voucher_no, voucher.fiscal_year
+        response = super().destroy(request, *args, **kwargs)
+        from accounting.utils import release_last_bill_number
+        release_last_bill_number(from_retail, 'IRT', voucher_no, fiscal_year)
+        return response
 
     def _require_status(self, voucher, expected):
         if isinstance(expected, str):

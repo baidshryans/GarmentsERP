@@ -520,6 +520,14 @@ class InterRetailTransferVoucher(models.Model):
             models.Index(fields=["to_retail", "transfer_date"], name="idx_irtv_to_date"),
             models.Index(fields=["status", "transfer_date"], name="idx_irtv_status_date"),
         ]
+        constraints = [
+            # The number series is owned by the source retail (no plain `retail`
+            # field), so scope the uniqueness by from_retail + fiscal_year.
+            models.UniqueConstraint(
+                fields=["from_retail", "fiscal_year", "voucher_no"],
+                name="uniq_irtv_number",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.voucher_no} ({self.from_retail_id}->{self.to_retail_id})"

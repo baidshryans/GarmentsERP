@@ -1818,18 +1818,34 @@ class MySQLSyncView(APIView):
         return {'created': created, 'updated': updated, 'errors': errors}
 
     def _sync_item(self, cursor):
+        from mastersconfig.models import ItemGroupMaster
+        from contacts.models import Ledger
+
+        def _iid(v):
+            try:
+                return int(float(v)) if v not in (None, '') else None
+            except (TypeError, ValueError):
+                return None
+
         # Fetch hsn_master rows to build id→hsn_no mapping
         cursor.execute("SELECT id, hsn_no FROM hsn_master")
         hsn_id_map = {r['id']: r['hsn_no'] for r in cursor.fetchall()}
+        purchase_ledger = Ledger.objects.filter(ac_name='Purchase Account', is_system=True).first()
+        sale_ledger = Ledger.objects.filter(ac_name='Sales Account', is_system=True).first()
 
-        cursor.execute("SELECT id, short_code, item, item_type, uom, hsn_no, show_in_pcs_report FROM item_master")
+        # Legacy PK is `item_id` (not `id`); preserve it as Item.id so transactional
+        # imports (sales / purchases / opening stock reference items by id) resolve.
+        cursor.execute("SELECT item_id, short_code, item, item_type, uom, hsn_no, "
+                       "show_in_pcs_report, grp, sub_grp, purchase_ledger, sale_ledger "
+                       "FROM item_master")
         rows = cursor.fetchall()
         created = updated = 0
         errors = []
         for row in rows:
             try:
+                iid = _iid(row.get('item_id'))
                 short_code = (row.get('short_code') or '').strip()
-                if not short_code:
+                if iid is None or not short_code:
                     continue
                 item_type = (row.get('item_type') or 'O').strip()
                 if item_type not in ('M', 'R', 'S', 'O', 'C'):
@@ -1843,16 +1859,21 @@ class MySQLSyncView(APIView):
                     hsn_no_str = hsn_id_map.get(mysql_hsn_id)
                     if hsn_no_str:
                         hsn_obj = Hsn.objects.filter(hsn_no=hsn_no_str).first()
-                show_pcs = bool(row.get('show_in_pcs_report'))
+                grp_obj = (ItemGroupMaster.objects.filter(id=_iid(row.get('grp'))).first()
+                           if _iid(row.get('grp')) else None)
                 _, flag = Item.objects.update_or_create(
-                    short_code=short_code,
+                    id=iid,
                     defaults={
+                        'short_code': short_code,
                         'item_name': (row.get('item') or '').strip(),
                         'item_type': item_type,
                         'uom': uom,
                         'hsn_no': hsn_obj,
-                        'show_in_pcs_report': show_pcs,
-                        'sub_grp': '',
+                        'show_in_pcs_report': bool(row.get('show_in_pcs_report')),
+                        'grp': grp_obj,
+                        'sub_grp': str(row.get('sub_grp') or '').strip(),
+                        'purchase_ledger': purchase_ledger if row.get('purchase_ledger') else None,
+                        'sale_ledger': sale_ledger if row.get('sale_ledger') else None,
                     }
                 )
                 if flag:
@@ -1860,7 +1881,7 @@ class MySQLSyncView(APIView):
                 else:
                     updated += 1
             except Exception as e:
-                errors.append(f"short_code={row.get('short_code')}: {str(e)}")
+                errors.append(f"item_id={row.get('item_id')}: {str(e)}")
         return {'created': created, 'updated': updated, 'errors': errors}
 
     def _sync_packet_group(self, cursor):
@@ -1886,8 +1907,8 @@ class MySQLSyncView(APIView):
         return {'created': created, 'updated': updated, 'errors': errors}
 
     def _sync_packet(self, cursor):
-        # Build item id→short_code map from MySQL
-        cursor.execute("SELECT id, short_code FROM item_master")
+        # Build item id→short_code map from MySQL (legacy PK is item_id)
+        cursor.execute("SELECT item_id AS id, short_code FROM item_master")
         item_id_map = {r['id']: r['short_code'] for r in cursor.fetchall()}
 
         cursor.execute("""

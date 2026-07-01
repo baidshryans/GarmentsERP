@@ -3110,10 +3110,14 @@ class QuotationSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items', [])
         with transaction.atomic():
             request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
             from mastersconfig.fy_validation import assert_date_in_active_fy
-            assert_date_in_active_fy(getattr(request, 'retail', None), validated_data.get("date1"))
-            validated_data.setdefault('fiscal_year', getattr(getattr(request, 'retail', None), 'active_fy', None))
-            quotation = Quotation.objects.create(**validated_data)
+            assert_date_in_active_fy(_retail, validated_data.get("date1"))
+            validated_data.setdefault('fiscal_year', getattr(_retail, 'active_fy', None))
+            validated_data.pop('quotation_no', None)
+            quotation = Quotation(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(quotation, _retail, 'QT', field='quotation_no', fy=validated_data.get('fiscal_year'))
             for item_data in items_data:
                 details_data = item_data.pop('details', [])
                 qi = QuotationItem.objects.create(quotation=quotation, **item_data)

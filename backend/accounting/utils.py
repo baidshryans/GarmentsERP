@@ -1,4 +1,4 @@
-import re
+﻿import re
 from decimal import Decimal
 
 from django.db import transaction
@@ -170,6 +170,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
     from accounting.models import CreditDebitNote
 
     from sales.models import CustomerOrder as CustomerOrderModel
+    from sales.models import Quotation
     from manufacturing.models import RefinaryIssue, RefinaryReceive, MeltingIssue, MeltingReceive
     model_map_resolved = {
         'SV': (SalesVou, 'billno'),
@@ -187,6 +188,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'CN': (CreditDebitNote, 'note_no'),
         'DN': (CreditDebitNote, 'note_no'),
         'CO': (CustomerOrderModel, 'order_no'),
+        'QT': (Quotation, 'quotation_no'),
         # Manufacturing vouchers (refinery / melting issue & receive). These
         # have no BillNumberSequence row and supply their billno from the
         # frontend peek, so the peek MUST bootstrap from the actual records —

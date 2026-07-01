@@ -437,7 +437,15 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     from mastersconfig.fy_validation import assert_date_in_active_fy
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
-            purchase_voucher_instance = PurchaseVoucher.objects.create(**validated_data)
+            request = self.context.get('request')
+            _retail = validated_data.get('retail') or getattr(request, 'retail', None)
+            validated_data.pop('billno', None)
+            _vtype = validated_data.get('voucher_type')
+            _prefix = 'PVC' if _vtype == 'Customer' else 'PVV'
+            purchase_voucher_instance = PurchaseVoucher(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(purchase_voucher_instance, _retail, _prefix, field='billno',
+                                  fy=validated_data.get('fiscal_year'))
 
             # Create related PurchaseVoucherItems and their sub-details
             item_detail_instances = []

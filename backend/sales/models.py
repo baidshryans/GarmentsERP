@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from contacts.models import Ledger
 from mastersconfig.models import Item, SalesPersonMaster
 from goldrates.models import PurityMaster
@@ -75,6 +76,9 @@ class CustomerOrder(models.Model):
         db_table="customer_order"
         indexes = [
             models.Index(fields=['retail', '-order_no'], name='idx_co_retail_orderno'),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'order_no'], name='uniq_co_number'),
         ]
 
     def __str__(self):
@@ -213,6 +217,14 @@ class SalesVou(models.Model):
             models.Index(fields=['retail', '-billno'], name='idx_sv_retail_billno'),
             models.Index(fields=['retail', 'date1'], name='idx_sv_retail_date'),
             models.Index(fields=['ldgr'], name='idx_sv_ldgr'),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_sv_number'),
+            models.UniqueConstraint(
+                fields=['retail', 'fiscal_year', 'gst_billno'],
+                condition=~Q(gst_billno=''),
+                name='uniq_sv_gst_number',
+            ),
         ]
 
     def __str__(self):
@@ -374,6 +386,9 @@ class SaleReturn(models.Model):
         indexes = [
             models.Index(fields=['retail', '-billno'], name='idx_sr_retail_billno'),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_sret_number'),
+        ]
 
 class SaleReturnItem(models.Model):
     date1 = models.DateField(auto_now_add=True)
@@ -485,6 +500,9 @@ class SalesApproval(models.Model):
         indexes = [
             models.Index(fields=['retail', '-billno'], name='idx_sa_retail_billno'),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_sappr_number'),
+        ]
 
 
 class SalesApprovalItem(models.Model):
@@ -546,6 +564,9 @@ class SalesApprovalReturn(models.Model):
     )
     class Meta:
         db_table = "sales_vou_appr_return"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_sareturn_number'),
+        ]
 
 
 class SalesApprovalReturnItem(models.Model):

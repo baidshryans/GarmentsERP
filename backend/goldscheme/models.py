@@ -171,6 +171,7 @@ class SchemeEnrollment(models.Model):
                 check=models.Q(maturity_date__gte=models.F('start_date')),
                 name='chk_maturity_after_start',
             ),
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'enrollment_no'], name='uniq_se_number'),
         ]
 
     def __str__(self):
@@ -270,6 +271,9 @@ class SchemePayment(models.Model):
             models.Index(fields=['retail', 'date'], name='idx_sp_retail_date'),
         ]
         ordering = ['date', 'installment_number']
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'payment_no'], name='uniq_sp_number'),
+        ]
 
     def __str__(self):
         return f"{self.payment_no} — ₹{self.amount} for {self.enrollment.enrollment_no}"

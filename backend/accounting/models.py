@@ -64,6 +64,9 @@ class VoucherMain(models.Model):
             models.Index(fields=['retail', 'date'], name='idx_vm_retail_date'),
             models.Index(fields=['retail', 'voucher_no'], name='idx_vm_retail_vno'),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'voucher_no'], name='uniq_vm_number'),
+        ]
 
 class VoucherDetail(models.Model):
 
@@ -138,6 +141,9 @@ class CashGoldConversion(models.Model):
         db_table = "gold_cash_conversion"
         indexes = [
             models.Index(fields=['retail', 'conv_type', '-billno'], name='idx_gc_retail_type_billno'),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_cgconv_number'),
         ]
 
     def __str__(self):
@@ -233,6 +239,9 @@ class CreditDebitNote(models.Model):
         db_table = "credit_debit_note"
         indexes = [
             models.Index(fields=['retail', 'note_type', '-note_no'], name='idx_cdn_retail_type_no'),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'note_no'], name='uniq_cdn_number'),
         ]
 
     def __str__(self):

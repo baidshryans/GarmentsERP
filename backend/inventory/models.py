@@ -428,6 +428,9 @@ class StockJournal(models.Model):
         indexes = [
             models.Index(fields=['retail', '-billno'], name='idx_sj_retail_billno'),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_sj_number'),
+        ]
 class StockJournalDetail(models.Model):
     billno = models.ForeignKey(StockJournal, on_delete=models.CASCADE)
     doc_type = models.CharField(max_length=50, choices=[('Issue', 'Issue'), ('Receive', 'Receive')])
@@ -456,6 +459,9 @@ class StockTransfer(models.Model):
 
     class Meta:
         db_table = "stock_transfer"
+        constraints = [
+            models.UniqueConstraint(fields=['retail', 'fiscal_year', 'billno'], name='uniq_st_number'),
+        ]
 
 
 class StockTransferMain(models.Model):

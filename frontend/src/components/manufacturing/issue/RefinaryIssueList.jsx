@@ -12,6 +12,10 @@ import { SquarePen, Printer, Trash2, Plus } from "lucide-react";
 import { deleteRefineryIssue, fetchGoldIssues, fetchRefinaryIssue } from '../../../services/apiService';
 import { useToast } from "@/hooks/use-toast";
 import { useSearchParams } from 'react-router-dom';
+import { openAndPrint } from "@/services/print/utils";
+import RefineryIssuePrint from "@/services/print/RefineryIssuePrint";
+import { fetchCompanies } from "@/services/api/masters";
+import { fetchRetails } from "@/services/apiService";
 
 
 
@@ -25,6 +29,29 @@ function RefinaryIssueList() {
   const [totalPages, setTotalPages] = useState(1);
   const [ordering, setOrdering] = useState("ac_name"); // Default ordering by 'Name'
   const [allFy, setAllFy] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState({});
+
+  useEffect(() => {
+    Promise.all([fetchCompanies(), fetchRetails()]).then(([companyRes, retailRes]) => {
+      if (companyRes.success) {
+        const companies = Array.isArray(companyRes.data) ? companyRes.data : companyRes.data?.results ?? [];
+        if (companies.length > 0) {
+          const c = companies[0];
+          const retails = retailRes.success ? (Array.isArray(retailRes.data) ? retailRes.data : retailRes.data?.results ?? []) : [];
+          const retailCode = sessionStorage.getItem("retail_code");
+          const retail = retails.find(r => r.retail_code === retailCode) || retails[0];
+          setCompanyInfo({
+            company_name: c.company_name,
+            company_address: [c.address, c.city, c.pincode].filter(Boolean).join(', '),
+            company_phone: c.phone,
+            company_email: c.email,
+            company_pan: c.pan,
+            company_gstin: retail?.gstin_master_str || "",
+          });
+        }
+      }
+    });
+  }, []);
   const search=params.get('search')||"";
   const sortby=params.get('sortby')||"";
 
@@ -68,7 +95,7 @@ function RefinaryIssueList() {
             <Trash2 className="size-4" />
           </button>
           <button
-            onClick={() => openAndPrint(<h1>Karigar Issue</h1>)}
+            onClick={() => openAndPrint(<RefineryIssuePrint data={{ ...row.original, ...companyInfo }} />)}
             className="p-1.5 rounded text-muted-foreground hover:bg-muted transition-colors"
           >
             <Printer className="size-4" />

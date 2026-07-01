@@ -401,3 +401,58 @@ class MeltingReceiveNumberingFallbackTest(TestCase):
                     mock_swbn.called,
                     "save_with_bill_number was NOT called — conversion not applied to MeltingReceiveSerializer.",
                 )
+
+
+# ===========================================================================
+# Task 10 -- HallmarkIssue (HMIS) -- full integration
+# ===========================================================================
+
+class HallmarkIssueNumberingTest(TestCase):
+    """
+    Full serializer-level integration test for HallmarkIssueForPostSerializer.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 1452:
+        ``hallmark_issue_instance = HallmarkIssue.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'issue_slip_no' at that point.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("HMIS")
+        self.hm_center = _make_ledger("HM Centre T10")
+
+    def _create_via_serializer(self, bogus: str):
+        from manufacturing.serializer import HallmarkIssueForPostSerializer
+        request = _make_request(self.retail)
+        payload = {
+            "issue_slip_no": bogus,
+            "date1": "2025-06-01",
+            "hallmark_center": self.hm_center.pk,
+            "hallmarkissueitem_set": [],
+            "retail": self.retail.pk,
+        }
+        ser = HallmarkIssueForPostSerializer(data=payload, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        return ser.save()
+
+    def test_bogus_issue_slip_no_not_persisted(self):
+        """After conversion: the client-supplied bogus issue_slip_no must not be saved."""
+        obj = self._create_via_serializer("BOGUS-HMIS-9999")
+        self.assertNotEqual(
+            obj.issue_slip_no, "BOGUS-HMIS-9999",
+            "Bogus issue_slip_no was persisted -- conversion not applied.",
+        )
+
+    def test_two_creates_produce_sequential_numbers(self):
+        """After conversion: two successive creates yield ..00001 then ..00002."""
+        first = self._create_via_serializer("BOGUS-A")
+        second = self._create_via_serializer("BOGUS-B")
+        self.assertNotEqual(first.issue_slip_no, second.issue_slip_no)
+        self.assertTrue(
+            first.issue_slip_no.endswith("00001"),
+            f"First issue_slip_no {first.issue_slip_no!r} does not end in 00001",
+        )
+        self.assertTrue(
+            second.issue_slip_no.endswith("00002"),
+            f"Second issue_slip_no {second.issue_slip_no!r} does not end in 00002",
+        )

@@ -544,3 +544,66 @@ class HallmarkReceiveNumberingFallbackTest(TestCase):
                     mock_swbn.called,
                     "save_with_bill_number was NOT called -- conversion not applied to HallmarkReceiveForPostSerializer.",
                 )
+
+
+# ===========================================================================
+# Task 12 -- RepairJobCard (RJC) -- full integration
+# NOTE: The model field is rjc_no (not billno as stated in spec).
+# ===========================================================================
+
+class RepairJobCardNumberingTest(TestCase):
+    """
+    Full serializer-level integration test for RepairJobCardSerializer.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 2155:
+        ``job_card = RepairJobCard.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'rjc_no' at that point.
+
+    Note: The task spec says field=billno but manufacturing/models.py L744
+    confirms the actual field name is rjc_no. This test and conversion use rjc_no.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("RJCT")
+        self.customer = _make_ledger("RJC Customer T12")
+        from contacts.models import LedgerRole
+        LedgerRole.objects.create(ledger=self.customer, role="CO")
+
+    def _create_via_serializer(self, bogus: str):
+        from manufacturing.serializer import RepairJobCardSerializer
+        request = _make_request(self.retail)
+        payload = {
+            "rjc_no": bogus,
+            "date1": "2025-06-01",
+            "customer": self.customer.pk,
+            "retail": self.retail.pk,
+            "stones": [],
+            "losses": [],
+            "karigar_links": [],
+        }
+        ser = RepairJobCardSerializer(data=payload, context={"request": request})
+        ser.is_valid(raise_exception=True)
+        return ser.save()
+
+    def test_bogus_rjc_no_not_persisted(self):
+        """After conversion: the client-supplied bogus rjc_no must not be saved."""
+        obj = self._create_via_serializer("BOGUS-RJC-9999")
+        self.assertNotEqual(
+            obj.rjc_no, "BOGUS-RJC-9999",
+            "Bogus rjc_no was persisted -- conversion not applied.",
+        )
+
+    def test_two_creates_produce_sequential_numbers(self):
+        """After conversion: two successive creates yield ..00001 then ..00002."""
+        first = self._create_via_serializer("BOGUS-A")
+        second = self._create_via_serializer("BOGUS-B")
+        self.assertNotEqual(first.rjc_no, second.rjc_no)
+        self.assertTrue(
+            first.rjc_no.endswith("00001"),
+            f"First rjc_no {first.rjc_no!r} does not end in 00001",
+        )
+        self.assertTrue(
+            second.rjc_no.endswith("00002"),
+            f"Second rjc_no {second.rjc_no!r} does not end in 00002",
+        )

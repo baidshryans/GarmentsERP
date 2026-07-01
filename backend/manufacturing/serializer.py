@@ -2151,8 +2151,11 @@ class RepairJobCardSerializer(serializers.ModelSerializer):
             from mastersconfig.fy_validation import assert_date_in_active_fy
             assert_date_in_active_fy(_retail, validated_data.get("date1"))
             validated_data.setdefault('fiscal_year', getattr(_retail, 'active_fy', None))
+        validated_data.pop('rjc_no', None)
         with transaction.atomic():
-            job_card = RepairJobCard.objects.create(**validated_data)
+            job_card = RepairJobCard(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(job_card, _retail, 'RJC', field='rjc_no', fy=validated_data.get('fiscal_year'))
             for d in stones_data:
                 d.pop('id', None)
                 RepairStone.objects.create(job_card=job_card, **d)

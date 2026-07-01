@@ -142,6 +142,24 @@ def get_next_bill_number(retail, prefix, fiscal_year=None):
         return f"{retail.get_bill_prefix(prefix, fy_code)}{seq.last_number:05d}"
 
 
+def save_with_bill_number(instance, retail, prefix, *, field='billno', fy=None, max_retries=5):
+    """Assign an authoritative number under the locked sequence, save, and retry
+    on a unique collision. The retry is what makes this correct on SQLite (row
+    locks are a no-op there); get_next_bill_number re-syncs to the real max each
+    call, so a retry lands on the next free number."""
+    from django.db import IntegrityError, transaction
+    for attempt in range(max_retries):
+        setattr(instance, field, get_next_bill_number(retail, prefix, fy))
+        try:
+            with transaction.atomic():          # savepoint — a failed insert rolls back just this
+                instance.save()
+            return instance
+        except IntegrityError:
+            if attempt == max_retries - 1:
+                raise
+    return instance  # unreachable
+
+
 def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
     """Extract the max existing number for a given prefix from the relevant model, filtered by FY date range."""
     # Import here to avoid circular imports

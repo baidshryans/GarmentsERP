@@ -1510,14 +1510,31 @@ class ClosingStockCal:
         })
 
         # ── Refinery issues / receives ───────────────────────────────────────
+        # ISSUES stay attributed to the issued raw-metal item (e.g. Old Gold)
+        # and deduct its gross weight. RECEIVES come back as fine gold: the
+        # refiner returns pure metal at the converted purity, so the received
+        # quantity is the converted net weight (conv_nw) — NOT the gross weight
+        # that was issued — and it is booked entirely against the "Fine Gold"
+        # item, never the old-gold item that was issued. (Any gold received
+        # from refinery is fine gold.)
         ri_qs = _date_filter(RefinaryIssueDetail.objects.filter(item_id__in=item_ids).filter(_retail_q()))
-        rr_qs = _date_filter(RefinaryReceiveDetail.objects.filter(item_id__in=item_ids).filter(_retail_q()))
+        rr_qs = _date_filter(RefinaryReceiveDetail.objects.filter(_retail_q()))
         gwct_ann = {
             'total_gw': Coalesce(Sum('gw'), zero),
             'total_ct': Coalesce(Sum('ct'), zero),
         }
         ri = _batch(ri_qs, 'item_id', gwct_ann)
-        rr = _batch(rr_qs, 'item_id', gwct_ann)
+
+        # Sum the converted net (fine) weight across all receives and book it
+        # against the Fine Gold item, irrespective of the issued item.
+        fine_gold = next((i for i in items if i.item_name == 'Fine Gold'), None)
+        rr = {}
+        if fine_gold is not None:
+            rr_agg = rr_qs.aggregate(
+                total_gw=Coalesce(Sum('conv_nw'), zero),
+                total_ct=Coalesce(Sum('ct'), zero),
+            )
+            rr = {fine_gold.id: {'total_gw': rr_agg['total_gw'], 'total_ct': rr_agg['total_ct']}}
 
         # ── Inter-retail transfers (received status only) ────────────────────
         trn_base = InterRetailTransferItem.objects.filter(
@@ -3603,20 +3620,24 @@ class ClosingStockTxnView(APIView):
                 })
 
         elif txn_type == 'refinery_receives':
+            # Receives are booked against Fine Gold as the converted net (fine)
+            # weight, not against the issued item at gross weight. Only the Fine
+            # Gold row drills into refinery receives; show conv_nw as the weight.
             from manufacturing.models import RefinaryReceiveDetail as RRD
-            qs = RRD.objects.filter(
-                item=item, billno__date1__lte=to_date,
-            ).select_related('billno', 'billno__ldgr')
-            qs = qs.filter(retail_q)
-            for r in qs:
-                vouchers.append({
-                    'date': str(r.billno.date1),
-                    'voucher_no': r.billno.billno,
-                    'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
-                    'gw': float(r.gw or 0),
-                    'ct': float(r.ct or 0),
-                    'amount': 0.0,
-                })
+            if item.item_name == 'Fine Gold':
+                qs = RRD.objects.filter(
+                    billno__date1__lte=to_date,
+                ).select_related('billno', 'billno__ldgr')
+                qs = qs.filter(retail_q)
+                for r in qs:
+                    vouchers.append({
+                        'date': str(r.billno.date1),
+                        'voucher_no': r.billno.billno,
+                        'party': r.billno.ldgr.ac_name if r.billno.ldgr else '',
+                        'gw': float(r.conv_nw or 0),
+                        'ct': float(r.ct or 0),
+                        'amount': 0.0,
+                    })
 
         vouchers.sort(key=lambda x: x['date'])
         return Response({

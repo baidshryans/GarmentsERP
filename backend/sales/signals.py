@@ -1,7 +1,7 @@
-from django.db.models.signals import pre_delete
+from django.db.models.signals import pre_delete, post_delete
 from django.dispatch import receiver
 
-from .models import SalesVou, SaleReturn, SalesApprovalItem, SalesApprovalReturnItem
+from .models import SalesVou, SaleReturn, SalesApprovalItem, SalesApprovalReturnItem, Quotation
 
 
 @receiver(pre_delete, sender=SalesVou)
@@ -111,3 +111,12 @@ def on_sales_approval_return_item_delete(sender, instance, **kwargs):
         BarcodeMain.objects.filter(id=instance.barcode_id).update(stk_status=False)
     if instance.approval_item_id:
         SalesApprovalItem.objects.filter(id=instance.approval_item_id).update(ret_status=False)
+
+
+# ── Bill-number reclaim ───────────────────────────────────────────────────────
+
+@receiver(post_delete, sender=Quotation, dispatch_uid='sales_signals.release_quotation')
+def _release_quotation(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        from accounting.utils import release_last_bill_number
+        release_last_bill_number(instance.retail, 'QT', instance.quotation_no, instance.fiscal_year)

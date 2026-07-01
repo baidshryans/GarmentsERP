@@ -9,7 +9,7 @@ import logging
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import DatabaseError, transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
 from global_vars import VoucherType
@@ -136,4 +136,24 @@ def create_scheme_voucher(sender, instance, created, **kwargs):
             "Failed to create SCHM voucher for payment %s (enrollment %s). "
             "Payment saved but accounting entry is missing — manual JV required.",
             payment.payment_no, payment.enrollment.enrollment_no,
+        )
+
+
+# ── Bill-number reclaim on delete ────────────────────────────────────────────
+
+@receiver(post_delete, sender=SchemeEnrollment, dispatch_uid='goldscheme_signals.release_enrollment')
+def _release_enrollment(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        from accounting.utils import release_last_bill_number
+        release_last_bill_number(
+            instance.retail, 'SCHM-E', instance.enrollment_no, instance.fiscal_year
+        )
+
+
+@receiver(post_delete, sender=SchemePayment, dispatch_uid='goldscheme_signals.release_payment')
+def _release_payment(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        from accounting.utils import release_last_bill_number
+        release_last_bill_number(
+            instance.retail, 'SCHM-P', instance.payment_no, instance.fiscal_year
         )

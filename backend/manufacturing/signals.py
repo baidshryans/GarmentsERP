@@ -10,6 +10,13 @@ from manufacturing.models import (
     RefinaryIssueDetail, RefinaryReceiveDetail,
     MeltingIssueDetail, MeltingReceiveDetail,
     SampleIssueItem,
+    # Header / parent voucher models (for bill-number reclaim)
+    RefinaryIssue, RefinaryReceive,
+    MeltingIssue, MeltingReceive,
+    HallmarkIssue, HallmarkReceive,
+    RepairJobCard, SampleIssue,
+    KarigarGoldIssueHeader, KarigarStoneIssueHeader, KarigarStoneReceiveHeader,
+    KarigarIssue, KarigarReceive,
 )
 from purchase.models import PurchaseVoucherDetails
 
@@ -467,3 +474,90 @@ def reverse_raw_material_on_purchase_detail_delete(sender, instance, **kwargs):
         amt=Decimal(str(instance.value or 0)),
         billno=instance.billno.billno if instance.billno else '',
     )
+
+
+# ── Bill-number reclaim on parent-voucher delete ─────────────────────────────
+# Each receiver below calls release_last_bill_number so that deleting the
+# MOST RECENT voucher in a series frees its number for the next entry.
+# Mid-sequence deletes are safe no-ops (release_last_bill_number checks
+# that the trailing integer matches last_number before decrementing).
+
+from accounting.utils import release_last_bill_number  # noqa: E402
+
+
+@receiver(post_delete, sender=RefinaryIssue, dispatch_uid='mfg_signals.release_refissue')
+def _release_refissue(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'REF/ISS', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=RefinaryReceive, dispatch_uid='mfg_signals.release_refreceive')
+def _release_refreceive(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'REF/REC', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=MeltingIssue, dispatch_uid='mfg_signals.release_meltissue')
+def _release_meltissue(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'MLT/ISS', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=MeltingReceive, dispatch_uid='mfg_signals.release_meltreceive')
+def _release_meltreceive(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'MLT/REC', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=HallmarkIssue, dispatch_uid='mfg_signals.release_hmkissue')
+def _release_hmkissue(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'HMIS', instance.issue_slip_no, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=HallmarkReceive, dispatch_uid='mfg_signals.release_hmkreceive')
+def _release_hmkreceive(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'HM/RE', instance.receive_slip_no, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=RepairJobCard, dispatch_uid='mfg_signals.release_rjc')
+def _release_rjc(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'RJC', instance.rjc_no, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=SampleIssue, dispatch_uid='mfg_signals.release_sampleissue')
+def _release_sampleissue(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'IS', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=KarigarGoldIssueHeader, dispatch_uid='mfg_signals.release_krgoldissue')
+def _release_krgoldissue(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'IV/GL', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=KarigarStoneIssueHeader, dispatch_uid='mfg_signals.release_krstoneissue')
+def _release_krstoneissue(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'IV/STN', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=KarigarStoneReceiveHeader, dispatch_uid='mfg_signals.release_krstonereceive')
+def _release_krstonereceive(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'REC/STN', instance.billno, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=KarigarIssue, dispatch_uid='mfg_signals.release_krissue')
+def _release_krissue(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'IV', instance.issue_slip_no, instance.fiscal_year)
+
+
+@receiver(post_delete, sender=KarigarReceive, dispatch_uid='mfg_signals.release_krreceive')
+def _release_krreceive(sender, instance, **kwargs):
+    if getattr(instance, 'retail_id', None):
+        release_last_bill_number(instance.retail, 'RS', instance.receive_slip_no, instance.fiscal_year)

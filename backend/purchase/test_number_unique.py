@@ -2,10 +2,8 @@
 Tests that scoped UniqueConstraints on purchase voucher-number models
 actually enforce uniqueness at the DB level.
 
-purchase.PurchaseVoucher is SKIPPED (has a live duplicate under its scope;
-constraint was not added).
-
 Tests cover:
+  - purchase.PurchaseVoucher (uniq_pv_number: retail, fiscal_year, voucher_type, billno)
   - purchase.PurchaseReturn  (uniq_pr_number)
   - purchase.PurchaseOrder   (uniq_po_number)
 """
@@ -39,6 +37,38 @@ def _make_ledger():
         defaults={"display_name": "PV Test Ledger"},
     )
     return obj
+
+
+class PurchaseVoucherUniqueTest(TestCase):
+    """uniq_pv_number: (retail, fiscal_year, voucher_type, billno)."""
+
+    def test_same_billno_same_type_raises(self):
+        from purchase.models import PurchaseVoucher
+        retail = _make_retail(); fy = _make_fy(retail); ldgr = _make_ledger()
+        PurchaseVoucher.objects.create(
+            billno="C-DUP", date1="2024-05-01", voucher_type="Customer",
+            ldgr=ldgr, retail=retail, fiscal_year=fy,
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PurchaseVoucher.objects.create(
+                    billno="C-DUP", date1="2024-06-01", voucher_type="Customer",
+                    ldgr=ldgr, retail=retail, fiscal_year=fy,
+                )
+
+    def test_same_billno_different_type_is_allowed(self):
+        # Customer and Vendor may legitimately share a billno string (legacy).
+        from purchase.models import PurchaseVoucher
+        retail = _make_retail(); fy = _make_fy(retail); ldgr = _make_ledger()
+        PurchaseVoucher.objects.create(
+            billno="X-1", date1="2024-05-01", voucher_type="Customer",
+            ldgr=ldgr, retail=retail, fiscal_year=fy,
+        )
+        PurchaseVoucher.objects.create(
+            billno="X-1", date1="2024-05-01", voucher_type="Vendor",
+            ldgr=ldgr, retail=retail, fiscal_year=fy,
+        )
+        self.assertEqual(PurchaseVoucher.objects.filter(retail=retail, billno="X-1").count(), 2)
 
 
 class PurchaseReturnUniqueTest(TestCase):

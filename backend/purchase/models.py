@@ -117,6 +117,14 @@ class PurchaseVoucher(models.Model):
             models.Index(fields=['retail', 'date1'], name='idx_pv_retail_date'),
             models.Index(fields=['ldgr'], name='idx_pv_ldgr'),
         ]
+        constraints = [
+            # Customer and Vendor purchase series share billno strings (legacy),
+            # so voucher_type is part of the scope; retail+fiscal_year complete it.
+            models.UniqueConstraint(
+                fields=['retail', 'fiscal_year', 'voucher_type', 'billno'],
+                name='uniq_pv_number',
+            ),
+        ]
 
 class PurchaseAttachment(models.Model):
     purchase = models.ForeignKey(PurchaseVoucher, on_delete=models.CASCADE, related_name='attachments')

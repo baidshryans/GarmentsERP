@@ -152,6 +152,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
     from accounting.models import CreditDebitNote
 
     from sales.models import CustomerOrder as CustomerOrderModel
+    from manufacturing.models import RefinaryIssue, RefinaryReceive, MeltingIssue, MeltingReceive
     model_map_resolved = {
         'SV': (SalesVou, 'billno'),
         'SR': (SaleReturn, 'billno'),
@@ -168,6 +169,14 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
         'CN': (CreditDebitNote, 'note_no'),
         'DN': (CreditDebitNote, 'note_no'),
         'CO': (CustomerOrderModel, 'order_no'),
+        # Manufacturing vouchers (refinery / melting issue & receive). These
+        # have no BillNumberSequence row and supply their billno from the
+        # frontend peek, so the peek MUST bootstrap from the actual records —
+        # otherwise it always returns ...00001 and the number never advances.
+        'REF/ISS': (RefinaryIssue, 'billno'),
+        'REF/REC': (RefinaryReceive, 'billno'),
+        'MLT/ISS': (MeltingIssue, 'billno'),
+        'MLT/REC': (MeltingReceive, 'billno'),
     }
 
     # Build FY date filter if fiscal year is provided

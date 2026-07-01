@@ -57,17 +57,20 @@ function RefinaryIssueList() {
       header: "Action",
       accessorKey: "id",
       cell: ({ row }) => (
-        <div className="flex space-x-4">
-          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors flex items-center">
-            <SquarePen className="mr-1" /> 
+        <div className="flex items-center space-x-2">
+          <Link to={`${row.original.id}`} className="p-1.5 rounded text-primary hover:bg-primary/10 transition-colors">
+            <SquarePen className="size-4" />
           </Link>
           <button
             onClick={() => deleteRefineryIssue(row.original.id, toast)}
-            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors flex items-center"
+            className="p-1.5 rounded text-red-500 hover:bg-red-50 transition-colors"
           >
-            <Trash2 className="mr-1" />
+            <Trash2 className="size-4" />
           </button>
-          <button onClick={() => openAndPrint(<h1>Karigar Issue</h1>)}>
+          <button
+            onClick={() => openAndPrint(<h1>Karigar Issue</h1>)}
+            className="p-1.5 rounded text-muted-foreground hover:bg-muted transition-colors"
+          >
             <Printer className="size-4" />
           </button>
         </div>

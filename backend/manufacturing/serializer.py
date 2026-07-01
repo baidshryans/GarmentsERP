@@ -1566,16 +1566,19 @@ class HallmarkReceiveForPostSerializer(serializers.ModelSerializer):
         }
     
     def create(self, validated_data):
+        request = self.context.get('request')
+        _retail = validated_data.get('retail') or getattr(request, 'retail', None)
         with transaction.atomic():
             if 'fiscal_year' not in validated_data:
-                request = self.context.get('request')
-                _retail = validated_data.get('retail') or getattr(request, 'retail', None)
                 if _retail:
                     from mastersconfig.fy_validation import assert_date_in_active_fy
                     assert_date_in_active_fy(_retail, validated_data.get("date1"))
                     validated_data['fiscal_year'] = getattr(_retail, 'active_fy', None)
             items_data = validated_data.pop('hallmarkreceiveitem_set')
-            hallmark_receive_instance = HallmarkReceive.objects.create(**validated_data)
+            validated_data.pop('receive_slip_no', None)
+            hallmark_receive_instance = HallmarkReceive(**validated_data)
+            from accounting.utils import save_with_bill_number
+            save_with_bill_number(hallmark_receive_instance, _retail, 'HM/RE', field='receive_slip_no', fy=validated_data.get('fiscal_year'))
             for item_data in items_data:
                 dat = item_data.pop('hallmarkreceivedetails_set')
                 rc_item = HallmarkReceiveItem.objects.create(receive_slip_no=hallmark_receive_instance, **item_data)

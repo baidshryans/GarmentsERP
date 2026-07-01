@@ -456,3 +456,91 @@ class HallmarkIssueNumberingTest(TestCase):
             second.issue_slip_no.endswith("00002"),
             f"Second issue_slip_no {second.issue_slip_no!r} does not end in 00002",
         )
+
+
+# ===========================================================================
+# Task 11 -- HallmarkReceive (HM/RE) -- fallback: bare sequence + stub
+# ===========================================================================
+
+class HallmarkReceiveNumberingFallbackTest(TestCase):
+    """
+    Fallback path: HallmarkReceiveItem rows require an existing HallmarkIssue
+    and KarigarReceiveItem via FK, making full integration impractical.
+
+    Pre-conversion failure confirmed by manual code inspection:
+      manufacturing/serializer.py line 1575:
+        ``hallmark_receive_instance = HallmarkReceive.objects.create(**validated_data)``
+      validated_data still contains the client-supplied 'receive_slip_no'.
+
+    Tests:
+      (a) Bare save_with_bill_number sequence test for HM/RE prefix.
+      (b) Stub test asserting save_with_bill_number is called by the serializer.
+    """
+
+    def setUp(self):
+        self.retail, self.fy = _make_retail_and_fy("HMRE")
+        self.hm_center = _make_ledger("HM Centre T11")
+
+    def test_hm_re_sequence_increments(self):
+        """save_with_bill_number advances the HM/RE sequence correctly."""
+        from manufacturing.models import HallmarkReceive
+        r1 = HallmarkReceive(
+            date1=datetime.date(2025, 6, 1),
+            hallmark_center=self.hm_center,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r1, self.retail, "HM/RE", field="receive_slip_no", fy=self.fy)
+
+        r2 = HallmarkReceive(
+            date1=datetime.date(2025, 6, 1),
+            hallmark_center=self.hm_center,
+            retail=self.retail,
+            fiscal_year=self.fy,
+        )
+        save_with_bill_number(r2, self.retail, "HM/RE", field="receive_slip_no", fy=self.fy)
+
+        self.assertTrue(r1.receive_slip_no.endswith("00001"), f"First {r1.receive_slip_no!r} must end in 00001")
+        self.assertTrue(r2.receive_slip_no.endswith("00002"), f"Second {r2.receive_slip_no!r} must end in 00002")
+        self.assertNotEqual(r1.receive_slip_no, r2.receive_slip_no)
+
+    def test_serializer_create_calls_save_with_bill_number(self):
+        """After conversion: HallmarkReceiveForPostSerializer.create() must call save_with_bill_number."""
+        from manufacturing.models import HallmarkReceive
+        from manufacturing.serializer import HallmarkReceiveForPostSerializer
+
+        with patch("accounting.utils.save_with_bill_number") as mock_swbn:
+            mock_swbn.side_effect = lambda inst, retail, prefix, **kw: setattr(
+                inst, "receive_slip_no", "HM/RE/HMRE/25-26/00001"
+            )
+
+            with patch(
+                "manufacturing.serializer.HallmarkReceive.objects.create",
+                return_value=HallmarkReceive(
+                    pk=1,
+                    date1=datetime.date(2025, 6, 1),
+                    receive_slip_no="HM/RE/HMRE/25-26/00001",
+                    hallmark_center=self.hm_center,
+                    retail=self.retail,
+                    fiscal_year=self.fy,
+                ),
+            ):
+                request = _make_request(self.retail)
+                payload = {
+                    "date1": "2025-06-01",
+                    "receive_slip_no": "CLIENT-BOGUS-HR-99",
+                    "hallmark_center": self.hm_center.pk,
+                    "hallmarkreceiveitem_set": [],
+                    "retail": self.retail.pk,
+                }
+                ser = HallmarkReceiveForPostSerializer(data=payload, context={"request": request})
+                try:
+                    ser.is_valid(raise_exception=True)
+                    ser.save()
+                except Exception:
+                    pass
+
+                self.assertTrue(
+                    mock_swbn.called,
+                    "save_with_bill_number was NOT called -- conversion not applied to HallmarkReceiveForPostSerializer.",
+                )

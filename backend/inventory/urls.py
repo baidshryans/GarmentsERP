@@ -67,6 +67,8 @@ urlpatterns = [
 
     path('api/catalog/', views.catalog_list, name='catalog_list'),
     path('api/catalog/pdf/', views.catalog_pdf, name='catalog_pdf'),
+    path('api/catalog/pdf/async/', views.catalog_pdf_async, name='catalog_pdf_async'),
+    path('api/catalog/pdf/job/<str:job_id>/', views.catalog_pdf_job_status, name='catalog_pdf_job_status'),
     path('api/catalog-shares/', views.CatalogShareListCreate.as_view(), name='catalog_shares'),
     path('api/catalog-shares/<int:pk>/', views.CatalogShareDelete.as_view(), name='catalog_share_delete'),
     path('api/catalog-share/<uuid:token>/', views.public_catalog, name='public_catalog'),

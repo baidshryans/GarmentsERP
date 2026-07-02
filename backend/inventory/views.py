@@ -2862,6 +2862,34 @@ def catalog_pdf(request):
     return resp
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def catalog_pdf_async(request):
+    """Start a background catalog PDF job. Same query params as catalog_pdf."""
+    from inventory.tasks import generate_catalog_pdf
+
+    fmt = request.GET.get("fmt", "summary")
+    retail = getattr(request, "retail", None)
+    params = request.GET.dict()
+    result = generate_catalog_pdf.enqueue(params, retail.id if retail else None, fmt)
+    return Response({"job_id": str(result.id)})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def catalog_pdf_job_status(request, job_id):
+    """Poll a catalog PDF job. Returns status and, when ready, the download URL."""
+    from inventory.tasks import generate_catalog_pdf
+
+    result = generate_catalog_pdf.get_result(str(job_id))
+    payload = {"status": str(result.status)}
+    if result.status == "SUCCESSFUL":
+        payload["download_url"] = result.return_value
+    elif result.status == "FAILED":
+        payload["error"] = "PDF generation failed"
+    return Response(payload)
+
+
 # ── Catalog share links ─────────────────────────────────────────────────────────
 
 class CatalogShareListCreate(APIView):

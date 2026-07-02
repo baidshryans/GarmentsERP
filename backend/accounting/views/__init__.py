@@ -4,4 +4,7 @@ from .ledger import *
 from .reports import *
 from .bank import *
 from .fixed_assets import *
-from .migration import MigrationTemplateView, MigrationImportView, MigrationResetView
+from .migration import (
+    MigrationTemplateView, MigrationImportView, MigrationResetView,
+    MigrationImportAsyncView, MigrationJobStatusView,
+)

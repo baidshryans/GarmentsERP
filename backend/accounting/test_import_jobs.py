@@ -55,3 +55,36 @@ class RunImportJobTaskTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, "FAILED")
         self.assertIn("bad file", job.error)
+
+
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+
+class ImportEndpointTests(TestCase):
+    # Uses the real DatabaseBackend; no worker runs in tests, so the job stays
+    # PENDING. Verifies start creates a job + status is pollable. Task execution
+    # is covered by RunImportJobTaskTests.
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username="imp", password="p")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_start_creates_job_then_status(self):
+        files = {
+            "main": SimpleUploadedFile("main.csv", b"a,b\n1,2\n"),
+            "details": SimpleUploadedFile("details.csv", b"a,b\n1,2\n"),
+        }
+        start = self.client.post(
+            "/accounting/api/migration/vouchers/async/?apply=false", files, format="multipart",
+        )
+        self.assertEqual(start.status_code, 200)
+        job_id = start.json()["job_id"]
+
+        status = self.client.get(f"/accounting/api/migration/job/{job_id}/")
+        self.assertEqual(status.status_code, 200)
+        body = status.json()
+        self.assertEqual(body["kind"], "vouchers")
+        self.assertIn(body["status"], ("PENDING", "RUNNING", "COMPLETED", "FAILED"))

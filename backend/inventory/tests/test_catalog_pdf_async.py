@@ -11,3 +11,19 @@ class BuildCatalogPdfBytesTests(TestCase):
 
         self.assertEqual(data[:5], b"%PDF-", "output should be a PDF")
         self.assertTrue(filename.endswith(".pdf"))
+
+
+@override_settings(TASKS=IMMEDIATE)
+class GenerateCatalogPdfTaskTests(TestCase):
+    def test_task_saves_pdf_and_returns_url(self):
+        from inventory.tasks import generate_catalog_pdf
+        from django.core.files.storage import default_storage
+        from django_tasks import TaskResultStatus
+
+        result = generate_catalog_pdf.enqueue({}, None, "summary")
+
+        self.assertEqual(result.status, TaskResultStatus.SUCCESSFUL)
+        url = result.return_value
+        self.assertTrue(url.endswith(".pdf"))
+        name = "catalog_pdfs/" + url.split("catalog_pdfs/", 1)[-1]
+        self.assertTrue(default_storage.exists(name))

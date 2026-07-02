@@ -1,4 +1,4 @@
-﻿from django.urls import include, path
+from django.urls import include, path
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from . import views
 from rest_framework import routers

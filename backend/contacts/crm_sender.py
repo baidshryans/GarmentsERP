@@ -45,7 +45,7 @@ def send_occasions_for_retail(crm_settings):
     today = date.today()
 
     customers = Ledger.objects.filter(
-        retail=retail, roles__role='CO'
+        retail_code=retail, roles__role='CO'
     ).distinct().exclude(
         dob__isnull=True, anniversary__isnull=True
     ).only('id', 'ac_name', 'mobile1', 'mobile2', 'mobile3', 'phone1', 'dob', 'anniversary')

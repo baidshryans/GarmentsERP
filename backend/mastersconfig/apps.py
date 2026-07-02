@@ -22,12 +22,6 @@ class MastersconfigConfig(AppConfig):
 
         connection_created.connect(_set_wal)
 
-        # Start CRM scheduler only in the main process (not in migrations / management commands)
-        # RUN_MAIN is set by Django's autoreloader for the child process only.
-        # We also guard against management commands (e.g. migrate, shell).
-        import sys
-        is_manage_py = any(arg in sys.argv for arg in ('migrate', 'makemigrations', 'shell', 'collectstatic', 'createsuperuser'))
-        is_main_process = os.environ.get('RUN_MAIN') == 'true' or not os.environ.get('RUN_MAIN')
-        if not is_manage_py and is_main_process:
-            from mastersconfig import scheduler
-            scheduler.start()
+        # CRM automation is driven by the `run_due_crm` management command
+        # (scheduled by the OS every minute) which enqueues send tasks onto the
+        # django-tasks worker. The old in-process APScheduler thread was removed.

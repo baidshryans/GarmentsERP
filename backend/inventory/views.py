@@ -2850,47 +2850,15 @@ def catalog_pdf(request):
     """Generate a catalog PDF. ?format=summary|detailed|quotation, plus the same
     filters / tier params as catalog_list. Capped at 300 designs."""
     from django.http import HttpResponse
-    from django.utils import timezone
-    from inventory.catalog_pricing import compute_design_price
-    from inventory.catalog_pdf import build_catalog_pdf
+    from inventory.catalog_pdf_service import build_catalog_pdf_bytes
 
     # NB: the layout param is `fmt`, NOT `format` — DRF reserves `format` for
     # renderer selection and 404s on an unknown value.
     fmt = request.GET.get("fmt", "summary")
-    if fmt not in ("summary", "detailed", "quotation"):
-        fmt = "summary"
-
-    qs, b2b_pl, retail_pl, tier = _resolve_catalog(request)
-    designs = list(qs.order_by("design_no", "id")[:300])
-
-    rows = []
-    for d in designs:
-        price = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl)
-        cover = next((im for im in d.images.all() if im.is_primary), None) or next(iter(d.images.all()), None)
-        img_path = None
-        if cover:
-            try:
-                img_path = cover.image.path
-            except Exception:
-                img_path = None
-        rows.append({
-            "design_no": d.design_no + (f"-{d.variation_suffix}" if d.variation_suffix else ""),
-            "item_name": d.item.item_name if d.item else "",
-            "gw": float(d.gw or 0), "nw": float(d.nw or 0),
-            "in_stock_count": sum(1 for b in d.barcodes.all() if b.stk_status),
-            "image_path": img_path,
-            "price": price,
-        })
-
-    meta = {
-        "title": "Quotation" if fmt == "quotation" else "Catalog",
-        "tier_label": _tier_label(b2b_pl, retail_pl),
-        "date": timezone.localtime().strftime("%d %b %Y"),
-        "count": len(rows),
-    }
-    pdf = build_catalog_pdf(fmt, rows, meta)
+    retail = getattr(request, "retail", None)
+    pdf, filename = build_catalog_pdf_bytes(request.GET, retail.id if retail else None, fmt)
     resp = HttpResponse(pdf, content_type="application/pdf")
-    resp["Content-Disposition"] = f'attachment; filename="catalog_{fmt}.pdf"'
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
     return resp
 
 

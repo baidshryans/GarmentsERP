@@ -4,6 +4,31 @@ from datetime import date
 logger = logging.getLogger(__name__)
 
 
+def find_due_recipients(crm_settings, today):
+    """
+    Return a list of (ledger_id, occasion) tuples whose birthday/anniversary
+    falls on `today` for this retail. Pure query — does no sending.
+
+    Customers are scoped by ``retail_code`` (the FK used for retail scoping of
+    Ledger throughout contacts/views.py), not a nonexistent ``retail`` field.
+    """
+    from contacts.models import Ledger
+
+    customers = Ledger.objects.filter(
+        retail_code=crm_settings.retail, roles__role='CO'
+    ).distinct().exclude(
+        dob__isnull=True, anniversary__isnull=True
+    ).only('id', 'dob', 'anniversary')
+
+    recipients = []
+    for ldgr in customers:
+        if ldgr.dob and ldgr.dob.month == today.month and ldgr.dob.day == today.day:
+            recipients.append((ldgr.id, 'birthday'))
+        if ldgr.anniversary and ldgr.anniversary.month == today.month and ldgr.anniversary.day == today.day:
+            recipients.append((ldgr.id, 'anniversary'))
+    return recipients
+
+
 def send_occasions_for_retail(crm_settings):
     """
     Query today's birthdays/anniversaries for the given retail and send WhatsApp messages.

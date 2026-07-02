@@ -19,7 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   fetchCatalog, fetchPurity, fetchB2BPricelists, fetchRetailDiscountPricelists,
-  downloadCatalogPdf, fetchCatalogShares, createCatalogShare, deleteCatalogShare,
+  downloadCatalogPdf, startCatalogPdf, getCatalogPdfJob, fetchCatalogShares, createCatalogShare, deleteCatalogShare,
   fetchMainItem,
 } from "@/services/apiService";
 
@@ -106,12 +106,24 @@ export default function CatalogPage() {
 
   const exportPdf = async (fmt) => {
     toast({ title: `Generating ${fmt} PDF…` });
-    const res = await downloadCatalogPdf(`?fmt=${fmt}${filterQS()}`);
-    if (!res.success) { toast({ title: "PDF export failed", variant: "destructive" }); return; }
-    const url = URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
-    const a = document.createElement("a");
-    a.href = url; a.download = `catalog_${fmt}.pdf`; a.click();
-    URL.revokeObjectURL(url);
+    const start = await startCatalogPdf(`?fmt=${fmt}${filterQS()}`);
+    if (!start.success) { toast({ title: "PDF export failed", variant: "destructive" }); return; }
+    const jobId = start.data.job_id;
+
+    const poll = async (attempt = 0) => {
+      const res = await getCatalogPdfJob(jobId);
+      if (!res.success) { toast({ title: "PDF export failed", variant: "destructive" }); return; }
+      const { status, download_url } = res.data;
+      if (status === "SUCCESSFUL") {
+        toast({ title: "PDF ready", description: "Opening download…" });
+        window.open(download_url, "_blank");
+        return;
+      }
+      if (status === "FAILED") { toast({ title: "PDF export failed", variant: "destructive" }); return; }
+      if (attempt > 60) { toast({ title: "PDF is taking too long", variant: "destructive" }); return; }
+      setTimeout(() => poll(attempt + 1), 1500);
+    };
+    poll();
   };
 
   const load = async (pg = page) => {

@@ -68,6 +68,8 @@ INSTALLED_APPS = [
      "corsheaders",
     "rest_framework",
     'rest_framework.authtoken',
+    'django_tasks',
+    'django_tasks_db',
     'common',
     'audit',
 ]
@@ -213,6 +215,12 @@ REST_FRAMEWORK = {
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks_db.DatabaseBackend",
+    }
+}
 
 DATABASES = {
     'default': {

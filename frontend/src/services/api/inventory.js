@@ -791,6 +791,24 @@ export async function downloadCatalogPdf(params = "") {
   }
 }
 
+export async function startCatalogPdf(params = "") {
+  try {
+    const r = await apiClient.post(`/inventory/api/catalog/pdf/async/${params}`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function getCatalogPdfJob(jobId) {
+  try {
+    const r = await apiClient.get(`/inventory/api/catalog/pdf/job/${jobId}/`);
+    return { success: true, data: r.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // ── Catalog share links ───────────────────────────────────────────────────────
 export async function fetchCatalogShares() {
   try {

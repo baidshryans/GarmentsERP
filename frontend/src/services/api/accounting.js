@@ -65,6 +65,35 @@ export async function runMigrationImport(kind, files, apply = false) {
   }
 }
 
+/** Start a legacy import as a background job. Returns { success, data: { job_id } }. */
+export async function startMigrationImport(kind, files, apply = false) {
+  try {
+    const formData = new FormData();
+    Object.entries(files).forEach(([field, file]) => {
+      if (file) formData.append(field, file);
+    });
+    const response = await apiClient.post(
+      `/accounting/api/migration/${kind}/async/?apply=${apply ? "true" : "false"}`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    const d = error.response?.data;
+    return { success: false, error: d?.error || error.message, data: d };
+  }
+}
+
+/** Poll a background import job. Returns { success, data: { status, output, reports, error, ... } }. */
+export async function getMigrationJob(jobId) {
+  try {
+    const response = await apiClient.get(`/accounting/api/migration/job/${jobId}/`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+}
+
 export async function getAccountGroup() {
   try {
     const response = await apiClient.get("/accounting/api/accounts/");

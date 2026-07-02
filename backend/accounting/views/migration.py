@@ -142,6 +142,65 @@ class MigrationImportView(APIView):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+class MigrationImportAsyncView(APIView):
+    """POST /accounting/api/migration/<kind>/async/?apply=true (multipart).
+
+    Stages files to a persistent dir, creates an ImportJob, enqueues the import
+    task, and returns {job_id}. The task cleans up the dir when done.
+    """
+    parser_classes = [MultiPartParser]
+
+    def post(self, request, kind=None):
+        from common.models import ImportJob
+        from accounting.tasks import run_import_job
+
+        cfg = IMPORT_KINDS.get(kind)
+        if not cfg:
+            return Response({'error': f"unknown import kind {kind!r}"}, status=status.HTTP_400_BAD_REQUEST)
+        command, field_map, required = cfg
+
+        provided = {f: request.FILES.get(f) for f in field_map if request.FILES.get(f)}
+        missing = [f for f in required if f not in provided]
+        if missing:
+            return Response({'error': f"missing file(s): {', '.join(missing)}"}, status=status.HTTP_400_BAD_REQUEST)
+        if not provided:
+            return Response({'error': 'no files uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+
+        apply = request.query_params.get('apply', 'false').lower() == 'true'
+
+        job_dir = tempfile.mkdtemp(prefix='legacy_import_')  # the task removes it
+        path_kwargs = {}
+        for field, f in provided.items():
+            path = os.path.join(job_dir, f.name or f'{field}.csv')
+            with open(path, 'wb') as out:
+                for chunk in f.chunks():
+                    out.write(chunk)
+            path_kwargs[field_map[field]] = path
+
+        job = ImportJob.objects.create(
+            kind=kind, applied=apply, status="PENDING",
+            created_by=request.user if request.user.is_authenticated else None,
+        )
+        run_import_job.enqueue(job.id, command, path_kwargs, apply, job_dir)
+        return Response({'job_id': job.id})
+
+
+class MigrationJobStatusView(APIView):
+    """GET /accounting/api/migration/job/<id>/ -> ImportJob status + output + reports."""
+
+    def get(self, request, job_id=None):
+        from common.models import ImportJob
+        try:
+            job = ImportJob.objects.get(id=job_id)
+        except ImportJob.DoesNotExist:
+            return Response({'error': 'job not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            'job_id': job.id, 'kind': job.kind, 'status': job.status,
+            'applied': job.applied, 'output': job.output,
+            'reports': job.reports, 'error': job.error,
+        })
+
+
 class MigrationResetView(APIView):
     """POST /accounting/api/migration/reset/?apply=true  body: {scope: [...]}
 

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Upload, Download, Loader2, CheckCircle, XCircle, FileText, Trash2, Eye } from "lucide-react";
-import { runMigrationImport, downloadMigrationTemplate, resetMigrationData } from "@/services/apiService";
+import { runMigrationImport, startMigrationImport, getMigrationJob, downloadMigrationTemplate, resetMigrationData } from "@/services/apiService";
 
 const RESET_SCOPES = [
   { key: "gl", label: "GL Vouchers" },
@@ -164,9 +164,25 @@ function MigrationCard({ def }) {
     setResult(null);
     const fileMap = {};
     def.fields.forEach((f) => { if (files[f.name]) fileMap[f.name] = files[f.name]; });
-    const res = await runMigrationImport(def.kind, fileMap, apply);
-    setResult(res);
-    setRunning(false);
+
+    const start = await startMigrationImport(def.kind, fileMap, apply);
+    if (!start.success) { setResult(start); setRunning(false); return; }
+    const jobId = start.data.job_id;
+
+    const poll = async (attempt = 0) => {
+      const res = await getMigrationJob(jobId);
+      if (!res.success) { setResult(res); setRunning(false); return; }
+      const job = res.data;
+      if (job.status === "COMPLETED" || job.status === "FAILED") {
+        // Shape it like the old sync result so the output/reports renderer works.
+        setResult({ success: job.status === "COMPLETED", data: job, error: job.error });
+        setRunning(false);
+        return;
+      }
+      if (attempt > 400) { setResult({ success: false, error: "Import timed out" }); setRunning(false); return; }
+      setTimeout(() => poll(attempt + 1), 1500);
+    };
+    poll();
   };
 
   const output = result?.data?.output || result?.error || "";

@@ -25,6 +25,8 @@ urlpatterns = [
     # Legacy data migration (Import Master Data → Transactions tab)
     path('api/migration/template/', views.MigrationTemplateView.as_view(), name='migration-template'),
     path('api/migration/reset/', views.MigrationResetView.as_view(), name='migration-reset'),
+    path('api/migration/job/<int:job_id>/', views.MigrationJobStatusView.as_view(), name='migration-job'),
+    path('api/migration/<str:kind>/async/', views.MigrationImportAsyncView.as_view(), name='migration-import-async'),
     path('api/migration/<str:kind>/', views.MigrationImportView.as_view(), name='migration-import'),
     path('api/due-payments/',views.PurchaseVoucherView.as_view(),name="due-payments-api"),
     path('api/due-payments/sale/',views.SaleVoucherView.as_view(),name="due-payments-api-sale"),

@@ -168,7 +168,7 @@ class SchemeEnrollment(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(maturity_date__gte=models.F('start_date')),
+                condition=models.Q(maturity_date__gte=models.F('start_date')),
                 name='chk_maturity_after_start',
             ),
             models.UniqueConstraint(fields=['retail', 'fiscal_year', 'enrollment_no'], name='uniq_se_number'),

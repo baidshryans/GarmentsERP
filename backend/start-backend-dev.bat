@@ -1,6 +1,5 @@
-call env\Scripts\activate
-
-python manage.py migrate
-python manage.py runserver
+@echo off
+env\Scripts\python.exe manage.py migrate
+env\Scripts\python.exe manage.py runserver
 
 pause

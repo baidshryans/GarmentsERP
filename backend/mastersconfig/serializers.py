@@ -651,3 +651,15 @@ class SalesOfferSerializer(ModelSerializer):
                 SalesOfferRuleSerializer(rules, many=True).data,
             )
         return instance
+
+from .models import EmailSettings
+
+
+class EmailSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EmailSettings
+        fields = ['id', 'retail', 'provider', 'host', 'port', 'use_tls', 'username',
+                  'password', 'from_email', 'from_name', 'is_enabled', 'auto_send_bills',
+                  'last_run_status', 'updated_at']
+        read_only_fields = ['host', 'port', 'use_tls', 'last_run_status', 'updated_at']
+        extra_kwargs = {'password': {'write_only': True}}

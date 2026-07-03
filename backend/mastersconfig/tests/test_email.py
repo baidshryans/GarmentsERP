@@ -59,3 +59,32 @@ class SendEmailTaskTest(TestCase):
         log = EmailSendLog.objects.get(retail=self.retail)
         self.assertEqual(log.status, "sent")
         self.assertTrue(mock_conn.called)
+
+
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
+
+
+class EmailSettingsApiTest(TestCase):
+    def setUp(self):
+        self.retail = RetailMaster.objects.create(retail_name="R", retail_code="R3",
+            address_line1="1 St", phone="9999999999", bill_series="R3S")
+        User = get_user_model()
+        self.staff = User.objects.create_user("staff", password="x", is_staff=True)
+        self.super = User.objects.create_superuser("root", "r@x.com", "x")
+
+    def _patch(self, user, es_id, payload):
+        c = APIClient(); c.force_authenticate(user=user)
+        return c.patch(f"/mastersconfig/api/email-settings/{es_id}/", payload, format="json")
+
+    def test_non_superadmin_cannot_enable_auto_send_bills(self):
+        es = EmailSettings.objects.create(retail=self.retail, provider="gmail")
+        resp = self._patch(self.staff, es.id, {"auto_send_bills": True})
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(EmailSettings.objects.get(retail=self.retail).auto_send_bills)
+
+    def test_superadmin_can_enable_auto_send_bills(self):
+        es = EmailSettings.objects.create(retail=self.retail, provider="gmail")
+        resp = self._patch(self.super, es.id, {"auto_send_bills": True})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(EmailSettings.objects.get(retail=self.retail).auto_send_bills)

@@ -305,17 +305,17 @@ class FiscalYearSerializer(ModelSerializer):
     class Meta:
         model = FiscalYearMaster
         fields = [
-            'id', 'retail', 'fy_code', 'fy_start', 'fy_end',
+            'id', 'fy_code', 'fy_start', 'fy_end',
             'is_closed', 'closed_at',
             'is_hard_closed', 'hard_closed_at',
             'last_synced_at',
             'created_at', 'is_active',
         ]
-        read_only_fields = ['retail', 'closed_at', 'hard_closed_at', 'last_synced_at', 'created_at', 'is_active']
+        read_only_fields = ['closed_at', 'hard_closed_at', 'last_synced_at', 'created_at', 'is_active']
 
     def get_is_active(self, obj):
-        retail = obj.retail
-        return retail.active_fy_id == obj.id if retail and retail.active_fy_id else False
+        from mastersconfig.models import SystemSettings
+        return SystemSettings.get().active_fy_id == obj.id
 
     def validate(self, data):
         fy_start = data.get('fy_start')

@@ -182,7 +182,7 @@ class StateListView(ListAPIView):
 
 class RetailMasterView(ListCreateAPIView):
     serializer_class = RetailSerializer
-    queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'bank_ldgr', 'branch').all()
+    queryset = RetailMaster.objects.select_related('state', 'cash_ldgr', 'bank_ldgr', 'branch').all()
 
     def perform_create(self, serializer):
         retail = serializer.save()
@@ -200,7 +200,7 @@ class RetailMasterView(ListCreateAPIView):
 
 class RetailMasterDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = RetailSerializer
-    queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'bank_ldgr', 'branch').all()
+    queryset = RetailMaster.objects.select_related('state', 'cash_ldgr', 'bank_ldgr', 'branch').all()
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -362,7 +362,7 @@ class BranchAnalyticsView(APIView):
 
     def get(self, request, pk):
         branch = get_object_or_404(BranchMaster, pk=pk)
-        retails = RetailMaster.objects.filter(branch=branch).select_related('active_fy')
+        retails = RetailMaster.objects.filter(branch=branch)
 
         from decimal import Decimal
         from django.db.models import Sum, F, DecimalField
@@ -485,7 +485,7 @@ class RetailAnalyticsView(APIView):
 
     def get(self, request, pk):
         retail = get_object_or_404(
-            RetailMaster.objects.select_related('active_fy', 'branch'), pk=pk
+            RetailMaster.objects.select_related('branch'), pk=pk
         )
 
         from decimal import Decimal
@@ -1963,58 +1963,33 @@ class FiscalYearListCreate(ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        retail = getattr(self.request, 'retail', None)
-        if retail is None:
-            retail = RetailMaster.objects.first()
-        if retail:
-            return FiscalYearMaster.objects.filter(retail=retail).order_by('-fy_start')
-        return FiscalYearMaster.objects.none()
+        return FiscalYearMaster.objects.all().order_by('-fy_start')
 
     def perform_create(self, serializer):
-        retail = self.request.retail
-        # During setup wizard no X-RETAIL-ID is sent — fall back to the single retail
-        if retail is None:
-            retail = RetailMaster.objects.first()
-        if retail is None:
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({"retail": "No retail found. Complete the retail setup step first."})
-        fy = serializer.save(retail=retail)
-        # If this is the first FY for this retail, auto-activate it
-        if not retail.active_fy:
-            retail.active_fy = fy
-            retail.save(update_fields=['active_fy'])
-            # Invalidate cached retail so middleware picks up the new active_fy
-            cache.delete(f"retail_{retail.retail_code}")
+        from mastersconfig.models import SystemSettings
+        fy = serializer.save()
+        # First FY becomes the company-wide active FY automatically.
+        if SystemSettings.get().active_fy_id is None:
+            SystemSettings.set_company_active_fy(fy)
 
 
 @api_view(['PATCH'])
 def set_active_fiscal_year(request, pk):
-    """Set a fiscal year as the active one for the current retail."""
-    retail = request.retail
-    if not retail:
-        return Response({"error": "Missing retail context"}, status=status.HTTP_400_BAD_REQUEST)
-
+    """Set a fiscal year as the company-wide active one."""
+    from mastersconfig.models import SystemSettings
     try:
-        fy = FiscalYearMaster.objects.get(pk=pk, retail=retail)
+        fy = FiscalYearMaster.objects.get(pk=pk)
     except FiscalYearMaster.DoesNotExist:
         return Response({"error": "Fiscal year not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    retail.active_fy = fy
-    retail.save(update_fields=['active_fy'])
-    # Invalidate cached retail so middleware picks up the new active_fy
-    cache.delete(f"retail_{retail.retail_code}")
+    SystemSettings.set_company_active_fy(fy)
     return Response(FiscalYearSerializer(fy).data)
 
 
 @api_view(['PATCH'])
 def close_fiscal_year(request, pk):
     """Close a fiscal year. Closed FYs only allow journal entries."""
-    retail = request.retail
-    if not retail:
-        return Response({"error": "Missing retail context"}, status=status.HTTP_400_BAD_REQUEST)
-
     try:
-        fy = FiscalYearMaster.objects.get(pk=pk, retail=retail)
+        fy = FiscalYearMaster.objects.get(pk=pk)
     except FiscalYearMaster.DoesNotExist:
         return Response({"error": "Fiscal year not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -2030,12 +2005,8 @@ def close_fiscal_year(request, pk):
 @api_view(['PATCH'])
 def reopen_fiscal_year(request, pk):
     """Reopen a closed fiscal year."""
-    retail = request.retail
-    if not retail:
-        return Response({"error": "Missing retail context"}, status=status.HTTP_400_BAD_REQUEST)
-
     try:
-        fy = FiscalYearMaster.objects.get(pk=pk, retail=retail)
+        fy = FiscalYearMaster.objects.get(pk=pk)
     except FiscalYearMaster.DoesNotExist:
         return Response({"error": "Fiscal year not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -2053,11 +2024,8 @@ def hard_close_fiscal_year(request, pk):
     """Hard-close a fiscal year — absolute lock, no entries of any kind.
     The FY must already be soft-closed first.
     Can be called multiple times (idempotent if already hard-closed)."""
-    retail = request.retail
-    if not retail:
-        return Response({"error": "Missing retail context"}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        fy = FiscalYearMaster.objects.get(pk=pk, retail=retail)
+        fy = FiscalYearMaster.objects.get(pk=pk)
     except FiscalYearMaster.DoesNotExist:
         return Response({"error": "Fiscal year not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -2077,11 +2045,8 @@ def hard_close_fiscal_year(request, pk):
 def reopen_hard_close_fiscal_year(request, pk):
     """Reopen a hard-closed fiscal year so further adjustment entries can be posted.
     After posting, sync opening balances again and hard-close again."""
-    retail = request.retail
-    if not retail:
-        return Response({"error": "Missing retail context"}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        fy = FiscalYearMaster.objects.get(pk=pk, retail=retail)
+        fy = FiscalYearMaster.objects.get(pk=pk)
     except FiscalYearMaster.DoesNotExist:
         return Response({"error": "Fiscal year not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -2118,18 +2083,15 @@ def sync_opening_balances(request, pk):
     from accounting.models import LedgerOpenBalance, VoucherDetail
     from contacts.models import Ledger
 
-    retail = request.retail
-    if not retail:
-        return Response({"error": "Missing retail context"}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        fy = FiscalYearMaster.objects.get(pk=pk, retail=retail)
+        fy = FiscalYearMaster.objects.get(pk=pk)
     except FiscalYearMaster.DoesNotExist:
         return Response({"error": "Fiscal year not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Find the immediately following fiscal year for this retail
+    # Find the immediately following fiscal year (company-global)
     next_fy = (
         FiscalYearMaster.objects
-        .filter(retail=retail, fy_start__gt=fy.fy_end)
+        .filter(fy_start__gt=fy.fy_end)
         .order_by('fy_start')
         .first()
     )
@@ -2139,55 +2101,64 @@ def sync_opening_balances(request, pk):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # ── Step 1: Opening balance of THIS FY (stored, per acc_year) ─────────────
-    ob_qs = (
-        LedgerOpenBalance.objects
-        .filter(retail=retail, acc_year=fy.fy_code)
-        .values('ldgr')
-        .annotate(ob=Sum(F('debit') - F('credit')))
-    )
-    ob_dict = {row['ldgr']: Decimal(str(row['ob'] or 0)) for row in ob_qs}
+    synced_ledgers = 0
+    replaced_rows = 0
 
-    # ── Step 2: All transactions WITHIN this FY ────────────────────────────────
-    txn_qs = (
-        VoucherDetail.objects
-        .filter(
-            voucher_main__retail=retail,
-            voucher_main__date__range=(fy.fy_start, fy.fy_end),
+    # Opening balances are per-branch — sync every branch.
+    for retail in RetailMaster.objects.all():
+        # ── Step 1: Opening balance of THIS FY (stored, per acc_year) ─────────────
+        ob_qs = (
+            LedgerOpenBalance.objects
+            .filter(retail=retail, acc_year=fy.fy_code)
+            .values('ldgr')
+            .annotate(ob=Sum(F('debit') - F('credit')))
         )
-        .values('account')
-        .annotate(total=Sum(F('debit') - F('credit')))
-    )
-    txn_dict = {row['account']: Decimal(str(row['total'] or 0)) for row in txn_qs}
+        ob_dict = {row['ldgr']: Decimal(str(row['ob'] or 0)) for row in ob_qs}
 
-    # ── Step 3: Compute closing balance for every ledger ───────────────────────
-    all_ledger_ids = set(ob_dict.keys()) | set(txn_dict.keys())
-    new_ob_rows = []
-    for ldgr_id in all_ledger_ids:
-        closing = ob_dict.get(ldgr_id, Decimal(0)) + txn_dict.get(ldgr_id, Decimal(0))
-        if closing == 0:
-            continue  # zero-balance ledgers need no opening balance row
-        if closing > 0:
-            new_ob_rows.append(LedgerOpenBalance(
-                ldgr_id=ldgr_id, retail=retail,
-                acc_year=next_fy.fy_code,
-                debit=float(closing), credit=Decimal('0.00'),
-            ))
-        else:
-            new_ob_rows.append(LedgerOpenBalance(
-                ldgr_id=ldgr_id, retail=retail,
-                acc_year=next_fy.fy_code,
-                debit=0.0, credit=abs(closing),
-            ))
+        # ── Step 2: All transactions WITHIN this FY ────────────────────────────────
+        txn_qs = (
+            VoucherDetail.objects
+            .filter(
+                voucher_main__retail=retail,
+                voucher_main__date__range=(fy.fy_start, fy.fy_end),
+            )
+            .values('account')
+            .annotate(total=Sum(F('debit') - F('credit')))
+        )
+        txn_dict = {row['account']: Decimal(str(row['total'] or 0)) for row in txn_qs}
 
-    # ── Step 4: Replace previous sync results atomically ──────────────────────
-    with transaction.atomic():
-        deleted, _ = LedgerOpenBalance.objects.filter(
-            retail=retail, acc_year=next_fy.fy_code
-        ).delete()
-        LedgerOpenBalance.objects.bulk_create(new_ob_rows)
-        fy.last_synced_at = timezone.now()
-        fy.save(update_fields=['last_synced_at'])
+        # ── Step 3: Compute closing balance for every ledger ───────────────────────
+        all_ledger_ids = set(ob_dict.keys()) | set(txn_dict.keys())
+        new_ob_rows = []
+        for ldgr_id in all_ledger_ids:
+            closing = ob_dict.get(ldgr_id, Decimal(0)) + txn_dict.get(ldgr_id, Decimal(0))
+            if closing == 0:
+                continue  # zero-balance ledgers need no opening balance row
+            if closing > 0:
+                new_ob_rows.append(LedgerOpenBalance(
+                    ldgr_id=ldgr_id, retail=retail,
+                    acc_year=next_fy.fy_code,
+                    debit=float(closing), credit=Decimal('0.00'),
+                ))
+            else:
+                new_ob_rows.append(LedgerOpenBalance(
+                    ldgr_id=ldgr_id, retail=retail,
+                    acc_year=next_fy.fy_code,
+                    debit=0.0, credit=abs(closing),
+                ))
+
+        # ── Step 4: Replace previous sync results atomically ──────────────────────
+        with transaction.atomic():
+            deleted, _ = LedgerOpenBalance.objects.filter(
+                retail=retail, acc_year=next_fy.fy_code
+            ).delete()
+            LedgerOpenBalance.objects.bulk_create(new_ob_rows)
+
+        synced_ledgers += len(new_ob_rows)
+        replaced_rows += deleted
+
+    fy.last_synced_at = timezone.now()
+    fy.save(update_fields=['last_synced_at'])
 
     return Response({
         "message": (
@@ -2196,8 +2167,8 @@ def sync_opening_balances(request, pk):
         ),
         "source_fy":      fy.fy_code,
         "target_fy":      next_fy.fy_code,
-        "synced_ledgers": len(new_ob_rows),
-        "replaced_rows":  deleted,
+        "synced_ledgers": synced_ledgers,
+        "replaced_rows":  replaced_rows,
         "synced_at":      fy.last_synced_at,
     })
 

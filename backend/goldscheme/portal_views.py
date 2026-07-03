@@ -177,37 +177,37 @@ class PortalSetPasswordView(APIView):
     def post(self, request):
         ser = PortalSetPasswordSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        account = _resolve_account(ser.validated_data['userid'])
+        if account is None:
+            return Response({'error': 'Invalid request.'}, status=status.HTTP_400_BAD_REQUEST)
+        otp = CustomerPortalOTP.objects.filter(account=account, is_verified=False)\
+            .order_by('-created_at').first()
+        if otp is None or otp.is_expired or not otp.check_code(ser.validated_data['otp'].strip()):
+            return Response({'error': 'Invalid or expired OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+        otp.delete()  # single use
+        account.set_password(ser.validated_data['new_password'])
+        account.is_active = True
+        account.email_verified = True
+        account.save()
+        return Response({'success': True, 'message': 'Password set. You can now log in.'})
 
-        mobile = ser.validated_data['mobile'].strip()
 
-        try:
-            customer = _find_customer_by_mobile(mobile)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
-        if not customer:
-            return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
+class PortalChangePasswordView(APIView):
+    """POST /goldscheme/api/portal/change-password/ — Logged-in customer changes password."""
+    authentication_classes = [PortalTokenAuthentication]
+    permission_classes = [IsPortalAuthenticated]
 
-        # Verify OTP
-        otp_record = CustomerPortalOTP.objects.filter(
-            mobile=mobile, is_verified=False,
-        ).order_by('-created_at').first()
-
-        if not otp_record or otp_record.is_expired:
-            return Response({'error': 'No valid OTP found.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if otp_record.otp_code != ser.validated_data['otp'].strip():
-            return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        otp_record.is_verified = True
-        otp_record.save()
-
-        # Create or update credential
-        credential, _ = CustomerPortalCredential.objects.get_or_create(ledger=customer)
-        credential.set_password(ser.validated_data['new_password'])
-        credential.is_active = True
-        credential.save()
-
-        return Response({'success': True, 'message': 'Password set successfully. You can now log in.'})
+    def post(self, request):
+        account = request.portal_account
+        old = request.data.get('old_password', '')
+        new = request.data.get('new_password', '')
+        if len(new) < 6:
+            return Response({'error': 'New password too short.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not account.check_password(old):
+            return Response({'error': 'Current password is incorrect.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        account.set_password(new); account.save()
+        return Response({'success': True, 'message': 'Password changed.'})
 
 
 # ══════════════════════════════════════════════════════════════════════════════

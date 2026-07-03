@@ -104,3 +104,27 @@ class PasswordLoginTest(TestCase):
         resp = c.post("/goldscheme/api/portal/login/",
                       {"userid": "pw@x.com", "password": "nope"}, format="json")
         self.assertEqual(resp.status_code, 401)
+
+
+class SetPasswordTest(TestCase):
+    def setUp(self):
+        self.acc = CustomerPortalAccount.objects.create(primary_email="sp@x.com")
+
+    def test_first_time_set_via_otp(self):
+        code = issue_otp(self.acc)
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/set-password/",
+                      {"userid": "sp@x.com", "otp": code, "new_password": "brandnew1"},
+                      format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.acc.refresh_from_db()
+        self.assertTrue(self.acc.check_password("brandnew1"))
+        self.assertFalse(CustomerPortalOTP.objects.filter(account=self.acc).exists())  # single use
+
+    def test_change_while_logged_in_requires_old_password(self):
+        self.acc.set_password("orig123"); self.acc.save()
+        token = CustomerPortalToken.objects.create(account=self.acc)
+        c = APIClient(); c.credentials(HTTP_AUTHORIZATION=f"PortalToken {token.token}")
+        resp = c.post("/goldscheme/api/portal/change-password/",
+                      {"old_password": "wrong", "new_password": "changed99"}, format="json")
+        self.assertEqual(resp.status_code, 400)

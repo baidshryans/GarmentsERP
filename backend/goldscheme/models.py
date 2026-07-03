@@ -364,6 +364,15 @@ class CustomerPortalAccount(models.Model):
         from django.contrib.auth.hashers import check_password
         return bool(self.password_hash) and check_password(raw_password, self.password_hash)
 
+    @property
+    def is_authenticated(self):
+        # Duck-type for DRF (throttling/permissions) when set as request.user.
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
 
 class CustomerPortalOTP(models.Model):
     """Temporary hashed OTP for portal login/password verification."""

@@ -508,8 +508,6 @@ class SystemSettings(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True)
 
-    _CACHE_KEY = 'system_settings_singleton'
-
     class Meta:
         db_table = 'system_settings'
 
@@ -518,31 +516,25 @@ class SystemSettings(models.Model):
 
     @classmethod
     def get(cls):
-        """Return (creating if needed) the singleton row, cached briefly to
-        avoid a query per RetailMaster.active_fy property access in loops."""
-        from django.core.cache import cache
-        obj = cache.get(cls._CACHE_KEY)
-        if obj is None:
-            obj, _ = cls.objects.select_related('active_fy').get_or_create(
-                pk=1, defaults={'attachment_storage_path': ''}
-            )
-            cache.set(cls._CACHE_KEY, obj, timeout=60)
+        """Return (creating if needed) the singleton settings row.
+
+        Pre-joins active_fy so reading it in a loop (e.g. RetailMaster.active_fy
+        across branches) stays a single query. Deliberately NOT cached across
+        requests: the row carries the active FY's closure state, which must stay
+        fresh so a just-closed fiscal year is enforced immediately across all
+        workers. The pk=1 lookup is cheap enough to read live."""
+        obj, _ = cls.objects.select_related('active_fy').get_or_create(
+            pk=1, defaults={'attachment_storage_path': ''}
+        )
         return obj
 
     @classmethod
     def set_company_active_fy(cls, fy):
-        """Set (or clear) the company-wide active fiscal year and bust cache."""
-        from django.core.cache import cache
+        """Set (or clear) the company-wide active fiscal year."""
         obj, _ = cls.objects.get_or_create(pk=1, defaults={'attachment_storage_path': ''})
         obj.active_fy = fy
-        obj.save(update_fields=['active_fy'])
-        cache.delete(cls._CACHE_KEY)
+        obj.save(update_fields=['active_fy', 'updated_at'])
         return obj
-
-    def save(self, *args, **kwargs):
-        from django.core.cache import cache
-        super().save(*args, **kwargs)
-        cache.delete(self._CACHE_KEY)
 
 
 class BillNumberSequence(models.Model):

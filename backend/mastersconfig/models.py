@@ -848,3 +848,43 @@ class CRMSendLog(models.Model):
 
     def __str__(self):
         return f"{self.customer_name} | {self.occasion} | {self.status} | {self.sent_at:%Y-%m-%d}"
+
+
+class EmailSettings(models.Model):
+    """Per-retail SMTP configuration for outbound email (OTP, bills, statements)."""
+    PROVIDER_CHOICES = [
+        ('gmail',       'Gmail (SMTP + app password)'),
+        ('outlook',     'Outlook / Office365 (SMTP + app password)'),
+        ('custom_smtp', 'Custom SMTP'),
+    ]
+    PRESETS = {
+        'gmail':   {'host': 'smtp.gmail.com',        'port': 587, 'use_tls': True},
+        'outlook': {'host': 'smtp-mail.outlook.com', 'port': 587, 'use_tls': True},
+    }
+    retail          = models.OneToOneField(RetailMaster, on_delete=models.CASCADE, related_name='email_settings')
+    provider        = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='custom_smtp')
+    host            = models.CharField(max_length=200, blank=True)
+    port            = models.PositiveIntegerField(default=587)
+    use_tls         = models.BooleanField(default=True)
+    username        = models.CharField(max_length=200, blank=True)
+    password        = models.CharField(max_length=600, blank=True, help_text="SMTP password / app password")
+    from_email      = models.EmailField(blank=True)
+    from_name       = models.CharField(max_length=200, blank=True)
+    is_enabled      = models.BooleanField(default=False, help_text="Enable outbound email for this retail")
+    auto_send_bills = models.BooleanField(default=False, help_text="Superadmin-only: email bills to customers on save")
+    last_run_status = models.CharField(max_length=500, blank=True)
+    updated_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'email_settings'
+
+    def __str__(self):
+        return f"Email Settings — {self.retail.retail_name}"
+
+    def save(self, *args, **kwargs):
+        preset = self.PRESETS.get(self.provider)
+        if preset:
+            self.host = preset['host']
+            self.port = preset['port']
+            self.use_tls = preset['use_tls']
+        super().save(*args, **kwargs)

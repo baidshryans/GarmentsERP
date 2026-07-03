@@ -2,7 +2,7 @@ import datetime
 from unittest import mock
 from django.db import IntegrityError
 from django.test import TestCase
-from mastersconfig.models import RetailMaster, FiscalYearMaster
+from mastersconfig.models import RetailMaster, FiscalYearMaster, SystemSettings
 from contacts.models import Ledger
 from manufacturing.models import RefinaryIssue
 from accounting.utils import save_with_bill_number
@@ -15,11 +15,10 @@ class SaveWithBillNumberTests(TestCase):
             phone="9",
         )
         self.fy = FiscalYearMaster.objects.create(
-            retail=self.retail, fy_code="26-27",
+            fy_code="26-27",
             fy_start=datetime.date(2026, 4, 1), fy_end=datetime.date(2027, 3, 31),
         )
-        self.retail.active_fy = self.fy
-        self.retail.save(update_fields=["active_fy"])
+        SystemSettings.set_company_active_fy(self.fy)
         self.ldgr = Ledger.objects.create(
             ac_name="Refiner", display_name="Refiner", retail_code=self.retail,
         )

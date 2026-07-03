@@ -27,8 +27,8 @@ def _retail(code):
 
 
 def _fy(retail, code):
+    # active FY is company-global now; `retail` arg kept for call-site clarity.
     return FiscalYearMaster.objects.create(
-        retail=retail,
         fy_code=code,
         fy_start=datetime.date(2025, 4, 1),
         fy_end=datetime.date(2026, 3, 31),
@@ -68,7 +68,6 @@ class VoucherMainUniqueTest(TestCase):
         (Different numbers used here because global unique prevents same number anywhere.)
         """
         fy2 = FiscalYearMaster.objects.create(
-            retail=self.retail,
             fy_code="VM2627",
             fy_start=datetime.date(2026, 4, 1),
             fy_end=datetime.date(2027, 3, 31),

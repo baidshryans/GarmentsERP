@@ -29,8 +29,8 @@ def _retail(code):
 
 
 def _fy(retail, code):
+    # active FY is company-global now; `retail` arg kept for call-site clarity.
     return FiscalYearMaster.objects.create(
-        retail=retail,
         fy_code=code,
         fy_start=datetime.date(2025, 4, 1),
         fy_end=datetime.date(2026, 3, 31),
@@ -83,7 +83,6 @@ class CustomerOrderUniqueTest(TestCase):
         order_nos are both accepted — the meaningful cross-FY isolation is enforced by our constraint.
         """
         fy2 = FiscalYearMaster.objects.create(
-            retail=self.retail,
             fy_code="CO2627",
             fy_start=datetime.date(2026, 4, 1),
             fy_end=datetime.date(2027, 3, 31),

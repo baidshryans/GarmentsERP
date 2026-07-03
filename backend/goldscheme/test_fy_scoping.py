@@ -14,7 +14,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from mastersconfig.models import RetailMaster, FiscalYearMaster
+from mastersconfig.models import RetailMaster, FiscalYearMaster, SystemSettings
 from contacts.models import Ledger
 from goldscheme.models import SchemeMaster, SchemeEnrollment
 
@@ -32,13 +32,11 @@ class SchemeEnrollmentCrossYearTests(TestCase):
             phone="9999",
         )
         self.fy_25_26 = FiscalYearMaster.objects.create(
-            retail=self.retail,
             fy_code="25-26",
             fy_start=datetime.date(2025, 4, 1),
             fy_end=datetime.date(2026, 3, 31),
         )
         self.fy_26_27 = FiscalYearMaster.objects.create(
-            retail=self.retail,
             fy_code="26-27",
             fy_start=datetime.date(2026, 4, 1),
             fy_end=datetime.date(2027, 3, 31),
@@ -78,8 +76,7 @@ class SchemeEnrollmentCrossYearTests(TestCase):
         self.client.force_authenticate(user=self.user)
 
     def _set_active_fy(self, fy):
-        self.retail.active_fy = fy
-        self.retail.save(update_fields=["active_fy"])
+        SystemSettings.set_company_active_fy(fy)
         cache.clear()  # drop the middleware's cached RetailMaster
 
     def test_old_fy_enrollment_visible_in_new_fy(self):

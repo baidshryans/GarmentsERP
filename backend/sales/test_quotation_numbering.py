@@ -20,7 +20,7 @@ import datetime
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 
-from mastersconfig.models import FiscalYearMaster, RetailMaster
+from mastersconfig.models import FiscalYearMaster, RetailMaster, SystemSettings
 from sales.serializers import QuotationSerializer
 
 
@@ -36,13 +36,11 @@ def _make_retail_and_fy(retail_code: str):
         address_line1="Test Address",
     )
     fy = FiscalYearMaster.objects.create(
-        retail=retail,
         fy_code="25-26",
         fy_start=datetime.date(2025, 4, 1),
         fy_end=datetime.date(2026, 3, 31),
     )
-    retail.active_fy = fy
-    retail.save(update_fields=["active_fy"])
+    SystemSettings.set_company_active_fy(fy)
     return retail, fy
 
 

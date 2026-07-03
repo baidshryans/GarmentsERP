@@ -26,6 +26,11 @@ def validate_payment(enrollment, amount):
 
     if scheme.max_amount and amount > scheme.max_amount:
         errors.append(f"Payment ₹{amount} exceeds maximum ₹{scheme.max_amount}.")
+    elif not scheme.max_amount and scheme.scheme_type != 'LUMPSUM':
+        remaining_value = enrollment.installment_amount * enrollment.remaining_installments
+        if remaining_value and amount > remaining_value:
+            errors.append(
+                f"Payment ₹{amount} exceeds the remaining scheme value ₹{remaining_value}.")
 
     return errors
 

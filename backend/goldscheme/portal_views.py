@@ -1,5 +1,3 @@
-import random
-
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
@@ -25,10 +23,13 @@ from .portal_serializers import (
 from .services.enrollment import check_and_update_maturity
 from .services.payment import record_payment
 from .services.redemption import get_applicable_benefits
+from .views import CustomerPortalThrottle
 
 
 def _resolve_account(userid):
     userid = (userid or "").strip()
+    if not userid:
+        return None
     if "@" in userid:
         return CustomerPortalAccount.objects.filter(primary_email__iexact=userid, is_active=True).first()
     return CustomerPortalAccount.objects.filter(phone=userid, is_active=True).first()
@@ -42,6 +43,7 @@ class PortalRequestOTPView(APIView):
     """POST /goldscheme/api/portal/request-otp/"""
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def post(self, request):
         ser = PortalRequestOTPSerializer(data=request.data)
@@ -54,7 +56,8 @@ class PortalRequestOTPView(APIView):
         if is_throttled(account):
             return Response({'error': 'Please wait before requesting another OTP.'},
                             status=status.HTTP_429_TOO_MANY_REQUESTS)
-        code = issue_otp(account)
+        purpose = 'reset' if request.data.get('purpose') == 'reset' else 'login'
+        code = issue_otp(account, purpose)
         retail_id = account.linked_ledgers.values_list('retail_code', flat=True).first()
         send_email.enqueue(
             retail_id, account.primary_email, "Your login OTP",
@@ -67,6 +70,7 @@ class PortalVerifyOTPView(APIView):
     """POST /goldscheme/api/portal/verify-otp/"""
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def post(self, request):
         ser = PortalVerifyOTPSerializer(data=request.data)
@@ -77,7 +81,7 @@ class PortalVerifyOTPView(APIView):
             return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
 
         otp = CustomerPortalOTP.objects.filter(
-            account=account, is_verified=False
+            account=account, is_verified=False, purpose='login'
         ).order_by('-created_at').first()
         if otp is None or otp.is_expired:
             return Response({'error': 'OTP expired. Please request a new one.'},
@@ -107,6 +111,7 @@ class PortalVerifyOTPView(APIView):
 class PortalPasswordLoginView(APIView):
     authentication_classes = []
     permission_classes = []
+    throttle_classes = [CustomerPortalThrottle]
 
     def post(self, request):
         ser = PortalPasswordLoginSerializer(data=request.data)
@@ -126,6 +131,7 @@ class PortalSetPasswordView(APIView):
     """POST /goldscheme/api/portal/set-password/ — First-time setup or password reset."""
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def post(self, request):
         ser = PortalSetPasswordSerializer(data=request.data)
@@ -133,7 +139,7 @@ class PortalSetPasswordView(APIView):
         account = _resolve_account(ser.validated_data['userid'])
         if account is None:
             return Response({'error': 'Invalid request.'}, status=status.HTTP_400_BAD_REQUEST)
-        otp = CustomerPortalOTP.objects.filter(account=account, is_verified=False)\
+        otp = CustomerPortalOTP.objects.filter(account=account, is_verified=False, purpose='reset')\
             .order_by('-created_at').first()
         if otp is None or otp.is_expired or not otp.check_code(ser.validated_data['otp'].strip()):
             return Response({'error': 'Invalid or expired OTP.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -142,6 +148,7 @@ class PortalSetPasswordView(APIView):
         account.is_active = True
         account.email_verified = True
         account.save()
+        CustomerPortalToken.objects.filter(account=account).delete()  # invalidate all sessions
         return Response({'success': True, 'message': 'Password set. You can now log in.'})
 
 
@@ -160,6 +167,8 @@ class PortalChangePasswordView(APIView):
             return Response({'error': 'Current password is incorrect.'},
                             status=status.HTTP_400_BAD_REQUEST)
         account.set_password(new); account.save()
+        CustomerPortalToken.objects.filter(account=account)\
+            .exclude(pk=request.portal_token.pk).delete()  # invalidate other sessions
         return Response({'success': True, 'message': 'Password changed.'})
 
 

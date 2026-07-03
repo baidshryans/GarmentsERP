@@ -383,6 +383,7 @@ class CustomerPortalOTP(models.Model):
     code_hash   = models.CharField(max_length=128, blank=True)
     is_verified = models.BooleanField(default=False)
     attempts    = models.PositiveIntegerField(default=0)
+    purpose     = models.CharField(max_length=10, default='login')  # 'login' or 'reset'
     created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:

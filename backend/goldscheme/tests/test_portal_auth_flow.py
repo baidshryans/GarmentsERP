@@ -111,7 +111,7 @@ class SetPasswordTest(TestCase):
         self.acc = CustomerPortalAccount.objects.create(primary_email="sp@x.com")
 
     def test_first_time_set_via_otp(self):
-        code = issue_otp(self.acc)
+        code = issue_otp(self.acc, purpose='reset')
         c = APIClient()
         resp = c.post("/goldscheme/api/portal/set-password/",
                       {"userid": "sp@x.com", "otp": code, "new_password": "brandnew1"},
@@ -168,3 +168,47 @@ class C2LeakTest(TestCase):
         body = resp.json()
         # Nothing belonging to led_b (ac_name / scheme name "B") may appear.
         self.assertNotIn("B", str(body))
+
+
+from goldscheme.models import CustomerPortalToken as _CPT  # noqa
+
+
+class AuthHardeningTest(TestCase):
+    def setUp(self):
+        self.acc = CustomerPortalAccount.objects.create(primary_email="hard@x.com")
+
+    def test_login_purpose_otp_cannot_reset_password(self):
+        from goldscheme.portal_otp import issue_otp
+        code = issue_otp(self.acc, purpose='login')  # login OTP
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/set-password/",
+                      {"userid": "hard@x.com", "otp": code, "new_password": "newpass1"}, format="json")
+        self.assertEqual(resp.status_code, 400)  # cannot reset with a login OTP
+
+    def test_reset_purpose_otp_can_reset_password(self):
+        from goldscheme.portal_otp import issue_otp
+        code = issue_otp(self.acc, purpose='reset')
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/set-password/",
+                      {"userid": "hard@x.com", "otp": code, "new_password": "newpass1"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_blank_userid_does_not_resolve(self):
+        CustomerPortalAccount.objects.create(primary_email="blankphone@x.com", phone="")
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/request-otp/", {"userid": "   "}, format="json")
+        # generic 200 but no OTP issued because no account resolved
+        from goldscheme.models import CustomerPortalOTP
+        self.assertEqual(CustomerPortalOTP.objects.count(), 0)
+
+    def test_change_password_rotates_other_tokens(self):
+        from goldscheme.models import CustomerPortalToken
+        self.acc.set_password("orig123"); self.acc.save()
+        keep = CustomerPortalToken.objects.create(account=self.acc)
+        other = CustomerPortalToken.objects.create(account=self.acc)
+        c = APIClient(); c.credentials(HTTP_AUTHORIZATION=f"PortalToken {keep.token}")
+        resp = c.post("/goldscheme/api/portal/change-password/",
+                      {"old_password": "orig123", "new_password": "changed99"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(CustomerPortalToken.objects.filter(pk=keep.pk).exists())
+        self.assertFalse(CustomerPortalToken.objects.filter(pk=other.pk).exists())

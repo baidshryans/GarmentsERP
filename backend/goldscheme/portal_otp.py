@@ -23,11 +23,14 @@ def is_throttled(account):
     return recent or hourly >= OTP_HOURLY_CAP
 
 
-def issue_otp(account):
-    """Create a fresh hashed OTP for the account and return the raw code."""
-    CustomerPortalOTP.objects.filter(account=account, is_verified=False).delete()
+def issue_otp(account, purpose='login'):
+    """Create a fresh hashed OTP for the account and return the raw code.
+
+    Prior unverified rows are intentionally kept so is_throttled's hourly
+    count stays accurate; consumers pick the latest-by-created_at OTP.
+    """
     code = generate_otp_code()
-    otp = CustomerPortalOTP(account=account)
+    otp = CustomerPortalOTP(account=account, purpose=purpose)
     otp.set_code(code)
     otp.save()
     return code

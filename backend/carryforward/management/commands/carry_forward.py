@@ -500,8 +500,8 @@ class Command(BaseCommand):
     # ===================================================================
 
     def _setup_fiscal_years(self, retails, cutoff):
-        """Copy existing FYs as hard-closed, create new FY for each retail."""
-        from mastersconfig.models import FiscalYearMaster, RetailMaster
+        """Copy existing FYs as hard-closed, create one company-wide next-year FY."""
+        from mastersconfig.models import FiscalYearMaster
         db = 'carry_forward_target'
         new_fy_codes = {}  # retail_pk → fy_code
 
@@ -522,58 +522,55 @@ class Command(BaseCommand):
                     "WHERE name = 'fiscal_year_master'"
                 )
 
-        for retail in retails:
-            # Determine new FY code
-            current_fy = FiscalYearMaster.objects.using('default').filter(
-                retail=retail, fy_start__lte=cutoff, fy_end__gte=cutoff
-            ).first()
+        # FY is company-global: determine the current FY once, no retail filter
+        current_fy = FiscalYearMaster.objects.using('default').filter(
+            fy_start__lte=cutoff, fy_end__gte=cutoff
+        ).order_by('-fy_start').first()
+        if not current_fy:
+            return {retail.pk: '' for retail in retails}
 
-            if not current_fy:
-                continue
+        # Check if cutoff is at FY boundary (within 1 day of fy_end)
+        is_fy_boundary = (cutoff >= current_fy.fy_end - timedelta(days=1))
 
-            # Check if cutoff is at FY boundary (within 1 day of fy_end)
-            is_fy_boundary = (cutoff >= current_fy.fy_end - timedelta(days=1))
+        if is_fy_boundary:
+            # Natural FY transition: e.g., 25-26 → 26-27
+            end_year = current_fy.fy_end.year
+            new_code = f"{str(end_year % 100).zfill(2)}-{str((end_year + 1) % 100).zfill(2)}"
+            new_start = current_fy.fy_end + timedelta(days=1)
+            new_end = date(end_year + 1, current_fy.fy_end.month, current_fy.fy_end.day)
+        else:
+            # Mid-FY carry-forward: e.g., 25-26 → 25-26-II
+            base_code = current_fy.fy_code
+            # Find existing suffixed FYs to determine next suffix
+            existing = FiscalYearMaster.objects.using(db).filter(
+                fy_code__startswith=base_code
+            ).count()
+            suffix_num = existing  # e.g., "25-26" exists → suffix_num=1 → "-II"
+            roman = ['', '-II', '-III', '-IV', '-V'][min(suffix_num, 4)]
+            new_code = f"{base_code}{roman}"
+            new_start = cutoff
+            new_end = current_fy.fy_end
 
-            if is_fy_boundary:
-                # Natural FY transition: e.g., 25-26 → 26-27
-                end_year = current_fy.fy_end.year
-                new_code = f"{str(end_year % 100).zfill(2)}-{str((end_year + 1) % 100).zfill(2)}"
-                new_start = current_fy.fy_end + timedelta(days=1)
-                new_end = date(end_year + 1, current_fy.fy_end.month, current_fy.fy_end.day)
-            else:
-                # Mid-FY carry-forward: e.g., 25-26 → 25-26-II
-                base_code = current_fy.fy_code
-                # Find existing suffixed FYs to determine next suffix
-                existing = FiscalYearMaster.objects.using(db).filter(
-                    retail=retail, fy_code__startswith=base_code
-                ).count()
-                suffix_num = existing  # e.g., "25-26" exists → suffix_num=1 → "-II"
-                roman = ['', '-II', '-III', '-IV', '-V'][min(suffix_num, 4)]
-                new_code = f"{base_code}{roman}"
-                new_start = cutoff
-                new_end = current_fy.fy_end
+        new_fy = FiscalYearMaster(
+            fy_code=new_code,
+            fy_start=new_start,
+            fy_end=new_end,
+            is_closed=False,
+            is_hard_closed=False,
+        )
+        new_fy._state.db = db
+        new_fy._state.adding = True
+        new_fy.save(using=db)
 
-            new_fy = FiscalYearMaster(
-                retail=retail,
-                fy_code=new_code,
-                fy_start=new_start,
-                fy_end=new_end,
-                is_closed=False,
-                is_hard_closed=False,
-            )
-            new_fy._state.db = db
-            new_fy._state.adding = True
-            new_fy.save(using=db)
+        # Set the company-wide active FY in the target DB
+        from mastersconfig.models import SystemSettings
+        ss, _ = SystemSettings.objects.using(db).get_or_create(
+            pk=1, defaults={'attachment_storage_path': ''})
+        ss.active_fy = new_fy
+        ss.save(using=db, update_fields=['active_fy'])
 
-            # Set as active FY on the retail
-            retail_copy = RetailMaster.objects.using(db).get(pk=retail.pk)
-            retail_copy.active_fy = new_fy
-            retail_copy.save(using=db, update_fields=['active_fy'])
-
-            new_fy_codes[retail.pk] = new_code
-            self.stdout.write(f"         → {retail.retail_code}: FY {new_code} ({new_start} to {new_end})")
-
-        return new_fy_codes
+        self.stdout.write(f"         → company FY {new_code} ({new_start} to {new_end})")
+        return {retail.pk: new_code for retail in retails}
 
     # ===================================================================
     # Step 6: Opening balances
@@ -1040,7 +1037,7 @@ class Command(BaseCommand):
         for retail in retails:
             new_fy_code = new_fy_codes.get(retail.pk, '')
             new_fy = FiscalYearMaster.objects.using(db).filter(
-                retail=retail, fy_code=new_fy_code
+                fy_code=new_fy_code
             ).first()
 
             open_orders = CustomerOrder.objects.using('default').filter(

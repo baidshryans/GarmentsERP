@@ -1,5 +1,6 @@
 import logging
 
+from django.core.mail import get_connection, EmailMultiAlternatives
 from django_tasks import task
 
 from contacts.whatsapp_sender import send_whatsapp
@@ -56,3 +57,40 @@ def send_occasion_message(crm_settings_id, ledger_id, occasion):
 
     if not success and any(marker in (error or "") for marker in TRANSIENT_MARKERS):
         raise TransientSendError(error)
+
+
+@task()
+def send_email(retail_id, to_email, subject, body, purpose="other", html_body=None):
+    """Send one email via the retail's EmailSettings and log the outcome."""
+    from mastersconfig.models import EmailSettings, EmailSendLog
+
+    es = EmailSettings.objects.select_related("retail").filter(retail_id=retail_id).first()
+    if es is None or not es.is_enabled:
+        EmailSendLog.objects.create(
+            retail_id=retail_id, to_email=to_email, subject=subject,
+            purpose=purpose, status="skipped",
+            error_message="Email not configured or disabled",
+        )
+        return
+
+    from_addr = f"{es.from_name} <{es.from_email}>" if es.from_name else es.from_email
+    try:
+        connection = get_connection(
+            host=es.host, port=es.port, username=es.username,
+            password=es.password, use_tls=es.use_tls,
+        )
+        msg = EmailMultiAlternatives(subject, body, from_addr, [to_email], connection=connection)
+        if html_body:
+            msg.attach_alternative(html_body, "text/html")
+        msg.send()
+    except Exception as exc:
+        EmailSendLog.objects.create(
+            retail=es.retail, to_email=to_email, subject=subject,
+            purpose=purpose, status="failed", error_message=str(exc)[:500],
+        )
+        raise TransientSendError(str(exc))
+
+    EmailSendLog.objects.create(
+        retail=es.retail, to_email=to_email, subject=subject,
+        purpose=purpose, status="sent",
+    )

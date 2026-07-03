@@ -1,5 +1,7 @@
+from unittest.mock import patch
 from django.test import TestCase
 from mastersconfig.models import RetailMaster, EmailSettings, EmailSendLog
+from contacts.tasks import send_email
 
 
 class EmailSettingsModelTest(TestCase):
@@ -34,3 +36,26 @@ class EmailSendLogModelTest(TestCase):
         )
         self.assertEqual(log.status, "sent")
         self.assertEqual(EmailSendLog.objects.filter(retail=retail).count(), 1)
+
+
+class SendEmailTaskTest(TestCase):
+    def setUp(self):
+        self.retail = RetailMaster.objects.create(retail_name="R", retail_code="R2",
+            address_line1="1 St", phone="9999999999", bill_series="R2S")
+
+    def test_skipped_when_disabled(self):
+        EmailSettings.objects.create(retail=self.retail, provider="custom_smtp", is_enabled=False)
+        send_email.func(self.retail.id, "c@x.com", "S", "B", "otp")
+        log = EmailSendLog.objects.get(retail=self.retail)
+        self.assertEqual(log.status, "skipped")
+
+    @patch("contacts.tasks.get_connection")
+    def test_sent_logs_success(self, mock_conn):
+        EmailSettings.objects.create(
+            retail=self.retail, provider="gmail", is_enabled=True,
+            username="u", password="p", from_email="shop@x.com", from_name="Shop",
+        )
+        send_email.func(self.retail.id, "c@x.com", "S", "B", "otp")
+        log = EmailSendLog.objects.get(retail=self.retail)
+        self.assertEqual(log.status, "sent")
+        self.assertTrue(mock_conn.called)

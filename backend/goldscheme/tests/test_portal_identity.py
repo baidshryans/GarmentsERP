@@ -1,8 +1,10 @@
 from django.test import TestCase
+from django.core.management import call_command
 from mastersconfig.models import RetailMaster
 from contacts.models import Ledger
 from goldscheme.models import CustomerPortalAccount
 from goldscheme.models import CustomerPortalToken
+from goldscheme.models import CustomerPortalCredential
 
 
 class PortalAccountTest(TestCase):
@@ -35,3 +37,15 @@ class PortalTokenAccountTest(TestCase):
         tok = CustomerPortalToken.objects.create(account=acc, retail=retail)
         self.assertEqual(tok.account_id, acc.id)
         self.assertIsNotNone(tok.expires_at)  # auto-set in save()
+
+
+class SeedPortalAccountsTest(TestCase):
+    def test_creates_account_and_links_ledgers_by_mobile(self):
+        retail = RetailMaster.objects.create(retail_name="R", retail_code="RS",
+            address_line1="1 St", phone="9999999999", bill_series="RSS")
+        led = Ledger.objects.create(ac_name="C", display_name="C", retail_code=retail,
+            mobile1="9998887777", email="c@x.com")
+        CustomerPortalCredential.objects.create(ledger=led, password_hash="x", is_active=True)
+        call_command("seed_portal_accounts", "--apply")
+        acc = CustomerPortalAccount.objects.get(primary_email="c@x.com")
+        self.assertIn(led, acc.linked_ledgers.all())

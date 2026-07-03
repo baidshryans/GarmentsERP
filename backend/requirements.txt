@@ -11,7 +11,8 @@ chardet==5.2.0
 charset-normalizer==3.3.2
 click==8.1.8
 colorama==0.4.6
-cryptography==49.0.0
+cryptography==49.0.0; platform_machine != "ARM64"
+cryptography==46.0.3; platform_machine == "ARM64"  # ARM64 Windows only has wheels up to 46.0.3
 distro==1.9.0
 Django==6.0.6
 django-ace==1.38.0

@@ -389,10 +389,12 @@ class CustomerPortalOTP(models.Model):
 class CustomerPortalToken(models.Model):
     """Session token for authenticated portal customers."""
     token      = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    account    = models.ForeignKey('goldscheme.CustomerPortalAccount', on_delete=models.CASCADE,
+                                    related_name='tokens', null=True, blank=True)
     ledger     = models.ForeignKey('contacts.Ledger', on_delete=models.CASCADE,
-                                    related_name='portal_tokens')
+                                    related_name='portal_tokens', null=True, blank=True)
     retail     = models.ForeignKey('mastersconfig.RetailMaster', on_delete=models.CASCADE)
-    mobile     = models.CharField(max_length=20)
+    mobile     = models.CharField(max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
 

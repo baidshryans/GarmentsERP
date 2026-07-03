@@ -2,6 +2,7 @@ from django.test import TestCase
 from mastersconfig.models import RetailMaster
 from contacts.models import Ledger
 from goldscheme.models import CustomerPortalAccount
+from goldscheme.models import CustomerPortalToken
 
 
 class PortalAccountTest(TestCase):
@@ -24,3 +25,13 @@ class PortalAccountTest(TestCase):
         acc.save()
         self.assertTrue(acc.check_password("secret123"))
         self.assertFalse(acc.check_password("wrong"))
+
+
+class PortalTokenAccountTest(TestCase):
+    def test_token_references_account(self):
+        retail = RetailMaster.objects.create(retail_name="R", retail_code="RT",
+            address_line1="1 St", phone="9999999999", bill_series="RTS")
+        acc = CustomerPortalAccount.objects.create(primary_email="t@x.com")
+        tok = CustomerPortalToken.objects.create(account=acc, retail=retail)
+        self.assertEqual(tok.account_id, acc.id)
+        self.assertIsNotNone(tok.expires_at)  # auto-set in save()

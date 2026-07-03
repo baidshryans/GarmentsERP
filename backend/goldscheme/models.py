@@ -338,6 +338,33 @@ class CustomerPortalCredential(models.Model):
         return check_password(raw_password, self.password_hash)
 
 
+class CustomerPortalAccount(models.Model):
+    """Portal login identity. Owns an explicit set of linked ledgers — the sole
+    basis for what the customer may see (never a live mobile match)."""
+    primary_email  = models.EmailField(unique=True)
+    email_verified = models.BooleanField(default=False)
+    phone          = models.CharField(max_length=20, blank=True, db_index=True)
+    password_hash  = models.CharField(max_length=128, blank=True)
+    is_active      = models.BooleanField(default=True)
+    linked_ledgers = models.ManyToManyField('contacts.Ledger', related_name='portal_accounts', blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'customer_portal_account'
+
+    def __str__(self):
+        return f"Portal account {self.primary_email}"
+
+    def set_password(self, raw_password):
+        from django.contrib.auth.hashers import make_password
+        self.password_hash = make_password(raw_password)
+
+    def check_password(self, raw_password):
+        from django.contrib.auth.hashers import check_password
+        return bool(self.password_hash) and check_password(raw_password, self.password_hash)
+
+
 class CustomerPortalOTP(models.Model):
     """Temporary OTP for portal login verification."""
     mobile     = models.CharField(max_length=20, db_index=True)

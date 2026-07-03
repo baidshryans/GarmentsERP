@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useEffect } from "react";
 import { Upload, RefreshCw, CheckCircle, XCircle, Loader2, Database, Download, Users, Wand2, Eye, EyeOff, Tag, Package, ArrowRightLeft } from "lucide-react";
 import TransactionsImport from "./TransactionsImportCard";
-import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, uploadSalespersonCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers, downloadOpeningStockTemplate, uploadOpeningStockCSV } from "@/services/apiService";
+import { uploadHSNCSV, uploadItemGroupCSV, uploadItemCSV, uploadPacketGroupCSV, uploadPacketCSV, uploadKarigarMakingCSV, uploadSalespersonCSV, runMySQLSync, getMySQLConfig, downloadLedgerTemplate, uploadLedgerCSV, seedSystemLedgers, downloadOpeningStockTemplate, uploadOpeningStockCSV, syncUserRetails } from "@/services/apiService";
 import apiClient from "@/services/apiClient";
 import BarcodeOpeningUploadCard from './BarcodeOpeningUploadCard';
 
@@ -392,6 +392,7 @@ function MySQLSyncCard() {
   const [status, setStatus] = useState("idle");
   const [results, setResults] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [branchNote, setBranchNote] = useState("");
   const [selectedTables, setSelectedTables] = useState({
     ...Object.fromEntries(SYNC_MASTER_TABLES.map(({ key }) => [key, true])),
     // transactions default OFF — they should be synced after masters exist
@@ -431,6 +432,7 @@ function MySQLSyncCard() {
     setStatus("loading");
     setResults(null);
     setErrorMsg("");
+    setBranchNote("");
     const res = await runMySQLSync(
       { host: conn.host, port: Number(conn.port) || 3306, database: conn.database, user: conn.user, password: conn.password },
       tables,
@@ -438,6 +440,14 @@ function MySQLSyncCard() {
     if (res.success) {
       setStatus("success");
       setResults(res.data.results || {});
+      // Retails synced via MySQL are bulk-inserted and bypass the model signals
+      // that normally grant a superuser branch access. Re-link the current user
+      // to every synced branch so the retail selector populates without needing
+      // a re-login. Idempotent and best-effort — never blocks the sync result.
+      try {
+        const linked = await syncUserRetails();
+        if (linked.success) setBranchNote(linked.data?.detail || "Branch access synced.");
+      } catch { /* non-fatal */ }
     } else {
       setStatus("error");
       setErrorMsg(res.error || "Sync failed");
@@ -558,6 +568,11 @@ function MySQLSyncCard() {
           <div className="flex items-center gap-1.5 text-xs text-green-700">
             <CheckCircle size={13} /><span>Sync complete — connection details saved</span>
           </div>
+          {branchNote && (
+            <div className="flex items-center gap-1.5 text-xs text-green-700">
+              <CheckCircle size={13} /><span>{branchNote}</span>
+            </div>
+          )}
           {Object.entries(results).map(([table, r]) => (
             <div key={table} className="bg-white rounded border border-gray-200 px-3 py-2">
               <p className="text-xs font-semibold capitalize text-gray-700">{table.replace(/_/g, ' ')}</p>

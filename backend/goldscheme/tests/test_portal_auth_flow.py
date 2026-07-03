@@ -128,3 +128,43 @@ class SetPasswordTest(TestCase):
         resp = c.post("/goldscheme/api/portal/change-password/",
                       {"old_password": "wrong", "new_password": "changed99"}, format="json")
         self.assertEqual(resp.status_code, 400)
+
+
+from datetime import date, timedelta
+from contacts.models import Ledger, LedgerRole
+from goldscheme.models import SchemeMaster, SchemeEnrollment
+
+
+class C2LeakTest(TestCase):
+    """Two customers share a phone; only one is linked to the portal account.
+    The other's data must never surface (C2 authorization leak regression)."""
+
+    def test_shared_phone_does_not_leak_other_account_data(self):
+        retail = RetailMaster.objects.create(retail_name="R", retail_code="RC",
+            address_line1="1 St", phone="9999999999", bill_series="RCS")
+        led_a = Ledger.objects.create(ac_name="A", display_name="A",
+            retail_code=retail, mobile1="9998887777")
+        led_b = Ledger.objects.create(ac_name="B", display_name="B",
+            retail_code=retail, mobile1="9998887777")
+        # Both hold a CO role so mobile-expansion (old logic) would match both.
+        LedgerRole.objects.create(ledger=led_a, role='CO')
+        LedgerRole.objects.create(ledger=led_b, role='CO')
+
+        # led_b has an enrollment whose scheme name is "B" — the only source of "B".
+        scheme = SchemeMaster.objects.create(name="B", scheme_code="SCB",
+            scheme_type="INSTALLMENT", gold_price_mode="ACCUMULATED", retail=retail)
+        SchemeEnrollment.objects.create(
+            enrollment_no="ENB1", scheme=scheme, customer=led_b, retail=retail,
+            start_date=date.today(), maturity_date=date.today() + timedelta(days=330),
+            installment_amount=1000, status='ACTIVE')
+
+        acc_a = CustomerPortalAccount.objects.create(primary_email="a@x.com")
+        acc_a.linked_ledgers.add(led_a)  # A only
+        token = CustomerPortalToken.objects.create(
+            account=acc_a, retail=retail, mobile="9998887777")
+        c = APIClient(); c.credentials(HTTP_AUTHORIZATION=f"PortalToken {token.token}")
+        resp = c.get("/goldscheme/api/portal/dashboard/")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        # Nothing belonging to led_b (ac_name / scheme name "B") may appear.
+        self.assertNotIn("B", str(body))

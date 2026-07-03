@@ -27,53 +27,6 @@ from .services.payment import record_payment
 from .services.redemption import get_applicable_benefits
 
 
-def _find_customer_by_mobile(mobile):
-    """Find a customer Ledger by mobile number across all retails.
-    Returns the customer Ledger that has a CO role.
-    Raises ValueError if multiple customers share the same mobile within a retail.
-    """
-    candidates = Ledger.objects.filter(
-        Q(mobile1=mobile) | Q(mobile2=mobile) | Q(phone1=mobile)
-    )
-    customer_ids = LedgerRole.objects.filter(
-        ledger__in=candidates, role='CO'
-    ).values_list('ledger_id', flat=True)
-    customers = Ledger.objects.filter(id__in=customer_ids)
-
-    if not customers.exists():
-        return None
-
-    # Check for ambiguity: multiple customers with portal credentials sharing the mobile
-    portal_customers = customers.filter(portal_credential__is_active=True)
-    if portal_customers.count() > 1:
-        # Group by retail to give a clearer error
-        retail_codes = list(
-            portal_customers.values_list('retail_code__retail_code', flat=True).distinct()
-        )
-        raise ValueError(
-            f"Multiple customer accounts are linked to mobile {mobile} "
-            f"(retails: {', '.join(str(r) for r in retail_codes)}). "
-            f"Please contact the shop to resolve the ambiguity."
-        )
-
-    if portal_customers.count() == 1:
-        return portal_customers.first()
-
-    # Fallback: return first customer (no portal credentials yet, or single match)
-    return customers.first()
-
-
-def _find_all_customer_ledgers(mobile):
-    """Find ALL customer Ledger records matching this mobile across all retails."""
-    candidates = Ledger.objects.filter(
-        Q(mobile1=mobile) | Q(mobile2=mobile) | Q(phone1=mobile)
-    )
-    customer_ids = LedgerRole.objects.filter(
-        ledger__in=candidates, role='CO'
-    ).values_list('ledger_id', flat=True)
-    return Ledger.objects.filter(id__in=customer_ids)
-
-
 def _resolve_account(userid):
     userid = (userid or "").strip()
     if "@" in userid:
@@ -220,9 +173,8 @@ class PortalDashboardView(APIView):
     permission_classes = [IsPortalAuthenticated]
 
     def get(self, request):
-        mobile = request.portal_token.mobile
-        # Find all customer ledgers matching this mobile (across retails)
-        customer_ledgers = _find_all_customer_ledgers(mobile)
+        from .portal_auth import portal_ledgers
+        customer_ledgers = portal_ledgers(request)
 
         enrollments = SchemeEnrollment.objects.filter(
             customer__in=customer_ledgers,
@@ -262,7 +214,8 @@ class PortalDashboardView(APIView):
                 'shop': e.retail.retail_code if e.retail else '',
             })
 
-        customer_name = request.portal_customer.ac_name
+        first_ledger = customer_ledgers.first()
+        customer_name = first_ledger.ac_name if first_ledger else ''
 
         return Response({
             'customer_name': customer_name,
@@ -281,8 +234,8 @@ class PortalEnrollmentDetailView(APIView):
     permission_classes = [IsPortalAuthenticated]
 
     def get(self, request, enrollment_no):
-        mobile = request.portal_token.mobile
-        customer_ledgers = _find_all_customer_ledgers(mobile)
+        from .portal_auth import portal_ledgers
+        customer_ledgers = portal_ledgers(request)
 
         try:
             enrollment = SchemeEnrollment.objects.select_related(
@@ -340,8 +293,8 @@ class PortalPayInstallmentView(APIView):
         ser = PortalPaymentSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        mobile = request.portal_token.mobile
-        customer_ledgers = _find_all_customer_ledgers(mobile)
+        from .portal_auth import portal_ledgers
+        customer_ledgers = portal_ledgers(request)
 
         try:
             enrollment = SchemeEnrollment.objects.select_related('scheme', 'retail').get(

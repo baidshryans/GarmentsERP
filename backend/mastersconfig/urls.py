@@ -111,6 +111,10 @@ urlpatterns = [
     path('api/sales-offer/',          views.ListCreateSalesOffer.as_view(),             name='sales_offer_list_create'),
     path('api/sales-offer/active/',   views.active_sales_offer,                          name='sales_offer_active'),
     path('api/sales-offer/<int:pk>/', views.RetrieveUpdateDestroySalesOffer.as_view(),  name='sales_offer_detail'),
+
+    # Email Settings (superadmin-gated auto_send_bills)
+    path('api/email-settings/', views.EmailSettingsViewSet.as_view({'get': 'list', 'post': 'create'}), name='email_settings_list_create'),
+    path('api/email-settings/<int:pk>/', views.EmailSettingsViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='email_settings_detail'),
 ]
 
 urlpatterns+= staticfiles_urlpatterns()

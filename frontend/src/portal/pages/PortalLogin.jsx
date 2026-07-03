@@ -9,18 +9,19 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Toaster } from "@/components/ui/toaster";
 import { useToast } from "@/hooks/use-toast";
 import OtpInput from "../components/OtpInput";
-import { portalRequestOTP, portalVerifyOTP } from "../api/portalApiService";
+import { portalRequestOtp, portalVerifyOtp, portalPasswordLogin } from "../api/portalApiService";
 
 export default function PortalLogin() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [step, setStep] = useState(1); // 1 = mobile, 2 = password+OTP
+  const [mode, setMode] = useState("password"); // "password" | "otp"
+  const [step, setStep] = useState(1); // OTP mode: 1 = userid, 2 = otp
   const [loading, setLoading] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
 
-  const [mobile, setMobile] = useState("");
+  const [userid, setUserid] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
 
@@ -36,17 +37,43 @@ export default function PortalLogin() {
     return () => clearTimeout(t);
   }, [resendTimer]);
 
+  const saveAndRedirect = (data) => {
+    sessionStorage.setItem("portalToken", data.token);
+    sessionStorage.setItem("portalCustomerName", data.customer_name || "");
+    navigate("/portal/", { replace: true });
+  };
+
+  const switchMode = (next) => {
+    setMode(next);
+    setStep(1);
+    setPassword("");
+    setOtp("");
+    setCustomerName("");
+    setResendTimer(0);
+  };
+
+  const handlePasswordLogin = async (e) => {
+    e.preventDefault();
+    if (!userid.trim() || !password) return;
+    setLoading(true);
+    const res = await portalPasswordLogin({ userid: userid.trim(), password });
+    if (res.success && res.data.token) {
+      saveAndRedirect(res.data);
+    } else {
+      toast({ title: "Error", description: String(res.error || "Login failed"), variant: "destructive" });
+    }
+    setLoading(false);
+  };
+
   const handleRequestOTP = async (e) => {
     e.preventDefault();
-    if (!mobile.trim()) return;
+    if (!userid.trim()) return;
     setLoading(true);
-
-    const res = await portalRequestOTP({ mobile: mobile.trim() });
+    const res = await portalRequestOtp({ userid: userid.trim() });
     if (res.success) {
-      setCustomerName(res.data.customer_name || "");
       setStep(2);
       setResendTimer(60);
-      toast({ title: "OTP sent to your mobile" });
+      toast({ title: "OTP sent" });
     } else {
       toast({ title: "Error", description: String(res.error), variant: "destructive" });
     }
@@ -55,22 +82,13 @@ export default function PortalLogin() {
 
   const handleVerify = async (e) => {
     e.preventDefault();
-    if (!password || otp.length < 4) return;
+    if (otp.length < 4) return;
     setLoading(true);
-
-    const res = await portalVerifyOTP({
-      mobile: mobile.trim(),
-      password,
-      otp,
-    });
-
-    if (res.success) {
-      sessionStorage.setItem("portalToken", res.data.token);
-      sessionStorage.setItem("portalCustomerName", res.data.customer_name);
-      sessionStorage.setItem("portalMobile", res.data.mobile);
-      navigate("/portal/", { replace: true });
+    const res = await portalVerifyOtp({ userid: userid.trim(), otp });
+    if (res.success && res.data.token) {
+      saveAndRedirect(res.data);
     } else {
-      toast({ title: "Error", description: String(res.error), variant: "destructive" });
+      toast({ title: "Error", description: String(res.error || "Verification failed"), variant: "destructive" });
     }
     setLoading(false);
   };
@@ -78,7 +96,7 @@ export default function PortalLogin() {
   const handleResendOTP = async () => {
     if (resendTimer > 0) return;
     setLoading(true);
-    const res = await portalRequestOTP({ mobile: mobile.trim() });
+    const res = await portalRequestOtp({ userid: userid.trim() });
     if (res.success) {
       setResendTimer(60);
       toast({ title: "OTP resent" });
@@ -97,20 +115,69 @@ export default function PortalLogin() {
               <Gem className="size-8 text-primary" />
             </div>
             <CardTitle className="text-lg">Gold Scheme Portal</CardTitle>
-            {customerName && step === 2 && (
+            {customerName && (
               <p className="text-sm text-muted-foreground mt-1">Welcome, {customerName}</p>
             )}
           </CardHeader>
           <CardContent>
-            {step === 1 ? (
+            {/* Mode toggle */}
+            <div className="flex gap-2 mb-4">
+              <Button
+                type="button"
+                variant={mode === "password" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => switchMode("password")}
+              >
+                Password
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "otp" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => switchMode("otp")}
+              >
+                Email OTP
+              </Button>
+            </div>
+
+            {mode === "password" ? (
+              <form onSubmit={handlePasswordLogin} className="space-y-4">
+                <div>
+                  <Label>Email or phone</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter your email or phone"
+                    value={userid}
+                    onChange={(e) => setUserid(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Logging in..." : "Login"}
+                </Button>
+              </form>
+            ) : step === 1 ? (
               <form onSubmit={handleRequestOTP} className="space-y-4">
                 <div>
-                  <Label>Mobile Number</Label>
+                  <Label>Email or phone</Label>
                   <Input
-                    type="tel"
-                    placeholder="Enter your mobile number"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
+                    type="text"
+                    placeholder="Enter your email or phone"
+                    value={userid}
+                    onChange={(e) => setUserid(e.target.value)}
                     required
                     autoFocus
                   />
@@ -122,18 +189,6 @@ export default function PortalLogin() {
               </form>
             ) : (
               <form onSubmit={handleVerify} className="space-y-4">
-                <div>
-                  <Label>Password</Label>
-                  <Input
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-
                 <div>
                   <Label className="mb-2 block">Enter OTP</Label>
                   <OtpInput value={otp} onChange={setOtp} />
@@ -148,22 +203,30 @@ export default function PortalLogin() {
                     </button>
                   </div>
                 </div>
-
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Verifying..." : "Login"}
                 </Button>
-
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   className="w-full"
-                  onClick={() => { setStep(1); setPassword(""); setOtp(""); }}
+                  onClick={() => { setStep(1); setOtp(""); }}
                 >
-                  <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Change mobile number
+                  <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Change email or phone
                 </Button>
               </form>
             )}
+
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline"
+                onClick={() => navigate("/portal/set-password")}
+              >
+                First time here / forgot password?
+              </button>
+            </div>
           </CardContent>
         </Card>
       </div>

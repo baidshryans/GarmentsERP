@@ -338,20 +338,64 @@ class CustomerPortalCredential(models.Model):
         return check_password(raw_password, self.password_hash)
 
 
+class CustomerPortalAccount(models.Model):
+    """Portal login identity. Owns an explicit set of linked ledgers — the sole
+    basis for what the customer may see (never a live mobile match)."""
+    primary_email  = models.EmailField(unique=True)
+    email_verified = models.BooleanField(default=False)
+    phone          = models.CharField(max_length=20, blank=True, db_index=True)
+    password_hash  = models.CharField(max_length=128, blank=True)
+    is_active      = models.BooleanField(default=True)
+    linked_ledgers = models.ManyToManyField('contacts.Ledger', related_name='portal_accounts', blank=True)
+    created_at     = models.DateTimeField(auto_now_add=True)
+    updated_at     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'customer_portal_account'
+
+    def __str__(self):
+        return f"Portal account {self.primary_email}"
+
+    def set_password(self, raw_password):
+        from django.contrib.auth.hashers import make_password
+        self.password_hash = make_password(raw_password)
+
+    def check_password(self, raw_password):
+        from django.contrib.auth.hashers import check_password
+        return bool(self.password_hash) and check_password(raw_password, self.password_hash)
+
+    @property
+    def is_authenticated(self):
+        # Duck-type for DRF (throttling/permissions) when set as request.user.
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+
 class CustomerPortalOTP(models.Model):
-    """Temporary OTP for portal login verification."""
-    mobile     = models.CharField(max_length=20, db_index=True)
-    retail     = models.ForeignKey('mastersconfig.RetailMaster', on_delete=models.CASCADE)
-    otp_code   = models.CharField(max_length=6)
+    """Temporary hashed OTP for portal login/password verification."""
+    account     = models.ForeignKey('goldscheme.CustomerPortalAccount', on_delete=models.CASCADE,
+                                     related_name='otps', null=True, blank=True)
+    mobile      = models.CharField(max_length=20, blank=True, db_index=True)  # legacy, unused going forward
+    retail      = models.ForeignKey('mastersconfig.RetailMaster', on_delete=models.CASCADE, null=True, blank=True)
+    code_hash   = models.CharField(max_length=128, blank=True)
     is_verified = models.BooleanField(default=False)
-    attempts   = models.PositiveIntegerField(default=0)
-    created_at = models.DateTimeField(auto_now_add=True)
+    attempts    = models.PositiveIntegerField(default=0)
+    purpose     = models.CharField(max_length=10, default='login')  # 'login' or 'reset'
+    created_at  = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'customer_portal_otp'
 
-    def __str__(self):
-        return f"OTP for {self.mobile} ({self.retail.retail_code})"
+    def set_code(self, raw_code):
+        from django.contrib.auth.hashers import make_password
+        self.code_hash = make_password(raw_code)
+
+    def check_code(self, raw_code):
+        from django.contrib.auth.hashers import check_password
+        return bool(self.code_hash) and check_password(raw_code, self.code_hash)
 
     @property
     def is_expired(self):
@@ -362,10 +406,12 @@ class CustomerPortalOTP(models.Model):
 class CustomerPortalToken(models.Model):
     """Session token for authenticated portal customers."""
     token      = models.UUIDField(default=uuid.uuid4, unique=True, db_index=True)
+    account    = models.ForeignKey('goldscheme.CustomerPortalAccount', on_delete=models.CASCADE,
+                                    related_name='tokens', null=True, blank=True)
     ledger     = models.ForeignKey('contacts.Ledger', on_delete=models.CASCADE,
-                                    related_name='portal_tokens')
-    retail     = models.ForeignKey('mastersconfig.RetailMaster', on_delete=models.CASCADE)
-    mobile     = models.CharField(max_length=20)
+                                    related_name='portal_tokens', null=True, blank=True)
+    retail     = models.ForeignKey('mastersconfig.RetailMaster', on_delete=models.CASCADE, null=True, blank=True)
+    mobile     = models.CharField(max_length=20, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
 
@@ -373,7 +419,8 @@ class CustomerPortalToken(models.Model):
         db_table = 'customer_portal_token'
 
     def __str__(self):
-        return f"Portal token for {self.ledger.ac_name} ({self.mobile})"
+        who = self.account.primary_email if self.account_id else (self.ledger.ac_name if self.ledger_id else "unknown")
+        return f"Portal token for {who}"
 
     @property
     def is_expired(self):

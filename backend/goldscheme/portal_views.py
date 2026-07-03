@@ -1,5 +1,3 @@
-import random
-
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
@@ -9,65 +7,32 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from contacts.models import Ledger, LedgerRole
+from contacts.tasks import send_email
 from .models import (
+    CustomerPortalAccount,
     CustomerPortalCredential, CustomerPortalOTP, CustomerPortalToken,
     SchemeEnrollment, SchemePayment,
 )
+from .portal_otp import issue_otp, is_throttled
 from .portal_auth import PortalTokenAuthentication, IsPortalAuthenticated
 from .portal_serializers import (
     PortalRequestOTPSerializer, PortalVerifyOTPSerializer,
     PortalSetPasswordSerializer, PortalPaymentSerializer,
+    PortalPasswordLoginSerializer,
 )
 from .services.enrollment import check_and_update_maturity
 from .services.payment import record_payment
 from .services.redemption import get_applicable_benefits
+from .views import CustomerPortalThrottle
 
 
-def _find_customer_by_mobile(mobile):
-    """Find a customer Ledger by mobile number across all retails.
-    Returns the customer Ledger that has a CO role.
-    Raises ValueError if multiple customers share the same mobile within a retail.
-    """
-    candidates = Ledger.objects.filter(
-        Q(mobile1=mobile) | Q(mobile2=mobile) | Q(phone1=mobile)
-    )
-    customer_ids = LedgerRole.objects.filter(
-        ledger__in=candidates, role='CO'
-    ).values_list('ledger_id', flat=True)
-    customers = Ledger.objects.filter(id__in=customer_ids)
-
-    if not customers.exists():
+def _resolve_account(userid):
+    userid = (userid or "").strip()
+    if not userid:
         return None
-
-    # Check for ambiguity: multiple customers with portal credentials sharing the mobile
-    portal_customers = customers.filter(portal_credential__is_active=True)
-    if portal_customers.count() > 1:
-        # Group by retail to give a clearer error
-        retail_codes = list(
-            portal_customers.values_list('retail_code__retail_code', flat=True).distinct()
-        )
-        raise ValueError(
-            f"Multiple customer accounts are linked to mobile {mobile} "
-            f"(retails: {', '.join(str(r) for r in retail_codes)}). "
-            f"Please contact the shop to resolve the ambiguity."
-        )
-
-    if portal_customers.count() == 1:
-        return portal_customers.first()
-
-    # Fallback: return first customer (no portal credentials yet, or single match)
-    return customers.first()
-
-
-def _find_all_customer_ledgers(mobile):
-    """Find ALL customer Ledger records matching this mobile across all retails."""
-    candidates = Ledger.objects.filter(
-        Q(mobile1=mobile) | Q(mobile2=mobile) | Q(phone1=mobile)
-    )
-    customer_ids = LedgerRole.objects.filter(
-        ledger__in=candidates, role='CO'
-    ).values_list('ledger_id', flat=True)
-    return Ledger.objects.filter(id__in=customer_ids)
+    if "@" in userid:
+        return CustomerPortalAccount.objects.filter(primary_email__iexact=userid, is_active=True).first()
+    return CustomerPortalAccount.objects.filter(phone=userid, is_active=True).first()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -78,165 +43,133 @@ class PortalRequestOTPView(APIView):
     """POST /goldscheme/api/portal/request-otp/"""
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def post(self, request):
         ser = PortalRequestOTPSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-
-        mobile = ser.validated_data['mobile'].strip()
-
-        try:
-            customer = _find_customer_by_mobile(mobile)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
-        if not customer:
-            return Response(
-                {'error': 'No customer found with this mobile number.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # Check portal credential exists
-        if not hasattr(customer, 'portal_credential') or not customer.portal_credential.is_active:
-            return Response(
-                {'error': 'Portal access not set up. Contact the shop to enable portal access.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Delete old unverified OTPs for this mobile
-        CustomerPortalOTP.objects.filter(mobile=mobile, is_verified=False).delete()
-
-        # Generate and store OTP
-        otp_code = f"{random.randint(100000, 999999)}"
-        CustomerPortalOTP.objects.create(
-            mobile=mobile, retail=customer.retail_code, otp_code=otp_code,
+        account = _resolve_account(ser.validated_data['userid'])
+        generic = Response({'success': True,
+                            'message': 'If an account exists, an OTP has been emailed.'})
+        if account is None:
+            return generic
+        if is_throttled(account):
+            return Response({'error': 'Please wait before requesting another OTP.'},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS)
+        purpose = 'reset' if request.data.get('purpose') == 'reset' else 'login'
+        code = issue_otp(account, purpose)
+        retail_id = account.linked_ledgers.values_list('retail_code', flat=True).first()
+        send_email.enqueue(
+            retail_id, account.primary_email, "Your login OTP",
+            f"Your one-time password is {code}. It expires in 5 minutes.", "otp",
         )
-
-        # Mock SMS — print to console
-        print(f"\n{'='*50}")
-        print(f"[PORTAL OTP] Mobile: {mobile} | OTP: {otp_code}")
-        print(f"{'='*50}\n")
-
-        return Response({
-            'success': True,
-            'message': 'OTP sent to your mobile number.',
-            'customer_name': customer.ac_name,
-        })
+        return generic
 
 
 class PortalVerifyOTPView(APIView):
     """POST /goldscheme/api/portal/verify-otp/"""
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def post(self, request):
         ser = PortalVerifyOTPSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        mobile = ser.validated_data['mobile'].strip()
+        account = _resolve_account(ser.validated_data['userid'])
+        if account is None:
+            return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            customer = _find_customer_by_mobile(mobile)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
-        if not customer:
-            return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Find latest unverified OTP
-        otp_record = CustomerPortalOTP.objects.filter(
-            mobile=mobile, is_verified=False,
+        otp = CustomerPortalOTP.objects.filter(
+            account=account, is_verified=False, purpose='login'
         ).order_by('-created_at').first()
+        if otp is None or otp.is_expired:
+            return Response({'error': 'OTP expired. Please request a new one.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        if not otp_record:
-            return Response({'error': 'No OTP found. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if otp_record.is_expired:
-            otp_record.delete()
-            return Response({'error': 'OTP has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Brute-force protection
         max_attempts = getattr(settings, 'OTP_MAX_ATTEMPTS', 5)
-        otp_record.attempts += 1
-        if otp_record.attempts >= max_attempts:
-            otp_record.delete()
-            return Response(
-                {'error': 'Too many failed attempts. Please request a new OTP.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
+        if not otp.check_code(ser.validated_data['otp'].strip()):
+            otp.attempts += 1
+            if otp.attempts >= max_attempts:
+                otp.delete()
+                return Response({'error': 'Too many failed attempts. Request a new OTP.'},
+                                status=status.HTTP_429_TOO_MANY_REQUESTS)
+            otp.save()
+            return Response({'error': f'Invalid OTP. {max_attempts - otp.attempts} attempt(s) left.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        if otp_record.otp_code != ser.validated_data['otp'].strip():
-            otp_record.save()
-            remaining = max_attempts - otp_record.attempts
-            return Response(
-                {'error': f'Invalid OTP. {remaining} attempt(s) remaining.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        otp.delete()
+        retail = None
+        led = account.linked_ledgers.select_related('retail_code').first()
+        if led is not None:
+            retail = led.retail_code
+        token = CustomerPortalToken.objects.create(account=account, retail=retail)
+        return Response({'success': True, 'token': str(token.token),
+                         'customer_name': account.primary_email})
 
-        # OTP verified
-        otp_record.is_verified = True
-        otp_record.save()
 
-        # Verify password
-        try:
-            credential = customer.portal_credential
-        except CustomerPortalCredential.DoesNotExist:
-            return Response({'error': 'Portal access not set up.'}, status=status.HTTP_403_FORBIDDEN)
+class PortalPasswordLoginView(APIView):
+    authentication_classes = []
+    permission_classes = []
+    throttle_classes = [CustomerPortalThrottle]
 
-        if not credential.check_password(ser.validated_data['password']):
-            return Response({'error': 'Invalid password.'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Issue portal token (delete old ones for this mobile)
-        CustomerPortalToken.objects.filter(mobile=mobile).delete()
-        token = CustomerPortalToken.objects.create(
-            ledger=customer, retail=customer.retail_code, mobile=mobile,
-        )
-
-        return Response({
-            'token': str(token.token),
-            'expires_at': token.expires_at.isoformat(),
-            'customer_name': customer.ac_name,
-            'mobile': mobile,
-        })
+    def post(self, request):
+        ser = PortalPasswordLoginSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        account = _resolve_account(ser.validated_data['userid'])
+        if account is None or not account.check_password(ser.validated_data['password']):
+            return Response({'error': 'Invalid credentials.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+        led = account.linked_ledgers.select_related('retail_code').first()
+        retail = led.retail_code if led is not None else None
+        token = CustomerPortalToken.objects.create(account=account, retail=retail)
+        return Response({'success': True, 'token': str(token.token),
+                         'customer_name': account.primary_email})
 
 
 class PortalSetPasswordView(APIView):
     """POST /goldscheme/api/portal/set-password/ — First-time setup or password reset."""
     authentication_classes = []
     permission_classes = [AllowAny]
+    throttle_classes = [CustomerPortalThrottle]
 
     def post(self, request):
         ser = PortalSetPasswordSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
+        account = _resolve_account(ser.validated_data['userid'])
+        if account is None:
+            return Response({'error': 'Invalid request.'}, status=status.HTTP_400_BAD_REQUEST)
+        otp = CustomerPortalOTP.objects.filter(account=account, is_verified=False, purpose='reset')\
+            .order_by('-created_at').first()
+        if otp is None or otp.is_expired or not otp.check_code(ser.validated_data['otp'].strip()):
+            return Response({'error': 'Invalid or expired OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+        otp.delete()  # single use
+        account.set_password(ser.validated_data['new_password'])
+        account.is_active = True
+        account.email_verified = True
+        account.save()
+        CustomerPortalToken.objects.filter(account=account).delete()  # invalidate all sessions
+        return Response({'success': True, 'message': 'Password set. You can now log in.'})
 
-        mobile = ser.validated_data['mobile'].strip()
 
-        try:
-            customer = _find_customer_by_mobile(mobile)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
-        if not customer:
-            return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
+class PortalChangePasswordView(APIView):
+    """POST /goldscheme/api/portal/change-password/ — Logged-in customer changes password."""
+    authentication_classes = [PortalTokenAuthentication]
+    permission_classes = [IsPortalAuthenticated]
 
-        # Verify OTP
-        otp_record = CustomerPortalOTP.objects.filter(
-            mobile=mobile, is_verified=False,
-        ).order_by('-created_at').first()
-
-        if not otp_record or otp_record.is_expired:
-            return Response({'error': 'No valid OTP found.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if otp_record.otp_code != ser.validated_data['otp'].strip():
-            return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        otp_record.is_verified = True
-        otp_record.save()
-
-        # Create or update credential
-        credential, _ = CustomerPortalCredential.objects.get_or_create(ledger=customer)
-        credential.set_password(ser.validated_data['new_password'])
-        credential.is_active = True
-        credential.save()
-
-        return Response({'success': True, 'message': 'Password set successfully. You can now log in.'})
+    def post(self, request):
+        account = request.portal_account
+        old = request.data.get('old_password', '')
+        new = request.data.get('new_password', '')
+        if len(new) < 6:
+            return Response({'error': 'New password too short.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not account.check_password(old):
+            return Response({'error': 'Current password is incorrect.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        account.set_password(new); account.save()
+        CustomerPortalToken.objects.filter(account=account)\
+            .exclude(pk=request.portal_token.pk).delete()  # invalidate other sessions
+        return Response({'success': True, 'message': 'Password changed.'})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -249,18 +182,12 @@ class PortalDashboardView(APIView):
     permission_classes = [IsPortalAuthenticated]
 
     def get(self, request):
-        mobile = request.portal_token.mobile
-        # Find all customer ledgers matching this mobile (across retails)
-        customer_ledgers = _find_all_customer_ledgers(mobile)
+        from .portal_auth import portal_ledgers
+        customer_ledgers = portal_ledgers(request)
 
         enrollments = SchemeEnrollment.objects.filter(
             customer__in=customer_ledgers,
         ).select_related('scheme', 'customer', 'retail').order_by('-created_at')
-
-        # Update maturity status
-        for e in enrollments:
-            if e.status == 'ACTIVE':
-                check_and_update_maturity(e)
 
         data = []
         total_invested = 0
@@ -291,7 +218,8 @@ class PortalDashboardView(APIView):
                 'shop': e.retail.retail_code if e.retail else '',
             })
 
-        customer_name = request.portal_customer.ac_name
+        first_ledger = customer_ledgers.first()
+        customer_name = first_ledger.ac_name if first_ledger else ''
 
         return Response({
             'customer_name': customer_name,
@@ -310,8 +238,8 @@ class PortalEnrollmentDetailView(APIView):
     permission_classes = [IsPortalAuthenticated]
 
     def get(self, request, enrollment_no):
-        mobile = request.portal_token.mobile
-        customer_ledgers = _find_all_customer_ledgers(mobile)
+        from .portal_auth import portal_ledgers
+        customer_ledgers = portal_ledgers(request)
 
         try:
             enrollment = SchemeEnrollment.objects.select_related(
@@ -319,8 +247,6 @@ class PortalEnrollmentDetailView(APIView):
             ).get(enrollment_no=enrollment_no, customer__in=customer_ledgers)
         except SchemeEnrollment.DoesNotExist:
             return Response({'error': 'Enrollment not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        check_and_update_maturity(enrollment)
 
         payments = SchemePayment.objects.filter(enrollment=enrollment).order_by('date')
         benefit = get_applicable_benefits(enrollment)
@@ -369,8 +295,8 @@ class PortalPayInstallmentView(APIView):
         ser = PortalPaymentSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        mobile = request.portal_token.mobile
-        customer_ledgers = _find_all_customer_ledgers(mobile)
+        from .portal_auth import portal_ledgers
+        customer_ledgers = portal_ledgers(request)
 
         try:
             enrollment = SchemeEnrollment.objects.select_related('scheme', 'retail').get(

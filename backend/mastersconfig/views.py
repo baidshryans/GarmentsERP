@@ -2364,3 +2364,23 @@ def active_sales_offer(request):
     if not offer:
         return Response({})
     return Response(SalesOfferSerializer(offer).data)
+
+
+from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
+
+
+class EmailSettingsViewSet(viewsets.ModelViewSet):
+    queryset = EmailSettings.objects.all()
+    serializer_class = EmailSettingsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def update(self, request, *args, **kwargs):
+        if 'auto_send_bills' in request.data and not request.user.is_superuser:
+            current = self.get_object().auto_send_bills
+            if bool(request.data['auto_send_bills']) != current:
+                return Response(
+                    {'error': 'Only a superadmin can change auto_send_bills.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        return super().update(request, *args, **kwargs)

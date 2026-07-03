@@ -209,8 +209,16 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '60/min',
+        'customer_portal': config('PORTAL_THROTTLE_RATE', default='10/min'),
     },
 }
+
+# Relax the portal auth throttle under the test runner so rapid, repeated
+# test-client calls from 127.0.0.1 don't trip the shared FileBasedCache
+# throttle counter across tests. Production keeps the 10/min default above.
+import sys as _sys  # noqa: E402
+if 'test' in _sys.argv:
+    REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['customer_portal'] = '10000/min'
 
 
 # Database

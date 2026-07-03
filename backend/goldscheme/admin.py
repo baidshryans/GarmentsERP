@@ -41,7 +41,7 @@ class CustomerPortalCredentialAdmin(admin.ModelAdmin):
 
 @admin.register(CustomerPortalOTP)
 class CustomerPortalOTPAdmin(admin.ModelAdmin):
-    list_display = ('mobile', 'retail', 'otp_code', 'is_verified', 'attempts', 'created_at')
+    list_display = ('account', 'mobile', 'retail', 'is_verified', 'attempts', 'created_at')
     list_filter = ('is_verified', 'retail')
 
 

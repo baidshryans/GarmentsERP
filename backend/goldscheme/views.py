@@ -1,5 +1,6 @@
 from datetime import date, datetime
 
+from django.conf import settings
 from django.core.cache import cache
 
 from django.db.models import Count, Q
@@ -323,8 +324,17 @@ class SchemeCollectionView(APIView):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class CustomerPortalThrottle(AnonRateThrottle):
-    """10 requests per minute per IP for public customer portal endpoints."""
-    rate = '10/min'
+    """Per-IP throttle for public customer portal endpoints.
+
+    Rate is settings-driven via DEFAULT_THROTTLE_RATES['customer_portal']
+    (falls back to 10/min) so it can be relaxed under tests without
+    disabling throttling in production.
+    """
+    scope = 'customer_portal'
+
+    def get_rate(self):
+        rates = getattr(settings, 'REST_FRAMEWORK', {}).get('DEFAULT_THROTTLE_RATES', {})
+        return rates.get(self.scope, '10/min')
 
 
 class CustomerPortalMySchemes(APIView):

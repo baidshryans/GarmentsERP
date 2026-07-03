@@ -1,5 +1,5 @@
 from django.test import TestCase
-from mastersconfig.models import RetailMaster, EmailSettings
+from mastersconfig.models import RetailMaster, EmailSettings, EmailSendLog
 
 
 class EmailSettingsModelTest(TestCase):
@@ -22,3 +22,15 @@ class EmailSettingsModelTest(TestCase):
     def test_auto_send_bills_defaults_false(self):
         es = EmailSettings.objects.create(retail=self.retail, provider="custom_smtp")
         self.assertFalse(es.auto_send_bills)
+
+
+class EmailSendLogModelTest(TestCase):
+    def test_create_log_row(self):
+        retail = RetailMaster.objects.create(retail_name="R", retail_code="R1",
+            address_line1="1 St", phone="9999999999", bill_series="R1S")
+        log = EmailSendLog.objects.create(
+            retail=retail, to_email="a@b.com", subject="Hi",
+            purpose="otp", status="sent",
+        )
+        self.assertEqual(log.status, "sent")
+        self.assertEqual(EmailSendLog.objects.filter(retail=retail).count(), 1)

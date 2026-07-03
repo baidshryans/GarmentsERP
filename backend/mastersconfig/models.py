@@ -888,3 +888,24 @@ class EmailSettings(models.Model):
             self.port = preset['port']
             self.use_tls = preset['use_tls']
         super().save(*args, **kwargs)
+
+
+class EmailSendLog(models.Model):
+    """Audit log of every outbound email attempt."""
+    STATUS_CHOICES  = [('sent', 'Sent'), ('failed', 'Failed'), ('skipped', 'Skipped')]
+    PURPOSE_CHOICES = [('otp', 'OTP'), ('bill', 'Bill'), ('statement', 'Statement'), ('other', 'Other')]
+    retail        = models.ForeignKey(RetailMaster, on_delete=models.CASCADE, related_name='email_logs')
+    to_email      = models.EmailField()
+    subject       = models.CharField(max_length=300)
+    purpose       = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default='other')
+    sent_at       = models.DateTimeField(auto_now_add=True)
+    status        = models.CharField(max_length=10, choices=STATUS_CHOICES)
+    error_message = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        db_table = 'email_send_log'
+        ordering = ['-sent_at']
+        indexes = [models.Index(fields=['retail', '-sent_at'], name='idx_email_log_retail_date')]
+
+    def __str__(self):
+        return f"{self.to_email} | {self.purpose} | {self.status} | {self.sent_at:%Y-%m-%d}"

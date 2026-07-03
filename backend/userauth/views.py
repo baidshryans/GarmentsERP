@@ -78,6 +78,16 @@ class UserLoginView(APIView):
         user = authenticate(username=username, password=password)
         if user is not None:
             token, created = Token.objects.get_or_create(user=user)
+
+            # Guarantee a superuser can always see every branch, on any fresh
+            # setup, before the frontend fetches the retail selector. Idempotent
+            # and a no-op for non-superusers / when no retails exist yet.
+            try:
+                from contacts.services import sync_superuser_retail_access
+                sync_superuser_retail_access(user)
+            except Exception:
+                # Never let branch-sync break login.
+                pass
             # Resolve role name and flags for the frontend
             role_name = None
             can_view_customer_data = True

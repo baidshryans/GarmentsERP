@@ -382,22 +382,11 @@ class AllowedRetailView(ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser:
-            # Superusers always see every retail — sync their UserLocation only
-            # when retails are actually missing (avoid firing M2M signals, and
-            # therefore audit log rows, on every request).
-            from mastersconfig.models import RetailMaster
-            all_retails = list(RetailMaster.objects.all())
-            if all_retails:
-                ul, _ = UserLocation.objects.get_or_create(user=user)
-                all_ids = {r.id for r in all_retails}
-                existing_ids = set(ul.location.values_list('id', flat=True))
-                missing = [r for r in all_retails if r.id not in existing_ids]
-                if missing:
-                    ul.location.add(*missing)
-                if ul.default_location is None:
-                    ul.default_location = all_retails[0]
-                    ul.save(update_fields=['default_location'])
+        # Superusers always see every retail. Sync is idempotent and only writes
+        # when a branch is actually missing (avoids firing M2M/audit signals on
+        # every request). See contacts.services for the canonical implementation.
+        from contacts.services import sync_superuser_retail_access
+        sync_superuser_retail_access(user)
         return UserLocation.objects.filter(user=user).order_by('id')
     
 @api_view(['GET'])

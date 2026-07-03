@@ -301,8 +301,9 @@ class Command(BaseCommand):
     def _validate_preconditions(self, retails, cutoff):
         from mastersconfig.models import FiscalYearMaster
         for retail in retails:
+            # FY is company-global; the current FY is the same for every retail.
             fy = FiscalYearMaster.objects.filter(
-                retail=retail, fy_start__lte=cutoff, fy_end__gte=cutoff
+                fy_start__lte=cutoff, fy_end__gte=cutoff
             ).first()
             if not fy:
                 raise CommandError(
@@ -586,7 +587,7 @@ class Command(BaseCommand):
         for retail in retails:
             # Find the FY covering the cutoff in the OLD DB
             fy = FiscalYearMaster.objects.using('default').filter(
-                retail=retail, fy_start__lte=cutoff, fy_end__gte=cutoff
+                fy_start__lte=cutoff, fy_end__gte=cutoff
             ).first()
             if not fy:
                 continue

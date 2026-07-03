@@ -37,7 +37,8 @@ class PortalTokenAuthentication(BaseAuthentication):
             raise AuthenticationFailed('Portal token has expired. Please log in again.')
 
         request.retail = token.retail
-        request.fiscal_year = getattr(token.retail, 'active_fy', None)
+        from mastersconfig.models import SystemSettings
+        request.fiscal_year = SystemSettings.get().active_fy
         request.portal_account = token.account
         request.portal_token = token
         return (token.account, token)

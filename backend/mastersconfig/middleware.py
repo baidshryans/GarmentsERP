@@ -42,7 +42,7 @@ class RetailMiddleware(MiddlewareMixin):
             retail = cache.get(cache_key)
             if retail is None:
                 try:
-                    retail = RetailMaster.objects.select_related('state', 'active_fy').get(retail_code=model_id)
+                    retail = RetailMaster.objects.select_related('state').get(retail_code=model_id)
                     cache.set(cache_key, retail, timeout=300)
                 except RetailMaster.DoesNotExist:
                     return JsonResponse(
@@ -50,7 +50,8 @@ class RetailMiddleware(MiddlewareMixin):
                         status=400,
                     )
             request.retail = retail
-            request.fiscal_year = getattr(retail, 'active_fy', None)
+            from mastersconfig.models import SystemSettings
+            request.fiscal_year = SystemSettings.get().active_fy
 
             # Resolve active exhibition for this retail (no cache — must be live)
             request.exhibition = ExhibitionProfile.objects.filter(

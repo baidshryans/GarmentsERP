@@ -14,3 +14,22 @@ class OtpModelTest(TestCase):
         self.assertNotEqual(otp.code_hash, "123456")
         self.assertTrue(otp.check_code("123456"))
         self.assertFalse(otp.check_code("000000"))
+
+
+from goldscheme.portal_otp import generate_otp_code, issue_otp, is_throttled
+
+
+class OtpHelperTest(TestCase):
+    def setUp(self):
+        self.acc = CustomerPortalAccount.objects.create(primary_email="h@x.com")
+
+    def test_generate_is_six_digits(self):
+        code = generate_otp_code()
+        self.assertEqual(len(code), 6)
+        self.assertTrue(code.isdigit())
+
+    def test_issue_creates_hashed_otp_and_then_throttles(self):
+        code = issue_otp(self.acc)
+        otp = CustomerPortalOTP.objects.filter(account=self.acc).latest("created_at")
+        self.assertTrue(otp.check_code(code))
+        self.assertTrue(is_throttled(self.acc))  # second request inside cooldown blocked

@@ -501,7 +501,14 @@ class SystemSettings(models.Model):
         default=dict, blank=True,
         help_text="MySQL source database connection details for master data sync."
     )
+    active_fy = models.ForeignKey(
+        'FiscalYearMaster', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='active_for_company',
+        help_text="The single company-wide active fiscal year.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
+
+    _CACHE_KEY = 'system_settings_singleton'
 
     class Meta:
         db_table = 'system_settings'
@@ -511,9 +518,31 @@ class SystemSettings(models.Model):
 
     @classmethod
     def get(cls):
-        """Return (and create if needed) the singleton settings row."""
-        obj, _ = cls.objects.get_or_create(pk=1, defaults={'attachment_storage_path': ''})
+        """Return (creating if needed) the singleton row, cached briefly to
+        avoid a query per RetailMaster.active_fy property access in loops."""
+        from django.core.cache import cache
+        obj = cache.get(cls._CACHE_KEY)
+        if obj is None:
+            obj, _ = cls.objects.select_related('active_fy').get_or_create(
+                pk=1, defaults={'attachment_storage_path': ''}
+            )
+            cache.set(cls._CACHE_KEY, obj, timeout=60)
         return obj
+
+    @classmethod
+    def set_company_active_fy(cls, fy):
+        """Set (or clear) the company-wide active fiscal year and bust cache."""
+        from django.core.cache import cache
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={'attachment_storage_path': ''})
+        obj.active_fy = fy
+        obj.save(update_fields=['active_fy'])
+        cache.delete(cls._CACHE_KEY)
+        return obj
+
+    def save(self, *args, **kwargs):
+        from django.core.cache import cache
+        super().save(*args, **kwargs)
+        cache.delete(self._CACHE_KEY)
 
 
 class BillNumberSequence(models.Model):

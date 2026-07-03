@@ -3,6 +3,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import PortalAuthGuard from "./components/PortalAuthGuard";
 import PortalLayout from "./PortalLayout";
 import PortalLogin from "./pages/PortalLogin";
+import PortalSetPassword from "./pages/PortalSetPassword";
 import PortalDashboard from "./pages/PortalDashboard";
 import PortalEnrollment from "./pages/PortalEnrollment";
 import PortalPayment from "./pages/PortalPayment";
@@ -12,6 +13,7 @@ export default function PortalApp() {
     <ThemeProvider>
       <Routes>
         <Route path="login" element={<PortalLogin />} />
+        <Route path="set-password" element={<PortalSetPassword />} />
         <Route element={<PortalAuthGuard />}>
           <Route element={<PortalLayout />}>
             <Route index element={<PortalDashboard />} />

@@ -10,16 +10,20 @@ async function wrap(promise) {
   }
 }
 
-export function portalRequestOTP({ mobile }) {
-  return wrap(portalApiClient.post("/goldscheme/api/portal/request-otp/", { mobile }));
+export function portalRequestOtp({ userid }) {
+  return wrap(portalApiClient.post("/goldscheme/api/portal/request-otp/", { userid }));
 }
 
-export function portalVerifyOTP({ mobile, password, otp }) {
-  return wrap(portalApiClient.post("/goldscheme/api/portal/verify-otp/", { mobile, password, otp }));
+export function portalVerifyOtp({ userid, otp }) {
+  return wrap(portalApiClient.post("/goldscheme/api/portal/verify-otp/", { userid, otp }));
 }
 
-export function portalSetPassword({ mobile, otp, new_password }) {
-  return wrap(portalApiClient.post("/goldscheme/api/portal/set-password/", { mobile, otp, new_password }));
+export function portalPasswordLogin({ userid, password }) {
+  return wrap(portalApiClient.post("/goldscheme/api/portal/login/", { userid, password }));
+}
+
+export function portalSetPassword({ userid, otp, new_password }) {
+  return wrap(portalApiClient.post("/goldscheme/api/portal/set-password/", { userid, otp, new_password }));
 }
 
 export function portalFetchDashboard() {

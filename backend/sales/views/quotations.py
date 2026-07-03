@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.decorators import api_view, action, permission_classes
+from rest_framework.decorators import api_view, action, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,6 +14,7 @@ from rest_framework import status
 from goldrates.models import PurityMaster
 from contacts.models import Ledger
 from userauth import views
+from goldscheme.portal_auth import PortalTokenAuthentication, IsPortalAuthenticated, portal_ledgers
 
 from ..models import *
 from ..serializers import PortalCustomerOrderSerializer, QuotationSerializer, QuotationListSerializer
@@ -198,27 +199,17 @@ def quotation_finalize(request, pk):
 
 
 @api_view(['GET'])
-@permission_classes([])
+@authentication_classes([PortalTokenAuthentication])
+@permission_classes([IsPortalAuthenticated])
 def portal_customer_orders(request):
     """
     Portal endpoint: Customer sees their orders with status tracking.
     Only includes customer-relevant fields (order_no, delivery_status, item_count, etc.)
     Excludes vendor/karigar names for privacy.
+
+    Scoped to the authenticated portal account's linked ledgers via DRF auth.
     """
-    from goldscheme.portal_auth import PortalTokenAuthentication, IsPortalAuthenticated
-
-    auth = PortalTokenAuthentication()
-    try:
-        result = auth.authenticate(request)
-        if result is None:
-            return Response({'error': 'Portal authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-
-    customer = getattr(request, 'portal_customer', None)
-    if not customer:
-        return Response({'error': 'Portal authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
-
-    orders = CustomerOrder.objects.filter(ldgr=customer).order_by('-date1')
+    ledgers = portal_ledgers(request)
+    orders = CustomerOrder.objects.filter(ldgr__in=ledgers).order_by('-date1')
     serializer = PortalCustomerOrderSerializer(orders, many=True)
     return Response(serializer.data)

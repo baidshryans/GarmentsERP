@@ -182,7 +182,7 @@ class StateListView(ListAPIView):
 
 class RetailMasterView(ListCreateAPIView):
     serializer_class = RetailSerializer
-    queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'branch').all()
+    queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'bank_ldgr', 'branch').all()
 
     def perform_create(self, serializer):
         retail = serializer.save()
@@ -200,7 +200,7 @@ class RetailMasterView(ListCreateAPIView):
 
 class RetailMasterDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = RetailSerializer
-    queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'branch').all()
+    queryset = RetailMaster.objects.select_related('state', 'active_fy', 'cash_ldgr', 'bank_ldgr', 'branch').all()
 
     def destroy(self, request, *args, **kwargs):
         """

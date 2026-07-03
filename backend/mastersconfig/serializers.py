@@ -266,6 +266,7 @@ class RetailSerializer(ModelSerializer):
     active_fy_code       = serializers.CharField(source='active_fy.fy_code', read_only=True, default='')
     state_name           = serializers.CharField(source='state.name', read_only=True, default='')
     commission_ldgr_name = serializers.SerializerMethodField(read_only=True)
+    bank_ldgr_name       = serializers.SerializerMethodField(read_only=True)
     branch_name          = serializers.CharField(source='branch.branch_name', read_only=True, default='')
     gstin_master_str     = serializers.CharField(source='gstin_master.gstin', read_only=True, default='')
     gstin_legal_name     = serializers.CharField(source='gstin_master.legal_name', read_only=True, default='')
@@ -275,6 +276,9 @@ class RetailSerializer(ModelSerializer):
 
     def get_commission_ldgr_name(self, obj):
         return obj.commission_ldgr.ac_name if obj.commission_ldgr else None
+
+    def get_bank_ldgr_name(self, obj):
+        return obj.bank_ldgr.ac_name if obj.bank_ldgr else None
 
     def validate(self, attrs):
         is_exhibition = attrs.get(

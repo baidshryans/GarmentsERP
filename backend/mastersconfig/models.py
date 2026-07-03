@@ -257,6 +257,11 @@ class RetailMaster(models.Model):
         related_name='commission_retail_set',
         help_text="Expense ledger debited when salesperson commission journal voucher is created"
     )
+    bank_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='bank_for_retail_set',
+        help_text="Default bank ledger whose remittance details print on this retail's invoices"
+    )
     active_fy = models.ForeignKey(
         'FiscalYearMaster', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='active_for_retail'

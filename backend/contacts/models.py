@@ -176,6 +176,38 @@ class CashLedger(Ledger):
         proxy = True
 
 
+# ── Bank Account Details ─────────────────────────────────────────────────────
+# Static remittance details for a bank ledger (role='BA'). Kept in a separate
+# OneToOne table so these fields only exist for bank ledgers and don't add
+# always-null columns to every customer/vendor/cash ledger.
+
+class BankAccountProfile(models.Model):
+    ACCOUNT_TYPE_CHOICES = [
+        ('SAVINGS', 'Savings'),
+        ('CURRENT', 'Current'),
+    ]
+
+    ledger = models.OneToOneField(
+        Ledger, on_delete=models.CASCADE, related_name='bank_profile'
+    )
+    account_holder_name = models.CharField(max_length=100, blank=True)
+    bank_name = models.CharField(max_length=100, blank=True)
+    account_number = models.CharField(max_length=34, blank=True)
+    ifsc_code = models.CharField(max_length=15, blank=True)
+    branch_name = models.CharField(max_length=100, blank=True)
+    upi_id = models.CharField(max_length=100, blank=True)
+    account_type = models.CharField(
+        max_length=10, choices=ACCOUNT_TYPE_CHOICES, blank=True
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "bank_account_profile"
+
+    def __str__(self):
+        return f"{self.bank_name} — {self.account_number}".strip(" —")
+
+
 # ── Multi-Role Support ───────────────────────────────────────────────────────
 # A single ledger can have multiple roles (e.g. a Dealer who is also a
 # Customer). is_primary=True marks the main classification used for display.

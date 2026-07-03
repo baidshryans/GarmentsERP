@@ -23,6 +23,7 @@ import {
   fetchBranches,
   fetchGstins,
 } from "@/services/apiService";
+import { getLedgers } from "@/services/api/contacts";
 import { COUNTRIES } from "@/components/ui/PhoneInput";
 
 const emptyForm = {
@@ -38,6 +39,7 @@ const emptyForm = {
   pincode: "",
   state: "",
   branch: "",
+  bank_ldgr: "",
   is_exhibition: false,
   max_cash_receipt_limit: 199999,
   max_cash_payment_limit: 10000,
@@ -51,6 +53,7 @@ export default function RetailMasterPage() {
   const [states, setStates]     = useState([]);
   const [branches, setBranches] = useState([]);
   const [gstins, setGstins]     = useState([]);
+  const [bankLedgers, setBankLedgers] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -59,11 +62,12 @@ export default function RetailMasterPage() {
 
   const load = async () => {
     setLoading(true);
-    const [retailRes, stateRes, branchRes, gstinRes] = await Promise.all([
+    const [retailRes, stateRes, branchRes, gstinRes, bankRes] = await Promise.all([
       fetchRetails(),
       fetchStates(),
       fetchBranches(),
       fetchGstins(),
+      getLedgers({ type: "BA", page_size: 500 }),
     ]);
     if (retailRes.success) {
       const d = retailRes.data;
@@ -80,6 +84,10 @@ export default function RetailMasterPage() {
     if (gstinRes.success) {
       const d = gstinRes.data;
       setGstins(Array.isArray(d) ? d : d?.results ?? []);
+    }
+    if (bankRes.success) {
+      const d = bankRes.data;
+      setBankLedgers(Array.isArray(d) ? d : d?.results ?? []);
     }
     setLoading(false);
   };
@@ -105,6 +113,7 @@ export default function RetailMasterPage() {
     if (!payload.email)   payload.email  = null;
     if (!payload.state)   payload.state  = null;
     if (!payload.branch)  payload.branch = null;
+    if (!payload.bank_ldgr) payload.bank_ldgr = null;
 
     const res = editingId
       ? await updateRetail(editingId, payload)
@@ -142,6 +151,7 @@ export default function RetailMasterPage() {
       pincode: row.pincode ?? "",
       state: row.state ? String(row.state) : "",
       branch: row.branch ? String(row.branch) : "",
+      bank_ldgr: row.bank_ldgr ? String(row.bank_ldgr) : "",
       is_exhibition: row.is_exhibition ?? false,
       max_cash_receipt_limit: row.max_cash_receipt_limit ?? 199999,
       max_cash_payment_limit: row.max_cash_payment_limit ?? 10000,
@@ -403,6 +413,25 @@ export default function RetailMasterPage() {
                     {branches.map((b) => (
                       <SelectItem key={b.id} value={String(b.id)}>
                         {b.branch_name} ({b.branch_code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Bank Account <span className="text-muted-foreground font-normal">(prints on invoices)</span></Label>
+                <Select
+                  value={form.bank_ldgr ? String(form.bank_ldgr) : "__none__"}
+                  onValueChange={(v) => handleSelect("bank_ldgr", v === "__none__" ? "" : v)}
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="No bank" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— No Bank —</SelectItem>
+                    {bankLedgers.map((b) => (
+                      <SelectItem key={b.id} value={String(b.id)}>
+                        {b.ac_name}
                       </SelectItem>
                     ))}
                   </SelectContent>

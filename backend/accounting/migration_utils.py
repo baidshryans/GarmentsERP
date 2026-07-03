@@ -133,11 +133,11 @@ class OrgResolver:
         if short in self._fy_cache:
             return self._fy_cache[short]
         fy = FiscalYearMaster.objects.filter(fy_code=short).first()
-        if fy is None and self.apply and retail is not None:
+        if fy is None and self.apply:
             start, end = fy_dates(ac_yr)
             if start is not None:
                 fy = FiscalYearMaster.objects.create(
-                    retail=retail, fy_code=short, fy_start=start, fy_end=end,
+                    fy_code=short, fy_start=start, fy_end=end,
                 )
                 self._warn(f"created FiscalYearMaster {short} ({start}–{end})")
         self._fy_cache[short] = fy

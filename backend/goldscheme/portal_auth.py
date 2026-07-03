@@ -27,7 +27,7 @@ class PortalTokenAuthentication(BaseAuthentication):
 
         try:
             token = CustomerPortalToken.objects.select_related(
-                'account', 'retail', 'retail__active_fy'
+                'account', 'retail'
             ).get(token=token_uuid)
         except CustomerPortalToken.DoesNotExist:
             raise AuthenticationFailed('Invalid or expired portal token.')

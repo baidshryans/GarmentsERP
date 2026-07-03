@@ -497,9 +497,8 @@ class Command(BaseCommand):
         active_fy = None
         for fy_data in FISCAL_YEARS:
             fy, created = FiscalYearMaster.objects.get_or_create(
-                retail=retail,
                 fy_code=fy_data["fy_code"],
-                defaults={**fy_data, "retail": retail},
+                defaults={**fy_data},
             )
             if created:
                 self._ok(f"Fiscal Year: {fy.fy_code}")
@@ -508,10 +507,10 @@ class Command(BaseCommand):
             if fy_data["fy_code"] == ACTIVE_FY_CODE:
                 active_fy = fy
 
-        # Set active FY on retail
-        if retail.active_fy_id != active_fy.pk:
-            retail.active_fy = active_fy
-            retail.save(update_fields=["active_fy"])
+        # Set company-wide active FY
+        from mastersconfig.models import SystemSettings
+        if SystemSettings.get().active_fy_id != active_fy.pk:
+            SystemSettings.set_company_active_fy(active_fy)
             self._ok(f"Active FY set to {active_fy.fy_code}")
 
         return retail, active_fy

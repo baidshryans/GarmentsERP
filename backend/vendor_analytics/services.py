@@ -350,7 +350,7 @@ class InventoryTurnoverService:
 
         # YoY comparison
         yoy = []
-        for fy in FiscalYearMaster.objects.filter(retail_id=self.retail_id).order_by('fy_start'):
+        for fy in FiscalYearMaster.objects.order_by('fy_start'):
             m = self._period_metrics(fy.fy_start, fy.fy_end)
             yoy.append({
                 'fy': fy.fy_code,

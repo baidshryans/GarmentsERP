@@ -1,19 +1,12 @@
 from datetime import date
 from django.test import TestCase
-from mastersconfig.models import SystemSettings, FiscalYearMaster, RetailMaster
+from mastersconfig.models import SystemSettings, FiscalYearMaster
 
 
 class CompanyActiveFYTests(TestCase):
     def _fy(self, code="26-27"):
-        # NOTE: retail= is required until a later task removes it.
-        retail = RetailMaster.objects.create(
-            retail_name="Store 1",
-            retail_code="R001",
-            address_line1="123 St",
-            phone="9999",
-        )
         return FiscalYearMaster.objects.create(
-            retail=retail, fy_code=code,
+            fy_code=code,
             fy_start=date(2026, 4, 1), fy_end=date(2027, 3, 31),
         )
 

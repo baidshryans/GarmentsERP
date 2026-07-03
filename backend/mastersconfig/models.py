@@ -262,10 +262,6 @@ class RetailMaster(models.Model):
         related_name='bank_for_retail_set',
         help_text="Default bank ledger whose remittance details print on this retail's invoices"
     )
-    active_fy = models.ForeignKey(
-        'FiscalYearMaster', null=True, blank=True,
-        on_delete=models.SET_NULL, related_name='active_for_retail'
-    )
     branch = models.ForeignKey(
         'BranchMaster', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='retails'
@@ -273,6 +269,16 @@ class RetailMaster(models.Model):
 
     def __str__(self):
         return self.retail_name or self.retail_code or f'Retail #{self.pk}'
+
+    @property
+    def active_fy(self):
+        from mastersconfig.models import SystemSettings
+        return SystemSettings.get().active_fy
+
+    @property
+    def active_fy_id(self):
+        from mastersconfig.models import SystemSettings
+        return SystemSettings.get().active_fy_id
 
     default_country_code = models.CharField(
         max_length=5, default='IN', blank=True,
@@ -415,8 +421,7 @@ class PacketGroup(models.Model):
         return self.packet_group_name
 
 class FiscalYearMaster(models.Model):
-    """Tracks fiscal years per retail location (Indian FY: April–March)."""
-    retail = models.ForeignKey(RetailMaster, on_delete=models.CASCADE, related_name='fiscal_years')
+    """Tracks fiscal years for the whole company (Indian FY: April–March)."""
     fy_code = models.CharField(max_length=10)           # "24-25", "25-26"
     fy_start = models.DateField()                        # 2024-04-01
     fy_end = models.DateField()                          # 2025-03-31
@@ -432,13 +437,15 @@ class FiscalYearMaster(models.Model):
 
     class Meta:
         db_table = "fiscal_year_master"
-        unique_together = ('retail', 'fy_code')
+        constraints = [
+            models.UniqueConstraint(fields=['fy_code'], name='uniq_fy_code'),
+        ]
         indexes = [
-            models.Index(fields=['retail', 'is_closed'], name='idx_fy_retail_closed'),
+            models.Index(fields=['is_closed'], name='idx_fy_closed'),
         ]
 
     def __str__(self):
-        return f"{self.retail.retail_code} / FY {self.fy_code}"
+        return f"FY {self.fy_code}"
 
 
 class ExhibitionProfile(models.Model):

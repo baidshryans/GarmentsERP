@@ -2104,61 +2104,64 @@ def sync_opening_balances(request, pk):
     synced_ledgers = 0
     replaced_rows = 0
 
-    # Opening balances are per-branch — sync every branch.
-    for retail in RetailMaster.objects.all():
-        # ── Step 1: Opening balance of THIS FY (stored, per acc_year) ─────────────
-        ob_qs = (
-            LedgerOpenBalance.objects
-            .filter(retail=retail, acc_year=fy.fy_code)
-            .values('ldgr')
-            .annotate(ob=Sum(F('debit') - F('credit')))
-        )
-        ob_dict = {row['ldgr']: Decimal(str(row['ob'] or 0)) for row in ob_qs}
-
-        # ── Step 2: All transactions WITHIN this FY ────────────────────────────────
-        txn_qs = (
-            VoucherDetail.objects
-            .filter(
-                voucher_main__retail=retail,
-                voucher_main__date__range=(fy.fy_start, fy.fy_end),
+    # Opening balances are per-branch — sync every branch. Wrap the whole sweep
+    # (and the last_synced_at stamp) in ONE transaction so either every branch
+    # commits together or none do; the timestamp then truthfully means "all
+    # branches consistent as of this time" — no partial cross-branch state.
+    with transaction.atomic():
+        for retail in RetailMaster.objects.all():
+            # ── Step 1: Opening balance of THIS FY (stored, per acc_year) ─────────────
+            ob_qs = (
+                LedgerOpenBalance.objects
+                .filter(retail=retail, acc_year=fy.fy_code)
+                .values('ldgr')
+                .annotate(ob=Sum(F('debit') - F('credit')))
             )
-            .values('account')
-            .annotate(total=Sum(F('debit') - F('credit')))
-        )
-        txn_dict = {row['account']: Decimal(str(row['total'] or 0)) for row in txn_qs}
+            ob_dict = {row['ldgr']: Decimal(str(row['ob'] or 0)) for row in ob_qs}
 
-        # ── Step 3: Compute closing balance for every ledger ───────────────────────
-        all_ledger_ids = set(ob_dict.keys()) | set(txn_dict.keys())
-        new_ob_rows = []
-        for ldgr_id in all_ledger_ids:
-            closing = ob_dict.get(ldgr_id, Decimal(0)) + txn_dict.get(ldgr_id, Decimal(0))
-            if closing == 0:
-                continue  # zero-balance ledgers need no opening balance row
-            if closing > 0:
-                new_ob_rows.append(LedgerOpenBalance(
-                    ldgr_id=ldgr_id, retail=retail,
-                    acc_year=next_fy.fy_code,
-                    debit=float(closing), credit=Decimal('0.00'),
-                ))
-            else:
-                new_ob_rows.append(LedgerOpenBalance(
-                    ldgr_id=ldgr_id, retail=retail,
-                    acc_year=next_fy.fy_code,
-                    debit=0.0, credit=abs(closing),
-                ))
+            # ── Step 2: All transactions WITHIN this FY ────────────────────────────────
+            txn_qs = (
+                VoucherDetail.objects
+                .filter(
+                    voucher_main__retail=retail,
+                    voucher_main__date__range=(fy.fy_start, fy.fy_end),
+                )
+                .values('account')
+                .annotate(total=Sum(F('debit') - F('credit')))
+            )
+            txn_dict = {row['account']: Decimal(str(row['total'] or 0)) for row in txn_qs}
 
-        # ── Step 4: Replace previous sync results atomically ──────────────────────
-        with transaction.atomic():
+            # ── Step 3: Compute closing balance for every ledger ───────────────────────
+            all_ledger_ids = set(ob_dict.keys()) | set(txn_dict.keys())
+            new_ob_rows = []
+            for ldgr_id in all_ledger_ids:
+                closing = ob_dict.get(ldgr_id, Decimal(0)) + txn_dict.get(ldgr_id, Decimal(0))
+                if closing == 0:
+                    continue  # zero-balance ledgers need no opening balance row
+                if closing > 0:
+                    new_ob_rows.append(LedgerOpenBalance(
+                        ldgr_id=ldgr_id, retail=retail,
+                        acc_year=next_fy.fy_code,
+                        debit=float(closing), credit=Decimal('0.00'),
+                    ))
+                else:
+                    new_ob_rows.append(LedgerOpenBalance(
+                        ldgr_id=ldgr_id, retail=retail,
+                        acc_year=next_fy.fy_code,
+                        debit=0.0, credit=abs(closing),
+                    ))
+
+            # ── Step 4: Replace previous sync results for this branch ──────────────────
             deleted, _ = LedgerOpenBalance.objects.filter(
                 retail=retail, acc_year=next_fy.fy_code
             ).delete()
             LedgerOpenBalance.objects.bulk_create(new_ob_rows)
 
-        synced_ledgers += len(new_ob_rows)
-        replaced_rows += deleted
+            synced_ledgers += len(new_ob_rows)
+            replaced_rows += deleted
 
-    fy.last_synced_at = timezone.now()
-    fy.save(update_fields=['last_synced_at'])
+        fy.last_synced_at = timezone.now()
+        fy.save(update_fields=['last_synced_at'])
 
     return Response({
         "message": (

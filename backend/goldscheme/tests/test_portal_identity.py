@@ -49,3 +49,18 @@ class SeedPortalAccountsTest(TestCase):
         call_command("seed_portal_accounts", "--apply")
         acc = CustomerPortalAccount.objects.get(primary_email="c@x.com")
         self.assertIn(led, acc.linked_ledgers.all())
+
+
+from goldscheme.portal_auth import portal_ledgers
+
+class PortalLedgersHelperTest(TestCase):
+    def test_returns_account_linked_ledgers(self):
+        retail = RetailMaster.objects.create(retail_name="R", retail_code="RL",
+            address_line1="1 St", phone="9999999999", bill_series="RLS")
+        acc = CustomerPortalAccount.objects.create(primary_email="p@x.com")
+        led = Ledger.objects.create(ac_name="C", display_name="C", retail_code=retail)
+        acc.linked_ledgers.add(led)
+
+        class Req:
+            portal_account = acc
+        self.assertEqual(list(portal_ledgers(Req())), [led])

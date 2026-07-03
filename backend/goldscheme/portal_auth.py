@@ -27,7 +27,7 @@ class PortalTokenAuthentication(BaseAuthentication):
 
         try:
             token = CustomerPortalToken.objects.select_related(
-                'ledger', 'retail', 'retail__active_fy'
+                'account', 'retail', 'retail__active_fy'
             ).get(token=token_uuid)
         except CustomerPortalToken.DoesNotExist:
             raise AuthenticationFailed('Invalid or expired portal token.')
@@ -36,14 +36,11 @@ class PortalTokenAuthentication(BaseAuthentication):
             token.delete()
             raise AuthenticationFailed('Portal token has expired. Please log in again.')
 
-        # Set retail and fiscal_year on request so downstream services work
         request.retail = token.retail
         request.fiscal_year = getattr(token.retail, 'active_fy', None)
-        request.portal_customer = token.ledger
+        request.portal_account = token.account
         request.portal_token = token
-
-        # DRF expects (user, auth) tuple; use ledger as the "user" stand-in
-        return (token.ledger, token)
+        return (token.account, token)
 
 
 class IsPortalAuthenticated(BasePermission):
@@ -54,3 +51,12 @@ class IsPortalAuthenticated(BasePermission):
             hasattr(request, 'portal_token')
             and request.portal_token is not None
         )
+
+
+def portal_ledgers(request):
+    """The set of ledgers the authenticated portal account may access."""
+    account = getattr(request, 'portal_account', None)
+    if account is None:
+        from contacts.models import Ledger
+        return Ledger.objects.none()
+    return account.linked_ledgers.all()

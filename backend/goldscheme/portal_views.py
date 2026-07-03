@@ -20,6 +20,7 @@ from .portal_auth import PortalTokenAuthentication, IsPortalAuthenticated
 from .portal_serializers import (
     PortalRequestOTPSerializer, PortalVerifyOTPSerializer,
     PortalSetPasswordSerializer, PortalPaymentSerializer,
+    PortalPasswordLoginSerializer,
 )
 from .services.enrollment import check_and_update_maturity
 from .services.payment import record_payment
@@ -145,6 +146,24 @@ class PortalVerifyOTPView(APIView):
         led = account.linked_ledgers.select_related('retail_code').first()
         if led is not None:
             retail = led.retail_code
+        token = CustomerPortalToken.objects.create(account=account, retail=retail)
+        return Response({'success': True, 'token': str(token.token),
+                         'customer_name': account.primary_email})
+
+
+class PortalPasswordLoginView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        ser = PortalPasswordLoginSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        account = _resolve_account(ser.validated_data['userid'])
+        if account is None or not account.check_password(ser.validated_data['password']):
+            return Response({'error': 'Invalid credentials.'},
+                            status=status.HTTP_401_UNAUTHORIZED)
+        led = account.linked_ledgers.select_related('retail_code').first()
+        retail = led.retail_code if led is not None else None
         token = CustomerPortalToken.objects.create(account=account, retail=retail)
         return Response({'success': True, 'token': str(token.token),
                          'customer_name': account.primary_email})

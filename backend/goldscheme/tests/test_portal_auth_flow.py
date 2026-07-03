@@ -85,3 +85,22 @@ class VerifyOtpTest(TestCase):
         self.assertEqual(resp.status_code, 400)
         otp = CustomerPortalOTP.objects.get(account=self.acc)
         self.assertFalse(otp.is_verified)
+
+
+class PasswordLoginTest(TestCase):
+    def setUp(self):
+        self.acc = CustomerPortalAccount.objects.create(primary_email="pw@x.com")
+        self.acc.set_password("secret123"); self.acc.save()
+
+    def test_correct_password_issues_token(self):
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/login/",
+                      {"userid": "pw@x.com", "password": "secret123"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("token", resp.json())
+
+    def test_wrong_password_401(self):
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/login/",
+                      {"userid": "pw@x.com", "password": "nope"}, format="json")
+        self.assertEqual(resp.status_code, 401)

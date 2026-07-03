@@ -23,6 +23,7 @@ urlpatterns = [
     # Customer Portal — authenticated (OTP + password + token)
     path('api/portal/request-otp/', portal_views.PortalRequestOTPView.as_view(), name='portal-request-otp'),
     path('api/portal/verify-otp/', portal_views.PortalVerifyOTPView.as_view(), name='portal-verify-otp'),
+    path('api/portal/login/', portal_views.PortalPasswordLoginView.as_view(), name='portal-login'),
     path('api/portal/set-password/', portal_views.PortalSetPasswordView.as_view(), name='portal-set-password'),
     path('api/portal/dashboard/', portal_views.PortalDashboardView.as_view(), name='portal-dashboard'),
     path('api/portal/enrollment/<str:enrollment_no>/', portal_views.PortalEnrollmentDetailView.as_view(), name='portal-enrollment-detail'),

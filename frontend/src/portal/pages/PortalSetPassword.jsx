@@ -27,7 +27,7 @@ export default function PortalSetPassword() {
     e.preventDefault();
     if (!userid.trim()) return;
     setLoading(true);
-    const res = await portalRequestOtp({ userid: userid.trim() });
+    const res = await portalRequestOtp({ userid: userid.trim(), purpose: "reset" });
     if (res.success) {
       setStep(2);
       toast({ title: "OTP sent" });

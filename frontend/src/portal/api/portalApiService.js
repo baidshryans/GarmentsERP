@@ -10,8 +10,8 @@ async function wrap(promise) {
   }
 }
 
-export function portalRequestOtp({ userid }) {
-  return wrap(portalApiClient.post("/goldscheme/api/portal/request-otp/", { userid }));
+export function portalRequestOtp({ userid, purpose }) {
+  return wrap(portalApiClient.post("/goldscheme/api/portal/request-otp/", { userid, purpose }));
 }
 
 export function portalVerifyOtp({ userid, otp }) {

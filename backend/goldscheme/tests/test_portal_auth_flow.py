@@ -59,3 +59,29 @@ class RequestOtpTest(TestCase):
         c = APIClient()
         resp = c.post("/goldscheme/api/portal/request-otp/", {"userid": "nobody@x.com"}, format="json")
         self.assertEqual(resp.status_code, 200)  # generic to prevent enumeration
+
+
+from goldscheme.models import CustomerPortalToken
+from goldscheme.portal_otp import issue_otp
+
+class VerifyOtpTest(TestCase):
+    def setUp(self):
+        self.acc = CustomerPortalAccount.objects.create(primary_email="v@x.com")
+
+    def test_valid_otp_issues_token(self):
+        code = issue_otp(self.acc)
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/verify-otp/",
+                      {"userid": "v@x.com", "otp": code}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("token", resp.json())
+        self.assertEqual(CustomerPortalToken.objects.filter(account=self.acc).count(), 1)
+
+    def test_wrong_otp_does_not_consume(self):
+        issue_otp(self.acc)
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/verify-otp/",
+                      {"userid": "v@x.com", "otp": "000000"}, format="json")
+        self.assertEqual(resp.status_code, 400)
+        otp = CustomerPortalOTP.objects.get(account=self.acc)
+        self.assertFalse(otp.is_verified)

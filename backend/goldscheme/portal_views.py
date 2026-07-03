@@ -118,70 +118,36 @@ class PortalVerifyOTPView(APIView):
         ser = PortalVerifyOTPSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
 
-        mobile = ser.validated_data['mobile'].strip()
+        account = _resolve_account(ser.validated_data['userid'])
+        if account is None:
+            return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            customer = _find_customer_by_mobile(mobile)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
-        if not customer:
-            return Response({'error': 'Customer not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Find latest unverified OTP
-        otp_record = CustomerPortalOTP.objects.filter(
-            mobile=mobile, is_verified=False,
+        otp = CustomerPortalOTP.objects.filter(
+            account=account, is_verified=False
         ).order_by('-created_at').first()
+        if otp is None or otp.is_expired:
+            return Response({'error': 'OTP expired. Please request a new one.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        if not otp_record:
-            return Response({'error': 'No OTP found. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if otp_record.is_expired:
-            otp_record.delete()
-            return Response({'error': 'OTP has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Brute-force protection
         max_attempts = getattr(settings, 'OTP_MAX_ATTEMPTS', 5)
-        otp_record.attempts += 1
-        if otp_record.attempts >= max_attempts:
-            otp_record.delete()
-            return Response(
-                {'error': 'Too many failed attempts. Please request a new OTP.'},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
+        if not otp.check_code(ser.validated_data['otp'].strip()):
+            otp.attempts += 1
+            if otp.attempts >= max_attempts:
+                otp.delete()
+                return Response({'error': 'Too many failed attempts. Request a new OTP.'},
+                                status=status.HTTP_429_TOO_MANY_REQUESTS)
+            otp.save()
+            return Response({'error': f'Invalid OTP. {max_attempts - otp.attempts} attempt(s) left.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        if otp_record.otp_code != ser.validated_data['otp'].strip():
-            otp_record.save()
-            remaining = max_attempts - otp_record.attempts
-            return Response(
-                {'error': f'Invalid OTP. {remaining} attempt(s) remaining.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # OTP verified
-        otp_record.is_verified = True
-        otp_record.save()
-
-        # Verify password
-        try:
-            credential = customer.portal_credential
-        except CustomerPortalCredential.DoesNotExist:
-            return Response({'error': 'Portal access not set up.'}, status=status.HTTP_403_FORBIDDEN)
-
-        if not credential.check_password(ser.validated_data['password']):
-            return Response({'error': 'Invalid password.'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        # Issue portal token (delete old ones for this mobile)
-        CustomerPortalToken.objects.filter(mobile=mobile).delete()
-        token = CustomerPortalToken.objects.create(
-            ledger=customer, retail=customer.retail_code, mobile=mobile,
-        )
-
-        return Response({
-            'token': str(token.token),
-            'expires_at': token.expires_at.isoformat(),
-            'customer_name': customer.ac_name,
-            'mobile': mobile,
-        })
+        otp.delete()
+        retail = None
+        led = account.linked_ledgers.select_related('retail_code').first()
+        if led is not None:
+            retail = led.retail_code
+        token = CustomerPortalToken.objects.create(account=account, retail=retail)
+        return Response({'success': True, 'token': str(token.token),
+                         'customer_name': account.primary_email})
 
 
 class PortalSetPasswordView(APIView):

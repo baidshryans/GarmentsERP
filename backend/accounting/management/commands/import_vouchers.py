@@ -217,9 +217,11 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------ #
     def _resolve_fy(self, retail, ac, apply):
         """Get-or-create THE FiscalYearMaster for this legacy ac_yr. FY is
-        company-wide (identified by fy_code, not per retail): reuse any existing
-        row for the code; create one (Apr 1 – Mar 31) when none exists. Cached
-        by fy_code. Dry-run returns existing only."""
+        company-global (identified by fy_code; no per-retail rows): reuse any
+        existing row for the code; create one (Apr 1 – Mar 31) when none exists.
+        Cached by fy_code. Dry-run returns existing only. After creating/finding
+        an FY (when applying) advances the company-wide active FY to the newest
+        FY seen so the sidebar populates right after a data sync."""
         short = _fy_short(ac)
         if not short:
             return None
@@ -233,12 +235,19 @@ class Command(BaseCommand):
             start, end = _fy_dates(ac)
             if start is not None:
                 fy = FiscalYearMaster.objects.create(
-                    retail=retail, fy_code=short, fy_start=start, fy_end=end,
+                    fy_code=short, fy_start=start, fy_end=end,
                 )
                 self.stdout.write(self.style.WARNING(
                     f"created FiscalYearMaster {short} ({start}–{end})"
                 ))
         cache[short] = fy
+        if fy is not None and apply:
+            from mastersconfig.models import SystemSettings
+            current = SystemSettings.get().active_fy
+            if current is None or (
+                fy.fy_start and (current.fy_start is None or fy.fy_start >= current.fy_start)
+            ):
+                SystemSettings.set_company_active_fy(fy)
         return fy
 
     def _import_one(self, group, main_row, legacy_key,

@@ -33,3 +33,29 @@ class OtpHelperTest(TestCase):
         otp = CustomerPortalOTP.objects.filter(account=self.acc).latest("created_at")
         self.assertTrue(otp.check_code(code))
         self.assertTrue(is_throttled(self.acc))  # second request inside cooldown blocked
+
+
+from unittest.mock import patch
+from rest_framework.test import APIClient
+
+class RequestOtpTest(TestCase):
+    def setUp(self):
+        self.acc = CustomerPortalAccount.objects.create(primary_email="r@x.com", phone="9990001111")
+
+    @patch("goldscheme.portal_views.send_email")
+    def test_request_by_email_enqueues_email(self, mock_send):
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/request-otp/", {"userid": "r@x.com"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(mock_send.enqueue.called)
+
+    @patch("goldscheme.portal_views.send_email")
+    def test_request_by_phone_resolves_account(self, mock_send):
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/request-otp/", {"userid": "9990001111"}, format="json")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_unknown_userid_generic_response(self):
+        c = APIClient()
+        resp = c.post("/goldscheme/api/portal/request-otp/", {"userid": "nobody@x.com"}, format="json")
+        self.assertEqual(resp.status_code, 200)  # generic to prevent enumeration

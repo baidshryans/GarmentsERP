@@ -9,10 +9,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from contacts.models import Ledger, LedgerRole
+from contacts.tasks import send_email
 from .models import (
+    CustomerPortalAccount,
     CustomerPortalCredential, CustomerPortalOTP, CustomerPortalToken,
     SchemeEnrollment, SchemePayment,
 )
+from .portal_otp import issue_otp, is_throttled
 from .portal_auth import PortalTokenAuthentication, IsPortalAuthenticated
 from .portal_serializers import (
     PortalRequestOTPSerializer, PortalVerifyOTPSerializer,
@@ -70,6 +73,13 @@ def _find_all_customer_ledgers(mobile):
     return Ledger.objects.filter(id__in=customer_ids)
 
 
+def _resolve_account(userid):
+    userid = (userid or "").strip()
+    if "@" in userid:
+        return CustomerPortalAccount.objects.filter(primary_email__iexact=userid, is_active=True).first()
+    return CustomerPortalAccount.objects.filter(phone=userid, is_active=True).first()
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Public Auth Endpoints
 # ══════════════════════════════════════════════════════════════════════════════
@@ -82,45 +92,21 @@ class PortalRequestOTPView(APIView):
     def post(self, request):
         ser = PortalRequestOTPSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-
-        mobile = ser.validated_data['mobile'].strip()
-
-        try:
-            customer = _find_customer_by_mobile(mobile)
-        except ValueError as e:
-            return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
-        if not customer:
-            return Response(
-                {'error': 'No customer found with this mobile number.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # Check portal credential exists
-        if not hasattr(customer, 'portal_credential') or not customer.portal_credential.is_active:
-            return Response(
-                {'error': 'Portal access not set up. Contact the shop to enable portal access.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Delete old unverified OTPs for this mobile
-        CustomerPortalOTP.objects.filter(mobile=mobile, is_verified=False).delete()
-
-        # Generate and store OTP
-        otp_code = f"{random.randint(100000, 999999)}"
-        CustomerPortalOTP.objects.create(
-            mobile=mobile, retail=customer.retail_code, otp_code=otp_code,
+        account = _resolve_account(ser.validated_data['userid'])
+        generic = Response({'success': True,
+                            'message': 'If an account exists, an OTP has been emailed.'})
+        if account is None:
+            return generic
+        if is_throttled(account):
+            return Response({'error': 'Please wait before requesting another OTP.'},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS)
+        code = issue_otp(account)
+        retail_id = account.linked_ledgers.values_list('retail_code', flat=True).first()
+        send_email.enqueue(
+            retail_id, account.primary_email, "Your login OTP",
+            f"Your one-time password is {code}. It expires in 5 minutes.", "otp",
         )
-
-        # Mock SMS — print to console
-        print(f"\n{'='*50}")
-        print(f"[PORTAL OTP] Mobile: {mobile} | OTP: {otp_code}")
-        print(f"{'='*50}\n")
-
-        return Response({
-            'success': True,
-            'message': 'OTP sent to your mobile number.',
-            'customer_name': customer.ac_name,
-        })
+        return generic
 
 
 class PortalVerifyOTPView(APIView):

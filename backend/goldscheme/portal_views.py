@@ -189,11 +189,6 @@ class PortalDashboardView(APIView):
             customer__in=customer_ledgers,
         ).select_related('scheme', 'customer', 'retail').order_by('-created_at')
 
-        # Update maturity status
-        for e in enrollments:
-            if e.status == 'ACTIVE':
-                check_and_update_maturity(e)
-
         data = []
         total_invested = 0
         active_count = 0
@@ -252,8 +247,6 @@ class PortalEnrollmentDetailView(APIView):
             ).get(enrollment_no=enrollment_no, customer__in=customer_ledgers)
         except SchemeEnrollment.DoesNotExist:
             return Response({'error': 'Enrollment not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        check_and_update_maturity(enrollment)
 
         payments = SchemePayment.objects.filter(enrollment=enrollment).order_by('date')
         benefit = get_applicable_benefits(enrollment)

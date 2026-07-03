@@ -19,7 +19,7 @@ from inventory.legacy_barcode_import import (
 def _retail(code="R001"):
     return RetailMaster.objects.create(
         retail_name=f"Store {code}", retail_code=code,
-        address_line1="x", phone="1", bill_series=f"S-{code}")
+        address_line1="x", phone="1")
 
 
 def _item():

@@ -11,7 +11,6 @@ class EmailSettingsModelTest(TestCase):
             retail_code="T1",
             address_line1="1 Test St",
             phone="9999999999",
-            bill_series="TST",
         )
 
     def test_gmail_preset_fills_host_port_on_save(self):
@@ -29,7 +28,7 @@ class EmailSettingsModelTest(TestCase):
 class EmailSendLogModelTest(TestCase):
     def test_create_log_row(self):
         retail = RetailMaster.objects.create(retail_name="R", retail_code="R1",
-            address_line1="1 St", phone="9999999999", bill_series="R1S")
+            address_line1="1 St", phone="9999999999")
         log = EmailSendLog.objects.create(
             retail=retail, to_email="a@b.com", subject="Hi",
             purpose="otp", status="sent",
@@ -41,7 +40,7 @@ class EmailSendLogModelTest(TestCase):
 class SendEmailTaskTest(TestCase):
     def setUp(self):
         self.retail = RetailMaster.objects.create(retail_name="R", retail_code="R2",
-            address_line1="1 St", phone="9999999999", bill_series="R2S")
+            address_line1="1 St", phone="9999999999")
 
     def test_skipped_when_disabled(self):
         EmailSettings.objects.create(retail=self.retail, provider="custom_smtp", is_enabled=False)
@@ -68,7 +67,7 @@ from rest_framework.test import APIClient
 class EmailSettingsApiTest(TestCase):
     def setUp(self):
         self.retail = RetailMaster.objects.create(retail_name="R", retail_code="R3",
-            address_line1="1 St", phone="9999999999", bill_series="R3S")
+            address_line1="1 St", phone="9999999999")
         User = get_user_model()
         self.staff = User.objects.create_user("staff", password="x", is_staff=True)
         self.super = User.objects.create_superuser("root", "r@x.com", "x")

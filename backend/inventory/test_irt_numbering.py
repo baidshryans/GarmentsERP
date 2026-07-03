@@ -23,10 +23,10 @@ class IRTNumberingTests(TestCase):
     def setUp(self):
         self.src = RetailMaster.objects.create(
             retail_name="Source", retail_code="RSRC", address_line1="x",
-            phone="1", bill_series="S-RSRC")
+            phone="1")
         self.dst = RetailMaster.objects.create(
             retail_name="Dest", retail_code="RDST", address_line1="y",
-            phone="2", bill_series="S-RDST")
+            phone="2")
         self.fy = FiscalYearMaster.objects.create(
             retail=self.src, fy_code="26-27",
             fy_start=datetime.date(2026, 4, 1), fy_end=datetime.date(2027, 3, 31))

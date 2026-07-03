@@ -61,7 +61,6 @@ def _make_retail_and_fy(retail_code: str):
         retail_code=retail_code,
         phone="0000000000",
         address_line1="Test Address",
-        bill_series=retail_code,
     )
     fy = FiscalYearMaster.objects.create(
         retail=retail,

@@ -169,7 +169,7 @@ export default function SetupWizard() {
   const [setupStatus, setSetupStatus] = useState(null);
   const [accountTree, setAccountTree] = useState([]);
   const [states, setStates] = useState([]);
-  const [retailForm, setRetailForm] = useState({ retail_code: "", retail_name: "", email: "", phone: "", bill_series: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
+  const [retailForm, setRetailForm] = useState({ retail_code: "", retail_name: "", email: "", phone: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
   const [fyForm, setFyForm] = useState({ fy_code: "", fy_start: "", fy_end: "" });
   const [createdFYs, setCreatedFYs] = useState([]);
   const [companyForm, setCompanyForm] = useState({ company_name: "", pan: "", phone: "", email: "", address: "", city: "", state: "", pincode: "" });
@@ -410,7 +410,7 @@ export default function SetupWizard() {
 
   // ─── Step: Create Retail ────────────────────────────────────────────────
   const handleCreateRetail = async () => {
-    const required = ["retail_code", "retail_name", "email", "phone", "bill_series", "address_line1", "state", "branch", "gstin_master"];
+    const required = ["retail_code", "retail_name", "email", "phone", "address_line1", "state", "branch", "gstin_master"];
     const missing = required.filter((k) => !String(retailForm[k] || "").trim());
     if (missing.length) {
       toast({ title: `Missing required fields: ${missing.join(", ")}`, variant: "destructive" });
@@ -421,7 +421,7 @@ export default function SetupWizard() {
     if (res.success) {
       toast({ title: `Retail "${retailForm.retail_code}" created with cash ledger` });
       markDone("retail");
-      setRetailForm({ retail_code: "", retail_name: "", email: "", phone: "", bill_series: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
+      setRetailForm({ retail_code: "", retail_name: "", email: "", phone: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
       await refreshStatus();
     } else {
       const msg = typeof res.error === "object" ? Object.values(res.error).flat().join(", ") : String(res.error);
@@ -765,10 +765,6 @@ export default function SetupWizard() {
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs">Phone *</Label>
                   <Input value={retailForm.phone} onChange={(e) => setRetailForm((f) => ({ ...f, phone: e.target.value }))} className="h-9 text-sm" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">Bill Series *</Label>
-                  <Input value={retailForm.bill_series} onChange={(e) => setRetailForm((f) => ({ ...f, bill_series: e.target.value.toUpperCase() }))} className="h-9 text-sm uppercase" maxLength={20} />
                 </div>
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs">Branch *</Label>

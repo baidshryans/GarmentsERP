@@ -38,13 +38,12 @@ def make_purity(value="14", gw_per="0.585"):
 
 
 def make_retail(code="R001", name="Store 1"):
-    # bill_series and retail_code are unique — derive bill_series from code
+    # retail_code is unique — derive it from code
     return RetailMaster.objects.create(
         retail_name=name,
         retail_code=code,
         address_line1="123 St",
         phone="9999",
-        bill_series=f"S-{code}",
     )
 
 

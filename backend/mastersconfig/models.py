@@ -248,7 +248,6 @@ class RetailMaster(models.Model):
     pincode = models.CharField(max_length=10, blank=True)
     state = models.ForeignKey(State,null=True,on_delete=models.SET_NULL)
     phone = models.CharField(max_length=15)
-    bill_series = models.CharField(max_length=20, unique=True)
 
     is_exhibition = models.BooleanField(default=False)
 
@@ -283,7 +282,7 @@ class RetailMaster(models.Model):
 
     def get_bill_prefix(self, type=None, fy_code=None):
         fy = fy_code or (self.active_fy.fy_code if self.active_fy else '')
-        prefix = type or self.bill_series
+        prefix = type or ''
         display = self._DISPLAY_PREFIX.get(prefix, prefix)
         if fy:
             return f"{display}/{self.retail_code}/{fy}/"

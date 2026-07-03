@@ -15,7 +15,6 @@ def make_retail(code="R001", name="Store 1"):
         retail_code=code,
         address_line1="123 St",
         phone="9999",
-        bill_series=f"S-{code}",
     )
 
 

@@ -58,14 +58,13 @@ def _make_retail_and_fy(retail_code: str):
     """
     Build a minimal RetailMaster + FiscalYearMaster pair.
     The RetailMaster needs only retail_name, retail_code, phone,
-    address_line1, and bill_series.  active_fy is set to our new FY.
+    and address_line1.  active_fy is set to our new FY.
     """
     retail = RetailMaster.objects.create(
         retail_name=f"Test Retail {retail_code}",
         retail_code=retail_code,
         phone="0000000000",
         address_line1="Test Address",
-        bill_series=retail_code,
     )
     fy = FiscalYearMaster.objects.create(
         retail=retail,

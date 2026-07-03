@@ -141,7 +141,7 @@ class C2LeakTest(TestCase):
 
     def test_shared_phone_does_not_leak_other_account_data(self):
         retail = RetailMaster.objects.create(retail_name="R", retail_code="RC",
-            address_line1="1 St", phone="9999999999", bill_series="RCS")
+            address_line1="1 St", phone="9999999999")
         led_a = Ledger.objects.create(ac_name="A", display_name="A",
             retail_code=retail, mobile1="9998887777")
         led_b = Ledger.objects.create(ac_name="B", display_name="B",

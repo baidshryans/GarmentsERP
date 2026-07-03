@@ -12,7 +12,7 @@ class SaveWithBillNumberTests(TestCase):
     def setUp(self):
         self.retail = RetailMaster.objects.create(
             retail_name="S1", retail_code="R001", address_line1="x",
-            phone="9", bill_series="S-R001",
+            phone="9",
         )
         self.fy = FiscalYearMaster.objects.create(
             retail=self.retail, fy_code="26-27",

@@ -6,7 +6,7 @@ def make_retail(name="R", code="RC1", series="BS1"):
     from mastersconfig.models import RetailMaster
     return RetailMaster.objects.create(
         retail_name=name, retail_code=code, address_line1="addr",
-        phone="1234567890", bill_series=series,
+        phone="1234567890",
     )
 
 

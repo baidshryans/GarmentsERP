@@ -13,7 +13,7 @@ class PaymentCapTest(TestCase):
     def _make_enrollment(self, payments_made, installment_amount, tenure_months, max_amount):
         retail = RetailMaster.objects.create(
             retail_name="R", retail_code="RP",
-            address_line1="1 St", phone="9999999999", bill_series="RPS")
+            address_line1="1 St", phone="9999999999")
         led = Ledger.objects.create(ac_name="C", display_name="C", retail_code=retail)
         scheme = Scheme.objects.create(
             name="Test Scheme", scheme_code="TS1",
@@ -57,7 +57,7 @@ class DashboardNoWriteTest(TestCase):
     @patch("goldscheme.portal_views.check_and_update_maturity")
     def test_dashboard_get_does_not_mutate_maturity(self, mock_maturity):
         retail = RetailMaster.objects.create(retail_name="R", retail_code="RD",
-            address_line1="1 St", phone="9999999999", bill_series="RDS")
+            address_line1="1 St", phone="9999999999")
         led = Ledger.objects.create(ac_name="C", display_name="C", retail_code=retail)
         scheme = Scheme.objects.create(
             name="Test Scheme", scheme_code="TSD",

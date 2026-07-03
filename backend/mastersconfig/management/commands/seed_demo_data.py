@@ -56,7 +56,6 @@ RETAIL = {
     "city": "Mumbai",
     "pincode": "400004",
     "phone": "02222334455",
-    "bill_series": "ZD",
 }
 
 FISCAL_YEARS = [
@@ -961,7 +960,7 @@ class Command(BaseCommand):
         )
         seq.last_number += 1
         seq.save(update_fields=["last_number"])
-        return f"{prefix}/{retail.bill_series}/{fy.fy_code}/{seq.last_number:04d}"
+        return f"{prefix}/{retail.retail_code}/{fy.fy_code}/{seq.last_number:04d}"
 
     def _setup_purchases(self, retail, fy):
         from purchase.models import PurchaseVoucher, PurchaseVoucherItems
@@ -1104,7 +1103,7 @@ class Command(BaseCommand):
                 continue
 
             billno = self._next_voucher_no(retail, fy, "SV")
-            gst_billno = f"{retail.bill_series}/{fy.fy_code}/{billno.split('/')[-1]}"
+            gst_billno = f"{retail.retail_code}/{fy.fy_code}/{billno.split('/')[-1]}"
 
             # Collect barcodes and compute totals
             bc_objects = []

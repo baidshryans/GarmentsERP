@@ -22,7 +22,6 @@ def _retail(code):
         city="City",
         pincode="000000",
         phone="0",
-        bill_series=code,
     )
 
 

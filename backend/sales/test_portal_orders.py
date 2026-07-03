@@ -8,7 +8,7 @@ from goldscheme.models import CustomerPortalAccount, CustomerPortalToken
 class PortalOrdersScopingTest(TestCase):
     def setUp(self):
         self.retail = RetailMaster.objects.create(retail_name="R", retail_code="RO",
-            address_line1="1 St", phone="9999999999", bill_series="ROS")
+            address_line1="1 St", phone="9999999999")
         self.led = Ledger.objects.create(ac_name="C", display_name="C", retail_code=self.retail)
         self.acc = CustomerPortalAccount.objects.create(primary_email="o@x.com")
         self.acc.linked_ledgers.add(self.led)

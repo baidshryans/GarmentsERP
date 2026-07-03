@@ -30,7 +30,6 @@ class SchemeEnrollmentCrossYearTests(TestCase):
             retail_code="R001",
             address_line1="123 St",
             phone="9999",
-            bill_series="S-R001",
         )
         self.fy_25_26 = FiscalYearMaster.objects.create(
             retail=self.retail,

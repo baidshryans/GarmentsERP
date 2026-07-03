@@ -31,7 +31,6 @@ const emptyForm = {
   gstin_master: "",
   email: "",
   phone: "",
-  bill_series: "",
   address_line1: "",
   address_line2: "",
   address_line3: "",
@@ -136,7 +135,6 @@ export default function RetailMasterPage() {
       gstin_master: row.gstin_master ?? "",
       email: row.email ?? "",
       phone: row.phone ?? "",
-      bill_series: row.bill_series ?? "",
       address_line1: row.address_line1 ?? "",
       address_line2: row.address_line2 ?? "",
       address_line3: row.address_line3 ?? "",
@@ -195,7 +193,6 @@ export default function RetailMasterPage() {
     { header: "Phone", accessorKey: "phone" },
     { header: "City", accessorKey: "city" },
     { header: "State", accessorKey: "state_name" },
-    { header: "Bill Series", accessorKey: "bill_series" },
     {
       header: "Branch",
       cell: ({ row }) => row.original.branch_name
@@ -292,18 +289,6 @@ export default function RetailMasterPage() {
                   placeholder="10-digit number"
                   className="h-9 text-sm"
                   maxLength={15}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">Bill Series *</Label>
-                <Input
-                  name="bill_series"
-                  value={form.bill_series}
-                  onChange={handleChange}
-                  placeholder="e.g. SV"
-                  className="h-9 text-sm"
-                  maxLength={20}
                   required
                 />
               </div>

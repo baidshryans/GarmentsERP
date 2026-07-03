@@ -10,7 +10,7 @@ from goldscheme.models import CustomerPortalCredential
 class PortalAccountTest(TestCase):
     def setUp(self):
         self.retail = RetailMaster.objects.create(retail_name="R", retail_code="R1",
-            address_line1="1 St", phone="9999999999", bill_series="B1S")
+            address_line1="1 St", phone="9999999999")
         self.l1 = Ledger.objects.create(ac_name="Cust A", display_name="Cust A",
             retail_code=self.retail)
         self.l2 = Ledger.objects.create(ac_name="Cust A2", display_name="Cust A2",
@@ -32,7 +32,7 @@ class PortalAccountTest(TestCase):
 class PortalTokenAccountTest(TestCase):
     def test_token_references_account(self):
         retail = RetailMaster.objects.create(retail_name="R", retail_code="RT",
-            address_line1="1 St", phone="9999999999", bill_series="RTS")
+            address_line1="1 St", phone="9999999999")
         acc = CustomerPortalAccount.objects.create(primary_email="t@x.com")
         tok = CustomerPortalToken.objects.create(account=acc, retail=retail)
         self.assertEqual(tok.account_id, acc.id)
@@ -42,7 +42,7 @@ class PortalTokenAccountTest(TestCase):
 class SeedPortalAccountsTest(TestCase):
     def test_creates_account_and_links_ledgers_by_mobile(self):
         retail = RetailMaster.objects.create(retail_name="R", retail_code="RS",
-            address_line1="1 St", phone="9999999999", bill_series="RSS")
+            address_line1="1 St", phone="9999999999")
         led = Ledger.objects.create(ac_name="C", display_name="C", retail_code=retail,
             mobile1="9998887777", email="c@x.com")
         CustomerPortalCredential.objects.create(ledger=led, password_hash="x", is_active=True)
@@ -56,7 +56,7 @@ from goldscheme.portal_auth import portal_ledgers
 class PortalLedgersHelperTest(TestCase):
     def test_returns_account_linked_ledgers(self):
         retail = RetailMaster.objects.create(retail_name="R", retail_code="RL",
-            address_line1="1 St", phone="9999999999", bill_series="RLS")
+            address_line1="1 St", phone="9999999999")
         acc = CustomerPortalAccount.objects.create(primary_email="p@x.com")
         led = Ledger.objects.create(ac_name="C", display_name="C", retail_code=retail)
         acc.linked_ledgers.add(led)

@@ -1491,13 +1491,8 @@ class MySQLSyncView(APIView):
                 if not rt_code:
                     continue
 
-                # bill_series is unique — fall back to rt_code if taken elsewhere
-                bill_series = ((row.get('bill_series') or '').strip() or rt_code)[:20]
-                if RetailMaster.objects.filter(bill_series=bill_series).exclude(retail_code=rt_code).exists():
-                    bill_series = rt_code[:20]
                 defaults = {
                     'retail_name': (row.get('rt_nm') or '').strip() or rt_code,
-                    'bill_series': bill_series,
                 }
                 addr = (row.get('rt_add') or '').strip()
                 if addr:

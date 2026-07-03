@@ -304,7 +304,7 @@ class Command(BaseCommand):
             # FY is company-global; the current FY is the same for every retail.
             fy = FiscalYearMaster.objects.filter(
                 fy_start__lte=cutoff, fy_end__gte=cutoff
-            ).first()
+            ).order_by('-fy_start').first()
             if not fy:
                 raise CommandError(
                     f"No fiscal year covers cutoff date {cutoff} for retail {retail.retail_code}. "
@@ -504,7 +504,6 @@ class Command(BaseCommand):
         """Copy existing FYs as hard-closed, create one company-wide next-year FY."""
         from mastersconfig.models import FiscalYearMaster
         db = 'carry_forward_target'
-        new_fy_codes = {}  # retail_pk → fy_code
 
         # Copy ALL existing FiscalYearMaster rows (hard-close them)
         all_fys = list(FiscalYearMaster.objects.using('default').all())
@@ -588,7 +587,7 @@ class Command(BaseCommand):
             # Find the FY covering the cutoff in the OLD DB
             fy = FiscalYearMaster.objects.using('default').filter(
                 fy_start__lte=cutoff, fy_end__gte=cutoff
-            ).first()
+            ).order_by('-fy_start').first()
             if not fy:
                 continue
 

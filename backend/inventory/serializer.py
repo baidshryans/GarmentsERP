@@ -1,4 +1,4 @@
-﻿from purchase.models import PurchaseVoucher, PurchaseVoucherItems
+from purchase.models import PurchaseVoucher, PurchaseVoucherItems
 from rest_framework import serializers
 
 from mastersconfig.models import Packet

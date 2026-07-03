@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from accounting.models import VoucherMain
 from contacts.models import Ledger
 from goldrates.models import PurityMaster

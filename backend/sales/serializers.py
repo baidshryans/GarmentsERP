@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from decimal import Decimal
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers

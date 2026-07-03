@@ -1,4 +1,4 @@
-﻿"""
+"""
 Link barcodes to their Design.
 
 A design's identity is **(item, design_no)** â€” company-global, NOT scoped by

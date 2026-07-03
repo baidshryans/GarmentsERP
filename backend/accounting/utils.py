@@ -1,4 +1,4 @@
-﻿import re
+import re
 from decimal import Decimal
 
 from django.db import transaction

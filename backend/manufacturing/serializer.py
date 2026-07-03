@@ -1,4 +1,4 @@
-﻿from rest_framework.serializers import ModelSerializer
+from rest_framework.serializers import ModelSerializer
 from rest_framework.exceptions import ValidationError as _LedgerConfigError
 
 def _raise_missing_ledger(label):

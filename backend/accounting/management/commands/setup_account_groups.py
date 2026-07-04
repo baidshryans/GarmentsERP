@@ -140,12 +140,25 @@ class Command(BaseCommand):
         # then delete the obsolete group.
         valid_codes = {code for code, _, _ in ACCOUNT_TREE}
         removed_count = 0
+        skipped_count = 0
         for acc in list(Account.objects.exclude(code__in=valid_codes)):
             from contacts.models import Ledger
-            # Re-point ledgers to the closest ancestor still in the tree
+            # Find the closest ancestor still in the standard tree.
             ancestor = acc.parent
             while ancestor is not None and ancestor.code not in valid_codes:
                 ancestor = ancestor.parent
+            has_ledgers = Ledger.objects.filter(ac_group=acc).exists()
+            has_children = Account.objects.filter(parent=acc).exists()
+            if ancestor is None and (has_ledgers or has_children):
+                # Refuse to orphan: with no valid ancestor to re-home ledgers or
+                # child groups to, leave this group intact rather than detaching
+                # its contents to ac_group=None / parent=None.
+                skipped_count += 1
+                self.stdout.write(self.style.WARNING(
+                    f"  Skipped '{acc.code}' - {acc.name}: has ledgers/children but no "
+                    f"valid ancestor to re-home them (would orphan). Left intact."
+                ))
+                continue
             moved = Ledger.objects.filter(ac_group=acc).update(ac_group=ancestor)
             # Re-point child account groups to the same ancestor
             Account.objects.filter(parent=acc).update(parent=ancestor)
@@ -160,6 +173,6 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS(
             f"Done. Created {created_count}, already existed {existing_count}, "
-            f"removed {removed_count}. "
+            f"removed {removed_count}, skipped {skipped_count}. "
             f"Total account groups: {Account.objects.count()}"
         ))

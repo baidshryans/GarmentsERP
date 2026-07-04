@@ -165,7 +165,7 @@ def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
 
     # ── Direct Expenses (excluding Purchase Account) ────────────────────────
     try:
-        dir_exp_root = Account.objects.get(name='Direct Expenses')
+        dir_exp_root = Account.objects.get(code='EXP-DIR')
         dir_exp_children = get_all_descendants(dir_exp_root)
         dir_exp_children_filtered = [c for c in [dir_exp_root] + dir_exp_children if c.id not in pur_exclude_ids]
         dir_ldgrs = Ledger.objects.filter(ac_group__in=dir_exp_children_filtered)
@@ -190,7 +190,7 @@ def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
 
     # ── Indirect Expenses ─────────────────────────────────────────────────────
     try:
-        ind_exp_root = Account.objects.get(name='Indirect Expenses')
+        ind_exp_root = Account.objects.get(code='EXP-IND')
         ind_exp_children = get_all_descendants(ind_exp_root)
         ind_ldgrs = Ledger.objects.filter(ac_group__in=[ind_exp_root] + ind_exp_children)
 
@@ -228,7 +228,7 @@ def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
         "indirect_expenses_total": indirect_expenses_total,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
-        "income": get_accounts_tree('Income', retail_ids=retail_ids, start_date=start_date, end_date=end_date),
+        "income": get_accounts_tree('INC', retail_ids=retail_ids, start_date=start_date, end_date=end_date),
         # Purchase account tree (EXP-DIR-PUR) — shown interactively in COGS section.
         # Wrap pur_group itself as the top-level item so it always appears even when
         # EXP-DIR-PUR has no child Account groups (only Ledgers directly beneath it).
@@ -240,13 +240,13 @@ def calcuate_pnl(start_date, end_date, retail=None, retail_ids=None):
         }] if pur_group_name else [],
         # Direct Expenses tree excluding Purchase Account (already in COGS)
         "direct_expenses": get_accounts_tree(
-            'Direct Expenses', retail_ids=retail_ids,
+            'EXP-DIR', retail_ids=retail_ids,
             start_date=start_date, end_date=end_date,
             exclude_codes=['EXP-DIR-PUR'],
         ),
         # Indirect Expenses tree
         "indirect_expenses": get_accounts_tree(
-            'Indirect Expenses', retail_ids=retail_ids,
+            'EXP-IND', retail_ids=retail_ids,
             start_date=start_date, end_date=end_date,
         ),
     }
@@ -785,7 +785,14 @@ def get_accounts_tree(root=None, retail=None, start_date=None, end_date=None, ex
             Use for income trees so gross sales show even when fully offset by returns.
     """
     all_accounts = list(Account.objects.all())
-    root_account = next((a for a in all_accounts if a.name == root), None)
+    # Resolve by unique code first, falling back to name. Several account
+    # groups share a display name (e.g. legacy migrated 'Direct Expenses',
+    # 'Income') but always have distinct codes, so code-first resolution keeps
+    # this deterministic.
+    root_account = (
+        next((a for a in all_accounts if a.code == root), None)
+        or next((a for a in all_accounts if a.name == root), None)
+    )
     if not root_account:
         return []
 

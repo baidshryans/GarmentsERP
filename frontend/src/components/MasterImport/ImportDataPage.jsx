@@ -33,6 +33,8 @@ const TABLES = [
 const SYNC_MASTER_TABLES = [
   ...TABLES.map(({ key, label }) => ({ key, label })),
   { key: "ledger", label: "Ledger Master" },
+  { key: "company", label: "Company" },
+  { key: "branch", label: "Branch" },
   { key: "retail", label: "Retail Master" },
 ];
 
@@ -385,7 +387,7 @@ function OpeningStockUploadCard() {
 
 const EMPTY_CONN = { host: "", port: "3306", database: "", user: "", password: "" };
 
-function MySQLSyncCard() {
+export function MySQLSyncCard() {
   const [conn, setConn] = useState(EMPTY_CONN);
   const [showPwd, setShowPwd] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);

@@ -556,12 +556,18 @@ class LedgerStatementView(APIView):
         # + transactions within that FY before from_date (not all history).
         from mastersconfig.models import FiscalYearMaster
         fy = FiscalYearMaster.objects.filter(
-            retail=request.retail,
             fy_start__lte=from_date,
             fy_end__gte=from_date,
         ).first()
 
-        ob_filter = dict(ldgr=ledger, retail=request.retail)
+        # NOTE: A Ledger is a single company-global account (one row per party /
+        # bank, shared across all retails). Transactions are tagged to a retail
+        # only via voucher_main.retail. The ledger statement must show the
+        # ledger's activity across ALL retails so the party/bank balance is not
+        # mismatched — e.g. a bank ledger "owned" by R001 but paid into from R002,
+        # or a customer who buys from several retails. So we deliberately do NOT
+        # scope any of the balance/transaction queries below to request.retail.
+        ob_filter = dict(ldgr=ledger)
         if fy:
             ob_filter['acc_year'] = fy.fy_code
         ob = LedgerOpenBalance.objects.filter(**ob_filter).aggregate(
@@ -573,7 +579,6 @@ class LedgerStatementView(APIView):
         before_filter = dict(
             account=ledger,
             voucher_main__date__lt=from_date,
-            voucher_main__retail=request.retail,
         )
         if fy:
             before_filter['voucher_main__date__gte'] = fy.fy_start
@@ -590,7 +595,6 @@ class LedgerStatementView(APIView):
         txns = VoucherDetail.objects.filter(
             account=ledger,
             voucher_main__date__range=(from_date, to_date),
-            voucher_main__retail=request.retail
         ).select_related('voucher_main').order_by(
             'voucher_main__date', 'voucher_main__id'
         ).values(

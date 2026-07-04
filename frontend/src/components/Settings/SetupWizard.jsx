@@ -38,7 +38,10 @@ import {
   syncUserRetails,
   getRetails,
   seedHRLedgers,
+  seedSystemLedgers,
 } from "@/services/apiService";
+import ModeChooser from "./ModeChooser";
+import { MySQLSyncCard } from "@/components/MasterImport/ImportDataPage";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Step definitions
@@ -52,6 +55,16 @@ const STEPS = [
   { key: "tds",      label: "TDS & TCS",       description: "Seed tax deduction sections and ledgers" },
   { key: "fiscal",   label: "Fiscal Year",     description: "Create and activate a fiscal year" },
   { key: "review",   label: "Review & Finish", description: "Verify setup and start using the ERP" },
+];
+
+// Reduced flow for "migrate from existing ERP": baseline seed + old-DB import,
+// then only GSTIN and Fiscal Year are entered manually.
+const MIGRATE_STEPS = [
+  { key: "migrate_seed", label: "Seed Baseline",  description: "Auto-create account groups, ledgers and TDS/TCS" },
+  { key: "import",       label: "Import Old ERP",  description: "Sync company, branches, retails and masters" },
+  { key: "gstin",        label: "GSTIN",           description: "Register the GSTIN that owns GST ledgers" },
+  { key: "fiscal",       label: "Fiscal Year",     description: "Create and activate a fiscal year" },
+  { key: "review",       label: "Review",          description: "Confirm and finish" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -161,6 +174,12 @@ export default function SetupWizard() {
   const { toast } = useToast();
 
   const [current, setCurrent] = useState(0);
+  const [mode, setMode] = useState(() => sessionStorage.getItem("erpSetupMode") || null);
+  const selectMode = (m) => {
+    sessionStorage.setItem("erpSetupMode", m);
+    setCurrent(0);
+    setMode(m);
+  };
   const [completed, setCompleted] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -243,7 +262,7 @@ export default function SetupWizard() {
         if (prereqs.every((k) => done.has(k))) done.add("review");
         setCompleted(done);
         // Jump to first incomplete step
-        const idx = STEPS.findIndex((s) => !done.has(s.key));
+        const idx = (mode === "migrate" ? MIGRATE_STEPS : STEPS).findIndex((s) => !done.has(s.key));
         if (idx >= 0) setCurrent(idx);
       }
       setLoading(false);
@@ -251,12 +270,29 @@ export default function SetupWizard() {
   }, []);
 
   const markDone = (key) => setCompleted((prev) => new Set(prev).add(key));
-  const next = () => setCurrent((c) => Math.min(c + 1, STEPS.length - 1));
+  const next = () => setCurrent((c) => Math.min(c + 1, activeSteps.length - 1));
   const prev = () => setCurrent((c) => Math.max(c - 1, 0));
 
   const refreshStatus = async () => {
     const res = await getSetupStatus();
     if (res.success) setSetupStatus(res.data);
+  };
+
+  // ─── Migrate: Seed Baseline (groups + system ledgers + TDS/TCS) ─────────
+  const handleSeedBaseline = async () => {
+    setBusy(true);
+    try {
+      await seedAccountGroups();
+      await seedSystemLedgers();
+      await seedTdsTcs();
+      await refreshStatus();
+      markDone("migrate_seed");
+      toast({ title: "Baseline account groups, ledgers and TDS/TCS seeded" });
+    } catch (e) {
+      toast({ title: "Seeding failed", description: String(e), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   };
 
   // ─── Step: Seed Account Groups ──────────────────────────────────────────
@@ -282,7 +318,7 @@ export default function SetupWizard() {
   };
 
   useEffect(() => {
-    const stepKey = STEPS[current]?.key;
+    const stepKey = (mode === "migrate" ? MIGRATE_STEPS : STEPS)[current]?.key;
     // Fallback: if states weren't loaded from setup_status, fetch them directly.
     // StateListView is AllowAny + no pagination, so r.data is a plain array.
     if (states.length === 0 && ["company", "branch", "gstin", "retail"].includes(stepKey)) {
@@ -512,12 +548,22 @@ export default function SetupWizard() {
     );
   }
 
-  const step = STEPS[current];
+  const activeSteps = mode === "migrate" ? MIGRATE_STEPS : STEPS;
+  const step = activeSteps[current];
+
+  // First-run: ask new-vs-migrate, unless an install already has a company.
+  if (!mode && !setupStatus?.company_created) {
+    return (
+      <div className="p-6">
+        <ModeChooser onSelect={selectMode} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-5">
       {/* Step indicator */}
-      <StepIndicator steps={STEPS} current={current} completed={completed} />
+      <StepIndicator steps={activeSteps} current={current} completed={completed} />
 
       {/* Step content card */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm min-h-[400px] flex flex-col">
@@ -527,6 +573,37 @@ export default function SetupWizard() {
         </div>
 
         <div className="flex-1">
+          {/* ── Migrate: Seed Baseline ──────────────────────────── */}
+          {step.key === "migrate_seed" && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                We'll create the standard account groups, system ledgers and TDS/TCS
+                sections. This is safe to run more than once.
+              </p>
+              {completed.has("migrate_seed") ? (
+                <div className="text-sm text-green-700 bg-green-50 rounded-md px-3 py-2">
+                  Baseline seeded. Click Next to import from your old ERP.
+                </div>
+              ) : (
+                <Button onClick={handleSeedBaseline} disabled={busy}
+                        className="self-start bg-primary hover:bg-primary text-white">
+                  Seed baseline data
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* ── Migrate: Import Old ERP ──────────────────────────── */}
+          {step.key === "import" && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">
+                Connect your old ERP's MySQL database and sync master data. Company,
+                Branch and Retail are selected by default. Run the sync, then click Next.
+              </p>
+              <MySQLSyncCard />
+            </div>
+          )}
+
           {/* ── Step: Company ───────────────────────────────────── */}
           {step.key === "company" && (
             <div className="flex flex-col gap-4">
@@ -957,7 +1034,7 @@ export default function SetupWizard() {
                 Review the setup status below. You can go back to any step to complete or re-run it.
               </p>
               <div className="rounded-lg border border-border divide-y">
-                {STEPS.filter((s) => s.key !== "review").map((s) => (
+                {activeSteps.filter((s) => s.key !== "review").map((s) => (
                   <div key={s.key} className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       {completed.has(s.key) ? (
@@ -1010,7 +1087,7 @@ export default function SetupWizard() {
           <Button variant="outline" size="sm" onClick={prev} disabled={current === 0}>
             <ArrowLeft className="size-3.5 mr-1" /> Previous
           </Button>
-          <Button variant="outline" size="sm" onClick={next} disabled={current === STEPS.length - 1}>
+          <Button variant="outline" size="sm" onClick={next} disabled={current === activeSteps.length - 1}>
             Next <ArrowRight className="size-3.5 ml-1" />
           </Button>
         </div>

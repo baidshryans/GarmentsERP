@@ -1,6 +1,6 @@
 from django.test import TestCase
 from mastersconfig.views import MySQLSyncView
-from mastersconfig.models import CompanyMaster, State
+from mastersconfig.models import CompanyMaster, State, BranchMaster
 
 
 class FakeCursor:
@@ -52,5 +52,45 @@ class SyncCompanyTests(TestCase):
     def test_missing_table_soft_errors(self):
         cur = FakeCursor({})
         result = self.view._sync_company(cur)
+        self.assertEqual(result["created"], 0)
+        self.assertTrue(result["errors"])
+
+
+class SyncBranchTests(TestCase):
+    def setUp(self):
+        self.view = MySQLSyncView()
+
+    def _company_rows(self):
+        return [{"comp_code": 1, "name": "Acme Jewels"}]
+
+    def test_creates_branch_linked_to_company(self):
+        cur = FakeCursor({
+            "COMPANY": self._company_rows(),
+            "branch_master": [{
+                "brid": 1, "br_nm": "Kolkata", "br_code": "B001",
+                "br_add": "12 MG Road", "cont_per": "A Sharma", "br_ph": "12345678",
+                "comp_code": 1,
+            }],
+        })
+        self.view._sync_company(cur)
+        result = self.view._sync_branch(cur)
+        self.assertEqual(result["created"], 1)
+        b = BranchMaster.objects.get(branch_code="B001")
+        self.assertEqual(b.branch_name, "Kolkata")
+        self.assertEqual(b.company.company_name, "Acme Jewels")
+        self.assertIn("A Sharma", b.description)
+
+    def test_falls_back_to_sole_company(self):
+        CompanyMaster.objects.create(company_name="Only Co")
+        cur = FakeCursor({
+            "COMPANY": [],
+            "branch_master": [{"brid": 1, "br_nm": "HO", "br_code": "B001", "comp_code": 99}],
+        })
+        result = self.view._sync_branch(cur)
+        self.assertEqual(result["created"], 1)
+        self.assertEqual(BranchMaster.objects.get(branch_code="B001").company.company_name, "Only Co")
+
+    def test_missing_table_soft_errors(self):
+        result = self.view._sync_branch(FakeCursor({}))
         self.assertEqual(result["created"], 0)
         self.assertTrue(result["errors"])

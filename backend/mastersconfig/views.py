@@ -1520,6 +1520,76 @@ class MySQLSyncView(APIView):
                 errors.append(str(e))
         return {'created': created, 'updated': updated, 'errors': errors}
 
+    def _sync_branch(self, cursor):
+        """Sync legacy branch_master -> BranchMaster, matched by branch_code.
+        Company is resolved via comp_code -> COMPANY.name -> CompanyMaster;
+        falls back to the sole CompanyMaster when only one exists."""
+        from .models import CompanyMaster, BranchMaster
+
+        def _s(v):
+            return '' if v is None else str(v).strip()
+
+        def _sid(v):
+            s = _s(v)
+            try:
+                return str(int(float(s))) if s else ''
+            except (ValueError, TypeError):
+                return ''
+
+        # comp_code -> CompanyMaster (via old COMPANY.name)
+        comp_by_code = {}
+        try:
+            cursor.execute("SELECT * FROM COMPANY")
+            for r in cursor.fetchall():
+                code = _sid(r.get('comp_code'))
+                name = _s(r.get('name'))
+                if code and name:
+                    c = CompanyMaster.objects.filter(company_name__iexact=name).first()
+                    if c:
+                        comp_by_code[code] = c
+        except Exception:
+            pass
+        sole_company = None
+        if CompanyMaster.objects.count() == 1:
+            sole_company = CompanyMaster.objects.first()
+
+        try:
+            cursor.execute("SELECT * FROM branch_master")
+        except Exception:
+            return {'created': 0, 'updated': 0, 'errors': ['branch_master table not found']}
+        rows = cursor.fetchall()
+
+        created = updated = 0
+        errors = []
+        for row in rows:
+            try:
+                br_code = _s(row.get('br_code'))
+                if not br_code:
+                    continue
+                defaults = {'branch_name': _s(row.get('br_nm')) or br_code}
+                bits = [
+                    _s(row.get('br_add')),
+                    (f"Contact: {_s(row.get('cont_per'))}" if _s(row.get('cont_per')) else ''),
+                    (f"Phone: {_s(row.get('br_ph'))}" if _s(row.get('br_ph')) else ''),
+                ]
+                desc = '\n'.join(b for b in bits if b)
+                if desc:
+                    defaults['description'] = desc
+                company = comp_by_code.get(_sid(row.get('comp_code'))) or sole_company
+                if company is not None:
+                    defaults['company'] = company
+
+                _, flag = BranchMaster.objects.update_or_create(
+                    branch_code=br_code, defaults=defaults,
+                )
+                if flag:
+                    created += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                errors.append(str(e))
+        return {'created': created, 'updated': updated, 'errors': errors}
+
     def _sync_retail(self, cursor):
         """Sync legacy retail_master -> RetailMaster, matched by retail_code.
         Only scalar fields are written; existing FK links (gstin_master, branch,

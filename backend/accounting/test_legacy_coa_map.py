@@ -23,6 +23,11 @@ class LegacyCoaMapTests(TestCase):
         bad = [c for c in LEGACY_TO_STANDARD.values() if is_legacy_code(c)]
         self.assertEqual(bad, [])
 
+    def test_every_key_is_a_legacy_code(self):
+        # Symmetry check: catches a mistyped key (e.g. "GN-13") slipping in.
+        bad = sorted(k for k in LEGACY_TO_STANDARD if not is_legacy_code(k))
+        self.assertEqual(bad, [], f"Non-legacy keys present: {bad}")
+
     def test_resolve_returns_standard_account(self):
         acc = resolve_standard_group("GM-13")
         self.assertIsNotNone(acc)

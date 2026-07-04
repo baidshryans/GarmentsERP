@@ -248,7 +248,7 @@ DATABASES = {
 # Cache — FileBasedCache in dev (shared across processes, survives restarts);
 # Redis in production.  Set CACHE_BACKEND=redis in .env and supply REDIS_URL.
 # ---------------------------------------------------------------------------
-_CACHE_BACKEND = config('CACHE_BACKEND', default='file')
+_CACHE_BACKEND = config('CACHE_BACKEND', default='locmem')
 
 if _CACHE_BACKEND == 'redis':
     CACHES = {
@@ -265,11 +265,27 @@ if _CACHE_BACKEND == 'redis':
     }
     SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
     SESSION_CACHE_ALIAS = 'default'
-else:
+elif _CACHE_BACKEND == 'file':
+    # NOTE: Django's FileBasedCache is broken on Windows — when it reads an
+    # expired entry it tries to os.remove() the file while its handle is still
+    # open, raising PermissionError [WinError 5]. Avoid on Windows; prefer
+    # 'locmem' (default) or 'redis'.
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
             'LOCATION': str(BASE_DIR / '.cache'),
+            'TIMEOUT': 300,
+            'OPTIONS': {'MAX_ENTRIES': 2000},
+        }
+    }
+else:
+    # In-process cache — no disk, no file locks. Ideal for the short-TTL
+    # memoization the app does (retail lookups, user-access checks) on a
+    # single-process dev/small deployment.
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'jewel-locmem',
             'TIMEOUT': 300,
             'OPTIONS': {'MAX_ENTRIES': 2000},
         }

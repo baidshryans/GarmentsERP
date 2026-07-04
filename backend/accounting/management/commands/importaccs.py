@@ -15,8 +15,6 @@ class Command(BaseCommand):
         # Optional flag to continue on errors
         parser.add_argument('--continue-on-error', action='store_true', 
                            help='Continue processing even when individual rows have errors')
-        parser.add_argument('--skip-existing', action='store_true',
-                           help='Skip records that would cause duplicate key errors')
         parser.add_argument('--base-path', default=None,
                            help='Directory holding the *_master.csv files (default: settings.BASE_DIR).')
 
@@ -24,7 +22,6 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         base_path = kwargs.get('base_path') or settings.BASE_DIR
         continue_on_error = kwargs.get('continue_on_error', False)
-        skip_existing = kwargs.get('skip_existing', False)
         # Legacy groups (MG-*/GM-*/SG-*) are resolved to the canonical standard
         # tree via legacy_coa_map; codes without a mapping are collected here and
         # reported at the end so the map can be extended before the next sync.
@@ -81,7 +78,7 @@ class Command(BaseCommand):
                         self.stderr.write(self.style.WARNING(f"⚠️ Invalid row in group_master.csv: {row}"))
                         continue
                         
-                    pk, name, mn_grp = row[0], row[1], row[2]
+                    pk, name = row[0], row[1]
                     legacy_code = f"GM-{pk}"
                     account = resolve_standard_group(legacy_code)
                     if account is None:
@@ -109,7 +106,7 @@ class Command(BaseCommand):
                         self.stderr.write(self.style.WARNING(f"⚠️ Invalid row in subgroup_master.csv: {row}"))
                         continue
                         
-                    pk, name, grp = row[0], row[1], row[2]
+                    pk, name = row[0], row[1]
                     legacy_code = f"SG-{pk}"
                     account = resolve_standard_group(legacy_code)
                     if account is None:

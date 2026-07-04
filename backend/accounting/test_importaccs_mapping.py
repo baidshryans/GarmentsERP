@@ -46,3 +46,38 @@ class ImportaccsMappingTests(TestCase):
         # No legacy Account rows were created.
         self.assertFalse(Account.objects.filter(code="GM-13").exists())
         self.assertFalse(Account.objects.filter(code="MG-3").exists())
+
+    def test_subgroup_maps_independently_of_csv_parent(self):
+        # 3-level gr_code "3-13-2": subgroup id 2 -> SG-2 -> CA-BNK. The subgroup
+        # maps by its own code regardless of its CSV parent group (id 13).
+        self._write("main_group.csv", [["id", "name"], ["3", "Income"]])
+        self._write("group_master.csv", [["id", "name", "mn_grp"], ["13", "Sales Account", "3"]])
+        self._write("subgroup_master.csv", [
+            ["id", "name", "grp", "mn_grp", "edit_delit"],
+            ["2", "Bank Accounts", "13", "3", "N"],
+        ])
+        self._write("ledger_master.csv", [
+            ["id", "ac_name", "gr_code", "mobile1", "ledger_type"],
+            ["900101", "HDFC Bank", "3-13-2", "", ""],
+        ])
+        call_command("importaccs", base_path=self.dir,
+                     stdout=io.StringIO(), stderr=io.StringIO())
+        led = Ledger.objects.get(id=900101)
+        self.assertEqual(led.ac_group.code, "CA-BNK")
+        self.assertFalse(Account.objects.filter(code="SG-2").exists())
+
+    def test_unmapped_legacy_code_leaves_ledger_ungrouped(self):
+        # GM-999 has no entry in LEGACY_TO_STANDARD: the group is skipped, the
+        # ledger imports with ac_group=None, and no GM-999 row is created.
+        self._write("main_group.csv", [["id", "name"], ["3", "Income"]])
+        self._write("group_master.csv", [["id", "name", "mn_grp"], ["999", "Mystery", "3"]])
+        self._write("subgroup_master.csv", [["id", "name", "grp", "mn_grp", "edit_delit"]])
+        self._write("ledger_master.csv", [
+            ["id", "ac_name", "gr_code", "mobile1", "ledger_type"],
+            ["900102", "Mystery Ledger", "3-999", "", ""],
+        ])
+        call_command("importaccs", base_path=self.dir,
+                     stdout=io.StringIO(), stderr=io.StringIO())
+        led = Ledger.objects.get(id=900102)
+        self.assertIsNone(led.ac_group_id)
+        self.assertFalse(Account.objects.filter(code="GM-999").exists())

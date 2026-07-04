@@ -1187,16 +1187,27 @@ class MySQLSyncView(APIView):
         import re as _re
 
         # Ensure the canonical system ledgers exist before matching, so legacy
-        # ledgers fold onto them instead of duplicating. Idempotent + best-effort
-        # (this runs before _sync_retail, so TDS per-retail ledger creation may be
-        # skipped when no retail exists yet; onboarding seeds are the primary path).
+        # ledgers fold onto them instead of duplicating. The seed commands are
+        # idempotent but iterate retails×sections, so skip the work once seeds are
+        # clearly present (the common case after the first run). Best-effort — a
+        # seed failure is logged but never blocks the sync (this runs before
+        # _sync_retail, so on a brand-new company's first pass TDS ledgers may not
+        # yet exist; onboarding seeds are the primary path).
         from django.core.management import call_command
+        from mastersconfig.models import TDSSectionMaster
         import io as _io
-        for _cmd in ("seed_system_ledgers", "setup_tds_initial_data", "seed_hr_ledgers"):
-            try:
-                call_command(_cmd, stdout=_io.StringIO(), stderr=_io.StringIO())
-            except Exception:
-                pass
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _seeds_present = (
+            Ledger.objects.filter(is_system=True).exists()
+            and TDSSectionMaster.objects.filter(section_code="195").exists()
+        )
+        if not _seeds_present:
+            for _cmd in ("seed_system_ledgers", "setup_tds_initial_data", "seed_hr_ledgers"):
+                try:
+                    call_command(_cmd, stdout=_io.StringIO(), stderr=_io.StringIO())
+                except Exception as _exc:
+                    _logger.warning("seed-ensure %s failed: %s", _cmd, _exc)
 
         def _norm(name):
             """Normalize a ledger name for matching: lowercase, collapse spaces."""

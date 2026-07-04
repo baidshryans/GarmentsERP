@@ -41,6 +41,8 @@ def parse_tds_tcs_section(legacy_name):
         return None
     tok = m.group(1)
     if kind == "TCS":
+        # Only one TCS section (206C1H) is seeded today, so all 206* codes collapse
+        # onto it. Revisit this if more 206-series subsections are added.
         section = "206C1H" if tok.startswith("206") else tok
     else:
         section = "1" + tok if re.match(r"^9\d", tok) else tok

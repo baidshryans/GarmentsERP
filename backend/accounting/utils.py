@@ -2,9 +2,9 @@ import re
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum, F
+from django.db.models import Sum, F, DecimalField
 
-from inventory.models import RawMaterialInventory, UnBarcodedDetails, BarcodeDetails
+from inventory.models import OpeningInventory
 from mastersconfig.models import BillNumberSequence
 from .models import *
 from purchase.models import *
@@ -304,66 +304,32 @@ def generate_next_cg_no(retail, fiscal_year=None):
 
 def calculate_opening_stock(retail=None, retail_ids=None):
     """
-    Calculate opening stock value from physical inventory.
+    Opening stock value — sourced exclusively from OpeningInventory (the Opening
+    Stock entry screen at /inventory/opening-stock), the same authoritative source
+    the closing-stock report uses.
 
-    Sources:
-      - BarcodeMain (op_stk=True), filtered by op_retail if retail given
-      - UnBarcodedMain (op_stk=True), filtered by retail if retail given
-      - RawMaterialInventory, filtered by retail if retail given
-
-    Each item is valued at its weighted average rate (op_wtd_avg_rate / op_stock_wtd_avg_rate).
+    Value per row = wtd_avg_rate × primary_qty, where primary_qty is gw for metal
+    items (item_type M/R) and ct for stone items (item_type S). Summed across the
+    given retail scope (all retails when retail_ids is None).
     """
-    total_opening_stock_value = Decimal(0)
-
     # Normalise: retail_ids (list) takes precedence over the legacy single retail kw.
     if retail_ids is None and retail is not None:
         rid = retail.id if hasattr(retail, 'id') else retail
         retail_ids = [rid]
 
-    # Barcoded Stock Value (op_stk=True)
-    bar_filter = {'barcode__op_stk': True}
+    qs = OpeningInventory.objects.all()
     if retail_ids:
-        bar_filter['barcode__op_retail_id__in'] = retail_ids
-    barcoded_stock = BarcodeDetails.objects.filter(**bar_filter).annotate(
-        item_rate=F('item__op_wtd_avg_rate'),
-        packet_rate=F('packet__op_stock_wtd_avg_rate')
-    ).aggregate(
-        total_gold_value=Sum(F('gw') * F('item_rate'), output_field=models.DecimalField()),
-        total_stone_value=Sum(F('ct') * F('packet_rate'), output_field=models.DecimalField())
-    )
+        qs = qs.filter(retail_id__in=retail_ids)
 
-    # Unbarcoded Stock Value (op_stk=True)
-    unbar_filter = {'main_item__op_stk': True}
-    if retail_ids:
-        unbar_filter['main_item__retail_id__in'] = retail_ids
-    unbarcoded_stock = UnBarcodedDetails.objects.filter(**unbar_filter).annotate(
-        item_rate=F('item__op_wtd_avg_rate'),
-        packet_rate=F('packet__op_stock_wtd_avg_rate')
-    ).aggregate(
-        total_gold_value=Sum(F('gw') * F('item_rate'), output_field=models.DecimalField()),
-        total_stone_value=Sum(F('ct') * F('packet_rate'), output_field=models.DecimalField())
-    )
+    # Metal items (gold/raw): value on gross weight. Stone items: value on carats.
+    metal_value = qs.filter(item__item_type__in=['M', 'R']).aggregate(
+        v=Sum(F('gw') * F('wtd_avg_rate'), output_field=DecimalField())
+    )['v'] or Decimal(0)
+    stone_value = qs.filter(item__item_type='S').aggregate(
+        v=Sum(F('ct') * F('wtd_avg_rate'), output_field=DecimalField())
+    )['v'] or Decimal(0)
 
-    # Raw Material Inventory Stock Value
-    rm_filter = {}
-    if retail_ids:
-        rm_filter['retail_id__in'] = retail_ids
-    raw_material_stock = RawMaterialInventory.objects.filter(**rm_filter).annotate(
-        item_rate=F('item__op_wtd_avg_rate'),
-        packet_rate=F('packet__op_stock_wtd_avg_rate')
-    ).aggregate(
-        total_gold_value=Sum(F('gw') * F('item_rate'), output_field=models.DecimalField()),
-        total_stone_value=Sum(F('ct') * F('packet_rate'), output_field=models.DecimalField())
-    )
-
-    total_opening_stock_value += barcoded_stock['total_gold_value'] or Decimal(0)
-    total_opening_stock_value += barcoded_stock['total_stone_value'] or Decimal(0)
-    total_opening_stock_value += unbarcoded_stock['total_gold_value'] or Decimal(0)
-    total_opening_stock_value += unbarcoded_stock['total_stone_value'] or Decimal(0)
-    total_opening_stock_value += raw_material_stock['total_gold_value'] or Decimal(0)
-    total_opening_stock_value += raw_material_stock['total_stone_value'] or Decimal(0)
-
-    return total_opening_stock_value
+    return metal_value + stone_value
 
 
 def get_customer_cash_received(retail, fiscal_year, customer_ledger):

@@ -172,7 +172,7 @@ export default function SetupWizard() {
   const [retailForm, setRetailForm] = useState({ retail_code: "", retail_name: "", email: "", phone: "", address_line1: "", city: "", pincode: "", state: "", branch: "", gstin_master: "" });
   const [fyForm, setFyForm] = useState({ fy_code: "", fy_start: "", fy_end: "" });
   const [createdFYs, setCreatedFYs] = useState([]);
-  const [companyForm, setCompanyForm] = useState({ company_name: "", pan: "", phone: "", email: "", address: "", city: "", state: "", pincode: "" });
+  const [companyForm, setCompanyForm] = useState({ company_name: "", pan: "", cin: "", phone: "", email: "", address: "", city: "", state: "", pincode: "" });
   const [branchForm, setBranchForm] = useState({ branch_name: "", branch_code: "", state: "", description: "", company: "" });
   const [gstinForm, setGstinForm] = useState({ gstin: "", legal_name: "", branch: "", state: "" });
   const [companies, setCompanies] = useState([]);
@@ -355,6 +355,16 @@ export default function SetupWizard() {
   const handleCreateCompany = async () => {
     if (!companyForm.company_name.trim()) {
       toast({ title: "Company name is required", variant: "destructive" });
+      return;
+    }
+    // CIN format: L/U + 5 digits + state code + 4 digits + company type + 6 digits
+    const CIN_REGEX = /^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/;
+    if (!companyForm.cin.trim()) {
+      toast({ title: "CIN is required", description: "Enter the company's Corporate Identification Number.", variant: "destructive" });
+      return;
+    }
+    if (!CIN_REGEX.test(companyForm.cin.trim().toUpperCase())) {
+      toast({ title: "Invalid CIN format", description: "Expected e.g. U74999MH2011PTC123456.", variant: "destructive" });
       return;
     }
     setBusy(true);
@@ -540,6 +550,10 @@ export default function SetupWizard() {
                     <div className="flex flex-col gap-1">
                       <Label className="text-xs">PAN</Label>
                       <Input value={companyForm.pan} onChange={(e) => setCompanyForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))} className="h-9 text-sm uppercase" maxLength={10} />
+                    </div>
+                    <div className="flex flex-col gap-1 md:col-span-2">
+                      <Label className="text-xs">CIN *</Label>
+                      <Input value={companyForm.cin} onChange={(e) => setCompanyForm((f) => ({ ...f, cin: e.target.value.toUpperCase() }))} className="h-9 text-sm uppercase" maxLength={21} placeholder="Corporate Identification Number" />
                     </div>
                     <div className="flex flex-col gap-1">
                       <Label className="text-xs">Phone</Label>

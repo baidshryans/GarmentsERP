@@ -1183,7 +1183,31 @@ class MySQLSyncView(APIView):
         / ledger name. App-created system ledgers are never overwritten."""
         from contacts.models import Ledger, LedgerRole, LedgerAlias
         from accounting.models import Account
+        from accounting.legacy_ledger_map import resolve_section_ledger, EXTRA_SYNONYMS
         import re as _re
+
+        # Ensure the canonical system ledgers exist before matching, so legacy
+        # ledgers fold onto them instead of duplicating. The seed commands are
+        # idempotent but iterate retails×sections, so skip the work once seeds are
+        # clearly present (the common case after the first run). Best-effort — a
+        # seed failure is logged but never blocks the sync (this runs before
+        # _sync_retail, so on a brand-new company's first pass TDS ledgers may not
+        # yet exist; onboarding seeds are the primary path).
+        from django.core.management import call_command
+        from mastersconfig.models import TDSSectionMaster
+        import io as _io
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _seeds_present = (
+            Ledger.objects.filter(is_system=True).exists()
+            and TDSSectionMaster.objects.filter(section_code="195").exists()
+        )
+        if not _seeds_present:
+            for _cmd in ("seed_system_ledgers", "setup_tds_initial_data", "seed_hr_ledgers"):
+                try:
+                    call_command(_cmd, stdout=_io.StringIO(), stderr=_io.StringIO())
+                except Exception as _exc:
+                    _logger.warning("seed-ensure %s failed: %s", _cmd, _exc)
 
         def _norm(name):
             """Normalize a ledger name for matching: lowercase, collapse spaces."""
@@ -1291,6 +1315,12 @@ class MySQLSyncView(APIView):
             if tgt is not None:
                 system_by_name.setdefault(_legacy, tgt)
 
+        # PF/ESI and other non-section system ledgers whose legacy names differ.
+        for _legacy, _canon in EXTRA_SYNONYMS.items():
+            tgt = system_by_name.get(_norm(_canon))
+            if tgt is not None:
+                system_by_name.setdefault(_legacy, tgt)
+
         # Retail cash ledgers: explicit legacy ledger code -> that retail's
         # cash_ldgr. Legacy cash names ("Cash") don't match the Django
         # "R00x_Cash" system ledger, so these must be mapped by code.
@@ -1332,6 +1362,16 @@ class MySQLSyncView(APIView):
                 # (GST in/out, TCS, TDS, etc.) onto that ledger via an alias —
                 # don't create a duplicate. Legacy transactions referencing this
                 # code will resolve to the system ledger via resolve_ledger().
+                # Section-based TDS/TCS: legacy names (T.D.S_94C, T.C.S_206C) share
+                # no text with the seeded "TDS Payable u/s 194C", so resolve by
+                # parsed section code onto the company-global section ledger.
+                sec_ledger = resolve_section_ledger(ac_name)
+                if sec_ledger is not None:
+                    LedgerAlias.objects.update_or_create(
+                        legacy_code=str(lid), defaults={'ledger': sec_ledger})
+                    aliased += 1
+                    continue
+
                 sys_ledger = system_by_name.get(_norm(ac_name))
                 if sys_ledger is not None:
                     LedgerAlias.objects.update_or_create(

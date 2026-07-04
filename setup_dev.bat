@@ -104,14 +104,7 @@ echo.
 :: ── Django: create superuser ─────────────────────────────────────────────────
 echo [5/7] Create a Django superuser account.
 cd /d "%BACKEND%"
-python manage.py shell << EOF
-from django.contrib.auth.models import User
-if not User.objects.filter(username='admin').exists():
-    User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
-    print("✓ Superuser 'admin' created successfully with password 'admin123'")
-else:
-    print("✓ Superuser 'admin' already exists")
-EOF
+python manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); u,created=U.objects.get_or_create(username='admin', defaults={'email':'admin@example.com','is_staff':True,'is_superuser':True}); u.is_staff=True; u.is_superuser=True; u.is_active=True; u.set_password('admin123'); u.save(); print('Superuser admin created' if created else 'Superuser admin already existed (password reset to admin123)')"
 echo.
 
 :: ── Launch servers in separate windows ──────────────────────────────────────

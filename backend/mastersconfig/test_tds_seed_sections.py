@@ -9,7 +9,6 @@ class TdsSeedSectionsTests(TestCase):
         # setup_tds_initial_data creates per-retail ledgers, so a retail must exist.
         RetailMaster.objects.create(
             retail_code="R001", retail_name="HO", address_line1="x", phone="1",
-            bill_series="A",
         )
 
     def test_new_sections_seeded_and_linked(self):

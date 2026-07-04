@@ -1465,6 +1465,61 @@ class MySQLSyncView(APIView):
                 return role
         return 'OTH'
 
+    def _sync_company(self, cursor):
+        """Sync legacy COMPANY -> CompanyMaster, matched by company_name.
+        Only scalar fields present in the old table are written; operational
+        ledgers are auto-created by the CompanyMaster save signal."""
+        from .models import CompanyMaster, State
+
+        def _s(v):
+            return '' if v is None else str(v).strip()
+
+        try:
+            cursor.execute("SELECT * FROM COMPANY")
+        except Exception:
+            return {'created': 0, 'updated': 0, 'errors': ['COMPANY table not found']}
+        rows = cursor.fetchall()
+
+        created = updated = 0
+        errors = []
+        for row in rows:
+            try:
+                name = _s(row.get('name'))
+                if not name:
+                    continue
+                defaults = {'legal_name': name}
+                addr = _s(row.get('addr'))
+                if addr:
+                    defaults['address'] = addr
+                pin = _s(row.get('pin'))
+                if pin:
+                    defaults['pincode'] = pin[:10]
+                pan = _s(row.get('pan'))
+                if pan:
+                    defaults['pan'] = pan[:10]
+                tan = _s(row.get('tan'))
+                if tan:
+                    defaults['tan'] = tan[:10]
+                cin = _s(row.get('cin'))
+                if cin:
+                    defaults['cin'] = cin[:21]
+                st_name = _s(row.get('state'))
+                if st_name:
+                    st = State.objects.filter(name__iexact=st_name).first()
+                    if st:
+                        defaults['state'] = st
+
+                _, flag = CompanyMaster.objects.update_or_create(
+                    company_name=name, defaults=defaults,
+                )
+                if flag:
+                    created += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                errors.append(str(e))
+        return {'created': created, 'updated': updated, 'errors': errors}
+
     def _sync_retail(self, cursor):
         """Sync legacy retail_master -> RetailMaster, matched by retail_code.
         Only scalar fields are written; existing FK links (gstin_master, branch,

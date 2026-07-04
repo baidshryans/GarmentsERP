@@ -180,6 +180,13 @@ export default function SetupWizard() {
     setCurrent(0);
     setMode(m);
   };
+  // Return to the new-vs-migrate chooser (fresh installs only; suppressed once a
+  // company exists, same as the initial gate).
+  const changeMode = () => {
+    sessionStorage.removeItem("erpSetupMode");
+    setCurrent(0);
+    setMode(null);
+  };
   const [completed, setCompleted] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -246,6 +253,7 @@ export default function SetupWizard() {
       if (!res.success) {
         sessionStorage.removeItem("Token");
         sessionStorage.removeItem("user");
+        sessionStorage.removeItem("erpSetupMode");
       }
       if (res.success) {
         setSetupStatus(res.data);
@@ -563,6 +571,15 @@ export default function SetupWizard() {
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-5">
       {/* Step indicator */}
+      {!setupStatus?.company_created && (
+        <button
+          type="button"
+          onClick={changeMode}
+          className="self-end text-xs text-primary hover:underline"
+        >
+          ← Change setup method
+        </button>
+      )}
       <StepIndicator steps={activeSteps} current={current} completed={completed} />
 
       {/* Step content card */}

@@ -1490,7 +1490,7 @@ class MySQLSyncView(APIView):
         errors = []
         for row in rows:
             try:
-                name = _s(row.get('name'))
+                name = _s(row.get('name'))[:200]
                 if not name:
                     continue
                 defaults = {'legal_name': name}
@@ -1569,10 +1569,10 @@ class MySQLSyncView(APIView):
         errors = []
         for row in rows:
             try:
-                br_code = _s(row.get('br_code'))
+                br_code = _s(row.get('br_code'))[:20]
                 if not br_code:
                     continue
-                defaults = {'branch_name': _s(row.get('br_nm')) or br_code}
+                defaults = {'branch_name': (_s(row.get('br_nm'))[:100]) or br_code}
                 bits = [
                     _s(row.get('br_add')),
                     (f"Contact: {_s(row.get('cont_per'))}" if _s(row.get('cont_per')) else ''),

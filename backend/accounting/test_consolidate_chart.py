@@ -48,6 +48,14 @@ class ConsolidateChartTests(TestCase):
         call_command("consolidate_chart_of_accounts", "--apply")  # must not raise
         self.assertEqual(Ledger.objects.get(id=900001).ac_group.code, "INC-DIR-SAL")
 
+    def test_missing_standard_target_aborts(self):
+        # Remove a standard target the map points at; the pre-check must abort
+        # before mutating anything.
+        Account.objects.filter(code="INC-DIR-SAL").delete()
+        with self.assertRaises(Exception):
+            call_command("consolidate_chart_of_accounts", "--apply")
+        self.assertEqual(Ledger.objects.get(id=900001).ac_group.code, "GM-13")
+
     def test_unmapped_legacy_group_with_ledgers_aborts(self):
         stray = Account.objects.create(code="GM-777", name="Mystery", parent=self.mg3)
         Ledger.objects.create(

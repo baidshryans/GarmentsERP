@@ -73,3 +73,6 @@ docs/superpowers/
 .worktrees/
 
 frontend/src/help/manual.generated.md
+
+# Pre-migration-cleanup DB backup (local rollback only)
+backend/db.sqlite3.bak-*

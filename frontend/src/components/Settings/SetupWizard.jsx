@@ -265,6 +265,10 @@ export default function SetupWizard() {
         if (res.data.retails_created) done.add("retail");
         if (res.data.tds_tcs_seeded) done.add("tds");
         if (res.data.fiscal_years_created) done.add("fiscal");
+        // Migrate-only steps have no dedicated status flag — derive them from
+        // the data they produce so the reduced flow reflects real progress.
+        if (res.data.account_groups_seeded && res.data.tds_tcs_seeded) done.add("migrate_seed");
+        if (res.data.company_created && res.data.branch_created && res.data.retails_created) done.add("import");
         // Mark review complete when all prerequisite steps are done
         const prereqs = ["company", "branch", "accounts", "gstin", "retail", "tds", "fiscal"];
         if (prereqs.every((k) => done.has(k))) done.add("review");
@@ -617,7 +621,7 @@ export default function SetupWizard() {
                 Connect your old ERP's MySQL database and sync master data. Company,
                 Branch and Retail are selected by default. Run the sync, then click Next.
               </p>
-              <MySQLSyncCard />
+              <MySQLSyncCard onSynced={() => { markDone("import"); refreshStatus(); }} />
             </div>
           )}
 
@@ -780,11 +784,11 @@ export default function SetupWizard() {
                       </select>
                     </div>
                   </div>
-                  <Button onClick={handleCreateGstin} disabled={busy || !completed.has("branch")} className="self-start bg-primary hover:bg-primary text-white">
+                  <Button onClick={handleCreateGstin} disabled={busy || (!completed.has("branch") && branches.length === 0)} className="self-start bg-primary hover:bg-primary text-white">
                     {busy ? <Loader2 className="size-4 mr-1.5 animate-spin" /> : null}
                     Create GSTIN
                   </Button>
-                  {!completed.has("branch") && (
+                  {!completed.has("branch") && branches.length === 0 && (
                     <div className="flex items-center gap-2 text-amber-600 text-xs bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
                       <XCircle className="size-3.5" />
                       Create a branch in the previous step first.

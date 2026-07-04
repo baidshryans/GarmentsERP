@@ -387,7 +387,7 @@ function OpeningStockUploadCard() {
 
 const EMPTY_CONN = { host: "", port: "3306", database: "", user: "", password: "" };
 
-export function MySQLSyncCard() {
+export function MySQLSyncCard({ onSynced } = {}) {
   const [conn, setConn] = useState(EMPTY_CONN);
   const [showPwd, setShowPwd] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
@@ -450,6 +450,8 @@ export function MySQLSyncCard() {
         const linked = await syncUserRetails();
         if (linked.success) setBranchNote(linked.data?.detail || "Branch access synced.");
       } catch { /* non-fatal */ }
+      // Let an embedding wizard mark its import step complete / refresh status.
+      onSynced?.(res.data.results || {});
     } else {
       setStatus("error");
       setErrorMsg(res.error || "Sync failed");

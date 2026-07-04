@@ -1148,6 +1148,12 @@ class MySQLSyncView(APIView):
                 if 'ledger' in tables_requested:
                     results['ledger'] = self._sync_ledger(cursor)
 
+                if 'company' in tables_requested:
+                    results['company'] = self._sync_company(cursor)
+
+                if 'branch' in tables_requested:
+                    results['branch'] = self._sync_branch(cursor)
+
                 if 'retail' in tables_requested:
                     results['retail'] = self._sync_retail(cursor)
 

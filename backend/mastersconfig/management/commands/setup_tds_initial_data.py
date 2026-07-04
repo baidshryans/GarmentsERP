@@ -50,6 +50,33 @@ TDS_SECTIONS = [
         'threshold_single': None,
         'threshold_annual': 5000000,
     },
+    {
+        'section_code': '194A',
+        'description': 'Interest other than securities',
+        'rate_individual': 10.0,
+        'rate_company': 10.0,
+        'rate_no_pan': 20.0,
+        'threshold_single': None,
+        'threshold_annual': 5000,
+    },
+    {
+        'section_code': '192B',
+        'description': 'Salary (slab-based; rate set per employee)',
+        'rate_individual': 0.0,
+        'rate_company': 0.0,
+        'rate_no_pan': 0.0,
+        'threshold_single': None,
+        'threshold_annual': None,
+    },
+    {
+        'section_code': '195',
+        'description': 'Payments to non-residents (rate varies by nature / DTAA)',
+        'rate_individual': 0.0,
+        'rate_company': 0.0,
+        'rate_no_pan': 0.0,
+        'threshold_single': None,
+        'threshold_annual': None,
+    },
 ]
 
 TCS_SECTIONS = [

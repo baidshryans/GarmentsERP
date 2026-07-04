@@ -266,6 +266,7 @@ class RetailSerializer(ModelSerializer):
     active_fy_code       = serializers.CharField(source='active_fy.fy_code', read_only=True, default='')
     state_name           = serializers.CharField(source='state.name', read_only=True, default='')
     commission_ldgr_name = serializers.SerializerMethodField(read_only=True)
+    bank_ldgr_name       = serializers.SerializerMethodField(read_only=True)
     branch_name          = serializers.CharField(source='branch.branch_name', read_only=True, default='')
     gstin_master_str     = serializers.CharField(source='gstin_master.gstin', read_only=True, default='')
     gstin_legal_name     = serializers.CharField(source='gstin_master.legal_name', read_only=True, default='')
@@ -275,6 +276,9 @@ class RetailSerializer(ModelSerializer):
 
     def get_commission_ldgr_name(self, obj):
         return obj.commission_ldgr.ac_name if obj.commission_ldgr else None
+
+    def get_bank_ldgr_name(self, obj):
+        return obj.bank_ldgr.ac_name if obj.bank_ldgr else None
 
     def validate(self, attrs):
         is_exhibition = attrs.get(
@@ -301,17 +305,17 @@ class FiscalYearSerializer(ModelSerializer):
     class Meta:
         model = FiscalYearMaster
         fields = [
-            'id', 'retail', 'fy_code', 'fy_start', 'fy_end',
+            'id', 'fy_code', 'fy_start', 'fy_end',
             'is_closed', 'closed_at',
             'is_hard_closed', 'hard_closed_at',
             'last_synced_at',
             'created_at', 'is_active',
         ]
-        read_only_fields = ['retail', 'closed_at', 'hard_closed_at', 'last_synced_at', 'created_at', 'is_active']
+        read_only_fields = ['closed_at', 'hard_closed_at', 'last_synced_at', 'created_at', 'is_active']
 
     def get_is_active(self, obj):
-        retail = obj.retail
-        return retail.active_fy_id == obj.id if retail and retail.active_fy_id else False
+        from mastersconfig.models import SystemSettings
+        return SystemSettings.get().active_fy_id == obj.id
 
     def validate(self, data):
         fy_start = data.get('fy_start')

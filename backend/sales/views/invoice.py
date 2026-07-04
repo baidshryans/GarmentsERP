@@ -1275,6 +1275,41 @@ def build_sub_item_text(d):
         return t
 
 
+def _upi_qr_data_uri(upi_id, payee_name='', amount=None):
+    """Render a UPI intent (upi://pay?...) as a base64 PNG data-URI for print.
+
+    Returns '' when no UPI id is supplied. Any failure degrades gracefully to ''
+    so a bad QR never breaks invoice rendering.
+    """
+    if not upi_id:
+        return ''
+    try:
+        import io
+        import base64
+        from urllib.parse import quote
+        import qrcode
+
+        params = [f'pa={quote(str(upi_id))}']
+        if payee_name:
+            params.append(f'pn={quote(str(payee_name))}')
+        if amount and float(amount) > 0:
+            params.append(f'am={float(amount):.2f}')
+        params.append('cu=INR')
+        upi_uri = 'upi://pay?' + '&'.join(params)
+
+        qr = qrcode.QRCode(version=1, box_size=8, border=2)
+        qr.add_data(upi_uri)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color='black', back_color='white')
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+        return f'data:image/png;base64,{b64}'
+    except Exception:
+        logging.getLogger(__name__).exception('Failed to build UPI QR')
+        return ''
+
+
 def build_invoice_context(voucher, retail, request=None):
     """Build the complete data dict for the invoice print view."""
     from mastersconfig.models import State as StateModel
@@ -1425,6 +1460,14 @@ def build_invoice_context(voucher, retail, request=None):
     if retail.branch_id and retail.branch and retail.branch.company_id:
         company = retail.branch.company
 
+    # ── Payee bank details (retail's designated bank ledger) ───────────────
+    bank = retail.bank_ldgr
+    bp = getattr(bank, 'bank_profile', None) if bank else None
+    bank_holder = (bp.account_holder_name if bp else '') or (bank.ac_name if bank else '')
+    bank_upi_qr = _upi_qr_data_uri(
+        bp.upi_id if bp else '', bank_holder, net_receivable
+    )
+
     return {
         # Company
         'company_name':         (company.company_name if company else retail.retail_name) or '',
@@ -1478,6 +1521,14 @@ def build_invoice_context(voucher, retail, request=None):
         'net_receivable':    net_receivable,
         'bank_lines':        bank_lines,
         'mrp':             float(voucher.mrp or 0),
+        # Payee bank (remittance) details — printed so customers can pay
+        'company_bank_holder':  bank_holder,
+        'company_bank_name':    (bp.bank_name if bp else '') or '',
+        'company_bank_account': (bp.account_number if bp else '') or '',
+        'company_bank_ifsc':    (bp.ifsc_code if bp else '') or '',
+        'company_bank_branch':  (bp.branch_name if bp else '') or '',
+        'company_bank_upi':     (bp.upi_id if bp else '') or '',
+        'company_bank_upi_qr':  bank_upi_qr,
     }
 
 
@@ -1488,6 +1539,7 @@ def sale_voucher_print_data(request, pk):
     try:
         voucher = SalesVou.objects.select_related(
             'ldgr', 'retail', 'retail__state',
+            'retail__bank_ldgr', 'retail__bank_ldgr__bank_profile',
             'exhibition_profile', 'exhibition_profile__state',
         ).prefetch_related(
             'salesvouitem_set__item__hsn_no',

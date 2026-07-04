@@ -315,7 +315,8 @@ class PortalPayInstallmentView(APIView):
         # Use the enrollment's retail for payment context
         retail = enrollment.retail
         request.retail = retail
-        request.fiscal_year = getattr(retail, 'active_fy', None)
+        from mastersconfig.models import SystemSettings
+        request.fiscal_year = SystemSettings.get().active_fy
 
         # Find a Bank ledger for UPI payments in this enrollment's retail
         bank_ledger_ids = LedgerRole.objects.filter(

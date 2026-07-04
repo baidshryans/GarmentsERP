@@ -1209,7 +1209,7 @@ def list_financial_years(retail_code: str = "") -> str:
     if not retail:
         return json.dumps({"error": f"Retail '{retail_code}' not found."})
 
-    fys = FiscalYearMaster.objects.filter(retail=retail).order_by("fy_start")
+    fys = FiscalYearMaster.objects.order_by("fy_start")
     return json.dumps({
         "retail": retail.retail_name,
         "financial_years": [
@@ -1227,7 +1227,7 @@ def list_financial_years(retail_code: str = "") -> str:
 
 def _resolve_fy(fy_code: str, retail) -> dict | None:
     """Return the FiscalYearMaster row for a given fy_code, or None."""
-    return FiscalYearMaster.objects.filter(retail=retail, fy_code=fy_code).first()
+    return FiscalYearMaster.objects.filter(fy_code=fy_code).first()
 
 
 @mcp.tool()

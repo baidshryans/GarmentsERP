@@ -383,6 +383,15 @@ const LedgerForm = () => {
             tds_deductor_type: '',
             b2b_pricelist: '',
             retail_discount_pricelist: '',
+            bank_profile: {
+                account_holder_name: '',
+                bank_name: '',
+                account_number: '',
+                ifsc_code: '',
+                branch_name: '',
+                upi_id: '',
+                account_type: '',
+            },
         },
     });
 
@@ -591,6 +600,15 @@ const LedgerForm = () => {
                         ship_city:    data.ship_city    || data.city    || '',
                         ship_pincode: data.ship_pincode || data.pincode || '',
                         ship_state:   data.ship_state   || data.state   || 'none',
+                        bank_profile: {
+                            account_holder_name: data.bank_profile?.account_holder_name || '',
+                            bank_name:           data.bank_profile?.bank_name || '',
+                            account_number:      data.bank_profile?.account_number || '',
+                            ifsc_code:           data.bank_profile?.ifsc_code || '',
+                            branch_name:         data.bank_profile?.branch_name || '',
+                            upi_id:              data.bank_profile?.upi_id || '',
+                            account_type:        data.bank_profile?.account_type || '',
+                        },
                     });
                     // Load existing roles — skip the role-based b2b auto-set on this render
                     skipB2bAutoset.current = true;
@@ -634,6 +652,11 @@ const LedgerForm = () => {
                 // Include FA details if user confirmed reclassification to FA group
                 ...(faDetailsConfirmed ? { fa_data: faDetails } : {}),
             };
+            // Only persist bank remittance details for bank ledgers; strip
+            // otherwise so non-bank ledgers don't get an empty profile row.
+            if (!activeRoleCodes.includes('BA')) {
+                delete payload.bank_profile;
+            }
             const response = id ? await updateLedger(id, payload) : await createLedger(payload);
             if (response.success) {
                 const newId = response.data?.id ?? id;
@@ -1434,6 +1457,35 @@ const LedgerForm = () => {
                     </div>
 
                 </SectionCard>
+
+                {/* ── Bank Account Details (bank ledgers only) ─────────────── */}
+                {activeRoleCodes.includes('BA') && (
+                    <SectionCard number="B" title="Bank Account Details">
+                        <p className="text-[11px] text-gray-400 mb-3">
+                            These remittance details print on invoices of any retail that selects this bank ledger.
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+                            <Field label="Account Holder Name">
+                                <Input className={inputCls} {...register("bank_profile.account_holder_name")} placeholder="As per bank records" maxLength={100} />
+                            </Field>
+                            <Field label="Bank Name">
+                                <Input className={inputCls} {...register("bank_profile.bank_name")} placeholder="e.g. HDFC Bank" maxLength={100} />
+                            </Field>
+                            <Field label="Account Number">
+                                <Input className={inputCls} {...register("bank_profile.account_number")} placeholder="Account number" maxLength={34} />
+                            </Field>
+                            <Field label="IFSC Code">
+                                <Input className={`${inputCls} uppercase`} {...register("bank_profile.ifsc_code")} placeholder="e.g. HDFC0001234" maxLength={15} />
+                            </Field>
+                            <Field label="Branch">
+                                <Input className={inputCls} {...register("bank_profile.branch_name")} placeholder="Branch name" maxLength={100} />
+                            </Field>
+                            <Field label="UPI ID">
+                                <Input className={inputCls} {...register("bank_profile.upi_id")} placeholder="name@bank" maxLength={100} />
+                            </Field>
+                        </div>
+                    </SectionCard>
+                )}
 
                 {/* ── Section 4: TDS Configuration ─────────────────────────── */}
                 {primaryRole && !['CA','BA','CO','INC'].includes(primaryRole) && (

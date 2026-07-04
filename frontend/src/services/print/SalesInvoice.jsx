@@ -407,6 +407,21 @@ table.si-items tbody tr.sub td.l {
   padding-top: 12px;
   border-top: 1px solid var(--rule);
 }
+.si-bank {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; margin-bottom: 14px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.si-bank .si-bank-info { font-size: 8.5px; color: var(--muted); line-height: 1.7; }
+.si-bank .si-bank-info h4 {
+  font-size: 8px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink); font-weight: 700; margin: 0 0 4px;
+}
+.si-bank .si-bank-info span { display: inline-block; min-width: 58px; }
+.si-bank .si-bank-info b { color: var(--ink); font-weight: 600; }
+.si-bank .si-bank-qr { text-align: center; flex-shrink: 0; }
+.si-bank .si-bank-qr img { width: 92px; height: 92px; display: block; }
+.si-bank .si-bank-qr span { font-size: 7px; color: var(--muted); }
 .si-footer .si-terms {
   font-size: 8px; color: var(--muted); line-height: 1.6;
   margin-bottom: 16px;
@@ -817,8 +832,34 @@ const SalesInvoice = ({ data = {} }) => {
     </div>
   );
 
+  const hasBankDetails = !!(
+    d.company_bank_name || d.company_bank_account || d.company_bank_ifsc ||
+    d.company_bank_upi || d.company_bank_upi_qr
+  );
+
+  const renderBankDetails = () => (
+    <div className="si-bank">
+      <div className="si-bank-info">
+        <h4>Bank Details</h4>
+        {d.company_bank_holder && <div><span>A/C Name</span> <b>{d.company_bank_holder}</b></div>}
+        {d.company_bank_name && <div><span>Bank</span> <b>{d.company_bank_name}</b></div>}
+        {d.company_bank_account && <div><span>A/C No.</span> <b>{d.company_bank_account}</b></div>}
+        {d.company_bank_ifsc && <div><span>IFSC</span> <b>{d.company_bank_ifsc}</b></div>}
+        {d.company_bank_branch && <div><span>Branch</span> <b>{d.company_bank_branch}</b></div>}
+        {d.company_bank_upi && <div><span>UPI</span> <b>{d.company_bank_upi}</b></div>}
+      </div>
+      {d.company_bank_upi_qr && (
+        <div className="si-bank-qr">
+          <img src={d.company_bank_upi_qr} alt="UPI QR" />
+          <span>Scan to pay (UPI)</span>
+        </div>
+      )}
+    </div>
+  );
+
   const renderSignaturesAndTerms = () => (
     <div className="si-footer">
+      {hasBankDetails && renderBankDetails()}
       <div className="si-terms">
         <div>•&nbsp; Goods sold and delivered from <b>{(d.delivered_from || "Kolkata").toUpperCase()}</b> showroom.</div>
         <div>•&nbsp; Subject to <b>{(d.jurisdiction || "Kolkata").toUpperCase()}</b> jurisdiction only.</div>

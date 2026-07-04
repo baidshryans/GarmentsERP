@@ -17,7 +17,7 @@ from accounting.utils import peek_next_bill_number, save_with_bill_number
 from contacts.models import Ledger
 from goldrates.models import PurityMaster
 from inventory.models import RawMaterialInventory
-from mastersconfig.models import FiscalYearMaster, Item, RetailMaster
+from mastersconfig.models import FiscalYearMaster, Item, RetailMaster, SystemSettings
 from manufacturing.models import (
     MeltingIssue, MeltingIssueDetail, MeltingReceive, MeltingReceiveDetail,
     RefinaryIssue, RefinaryIssueDetail, RefinaryReceive, RefinaryReceiveDetail,
@@ -36,13 +36,11 @@ def _make_retail_and_fy(code: str):
         address_line1="Test",
     )
     fy = FiscalYearMaster.objects.create(
-        retail=retail,
         fy_code="25-26",
         fy_start=datetime.date(2025, 4, 1),
         fy_end=datetime.date(2026, 3, 31),
     )
-    retail.active_fy = fy
-    retail.save(update_fields=["active_fy"])
+    SystemSettings.set_company_active_fy(fy)
     return retail, fy
 
 

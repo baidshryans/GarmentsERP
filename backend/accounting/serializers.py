@@ -13,7 +13,7 @@ from rest_framework.exceptions import ValidationError
 
 from rest_framework import serializers
 from .models import VoucherMain, VoucherDetail, Ledger, ReferenceBills, VoucherAttachment, BankStatementEntry
-from contacts.models import LedgerRole
+from contacts.models import LedgerRole, BankAccountProfile
 from purchase.models import PurchaseVoucher
 
 from rest_framework.exceptions import ValidationError as _LedgerConfigError
@@ -72,12 +72,23 @@ class LedgerLightSerializer(serializers.ModelSerializer):
         return roles[0].role if roles else None
 
 
+class BankAccountProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BankAccountProfile
+        fields = [
+            'account_holder_name', 'bank_name', 'account_number', 'ifsc_code',
+            'branch_name', 'upi_id', 'account_type', 'is_active',
+        ]
+
+
 class LedgerSerializer(serializers.ModelSerializer):
     roles = _LedgerRoleSerializer(many=True, read_only=True)
     primary_role = serializers.SerializerMethodField()
     ac_group_name = serializers.CharField(source='ac_group.name', read_only=True, allow_null=True)
     ac_group_code = serializers.CharField(source='ac_group.code', read_only=True, allow_null=True)
     parent_group_name = serializers.CharField(source='ac_group.parent.name', read_only=True, allow_null=True, default=None)
+    # Nested remittance details — only relevant for bank ledgers (role='BA').
+    bank_profile = BankAccountProfileSerializer(required=False, allow_null=True)
 
     class Meta:
         model = Ledger
@@ -88,6 +99,22 @@ class LedgerSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'ac_group': {'required': True, 'allow_null': False},
         }
+
+    def create(self, validated_data):
+        bank_profile = validated_data.pop('bank_profile', None)
+        ledger = super().create(validated_data)
+        if bank_profile:
+            BankAccountProfile.objects.create(ledger=ledger, **bank_profile)
+        return ledger
+
+    def update(self, instance, validated_data):
+        bank_profile = validated_data.pop('bank_profile', serializers.empty)
+        ledger = super().update(instance, validated_data)
+        if bank_profile is not serializers.empty and bank_profile is not None:
+            BankAccountProfile.objects.update_or_create(
+                ledger=ledger, defaults=bank_profile
+            )
+        return ledger
 
     def get_primary_role(self, obj):
         # Iterate obj.roles.all() to reuse the prefetch_related('roles') cache

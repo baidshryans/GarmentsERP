@@ -269,9 +269,15 @@ class BankbookReportView(APIView):
         except Ledger.DoesNotExist:
             return Response({"error": "Ledger not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        # A bank Ledger is a single company-global account; entries against it can
+        # be posted from ANY retail (e.g. a bank owned by R001 but paid into from
+        # R002). The bank book must therefore reflect every retail's movements on
+        # this ledger, otherwise the bank balance is mismatched. So none of the
+        # queries below are scoped to request.retail.
+
         # Opening balance from LedgerOpenBalance for this specific bank ledger
         ledger_opening_balance = LedgerOpenBalance.objects.filter(
-            ldgr=bank_ldgr, retail=request.retail
+            ldgr=bank_ldgr
         ).aggregate(
             total=Coalesce(Sum(F('debit') - F('credit'), output_field=DecimalField(max_digits=20, decimal_places=4)), Value(Decimal('0')))
         )['total'] or Decimal('0')
@@ -279,7 +285,6 @@ class BankbookReportView(APIView):
         # Transactions before from_date
         bank_transactions_before = VoucherDetail.objects.filter(
             voucher_main__date__lt=from_date,
-            voucher_main__retail=request.retail,
             account=bank_ldgr
         ).aggregate(
             total=Coalesce(Sum(F('debit') - F('credit'), output_field=DecimalField(max_digits=20, decimal_places=4)), Value(Decimal('0')))
@@ -291,7 +296,6 @@ class BankbookReportView(APIView):
         # Transactions in date range
         transactions = VoucherDetail.objects.filter(
             voucher_main__date__range=(from_date, to_date),
-            voucher_main__retail=request.retail,
             account=bank_ldgr
         ).annotate(
             txn_date=F('voucher_main__date'),
@@ -318,7 +322,6 @@ class BankbookReportView(APIView):
 
         totals = VoucherDetail.objects.filter(
             voucher_main__date__range=(from_date, to_date),
-            voucher_main__retail=request.retail,
             account=bank_ldgr
         ).aggregate(
             total_debit=Sum('debit'),

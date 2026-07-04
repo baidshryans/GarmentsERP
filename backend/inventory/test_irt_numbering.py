@@ -12,7 +12,7 @@ import datetime
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from mastersconfig.models import RetailMaster, FiscalYearMaster
+from mastersconfig.models import RetailMaster, FiscalYearMaster, SystemSettings
 from inventory.models import InterRetailTransferVoucher as IRT
 from accounting.utils import (
     save_with_bill_number, peek_next_bill_number, release_last_bill_number,
@@ -28,10 +28,9 @@ class IRTNumberingTests(TestCase):
             retail_name="Dest", retail_code="RDST", address_line1="y",
             phone="2")
         self.fy = FiscalYearMaster.objects.create(
-            retail=self.src, fy_code="26-27",
+            fy_code="26-27",
             fy_start=datetime.date(2026, 4, 1), fy_end=datetime.date(2027, 3, 31))
-        self.src.active_fy = self.fy
-        self.src.save(update_fields=["active_fy"])
+        SystemSettings.set_company_active_fy(self.fy)
 
     def _new(self):
         return IRT(transfer_date=datetime.date(2026, 4, 15),

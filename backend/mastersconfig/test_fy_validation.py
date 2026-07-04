@@ -5,7 +5,7 @@ import datetime
 from django.test import TestCase
 from rest_framework.exceptions import ValidationError
 
-from mastersconfig.models import RetailMaster, FiscalYearMaster
+from mastersconfig.models import RetailMaster, FiscalYearMaster, SystemSettings
 from mastersconfig.fy_validation import assert_date_in_active_fy
 
 
@@ -22,13 +22,11 @@ class AssertDateInActiveFyTests(TestCase):
     def setUp(self):
         self.retail = make_retail()
         self.fy = FiscalYearMaster.objects.create(
-            retail=self.retail,
             fy_code="25-26",
             fy_start=datetime.date(2025, 4, 1),
             fy_end=datetime.date(2026, 3, 31),
         )
-        self.retail.active_fy = self.fy
-        self.retail.save(update_fields=["active_fy"])
+        SystemSettings.set_company_active_fy(self.fy)
 
     def test_date_inside_fy_no_error(self):
         # Should not raise.
@@ -50,6 +48,10 @@ class AssertDateInActiveFyTests(TestCase):
         assert_date_in_active_fy(self.retail, None)
 
     def test_retail_without_active_fy_no_error(self):
+        # Under the company-global model the active FY is a single company-wide
+        # value. When it is cleared, every retail sees no active FY, so the
+        # date guard is a no-op for any retail.
+        SystemSettings.set_company_active_fy(None)
         retail2 = make_retail(code="R002", name="Store 2")
         assert_date_in_active_fy(retail2, datetime.date(2099, 1, 1))
 

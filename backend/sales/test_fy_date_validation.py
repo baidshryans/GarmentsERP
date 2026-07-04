@@ -11,7 +11,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from mastersconfig.models import RetailMaster, FiscalYearMaster
+from mastersconfig.models import RetailMaster, FiscalYearMaster, SystemSettings
 from contacts.models import Ledger
 
 User = get_user_model()
@@ -32,13 +32,11 @@ class CustomerOrderFyDateValidationTests(TestCase):
     def setUp(self):
         self.retail = make_retail()
         self.fy_25_26 = FiscalYearMaster.objects.create(
-            retail=self.retail,
             fy_code="25-26",
             fy_start=datetime.date(2025, 4, 1),
             fy_end=datetime.date(2026, 3, 31),
         )
-        self.retail.active_fy = self.fy_25_26
-        self.retail.save(update_fields=["active_fy"])
+        SystemSettings.set_company_active_fy(self.fy_25_26)
 
         self.ldgr = Ledger.objects.create(
             ac_name="Walk-in Customer", display_name="Walk-in Customer",

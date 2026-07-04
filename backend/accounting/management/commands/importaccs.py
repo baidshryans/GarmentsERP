@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from accounting.models import Account
 from contacts.models import Ledger, LedgerRole
+from accounting.legacy_coa_map import resolve_standard_group
 
 
 class Command(BaseCommand):
@@ -14,14 +15,22 @@ class Command(BaseCommand):
         # Optional flag to continue on errors
         parser.add_argument('--continue-on-error', action='store_true', 
                            help='Continue processing even when individual rows have errors')
-        parser.add_argument('--skip-existing', action='store_true',
-                           help='Skip records that would cause duplicate key errors')
+        parser.add_argument('--base-path', default=None,
+                           help='Directory holding the *_master.csv files (default: settings.BASE_DIR).')
 
     @transaction.atomic
     def handle(self, *args, **kwargs):
-        base_path = settings.BASE_DIR  # Root directory where manage.py is located
+        base_path = kwargs.get('base_path') or settings.BASE_DIR
         continue_on_error = kwargs.get('continue_on_error', False)
-        skip_existing = kwargs.get('skip_existing', False)
+        # Legacy groups (MG-*/GM-*/SG-*) are resolved to the canonical standard
+        # tree via legacy_coa_map; codes without a mapping are collected here and
+        # reported at the end so the map can be extended before the next sync.
+        self._unmapped = set()
+
+        if not Account.objects.filter(code="INC-DIR-SAL").exists():
+            raise CommandError(
+                "Standard chart of accounts not found. Run "
+                "`manage.py setup_account_groups` before importaccs.")
 
         try:
             # Step 1: Import Main Groups
@@ -42,25 +51,14 @@ class Command(BaseCommand):
                         
                     pk, name = row
                     
-                    try:
-                        # First, try to find an existing record
-                        account = Account.objects.filter(code=pk).first()
-                        
-                        
-                        account = Account.objects.create(name=name, code=pk, parent=None)
-                        self.stdout.write(f"✅ Created Main Group: {pk} - {name}")
-                            
-                        main_groups[pk] = account  # Store reference
-                        
-                    except IntegrityError as e:
-                        if skip_existing:
-                            self.stderr.write(self.style.WARNING(f"⚠️ Skipping duplicate Main Group: {pk} - {name}"))
-                            # Try to get the existing account to use in relationships
-                            account = Account.objects.filter(code=pk).first()
-                            if account:
-                                main_groups[pk] = account
-                        else:
-                            raise CommandError(f"Failed to import Main Group {pk} - {name}: {e}")
+                    legacy_code = f"MG-{pk}"
+                    account = resolve_standard_group(legacy_code)
+                    if account is None:
+                        self._unmapped.add(f"{legacy_code} ({name})")
+                        self.stderr.write(self.style.WARNING(
+                            f"⚠️ Unmapped legacy main group {legacy_code} - {name}; skipping."))
+                        continue
+                    main_groups[pk] = account
 
             self.stdout.write(self.style.SUCCESS(f"🎯 Imported {len(main_groups)} main groups.\n"))
 
@@ -80,31 +78,15 @@ class Command(BaseCommand):
                         self.stderr.write(self.style.WARNING(f"⚠️ Invalid row in group_master.csv: {row}"))
                         continue
                         
-                    pk, name, mn_grp = row[0], row[1], row[2]
-                    parent = main_groups.get(mn_grp)  # Find parent from main groups
-
-                    if not parent:
-                        self.stderr.write(self.style.ERROR(f"⚠️ Skipping {name}: Parent group {mn_grp} not found."))
+                    pk, name = row[0], row[1]
+                    legacy_code = f"GM-{pk}"
+                    account = resolve_standard_group(legacy_code)
+                    if account is None:
+                        self._unmapped.add(f"{legacy_code} ({name})")
+                        self.stderr.write(self.style.WARNING(
+                            f"⚠️ Unmapped legacy group master {legacy_code} - {name}; skipping."))
                         continue
-                        
-                    try:
-                        # First, try to find an existing record
-                        
-                        
-                        account = Account.objects.create(name=name, code=pk, parent=parent)
-                        self.stdout.write(f"✅ Created Group Master: {pk} - {name} (Parent: {parent.name})")
-                            
-                        group_masters[pk] = account  # Store reference
-                        
-                    except IntegrityError as e:
-                        if skip_existing:
-                            self.stderr.write(self.style.WARNING(f"⚠️ Skipping duplicate Group Master: {pk} - {name}"))
-                            # Try to get the existing account to use in relationships
-                            account = Account.objects.filter(code=pk).first()
-                            if account:
-                                group_masters[pk] = account
-                        else:
-                            raise CommandError(f"Failed to import Group Master {pk} - {name}: {e}")
+                    group_masters[pk] = account
 
             self.stdout.write(self.style.SUCCESS(f"🎯 Imported {len(group_masters)} group masters.\n"))
 
@@ -124,29 +106,15 @@ class Command(BaseCommand):
                         self.stderr.write(self.style.WARNING(f"⚠️ Invalid row in subgroup_master.csv: {row}"))
                         continue
                         
-                    pk, name, grp = row[0], row[1], row[2]
-                    parent = group_masters.get(grp)  # Find parent from group masters
-
-                    if not parent:
-                        self.stderr.write(self.style.ERROR(f"⚠️ Skipping {name}: Parent group {grp} not found."))
+                    pk, name = row[0], row[1]
+                    legacy_code = f"SG-{pk}"
+                    account = resolve_standard_group(legacy_code)
+                    if account is None:
+                        self._unmapped.add(f"{legacy_code} ({name})")
+                        self.stderr.write(self.style.WARNING(
+                            f"⚠️ Unmapped legacy subgroup {legacy_code} - {name}; skipping."))
                         continue
-                        
-                    try:
-                       
-                        account = Account.objects.create(name=name, code=pk, parent=parent)
-                        self.stdout.write(f"✅ Created Subgroup: {pk} - {name} (Parent: {parent.name})")
-                            
-                        subgroups[pk] = account  # Store reference
-                        
-                    except IntegrityError as e:
-                        if skip_existing:
-                            self.stderr.write(self.style.WARNING(f"⚠️ Skipping duplicate Subgroup: {pk} - {name}"))
-                            # Try to get the existing account to use in relationships
-                            account = Account.objects.filter(code=pk).first()
-                            if account:
-                                subgroups[pk] = account
-                        else:
-                            raise CommandError(f"Failed to import Subgroup {pk} - {name}: {e}")
+                    subgroups[pk] = account
 
             self.stdout.write(self.style.SUCCESS(f"🎯 Imported {len(subgroups)} subgroups.\n"))
 
@@ -269,6 +237,10 @@ class Command(BaseCommand):
 
             # This line was indented correctly now
             self.stdout.write(self.style.SUCCESS(f"🎉 Ledger import completed successfully. Imported {ledger_count} ledgers."))
+            if self._unmapped:
+                self.stdout.write(self.style.WARNING(
+                    "⚠️ Unmapped legacy groups (add to accounting/legacy_coa_map.py): "
+                    + ", ".join(sorted(self._unmapped))))
             
         except FileNotFoundError as e:
             self.stderr.write(self.style.ERROR(f"{e}"))

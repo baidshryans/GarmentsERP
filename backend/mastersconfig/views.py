@@ -2022,8 +2022,16 @@ class MySQLSyncView(APIView):
         # Fetch hsn_master rows to build id→hsn_no mapping
         cursor.execute("SELECT id, hsn_no FROM hsn_master")
         hsn_id_map = {r['id']: r['hsn_no'] for r in cursor.fetchall()}
-        purchase_ledger = Ledger.objects.filter(ac_name='Purchase Account', is_system=True).first()
-        sale_ledger = Ledger.objects.filter(ac_name='Sales Account', is_system=True).first()
+        def _resolve_item_ledger(val):
+            # Old item_master ledger reference (id or name) -> client Ledger.
+            from accounting.migration_utils import resolve_ledger
+            s = (str(val).strip() if val is not None else '')
+            if not s:
+                return None
+            led = resolve_ledger(s)  # numeric id + LedgerAlias
+            if led is None:
+                led = Ledger.objects.filter(ac_name=s).first()
+            return led
 
         # Legacy PK is `item_id` (not `id`); preserve it as Item.id so transactional
         # imports (sales / purchases / opening stock reference items by id) resolve.
@@ -2064,8 +2072,8 @@ class MySQLSyncView(APIView):
                         'show_in_pcs_report': bool(row.get('show_in_pcs_report')),
                         'grp': grp_obj,
                         'sub_grp': str(row.get('sub_grp') or '').strip(),
-                        'purchase_ledger': purchase_ledger if row.get('purchase_ledger') else None,
-                        'sale_ledger': sale_ledger if row.get('sale_ledger') else None,
+                        'purchase_ledger': _resolve_item_ledger(row.get('purchase_ledger')),
+                        'sale_ledger': _resolve_item_ledger(row.get('sale_ledger')),
                     }
                 )
                 if flag:

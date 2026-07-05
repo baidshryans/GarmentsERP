@@ -207,7 +207,6 @@ export default function LedgerStatement() {
       title,
       subtitle: `${toDdMm(fromDate)} to ${toDdMm(toDate)}`,
       html: sections,
-      landscape: true,
       company: companyName,
     });
   };

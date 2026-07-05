@@ -36,7 +36,7 @@ export default function CashBookRetail() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getLedgers({ type: "CA" }).then((r) => {
+    getLedgers({ type: "CA", page_size: 200 }).then((r) => {
       if (r.success && r.data.results?.length) {
         setLedgers(r.data.results);
         setSelectedLedger(String(r.data.results[0].id));

@@ -35,7 +35,7 @@ export default function CombinedBankBook() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getLedgers({ type: "BA" }).then((r) => {
+    getLedgers({ type: "BA", page_size: 200 }).then((r) => {
       if (r.success && r.data.results?.length) {
         setLedgers(r.data.results);
         setSelectedLedger(String(r.data.results[0].id));

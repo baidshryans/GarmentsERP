@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, shortVoucherRef } from "@/lib/format";
 import { getLedgers, fetchCashBookReport } from "./services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,7 +87,7 @@ export default function CashBookRetail() {
       (t, i) => `<tr${i % 2 === 1 ? ' style="background:#fafafa"' : ""}>
         <td>${new Date(t.voucher_main__date).toLocaleDateString("en-GB")}</td>
         <td>${t.account__ac_name}${withNarration && t.voucher_main__narration ? `<br/><span style="font-size:9px;color:#64748b">${t.voucher_main__narration}</span>` : ""}</td>
-        <td><span class="badge">${t.voucher_main__voucher_type}</span></td>
+        <td><span class="badge">${shortVoucherRef(t.voucher_main__voucher_type, t.voucher_main__voucher_no)}</span></td>
         <td style="text-align:right" class="tabular-nums">${t.display_debit > 0 ? fmt(t.display_debit) : ""}</td>
         <td style="text-align:right" class="tabular-nums">${t.display_credit > 0 ? fmt(t.display_credit) : ""}</td>
         <td style="text-align:right" class="tabular-nums font-medium">${balLabel(t.running_balance)}</td>
@@ -98,7 +98,7 @@ export default function CashBookRetail() {
       <thead><tr>
         <th style="width:75px">Date</th>
         <th>Particulars</th>
-        <th style="width:65px">Type</th>
+        <th style="width:90px">Voucher No</th>
         <th style="text-align:right;width:100px">Debit (Rs.)</th>
         <th style="text-align:right;width:100px">Credit (Rs.)</th>
         <th style="text-align:right;width:110px">Balance</th>
@@ -225,7 +225,7 @@ export default function CashBookRetail() {
                 <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-2.5 text-left font-semibold">Date</th>
                   <th className="px-4 py-2.5 text-left font-semibold">Particulars</th>
-                  <th className="px-4 py-2.5 text-left font-semibold">Type</th>
+                  <th className="px-4 py-2.5 text-left font-semibold">Voucher No</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Debit (Rs.)</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Credit (Rs.)</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Balance</th>
@@ -274,7 +274,7 @@ export default function CashBookRetail() {
                     </td>
                     <td className="px-4 py-2">
                       <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-medium">
-                        {t.voucher_main__voucher_type}
+                        {shortVoucherRef(t.voucher_main__voucher_type, t.voucher_main__voucher_no)}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, shortVoucherRef } from "@/lib/format";
 import { getLedgers, getFiscalYears, fetchCompanies } from "@/services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,8 +156,7 @@ export default function LedgerStatement() {
     const rows = report.transactions.map((t, i) => `
       <tr${i % 2 === 1 ? ' style="background:#fafafa"' : ""}>
         <td>${toDdMm(t.date)}</td>
-        <td class="font-mono">${t.voucher_no || ""}</td>
-        <td>${t.voucher_type || ""}</td>
+        <td class="font-mono">${shortVoucherRef(t.voucher_type, t.voucher_no)}</td>
         <td>${(t.narration || "").replace(/</g, "&lt;")}</td>
         <td style="text-align:right" class="tabular-nums">${Number(t.debit) > 0 ? fmt(t.debit) : ""}</td>
         <td style="text-align:right" class="tabular-nums">${Number(t.credit) > 0 ? fmt(t.credit) : ""}</td>
@@ -174,7 +173,6 @@ export default function LedgerStatement() {
           <tr>
             <th style="text-align:left">Date</th>
             <th style="text-align:left">Voucher No</th>
-            <th style="text-align:left">Type</th>
             <th style="text-align:left">Narration</th>
             <th style="text-align:right">Debit</th>
             <th style="text-align:right">Credit</th>
@@ -182,11 +180,11 @@ export default function LedgerStatement() {
           </tr>
         </thead>
         <tbody>
-          ${rows || `<tr><td colspan="7" style="text-align:center;padding:12px;color:#64748b">No transactions in this period.</td></tr>`}
+          ${rows || `<tr><td colspan="6" style="text-align:center;padding:12px;color:#64748b">No transactions in this period.</td></tr>`}
         </tbody>
         <tfoot>
           <tr class="totals-row">
-            <td colspan="4">Closing Balance</td>
+            <td colspan="3">Closing Balance</td>
             <td style="text-align:right" class="tabular-nums">${fmt(totalDr)}</td>
             <td style="text-align:right" class="tabular-nums">${fmt(totalCr)}</td>
             <td style="text-align:right" class="tabular-nums">${balLabel(report.closing_balance)}</td>
@@ -228,13 +226,13 @@ export default function LedgerStatement() {
       lines.push(`Period:,${report.from_date} to ${report.to_date}`);
       lines.push(`Opening Balance:,${report.opening_balance}`);
       lines.push("");
-      lines.push(["Date", "Voucher No", "Type", "Narration", "Debit", "Credit", "Running Balance"].join(","));
+      lines.push(["Date", "Voucher No", "Narration", "Debit", "Credit", "Running Balance"].join(","));
       for (const t of report.transactions) {
-        lines.push([t.date, t.voucher_no, t.voucher_type, t.narration, t.debit, t.credit, t.running_balance].map(esc).join(","));
+        lines.push([t.date, shortVoucherRef(t.voucher_type, t.voucher_no), t.narration, t.debit, t.credit, t.running_balance].map(esc).join(","));
       }
       const totalDr = report.transactions.reduce((s, t) => s + Number(t.debit), 0);
       const totalCr = report.transactions.reduce((s, t) => s + Number(t.credit), 0);
-      lines.push(["", "", "", "Closing Balance", totalDr, totalCr, report.closing_balance].map(esc).join(","));
+      lines.push(["", "", "Closing Balance", totalDr, totalCr, report.closing_balance].map(esc).join(","));
     });
 
     const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -411,7 +409,6 @@ export default function LedgerStatement() {
                   <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="px-4 py-2.5 text-left font-semibold">Date</th>
                     <th className="px-4 py-2.5 text-left font-semibold">Voucher No</th>
-                    <th className="px-4 py-2.5 text-left font-semibold">Type</th>
                     <th className="px-4 py-2.5 text-left font-semibold">Narration</th>
                     <th className="px-4 py-2.5 text-right font-semibold">Debit</th>
                     <th className="px-4 py-2.5 text-right font-semibold">Credit</th>
@@ -421,16 +418,13 @@ export default function LedgerStatement() {
                 <tbody>
                   {report.transactions.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-muted-foreground">No transactions in this period.</td>
+                      <td colSpan={6} className="text-center py-8 text-muted-foreground">No transactions in this period.</td>
                     </tr>
                   )}
                   {report.transactions.map((t, i) => (
                     <tr key={i} className={`border-t border-border ${i % 2 === 1 ? "bg-muted/20" : ""} hover:bg-accent/30 transition-colors`}>
                       <td className="px-4 py-2">{toDdMm(t.date)}</td>
-                      <td className="px-4 py-2 font-mono text-xs">{t.voucher_no}</td>
-                      <td className="px-4 py-2">
-                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-medium">{t.voucher_type}</span>
-                      </td>
+                      <td className="px-4 py-2 font-mono text-xs">{shortVoucherRef(t.voucher_type, t.voucher_no)}</td>
                       <td className="px-4 py-2 text-muted-foreground truncate max-w-48">{t.narration}</td>
                       <td className="px-4 py-2 text-right">{Number(t.debit) > 0 ? fmt(t.debit) : ""}</td>
                       <td className="px-4 py-2 text-right">{Number(t.credit) > 0 ? fmt(t.credit) : ""}</td>
@@ -440,7 +434,7 @@ export default function LedgerStatement() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-border bg-muted/50 font-semibold">
-                    <td colSpan={4} className="px-4 py-2.5 text-sm">Closing Balance</td>
+                    <td colSpan={3} className="px-4 py-2.5 text-sm">Closing Balance</td>
                     <td className="px-4 py-2.5 text-right text-sm">{fmt(totalDr)}</td>
                     <td className="px-4 py-2.5 text-right text-sm">{fmt(totalCr)}</td>
                     <td className="px-4 py-2.5 text-right text-sm">{balLabel(report.closing_balance)}</td>

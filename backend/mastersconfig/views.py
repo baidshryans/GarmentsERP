@@ -2127,8 +2127,12 @@ class MySQLSyncView(APIView):
 
         # packet_master has no group-link column and packet_group_master carries no
         # usable mapping, so packets have no group in the legacy data.
+        # `id` (legacy packet_master PK) is preserved as the Django Packet pk —
+        # barcode_details.packet_id (see _sync_barcodes/match_packet) is a raw
+        # legacy FK to this id, so losing the id here silently breaks (or
+        # mis-resolves) every stone line's packet on sync.
         cursor.execute("""
-            SELECT pckt_no, stone_id, rate_for_retail, rate_for_wholesale,
+            SELECT id, pckt_no, stone_id, rate_for_retail, rate_for_wholesale,
                    solitare, customer
             FROM packet_master
         """)
@@ -2140,6 +2144,7 @@ class MySQLSyncView(APIView):
                 pckt_no = (row.get('pckt_no') or '').strip()
                 if not pckt_no:
                     continue
+                mysql_id = row.get('id')
                 stone_item = None
                 mysql_stone_id = row.get('stone_id')
                 if mysql_stone_id:
@@ -2152,17 +2157,27 @@ class MySQLSyncView(APIView):
                             stone_item = Item.objects.filter(short_code=short_code).first()
                 is_solitaire = (row.get('solitare') or 'N').upper() == 'Y'
                 is_customer = str(row.get('customer') or '0') == '1'
-                _, flag = Packet.objects.update_or_create(
-                    pckt_no=pckt_no,
-                    defaults={
-                        'stone_item_id': stone_item,
-                        'rate_for_retail': int(float(row.get('rate_for_retail') or 0)),
-                        'rate_for_wholesale': int(float(row.get('rate_for_wholesale') or 0)) or None,
-                        'is_solitaire': is_solitaire,
-                        'is_customer_stone': is_customer,
-                        'packet_group': None,
-                    }
-                )
+                defaults = {
+                    'stone_item_id': stone_item,
+                    'rate_for_retail': int(float(row.get('rate_for_retail') or 0)),
+                    'rate_for_wholesale': int(float(row.get('rate_for_wholesale') or 0)) or None,
+                    'is_solitaire': is_solitaire,
+                    'is_customer_stone': is_customer,
+                    'packet_group': None,
+                }
+                if mysql_id is not None:
+                    # Preserve legacy id as pk (matches the CSV packet uploader's
+                    # behaviour) so barcode_details.packet_id resolves correctly.
+                    Packet.objects.filter(pckt_no=pckt_no).exclude(pk=mysql_id).delete()
+                    _, flag = Packet.objects.update_or_create(
+                        pk=mysql_id,
+                        defaults={**defaults, 'pckt_no': pckt_no},
+                    )
+                else:
+                    _, flag = Packet.objects.update_or_create(
+                        pckt_no=pckt_no,
+                        defaults=defaults,
+                    )
                 if flag:
                     created += 1
                 else:

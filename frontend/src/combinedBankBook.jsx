@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, shortVoucherRef } from "@/lib/format";
 import { getLedgers, fetchBankBookReport } from "./services/apiService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -173,7 +173,7 @@ export default function CombinedBankBook() {
                 <tr className="bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-2.5 text-left font-semibold">Date</th>
                   <th className="px-4 py-2.5 text-left font-semibold">Particulars</th>
-                  <th className="px-4 py-2.5 text-left font-semibold">Type</th>
+                  <th className="px-4 py-2.5 text-left font-semibold">Voucher No</th>
                   <th className="px-4 py-2.5 text-left font-semibold">Chq. No</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Debit (Rs.)</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Credit (Rs.)</th>
@@ -216,7 +216,6 @@ export default function CombinedBankBook() {
                     </td>
                     <td className="px-4 py-2">
                       <span className="font-medium">{t.narration || "Transaction"}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{t.txn_voucher_no}</span>
                       {withNarration && t.narration && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {t.narration}
@@ -225,7 +224,7 @@ export default function CombinedBankBook() {
                     </td>
                     <td className="px-4 py-2">
                       <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-medium">
-                        {t.txn_voucher_type}
+                        {shortVoucherRef(t.txn_voucher_type, t.txn_voucher_no)}
                       </span>
                     </td>
                     <td className="px-4 py-2 font-mono text-xs">

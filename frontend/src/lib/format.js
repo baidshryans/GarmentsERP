@@ -105,3 +105,13 @@ export function formatMoney(value, opts = {}) {
     ? `${numStr}${gap}${_config.symbol}`
     : `${_config.symbol}${gap}${numStr}`;
 }
+
+// Voucher numbers are stored as full slugs, e.g. "LEG/PMNT/R001/26-27/00290".
+// For compact display in report tables, show them as "PMNT-290" (type + the
+// trailing sequence number, leading zeros stripped) instead of the raw slug.
+export function shortVoucherRef(voucherType, voucherNo) {
+  if (!voucherNo) return voucherType || '';
+  const last = String(voucherNo).split('/').pop();
+  const num = /^\d+$/.test(last) ? String(parseInt(last, 10)) : last;
+  return voucherType ? `${voucherType}-${num}` : num;
+}

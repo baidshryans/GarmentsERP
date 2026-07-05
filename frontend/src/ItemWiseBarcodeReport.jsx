@@ -19,10 +19,12 @@ import {
 
 const today = new Date().toISOString().split("T")[0];
 const ALL = "__all__";
-const COLS = 20; // total columns (group-header colspan)
+const COLS = 19; // total columns (group-header colspan)
 
 const n3 = (x) => (Number(x) || 0).toFixed(3);
-const n2 = (x) => (Number(x) || 0).toFixed(2);
+// Amounts render without decimals, with Indian-style grouping.
+const money = (x) =>
+  Math.round(Number(x) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
 const fmtDate = (d) => {
   if (!d) return "";
@@ -93,11 +95,6 @@ export default function ItemwiseBarcodeReport() {
     }
   };
 
-  useEffect(() => {
-    fetchData({ asOnDate: today });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const term = searchTerm.trim().toLowerCase();
   const filteredData = !term
     ? data
@@ -138,19 +135,18 @@ export default function ItemwiseBarcodeReport() {
               <td>${first ? (bc.pcs ?? "") : ""}</td>
               <td>${first ? n3(bc.gw) : ""}</td>
               <td>${first ? n3(bc.nw) : ""}</td>
-              <td class="l">${stone?.code || ""}</td>
-              <td class="l">${stone?.sub || stone?.name || ""}</td>
+              <td class="l">${stone?.sub || ""}</td>
               <td>${stone ? (stone.pcs ?? "") : ""}</td>
               <td>${stone ? n3(stone.ct) : ""}</td>
-              <td>${stone ? n2(stone.rate) : ""}</td>
-              <td>${stone ? n2(stone.value) : ""}</td>
+              <td>${stone ? money(stone.rate) : ""}</td>
+              <td>${stone ? money(stone.value) : ""}</td>
               <td class="l">${other?.code || ""}</td>
               <td>${other ? (other.pcs ?? "") : ""}</td>
               <td>${other ? n3(other.gw) : ""}</td>
-              <td>${other ? n2(other.rate) : ""}</td>
-              <td>${other ? n2(other.value) : ""}</td>
-              <td>${first ? n2(bc.making_val) : ""}</td>
-              <td class="b">${first ? n2(bc.total_amount) : ""}</td>
+              <td>${other ? money(other.rate) : ""}</td>
+              <td>${other ? money(other.value) : ""}</td>
+              <td>${first ? money(bc.making_val) : ""}</td>
+              <td class="b">${first ? money(bc.total_amount) : ""}</td>
             </tr>`;
           })
           .join("");
@@ -162,9 +158,9 @@ export default function ItemwiseBarcodeReport() {
             <td>${subtotal.pcs}</td>
             <td>${n3(subtotal.gw)}</td>
             <td>${n3(subtotal.nw)}</td>
-            <td colspan="11"></td>
+            <td colspan="10"></td>
             <td></td>
-            <td class="b">${n2(subtotal.value)}</td>
+            <td class="b">${money(subtotal.value)}</td>
           </tr>`;
       })
       .join("");
@@ -174,9 +170,9 @@ export default function ItemwiseBarcodeReport() {
         <td>${grand.pcs}</td>
         <td>${n3(grand.gw)}</td>
         <td>${n3(grand.nw)}</td>
-        <td colspan="11"></td>
+        <td colspan="10"></td>
         <td></td>
-        <td class="b">${n2(grand.value)}</td>
+        <td class="b">${money(grand.value)}</td>
       </tr>`;
 
     const filterLine = [
@@ -205,7 +201,7 @@ export default function ItemwiseBarcodeReport() {
     tr.grp td { background: #f3f4f6; font-weight: 700; }
     tr.sub td { background: #fafafa; font-weight: 600; }
     tr.gt td { background: #f3f4f6; font-weight: 700; border-top: 2px solid #d1d5db; }
-    @media print { @page { size: A4 landscape; margin: 8mm; } body { padding: 0; } }
+    @media print { @page { size: A4 portrait; margin: 14mm 12mm; } body { padding: 0; } }
   </style>
 </head>
 <body>
@@ -217,12 +213,12 @@ export default function ItemwiseBarcodeReport() {
         <th class="l" rowspan="2">Barcode</th><th class="l" rowspan="2">Design No</th><th class="l" rowspan="2">Order No</th>
         <th class="l" rowspan="2">Purity</th>
         <th rowspan="2">Pcs</th><th rowspan="2">Gw</th><th rowspan="2">Nw</th>
-        <th colspan="6">Stone</th>
+        <th colspan="5">Stone</th>
         <th colspan="5">Other</th>
         <th rowspan="2">Making</th><th rowspan="2">Value</th>
       </tr>
       <tr>
-        <th class="l">Code</th><th class="l">Sub</th><th>Pcs</th><th>Weight</th><th>Rate</th><th>Value</th>
+        <th class="l">Pckt</th><th>Pcs</th><th>Weight</th><th>Rate</th><th>Value</th>
         <th class="l">Item</th><th>Pcs</th><th>Weight</th><th>Rate</th><th>Value</th>
       </tr>
     </thead>
@@ -352,14 +348,13 @@ export default function ItemwiseBarcodeReport() {
                   <th rowSpan={2} className={`${th} ${R}`}>Pcs</th>
                   <th rowSpan={2} className={`${th} ${R}`}>Gw</th>
                   <th rowSpan={2} className={`${th} ${R}`}>Nw</th>
-                  <th colSpan={6} className={`${th} text-center text-primary border-b border-gray-100`}>Stone</th>
+                  <th colSpan={5} className={`${th} text-center text-primary border-b border-gray-100`}>Stone</th>
                   <th colSpan={5} className={`${th} text-center text-primary border-b border-gray-100`}>Other</th>
                   <th rowSpan={2} className={`${th} ${R}`}>Making</th>
                   <th rowSpan={2} className={`${th} ${R}`}>Value</th>
                 </tr>
                 <tr>
-                  <th className={`${th} ${L}`}>Code</th>
-                  <th className={`${th} ${L}`}>Sub</th>
+                  <th className={`${th} ${L}`}>Pckt</th>
                   <th className={`${th} ${R}`}>Pcs</th>
                   <th className={`${th} ${R}`}>Weight</th>
                   <th className={`${th} ${R}`}>Rate</th>
@@ -395,9 +390,9 @@ export default function ItemwiseBarcodeReport() {
                     <td className={`${td} ${R}`}>{grand.pcs}</td>
                     <td className={`${td} ${R}`}>{n3(grand.gw)}</td>
                     <td className={`${td} ${R}`}>{n3(grand.nw)}</td>
-                    <td colSpan={11} className={td}></td>
+                    <td colSpan={10} className={td}></td>
                     <td className={td}></td>
-                    <td className={`${td} ${R}`}>{n2(grand.value)}</td>
+                    <td className={`${td} ${R}`}>{money(grand.value)}</td>
                   </tr>
                 )}
               </tbody>
@@ -417,7 +412,8 @@ export default function ItemwiseBarcodeReport() {
 
 function ReportGroup({ item, rows, subtotal, td, R, L, dim }) {
   const n3 = (x) => (Number(x) || 0).toFixed(3);
-  const n2 = (x) => (Number(x) || 0).toFixed(2);
+  const money = (x) =>
+    Math.round(Number(x) || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
   return (
     <>
       <tr className="border-t border-gray-100 bg-gray-50/70">
@@ -436,19 +432,18 @@ function ReportGroup({ item, rows, subtotal, td, R, L, dim }) {
             <td className={`${td} ${R}`}>{first ? (bc.pcs ?? "") : ""}</td>
             <td className={`${td} ${R}`}>{first ? n3(bc.gw) : ""}</td>
             <td className={`${td} ${R}`}>{first ? n3(bc.nw) : ""}</td>
-            <td className={`${td} ${L}`}>{stone?.code || <span className={dim}>·</span>}</td>
-            <td className={`${td} ${L}`}>{stone?.sub || stone?.name || ""}</td>
+            <td className={`${td} ${L}`}>{stone?.sub || <span className={dim}>·</span>}</td>
             <td className={`${td} ${R}`}>{stone ? (stone.pcs ?? "") : ""}</td>
             <td className={`${td} ${R}`}>{stone ? n3(stone.ct) : ""}</td>
-            <td className={`${td} ${R}`}>{stone ? n2(stone.rate) : ""}</td>
-            <td className={`${td} ${R}`}>{stone ? n2(stone.value) : ""}</td>
+            <td className={`${td} ${R}`}>{stone ? money(stone.rate) : ""}</td>
+            <td className={`${td} ${R}`}>{stone ? money(stone.value) : ""}</td>
             <td className={`${td} ${L}`}>{other?.code || <span className={dim}>·</span>}</td>
             <td className={`${td} ${R}`}>{other ? (other.pcs ?? "") : ""}</td>
             <td className={`${td} ${R}`}>{other ? n3(other.gw) : ""}</td>
-            <td className={`${td} ${R}`}>{other ? n2(other.rate) : ""}</td>
-            <td className={`${td} ${R}`}>{other ? n2(other.value) : ""}</td>
-            <td className={`${td} ${R}`}>{first ? n2(bc.making_val) : ""}</td>
-            <td className={`${td} ${R} font-semibold`}>{first ? n2(bc.total_amount) : ""}</td>
+            <td className={`${td} ${R}`}>{other ? money(other.rate) : ""}</td>
+            <td className={`${td} ${R}`}>{other ? money(other.value) : ""}</td>
+            <td className={`${td} ${R}`}>{first ? money(bc.making_val) : ""}</td>
+            <td className={`${td} ${R} font-semibold`}>{first ? money(bc.total_amount) : ""}</td>
           </tr>
         );
       })}
@@ -457,9 +452,9 @@ function ReportGroup({ item, rows, subtotal, td, R, L, dim }) {
         <td className={`${td} ${R}`}>{subtotal.pcs}</td>
         <td className={`${td} ${R}`}>{n3(subtotal.gw)}</td>
         <td className={`${td} ${R}`}>{n3(subtotal.nw)}</td>
-        <td colSpan={11} className={td}></td>
+        <td colSpan={10} className={td}></td>
         <td className={td}></td>
-        <td className={`${td} ${R} font-semibold`}>{n2(subtotal.value)}</td>
+        <td className={`${td} ${R} font-semibold`}>{money(subtotal.value)}</td>
       </tr>
     </>
   );

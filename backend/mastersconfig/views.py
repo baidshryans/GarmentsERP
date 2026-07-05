@@ -2026,14 +2026,18 @@ class MySQLSyncView(APIView):
         hsn_id_map = {r['id']: r['hsn_no'] for r in cursor.fetchall()}
         def _resolve_item_ledger(val):
             # Old item_master ledger reference (id or name) -> client Ledger.
+            # Numeric values resolve via legacy id / LedgerAlias; anything else is
+            # matched by name (resolve_ledger coerces non-numeric strings to id 0,
+            # so guard against it by only sending numeric values there).
             from accounting.migration_utils import resolve_ledger
             s = (str(val).strip() if val is not None else '')
             if not s:
                 return None
-            led = resolve_ledger(s)  # numeric id + LedgerAlias
-            if led is None:
-                led = Ledger.objects.filter(ac_name=s).first()
-            return led
+            if s.lstrip('-').replace('.', '', 1).isdigit():
+                led = resolve_ledger(s)
+                if led is not None:
+                    return led
+            return Ledger.objects.filter(ac_name=s).first()
 
         # Legacy PK is `item_id` (not `id`); preserve it as Item.id so transactional
         # imports (sales / purchases / opening stock reference items by id) resolve.
@@ -2042,6 +2046,7 @@ class MySQLSyncView(APIView):
                        "FROM item_master")
         rows = cursor.fetchall()
         created = updated = 0
+        unresolved_ledgers = 0
         errors = []
         for row in rows:
             try:
@@ -2063,6 +2068,12 @@ class MySQLSyncView(APIView):
                         hsn_obj = Hsn.objects.filter(hsn_no=hsn_no_str).first()
                 grp_obj = (ItemGroupMaster.objects.filter(id=_iid(row.get('grp'))).first()
                            if _iid(row.get('grp')) else None)
+                pl_src, sl_src = row.get('purchase_ledger'), row.get('sale_ledger')
+                pl_obj, sl_obj = _resolve_item_ledger(pl_src), _resolve_item_ledger(sl_src)
+                # Count source values that were present but didn't resolve, so an
+                # operator can see how many items lost their ledger link.
+                if (pl_src and pl_obj is None) or (sl_src and sl_obj is None):
+                    unresolved_ledgers += 1
                 _, flag = Item.objects.update_or_create(
                     id=iid,
                     defaults={
@@ -2074,8 +2085,8 @@ class MySQLSyncView(APIView):
                         'show_in_pcs_report': bool(row.get('show_in_pcs_report')),
                         'grp': grp_obj,
                         'sub_grp': str(row.get('sub_grp') or '').strip(),
-                        'purchase_ledger': _resolve_item_ledger(row.get('purchase_ledger')),
-                        'sale_ledger': _resolve_item_ledger(row.get('sale_ledger')),
+                        'purchase_ledger': pl_obj,
+                        'sale_ledger': sl_obj,
                     }
                 )
                 if flag:
@@ -2084,7 +2095,8 @@ class MySQLSyncView(APIView):
                     updated += 1
             except Exception as e:
                 errors.append(f"item_id={row.get('item_id')}: {str(e)}")
-        return {'created': created, 'updated': updated, 'errors': errors}
+        return {'created': created, 'updated': updated,
+                'unresolved_ledgers': unresolved_ledgers, 'errors': errors}
 
     def _sync_packet_group(self, cursor):
         cursor.execute("SELECT packet_group FROM packet_group_master")

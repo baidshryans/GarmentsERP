@@ -53,8 +53,8 @@ class SyncItemLedgerTests(TestCase):
         it = Item.objects.get(id=702)
         self.assertEqual(it.sale_ledger_id, 5001)
 
-    def test_unresolvable_ledger_is_null(self):
-        self._sync_items([{
+    def test_unresolvable_ledger_is_null_and_counted(self):
+        result = self._sync_items([{
             "item_id": "703", "short_code": "ORN3", "item": "Ornament3", "item_type": "M",
             "uom": "Gm", "hsn_no": None, "show_in_pcs_report": 0, "grp": None,
             "sub_grp": "", "purchase_ledger": "", "sale_ledger": "does-not-exist",
@@ -62,3 +62,5 @@ class SyncItemLedgerTests(TestCase):
         it = Item.objects.get(id=703)
         self.assertIsNone(it.sale_ledger_id)
         self.assertIsNone(it.purchase_ledger_id)
+        # sale_ledger was present but unresolvable -> counted; empty purchase not counted.
+        self.assertEqual(result["unresolved_ledgers"], 1)

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
-import { fetchCompanies } from "@/services/apiService";
+import { fetchCompanies, getRetails } from "@/services/apiService";
 import { Printer, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, X, Loader2 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { isValidDateRange } from "@/lib/dateRange";
@@ -180,6 +180,7 @@ export default function TrialBalance() {
   const [collapsed, setCollapsed] = useState({});
   const [combined, setCombined] = useState(false);
   const [companyName, setCompanyName] = useState("");
+  const [retailName, setRetailName] = useState("");
   const [ledgerModal, setLedgerModal] = useState(null); // { id, name }
 
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
@@ -192,6 +193,13 @@ export default function TrialBalance() {
         if (results.length > 0) setCompanyName(results[0].company_name || "");
       }
     });
+    // Resolve the active retail's name (from the header switcher) for print labels.
+    getRetails().then((res) => {
+      const locations = res?.data?.results?.[0]?.location || [];
+      const code = sessionStorage.getItem("retail_code") || "";
+      const active = locations.find((r) => r.retail_code === code);
+      if (active) setRetailName(active.retail_name || active.retail_code || "");
+    }).catch(() => {});
   }, []);
 
   const toggle = (key) => setCollapsed((p) => ({ ...p, [key]: !p[key] }));
@@ -259,7 +267,7 @@ export default function TrialBalance() {
     };
     printReport({
       title: "Trial Balance",
-      subtitle: `${toDdMm(fromDate)} to ${toDdMm(toDate)} · ${combined ? "All Retails (Combined)" : "Selected Retail"}`,
+      subtitle: `${toDdMm(fromDate)} to ${toDdMm(toDate)} · ${combined ? "All Retails (Combined)" : (retailName || "Selected Retail")}`,
       html,
       company: companyName,
       // A4 portrait, tightened so all seven columns use the width without wrapping numbers.

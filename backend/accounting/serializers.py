@@ -1017,6 +1017,9 @@ class FixedAssetSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = (
             'retail',
+            # Server-generated (accounting.fa_services.generate_next_asset_code) —
+            # never user-entered, never editable after creation.
+            'asset_code',
             'accumulated_depreciation', 'created_at',
             # Depreciation ledgers are set globally in Fixed Asset Settings — no
             # per-asset overrides allowed through the API.

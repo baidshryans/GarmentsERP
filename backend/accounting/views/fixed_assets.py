@@ -57,8 +57,18 @@ class FixedAssetViewSet(RetailBaseViewset):
         return qs
 
     def perform_create(self, serializer):
+        from django.db import IntegrityError, transaction as _tx
+        from ..fa_services import generate_next_asset_code
+
         retail = self.request.retail
-        asset = serializer.save(retail=retail)
+        for attempt in range(5):
+            try:
+                with _tx.atomic():
+                    asset = serializer.save(retail=retail, asset_code=generate_next_asset_code(retail))
+                break
+            except IntegrityError:
+                if attempt == 4:
+                    raise
 
         if asset.asset_ledger_id:
             # Caller attached an existing ledger (already reclassified into

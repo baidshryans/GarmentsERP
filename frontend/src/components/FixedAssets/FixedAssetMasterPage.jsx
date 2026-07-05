@@ -184,7 +184,12 @@ export default function FixedAssetMasterPage() {
               <section className="space-y-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Asset Details</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <F label="Asset Code *"><Input value={form.asset_code} onChange={e => set("asset_code", e.target.value)} /></F>
+                  <F label="Asset Code">
+                    {editId
+                      ? <Input value={form.asset_code} readOnly disabled className="font-mono bg-muted" />
+                      : <p className="text-xs text-muted-foreground pt-2">Auto-generated on save.</p>
+                    }
+                  </F>
                   <F label="Asset Name *"><Input value={form.asset_name} onChange={e => set("asset_name", e.target.value)} /></F>
                   <F label="Description" className="col-span-2">
                     <Textarea rows={2} value={form.description} onChange={e => set("description", e.target.value)} />

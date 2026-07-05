@@ -1,7 +1,50 @@
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.db import transaction
+
 from .models import IT_BLOCK_RATES
+
+ASSET_CODE_PREFIX = "FA"
+
+
+def generate_next_asset_code(retail):
+    """
+    Race-safe, retail-scoped asset code, e.g. "FA-00001". Deliberately does
+    NOT reuse accounting.utils.get_next_bill_number — that helper is
+    fiscal-year-scoped (requires an active FY, resets the counter every FY),
+    but FixedAsset has no fiscal_year field and must number continuously
+    across years.
+    """
+    from mastersconfig.models import BillNumberSequence
+    from .models import FixedAsset
+
+    for _ in range(5):
+        with transaction.atomic():
+            seq, _created = BillNumberSequence.objects.select_for_update().get_or_create(
+                retail=retail, prefix=ASSET_CODE_PREFIX, fiscal_year=None,
+                defaults={'last_number': 0},
+            )
+            # Resync against the actual max in case rows were created
+            # directly or the sequence otherwise drifted.
+            existing_max = 0
+            codes = FixedAsset.objects.filter(
+                retail=retail, asset_code__startswith=f"{ASSET_CODE_PREFIX}-",
+            ).values_list('asset_code', flat=True)
+            for code in codes:
+                tail = code.rsplit('-', 1)[-1]
+                if tail.isdigit():
+                    existing_max = max(existing_max, int(tail))
+            if existing_max > seq.last_number:
+                seq.last_number = existing_max
+
+            seq.last_number += 1
+            seq.save(update_fields=['last_number'])
+            candidate = f"{ASSET_CODE_PREFIX}-{seq.last_number:05d}"
+
+        if not FixedAsset.objects.filter(retail=retail, asset_code=candidate).exists():
+            return candidate
+    raise RuntimeError("Could not generate a unique asset code — please retry.")
 
 TWO_PLACES = Decimal('0.01')
 

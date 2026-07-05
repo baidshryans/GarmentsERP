@@ -353,10 +353,11 @@ class TrialBalanceReportView(APIView):
             # Determine which fiscal year contains from_date so we can use its stored OB
             # and only scan transactions within that FY (not all history).
             from mastersconfig.models import FiscalYearMaster
-            fy_filter = dict(fy_start__lte=from_date_obj, fy_end__gte=from_date_obj)
-            if retail:
-                fy_filter['retail'] = retail
-            fy = FiscalYearMaster.objects.filter(**fy_filter).first()
+            # Fiscal year is company-global (no retail field); per-retail scoping is
+            # applied to transactions/opening balances below, not to the FY lookup.
+            fy = FiscalYearMaster.objects.filter(
+                fy_start__lte=from_date_obj, fy_end__gte=from_date_obj
+            ).first()
 
             # Batch query 1: Opening balances for the relevant fiscal year
             ob_filter = {}

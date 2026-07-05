@@ -55,10 +55,10 @@ class LedgerSyncAliasingTests(TestCase):
         self.assertIsNotNone(alias)
         self.assertEqual(alias.ledger_id, seeded.id)
 
-    def test_legacy_sales_folds_onto_seeded_sales_ledger(self):
-        seeded = Ledger.objects.filter(ac_name="Ornament Sales", is_system=True).first()
-        self.assertIsNotNone(seeded)
+    def test_legacy_sales_ledger_is_created_not_folded(self):
+        # Commodity sales ledgers are the client's own now (not seeded), so a legacy
+        # sales ledger is created under the legacy group; the chart finalize later
+        # regroups it. It must NOT be aliased away.
         self._sync([{"ldgr_code": "2012", "ac_name": "Ornament Sales", "ac_grp": "Sales Account"}])
-        alias = LedgerAlias.objects.filter(legacy_code="2012").first()
-        self.assertIsNotNone(alias)
-        self.assertEqual(alias.ledger_id, seeded.id)
+        self.assertFalse(LedgerAlias.objects.filter(legacy_code="2012").exists())
+        self.assertTrue(Ledger.objects.filter(id=2012).exists())

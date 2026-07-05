@@ -1170,10 +1170,36 @@ class MySQLSyncView(APIView):
                     if _tx_key in tables_requested:
                         results[_tx_key] = self._sync_transaction(cursor, _tx_key)
 
+                # The ledger sync rebuilds the legacy MG/GM/SG chart of accounts;
+                # collapse it onto the canonical standard tree so reports (P&L,
+                # Balance Sheet) read the right groups.
+                if 'ledger' in tables_requested:
+                    results['chart_finalize'] = self._finalize_chart_of_accounts()
+
         except Exception as e:
             return Response({'error': f'Sync failed: {str(e)}'}, status=500)
 
         return Response({'status': 'ok', 'results': results})
+
+    def _finalize_chart_of_accounts(self):
+        """Collapse the legacy MG/GM/SG chart the ledger sync rebuilt onto the
+        canonical standard tree, so reports read the right account groups. Reuses
+        the idempotent, trial-balance-verified consolidate command. Best-effort:
+        a failure (e.g. an unmapped legacy group) is reported, not fatal."""
+        from django.core.management import call_command
+        import io as _io
+        import logging as _logging
+        logger = _logging.getLogger(__name__)
+        try:
+            call_command('setup_account_groups', stdout=_io.StringIO(), stderr=_io.StringIO())
+            buf = _io.StringIO()
+            call_command('consolidate_chart_of_accounts', '--apply',
+                         stdout=buf, stderr=_io.StringIO())
+            applied = [l for l in buf.getvalue().splitlines() if l.startswith('APPLIED')]
+            return {'status': 'ok', 'detail': applied[-1] if applied else 'done'}
+        except Exception as e:
+            logger.warning('chart-of-accounts finalize failed: %s', e)
+            return {'status': 'error', 'error': str(e)}
 
     def _sync_ledger(self, cursor):
         """Sync legacy account hierarchy (main_group/group_master/subgroup_master)

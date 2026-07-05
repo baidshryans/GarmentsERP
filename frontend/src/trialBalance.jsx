@@ -272,7 +272,7 @@ export default function TrialBalance() {
       company: companyName,
       // A4 portrait, tightened so all seven columns use the width without wrapping numbers.
       extraCss: `
-        @page { size: A4 portrait; margin: 8mm 8mm; }
+        @page { size: A4 portrait; margin: 14mm 12mm; }
         table { font-size: 8.5px; table-layout: fixed; width: 100%; }
         th, td { padding: 2px 3px; }
         td.tabular-nums, th { white-space: nowrap; }

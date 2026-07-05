@@ -856,6 +856,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
         help_text="PKs of unlinked RCPT vouchers to apply as advance (used when no customer_order is set)"
     )
     applied_advance_receipts = serializers.SerializerMethodField(read_only=True)
+    unlinked_receipts = serializers.SerializerMethodField(read_only=True)
 
     def get_applied_advance_receipts(self, obj):
         if not obj.billno or not obj.ldgr_id:
@@ -882,6 +883,13 @@ class SalesVouSerializer(serializers.ModelSerializer):
             }
             for r in rows
         ]
+
+    def get_unlinked_receipts(self, obj):
+        if not obj.ldgr_id:
+            return []
+        from accounting.views.vouchers import unlinked_receipts_for_ledger
+        return unlinked_receipts_for_ledger(obj.retail, obj.ldgr_id)
+
     # Multi-voucher old gold (POS path) — [{purchase_id, amount}, ...]
     old_gold_adjustments_data = serializers.ListField(
         child=serializers.DictField(), write_only=True, required=False, default=list,
@@ -1152,6 +1160,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'advance_deducted',
             'advance_receipt_ids',
             'applied_advance_receipts',
+            'unlinked_receipts',
             'customer_order',
             'old_gold_purchase',
             'old_gold_adjusted',

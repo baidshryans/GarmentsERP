@@ -688,6 +688,51 @@ class UnallocatedVouchersView(APIView):
         return Response(rows)
 
 
+def unlinked_receipts_for_ledger(retail, ldgr_id):
+    """
+    Posted RCPT/RCPT-SALE vouchers for a customer ledger that have no
+    CustomerOrder FK, together with how much of each is still unallocated.
+    Shared by UnlinkedReceiptsView and SalesVouSerializer.get_unlinked_receipts
+    (folding this into the sale-voucher detail response avoids the edit form
+    needing a second, sequential round-trip after the voucher itself loads).
+    """
+    from decimal import Decimal as _D
+    from django.db.models import Sum as _Sum
+    from ..models import ReferenceBills as _RefBills
+
+    vouchers = (
+        VoucherMain.objects
+        .filter(
+            retail=retail,
+            voucher_type__in=["RCPT", "RCPT-SALE"],
+            status="posted",
+            customer_order__isnull=True,
+            transactions__account_id=ldgr_id,
+        )
+        .distinct()
+        .order_by("date", "id")
+    )
+
+    rows = []
+    for v in vouchers:
+        applied = (
+            _RefBills.objects.filter(voucher=v)
+            .aggregate(s=_Sum("amount"))["s"] or _D("0")
+        )
+        remaining = _D(str(v.amount)) - _D(str(applied))
+        if remaining <= 0:
+            continue
+        rows.append({
+            "id": v.id,
+            "voucher_no": v.voucher_no,
+            "date": v.date.isoformat(),
+            "amount": float(v.amount),
+            "amount_remaining": float(remaining),
+            "narration": v.narration or "",
+        })
+    return rows
+
+
 class UnlinkedReceiptsView(APIView):
     """
     GET /accounting/api/unlinked-receipts/?ldgr_id=<ledger_pk>
@@ -697,43 +742,8 @@ class UnlinkedReceiptsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from decimal import Decimal as _D
-        from django.db.models import Sum as _Sum
-        from ..models import ReferenceBills as _RefBills
-
         ldgr_id = request.query_params.get("ldgr_id")
         if not ldgr_id:
             return Response({"detail": "ldgr_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        retail = request.retail
-        vouchers = (
-            VoucherMain.objects
-            .filter(
-                retail=retail,
-                voucher_type__in=["RCPT", "RCPT-SALE"],
-                status="posted",
-                customer_order__isnull=True,
-                transactions__account_id=ldgr_id,
-            )
-            .distinct()
-            .order_by("date", "id")
-        )
-
-        rows = []
-        for v in vouchers:
-            applied = (
-                _RefBills.objects.filter(voucher=v)
-                .aggregate(s=_Sum("amount"))["s"] or _D("0")
-            )
-            remaining = _D(str(v.amount)) - _D(str(applied))
-            if remaining <= 0:
-                continue
-            rows.append({
-                "id": v.id,
-                "voucher_no": v.voucher_no,
-                "date": v.date.isoformat(),
-                "amount": float(v.amount),
-                "amount_remaining": float(remaining),
-                "narration": v.narration or "",
-            })
-        return Response(rows)
+        return Response(unlinked_receipts_for_ledger(request.retail, ldgr_id))

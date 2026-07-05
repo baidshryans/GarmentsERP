@@ -518,20 +518,14 @@ const SalesVoucherAdd = () => {
     if (appliedReceipts.length > 0) {
       setSelectedReceiptIds(appliedReceipts.map((r) => r.id));
     }
-    if (data.ldgr) {
-      setLoadingOnAccount(true);
-      fetchUnlinkedReceipts(data.ldgr).then((res) => {
-        setLoadingOnAccount(false);
-        const unlinked = res.success ? res.data : [];
-        const merged = [
-          ...appliedReceipts,
-          ...unlinked.filter((u) => !appliedReceipts.some((a) => a.id === u.id)),
-        ];
-        setOnAccountReceipts(merged);
-      });
-    } else if (appliedReceipts.length > 0) {
-      setOnAccountReceipts(appliedReceipts);
-    }
+    // unlinked_receipts now comes bundled in the voucher response itself
+    // (backend/sales/serializers.py get_unlinked_receipts) — no more second,
+    // sequential round-trip after the voucher loads.
+    const unlinked = Array.isArray(data.unlinked_receipts) ? data.unlinked_receipts : [];
+    setOnAccountReceipts([
+      ...appliedReceipts,
+      ...unlinked.filter((u) => !appliedReceipts.some((a) => a.id === u.id)),
+    ]);
     // Restore old gold purchase link (still sequential — needs ldgr from voucher data)
     if (data.old_gold_purchase && data.ldgr) {
       fetchCustomerPurchasesByLedger(data.ldgr).then((res) => {

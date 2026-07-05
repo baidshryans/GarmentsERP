@@ -259,10 +259,17 @@ export default function TrialBalance() {
     };
     printReport({
       title: "Trial Balance",
-      subtitle: `${toDdMm(fromDate)} to ${toDdMm(toDate)}`,
+      subtitle: `${toDdMm(fromDate)} to ${toDdMm(toDate)} · ${combined ? "All Retails (Combined)" : "Selected Retail"}`,
       html,
-      landscape: true,
       company: companyName,
+      // A4 portrait, tightened so all seven columns use the width without wrapping numbers.
+      extraCss: `
+        @page { size: A4 portrait; margin: 8mm 8mm; }
+        table { font-size: 8.5px; table-layout: fixed; width: 100%; }
+        th, td { padding: 2px 3px; }
+        td.tabular-nums, th { white-space: nowrap; }
+        td:first-child, th:first-child { white-space: normal; word-break: break-word; }
+      `,
     });
   };
 

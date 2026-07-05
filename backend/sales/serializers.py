@@ -1554,7 +1554,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'debit':0,
                                         'credit':f"{item.making_value:.2f}"
                                     } for item in item_instances] +
-                                    [{'account':item.item.sale_ledger.ac_name,
+                                    [{'account':(item.item.sale_ledger.ac_name if item.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{item.item}'")),
                                         'debit':0,
                                         'credit':f"{item.amount:.2f}"
                                     } for item in item_detail_instances] +
@@ -1979,7 +1979,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'debit':0,
                                         'credit':f"{item.making_value:.2f}"
                                     } for item in item_instances] +
-                                    [{'account':item.item.sale_ledger.ac_name,
+                                    [{'account':(item.item.sale_ledger.ac_name if item.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{item.item}'")),
                                         'debit':0,
                                         'credit':f"{item.amount:.2f}"
                                     } for item in item_detail_instances] +
@@ -2259,7 +2259,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             for _main, _sub_details in items_with_details:
                 for _d in _sub_details:
                     _sr_item_lines.append({
-                        'account': _d.item.sale_ledger.ac_name,
+                        'account': (_d.item.sale_ledger.ac_name if _d.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{_d.item}'")),
                         'debit': f"{Decimal(str(_d.amount or 0)):.2f}",
                     })
 
@@ -2399,7 +2399,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             _sr_item_lines = []
             for _main in item_instances:
                 for _d in _sr_details_by_main.get(_main.id, []):
-                    _sr_item_lines.append({'account': _d.item.sale_ledger.ac_name, 'debit': f"{Decimal(str(_d.amount or 0)):.2f}"})
+                    _sr_item_lines.append({'account': (_d.item.sale_ledger.ac_name if _d.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{_d.item}'")), 'debit': f"{Decimal(str(_d.amount or 0)):.2f}"})
 
             # Build party credit using Decimal-rounded components so it matches
             # the individually-rounded debit lines exactly (avoids 0.01 mismatch).

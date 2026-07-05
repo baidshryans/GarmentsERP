@@ -47,38 +47,11 @@ _OPERATIONAL_LEDGERS = [
 
 # ── Trading ledgers (Purchase / Sales accounts, per commodity) ────────────────
 # (label, account_code, ledger_role) — created once per company, not stored as FK on company
-_TRADING_LEDGERS = [
-    # Purchases → EXP-DIR-PUR, role EXP
-    ('Gold Purchase',              'EXP-DIR-PUR', 'EXP'),
-    ('Standard Bar Purchase',      'EXP-DIR-PUR', 'EXP'),
-    ('Ornament Purchase',          'EXP-DIR-PUR', 'EXP'),
-    ('Diamond Purchase',           'EXP-DIR-PUR', 'EXP'),
-    ('Lab Grown Diamond Purchase', 'EXP-DIR-PUR', 'EXP'),
-    ('Emerald Purchase',           'EXP-DIR-PUR', 'EXP'),
-    ('Ruby Purchase',              'EXP-DIR-PUR', 'EXP'),
-    ('Pearls Purchase',            'EXP-DIR-PUR', 'EXP'),
-    ('Semi Precious Purchase',     'EXP-DIR-PUR', 'EXP'),
-    ('Multi Sapphire Purchase',    'EXP-DIR-PUR', 'EXP'),
-    ('Blue Sapphire Purchase',     'EXP-DIR-PUR', 'EXP'),
-    ('Imitation Purchase',         'EXP-DIR-PUR', 'EXP'),
-    ('Old Gold Purchase',          'EXP-DIR-PUR', 'EXP'),
-    ('Other Purchase',             'EXP-DIR-PUR', 'EXP'),
-    # Sales → INC-DIR-SAL, role INC
-    ('Gold Sales',                 'INC-DIR-SAL', 'INC'),
-    ('Standard Bar Sales',         'INC-DIR-SAL', 'INC'),
-    ('Ornament Sales',             'INC-DIR-SAL', 'INC'),
-    ('Diamond Sales',              'INC-DIR-SAL', 'INC'),
-    ('Lab Grown Diamond Sales',    'INC-DIR-SAL', 'INC'),
-    ('Emerald Sales',              'INC-DIR-SAL', 'INC'),
-    ('Ruby Sales',                 'INC-DIR-SAL', 'INC'),
-    ('Pearls Sales',               'INC-DIR-SAL', 'INC'),
-    ('Semi Precious Sales',        'INC-DIR-SAL', 'INC'),
-    ('Multi Sapphire Sales',       'INC-DIR-SAL', 'INC'),
-    ('Blue Sapphire Sales',        'INC-DIR-SAL', 'INC'),
-    ('Imitation Sales',            'INC-DIR-SAL', 'INC'),
-    ('Old Gold Sales',             'INC-DIR-SAL', 'INC'),
-    ('Other Sales',                'INC-DIR-SAL', 'INC'),
-]
+# Commodity sale/purchase ledgers are NOT seeded: they are the client's own
+# business data and come from the ledger sync (grouped under INC-DIR-SAL /
+# EXP-DIR-PUR by the chart finalize). Seeding a fixed list here duplicated them.
+# Kept as an (empty) list so the seed command / signals that iterate it still work.
+_TRADING_LEDGERS = []
 
 # ── Misc statutory / asset / expense ledgers ─────────────────────────────────
 _MISC_LEDGERS = [

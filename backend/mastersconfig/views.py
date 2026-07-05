@@ -1407,10 +1407,39 @@ class MySQLSyncView(APIView):
                     aliased += 1
                     continue
 
+                # A legacy ldgr_code can coincidentally equal the Django PK of an
+                # auto-created system ledger (system ledgers get whatever PK is
+                # next-free when seeded; legacy codes are an independent numbering
+                # from the old ERP — e.g. legacy code 60538 landing on the seeded
+                # "Round Off" ledger's PK). Never clobber the system ledger — create
+                # this legacy ledger under a fresh PK instead and alias the legacy
+                # code onto it, so transactions referencing this code still resolve
+                # to the right ledger via resolve_ledger() -> LedgerAlias.
                 existing = Ledger.objects.filter(id=lid).first()
+                collision_alias_code = None
                 if existing and getattr(existing, 'is_system', False):
+                    # A prior sync may have already resolved this exact collision
+                    # (creating a non-system ledger under a fresh PK and aliasing
+                    # the legacy code onto it) — reuse that ledger's PK so re-syncs
+                    # update it in place instead of spawning a new duplicate every
+                    # run. Only trust the alias if it doesn't (still) point at a
+                    # system ledger.
+                    prior_alias = LedgerAlias.objects.filter(
+                        legacy_code=str(lid)).select_related('ledger').first()
+                    resolved_id = (
+                        prior_alias.ledger_id
+                        if prior_alias and not prior_alias.ledger.is_system else None
+                    )
+                    _logger.warning(
+                        "ledger PK collision: legacy ldgr_code %s (ac_name=%r) collides "
+                        "with system ledger %r (id=%s) - %s",
+                        lid, ac_name, existing.ac_name, existing.id,
+                        f"updating previously-resolved ledger id={resolved_id}" if resolved_id
+                        else "creating under a new PK and aliasing the legacy code onto it",
+                    )
                     skipped_system += 1
-                    continue  # never clobber app-managed system ledgers
+                    collision_alias_code = str(lid)
+                    lid = resolved_id
 
                 grp_name = _pick(row, 'ac_grp', 'group_name', 'gr_name')
                 ac_group = (sub_by_name.get(grp_name.lower())
@@ -1432,7 +1461,15 @@ class MySQLSyncView(APIView):
                 if ac_group is not None:
                     defaults['ac_group'] = ac_group
 
-                ledger, flag = Ledger.objects.update_or_create(id=lid, defaults=defaults)
+                if lid is None:
+                    ledger = Ledger.objects.create(**defaults)
+                    flag = True
+                else:
+                    ledger, flag = Ledger.objects.update_or_create(id=lid, defaults=defaults)
+
+                if collision_alias_code is not None:
+                    LedgerAlias.objects.update_or_create(
+                        legacy_code=collision_alias_code, defaults={'ledger': ledger})
 
                 role = self._infer_ledger_role(_pick(row, 'ledger_type', 'type', 'sl_type'), grp_name, ac_name)
                 LedgerRole.objects.get_or_create(
@@ -1441,7 +1478,7 @@ class MySQLSyncView(APIView):
                 )
 
                 if ledger.ac_group_id is None:
-                    ungrouped.append({'id': lid, 'ac_name': ac_name, 'group': grp_name})
+                    ungrouped.append({'id': ledger.id, 'ac_name': ac_name, 'group': grp_name})
 
                 if flag:
                     created += 1
@@ -1523,6 +1560,13 @@ class MySQLSyncView(APIView):
             return SYN[t]
         text = f"{group_name} {ac_name}".lower()
         RULES = [
+            # Expense/income keywords must win over bare 'cash'/'bank' substring
+            # matches — otherwise "Cash Pickup Charges" or "Bank Charges" (real
+            # expense ledgers) get mis-tagged with the CA/BA role and pollute
+            # the Cash Book / Bank Book ledger pickers.
+            ('purchase', 'EXP'), ('expense', 'EXP'), ('charges', 'EXP'),
+            ('sales', 'INC'), ('income', 'INC'), ('revenue', 'INC'),
+            ('discount received', 'INC'), ('interest received', 'INC'),
             ('bank', 'BA'), ('cash', 'CA'),
             ('sundry debtor', 'SD'), ('debtor', 'SD'),
             ('sundry creditor', 'SC'), ('creditor', 'SC'),
@@ -1530,9 +1574,6 @@ class MySQLSyncView(APIView):
             ('refin', 'REF'), ('melt', 'MLT'), ('hallmark', 'HM'),
             ('supplier', 'VD'), ('vendor', 'VD'),
             ('customer', 'CO'), ('dealer', 'DL'),
-            ('purchase', 'EXP'), ('expense', 'EXP'), ('charges', 'EXP'),
-            ('sales', 'INC'), ('income', 'INC'), ('revenue', 'INC'),
-            ('discount received', 'INC'), ('interest received', 'INC'),
         ]
         for kw, role in RULES:
             if kw in text:
@@ -1751,6 +1792,15 @@ class MySQLSyncView(APIView):
         def _s(v):
             return '' if v is None else str(v).strip()
 
+        # Legacy barcode_main.making_type uses 'per_gld_val' for making charged
+        # as a percentage of gold value/weight; the new ERP's making_type codes
+        # are 'val' (flat value) and 'per_nw' (% of wt) — map accordingly.
+        _MAKING_TYPE_MAP = {'per_gld_val': 'per_nw'}
+
+        def _s_making_type(v):
+            raw = _s(v)
+            return _MAKING_TYPE_MAP.get(raw.lower(), raw)
+
         def _rows(table):
             try:
                 cursor.execute(f"SELECT * FROM {table}")
@@ -1775,7 +1825,7 @@ class MySQLSyncView(APIView):
                 'making_value': _s(r.get('making_value')) or '0',
                 'total': _s(r.get('total')),
                 'other_charges': _s(r.get('making_other')),
-                'making_type': _s(r.get('making_type')),
+                'making_type': _s_making_type(r.get('making_type')),
                 'huid': _s(r.get('huid')),
                 'design_code': _s(r.get('design_code')),
                 'retail_code': _s(r.get('rt_code')),

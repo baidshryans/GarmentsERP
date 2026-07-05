@@ -1133,6 +1133,11 @@ class MySQLSyncView(APIView):
                 if 'hsn' in tables_requested:
                     results['hsn'] = self._sync_hsn(cursor)
 
+                # Ledgers before items: _sync_item resolves each item's sale/purchase
+                # ledger against the just-synced ledgers.
+                if 'ledger' in tables_requested:
+                    results['ledger'] = self._sync_ledger(cursor)
+
                 if 'item' in tables_requested:
                     results['item'] = self._sync_item(cursor)
 
@@ -1144,9 +1149,6 @@ class MySQLSyncView(APIView):
 
                 if 'salesperson' in tables_requested:
                     results['salesperson'] = self._sync_salesperson(cursor)
-
-                if 'ledger' in tables_requested:
-                    results['ledger'] = self._sync_ledger(cursor)
 
                 if 'company' in tables_requested:
                     results['company'] = self._sync_company(cursor)

@@ -4,6 +4,21 @@ from django.db import transaction
 from mastersconfig.models import Item, ItemGroupMaster, Hsn
 from contacts.models import Ledger
 
+
+def _resolve_item_ledger(val):
+    """CSV item ledger reference (id or name) -> the client's Ledger, or None.
+    Numeric values resolve via legacy id / LedgerAlias; anything else by name."""
+    from accounting.migration_utils import resolve_ledger
+    s = (str(val).strip() if val is not None else '')
+    if not s:
+        return None
+    if s.lstrip('-').replace('.', '', 1).isdigit():
+        led = resolve_ledger(s)
+        if led is not None:
+            return led
+    return Ledger.objects.filter(ac_name=s).first()
+
+
 class Command(BaseCommand):
     help = 'Import Item data from CSV file'
 
@@ -16,11 +31,11 @@ class Command(BaseCommand):
         with open(csv_file, newline='', encoding='utf-8') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                grp = ItemGroupMaster.objects.filter(id=row['grp']).first()
-                purchase_ledger = Ledger.objects.filter(ac_name='Purchase Account', is_system=True).first() if row['purchase_ledger'] else None
-                sale_ledger = Ledger.objects.filter(ac_name='Sales Account', is_system=True).first() if row['sale_ledger'] else None
-                print(row['hsn_no'])
-                hsn_no = Hsn.objects.get(id=int(row['hsn_no'])) if row['hsn_no']!="0" else None
+                grp = (ItemGroupMaster.objects.filter(id=row['grp']).first()
+                       if str(row.get('grp') or '').strip().isdigit() else None)
+                purchase_ledger = _resolve_item_ledger(row.get('purchase_ledger'))
+                sale_ledger = _resolve_item_ledger(row.get('sale_ledger'))
+                hsn_no = Hsn.objects.get(id=int(row['hsn_no'])) if row['hsn_no'] != "0" else None
 
                 Item.objects.update_or_create(
                     id=row['item_id'],

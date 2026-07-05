@@ -245,6 +245,16 @@ export default function ItemMaster() {
       },
     },
     {
+      header: "Purchase Ledger",
+      accessorKey: "purchase_ledger_name",
+      cell: ({ getValue }) => getValue() || "-",
+    },
+    {
+      header: "Sale Ledger",
+      accessorKey: "sale_ledger_name",
+      cell: ({ getValue }) => getValue() || "-",
+    },
+    {
       header: "Op. Rate",
       accessorKey: "op_wtd_avg_rate",
       cell: ({ getValue }) => Number(getValue()).toFixed(3),

@@ -16,9 +16,13 @@ import {
 import { Plus, Pencil, Info } from "lucide-react";
 import {
   fetchFixedAssets, createFixedAsset, updateFixedAsset,
-  fetchITBlockRates,
+  fetchITBlockRates, getLedgers,
 } from "@/services/apiService";
 import { useToast } from "@/hooks/use-toast";
+
+// Ledgers eligible to be attached to a Fixed Asset — must already sit in one
+// of these account groups (mirrors backend FA_LEDGER_GROUP_CODES).
+const FA_LEDGER_GROUP_CODES = "FA-LB,FA-PM,FA-FF,FA-CE,FA-VH";
 
 const STATUS_COLORS = {
   ACTIVE:            "bg-green-100 text-green-800",
@@ -43,11 +47,32 @@ export default function FixedAssetMasterPage() {
   const [editLedgerName, setEditLedgerName] = useState(""); // read-only display of auto-created ledger
   const [form, setForm]              = useState(BLANK);
   const [saving, setSaving]          = useState(false);
+  const [ledgerMode, setLedgerMode]  = useState("auto"); // "auto" | "existing" — create mode only
+  const [existingLedgers, setExistingLedgers] = useState([]);
+  const [loadingLedgers, setLoadingLedgers]   = useState(false);
 
   useEffect(() => {
     load();
     fetchITBlockRates().then(r => r.success && setBlockRates(r.data));
   }, []);
+
+  // Ledgers already sitting in an FA account group, minus ones already
+  // attached to another FixedAsset — those are the only ones safe to offer.
+  async function loadExistingLedgers() {
+    setLoadingLedgers(true);
+    const r = await getLedgers({ type: "", ac_group_code: FA_LEDGER_GROUP_CODES, page_size: 500 });
+    setLoadingLedgers(false);
+    if (!r.success) return;
+    const all = Array.isArray(r.data) ? r.data : (r.data.results || []);
+    const linkedIds = new Set(assets.map(a => a.asset_ledger).filter(Boolean));
+    setExistingLedgers(all.filter(l => !linkedIds.has(l.id)));
+  }
+
+  function onLedgerModeChange(mode) {
+    setLedgerMode(mode);
+    set("asset_ledger", "");
+    if (mode === "existing") loadExistingLedgers();
+  }
 
   async function load() {
     const r = await fetchFixedAssets();
@@ -58,6 +83,8 @@ export default function FixedAssetMasterPage() {
     setEditId(null);
     setEditLedgerName("");
     setForm(BLANK);
+    setLedgerMode("auto");
+    setExistingLedgers([]);
     setOpen(true);
   }
 
@@ -102,17 +129,29 @@ export default function FixedAssetMasterPage() {
   }
 
   async function handleSave() {
+    if (!editId && ledgerMode === "existing" && !form.asset_ledger) {
+      toast({ title: "Select an existing ledger to attach to, or switch to auto-create.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
+    const { asset_ledger, ...rest } = form;
     const payload = {
-      ...form,
+      ...rest,
       it_block_category: form.it_block_category || null,
+      ...(!editId && ledgerMode === "existing" ? { asset_ledger: Number(asset_ledger) } : {}),
     };
     const r = editId
       ? await updateFixedAsset(editId, payload)
       : await createFixedAsset(payload);
     setSaving(false);
     if (r.success) {
-      toast({ title: editId ? "Asset updated." : "Asset created. Ledger auto-created in Ledger Master." });
+      toast({
+        title: editId
+          ? "Asset updated."
+          : ledgerMode === "existing"
+            ? "Asset created and attached to the selected ledger."
+            : "Asset created. Ledger auto-created in Ledger Master.",
+      });
       setOpen(false);
       load();
     } else {
@@ -207,15 +246,54 @@ export default function FixedAssetMasterPage() {
                 </div>
               </section>
 
-              {/* Asset ledger info — auto-created, read-only */}
+              {/* Asset ledger — auto-created, or attach to an existing FA-group ledger */}
               <section className="space-y-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accounting Ledgers</h3>
+
+                {!editId && (
+                  <F label="Asset Ledger">
+                    <Select value={ledgerMode} onValueChange={onLedgerModeChange}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">Auto-create a new ledger</SelectItem>
+                        <SelectItem value="existing">Attach to an existing ledger</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </F>
+                )}
+
+                {!editId && ledgerMode === "existing" && (
+                  <F label="Existing Ledger *">
+                    <Select
+                      value={form.asset_ledger || ""}
+                      onValueChange={v => set("asset_ledger", v)}
+                      disabled={loadingLedgers}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingLedgers ? "Loading…" : "Select a ledger…"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {existingLedgers.map(l => (
+                          <SelectItem key={l.id} value={String(l.id)}>{l.ac_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!loadingLedgers && existingLedgers.length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        No unattached ledgers found in a Fixed Asset account group (FA-LB/PM/FF/CE/VH). Reclassify a ledger into one of those groups first.
+                      </p>
+                    )}
+                  </F>
+                )}
+
                 <div className="flex items-start gap-2 rounded-md bg-muted/50 border px-3 py-2">
                   <Info className="size-4 mt-0.5 text-muted-foreground shrink-0" />
                   <p className="text-xs text-muted-foreground">
                     {editId && editLedgerName
-                      ? <>Asset ledger <span className="font-semibold text-foreground">"{editLedgerName}"</span> was auto-created in the Ledger Master under the appropriate Fixed Asset account group.</>
-                      : <>On save, an asset ledger will be <span className="font-semibold text-foreground">automatically created</span> in the Ledger Master under the appropriate Fixed Asset account group (FA-PM, FA-LB, FA-FF, FA-CE, or FA-VH) based on the IT Act block category selected above.</>
+                      ? <>Asset ledger <span className="font-semibold text-foreground">"{editLedgerName}"</span> is linked to this asset.</>
+                      : ledgerMode === "existing"
+                        ? <>The selected ledger's existing balance becomes this asset's opening value in the Ledger Master — it will not be modified on save.</>
+                        : <>On save, an asset ledger will be <span className="font-semibold text-foreground">automatically created</span> in the Ledger Master under the appropriate Fixed Asset account group (FA-PM, FA-LB, FA-FF, FA-CE, or FA-VH) based on the IT Act block category selected above.</>
                     }
                   </p>
                 </div>

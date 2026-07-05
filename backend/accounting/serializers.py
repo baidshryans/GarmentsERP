@@ -992,6 +992,12 @@ from .models import (  # noqa: E402 — appended block; same module
 )
 
 
+# Account-group codes an asset's own ledger may live under. Must stay in
+# sync with contacts.views.FA_ASSET_GROUP_CODES (can't import it directly —
+# contacts.views imports from this module, which would be circular).
+FA_LEDGER_GROUP_CODES = {'FA-LB', 'FA-PM', 'FA-FF', 'FA-CE', 'FA-VH'}
+
+
 class FixedAssetSerializer(serializers.ModelSerializer):
     current_wdv          = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
     is_fully_depreciated = serializers.BooleanField(read_only=True)
@@ -999,11 +1005,18 @@ class FixedAssetSerializer(serializers.ModelSerializer):
     asset_ledger_name    = serializers.CharField(source='asset_ledger.ac_name', read_only=True, default='')
     method_display       = serializers.CharField(source='get_depreciation_method_display', read_only=True)
 
+    # Writable so an asset can be attached to a ledger already reclassified
+    # into a Fixed Assets group. If omitted, the view auto-creates one.
+    asset_ledger = serializers.PrimaryKeyRelatedField(
+        queryset=Ledger.objects.filter(ac_group__code__in=FA_LEDGER_GROUP_CODES),
+        required=False, allow_null=True,
+    )
+
     class Meta:
         model  = FixedAsset
         fields = '__all__'
         read_only_fields = (
-            'retail', 'asset_ledger',
+            'retail',
             'accumulated_depreciation', 'created_at',
             # Depreciation ledgers are set globally in Fixed Asset Settings — no
             # per-asset overrides allowed through the API.

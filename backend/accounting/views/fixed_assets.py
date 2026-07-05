@@ -60,7 +60,13 @@ class FixedAssetViewSet(RetailBaseViewset):
         retail = self.request.retail
         asset = serializer.save(retail=retail)
 
-        # Auto-create a matching ledger under the correct FA account group
+        if asset.asset_ledger_id:
+            # Caller attached an existing ledger (already reclassified into
+            # an FA group) — nothing more to do.
+            return
+
+        # No ledger supplied — auto-create a matching one under the correct
+        # FA account group.
         group_code = _IT_BLOCK_TO_AC_GROUP.get(asset.it_block_category or '', _DEFAULT_FA_GROUP)
         try:
             ac_group = Account.objects.get(code=group_code)

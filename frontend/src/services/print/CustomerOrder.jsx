@@ -102,8 +102,8 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
   const { name = '', legal_name = '', address = '', phone = '', email = '', pan = '', cin = '', gstin = '',
           bis_logo_url = '', company_logo_url = '' } = company;
 
-  const showGoldRates = data.fix_gold_rate && (data.rate_14kt || data.rate_18kt || data.rate_22kt);
-  const showAdvance   = data.advance_amt || data.est_amount;
+  const showGoldRates = Boolean(data.fix_gold_rate && (data.rate_14kt || data.rate_18kt || data.rate_22kt));
+  const showAdvance   = Boolean(data.advance_amt || data.est_amount);
 
   return (
     <div style={{ padding: '14mm', maxWidth: 700, margin: '0 auto', fontFamily: FONT }}>

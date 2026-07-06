@@ -28,7 +28,7 @@ from purchase.models import PurchaseVoucher, PurchaseVoucherItems, PurchaseVouch
 from contacts.models import Ledger
 from inventory.models import BarcodeMain
 from mastersconfig.models import Item, Packet
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from accounting.migration_utils import (
     clean, dec, to_int, parse_date, OrgResolver, PurityResolver, resolve_ac_voucher, resolve_ledger,
@@ -310,16 +310,27 @@ class Command(BaseCommand):
                         + (pv.add_chrg_amt2 or Decimal('0'))
                         - (pv.discount_amt or Decimal('0')))
             if pv.voucher_type != 'Customer':
-                cgst, sgst, igst = split_gst(gst_base, hsn, is_central)
+                raw_cgst, raw_sgst, raw_igst = split_gst(gst_base, hsn, is_central)
+                # The legacy ERP posts each GST line to the nearest whole rupee
+                # (matching its ledger entries) rather than keeping paise.
+                cgst = raw_cgst.to_integral_value(rounding=ROUND_HALF_UP)
+                sgst = raw_sgst.to_integral_value(rounding=ROUND_HALF_UP)
+                igst = raw_igst.to_integral_value(rounding=ROUND_HALF_UP)
             pv.cgst, pv.sgst, pv.igst = cgst, sgst, igst
             # total_incl_gst = gst_base + tax (excludes TCS and round_off, consistent with live form)
             # bill_value     = total_incl_gst + tcs + round_off (gross payable, drives due_amt)
             total_incl_gst = gst_base + cgst + sgst + igst
-            bill_value = total_incl_gst + (pv.tcs_amt or Decimal('0')) + (pv.round_off or Decimal('0'))
+            pre_round_bill_value = total_incl_gst + (pv.tcs_amt or Decimal('0'))
+            # cgst/sgst/igst are already whole rupees above, so this only sweeps
+            # up any residual paise still in gst_base (e.g. from item_total)
+            # into round_off, landing bill_value on a whole rupee like the
+            # legacy ERP always did.
+            bill_value = pre_round_bill_value.to_integral_value(rounding=ROUND_HALF_UP)
+            pv.round_off = bill_value - pre_round_bill_value
             pv.total_incl_gst = total_incl_gst
             pv.bill_value = bill_value
             if self.apply:
-                pv.save(update_fields=['hsn', 'cgst', 'sgst', 'igst', 'total_incl_gst', 'bill_value', 'tds_taxable_value'])
+                pv.save(update_fields=['hsn', 'cgst', 'sgst', 'igst', 'round_off', 'total_incl_gst', 'bill_value', 'tds_taxable_value'])
             updated += 1
         return updated
 

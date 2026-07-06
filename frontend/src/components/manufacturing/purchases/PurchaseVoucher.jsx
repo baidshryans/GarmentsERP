@@ -441,14 +441,15 @@ const PurchaseVoucher = () => {
   const taxable_value_formula = "SUM(rs.item_value) + SUM(rsRaw.value) + freight_amt + hallmark_charge + add_chrg_amt1 + add_chrg_amt2"
   // GST base = total excl. taxes minus discount
   const gst_base_formula = `(${taxable_value_formula}) - discount_amt`
-  const total_incl_gst_formula = `(${gst_base_formula}) + (${gst_base_formula}) * (cgst_per / 100) + (${gst_base_formula}) * (igst_per / 100) + (${gst_base_formula}) * (sgst_per / 100)`
+  // cgst/sgst/igst are rounded to the nearest rupee imperatively (see recalc
+  // effect below, matching the legacy ERP's ledger postings) before this runs,
+  // so total_incl_gst sums those rounded fields rather than re-deriving from
+  // percentages (which would reintroduce the paise this is meant to remove).
+  const total_incl_gst_formula = `(${gst_base_formula}) + cgst + sgst + igst`
   const tcs_amt_formula = `(tcs_per / 100) * (${total_incl_gst_formula})`
   const main_formulas = {
     taxable_value: taxable_value_formula,
     item_total: taxable_value_formula,
-    cgst: `(${gst_base_formula}) * (cgst_per / 100)`,
-    igst: `(${gst_base_formula}) * (igst_per / 100)`,
-    sgst: `(${gst_base_formula}) * (sgst_per / 100)`,
     total_incl_gst: total_incl_gst_formula,
     tcs_amt: tcs_amt_formula,
     bill_value: `(${total_incl_gst_formula}) + (${tcs_amt_formula}) + round_off`,
@@ -517,6 +518,33 @@ const PurchaseVoucher = () => {
     const table = getValues('details');
     const maintable = getValues('table');
 
+    // CGST/SGST/IGST round to the nearest rupee (matching the legacy ERP's
+    // ledger postings), each line's paise swept into round_off below —
+    // computed here, before main_formulas, so total_incl_gst can sum these
+    // already-rounded values instead of re-deriving unrounded ones.
+    const gstBase = parseFloat(evaluateFormula(gst_base_formula, form)) || 0;
+    const rawCgst = gstBase * (parseFloat(form.cgst_per) || 0) / 100;
+    const rawSgst = gstBase * (parseFloat(form.sgst_per) || 0) / 100;
+    const rawIgst = gstBase * (parseFloat(form.igst_per) || 0) / 100;
+    const cgst = Math.round(rawCgst);
+    const sgst = Math.round(rawSgst);
+    const igst = Math.round(rawIgst);
+    setValue('form.cgst', cgst);
+    setValue('form.sgst', sgst);
+    setValue('form.igst', igst);
+    form.cgst = cgst;
+    form.sgst = sgst;
+    form.igst = igst;
+
+    // Auto round-off: the legacy ERP always lands the bill total on a whole
+    // rupee, sweeping any remaining paise (e.g. from gst_base itself) into
+    // Round Off — replicate that instead of leaving fractional rupees sitting
+    // on bill_value.
+    const preRoundTotal = (parseFloat(evaluateFormula(total_incl_gst_formula, form)) || 0)
+      + (parseFloat(evaluateFormula(tcs_amt_formula, form)) || 0);
+    const roundOff = parseFloat((Math.round(preRoundTotal) - preRoundTotal).toFixed(2));
+    setValue('form.round_off', roundOff);
+    form.round_off = roundOff;
 
     Object.keys(main_formulas).forEach((col) => {
       const val = evaluateFormula(main_formulas[col], form);
@@ -1186,7 +1214,7 @@ const PurchaseVoucher = () => {
     { label: isCustomer ? 'Total' : 'Total incl. GST', field: 'form.total_incl_gst' },
     { isSeparator: true },
     { label: 'TCS',                field: 'form.tcs_amt',         editable: true },
-    { label: 'Round Off',          field: 'form.round_off',       editable: true, step: '0.001' },
+    { label: 'Round Off',          field: 'form.round_off',       editable: false, step: '0.001' },
     { label: 'Bill Total',         field: 'form.bill_value',      isTotal: true },
     ...(watch('form.tds_rate') > 0 ? [
       { isSeparator: true },
@@ -1196,7 +1224,7 @@ const PurchaseVoucher = () => {
   ];
 
   return (
-    <div className="container mt-4">
+    <div className="mt-4">
       <form
         ref={formRef}
         className={`p-6 shadow-sm rounded-xl bg-white border border-gray-100 ${pvSource === 'sales_inline' ? 'pointer-events-none opacity-90' : ''}`}
@@ -1829,7 +1857,7 @@ const PurchaseVoucher = () => {
           </div> </> : <></>}
 
 
-        <div className="container mt-4">
+        <div className="mt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <FieldContainer>
               <Label htmlFor="narration" className="text-nowrap">Narration</Label>

@@ -152,7 +152,7 @@ export default function AIAssistant() {
       {/* Floating trigger button */}
       <button
         onClick={() => setIsOpen((v) => !v)}
-        className="fixed bottom-6 right-6 z-50 size-12 rounded-full bg-primary hover:bg-primary text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-6 left-6 z-50 size-12 rounded-full bg-primary hover:bg-primary text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95"
         title="AI Assistant"
       >
         {isOpen ? <ChevronDown size={20} /> : <Sparkles size={20} />}
@@ -160,7 +160,7 @@ export default function AIAssistant() {
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed bottom-22 right-6 z-50 w-96 h-[480px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+        <div className="fixed bottom-22 left-6 z-50 w-96 h-[480px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-primary text-white">
             <div className="flex items-center gap-2">

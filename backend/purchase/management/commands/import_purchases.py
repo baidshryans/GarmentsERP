@@ -115,6 +115,9 @@ class Command(BaseCommand):
             gst_updated = self._apply_gst(billnos)
         self.stdout.write(self.style.SUCCESS(f"GST recomputed from HSN for {gst_updated} voucher(s)"))
 
+        barcode_linked = self._backfill_barcode_pur_voucher(billnos)
+        self.stdout.write(self.style.SUCCESS(f"Barcode pur_voucher resolved for {barcode_linked} barcode(s)"))
+
         self._report(report_dir)
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
         for name, (c, s, e) in counts.items():
@@ -331,6 +334,38 @@ class Command(BaseCommand):
             pv.bill_value = bill_value
             if self.apply:
                 pv.save(update_fields=['hsn', 'cgst', 'sgst', 'igst', 'round_off', 'total_incl_gst', 'bill_value', 'tds_taxable_value'])
+            updated += 1
+        return updated
+
+    def _backfill_barcode_pur_voucher(self, billnos):
+        """A barcode's pur_voucher is normally resolved from its own
+        voucher_no (see inventory.api_views._build_barcode_main_kwargs) at
+        barcode-sync time — but the full sync runs 'barcode' before
+        'purchases' (see mastersconfig.views MySQLSyncView._TX_TABLES
+        ordering), so on a single combined sync the matching PurchaseVoucher
+        doesn't exist yet when barcodes are processed. Re-attempt the same
+        resolution now that purchases have just been imported, scoped to
+        just the bills from this run, so it resolves within one sync pass
+        instead of needing a second run."""
+        from inventory.models import BarcodeMain
+        if not billnos:
+            return 0
+        updated = 0
+        qs = BarcodeMain.objects.filter(
+            pur_voucher__isnull=True, voucher_no__in=billnos
+        )
+        for b in qs:
+            pv_qs = PurchaseVoucher.objects.filter(billno=b.voucher_no, voucher_type='Vendor')
+            pv = pv_qs.filter(retail_id=b.retail_id).first() or pv_qs.first()
+            if not pv:
+                continue
+            pv_items = PurchaseVoucherItems.objects.filter(billno=pv)
+            pv_item = pv_items.filter(item_id=b.item_id).first() or pv_items.first()
+            if not pv_item:
+                continue
+            b.pur_voucher = pv_item
+            if self.apply:
+                b.save(update_fields=['pur_voucher'])
             updated += 1
         return updated
 

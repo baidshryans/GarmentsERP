@@ -80,6 +80,9 @@ class Command(BaseCommand):
         gst_updated = self._apply_gst(set(self._new_billnos))
         self.stdout.write(self.style.SUCCESS(f"GST recomputed from HSN for {gst_updated} voucher(s)"))
 
+        cash_updated = self._apply_cash_from_receipt(set(self._new_billnos))
+        self.stdout.write(self.style.SUCCESS(f"Cash backfilled from linked receipt for {cash_updated} voucher(s)"))
+
         self._report(report_dir)
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
         for name, (c, s, e, x) in counts.items():
@@ -263,6 +266,30 @@ class Command(BaseCommand):
             sv.round_off = pre_round_total.to_integral_value(rounding=ROUND_HALF_UP) - pre_round_total
             if self.apply:
                 sv.save(update_fields=['cgst_per', 'sgst_per', 'igst_per', 'round_off'])
+            updated += 1
+        return updated
+
+    def _apply_cash_from_receipt(self, billnos):
+        """A sale's cash payment can be recorded purely via a linked
+        ac_rec_voucher (a companion cash receipt) rather than the legacy
+        cash_sale column — the old ERP sometimes booked the collection as a
+        separate receipt voucher instead. If cash is still 0 but
+        ac_rec_voucher debits a Cash-in-Hand ledger, pull that amount into
+        cash so it displays/reports correctly (mirrors what the live
+        create-flow does when a user types into the Cash field)."""
+        from accounting.models import VoucherDetail
+        from contacts.models import LedgerRole
+        updated = 0
+        for sv in SalesVou.objects.filter(billno__in=billnos, cash=0, ac_rec_voucher__isnull=False):
+            detail = VoucherDetail.objects.filter(voucher_main_id=sv.ac_rec_voucher_id, debit__gt=0).first()
+            if not detail or not detail.debit:
+                continue
+            is_cash = LedgerRole.objects.filter(ledger_id=detail.account_id, role='CA').exists()
+            if not is_cash:
+                continue
+            sv.cash = int(detail.debit)
+            if self.apply:
+                sv.save(update_fields=['cash'])
             updated += 1
         return updated
 

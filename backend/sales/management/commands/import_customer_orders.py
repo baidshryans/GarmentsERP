@@ -63,6 +63,12 @@ class Command(BaseCommand):
             'items':  self._pass(itm, self._import_item, 'CustomerOrderItems', CustomerOrderItems, key='id'),
         }
 
+        delivery_updated = self._backfill_delivery_dates(itm)
+        self.stdout.write(self.style.SUCCESS(f"Delivery date backfilled for {delivery_updated} order(s)"))
+
+        ldgr_updated = self._backfill_misresolved_ledgers(hdr)
+        self.stdout.write(self.style.SUCCESS(f"Re-resolved ledger for {ldgr_updated} order(s)"))
+
         self._report(report_dir)
         mode = "APPLIED" if self.apply else "DRY-RUN (no writes)"
         for name, (c, s, e) in counts.items():
@@ -165,6 +171,68 @@ class Command(BaseCommand):
         )
         if self.apply:
             obj.save(force_insert=True)
+
+    # ------------------------------------------------------------------ #
+    def _backfill_delivery_dates(self, itm):
+        """customer_order_main (the items CSV) carries delivery_date, not
+        customer_order (the header) — it's the same value on every item row
+        for an order. Runs over every item row unconditionally (not just
+        newly-created ones) so re-syncing also fixes headers imported before
+        this backfill existed, which the header/item idempotency skip would
+        otherwise leave untouched forever."""
+        updated = 0
+        seen = set()
+        for _, r in itm.iterrows():
+            order_no = clean(r.get('order_no'))
+            if not order_no or order_no in seen:
+                continue
+            delivery_date = parse_date(r.get('delivery_date'))
+            if not delivery_date:
+                continue
+            seen.add(order_no)
+            order = CustomerOrder.objects.filter(order_no=order_no).first()
+            if order is None or order.delivery_date == delivery_date:
+                continue
+            order.delivery_date = delivery_date
+            if self.apply:
+                order.save(update_fields=['delivery_date'])
+            updated += 1
+        return updated
+
+    # ------------------------------------------------------------------ #
+    def _backfill_misresolved_ledgers(self, hdr):
+        """resolve_ledger() falls back to Ledger.id == legacy_code when no
+        LedgerAlias exists yet, which can land on an unrelated system ledger
+        if the legacy code happens to collide with that ledger's Django PK
+        (fixed for future ledger syncs in the ledger-role/alias sync, but
+        already-imported headers are never re-touched by the create-only
+        pass above). Re-resolve any header whose ldgr isn't customer-like —
+        runs unconditionally so a later, correctly-aliased ledger sync can
+        still fix headers imported before that alias existed."""
+        from contacts.models import LedgerRole
+        CUSTOMER_ROLES = {'CO', 'SD'}
+        updated = 0
+        for _, r in hdr.iterrows():
+            order_no = clean(r.get('orderno'))[:30]
+            if not order_no:
+                continue
+            order = CustomerOrder.objects.filter(order_no=order_no).first()
+            if order is None or not order.ldgr_id:
+                continue
+            current_roles = set(LedgerRole.objects.filter(ledger_id=order.ldgr_id).values_list('role', flat=True))
+            if current_roles & CUSTOMER_ROLES:
+                continue  # already resolves to a plausible customer ledger
+            new_ldgr = resolve_ledger(r.get('customer_ldgr'))
+            if new_ldgr is None or new_ldgr.id == order.ldgr_id:
+                continue
+            new_roles = set(LedgerRole.objects.filter(ledger=new_ldgr).values_list('role', flat=True))
+            if not (new_roles & CUSTOMER_ROLES):
+                continue  # re-resolution isn't obviously better — leave for manual review
+            order.ldgr = new_ldgr
+            if self.apply:
+                order.save(update_fields=['ldgr'])
+            updated += 1
+        return updated
 
     # ------------------------------------------------------------------ #
     def _report(self, report_dir):

@@ -23,7 +23,7 @@ from sales.models import SalesVou, SalesVouItem, SalesVouItemDetails, CustomerOr
 from contacts.models import Ledger
 from inventory.models import BarcodeMain
 from mastersconfig.models import Item, Packet, SalesPersonMaster
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from accounting.migration_utils import (
     clean, dec, to_int, parse_date, OrgResolver, resolve_ac_voucher, resolve_ledger,
@@ -254,8 +254,15 @@ class Command(BaseCommand):
                 sv.cgst_per = Decimal(str(hsn.cgst or 0))
                 sv.sgst_per = Decimal(str(hsn.sgst or 0))
                 sv.igst_per = Decimal('0')
+            # total_bill_value (taxable_value + cgst_amt + sgst_amt + igst_amt +
+            # round_off) is a computed property — the legacy ERP always lands it
+            # on a whole rupee, so derive round_off here rather than leaving it
+            # at whatever (usually 0) the legacy CSV's rnd_off column carried.
+            sv.round_off = Decimal('0')
+            pre_round_total = Decimal(str(sv.total_bill_value))
+            sv.round_off = pre_round_total.to_integral_value(rounding=ROUND_HALF_UP) - pre_round_total
             if self.apply:
-                sv.save(update_fields=['cgst_per', 'sgst_per', 'igst_per'])
+                sv.save(update_fields=['cgst_per', 'sgst_per', 'igst_per', 'round_off'])
             updated += 1
         return updated
 

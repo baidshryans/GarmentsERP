@@ -26,10 +26,17 @@ export async function deleteResource(url, id) {
 
 // Note: page-reload belongs in the component layer, not the API layer.
 // TODO: move the reload side-effect into each call-site component.
-export function handleDelete(result, toast, message) {
+export function handleDelete(result, toast, message, onSuccess) {
   if (result.success) {
     toast({ title: "Success", description: message });
-    setTimeout(() => window.location.reload(), 600);
+    // Callers that can refresh their own list in place (e.g. a paginated
+    // table) should pass onSuccess so a delete doesn't reload the whole app
+    // and reset unrelated state like the current page number.
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      setTimeout(() => window.location.reload(), 600);
+    }
   } else {
     toast({ title: "Error", description: result.error });
   }

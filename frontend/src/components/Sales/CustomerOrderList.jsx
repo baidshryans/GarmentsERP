@@ -472,7 +472,7 @@ function CustomerOrderList() {
             onClick={() => {
               if (!isDeletable) return;
               if (!window.confirm(`Delete order ${o.order_no}? This cannot be undone.`)) return;
-              deleteCustomerOrder(o.id, toast);
+              deleteCustomerOrder(o.id, toast, loadOrders);
             }}
             disabled={!isDeletable}
             className={`p-1.5 rounded transition-colors ${isDeletable ? 'text-red-500 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}

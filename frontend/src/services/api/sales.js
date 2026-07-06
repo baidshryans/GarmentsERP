@@ -372,9 +372,9 @@ export const deleteSalesVoucher = async (id, toast) => {
 
 // ── Customer Order ─────────────────────────────────────────────────────────────
 
-export const deleteCustomerOrder = async (id, toast) => {
+export const deleteCustomerOrder = async (id, toast, onSuccess) => {
   const result = await deleteResource("sales/api/customer-orders-vs", id);
-  handleDelete(result, toast, "Customer order deleted successfully.");
+  handleDelete(result, toast, "Customer order deleted successfully.", onSuccess);
 };
 
 export async function cancelCustomerOrder(id) {

@@ -502,6 +502,19 @@ def customer_order_timeline(request, order_id):
                 })
                 barcodes.extend(_barcodes_for_rec(kr_item.id))
 
+        # 2d. Direct barcode -> CO link (BarcodeMain.customer_order). Legacy
+        # data often only ever recorded order_no on the barcode itself — no
+        # PO/PV/karigar chain to walk — so without this, barcodes reserved
+        # against an order never surface here even though the reservation is
+        # correctly linked. customer_order is order-level, not per CO line,
+        # so match by item+purity to attribute it to the right line.
+        direct_bc = (
+            BarcodeMain.objects
+            .filter(customer_order=order, item=coi.item_id, purity=coi.purity)
+            .order_by('created_date', 'id')
+        )
+        barcodes.extend(direct_bc)
+
         # 5. barcoded + 6. delivered — one pair of events per barcode (1:N).
         # De-dupe in case the same barcode got collected via multiple paths.
         seen_bc = set()

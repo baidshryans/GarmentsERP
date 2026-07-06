@@ -164,6 +164,26 @@ def _build_barcode_main_kwargs(row):
         co = CustomerOrder.objects.filter(order_no=order_no).first()
         if co:
             kwargs['customer_order'] = co
+    # Resolve voucher_no (the legacy purchase-voucher billno, always present on
+    # barcode_main) straight to a PurchaseVoucherItems line, rather than only
+    # relying on the reciprocal barcode-number match set when purchases are
+    # imported — that match silently never fires for legacy exports where
+    # purchase_voucher_main's own barcode column is blank, even though
+    # barcode_main.voucher_no correctly names the originating bill. The order
+    # tracker treats BarcodeMain.pur_voucher as canonical, so without this a
+    # barcode never shows as "received" even though we know which bill made it.
+    voucher_no = str(row.get('voucher_no') or '').strip()
+    if voucher_no:
+        from purchase.models import PurchaseVoucher, PurchaseVoucherItems
+        pv_qs = PurchaseVoucher.objects.filter(billno=voucher_no, voucher_type='Vendor')
+        retail = kwargs.get('retail')
+        pv = (pv_qs.filter(retail=retail).first() if retail else None) or pv_qs.first()
+        if pv:
+            item = kwargs.get('item')
+            pv_items = PurchaseVoucherItems.objects.filter(billno=pv)
+            pv_item = (pv_items.filter(item=item).first() if item else None) or pv_items.first()
+            if pv_item:
+                kwargs['pur_voucher'] = pv_item
     return kwargs
 
 

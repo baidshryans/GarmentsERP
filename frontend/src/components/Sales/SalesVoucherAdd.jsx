@@ -476,10 +476,31 @@ const SalesVoucherAdd = () => {
   useEffect(() => {
     if (!id || !editQuery.data) return;
     const data = editQuery.data;
+    // Legacy barcode_main making_type 'per_gld_val' predates the 'val'/'per_nw'
+    // enum and isn't a recognized Select option — alias it so old bills don't
+    // render a blank Making Type and don't get their making_value clobbered
+    // by the recalc effect's unrecognized-type fallback.
+    const normalizedItems = JSON.parse(JSON.stringify(data.salesvouitem_set ?? [])).map((row) => (
+      row.making_type === 'per_gld_val' ? { ...row, making_type: 'per_nw' } : row
+    ));
+    // Place of Supply is stored as a free-text state name/code on the voucher,
+    // but the Select's options are keyed by the 2-letter STATES_OF_INDIA code —
+    // resolve a stored full name (e.g. "West Bengal") back to its code (e.g. "WB").
+    let normalizedPlaceOfSupply = data.place_of_supply;
+    if (normalizedPlaceOfSupply && !statesData.some((s) => s.code === normalizedPlaceOfSupply)) {
+      const match = statesData.find(
+        (s) => s.name?.toLowerCase() === String(normalizedPlaceOfSupply).toLowerCase()
+      );
+      if (match) normalizedPlaceOfSupply = match.code;
+    }
     const formData = {
       form: {
         ...data,
-        salesvouitem_set: JSON.parse(JSON.stringify(data.salesvouitem_set ?? [])),
+        salesvouitem_set: normalizedItems,
+        place_of_supply: normalizedPlaceOfSupply,
+        // Select values are matched as strings; the API returns numeric PKs.
+        sales_person: data.sales_person != null ? String(data.sales_person) : data.sales_person,
+        sales_person2: data.sales_person2 != null ? String(data.sales_person2) : data.sales_person2,
       },
     };
     Object.keys(formData.form).forEach((key) => {
@@ -517,6 +538,17 @@ const SalesVoucherAdd = () => {
       ? data.applied_advance_receipts : [];
     if (appliedReceipts.length > 0) {
       setSelectedReceiptIds(appliedReceipts.map((r) => r.id));
+      // The voucher's own advance_deducted can be stale/zero for bills whose
+      // payment was recorded purely via a linked receipt (e.g. legacy imports
+      // that track it through ac_rec_voucher rather than a customer_advance
+      // column) — resync it to the amount actually applied by these receipts
+      // so the Bill Summary and Net Due reflect the real payment status.
+      if (!data.customer_order) {
+        const appliedSum = appliedReceipts.reduce(
+          (sum, r) => sum + (parseFloat(r.amount_remaining) || 0), 0
+        );
+        setValue('form.advance_deducted', parseFloat(appliedSum.toFixed(2)));
+      }
     }
     // unlinked_receipts now comes bundled in the voucher response itself
     // (backend/sales/serializers.py get_unlinked_receipts) — no more second,
@@ -628,7 +660,15 @@ const SalesVoucherAdd = () => {
       // Recalculate sub-item amounts
       getValues(`salesvouitem_set.${index}.main_item_set`)?.forEach((data, sub_index) => {
         Object.keys(sub_formulas).forEach(column => {
-          setValue(`salesvouitem_set.${index}.main_item_set.${sub_index}.${column}`, evaluateFormula(sub_formulas[column], data));
+          const value = evaluateFormula(sub_formulas[column], data);
+          // Sub-item amount (gw/ct/pcs × rate) is a currency value and must
+          // round to the nearest rupee like the originally-saved figures —
+          // left unrounded, paise-level fractions silently drop out when the
+          // main item amount is later floored, undershooting the true total.
+          setValue(
+            `salesvouitem_set.${index}.main_item_set.${sub_index}.${column}`,
+            column === 'amount' ? Math.round(value) : value
+          );
         });
         // When tunch is entered for gold/raw sub-items, rate must be 0 (tunch-based pricing)
         if (Number(data.tunch || 0) > 0 && (data.item_type === 'R' || (data.item || '').toUpperCase() === 'GOLD')) {
@@ -665,13 +705,24 @@ const SalesVoucherAdd = () => {
       } else {
         makingVal = making;
       }
-      makingVal = Math.floor(makingVal);
+      // Round (not floor) to match how the originally-saved making_value
+      // was computed — flooring systematically undershoots by up to a rupee.
+      makingVal = Math.round(makingVal);
       setValue(`salesvouitem_set.${index}.making_value`, makingVal);
 
       // Calculate item amount using updated making_value
       const updatedRow = { ...row, making_value: makingVal };
-      setValue(`salesvouitem_set.${index}.amount`, Math.floor(evaluateFormula(formulas.amount, updatedRow)));
+      setValue(`salesvouitem_set.${index}.amount`, Math.round(evaluateFormula(formulas.amount, updatedRow)));
     });
+
+    // Auto round-off: the legacy ERP always lands the bill total on a whole
+    // rupee, sweeping the paise into Round Off — replicate that instead of
+    // leaving fractional rupees sitting on total_bill_value.
+    const preRoundTotal = (parseFloat(evaluateFormula(total_incl_gst_formula, form)) || 0)
+      + (parseFloat(evaluateFormula(tcs_amt_formula, form)) || 0);
+    const roundOff = parseFloat((Math.round(preRoundTotal) - preRoundTotal).toFixed(2));
+    setValue('form.round_off', roundOff);
+    form.round_off = roundOff;
 
     Object.keys(main_formulas).forEach(col => {
       setValue(`form.${col}`, evaluateFormula(main_formulas[col], form));
@@ -1112,7 +1163,7 @@ const SalesVoucherAdd = () => {
     { label: 'SGST',           field: 'form.sgst_amt' },
     { label: 'Total incl. GST',field: 'form.total_incl_gst' },
     { label: 'TCS',            field: 'form.tcs_amt' },
-    { label: 'Round Off',      field: 'form.round_off',      editable: true, step: '0.01' },
+    { label: 'Round Off',      field: 'form.round_off',      editable: false, step: '0.01' },
     { isSeparator: true },
     { label: 'Total',          field: 'form.total_bill_value', isTotal: true, isEditableTotal: true },
     ...((selectedOrder || selectedReceiptIds.length > 0 || parseFloat(getValues('form.advance_deducted') || 0) > 0) ? [{ label: 'Advance Deducted', field: 'form.advance_deducted', editable: false, step: '1' }] : []),

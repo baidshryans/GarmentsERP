@@ -198,7 +198,10 @@ class SalesVou(models.Model):
 
     @property
     def total_bill_value(self):
-        return float(self.taxable_value) + float(self.cgst_amt) + float(self.sgst_amt) + float(self.igst_amt)
+        return (
+            float(self.taxable_value) + float(self.cgst_amt) + float(self.sgst_amt)
+            + float(self.igst_amt) + float(self.round_off or 0)
+        )
 
     @property
     def tcs_amt(self):

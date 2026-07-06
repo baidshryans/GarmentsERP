@@ -872,6 +872,14 @@ class SalesVouSerializer(serializers.ModelSerializer):
             .select_related('voucher')
             .order_by('voucher__date', 'voucher_id')
         )
+        # ac_rec_voucher is the bill's own direct payment receipt (created
+        # alongside the sale when cash/bank was collected at billing time —
+        # see create()/update() below) — it's not a discretionary on-account
+        # credit the user opted into, so it shouldn't appear as a selectable
+        # "advance". Cash/bank collected this way is reflected via the
+        # cash/bank_details fields instead.
+        if obj.ac_rec_voucher_id:
+            rows = rows.exclude(voucher_id=obj.ac_rec_voucher_id)
         return [
             {
                 'id': r.voucher_id,

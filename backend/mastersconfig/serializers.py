@@ -1,7 +1,7 @@
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 from .models import (
-    Hsn, Item, ItemGroupMaster, Packet, PacketGroup, RetailMaster,
+    Hsn, Item, ItemGroupMaster, Packet, PacketGroup, PacketSubGroup, RetailMaster,
     SalesPersonMaster, Shapes, Colors, FiscalYearMaster, State,
     TDSSectionMaster, TCSSectionMaster, ExhibitionProfile, BranchMaster,
     CompanyMaster, SystemSettings, CRMSettings, CRMSendLog, GSTINMaster,
@@ -78,6 +78,17 @@ class PacketGroupSerializer(ModelSerializer):
         fields = "__all__"
 
 
+class PacketSubGroupSerializer(ModelSerializer):
+    packet_group_name = serializers.SerializerMethodField(read_only=True)
+
+    def get_packet_group_name(self, obj):
+        return obj.packet_group.packet_group_name if obj.packet_group else None
+
+    class Meta:
+        model = PacketSubGroup
+        fields = "__all__"
+
+
 class PacketWithTotalSerializer(ModelSerializer):
     total_issued_pcs = serializers.IntegerField(read_only=True)
     total_issued_ct = serializers.FloatField(read_only=True)
@@ -114,6 +125,7 @@ class PacketWithTotalSerializer(ModelSerializer):
 class PacketSerializer(ModelSerializer):
     # Resolve FK names for read convenience without expensive depth=2 nesting
     packet_group_name    = serializers.SerializerMethodField(read_only=True)
+    packet_sub_group_name = serializers.SerializerMethodField(read_only=True)
     stone_item_name      = serializers.SerializerMethodField(read_only=True)
     stone_item_short_code = serializers.SerializerMethodField(read_only=True)
     stone_item_uom       = serializers.SerializerMethodField(read_only=True)
@@ -122,6 +134,9 @@ class PacketSerializer(ModelSerializer):
 
     def get_packet_group_name(self, obj):
         return obj.packet_group.packet_group_name if obj.packet_group else None
+
+    def get_packet_sub_group_name(self, obj):
+        return obj.packet_sub_group.packet_sub_group_name if obj.packet_sub_group else None
 
     def get_stone_item_name(self, obj):
         return obj.stone_item_id.item_name if obj.stone_item_id else None

@@ -420,6 +420,19 @@ class PacketGroup(models.Model):
     def __str__(self) -> str:
         return self.packet_group_name
 
+class PacketSubGroup(models.Model):
+    packet_group = models.ForeignKey(PacketGroup, on_delete=models.CASCADE, related_name='sub_groups')
+    packet_sub_group_name = models.CharField(max_length=10)
+
+    class Meta:
+        db_table = "packet_sub_group_master"
+        constraints = [
+            models.UniqueConstraint(fields=['packet_group', 'packet_sub_group_name'], name='uniq_subgroup_per_group'),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.packet_group.packet_group_name} / {self.packet_sub_group_name}"
+
 class FiscalYearMaster(models.Model):
     """Tracks fiscal years for the whole company (Indian FY: April–March)."""
     fy_code = models.CharField(max_length=10)           # "24-25", "25-26"
@@ -562,6 +575,7 @@ class BillNumberSequence(models.Model):
 
 class Packet(models.Model):
     packet_group = models.ForeignKey(PacketGroup,max_length=10, on_delete=models.CASCADE,null=True)
+    packet_sub_group = models.ForeignKey(PacketSubGroup, on_delete=models.SET_NULL, null=True, blank=True)
     pckt_no = models.CharField(max_length=10, unique=True)
     stone_item_id = models.ForeignKey(Item, on_delete = models.CASCADE, null=True)
     cut = models.CharField(max_length=50, null=True, blank=True)

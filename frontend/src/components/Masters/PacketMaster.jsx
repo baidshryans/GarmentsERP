@@ -21,6 +21,7 @@ import {
   updatePacket,
   deletePacket,
   fetchPacketGroups,
+  fetchPacketSubGroups,
   fetchItems,
   fetchShapes,
   fetchColors,
@@ -29,6 +30,7 @@ import {
 const emptyForm = {
   pckt_no: "",
   packet_group: "",
+  packet_sub_group: "",
   stone_item_id: "",
   cut: "",
   clarity: "",
@@ -49,6 +51,7 @@ export default function PacketMaster() {
   const { toast } = useToast();
   const [rows, setRows] = useState([]);
   const [packetGroups, setPacketGroups] = useState([]);
+  const [packetSubGroups, setPacketSubGroups] = useState([]);
   const [stoneItems, setStoneItems] = useState([]);
   const [shapes, setShapes] = useState([]);
   const [colors, setColors] = useState([]);
@@ -65,15 +68,17 @@ export default function PacketMaster() {
 
   const load = async () => {
     setLoading(true);
-    const [pktsRes, grpsRes, itemsRes, shapesRes, colorsRes] = await Promise.all([
+    const [pktsRes, grpsRes, subGrpsRes, itemsRes, shapesRes, colorsRes] = await Promise.all([
       fetchPackets(),
       fetchPacketGroups(),
+      fetchPacketSubGroups(),
       fetchItems(),
       fetchShapes(),
       fetchColors(),
     ]);
     if (pktsRes.success) setRows(toArr(pktsRes.data));
     if (grpsRes.success) setPacketGroups(toArr(grpsRes.data));
+    if (subGrpsRes.success) setPacketSubGroups(toArr(subGrpsRes.data));
     if (itemsRes.success) {
       setStoneItems(toArr(itemsRes.data).filter((i) => i.item_type === "S"));
     }
@@ -89,12 +94,19 @@ export default function PacketMaster() {
     setForm((f) => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleSelect = (name, value) =>
-    setForm((f) => ({ ...f, [name]: value === "__none__" ? "" : value }));
+  const handleSelect = (name, value) => {
+    const v = value === "__none__" ? "" : value;
+    if (name === "packet_group") {
+      setForm((f) => ({ ...f, packet_group: v, packet_sub_group: "" }));
+    } else {
+      setForm((f) => ({ ...f, [name]: v }));
+    }
+  };
 
   const buildPayload = () => ({
     pckt_no: form.pckt_no.trim(),
     packet_group: form.packet_group ? Number(form.packet_group) : null,
+    packet_sub_group: form.packet_sub_group ? Number(form.packet_sub_group) : null,
     stone_item_id: form.stone_item_id ? Number(form.stone_item_id) : null,
     cut: form.cut.trim() || null,
     clarity: form.clarity.trim() || null,
@@ -140,6 +152,7 @@ export default function PacketMaster() {
     setForm({
       pckt_no: row.pckt_no || "",
       packet_group: fkId(row.packet_group) ? String(fkId(row.packet_group)) : "",
+      packet_sub_group: fkId(row.packet_sub_group) ? String(fkId(row.packet_sub_group)) : "",
       stone_item_id: fkId(row.stone_item_id) ? String(fkId(row.stone_item_id)) : "",
       cut: row.cut || "",
       clarity: row.clarity || "",
@@ -178,6 +191,7 @@ export default function PacketMaster() {
   };
 
   const grpMap = Object.fromEntries(packetGroups.map((g) => [g.id, g.packet_group_name]));
+  const subGrpMap = Object.fromEntries(packetSubGroups.map((g) => [g.id, g.packet_sub_group_name]));
   const stoneMap = Object.fromEntries(stoneItems.map((i) => [i.id, i.item_name]));
   const shapeMap = Object.fromEntries(shapes.map((s) => [s.id, s.shape_name]));
   const colorMap = Object.fromEntries(colors.map((c) => [c.id, c.color_name]));
@@ -211,6 +225,14 @@ export default function PacketMaster() {
       cell: ({ row }) => {
         const v = row.original.packet_group;
         return row.original.packet_group_name || grpMap[fkId(v)] || v?.packet_group_name || "-";
+      },
+    },
+    {
+      header: "Sub Group",
+      accessorKey: "packet_sub_group",
+      cell: ({ row }) => {
+        const v = row.original.packet_sub_group;
+        return row.original.packet_sub_group_name || subGrpMap[fkId(v)] || v?.packet_sub_group_name || "-";
       },
     },
     {
@@ -312,6 +334,29 @@ export default function PacketMaster() {
                         {g.packet_group_name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Packet Sub Group</Label>
+                <Select
+                  value={form.packet_sub_group || "__none__"}
+                  onValueChange={(v) => handleSelect("packet_sub_group", v)}
+                  disabled={!form.packet_group}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder={form.packet_group ? "Select sub group" : "Select group first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">-- None --</SelectItem>
+                    {packetSubGroups
+                      .filter((sg) => fkId(sg.packet_group) === Number(form.packet_group))
+                      .map((sg) => (
+                        <SelectItem key={sg.id} value={String(sg.id)}>
+                          {sg.packet_sub_group_name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -2,6 +2,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from mastersconfig.models import Packet, PacketGroup, PacketSubGroup
+from mastersconfig.serializers import PacketSerializer, PacketSubGroupSerializer
 
 
 class PacketSubGroupModelTest(TestCase):
@@ -41,9 +42,6 @@ class PacketSubGroupModelTest(TestCase):
         self.assertFalse(PacketSubGroup.objects.filter(pk=sg.pk).exists())
 
 
-from mastersconfig.serializers import PacketSerializer, PacketSubGroupSerializer
-
-
 class PacketSubGroupSerializerTest(TestCase):
     def setUp(self):
         self.diamond = PacketGroup.objects.create(packet_group_name="Diamond")
@@ -60,9 +58,12 @@ class PacketSubGroupSerializerTest(TestCase):
             packet_group=self.diamond, packet_sub_group=self.sg, pckt_no="DIA-002",
             is_solitaire=False, rate_for_retail=100, is_customer_stone=False,
         )
-        # Packet.created_date is a DateField with default=timezone.now, which leaves
-        # a raw datetime on the in-memory instance until reloaded from the DB — refresh
-        # here to avoid an unrelated serializer AssertionError on that field.
+        # TODO(pre-existing bug, unrelated to this feature): Packet.created_date is a
+        # DateField with default=timezone.now, which leaves a raw datetime on the
+        # in-memory instance until reloaded from the DB — refresh here to avoid an
+        # unrelated serializer AssertionError ("Expected a date, but got a datetime")
+        # on that field. Any future test serializing a freshly-.create()'d Packet will
+        # hit this same issue.
         pkt.refresh_from_db()
         data = PacketSerializer(pkt).data
         self.assertEqual(data["packet_sub_group_name"], "Small")

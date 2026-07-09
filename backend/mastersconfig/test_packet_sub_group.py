@@ -1,5 +1,7 @@
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from mastersconfig.models import Packet, PacketGroup, PacketSubGroup
 from mastersconfig.serializers import PacketSerializer, PacketSubGroupSerializer
@@ -76,10 +78,6 @@ class PacketSubGroupSerializerTest(TestCase):
         pkt.refresh_from_db()
         data = PacketSerializer(pkt).data
         self.assertIsNone(data["packet_sub_group_name"])
-
-
-from django.contrib.auth import get_user_model
-from rest_framework.test import APIClient
 
 
 class PacketSubGroupApiTest(TestCase):

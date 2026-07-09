@@ -35,6 +35,7 @@ const SECTIONS = {
     items: [
       { title: "Item Group",          url: "/setup/item-group",        icon: Layers,           desc: "Organise inventory items into groups" },
       { title: "Packet Group",        url: "/setup/packet-group",      icon: Package,          desc: "Group stone / loose packets" },
+      { title: "Packet Sub Group",    url: "/setup/packet-sub-group",  icon: Package,          desc: "Sub-classify packets within a group" },
       { title: "HSN",                 url: "/setup/hsn",               icon: Tag,              desc: "HSN codes and GST tax rates" },
       { title: "Item",                url: "/setup/item",              icon: Gem,              desc: "Item master records" },
       { title: "Packet",              url: "/setup/packet",            icon: Package,          desc: "Packet / stone master records" },

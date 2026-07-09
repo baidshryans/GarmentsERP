@@ -146,6 +146,7 @@ const OpeningBalance             = lazy(() => import("./OpeningBalance.jsx"));
 const SalesPersonList            = lazy(() => import("./components/Sales/SalesPersonList.jsx"));
 const ItemGroupMaster            = lazy(() => import("./components/Masters/ItemGroupMaster.jsx"));
 const PacketGroupMaster          = lazy(() => import("./components/Masters/PacketGroupMaster.jsx"));
+const PacketSubGroupMaster       = lazy(() => import("./components/Masters/PacketSubGroupMaster.jsx"));
 const HsnMaster                  = lazy(() => import("./components/Masters/HsnMaster.jsx"));
 const ItemMaster                 = lazy(() => import("./components/Masters/ItemMaster.jsx"));
 const PacketMaster               = lazy(() => import("./components/Masters/PacketMaster.jsx"));
@@ -272,6 +273,7 @@ const appRoutes = [
   { path: "setup/item-group",    heading: "Item Group Master",     component: <ItemGroupMaster /> },
   { path: "setup/item",          heading: "Item Master",           component: <ItemMaster /> },
   { path: "setup/packet-group",  heading: "Packet Group Master",   component: <PacketGroupMaster /> },
+  { path: "setup/packet-sub-group", heading: "Packet Sub Group Master", component: <PacketSubGroupMaster /> },
   { path: "setup/packet",        heading: "Packet Master",         component: <PacketMaster /> },
   { path: "setup/purity",        heading: "Purity Master",         component: <PurityMasterPage /> },
   { path: "setup/shape",         heading: "Shape Master",          component: <ShapeMasterPage /> },

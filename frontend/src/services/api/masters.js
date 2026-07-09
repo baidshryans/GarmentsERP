@@ -313,6 +313,44 @@ export async function deletePacketGroup(id) {
   }
 }
 
+// â”€â”€ Packet Sub Groups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export async function fetchPacketSubGroups() {
+  try {
+    const response = await apiClient.get("/mastersconfig/api/packet_sub_group/?page_size=10000");
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function createPacketSubGroup(data) {
+  try {
+    const response = await apiClient.post("/mastersconfig/api/packet_sub_group/", data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function updatePacketSubGroup(id, data) {
+  try {
+    const response = await apiClient.put(`/mastersconfig/api/packet_sub_group/${id}/`, data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function deletePacketSubGroup(id) {
+  try {
+    await apiClient.delete(`/mastersconfig/api/packet_sub_group/${id}/`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 // â”€â”€ Packets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function createPacket(data) {

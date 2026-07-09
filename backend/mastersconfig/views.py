@@ -101,13 +101,22 @@ class RetrieveUpdateDestroyPacketGroup(RetrieveUpdateDestroyAPIView):
     queryset         = PacketGroup.objects.all()
 
 
+class ListCreatePacketSubGroup(ListCreateAPIView):
+    serializer_class = PacketSubGroupSerializer
+    queryset         = PacketSubGroup.objects.select_related('packet_group').all()
+    filter_backends  = [DjangoFilterBackend]
+    filterset_fields  = ['packet_group']
+
+class RetrieveUpdateDestroyPacketSubGroup(RetrieveUpdateDestroyAPIView):
+    serializer_class = PacketSubGroupSerializer
+    queryset         = PacketSubGroup.objects.select_related('packet_group').all()
 
 
 
 #----------------packet_view-api-----------------------------------------------
 class ListCreatePacket(ListCreateAPIView):
     serializer_class = PacketSerializer
-    queryset         = Packet.objects.select_related('packet_group', 'stone_item_id', 'stone_item_id__hsn_no', 'color', 'shape').all()
+    queryset         = Packet.objects.select_related('packet_group', 'packet_sub_group', 'stone_item_id', 'stone_item_id__hsn_no', 'color', 'shape').all()
     filter_backends = [DjangoFilterBackend,SearchFilter]
     filterset_fields = ['stone_item_id']
 

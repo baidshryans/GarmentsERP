@@ -76,3 +76,74 @@ class PacketSubGroupSerializerTest(TestCase):
         pkt.refresh_from_db()
         data = PacketSerializer(pkt).data
         self.assertIsNone(data["packet_sub_group_name"])
+
+
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
+
+
+class PacketSubGroupApiTest(TestCase):
+    def setUp(self):
+        self.diamond = PacketGroup.objects.create(packet_group_name="Diamond")
+        self.ruby = PacketGroup.objects.create(packet_group_name="Ruby")
+        User = get_user_model()
+        self.user = User.objects.create_user("tester", password="x")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_create_sub_group(self):
+        resp = self.client.post(
+            "/mastersconfig/api/packet_sub_group/",
+            {"packet_group": self.diamond.id, "packet_sub_group_name": "Small"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(PacketSubGroup.objects.count(), 1)
+        self.assertEqual(resp.data["packet_group_name"], "Diamond")
+
+    def test_duplicate_name_within_group_rejected_by_api(self):
+        PacketSubGroup.objects.create(packet_group=self.diamond, packet_sub_group_name="Small")
+        resp = self.client.post(
+            "/mastersconfig/api/packet_sub_group/",
+            {"packet_group": self.diamond.id, "packet_sub_group_name": "Small"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_same_name_different_group_allowed_by_api(self):
+        PacketSubGroup.objects.create(packet_group=self.diamond, packet_sub_group_name="Small")
+        resp = self.client.post(
+            "/mastersconfig/api/packet_sub_group/",
+            {"packet_group": self.ruby.id, "packet_sub_group_name": "Small"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+
+    def test_list_filtered_by_packet_group(self):
+        PacketSubGroup.objects.create(packet_group=self.diamond, packet_sub_group_name="Small")
+        PacketSubGroup.objects.create(packet_group=self.ruby, packet_sub_group_name="Large")
+        resp = self.client.get(f"/mastersconfig/api/packet_sub_group/?packet_group={self.diamond.id}")
+        self.assertEqual(resp.status_code, 200)
+        results = resp.data["results"] if isinstance(resp.data, dict) and "results" in resp.data else resp.data
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["packet_sub_group_name"], "Small")
+
+    def test_update_and_delete(self):
+        sg = PacketSubGroup.objects.create(packet_group=self.diamond, packet_sub_group_name="Small")
+        resp = self.client.put(
+            f"/mastersconfig/api/packet_sub_group/{sg.id}/",
+            {"packet_group": self.diamond.id, "packet_sub_group_name": "Medium"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        sg.refresh_from_db()
+        self.assertEqual(sg.packet_sub_group_name, "Medium")
+
+        resp = self.client.delete(f"/mastersconfig/api/packet_sub_group/{sg.id}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertFalse(PacketSubGroup.objects.filter(pk=sg.id).exists())
+
+    def test_unauthenticated_request_rejected(self):
+        anon = APIClient()
+        resp = anon.get("/mastersconfig/api/packet_sub_group/")
+        self.assertEqual(resp.status_code, 401)

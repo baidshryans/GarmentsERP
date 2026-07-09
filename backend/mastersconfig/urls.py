@@ -33,7 +33,10 @@ urlpatterns = [
     path('api/packet_group/',views.ListCreatePacketGroup.as_view(), name='packet_group_view_api'),
     path('api/packet_group/<int:pk>/',views.RetrieveUpdateDestroyPacketGroup.as_view(), name='packet_group_edit_delete_api'),
 
-   
+    path('api/packet_sub_group/',views.ListCreatePacketSubGroup.as_view(), name='packet_sub_group_view_api'),
+    path('api/packet_sub_group/<int:pk>/',views.RetrieveUpdateDestroyPacketSubGroup.as_view(), name='packet_sub_group_edit_delete_api'),
+
+
     path('api/salesperson/',views.ListCreateSalesPersonMaster.as_view(), name='salesperson_view_api'),
     path('api/salesperson/<int:pk>/',views.RetrieveUpdateDestroySalesPersonMaster.as_view(), name='salesperson_edit_delete_api'),
 

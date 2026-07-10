@@ -2791,6 +2791,7 @@ def catalog_detail(request, pk):
             DesignMain.objects.select_related("item")
             .prefetch_related(
                 "designdetails_set__sub_item", "designdetails_set__metal_purity",
+                "designdetails_set__packet__stone_item_id",
                 "images", "barcodes",
             )
             .get(pk=pk)
@@ -2828,9 +2829,11 @@ def catalog_detail(request, pk):
         ],
         "details": [
             {
+                "detail_id": x.id,
                 "sub_item": x.sub_item.item_name,
                 "purity": x.metal_purity.purity if x.metal_purity else None,
                 "pcs": x.pcs, "ct": float(x.ct or 0), "rate": x.rate, "amt": x.amt,
+                "packet": _packet_brief(x.packet) if x.packet_id else None,
             }
             for x in d.designdetails_set.all()
         ],
@@ -2841,6 +2844,134 @@ def catalog_detail(request, pk):
         "in_stock_count": sum(1 for b in barcodes if b.stk_status),
         "total_barcodes": len(barcodes),
         "price": price,
+    })
+
+
+# ── Catalog stone-swap simulator ────────────────────────────────────────────────
+
+def _parse_sieve(v):
+    """Sieve bounds are free-text CharFields; return Decimal or None."""
+    from decimal import Decimal, InvalidOperation
+    try:
+        return Decimal(str(v).strip())
+    except (InvalidOperation, ValueError, TypeError, AttributeError):
+        return None
+
+
+def _packet_brief(p):
+    return {
+        "id": p.id,
+        "pckt_no": p.pckt_no,
+        "packet_group": p.packet_group.packet_group_name if p.packet_group else None,
+        "stone_item": (
+            {"id": p.stone_item_id.id, "name": p.stone_item_id.item_name}
+            if p.stone_item_id else None
+        ),
+        "shape": p.shape.shape_name if p.shape else None,
+        "color": p.color.color_name if p.color else None,
+        "clarity": p.clarity,
+        "sieve_min": p.sieve_min,
+        "sieve_max": p.sieve_max,
+        "is_solitaire": p.is_solitaire,
+        "rate_for_retail": p.rate_for_retail,
+        "rate_for_wholesale": p.rate_for_wholesale,
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def catalog_swap_candidates(request):
+    """Packets that can replace the given one in the stone-swap simulator:
+    any other packet whose sieve range overlaps the source packet's range
+    (diamond ↔ lab-grown swaps only require a matching sieve size; colour,
+    clarity etc. may differ). ?packet=<id>."""
+    from mastersconfig.models import Packet
+
+    src = Packet.objects.filter(pk=request.GET.get("packet")).first()
+    if src is None:
+        return Response({"error": "packet is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    src_min = _parse_sieve(src.sieve_min)
+    src_max = _parse_sieve(src.sieve_max)
+
+    qs = (
+        Packet.objects.exclude(pk=src.pk)
+        .select_related("packet_group", "stone_item_id", "shape", "color")
+        .order_by("pckt_no")
+    )
+    out = []
+    for p in qs:
+        if src_min is None and src_max is None:
+            # Unparseable/blank source bounds: fall back to exact text match.
+            ok = (p.sieve_min or "") == (src.sieve_min or "") and (p.sieve_max or "") == (src.sieve_max or "")
+        else:
+            c_min = _parse_sieve(p.sieve_min)
+            c_max = _parse_sieve(p.sieve_max)
+            if c_min is None and c_max is None:
+                ok = False
+            else:
+                # Blank bound = open-ended on that side.
+                ok = (
+                    (src_max is None or c_min is None or c_min <= src_max)
+                    and (src_min is None or c_max is None or c_max >= src_min)
+                )
+        if ok:
+            out.append(_packet_brief(p))
+    return Response({"source": _packet_brief(src), "candidates": out})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def catalog_simulate(request, pk):
+    """What-if repricing for a design with stone lines swapped. Body:
+    {"tier": "retail"|"b2b", "pricelist": <id>|null,
+     "overrides": [{"detail_id": int, "packet_id": int|null, "rate": number}]}
+    Only design lines carrying a packet FK are swappable. Returns the same
+    price payload as catalog_detail, plus the untouched original price."""
+    from decimal import Decimal, InvalidOperation
+    from mastersconfig.models import Packet
+    from inventory.catalog_pricing import compute_design_price
+
+    try:
+        d = (
+            DesignMain.objects.select_related("item")
+            .prefetch_related("designdetails_set__sub_item", "designdetails_set__metal_purity")
+            .get(pk=pk)
+        )
+    except DesignMain.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    tier = request.data.get("tier", "retail")
+    b2b_pl, retail_pl = _resolve_pricelists(tier, request.data.get("pricelist"))
+
+    swappable = {x.id for x in d.designdetails_set.all() if x.packet_id}
+    overrides = {}
+    for o in request.data.get("overrides") or []:
+        try:
+            detail_id = int(o.get("detail_id"))
+            rate = Decimal(str(o.get("rate")))
+        except (TypeError, ValueError, InvalidOperation):
+            return Response({"error": "each override needs a detail_id and a numeric rate"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if detail_id not in swappable:
+            return Response(
+                {"error": f"detail {detail_id} is not a swappable stone line of this design"},
+                status=status.HTTP_400_BAD_REQUEST)
+        packet = None
+        if o.get("packet_id"):
+            packet = Packet.objects.select_related("stone_item_id").filter(pk=o["packet_id"]).first()
+            if packet is None:
+                return Response({"error": f"packet {o['packet_id']} not found"},
+                                status=status.HTTP_400_BAD_REQUEST)
+        overrides[detail_id] = {"rate": rate, "packet": packet}
+
+    original = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl)
+    simulated = compute_design_price(d, b2b_pricelist=b2b_pl, retail_pricelist=retail_pl,
+                                     line_overrides=overrides)
+    return Response({
+        "original": original,
+        "simulated": simulated,
+        "delta": round(simulated["total_price"] - original["total_price"], 2),
     })
 
 

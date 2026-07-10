@@ -60,8 +60,18 @@ def _is_stone(detail):
     return (detail.sub_item.item_type or "").upper() == "S" or (detail.sub_item.uom or "").lower() == "ct"
 
 
-def compute_design_price(design, *, b2b_pricelist=None, retail_pricelist=None):
-    """Return a full price breakdown dict for a Design."""
+def compute_design_price(design, *, b2b_pricelist=None, retail_pricelist=None,
+                         line_overrides=None):
+    """Return a full price breakdown dict for a Design.
+
+    line_overrides — optional {design_detail_id: {"rate": Decimal-able,
+    "packet": Packet|None}} used by the catalog stone-swap simulator. An
+    overridden line keeps its own pcs/ct but is repriced at the given rate
+    (amt = rate × ct, falling back to rate × pcs like stored lines); when a
+    packet is given the component line is labelled after it. Discounts and
+    GST apply unchanged.
+    """
+    line_overrides = line_overrides or {}
     details = list(design.designdetails_set.select_related("sub_item", "metal_purity").all())
 
     # ── Determine the design's gold purity (first metal/gram line) ───────────
@@ -117,20 +127,32 @@ def compute_design_price(design, *, b2b_pricelist=None, retail_pricelist=None):
     for d in details:
         if _is_gold(d):
             continue
-        amt = _D(d.amt)
-        if amt == 0:
-            uom = (d.sub_item.uom or "").lower()
-            qty = _D(d.ct) if uom == "ct" else _D(d.pcs)
-            amt = _D(d.rate) * qty
+        override = line_overrides.get(d.id)
+        name = d.sub_item.item_name
+        if override is not None:
+            qty = _D(d.ct) or _D(d.pcs)
+            amt = _D(override.get("rate")) * qty
+            packet = override.get("packet")
+            if packet is not None:
+                stone_name = packet.stone_item_id.item_name if packet.stone_item_id else name
+                name = f"{stone_name} ({packet.pckt_no})"
+        else:
+            amt = _D(d.amt)
+            if amt == 0:
+                uom = (d.sub_item.uom or "").lower()
+                qty = _D(d.ct) if uom == "ct" else _D(d.pcs)
+                amt = _D(d.rate) * qty
         if diamond_disc and _is_stone(d):
             amt = amt * (Decimal(100) - diamond_disc) / Decimal(100)
         stone_total += amt
         component_lines.append({
             "kind": "stone" if _is_stone(d) else "other",
-            "name": d.sub_item.item_name,
+            "name": name,
             "pcs": d.pcs,
             "ct": float(_D(d.ct)),
             "amount": _money(amt),
+            "detail_id": d.id,
+            "overridden": override is not None,
         })
 
     # ── Making ─────────────────────────────────────────────────────────────────

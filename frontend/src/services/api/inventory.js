@@ -782,6 +782,24 @@ export async function fetchCatalogDetail(id, params = "") {
   }
 }
 
+export async function fetchSwapCandidates(packetId) {
+  try {
+    const response = await apiClient.get(`/inventory/api/catalog/swap-candidates/?packet=${packetId}`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
+export async function simulateCatalogPrice(designId, body) {
+  try {
+    const response = await apiClient.post(`/inventory/api/catalog/${designId}/simulate/`, body);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data || error.message };
+  }
+}
+
 export async function downloadCatalogPdf(params = "") {
   try {
     const response = await apiClient.get(`/inventory/api/catalog/pdf/${params}`, { responseType: "blob" });

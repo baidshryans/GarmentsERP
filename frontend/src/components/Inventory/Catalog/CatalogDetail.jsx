@@ -7,6 +7,7 @@ import { fetchCatalogDetail, fetchBarcodeDetailOnly } from "@/services/apiServic
 import { openAndPrint } from "@/services/print/utils";
 import { MultiEstimatePrint } from "@/components/Sales/salesPrintEstimate";
 import { useToast } from "@/hooks/use-toast";
+import StoneSwapPanel from "./StoneSwapPanel";
 
 const BASE_URL = sessionStorage.getItem("baseUrl") || "http://127.0.0.1:8000/";
 const imgSrc = (p) =>
@@ -123,6 +124,12 @@ export default function CatalogDetail() {
               </div>
             </div>
           </div>
+
+          <StoneSwapPanel
+            design={d}
+            tier={sp.get("tier") || "retail"}
+            pricelist={sp.get("pricelist") || null}
+          />
 
           {/* Available barcodes */}
           {d.barcodes?.length > 0 && (

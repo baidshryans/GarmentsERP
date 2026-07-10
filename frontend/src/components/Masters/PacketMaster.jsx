@@ -35,6 +35,7 @@ const emptyForm = {
   cut: "",
   clarity: "",
   color: "",
+  color_tone: "",
   shape: "",
   sieve_max: "",
   sieve_min: "",
@@ -111,6 +112,7 @@ export default function PacketMaster() {
     cut: form.cut.trim() || null,
     clarity: form.clarity.trim() || null,
     color: form.color ? Number(form.color) : null,
+    color_tone: form.color_tone || null,
     shape: form.shape ? Number(form.shape) : null,
     sieve_max: form.sieve_max.trim() || null,
     sieve_min: form.sieve_min.trim() || null,
@@ -157,6 +159,7 @@ export default function PacketMaster() {
       cut: row.cut || "",
       clarity: row.clarity || "",
       color: fkId(row.color) ? String(fkId(row.color)) : "",
+      color_tone: row.color_tone || "",
       shape: fkId(row.shape) ? String(fkId(row.shape)) : "",
       sieve_max: row.sieve_max || "",
       sieve_min: row.sieve_min || "",
@@ -260,6 +263,11 @@ export default function PacketMaster() {
         const v = row.original.color;
         return row.original.color_name || colorMap[fkId(v)] || v?.color_name || "-";
       },
+    },
+    {
+      header: "Tone",
+      accessorKey: "color_tone",
+      cell: ({ getValue }) => getValue() || "-",
     },
     {
       header: "Rate (Retail)",
@@ -417,6 +425,23 @@ export default function PacketMaster() {
                         {c.color_name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Color Tone</Label>
+                <Select
+                  value={form.color_tone || "__none__"}
+                  onValueChange={(v) => handleSelect("color_tone", v)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select tone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">-- None --</SelectItem>
+                    <SelectItem value="LB">LB</SelectItem>
+                    <SelectItem value="LC">LC</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

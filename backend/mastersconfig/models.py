@@ -581,6 +581,8 @@ class Packet(models.Model):
     cut = models.CharField(max_length=50, null=True, blank=True)
     clarity = models.CharField(max_length=10, null=True, blank=True)
     color = models.ForeignKey(Colors, on_delete = models.SET_NULL,max_length=20, null=True)
+    COLOR_TONE_CHOICES = [('LB', 'LB'), ('LC', 'LC')]
+    color_tone = models.CharField(max_length=2, choices=COLOR_TONE_CHOICES, null=True, blank=True)
     shape = models.ForeignKey(Shapes,on_delete=models.SET_NULL,max_length=10, null=True)
     sieve_max = models.CharField(max_length=10, null=True, blank=True)
     sieve_min = models.CharField(max_length=10, null=True, blank=True)

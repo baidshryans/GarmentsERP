@@ -52,7 +52,7 @@ def _raise_missing_ledger(label):
 
 
 def _making_ldgr_name_for_purity(co, purity_obj):
-    """Return ac_name of the Making Charge Paid ledger matching the item's purity.
+    """Return the id (primary key) of the Making Charge Paid ledger matching the item's purity.
 
     Matches karat ('22', '18', '14') within PurityMaster.purity name.
     Falls back to 22K ledger for unrecognised purities.
@@ -68,7 +68,7 @@ def _making_ldgr_name_for_purity(co, purity_obj):
         ldgr = co.making_charge_paid_22k_ldgr  # fallback to 22K
     if not ldgr:
         _raise_missing_ledger(f"Making Charge Paid ledger for purity '{purity_name}' (configure on Company master)")
-    return ldgr.ac_name
+    return ldgr.id
 
 
 class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
@@ -526,13 +526,13 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             retail = self.context.get('request').retail
             _gm = retail.gstin_master
             _co = retail.branch.company if retail.branch_id and retail.branch else None
-            in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
-            in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
-            in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
-            _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount")
-            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
-            _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+            in_cgst = _gm.input_cgst.id if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+            in_sgst = _gm.input_sgst.id if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+            in_igst = _gm.input_igst.id if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+            _hallmark_ldgr = _co.hallmark_charge_ldgr.id if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+            _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Discount")
+            _round_off_ldgr = _co.round_off_ldgr.id if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+            _carriage_ldgr = _co.carriage_inward_ldgr.id if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
             _round_off = Decimal(str(purchase_voucher_instance.round_off or 0))
 
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
@@ -561,7 +561,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                 'debit': f"{item.making_value:.2f}"
                             } for item in item_instances if item.making_value] +
                             [{'account': (
-                                    item.sub_item.purchase_ledger.ac_name
+                                    item.sub_item.purchase_ledger.id
                                     if item.sub_item and item.sub_item.purchase_ledger
                                     else (_ for _ in ()).throw(ValidationError(
                                         f"Item '{item.sub_item}' has no purchase ledger configured. "
@@ -571,7 +571,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                 'debit':f"{item.value:.2f}"
                             } for item in item_detail_instances]  +
                             [{
-                                'account': purchase_voucher_instance.ldgr.ac_name,
+                                'account': purchase_voucher_instance.ldgr_id,
                                 'credit': f"{purchase_voucher_instance.bill_value:.2f}" if purchase_voucher_instance.bill_value else '0.0',
                             }]},
                             context=self.context)
@@ -594,8 +594,8 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     'voucher_type': global_vars.VoucherType.purc_sc,
                     'retail': retail.id,
                     'voucher_details': [
-                        {'account': purchase_voucher_instance.ldgr.ac_name, 'debit': f"{_tds_amt:.2f}"},
-                        {'account': _tds_ldgr.ac_name, 'credit': f"{_tds_amt:.2f}"},
+                        {'account': purchase_voucher_instance.ldgr_id, 'debit': f"{_tds_amt:.2f}"},
+                        {'account': _tds_ldgr.id, 'credit': f"{_tds_amt:.2f}"},
                     ],
                 }, context=self.context)
                 if tds_ser.is_valid(raise_exception=True):
@@ -715,13 +715,13 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
             retail = self.context.get('request').retail
             _gm = retail.gstin_master
             _co = retail.branch.company if retail.branch_id and retail.branch else None
-            in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
-            in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
-            in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
-            _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount")
-            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
-            _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+            in_cgst = _gm.input_cgst.id if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+            in_sgst = _gm.input_sgst.id if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+            in_igst = _gm.input_igst.id if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+            _hallmark_ldgr = _co.hallmark_charge_ldgr.id if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+            _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Discount")
+            _round_off_ldgr = _co.round_off_ldgr.id if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+            _carriage_ldgr = _co.carriage_inward_ldgr.id if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
             _round_off = Decimal(str(purchase_voucher_instance.round_off or 0))
             # making charge ledger is resolved per-item by purity (see _making_ldgr_name_for_purity)
             ser = JournalEntrySerializer(data= {'date':purchase_voucher_instance.date1.strftime('%Y-%m-%d'),
@@ -750,7 +750,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                 'debit': f"{item.making_value:.2f}"
                             } for item in item_instances if item.making_value] +
                             [{'account': (
-                                    item.sub_item.purchase_ledger.ac_name
+                                    item.sub_item.purchase_ledger.id
                                     if item.sub_item and item.sub_item.purchase_ledger
                                     else (_ for _ in ()).throw(ValidationError(
                                         f"Item '{item.sub_item}' has no purchase ledger configured. "
@@ -760,7 +760,7 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                                 'debit':f"{item.value:.2f}"
                             } for item in item_detail_instances]  +
                             [{
-                                'account': purchase_voucher_instance.ldgr.ac_name,
+                                'account': purchase_voucher_instance.ldgr_id,
                                 'credit': f"{purchase_voucher_instance.bill_value:.2f}" if purchase_voucher_instance.bill_value else '0.0',
                             }]},
                             context=self.context)
@@ -782,8 +782,8 @@ class PurchaseVoucherPostSerializer(serializers.ModelSerializer):
                     'voucher_type': global_vars.VoucherType.purc_sc,
                     'retail': retail.id,
                     'voucher_details': [
-                        {'account': purchase_voucher_instance.ldgr.ac_name, 'debit': f"{_tds_amt:.2f}"},
-                        {'account': _tds_ldgr.ac_name, 'credit': f"{_tds_amt:.2f}"},
+                        {'account': purchase_voucher_instance.ldgr_id, 'debit': f"{_tds_amt:.2f}"},
+                        {'account': _tds_ldgr.id, 'credit': f"{_tds_amt:.2f}"},
                     ],
                 }, context=self.context)
                 if tds_ser.is_valid(raise_exception=True):

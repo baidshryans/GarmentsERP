@@ -1104,7 +1104,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 'voucher_details': [
                     {
                         'account': (
-                            d.sub_item.purchase_ledger.ac_name
+                            d.sub_item.purchase_ledger_id
                             if d.sub_item and d.sub_item.purchase_ledger
                             else _raise_missing_ledger(f"Purchase Ledger for item '{d.sub_item}'")
                         ),
@@ -1113,7 +1113,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     for d in item_details_for_journal
                 ] + [
                     {
-                        'account': pv.ldgr.ac_name,
+                        'account': pv.ldgr_id,
                         'credit': f"{total:.2f}",
                     }
                 ],
@@ -1484,13 +1484,13 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
-            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
-            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+            out_cgst = _gm.output_cgst.id if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.id if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.id if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.id if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            _cash_ldgr = request.retail.cash_ldgr.id if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
+            _round_off_ldgr = _co.round_off_ldgr.id if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
 
             def _making_recv_ldgr_for_item(item):
                 """Return purity-specific making charge received ledger for a barcode item."""
@@ -1499,11 +1499,11 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 except Exception:
                     purity_str = ''
                 if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
-                    return _co.making_receive_14k_ldgr.ac_name
+                    return _co.making_receive_14k_ldgr.id
                 if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
-                    return _co.making_receive_18k_ldgr.ac_name
+                    return _co.making_receive_18k_ldgr.id
                 if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
-                    return _co.making_receive_22k_ldgr.ac_name
+                    return _co.making_receive_22k_ldgr.id
                 return _making_recv_ldgr  # fallback to generic
 
             # Only build TCS journal line when TCS actually applies
@@ -1511,7 +1511,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _tcs_lines = []
             if _tcs_amt > 0:
                 _tcs_ldgr_name = (
-                    sales_vou_instance.tcs_section.ledger.ac_name
+                    sales_vou_instance.tcs_section.ledger.id
                     if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger
                     else _raise_missing_ledger("TCS Payable (configure TCS Section master)")
                 )
@@ -1571,7 +1571,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'debit':0,
                                         'credit':f"{item.making_value:.2f}"
                                     } for item in item_instances] +
-                                    [{'account':(item.item.sale_ledger.ac_name if item.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{item.item}'")),
+                                    [{'account':(item.item.sale_ledger_id if item.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{item.item}'")),
                                         'debit':0,
                                         'credit':f"{item.amount:.2f}"
                                     } for item in item_detail_instances] +
@@ -1587,7 +1587,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'credit': f"{abs(sales_vou_instance.round_off):.2f}" if sales_vou_instance.round_off and sales_vou_instance.round_off > 0 else 0,
                                     }] if sales_vou_instance.round_off else []) +
                                     [{
-                                        'account':sales_vou_instance.ldgr.ac_name,
+                                        'account':sales_vou_instance.ldgr_id,
                                         'debit':f"{_party_debit:.2f}",
                                         'credit':0
                                     }]},
@@ -1607,7 +1607,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                     return "Cheques in Hand"
                 ldgr = bank.get("ledger")
                 if ldgr is not None:
-                    return getattr(ldgr, 'ac_name', None) or str(ldgr)
+                    return getattr(ldgr, 'id', None) or str(ldgr)
                 return bank.get("bank_name") or ""
 
             _rcpt_customer_credit = (
@@ -1639,17 +1639,17 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                 } for bank in bank_details] +
                                 # Old gold DR lines: one per purchase (multi-voucher or single)
                                 ([{
-                                    'account': e['purchase'].ldgr.ac_name,
+                                    'account': e['purchase'].ldgr_id,
                                     'debit': f"{e['amount']:.2f}",
                                     'credit': 0,
                                 } for e in _og_adjustments] if _og_adjustments else
                                 [{
-                                    'account': old_gold_purchase.ldgr.ac_name,
+                                    'account': old_gold_purchase.ldgr_id,
                                     'debit': f"{old_gold_adjusted:.2f}",
                                     'credit': 0,
                                 }] if old_gold_purchase and old_gold_adjusted > 0 else []) +
                                 [{
-                                            'account': sales_vou_instance.ldgr.ac_name,
+                                            'account': sales_vou_instance.ldgr_id,
                                             'credit': f"{_rcpt_customer_credit:.2f}",
                                             'debit': 0,
                                             'ref_sales_vou': sales_vou_instance.pk,
@@ -1908,13 +1908,13 @@ class SalesVouSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
-            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
-            _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+            out_cgst = _gm.output_cgst.id if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.id if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.id if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.id if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            _cash_ldgr = request.retail.cash_ldgr.id if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
+            _round_off_ldgr = _co.round_off_ldgr.id if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
 
             def _making_recv_ldgr_for_item(item):
                 """Return purity-specific making charge received ledger for a barcode item."""
@@ -1923,11 +1923,11 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 except Exception:
                     purity_str = ''
                 if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
-                    return _co.making_receive_14k_ldgr.ac_name
+                    return _co.making_receive_14k_ldgr.id
                 if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
-                    return _co.making_receive_18k_ldgr.ac_name
+                    return _co.making_receive_18k_ldgr.id
                 if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
-                    return _co.making_receive_22k_ldgr.ac_name
+                    return _co.making_receive_22k_ldgr.id
                 return _making_recv_ldgr  # fallback to generic
 
             # Only build TCS journal line when TCS actually applies
@@ -1935,7 +1935,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _tcs_lines = []
             if _tcs_amt > 0:
                 _tcs_ldgr_name = (
-                    sales_vou_instance.tcs_section.ledger.ac_name
+                    sales_vou_instance.tcs_section.ledger.id
                     if sales_vou_instance.tcs_section and sales_vou_instance.tcs_section.ledger
                     else _raise_missing_ledger("TCS Payable (configure TCS Section master)")
                 )
@@ -1996,7 +1996,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         'debit':0,
                                         'credit':f"{item.making_value:.2f}"
                                     } for item in item_instances] +
-                                    [{'account':(item.item.sale_ledger.ac_name if item.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{item.item}'")),
+                                    [{'account':(item.item.sale_ledger_id if item.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{item.item}'")),
                                         'debit':0,
                                         'credit':f"{item.amount:.2f}"
                                     } for item in item_detail_instances] +
@@ -2019,7 +2019,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                     [{
                                         'account': (
                                             "Cheques in Hand" if bank.get("payment_mode") == "CHEQUE"
-                                            else (getattr(bank.get("ledger"), 'ac_name', None) or bank.get("bank_name") or "")
+                                            else (getattr(bank.get("ledger"), 'id', None) or bank.get("bank_name") or "")
                                         ),
                                         'debit':f"{bank['amount']:.2f}",
                                         'credit':0,
@@ -2028,7 +2028,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                         "chq_date":bank.get("chq_date"),
                                     } for bank in bank_details] +
                                     [{
-                                        'account':sales_vou_instance.ldgr.ac_name,
+                                        'account':sales_vou_instance.ldgr_id,
                                         'debit':f"{(_party_debit - Decimal(str(sales_vou_instance.cash or 0)) - sum(Decimal(str(bank['amount'])) for bank in bank_details)):.2f}",
                                         'credit':0
                                     }]},
@@ -2246,13 +2246,13 @@ class SaleReturnSerializer(serializers.ModelSerializer):
 
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            out_cgst = _gm.output_cgst.id if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.id if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.id if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.id if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
+            _tcs_ldgr = _tcs_section.ledger.id if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
 
             def _making_recv_ldgr_for_item(item):
                 try:
@@ -2260,11 +2260,11 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                 except Exception:
                     purity_str = ''
                 if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
-                    return _co.making_receive_14k_ldgr.ac_name
+                    return _co.making_receive_14k_ldgr.id
                 if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
-                    return _co.making_receive_18k_ldgr.ac_name
+                    return _co.making_receive_18k_ldgr.id
                 if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
-                    return _co.making_receive_22k_ldgr.ac_name
+                    return _co.making_receive_22k_ldgr.id
                 return _making_recv_ldgr
 
             _sr_making_lines = [
@@ -2276,7 +2276,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             for _main, _sub_details in items_with_details:
                 for _d in _sub_details:
                     _sr_item_lines.append({
-                        'account': (_d.item.sale_ledger.ac_name if _d.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{_d.item}'")),
+                        'account': (_d.item.sale_ledger_id if _d.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{_d.item}'")),
                         'debit': f"{Decimal(str(_d.amount or 0)):.2f}",
                     })
 
@@ -2309,7 +2309,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                             'credit':f"{_sr_discount_d:.2f}",
                         }] +
                         [{
-                            'account':sale_return_instance.ldgr.ac_name,
+                            'account':sale_return_instance.ldgr_id,
                             'credit':f"{_sr_party_credit:.2f}",
                         }]},
                         context=self.context)
@@ -2382,14 +2382,14 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             _gm = request.retail.gstin_master
             _co = request.retail.branch.company if request.retail.branch_id and request.retail.branch else None
-            out_cgst = _gm.output_cgst.ac_name if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
-            out_sgst = _gm.output_sgst.ac_name if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
-            out_igst = _gm.output_igst.ac_name if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
-            _making_recv_ldgr = _co.making_receive_ldgr.ac_name if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
-            _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
-            _cash_ldgr = request.retail.cash_ldgr.ac_name if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
+            out_cgst = _gm.output_cgst.id if _gm and _gm.output_cgst else _raise_missing_ledger("OUTPUT CGST")
+            out_sgst = _gm.output_sgst.id if _gm and _gm.output_sgst else _raise_missing_ledger("OUTPUT SGST")
+            out_igst = _gm.output_igst.id if _gm and _gm.output_igst else _raise_missing_ledger("OUTPUT IGST")
+            _making_recv_ldgr = _co.making_receive_ldgr.id if _co and _co.making_receive_ldgr else _raise_missing_ledger("Making Charge Receive")
+            _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Sale Discount")
+            _cash_ldgr = request.retail.cash_ldgr.id if request.retail.cash_ldgr else _raise_missing_ledger("CASH")
             _tcs_section = TCSSectionMaster.objects.filter(is_active=True, ledger__isnull=False).select_related('ledger').first()
-            _tcs_ldgr = _tcs_section.ledger.ac_name if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
+            _tcs_ldgr = _tcs_section.ledger.id if _tcs_section and _tcs_section.ledger else _raise_missing_ledger("TCS")
 
             def _making_recv_ldgr_for_item(item):
                 try:
@@ -2397,11 +2397,11 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                 except Exception:
                     purity_str = ''
                 if '14' in purity_str and _co and _co.making_receive_14k_ldgr:
-                    return _co.making_receive_14k_ldgr.ac_name
+                    return _co.making_receive_14k_ldgr.id
                 if '18' in purity_str and _co and _co.making_receive_18k_ldgr:
-                    return _co.making_receive_18k_ldgr.ac_name
+                    return _co.making_receive_18k_ldgr.id
                 if '22' in purity_str and _co and _co.making_receive_22k_ldgr:
-                    return _co.making_receive_22k_ldgr.ac_name
+                    return _co.making_receive_22k_ldgr.id
                 return _making_recv_ldgr
 
             from collections import defaultdict as _defaultdict
@@ -2416,7 +2416,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
             _sr_item_lines = []
             for _main in item_instances:
                 for _d in _sr_details_by_main.get(_main.id, []):
-                    _sr_item_lines.append({'account': (_d.item.sale_ledger.ac_name if _d.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{_d.item}'")), 'debit': f"{Decimal(str(_d.amount or 0)):.2f}"})
+                    _sr_item_lines.append({'account': (_d.item.sale_ledger_id if _d.item.sale_ledger else _raise_missing_ledger(f"Sale Ledger for item '{_d.item}'")), 'debit': f"{Decimal(str(_d.amount or 0)):.2f}"})
 
             # Build party credit using Decimal-rounded components so it matches
             # the individually-rounded debit lines exactly (avoids 0.01 mismatch).
@@ -2447,7 +2447,7 @@ class SaleReturnSerializer(serializers.ModelSerializer):
                             'credit':f"{_sr_discount_d:.2f}",
                         }] +
                         [{
-                            'account':sale_return_instance.ldgr.ac_name,
+                            'account':sale_return_instance.ldgr_id,
                             'credit':f"{_sr_party_credit:.2f}",
                         }]},
                         context=self.context)

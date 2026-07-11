@@ -168,13 +168,13 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         retail = self.context.get('request').retail
         _gm = retail.gstin_master
         _co = retail.branch.company if retail.branch_id and retail.branch else None
-        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
-        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
-        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
-        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
-        _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
-        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+        in_cgst = _gm.input_cgst.id if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+        in_sgst = _gm.input_sgst.id if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+        in_igst = _gm.input_igst.id if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+        _hallmark_ldgr = _co.hallmark_charge_ldgr.id if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+        _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+        _round_off_ldgr = _co.round_off_ldgr.id if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+        _carriage_ldgr = _co.carriage_inward_ldgr.id if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
         _pr_round_off = Decimal(str(purchase_return_instance.round_off or 0))
 
         # Build item journal lines: making rolled into first sub-item's purchase_ledger (credit)
@@ -188,7 +188,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                         f"Please set the purchase ledger in the Item Master."
                     )
                 _amt = Decimal(str(_d.value or 0)) + (_making if _idx == 0 else Decimal('0'))
-                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
+                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger_id, 'credit': f"{_amt:.2f}"})
 
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
                 "voucher_no":purchase_return_instance.billno,
@@ -223,7 +223,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                     if (purchase_return_instance.discount or 0) > 0 else []) +
                 _pr_item_lines +
                 [{
-                    'account':purchase_return_instance.ldgr.ac_name,
+                    'account':purchase_return_instance.ldgr_id,
                     'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
                 }]},
                 context=self.context)
@@ -267,13 +267,13 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
         retail = self.context.get('request').retail
         _gm = retail.gstin_master
         _co = retail.branch.company if retail.branch_id and retail.branch else None
-        in_cgst = _gm.input_cgst.ac_name if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
-        in_sgst = _gm.input_sgst.ac_name if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
-        in_igst = _gm.input_igst.ac_name if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
-        _hallmark_ldgr = _co.hallmark_charge_ldgr.ac_name if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
-        _discount_ldgr = _co.discount_ldgr.ac_name if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
-        _round_off_ldgr = _co.round_off_ldgr.ac_name if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
-        _carriage_ldgr = _co.carriage_inward_ldgr.ac_name if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
+        in_cgst = _gm.input_cgst.id if _gm and _gm.input_cgst else _raise_missing_ledger("INPUT CGST")
+        in_sgst = _gm.input_sgst.id if _gm and _gm.input_sgst else _raise_missing_ledger("INPUT SGST")
+        in_igst = _gm.input_igst.id if _gm and _gm.input_igst else _raise_missing_ledger("INPUT IGST")
+        _hallmark_ldgr = _co.hallmark_charge_ldgr.id if _co and _co.hallmark_charge_ldgr else _raise_missing_ledger("Hallmarking/Testing Charges")
+        _discount_ldgr = _co.discount_ldgr.id if _co and _co.discount_ldgr else _raise_missing_ledger("Discount/Round Off")
+        _round_off_ldgr = _co.round_off_ldgr.id if _co and _co.round_off_ldgr else _raise_missing_ledger("Round Off")
+        _carriage_ldgr = _co.carriage_inward_ldgr.id if _co and _co.carriage_inward_ldgr else _raise_missing_ledger("Carriage Inward")
         _pr_round_off = Decimal(str(purchase_return_instance.round_off or 0))
 
         # Build item journal lines: making rolled into first sub-item's purchase_ledger (credit)
@@ -291,7 +291,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                         f"Please set the purchase ledger in the Item Master."
                     )
                 _amt = Decimal(str(_d.value or 0)) + (_making if _idx == 0 else Decimal('0'))
-                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger.ac_name, 'credit': f"{_amt:.2f}"})
+                _pr_item_lines.append({'account': _d.sub_item.purchase_ledger_id, 'credit': f"{_amt:.2f}"})
 
         ser = JournalEntrySerializer(data= {'date':purchase_return_instance.date1.strftime('%Y-%m-%d'),
                 "voucher_no":purchase_return_instance.billno,
@@ -322,7 +322,7 @@ class PurchaseReturnSerializer(serializers.ModelSerializer):
                     if (purchase_return_instance.discount or 0) > 0 else []) +
                 _pr_item_lines +
                 [{
-                    'account':purchase_return_instance.ldgr.ac_name,
+                    'account':purchase_return_instance.ldgr_id,
                     'debit':f"{(purchase_return_instance.bill_value ):.2f}" if purchase_return_instance.bill_value else '0.0',
                 }]},
                 context=self.context)

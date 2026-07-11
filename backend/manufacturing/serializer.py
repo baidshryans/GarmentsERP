@@ -1113,7 +1113,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                     making_by_purity[item.get('purity')] += _Dec(str(making))
 
             def _making_ldgr_for_purity(retail, purity_obj):
-                """Return ac_name of the Making Charge Paid ledger for the given purity."""
+                """Return the id of the Making Charge Paid ledger for the given purity."""
                 co = retail.branch.company if (retail.branch_id and retail.branch) else None
                 if not co:
                     _raise_missing_ledger("Making Charge Paid (Company not configured on Retail master)")
@@ -1128,7 +1128,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                     ldgr = co.making_charge_paid_22k_ldgr  # fallback to 22K
                 if not ldgr:
                     _raise_missing_ledger(f"Making Charge Paid ledger for purity '{purity_name}' (configure on Company master)")
-                return ldgr.ac_name
+                return ldgr.id
 
             retail = self.context.get('request').retail
             total_making_charge = sum(making_by_purity.values())
@@ -1139,7 +1139,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                 if amount
             ]
             voucher_details.append({
-                'account': karigar_receive_instance.karigar_ldgr.ac_name,
+                'account': karigar_receive_instance.karigar_ldgr_id,
                 'credit': float(total_making_charge),
                 'debit': 0,
             })
@@ -1228,7 +1228,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                     ldgr = co.making_charge_paid_22k_ldgr
                 if not ldgr:
                     _raise_missing_ledger(f"Making Charge Paid ledger for purity '{purity_name}' (configure on Company master)")
-                return ldgr.ac_name
+                return ldgr.id
 
             retail = self.context.get('request').retail
             total_making_charge = sum(making_by_purity.values())
@@ -1239,7 +1239,7 @@ class KarigarReceiveForPostSerializer(serializers.ModelSerializer):
                 if amount
             ]
             voucher_details.append({
-                'account': karigar_receive_instance.karigar_ldgr.ac_name,
+                'account': karigar_receive_instance.karigar_ldgr_id,
                 'credit': float(total_making_charge),
                 'debit': 0,
             })

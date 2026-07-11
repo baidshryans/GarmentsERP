@@ -166,17 +166,17 @@ class SaleVoucherLedgerSerializer(serializers.ModelSerializer):
 
 
 class LedgerRefField(serializers.PrimaryKeyRelatedField):
-    """Reference a ledger by primary key — the canonical, unambiguous form the
-    selecting UI sends. Also accepts a ledger *name* for the many internal
-    GL-posting callers (sales, purchase, returns, manufacturing) that still
-    build journal lines by ``ac_name``.
+    """Reference a ledger by primary key — the canonical, unambiguous form used
+    by the selecting UI and by the auto-GL posting in sales/purchase/returns/
+    manufacturing (all converted to pass ids).
 
-    PK input resolves to exactly one ledger. Name input is resolved tolerantly
-    — prefer the request's retail, then a shared (``retail_code IS NULL``)
-    ledger, then the lowest id — so a duplicate name can never raise
-    ``MultipleObjectsReturned``. Output is always the pk; ``account_name``
-    carries the display label. (Converting the internal callers to pass ids is
-    a separate follow-up; until then this bridge keeps auto-GL posting working.)
+    A ledger *name* is still accepted as a fallback: a few GL lines have no
+    resolvable ledger id (e.g. a cheque/bank line falling back to its bank name,
+    or the "Cheques in Hand" account), and this keeps them working. Name input
+    is resolved tolerantly — prefer the request's retail, then a shared
+    (``retail_code IS NULL``) ledger, then the lowest id — so a duplicate name
+    can never raise ``MultipleObjectsReturned``. Output is always the pk;
+    ``account_name`` carries the display label.
     """
 
     def to_internal_value(self, data):
@@ -937,31 +937,31 @@ class CreditDebitNoteSerializer(serializers.ModelSerializer):
         if note_type == 'CN':
             # Credit Note: Dr adjustment + Dr taxes, Cr customer
             voucher_details.append({
-                'account': adjustment_ldgr.ac_name,
+                'account': adjustment_ldgr.id,
                 'debit': float(taxable),
                 'credit': 0,
             })
             if cgst_amt > 0 and gstin and gstin.output_cgst:
                 voucher_details.append({
-                    'account': gstin.output_cgst.ac_name,
+                    'account': gstin.output_cgst_id,
                     'debit': float(cgst_amt),
                     'credit': 0,
                 })
             if sgst_amt > 0 and gstin and gstin.output_sgst:
                 voucher_details.append({
-                    'account': gstin.output_sgst.ac_name,
+                    'account': gstin.output_sgst_id,
                     'debit': float(sgst_amt),
                     'credit': 0,
                 })
             if igst_amt > 0 and gstin and gstin.output_igst:
                 voucher_details.append({
-                    'account': gstin.output_igst.ac_name,
+                    'account': gstin.output_igst_id,
                     'debit': float(igst_amt),
                     'credit': 0,
                 })
             # Party leg (credit reduces receivable)
             voucher_details.append({
-                'account': ldgr.ac_name,
+                'account': ldgr.id,
                 'debit': 0,
                 'credit': float(total),
                 'ref_bill_no': ref_bill_no or '',
@@ -969,31 +969,31 @@ class CreditDebitNoteSerializer(serializers.ModelSerializer):
         else:
             # Debit Note: Dr vendor (reduces payable), Cr adjustment + Cr taxes
             voucher_details.append({
-                'account': ldgr.ac_name,
+                'account': ldgr.id,
                 'debit': float(total),
                 'credit': 0,
                 'ref_bill_no': ref_bill_no or '',
             })
             voucher_details.append({
-                'account': adjustment_ldgr.ac_name,
+                'account': adjustment_ldgr.id,
                 'debit': 0,
                 'credit': float(taxable),
             })
             if cgst_amt > 0 and gstin and gstin.input_cgst:
                 voucher_details.append({
-                    'account': gstin.input_cgst.ac_name,
+                    'account': gstin.input_cgst_id,
                     'debit': 0,
                     'credit': float(cgst_amt),
                 })
             if sgst_amt > 0 and gstin and gstin.input_sgst:
                 voucher_details.append({
-                    'account': gstin.input_sgst.ac_name,
+                    'account': gstin.input_sgst_id,
                     'debit': 0,
                     'credit': float(sgst_amt),
                 })
             if igst_amt > 0 and gstin and gstin.input_igst:
                 voucher_details.append({
-                    'account': gstin.input_igst.ac_name,
+                    'account': gstin.input_igst_id,
                     'debit': 0,
                     'credit': float(igst_amt),
                 })

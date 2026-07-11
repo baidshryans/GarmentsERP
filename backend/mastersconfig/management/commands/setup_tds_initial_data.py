@@ -126,7 +126,9 @@ class Command(BaseCommand):
         tds_group = Account.objects.filter(code='CL-DT-TDS').first()
         tcs_group = Account.objects.filter(code='CL-DT-TCS').first()
 
-        # 5. Create TDS Payable ledger accounts per retail
+        # 5. Create the (company-level, retail-agnostic) TDS/TCS payable ledgers.
+        #    These are seeded once as shared ledgers (retail_code=None); the loop
+        #    below is idempotent, so extra retails just no-op via get_or_create.
         retails = RetailMaster.objects.all()
         if not retails.exists():
             self.stdout.write(self.style.WARNING("No RetailMaster found — skipping ledger creation"))
@@ -138,7 +140,7 @@ class Command(BaseCommand):
                 ledger_name = f"TDS Payable u/s {sec.section_code}"
                 ldgr, created = Ledger.objects.get_or_create(
                     ac_name=ledger_name,
-                    retail_code=retail,
+                    retail_code=None,  # company-level statutory account, shared across retails
                     defaults={
                         'display_name': ledger_name,
                         'ac_group': tds_group,
@@ -167,7 +169,7 @@ class Command(BaseCommand):
                 ledger_name = f"TCS Payable u/s {sec.section_code}"
                 ldgr, created = Ledger.objects.get_or_create(
                     ac_name=ledger_name,
-                    retail_code=retail,
+                    retail_code=None,  # company-level statutory account, shared across retails
                     defaults={
                         'display_name': ledger_name,
                         'ac_group': tcs_group,

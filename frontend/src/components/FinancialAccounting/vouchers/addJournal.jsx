@@ -133,7 +133,14 @@ const AddJournal = () => {
       setValue(`form.${key}`, data[key]);
     });
     if (data.voucher_details) {
-      setRows(data.voucher_details);
+      // Backend returns each line's ledger as `account` (id) + `account_name`.
+      // Internally the entry grid works on the display name, keeping the id in
+      // `_ledger` for re-submit.
+      setRows(data.voucher_details.map((d) => ({
+        ...d,
+        account: d.account_name ?? d.account,
+        _ledger: d.account != null ? { id: d.account, ac_name: d.account_name } : d._ledger,
+      })));
     }
     reset(getValues(), { keepValues: true, keepDirty: false });
     resetTableDirty();
@@ -171,16 +178,27 @@ const AddJournal = () => {
 
   const onSubmit = () => {
     const form = getValues('form')
-    // Strip client-only fields (`_ledger`, `bill_id`) from each row before sending.
+    // Resolve each line's ledger to its PRIMARY KEY before sending. The row
+    // carries the selected ledger in `_ledger` (id captured at selection time);
+    // an edited voucher may instead arrive with `account` already an id. Names
+    // are never used to resolve — they are not unique.
+    let unresolvedAccount = false;
     form.voucher_details = rs.map((row) => {
       // eslint-disable-next-line no-unused-vars
-      const { _ledger, bill_id, ...rest } = row;
+      const { _ledger, bill_id, account_name, account, ...rest } = row;
+      const accountId = _ledger?.id ?? (typeof account === "number" ? account : null);
+      if (accountId == null) unresolvedAccount = true;
       return {
         ...rest,
+        account: accountId,
         debit:  parseFloat(rest.debit)  || 0,
         credit: parseFloat(rest.credit) || 0,
       };
     });
+    if (unresolvedAccount) {
+      toast({ title: "Select a valid account for every line", description: "Pick each account from the dropdown so it can be saved.", variant: "destructive" });
+      return;
+    }
     if (voucherStatus === 'cancelled') form.status = 'posted';
 
     console.log(form)
@@ -295,6 +313,7 @@ const AddJournal = () => {
     }
 
     // Default: single-row edit (JRNL, CONTRA, or un-allocated RCPT/PMNT rows)
+    setSelectedLedger(row._ledger ?? null);
     const value = getValues();
     reset({ ...value, table: row });
     setRows((prev) => prev.filter((_, i) => i !== index));
@@ -319,6 +338,7 @@ const AddJournal = () => {
       const amt = parseFloat(pmnt.debit) || 0;
       setRows(prev => [...prev, {
         account: account,
+        _ledger: selectedLedger,
         status: status,
         ref_bill_no: pmnt.bill_no,
         debit:  journal_type === "PMNT" ? amt : 0,
@@ -446,8 +466,14 @@ const AddJournal = () => {
         }
       }
 
-      // Default: single-row add
-      setRows(prev => [...prev, { ...row }])
+      // Default: single-row add. Capture the selected ledger's id so the line
+      // saves by primary key (names are not unique). Fall back to an exact
+      // name match in the current search results if the user typed without
+      // clicking a suggestion; the submit guard rejects anything unresolved.
+      const rowLedger = selectedLedger
+        ?? customers.find(c => c.ac_name?.trim().toLowerCase() === row.account?.trim().toLowerCase())
+        ?? null;
+      setRows(prev => [...prev, { ...row, _ledger: rowLedger }])
       markTableDirty();
       setSelectedLedger(null);
       reset({...getValues(),

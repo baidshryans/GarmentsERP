@@ -28,7 +28,7 @@ const GST_RE  = /cgst|sgst|igst|tcs|tds|gst/i;
 const CASH_RE = /cash/i;
 const BANK_RE = /bank|hdfc|sbi|icici|axis|kotak|yes\s*bank/i;
 
-export const isGst  = (l) => GST_RE.test(l.account || "");
+export const isGst  = (l) => GST_RE.test(l.account_name || "");
 export const isRcpt = (t) => t === "RCPT-SALE" || t === "RCPT";
 export const isPmnt = (t) => t === "PMNT"       || t === "PMNT-PURC";
 
@@ -43,7 +43,7 @@ export function detectMode(lines, type) {
   if (isRcpt(type)) cashBankLine = lines.find((l) => (l.debit  || 0) > 0 && !isGst(l));
   if (isPmnt(type)) cashBankLine = lines.find((l) => (l.credit || 0) > 0 && !isGst(l));
   if (!cashBankLine) return null;
-  const name = cashBankLine.account || "";
+  const name = cashBankLine.account_name || "";
   if (CASH_RE.test(name)) return { label: "Cash",    account: name };
   if (BANK_RE.test(name)) return { label: "Bank",    account: name };
   return                         { label: "Account", account: name };

@@ -165,28 +165,32 @@ class SaleVoucherLedgerSerializer(serializers.ModelSerializer):
         return ret
 
 
-class LedgerByNameField(serializers.SlugRelatedField):
-    """Resolve a ledger from its ``ac_name``, tolerant of duplicate names.
+class LedgerRefField(serializers.PrimaryKeyRelatedField):
+    """Reference a ledger by primary key — the canonical, unambiguous form the
+    selecting UI sends. Also accepts a ledger *name* for the many internal
+    GL-posting callers (sales, purchase, returns, manufacturing) that still
+    build journal lines by ``ac_name``.
 
-    ``ac_name`` is not unique: branches keep their own copy of shared ledgers
-    (e.g. one "TDS Payable u/s 194A" per retail), and legacy imports left some
-    genuine duplicates. A plain ``SlugRelatedField`` does ``queryset.get(
-    ac_name=...)`` which raises ``MultipleObjectsReturned`` (a 500) the moment
-    two ledgers share a name. Disambiguate deterministically instead: prefer
-    the ledger belonging to the request's retail, then a shared
-    (``retail_code IS NULL``) ledger, then the lowest id.
+    PK input resolves to exactly one ledger. Name input is resolved tolerantly
+    — prefer the request's retail, then a shared (``retail_code IS NULL``)
+    ledger, then the lowest id — so a duplicate name can never raise
+    ``MultipleObjectsReturned``. Output is always the pk; ``account_name``
+    carries the display label. (Converting the internal callers to pass ids is
+    a separate follow-up; until then this bridge keeps auto-GL posting working.)
     """
 
     def to_internal_value(self, data):
-        matches = list(self.get_queryset().filter(**{self.slug_field: data}))
+        if isinstance(data, bool):
+            self.fail("incorrect_type", data_type=type(data).__name__)
+        if isinstance(data, int) or (isinstance(data, str) and data.strip().isdigit()):
+            return super().to_internal_value(int(data))
+        matches = list(self.get_queryset().filter(ac_name=data))
         if not matches:
-            self.fail("does_not_exist", slug_name=self.slug_field, value=data)
+            self.fail("does_not_exist", pk_value=data)
         if len(matches) == 1:
             return matches[0]
-
         request = self.context.get("request")
-        retail = getattr(request, "retail", None)
-        retail_id = getattr(retail, "pk", None)
+        retail_id = getattr(getattr(request, "retail", None), "pk", None)
 
         def rank(ledger):
             if retail_id and ledger.retail_code_id == retail_id:
@@ -199,7 +203,11 @@ class LedgerByNameField(serializers.SlugRelatedField):
 
 
 class VoucherDetailSerializer(serializers.ModelSerializer):
-    account = LedgerByNameField(queryset=Ledger.objects.all(), slug_field="ac_name")
+    # A voucher line references its ledger by primary key (what the UI sends).
+    # ``LedgerRefField`` also accepts a name for internal GL callers.
+    # ``account_name`` is a read-only convenience for display.
+    account = LedgerRefField(queryset=Ledger.objects.all())
+    account_name = serializers.CharField(source="account.ac_name", read_only=True)
     credit = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
     debit = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
     class Meta:
@@ -211,6 +219,7 @@ class VoucherDetailSerializer(serializers.ModelSerializer):
         "ref_purchase_vou",
         "voucher_type",
         "account",
+        "account_name",
         "status",
         "debit",
         "credit",
@@ -236,7 +245,7 @@ class GoldCashSerializder(serializers.ModelSerializer):
             # Create journal entry for gold/cash conversion
             _retail = self.context['request'].retail
             _co = _retail.branch.company if _retail.branch_id and _retail.branch else None
-            _gold_conv_ldgr = _co.gold_conversion_ldgr.ac_name if _co and _co.gold_conversion_ldgr else _raise_missing_ledger("Gold Conversion")
+            _gold_conv_ldgr = _co.gold_conversion_ldgr_id if _co and _co.gold_conversion_ldgr_id else _raise_missing_ledger("Gold Conversion")
             journal_data = {
                 'date': instance.date,
                 'voucher_no': generate_voucher_no(type=global_vars.VoucherType.journal,retail=_retail),
@@ -249,7 +258,7 @@ class GoldCashSerializder(serializers.ModelSerializer):
                 # Cash to Gold entry
                 journal_data['voucher_details'] = [
                     {
-                        'account': instance.ldgr.ac_name,
+                        'account': instance.ldgr_id,
                         'debit': instance.amount,
                         'credit': 0
                     },
@@ -268,7 +277,7 @@ class GoldCashSerializder(serializers.ModelSerializer):
                         'credit': 0
                     },
                     {
-                        'account': instance.ldgr.ac_name,
+                        'account': instance.ldgr_id,
                         'debit': 0,
                         'credit': instance.amount
                     }

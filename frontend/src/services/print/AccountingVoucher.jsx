@@ -165,7 +165,7 @@ const AccountingVoucher = ({ data = {} }) => {
           <div>
             <div className="av-party-lbl">{partyLabel}</div>
             <div className="av-party-val">
-              {party.account || ""}
+              {party.account_name || ""}
               {party.ref_bill_no && (
                 <span style={{fontWeight:400,fontSize:"9.5px",color:"#555",marginLeft:8}}>
                   Ref: {party.ref_bill_no}
@@ -201,7 +201,7 @@ const AccountingVoucher = ({ data = {} }) => {
               </div>
               <div className="av-chq-cell">
                 <div className="av-chq-lbl">Account</div>
-                <div className="av-chq-val">{b.account || "—"}</div>
+                <div className="av-chq-val">{b.account_name || "—"}</div>
               </div>
             </React.Fragment>
           ))}
@@ -234,8 +234,8 @@ const AccountingVoucher = ({ data = {} }) => {
                   <td className="av-ctr">{i + 1}</td>
                   <td>
                     {isDr
-                      ? <><span style={{fontWeight:700,letterSpacing:".2px"}}>Dr&nbsp;</span>{line.account || ""}</>
-                      : <span style={{paddingLeft:20}}><span style={{fontWeight:700,letterSpacing:".2px"}}>Cr&nbsp;</span>{line.account || ""}</span>
+                      ? <><span style={{fontWeight:700,letterSpacing:".2px"}}>Dr&nbsp;</span>{line.account_name || ""}</>
+                      : <span style={{paddingLeft:20}}><span style={{fontWeight:700,letterSpacing:".2px"}}>Cr&nbsp;</span>{line.account_name || ""}</span>
                     }
                   </td>
                   <td className="av-num">{isDr ? fmt(line.debit) : ""}</td>
@@ -248,7 +248,7 @@ const AccountingVoucher = ({ data = {} }) => {
               const amt  = isRcpt(vType) ? (g.credit || g.debit || 0) : (g.debit || g.credit || 0);
               const base = isRcpt(vType) ? rawCr : rawDr;
               const pct  = base > 0 ? Math.round((amt / base) * 1000) / 10 : 0;
-              const label = (g.account || "").replace(/^input\s*/i, "") + (pct > 0 ? " @ " + pct + "%" : "");
+              const label = (g.account_name || "").replace(/^input\s*/i, "") + (pct > 0 ? " @ " + pct + "%" : "");
               return (
                 <tr key={"g" + i} className="av-gst">
                   <td className="av-ctr">{mainLines.length + i + 1}</td>

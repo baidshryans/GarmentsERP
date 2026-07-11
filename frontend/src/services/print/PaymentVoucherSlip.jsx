@@ -102,7 +102,7 @@ const PaymentVoucherSlip = ({ data = {} }) => {
       <div className="pv-party-row">
         <div className="pv-party">
           <div className="pv-lbl">Paid To</div>
-          <div className="pv-party-name">{party?.account || "—"}</div>
+          <div className="pv-party-name">{party?.account_name || "—"}</div>
           {party?.ref_bill_no && (
             <div className="pv-party-ref">Ref: {party.ref_bill_no}</div>
           )}

@@ -183,7 +183,7 @@ const AccountingVoucherList = () => {
       id: "party_name",
       cell: ({ row }) => {
         const details = row.original.voucher_details || [];
-        const names = [...new Set(details.map(d => d.account).filter(Boolean))];
+        const names = [...new Set(details.map(d => d.account_name).filter(Boolean))];
         return names.join(", ");
       },
     },

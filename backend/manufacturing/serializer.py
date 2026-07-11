@@ -39,9 +39,8 @@ class KarigarStoneIssueDetailSerializer(serializers.ModelSerializer):
         queryset=ContentType.objects.all(), slug_field='model'
     )
     ref_job_object_id = serializers.IntegerField()
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(), slug_field='item_name'
-    )
+    item = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all())
+    item_name = serializers.CharField(source='item.item_name', read_only=True)
     packet = serializers.SlugRelatedField(
         queryset=Packet.objects.all(), slug_field='pckt_no'
     )
@@ -56,7 +55,7 @@ class KarigarStoneIssueDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', "job_sl_content_type", "job_sl_object_id",
             "ref_job_content_type", "ref_job_object_id", "sl_no",
-            "item", "pcs", "ct", "gw", "cgst", "sgst", "igst",
+            "item", "item_name", "pcs", "ct", "gw", "cgst", "sgst", "igst",
             "rate", "taxable_value", "tot_val", "packet",
             "remarks", "place_of_supply",
             "ref_slip_no", "ref_design_code", "ref_main_item", "ref_karigar_name",

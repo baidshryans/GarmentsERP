@@ -322,7 +322,7 @@ class CustomerOrderItemsSerializer1(serializers.ModelSerializer):
     item_id = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
     item_name = serializers.CharField(source='item_id.item_name', read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True)
-    order_no = serializers.SlugRelatedField(queryset=CustomerOrder.objects.all,slug_field="order_no",required=False)
+    order_no = serializers.SlugRelatedField(queryset=CustomerOrder.objects.all(),slug_field="order_no",required=False)
     lock_state = serializers.SerializerMethodField(read_only=True)
     lock_reason = serializers.SerializerMethodField(read_only=True)
 

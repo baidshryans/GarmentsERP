@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 const tableDefaultValue = {
   packet: "",
   item: "",
+  item_name: "",
   pcs: 0,
   ct: 0,
   gw: 0,
@@ -322,6 +323,7 @@ const StoneIssue = () => {
     setPacketBalance(null);
     if (!selectedValue) {
       setValue("table.item", "");
+      setValue("table.item_name", "");
       setValue("table.rate", 0);
       setValue("table.pcs", 0);
       setValue("table.ct", 0);
@@ -347,7 +349,8 @@ const StoneIssue = () => {
     });
 
     if (selectedPacket) {
-      setValue('table.item', selectedPacket.stone_item_name || "");
+      setValue('table.item', selectedPacket.stone_item_id || "");
+      setValue('table.item_name', selectedPacket.stone_item_name || "");
       setValue('table.rate', selectedPacket.rate_for_retail || 0);
 
       const hsn_cgst = selectedPacket.stone_item_hsn_cgst || 0;
@@ -661,8 +664,9 @@ const StoneIssue = () => {
                     type="text"
                     className="h-8 bg-muted text-muted-foreground cursor-not-allowed"
                     readOnly
-                    {...register("table.item")}
+                    {...register("table.item_name")}
                   />
+                  <input type="hidden" {...register("table.item")} />
                 </TableCell>
                 <TableCell className="py-1.5 px-2">
                   <Input type="number" className="h-8 text-right" {...register("table.pcs", { onChange: handlePCSchange })} />
@@ -715,7 +719,7 @@ const StoneIssue = () => {
                       </div>
                     </TableCell>
                     <TableCell className="py-2 px-2">{row.packet}</TableCell>
-                    <TableCell className="py-2 px-2">{row.item}</TableCell>
+                    <TableCell className="py-2 px-2">{row.item_name ?? row.item}</TableCell>
                     <TableCell className="py-2 px-2 text-right tabular-nums">{row.pcs}</TableCell>
                     <TableCell className="py-2 px-2 text-right tabular-nums">{row.ct != null ? parseFloat(row.ct).toFixed(3) : "—"}</TableCell>
                     <TableCell className="py-2 px-2 text-right tabular-nums">{row.gw != null ? parseFloat(row.gw).toFixed(3) : "—"}</TableCell>

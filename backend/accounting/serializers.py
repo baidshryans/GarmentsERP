@@ -165,8 +165,41 @@ class SaleVoucherLedgerSerializer(serializers.ModelSerializer):
         return ret
 
 
+class LedgerByNameField(serializers.SlugRelatedField):
+    """Resolve a ledger from its ``ac_name``, tolerant of duplicate names.
+
+    ``ac_name`` is not unique: branches keep their own copy of shared ledgers
+    (e.g. one "TDS Payable u/s 194A" per retail), and legacy imports left some
+    genuine duplicates. A plain ``SlugRelatedField`` does ``queryset.get(
+    ac_name=...)`` which raises ``MultipleObjectsReturned`` (a 500) the moment
+    two ledgers share a name. Disambiguate deterministically instead: prefer
+    the ledger belonging to the request's retail, then a shared
+    (``retail_code IS NULL``) ledger, then the lowest id.
+    """
+
+    def to_internal_value(self, data):
+        matches = list(self.get_queryset().filter(**{self.slug_field: data}))
+        if not matches:
+            self.fail("does_not_exist", slug_name=self.slug_field, value=data)
+        if len(matches) == 1:
+            return matches[0]
+
+        request = self.context.get("request")
+        retail = getattr(request, "retail", None)
+        retail_id = getattr(retail, "pk", None)
+
+        def rank(ledger):
+            if retail_id and ledger.retail_code_id == retail_id:
+                return (0, ledger.id)
+            if ledger.retail_code_id is None:
+                return (1, ledger.id)
+            return (2, ledger.id)
+
+        return sorted(matches, key=rank)[0]
+
+
 class VoucherDetailSerializer(serializers.ModelSerializer):
-    account = serializers.SlugRelatedField(queryset=Ledger.objects.all(),slug_field="ac_name")
+    account = LedgerByNameField(queryset=Ledger.objects.all(), slug_field="ac_name")
     credit = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
     debit = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
     class Meta:

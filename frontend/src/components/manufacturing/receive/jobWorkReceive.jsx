@@ -263,11 +263,11 @@ function modifyData(data) {
       sl_no: sl,
       item: itm.item ?? "",            // Item id (SampleIssueItem.item), not a name
       item_name: itm.item_name || "",  // display only
-      purity: itm.piece_purity || "",
+      purity: itm.purity_name || "",   // purity NAME (KarigarReceive.purity is a slug field)
       finish_status: false,
-      pcs: itm.piece_pcs || 0,
-      gw: round3(itm.piece_gw || 0),
-      nw: round3(itm.piece_gw || 0),
+      pcs: itm.pcs || 0,
+      gw: round3(itm.gw || 0),
+      nw: round3(itm.gw || 0),
       less_gw: 0,
       loss: 0,
       tunch_per: 0,
@@ -281,7 +281,7 @@ function modifyData(data) {
       details: [],
       ref_sample_issue: ref_sample_issue_id,
       ref_sample_issue_item: itm.id,
-      sample_piece_gw: itm.piece_gw || 0,
+      sample_piece_gw: itm.gw || 0,
       _source_label: `Sample · ${getValues("form.ref_sample_issue_billno") || ""} · Sl ${ref_sample_sl_no}`,
     };
     append(row);
@@ -749,7 +749,7 @@ function modifyData(data) {
                     {field._source_label
                       || (field.ref_job_sl_no ? "Job" : (field.ref_sample_issue_item ? "Sample" : "—"))}
                   </TableCell>
-                  <TableCell className="px-2 py-1.5 border text-xs">{field.item}</TableCell>
+                  <TableCell className="px-2 py-1.5 border text-xs">{field.item_name || field.item}</TableCell>
                   <TableCell className="px-2 py-1.5 border text-xs">
                     <span className="inline-block px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[11px] font-medium">{field.purity}</span>
                   </TableCell>

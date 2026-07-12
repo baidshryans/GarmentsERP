@@ -11,6 +11,7 @@ from goldrates.models import PurityMaster
 from manufacturing.utils import create_or_update_nested
 from inventory.models import BarcodeMain, BarcodeTransaction
 from mastersconfig.models import Item, Packet
+from mastersconfig.serializer_fields import ItemRefField
 from ..models import PurchaseReturn, PurchaseReturnItems, PurchaseReturnDetails
 
 from .voucher import _raise_missing_ledger
@@ -18,7 +19,7 @@ from .voucher import _raise_missing_ledger
 
 class PurchaseReturnDetailsSerializer(serializers.ModelSerializer):
     # Fields related to PurchaseReturnDetails model
-    sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    sub_item = ItemRefField(required=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False, allow_null=True)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
 
@@ -46,7 +47,7 @@ class PurchaseReturnDetailsSerializer(serializers.ModelSerializer):
 
 class PurchaseReturnItemsSerializer(serializers.ModelSerializer):
     # Fields related to PurchaseReturnItems model
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    item = ItemRefField(required=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)
     barcode = serializers.PrimaryKeyRelatedField(queryset=BarcodeMain.objects.all(), allow_null=True, required=False)
 

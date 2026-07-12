@@ -7,6 +7,7 @@ from goldrates.models import PurityMaster
 from manufacturing.utils import create_or_update_nested
 from mastersconfig.models import Item, SalesPersonMaster, TCSSectionMaster
 from mastersconfig.ledger_utils import get_cheques_in_hand_ledger
+from mastersconfig.serializer_fields import ItemRefField
 from sales.models import CustomerOrder, CustomerOrderItems
 from purchase.models import PurchaseVoucher
 from django.db import   transaction
@@ -298,7 +299,7 @@ class CustomerOrderLockListSerializer(serializers.ListSerializer):
 
 
 class CustomerOrderItemsSerializer(serializers.ModelSerializer):
-    item_id = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_id = ItemRefField()
     item_name = serializers.CharField(source='item_id.item_name', read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True)
     order_no = serializers.PrimaryKeyRelatedField(queryset=CustomerOrder.objects.all(),required=False)
@@ -320,7 +321,7 @@ class CustomerOrderItemsSerializer(serializers.ModelSerializer):
         }
 
 class CustomerOrderItemsSerializer1(serializers.ModelSerializer):
-    item_id = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item_id = ItemRefField()
     item_name = serializers.CharField(source='item_id.item_name', read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True)
     order_no = serializers.SlugRelatedField(queryset=CustomerOrder.objects.all(),slug_field="order_no",required=False)
@@ -617,7 +618,7 @@ from sales.models import (
 
 
 class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True)
     billno = serializers.PrimaryKeyRelatedField(queryset=SalesVou.objects.all(),required=False,allow_null=True)
     # Read-only helpers so the frontend recalc formula (uom === 'Ct' ? ct*rate : gw*rate)
@@ -666,7 +667,7 @@ class SalesVouItemDetailsSerializer(serializers.ModelSerializer):
 
 
 class SalesVouItemSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode")
     # purity is IntegerField on model (stores PK of PurityMaster) but frontend
     # sends the slug string (e.g. "14K"). Accept any value and resolve in validate.
@@ -962,6 +963,10 @@ class SalesVouSerializer(serializers.ModelSerializer):
                 return None
             if isinstance(val, _Item):
                 return val
+            if isinstance(val, int) or (isinstance(val, str) and val.strip().isdigit()):
+                obj = _Item.objects.filter(pk=int(val)).first()
+                if obj:
+                    return obj
             try:
                 return _Item.objects.get(short_code=val)
             except _Item.DoesNotExist:
@@ -2061,7 +2066,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
 class SaleReturnDetailsSerializer(serializers.ModelSerializer):
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True, required=False)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True, required=False)
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(),slug_field="short_code",allow_null=True)
+    item = ItemRefField(allow_null=True)
     class Meta:
         model = SaleReturnDetails
         fields = [
@@ -2085,7 +2090,7 @@ class SaleReturnDetailsSerializer(serializers.ModelSerializer):
 
 class SaleReturnItemSerializer(serializers.ModelSerializer):
     sale_billno = serializers.PrimaryKeyRelatedField(queryset=SalesVou.objects.all(), allow_null=True, required=False)
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True, required=False)
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode", allow_null=True, required=False)
 
@@ -2522,7 +2527,7 @@ class SaleVoucherToReturnSerializer(SalesVouSerializer):
 
 
 class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     item_name = serializers.CharField(source='item.item_name', read_only=True)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field="pckt_no",allow_null=True)
     ct = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True, default=0)
@@ -2571,7 +2576,7 @@ class SalesApprovalItemDetailsSerializer(serializers.ModelSerializer):
         return rep
 
 class SalesApprovalItemSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     item_name = serializers.CharField(source='item.item_name', read_only=True)
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode")
     # purity is IntegerField on model (stores PK of PurityMaster) but frontend
@@ -2879,7 +2884,7 @@ class SalesApprovalSerializer(serializers.ModelSerializer):
 # ── Sales Approval Return serializers ─────────────────────────────────────────
 
 class SalesApprovalReturnItemDetailsSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     packet = serializers.SlugRelatedField(
         queryset=Packet.objects.all(), slug_field="pckt_no", allow_null=True,
     )
@@ -2898,7 +2903,7 @@ class SalesApprovalReturnItemDetailsSerializer(serializers.ModelSerializer):
 
 
 class SalesApprovalReturnItemSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     barcode = serializers.SlugRelatedField(
         queryset=BarcodeMain.objects.all(), slug_field="barcode",
         allow_null=True, required=False,

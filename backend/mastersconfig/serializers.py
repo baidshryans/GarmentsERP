@@ -9,6 +9,7 @@ from .models import (
     RetailDiscountPricelist, RetailDiscountPricelistRule,
     SalesOffer, SalesOfferRule,
 )
+from mastersconfig.serializer_fields import ItemRefField
 
 
 class StateSerializer(ModelSerializer):
@@ -414,10 +415,7 @@ class B2BPricelistMakingSerializer(ModelSerializer):
         queryset=__import__('goldrates.models', fromlist=['PurityMaster']).PurityMaster.objects.all(),
         slug_field='purity', allow_null=True, required=False,
     )
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field='short_code', allow_null=True, required=False,
-    )
+    item = ItemRefField(allow_null=True, required=False)
     pricelist = serializers.PrimaryKeyRelatedField(
         queryset=B2BPricelist.objects.all(), required=False,
     )

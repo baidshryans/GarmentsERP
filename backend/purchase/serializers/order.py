@@ -5,6 +5,7 @@ from contacts.models import Ledger
 from goldrates.models import PurityMaster
 from manufacturing.utils import create_or_update_nested
 from mastersconfig.models import Item
+from mastersconfig.serializer_fields import ItemRefField
 from ..models import PurchaseOrder, PurchaseOrderItems
 from sales.models import CustomerOrderItems
 from django.db import transaction
@@ -24,7 +25,7 @@ class PurchaseOrderItemsSerializer(ModelSerializer):
 
 class PurchaseOrderItemsForPostSerializer(serializers.ModelSerializer):
     customer_order_item = serializers.PrimaryKeyRelatedField(queryset=CustomerOrderItems.objects.all(), required=False, allow_null=True)
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     item_name = serializers.CharField(source='item.item_name', read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     due_date = serializers.DateField(required=False, allow_null=True)

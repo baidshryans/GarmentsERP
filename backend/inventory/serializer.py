@@ -7,6 +7,7 @@ from sales.models import CustomerOrder
 from .models import BarcodeDetails, BarcodeImage, BarcodeMain, BarcodeSplitMerge, BarcodeTransaction, DesignImage, InterRetailTransferItem, InterRetailTransferVoucher, OpeningInventory, RawMaterialInventory, RawMaterialTransaction, RfidCountResult, RfidCountSession, StockJournal, StockJournalDetail, StockTransfer, StockTransferMain, UnBarcodedDetails, UnBarcodedMain
 from django.db import transaction
 from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
+from mastersconfig.serializer_fields import ItemRefField
 
 
 def create_or_update_nested(serializer_class, parent_instance, related_name,parent_name, nested_data):
@@ -130,7 +131,7 @@ from .models import DesignMain, DesignDetails, Item, Ledger, AssetType
 
 
 class DesignDetailsSerializer(serializers.ModelSerializer):
-    sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    sub_item = ItemRefField()
     sub_item_name = serializers.CharField(source='sub_item.item_name', read_only=True)
     metal_purity = serializers.PrimaryKeyRelatedField(queryset=PurityMaster.objects.all())
     purity_name = serializers.CharField(source='metal_purity.purity', read_only=True)
@@ -171,7 +172,7 @@ class DesignMainListSerializer(serializers.ModelSerializer):
 
 class DesignMainSerializer(serializers.ModelSerializer):
     design_details = DesignDetailsSerializer(many=True, source='designdetails_set')
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    item = ItemRefField()
     item_name = serializers.CharField(source='item.item_name', read_only=True)
     kr_code = serializers.PrimaryKeyRelatedField(queryset=Ledger.objects.all(), required=False, allow_null=True)
     cover_image = serializers.SerializerMethodField()
@@ -252,10 +253,7 @@ class BarcodeDetailsSerializer(serializers.ModelSerializer):
         slug_field="pckt_no",
         allow_null=True,
     )
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field="short_code",
-    )
+    item = ItemRefField()
     purity = serializers.SlugRelatedField(
         queryset=PurityMaster.objects.all(),
         required=False,
@@ -296,10 +294,7 @@ class BarcodeDetailsSerializer(serializers.ModelSerializer):
 
 from manufacturing.models import KarigarReceiveItem
 class BarCodeMainSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field="short_code"
-    )
+    item = ItemRefField()
     purity = serializers.SlugRelatedField(
         queryset=PurityMaster.objects.all(),
         slug_field="purity"
@@ -576,10 +571,7 @@ class UnBarcodedDetailsSerializer(serializers.ModelSerializer):
         slug_field="pckt_no",
         allow_null=True
     )
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field="short_code"
-    )
+    item = ItemRefField()
 
     class Meta:
         model = UnBarcodedDetails
@@ -595,10 +587,7 @@ class UnBarcodedDetailsSerializer(serializers.ModelSerializer):
 
 
 class UnBarcodedMainSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field="short_code"
-    )
+    item = ItemRefField()
     purity = serializers.SlugRelatedField(
         queryset=PurityMaster.objects.all(),
         slug_field="purity"
@@ -765,7 +754,7 @@ class BarcodeMainToSaleVouSerializer(BarCodeMainSerializer):
         return representation
     
 class StockJournalDetailSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", allow_null=True)
 

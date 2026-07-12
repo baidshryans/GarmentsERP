@@ -13,6 +13,7 @@ from goldrates.models import PurityMaster
 from inventory.models import BarcodeMain
 from manufacturing.utils import create_or_update_nested
 from mastersconfig.models import Item, Packet, State, Hsn
+from mastersconfig.serializer_fields import ItemRefField
 from sales.models import CustomerOrder, CustomerOrderItems
 from ..models import (
     PurchaseVoucher,
@@ -72,7 +73,7 @@ def _making_ldgr_name_for_purity(co, purity_obj):
 
 
 class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
-    sub_item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    sub_item = ItemRefField(required=True)
     sub_item_name = serializers.SerializerMethodField()
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity",allow_null=True, required=False)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True,)
@@ -148,7 +149,7 @@ class PurchaseVoucherDetailsSerializer(serializers.ModelSerializer):
 
 
 class PurchaseVoucherItemsSerializer(serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code", required=True)
+    item = ItemRefField(required=True)
     item_name = serializers.SerializerMethodField()
     barcode = serializers.SlugRelatedField(queryset=BarcodeMain.objects.all(), slug_field="barcode", required=False,allow_null=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False)

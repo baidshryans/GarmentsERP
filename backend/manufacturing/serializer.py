@@ -22,6 +22,7 @@ from django.utils.dateparse import parse_date
 from .models import KarigarIssue, KarigarIssueItem, KarigarGoldIssue, SampleIssue, SampleIssueItem, SampleIssueItemDetails
 from  sales.models import  CustomerOrderItems
 from mastersconfig.models import  Item, Packet, RetailMaster
+from mastersconfig.serializer_fields import ItemRefField
 from contacts.models import Ledger
 from goldrates.models import PurityMaster
 from .models import KarigarStoneIssue
@@ -224,9 +225,7 @@ class KarigarStoneReceiveDetailSerializer(serializers.ModelSerializer):
         queryset=ContentType.objects.all(), slug_field='model'
     )
     ref_job_object_id = serializers.IntegerField()
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(), slug_field='short_code'
-    )
+    item = ItemRefField()
     packet = serializers.SlugRelatedField(
         queryset=Packet.objects.all(), slug_field='pckt_no'
     )
@@ -314,9 +313,7 @@ class KarigarGoldIssueDetailSerializer(serializers.ModelSerializer):
         help_text="Free-form purity % (e.g. 99.2). Used when metal_purity is not in master."
     )
 
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(), slug_field="short_code"
-    )
+    item = ItemRefField()
 
     def validate(self, data):
         metal_purity = data.get('metal_purity')
@@ -403,10 +400,7 @@ class KarigarIssueItemForPostSerializer(serializers.ModelSerializer):
         co = getattr(coi, 'order_no', None)
         return getattr(co, 'order_no', None) if co else None
 
-    item = serializers.SlugRelatedField(
-        queryset=Item.objects.all(),
-        slug_field="short_code"
-    )
+    item = ItemRefField()
 
     purity = serializers.SlugRelatedField(
         queryset=PurityMaster.objects.all(),
@@ -734,7 +728,7 @@ class KarigarIssueforJobsSerializer(ModelSerializer): #model b
 
 class KarigarReceiveItemDetailsForPostSerializer(serializers.ModelSerializer):
     # Fields related to KarigarReceiveItemDetails model
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity", required=False,allow_null=True)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),  slug_field="pckt_no",required=False,allow_null=True)
     main_sl_no = serializers.PrimaryKeyRelatedField(queryset=KarigarReceiveItem.objects.all(),required=False)
@@ -835,7 +829,7 @@ class KarigarReceiveItemForPostSerializer(serializers.ModelSerializer):
     ref_job_sl_no = serializers.PrimaryKeyRelatedField(queryset=KarigarIssueItem.objects.all(), required=False, allow_null=True)
     ref_sample_issue = serializers.PrimaryKeyRelatedField(queryset=SampleIssue.objects.all(), required=False, allow_null=True)
     ref_sample_issue_item = serializers.PrimaryKeyRelatedField(queryset=SampleIssueItem.objects.all(), required=False, allow_null=True)
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    item = ItemRefField()
     item_id = serializers.SerializerMethodField(read_only=True)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
     receive_slip_no = serializers.PrimaryKeyRelatedField(queryset=KarigarReceive.objects.all(),required=False)
@@ -1380,7 +1374,7 @@ class HallmarkIssueDetailsForPostSerializer(serializers.ModelSerializer):
 
 class HallmarkIssueItemForPostSerializer(serializers.ModelSerializer):
     receive_sl = serializers.PrimaryKeyRelatedField(queryset=KarigarReceiveItem.objects.all())
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code')
+    item = ItemRefField()
     item_name = serializers.CharField(source='item.item_name', read_only=True, default=None)
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
 
@@ -1491,7 +1485,7 @@ class HallmarkIssueForPostSerializer(serializers.ModelSerializer):
 
 class HallmarkReceiveDetailsForPostSerializer(serializers.ModelSerializer):
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(),slug_field='pckt_no',allow_null=True)
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code',allow_null=True,required=False)
+    item = ItemRefField(allow_null=True,required=False)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity',allow_null=True)
 
     class Meta:
@@ -1514,7 +1508,7 @@ class HallmarkReceiveItemForPostSerializer(serializers.ModelSerializer):
         queryset=KarigarReceiveItem.objects.all(), required=False, allow_null=True
     )
     purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field='purity')
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field='short_code',allow_null=True,required=False)
+    item = ItemRefField(allow_null=True,required=False)
     # Loss wt may be left blank in the form — coerce blank/null to 0 on save.
     loss_wt = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, allow_null=True, default=0)
     hallmarkreceivedetails_set = HallmarkReceiveDetailsForPostSerializer(many=True)
@@ -1737,7 +1731,7 @@ class RawMetalDetailSerializerMixin:
 
 
 class RefinaryIssueDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     item_name = serializers.CharField(source="item.item_name", read_only=True)
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
@@ -1791,7 +1785,7 @@ class RefinaryIssueSerializer(serializers.ModelSerializer):
 
 
 class RefinaryReceiveDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     conv_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
@@ -1850,7 +1844,7 @@ class RefinaryReceiveSerializer(serializers.ModelSerializer):
 # ── Melting Issue / Receive ──────────────────────────────────────────────────
 
 class MeltingIssueDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     pcs = serializers.IntegerField(required=False, allow_null=True)
@@ -1906,7 +1900,7 @@ class MeltingIssueSerializer(serializers.ModelSerializer):
 
 
 class MeltingReceiveDetailSerializer(RawMetalDetailSerializerMixin, serializers.ModelSerializer):
-    item = serializers.SlugRelatedField(queryset=Item.objects.all(), slug_field="short_code")
+    item = ItemRefField()
     packet = serializers.SlugRelatedField(queryset=Packet.objects.all(), slug_field="pckt_no", required=False, allow_null=True)
     metal_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")
     conv_purity = serializers.SlugRelatedField(queryset=PurityMaster.objects.all(), slug_field="purity")

@@ -196,7 +196,17 @@ useEffect(() => {
 
   const onSubmit = (data) => {
     const dat = getValues('form');
-    dat.purchaseorderitems_set = rs.map(({ _co_display, ...rest }) => rest);
+    // Resolve item reference from short_code/item_name to the item id for the
+    // outgoing payload (backend accepts both id and short_code). Numeric stays numeric.
+    const resolveItemId = (val) => {
+      if (val === "" || val === undefined || val === null) return val;
+      if (!Number.isNaN(Number(val))) return val; // already numeric id
+      return mainItemData.find(m => m.short_code === val || m.item_name === val)?.id ?? val;
+    };
+    dat.purchaseorderitems_set = rs.map(({ _co_display, ...rest }) => ({
+      ...rest,
+      item: resolveItemId(rest.item),
+    }));
     if (!dat.ldgr) {
       toast({ title: "Please select a vendor from the list.", variant: "destructive" });
       return;

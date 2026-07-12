@@ -197,7 +197,12 @@ const CustomerOrderForm = () => {
     const data = getValues("form");
     delete data.advance_amt; delete data.advance_reconciled; delete data.advance_available;
     if (data.salesman_2 === "__none__") data.salesman_2 = null;
-    data.items = [...rs];
+    // `item_id` carries the short_code during entry; resolve it to the real item
+    // id from the in-memory master before saving so the record references by id.
+    data.items = rs.map(row => {
+      const m = mainItemData.find(it => it.short_code === row.item_id || it.item_name === row.item_id);
+      return { ...row, item_id: m ? m.id : row.item_id };
+    });
     setSubmitting(true);
     (id ? updateCustomerOrderForEdit(data, id) : createCustomerOrder(data))
       .then(r => {

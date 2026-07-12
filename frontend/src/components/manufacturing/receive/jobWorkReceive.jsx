@@ -261,7 +261,8 @@ function modifyData(data) {
     const sl = getValues("table").length + 1;
     const row = {
       sl_no: sl,
-      item: itm.piece_item_name || "",
+      item: itm.item ?? "",            // Item id (SampleIssueItem.item), not a name
+      item_name: itm.item_name || "",  // display only
       purity: itm.piece_purity || "",
       finish_status: false,
       pcs: itm.piece_pcs || 0,

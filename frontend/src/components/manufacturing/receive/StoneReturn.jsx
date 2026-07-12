@@ -29,6 +29,7 @@ import { renderErrorTree } from "../../../Utils";
 const tableDefaultValue = {
   packet: "",
   item: "",
+  item_name: "",
   return_pcs: 0,
   return_ct: 0,
   return_gw: 0,
@@ -321,7 +322,8 @@ const StoneReturn = () => {
       setUOM(undefined);
       return;
     }
-    setValue("table.item", selectedPacket.stone_item_id?.short_code || "");
+    setValue("table.item", selectedPacket.stone_item_id?.id || "");
+    setValue("table.item_name", selectedPacket.stone_item_id?.item_name || "");
     setValue("table.rate", selectedPacket.rate_for_retail || 0);
     setValue("table.sgst_rate", selectedPacket.stone_item_id?.hsn_no?.sgst ?? 0);
     setValue("table.igst_rate", selectedPacket.stone_item_id?.hsn_no?.igst ?? 0);
@@ -574,7 +576,7 @@ const StoneReturn = () => {
         {watch("table.packet") && (maxpcs > 0 || maxct > 0 || maxgw > 0) && (
           <div className="px-4 py-2 border-b bg-muted/40 text-xs flex flex-wrap items-center gap-x-6 gap-y-1">
             <span className="font-medium">
-              {watch("table.packet")} · {watch("table.item")}{" "}
+              {watch("table.packet")} · {watch("table.item_name")}{" "}
               <span className="uppercase text-muted-foreground">({uom || "—"})</span>
             </span>
             <span>
@@ -642,7 +644,8 @@ const StoneReturn = () => {
                   <input type="hidden" {...register("table.packet")} />
                 </TableCell>
                 <TableCell className="py-1.5 px-2">
-                  <Input type="text" className="h-8 bg-muted text-muted-foreground" readOnly {...register("table.item")} />
+                  <Input type="text" className="h-8 bg-muted text-muted-foreground" readOnly {...register("table.item_name")} />
+                  <input type="hidden" {...register("table.item")} />
                 </TableCell>
                 <TableCell className="py-1.5 px-1">
                   <Input type="number" className="h-8 text-right" {...register("table.return_pcs", { valueAsNumber: true, onChange: handlePCSchange })} />
@@ -703,7 +706,7 @@ const StoneReturn = () => {
                       </div>
                     </TableCell>
                     <TableCell className="py-2 px-2">{row.packet}</TableCell>
-                    <TableCell className="py-2 px-2">{row.item}</TableCell>
+                    <TableCell className="py-2 px-2">{row.item_name || row.item}</TableCell>
                     <TableCell className="py-2 px-1 text-right tabular-nums text-emerald-700">{row.return_pcs || 0}</TableCell>
                     <TableCell className="py-2 px-1 text-right tabular-nums text-emerald-700">{Number(row.return_ct || 0).toFixed(3)}</TableCell>
                     <TableCell className="py-2 px-1 text-right tabular-nums text-emerald-700">{Number(row.return_gw || 0).toFixed(3)}</TableCell>

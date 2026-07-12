@@ -253,8 +253,21 @@ const BarcodeManagementList = () => {
   }, []);
 
   // ── Submit ─────────────────────────────────────────
+  // Resolve an item reference (short_code / item_name) to its numeric id using
+  // the in-memory item master. Leaves numeric ids untouched; falls back to the
+  // original value if no match (backend accepts both id and short_code).
+  const resolveItemId = (val) => {
+    if (val === null || val === undefined || val === "") return val;
+    if (typeof val === "number") return val;
+    if (typeof val === "string" && /^\d+$/.test(val.trim())) return val;
+    const found = mainItemData.find((i) => i.short_code === val || i.item_name === val);
+    return found?.id ?? val;
+  };
+
   const onSubmit = () => {
     const form_data = { ...getValues("form") };
+    // Submit-time transform: send the main item as its numeric id, not short_code.
+    form_data.item = resolveItemId(form_data.item);
 
     // Resolve the effective main-item purity. The Radix Select races with purityData
     // load — if purityData arrives BEFORE the PV prefill, the re-apply useEffect
@@ -282,6 +295,7 @@ const BarcodeManagementList = () => {
       }
       return {
         ...d,
+        item: resolveItemId(d.item),   // submit item as numeric id, not short_code
         barcode_text: form_data.barcode,
         purity,
       };

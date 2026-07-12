@@ -473,7 +473,20 @@ const SalesReturnAdd = () => {
     if (rs.length === 0) { toast({ title: "Table is empty", description: "Add at least one item." }); return; }
     const formVals = getValues("form");
     if (!formVals.ldgr) { toast({ title: "Select a valid customer/party from the list.", variant: "destructive" }); return; }
-    const payload = { ...formVals, salereturnitem_set: rs };
+    // Resolve each row's `item` reference (short_code / item_name) to the
+    // item-master id. Backend's ItemRefField accepts both id and short_code,
+    // so this is a safe outgoing-only transform; numeric ids pass through
+    // unchanged and unresolved values fall back to the original via `?? item`.
+    const resolveItemId = (val) =>
+      mainItemData.find(i => i.short_code === val || i.item_name === val)?.id ?? val;
+    const resolvedRs = rs.map(row => ({
+      ...row,
+      item: resolveItemId(row.item),
+      ...(row.salereturndetails_set
+        ? { salereturndetails_set: row.salereturndetails_set.map(d => ({ ...d, item: resolveItemId(d.item) })) }
+        : {}),
+    }));
+    const payload = { ...formVals, salereturnitem_set: resolvedRs };
     delete payload.ref_bill_no;
     delete payload.ldgr_name;
     delete payload.total_bill_value;

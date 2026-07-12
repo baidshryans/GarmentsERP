@@ -180,7 +180,10 @@ const IssueToRefinary = () => {
         }
         const form = { ...getValues("form") };
         delete form.ldgr_name;
-        form.refinaryissuedetail_set = rs;
+        form.refinaryissuedetail_set = rs.map((row) => ({
+            ...row,
+            item: mainItemData.find(i => i.short_code === row.item || i.item_name === row.item)?.id ?? row.item,
+        }));
 
         setSaving(true);
         (id ? updateRefinaryIssueForEdit(form, id) : createRefinaryIssue(form))

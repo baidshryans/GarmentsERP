@@ -124,18 +124,29 @@ export default function DesignForm() {
     })();
   }, [id]);
 
+  // Resolve an item reference (short_code / item_name) to its numeric id using
+  // the in-memory item master. Leaves numeric ids untouched; falls back to the
+  // original value if no match (backend accepts both id and short_code).
+  const resolveItemId = (val) => {
+    if (val === null || val === undefined || val === "") return val;
+    if (typeof val === "number") return val;
+    if (typeof val === "string" && /^\d+$/.test(val.trim())) return val;
+    const found = items.find((i) => i.short_code === val || i.item_name === val);
+    return found?.id ?? val;
+  };
+
   const onSubmit = async (v) => {
     const payload = {
       design_no: v.design_no,
       variation_suffix: v.variation_suffix || null,
-      item: v.item,
+      item: resolveItemId(v.item),   // submit item as numeric id, not short_code
       item_desc: v.item_desc || "",
       pcs: num(v.pcs), gw: num(v.gw), nw: num(v.nw),
       making: num(v.making), making_type: v.making_type || "",
       kr_code: v.kr_code || null,
       making_rate: num(v.making_rate),
       design_details: (v.design_details || []).map((d) => ({
-        sub_item: d.sub_item,
+        sub_item: resolveItemId(d.sub_item),   // submit sub-item as numeric id
         metal_purity: d.metal_purity,
         packet: d.packet || null,
         pcs: num(d.pcs), ct: num(d.ct), wt_gm: num(d.wt_gm), rate: num(d.rate), amt: num(d.amt),

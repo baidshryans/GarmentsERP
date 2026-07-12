@@ -986,10 +986,24 @@ const SalesVoucherAdd = () => {
   const handleSalesVoucherSubmit = async () => {
     try {
       const data = getValues("form");
-      data.salesvouitem_set = getValues("salesvouitem_set");    // barcode items
-      data.salesvoumanualitems_set = rs;                        // manual items (main + nested details_set)
+      // Resolve an item row's `item` reference (short_code / item_name) to the
+      // item-master id. Backend's ItemRefField accepts both id and short_code,
+      // so this is a safe outgoing-only transform; numeric ids pass through
+      // unchanged (no short_code/item_name match), and unresolved values are
+      // left as-is via the `?? row.item` fallback.
+      const resolveItemId = (val) =>
+        mainItemData.find(i => i.short_code === val || i.item_name === val)?.id ?? val;
+      const withResolvedItem = (row) => ({
+        ...row,
+        item: resolveItemId(row.item),
+        ...(row.details_set
+          ? { details_set: row.details_set.map(d => ({ ...d, item: resolveItemId(d.item) })) }
+          : {}),
+      });
+      data.salesvouitem_set = getValues("salesvouitem_set").map(withResolvedItem); // barcode items
+      data.salesvoumanualitems_set = rs.map(withResolvedItem);  // manual items (main + nested details_set)
       // Flat list kept for backward-compat until backend is updated
-      data.salesvouitemdetails_set = rs.flatMap(m => m.details_set || []);
+      data.salesvouitemdetails_set = data.salesvoumanualitems_set.flatMap(m => m.details_set || []);
       data.bank_details = bankdetails;
 
       // ── Compute due_amt ──────────────────────────────────────────────────
@@ -1004,7 +1018,7 @@ const SalesVoucherAdd = () => {
       data.inline_old_gold_items = inlineOldGold
         .filter(r => r.item && (parseFloat(r.value) || 0) > 0)
         .map(r => ({
-          item: r.item,
+          item: resolveItemId(r.item),
           description: r.description || "",
           purity: r.purity || null,
           pcs: parseInt(r.pcs || 0, 10),

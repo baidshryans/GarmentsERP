@@ -307,8 +307,22 @@ const PurchaseReturnadd = () => {
   const handleSalesReturnSubmit = async (formData) => {
     try {
       const data = getValues("form");
+      // Resolve item/sub_item references (short_code or item_name) to the item id
+      // for the outgoing payload. Backend accepts both id and short_code, so this
+      // is a safe submit-time transform. Numeric values are left as-is.
+      const resolveItemId = (val) => {
+        if (val === "" || val === undefined || val === null) return val;
+        if (!Number.isNaN(Number(val))) return val; // already numeric id
+        return mainItemData.find(m => m.short_code === val || m.item_name === val)?.id ?? val;
+      };
       // attach items
-      data.purchasereturnitems_set = rs; // the array of item object
+      data.purchasereturnitems_set = rs.map((row) => ({
+        ...row,
+        item: resolveItemId(row.item),
+        purchasereturndetails_set: Array.isArray(row.purchasereturndetails_set)
+          ? row.purchasereturndetails_set.map((d) => ({ ...d, item: resolveItemId(d.item) }))
+          : row.purchasereturndetails_set,
+      })); // the array of item object
       console.log("Submitting Sales Voucher data:", data);
       
       if(rs.length===0){

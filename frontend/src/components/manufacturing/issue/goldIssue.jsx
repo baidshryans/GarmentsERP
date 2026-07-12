@@ -159,7 +159,10 @@ const GoldIssue = () => {
       return;
     }
     const da = getValues('form')
-    da.karigargoldissue_set = [...rs];
+    da.karigargoldissue_set = rs.map((row) => ({
+      ...row,
+      item: mainItemData.find(i => i.short_code === row.item || i.item_name === row.item)?.id ?? row.item,
+    }));
     setSaving(true);
     (!id ? createKarigarGoldIssue(da) : updateGoldIssue(id, da))
       .then((response) => {

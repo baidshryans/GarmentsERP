@@ -775,12 +775,24 @@ const PurchaseVoucher = () => {
       return obj[slugField] ?? null;
     };
 
+    // Resolve an item/sub_item reference (short_code or item_name) to the item id
+    // for the outgoing payload. Backend accepts both id and short_code, so this is
+    // a safe submit-time transform. Numeric values are left as-is.
+    const extractItemId = (obj) => {
+      if (obj === "" || obj === undefined || obj === null) return null;
+      const val = typeof obj === 'string' ? obj : (obj.short_code ?? obj.item_name ?? null);
+      if (val === null) return null;
+      if (!Number.isNaN(Number(val))) return val; // already a numeric id
+      const match = mainItemsM.find(m => m.short_code === val || m.item_name === val);
+      return match ? match.id : val;
+    };
+
     const toIntOrNull = v => (v === "" || v === undefined || v === null || Number.isNaN(Number(v))) ? null : Number(v);
     // Use currentRs/currentRsRaw (not rs/rsRaw) so any auto-committed pending edit is included
     form.purchasevoucheritems_set = currentRs.map(item => {
       const processedItem = {
         ...item,
-        item: extractSlug(item.item, 'short_code'),
+        item: extractItemId(item.item),
         purity: extractSlug(item.purity, 'purity'),
         barcode: extractSlug(item.barcode, 'barcode'),
         order_no: extractSlug(item.order_no, 'order_no'),
@@ -790,7 +802,7 @@ const PurchaseVoucher = () => {
         making_value: toIntOrNull(item.making_value),
         purchasevoucherdetails_set: (item.purchasevoucherdetails_set || []).map(d => ({
           ...d,
-          sub_item: extractSlug(d.sub_item, 'short_code'),
+          sub_item: extractItemId(d.sub_item),
           metal_purity: extractSlug(d.metal_purity, 'purity'),
           packet: extractSlug(d.packet, 'pckt_no'),
           sub_pcs: toIntOrNull(d.sub_pcs),
@@ -800,7 +812,7 @@ const PurchaseVoucher = () => {
     });
     form.purchasevoucherdetails_set = currentRsRaw.map(d => ({
       ...d,
-      sub_item: extractSlug(d.sub_item, 'short_code'),
+      sub_item: extractItemId(d.sub_item),
       metal_purity: extractSlug(d.metal_purity, 'purity'),
       packet: extractSlug(d.packet, 'pckt_no'),
       sub_pcs: toIntOrNull(d.sub_pcs),

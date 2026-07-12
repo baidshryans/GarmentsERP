@@ -171,6 +171,11 @@ const ReceiveFromRefinary = () => {
         delete form.ldgr_name;
         form.refinaryreceivedetail_set = tableRows;
 
+        if (!form.ldgr) {
+            toast({ title: "Select a valid refinery ledger from the list.", variant: "destructive" });
+            return;
+        }
+
         setSaving(true);
         (id ? updateRefinaryReceiveForEdit(form, id) : createRefinaryReceive(form))
             .then((response) => {

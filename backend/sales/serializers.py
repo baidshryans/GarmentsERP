@@ -6,6 +6,7 @@ from rest_framework.exceptions import ValidationError
 from goldrates.models import PurityMaster
 from manufacturing.utils import create_or_update_nested
 from mastersconfig.models import Item, SalesPersonMaster, TCSSectionMaster
+from mastersconfig.ledger_utils import get_cheques_in_hand_ledger
 from sales.models import CustomerOrder, CustomerOrderItems
 from purchase.models import PurchaseVoucher
 from django.db import   transaction
@@ -1600,15 +1601,17 @@ class SalesVouSerializer(serializers.ModelSerializer):
 
 
             def _bank_debit_account(bank):
-                """Cheques go to 'Cheques in Hand' suspense; all other modes go
-                direct to the linked bank ledger (BankDetail.ledger FK) so the
-                Bank Book picks them up. Free-text bank_name is only a fallback."""
+                """Resolve the debit ledger for a bank/cheque receipt line to a
+                primary key (never a name). Cheques go to the Cheques-in-Hand
+                suspense ledger (company FK); all other modes go to the selected
+                bank ledger id. A non-cheque row must carry a ledger id."""
                 if bank.get("payment_mode") == "CHEQUE":
-                    return "Cheques in Hand"
+                    from mastersconfig.ledger_utils import get_cheques_in_hand_ledger
+                    return get_cheques_in_hand_ledger(_co).id
                 ldgr = bank.get("ledger")
-                if ldgr is not None:
-                    return getattr(ldgr, 'id', None) or str(ldgr)
-                return bank.get("bank_name") or ""
+                if ldgr:
+                    return getattr(ldgr, 'id', None) or ldgr
+                return _raise_missing_ledger("Bank Ledger")
 
             _rcpt_customer_credit = (
                 sales_vou_instance.cash
@@ -2018,8 +2021,8 @@ class SalesVouSerializer(serializers.ModelSerializer):
                                     }] +
                                     [{
                                         'account': (
-                                            "Cheques in Hand" if bank.get("payment_mode") == "CHEQUE"
-                                            else (getattr(bank.get("ledger"), 'id', None) or bank.get("bank_name") or "")
+                                            get_cheques_in_hand_ledger(_co).id if bank.get("payment_mode") == "CHEQUE"
+                                            else (getattr(bank.get("ledger"), 'id', None) or bank.get("ledger") or _raise_missing_ledger("Bank Ledger"))
                                         ),
                                         'debit':f"{bank['amount']:.2f}",
                                         'credit':0,

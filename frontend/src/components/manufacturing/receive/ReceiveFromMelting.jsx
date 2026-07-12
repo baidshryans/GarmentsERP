@@ -171,6 +171,11 @@ const ReceiveFromMelting = () => {
         delete form.ldgr_name;
         form.meltingreceivedetail_set = tableRows;
 
+        if (!form.ldgr) {
+            toast({ title: "Select a valid melting-house ledger from the list.", variant: "destructive" });
+            return;
+        }
+
         setSaving(true);
         (id ? updateMeltingReceiveForEdit(form, id) : createMeltingReceive(form))
             .then((response) => {

@@ -472,6 +472,7 @@ const SalesReturnAdd = () => {
   const handleSalesReturnSubmit = async () => {
     if (rs.length === 0) { toast({ title: "Table is empty", description: "Add at least one item." }); return; }
     const formVals = getValues("form");
+    if (!formVals.ldgr) { toast({ title: "Select a valid customer/party from the list.", variant: "destructive" }); return; }
     const payload = { ...formVals, salereturnitem_set: rs };
     delete payload.ref_bill_no;
     delete payload.ldgr_name;

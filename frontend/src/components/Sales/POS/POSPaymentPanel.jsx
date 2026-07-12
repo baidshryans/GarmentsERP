@@ -70,6 +70,9 @@ export default function POSPaymentPanel({
 
   const handleAddBank = () => {
     if (!newBank.amount || Number(newBank.amount) <= 0) return;
+    // Non-cheque modes must post to a real bank ledger (by id); cheques route
+    // to the Cheques-in-Hand suspense ledger on the backend, so no id needed.
+    if (newBank.payment_mode !== "CHEQUE" && !newBank.ledger) return;
     onAddBank({ ...newBank });
     setNewBank(emptyBankRow());
   };
@@ -265,13 +268,13 @@ export default function POSPaymentPanel({
             />
             <button
               onClick={handleAddBank}
-              disabled={!newBank.amount || Number(newBank.amount) <= 0}
+              disabled={!newBank.amount || Number(newBank.amount) <= 0 || (newBank.payment_mode !== "CHEQUE" && !newBank.ledger)}
               className="shrink-0 px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 transition-colors"
             >
               <Plus className="size-4" />
             </button>
           </div>
-          {newBank.payment_mode === "CHEQUE" && (
+          {newBank.payment_mode === "CHEQUE" ? (
             <div className="flex gap-2">
               <input
                 type="date"
@@ -285,6 +288,27 @@ export default function POSPaymentPanel({
                 value={newBank.bank_name}
                 onChange={e => setNewBank(prev => ({ ...prev, bank_name: e.target.value }))}
               />
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <select
+                className={`${inputCls} flex-1`}
+                value={newBank.ledger}
+                onChange={e => {
+                  const sel = bankLedgers.find(l => String(l.id) === e.target.value);
+                  setNewBank(prev => ({
+                    ...prev,
+                    ledger: e.target.value,
+                    ledger_name: sel ? sel.ac_name : "",
+                    bank_name: sel ? sel.ac_name : prev.bank_name,
+                  }));
+                }}
+              >
+                <option value="">— Select Bank A/C —</option>
+                {bankLedgers.map(l => (
+                  <option key={l.id} value={l.id}>{l.ac_name}</option>
+                ))}
+              </select>
             </div>
           )}
         </div>

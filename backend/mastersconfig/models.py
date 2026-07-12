@@ -115,6 +115,16 @@ class CompanyMaster(models.Model):
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='company_sale_discount'
     )
+    cheques_in_hand_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_cheques_in_hand',
+        help_text="Suspense ledger cheques land in until deposited/cleared."
+    )
+    gold_scheme_liability_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='company_gold_scheme_liability',
+        help_text="Current liability for money collected under gold schemes."
+    )
 
     class Meta:
         db_table = "company_master"
@@ -261,6 +271,11 @@ class RetailMaster(models.Model):
         'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='bank_for_retail_set',
         help_text="Default bank ledger whose remittance details print on this retail's invoices"
+    )
+    sales_incentive_ldgr = models.ForeignKey(
+        'contacts.Ledger', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='sales_incentive_retail_set',
+        help_text="Shared Sundry-Creditor ledger credited by salesperson commission journals"
     )
     branch = models.ForeignKey(
         'BranchMaster', null=True, blank=True,

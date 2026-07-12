@@ -2038,10 +2038,11 @@ def deposit_cheque(request, pk):
     except Ledger.DoesNotExist:
         return Response({'detail': 'Bank ledger not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    try:
-        cheques_in_hand = Ledger.objects.get(ac_name='Cheques in Hand', is_system=True)
-    except Ledger.DoesNotExist:
-        return Response({'detail': 'System ledger "Cheques in Hand" not found.'}, status=status.HTTP_400_BAD_REQUEST)
+    from mastersconfig.ledger_utils import get_cheques_in_hand_ledger
+    _company = retail.branch.company if (retail and retail.branch_id and retail.branch) else None
+    cheques_in_hand = get_cheques_in_hand_ledger(_company)
+    if cheques_in_hand is None:
+        return Response({'detail': 'System ledger "Cheques in Hand" is not configured.'}, status=status.HTTP_400_BAD_REQUEST)
 
     from accounting.models import VoucherMain, VoucherDetail
     from accounting.utils import get_next_bill_number

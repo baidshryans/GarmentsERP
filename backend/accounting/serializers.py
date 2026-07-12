@@ -184,6 +184,13 @@ class LedgerRefField(serializers.PrimaryKeyRelatedField):
             self.fail("incorrect_type", data_type=type(data).__name__)
         if isinstance(data, int) or (isinstance(data, str) and data.strip().isdigit()):
             return super().to_internal_value(int(data))
+        # Name fallback — should be rare now that all callers pass ids. Log it so
+        # any remaining name-based caller can be found before this path is removed.
+        import logging
+        logging.getLogger(__name__).warning(
+            "LedgerRefField resolved a ledger by NAME (%r), not id — caller should pass the ledger id.",
+            data,
+        )
         matches = list(self.get_queryset().filter(ac_name=data))
         if not matches:
             self.fail("does_not_exist", pk_value=data)

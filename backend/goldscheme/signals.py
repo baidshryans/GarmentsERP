@@ -38,12 +38,19 @@ logger = logging.getLogger(__name__)
 
 def _get_or_create_scheme_liability_ledger(retail):
     """
-    Get or create the system ledger for scheme liabilities.
-    This is a Current Liability — money collected from customers under schemes.
-    Accounting entry: Dr Cash/Bank → Cr Scheme Liability.
+    Resolve the system ledger for scheme liabilities (a Current Liability —
+    money collected from customers under schemes). Prefers the company FK
+    (CompanyMaster.gold_scheme_liability_ldgr); otherwise finds/creates it by
+    name and links the FK. Accounting: Dr Cash/Bank → Cr Scheme Liability.
     """
     from contacts.models import Ledger, LedgerRole
     from accounting.models import Account
+
+    company = None
+    if retail is not None and retail.branch_id and retail.branch:
+        company = retail.branch.company
+    if company is not None and company.gold_scheme_liability_ldgr_id:
+        return company.gold_scheme_liability_ldgr
 
     ledger_name = "Gold Scheme Liability"
     ledger = Ledger.objects.filter(ac_name=ledger_name, is_system=True).first()
@@ -58,6 +65,10 @@ def _get_or_create_scheme_liability_ledger(retail):
             is_system=True,
         )
         LedgerRole.objects.get_or_create(ledger=ledger, role='OTH', defaults={'is_primary': True})
+
+    if company is not None:
+        company.gold_scheme_liability_ldgr = ledger
+        company.save(update_fields=["gold_scheme_liability_ldgr"])
 
     return ledger
 

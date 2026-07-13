@@ -32,7 +32,6 @@ class CheckNumberDupesCommandTest(TestCase):
     def _get_or_create_fy(self, retail):
         from mastersconfig.models import FiscalYearMaster
         obj, _ = FiscalYearMaster.objects.get_or_create(
-            retail=retail,
             fy_code="24-25",
             defaults={
                 "fy_start": "2024-04-01",

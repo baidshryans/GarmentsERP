@@ -107,7 +107,7 @@ class PurchaseReturnViewset(RetailBaseViewset):
         from mastersconfig.models import FiscalYearMaster
         if voucher_date:
             fy = FiscalYearMaster.objects.filter(
-                retail=retail, fy_start__lte=voucher_date, fy_end__gte=voucher_date,
+                fy_start__lte=voucher_date, fy_end__gte=voucher_date,
             ).first()
             if fy:
                 return fy
@@ -198,7 +198,6 @@ class PurchaseVoucherViewset(RetailBaseViewset):
         from mastersconfig.models import FiscalYearMaster
         if voucher_date:
             fy = FiscalYearMaster.objects.filter(
-                retail=retail,
                 fy_start__lte=voucher_date,
                 fy_end__gte=voucher_date,
             ).first()

@@ -46,9 +46,7 @@ class FineGoldRateService:
         qs = FiscalYearMaster.objects.filter(
             fy_start__lte=self.end_date, fy_end__gte=self.end_date
         )
-        if self.retail_ids:
-            qs = qs.filter(retail_id__in=self.retail_ids)
-        # Earliest fy_start among matching retails (combined view).
+        # FiscalYearMaster is company-wide (no retail column) — do not scope by retail.
         fy = qs.order_by("fy_start").first()
         if fy:
             return fy.fy_start

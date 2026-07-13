@@ -2251,7 +2251,7 @@ class MySQLSyncView(APIView):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class FiscalYearListCreate(ListCreateAPIView):
-    """GET: list all FYs for current retail. POST: create a new FY."""
+    """GET: list all FYs (company-wide; FY has no retail scope). POST: create a new FY."""
     serializer_class = FiscalYearSerializer
     pagination_class = None
 

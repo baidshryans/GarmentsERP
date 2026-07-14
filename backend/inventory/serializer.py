@@ -354,6 +354,8 @@ class BarCodeMainSerializer(serializers.ModelSerializer):
             'gw',
             'nw',
             'huid',
+            'jewellery_cert_no',
+            'solitaire_cert_no',
             'rfid_tag',
             'purity',
             'value',
@@ -556,6 +558,7 @@ class BarCodeMainListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'item', 'item_name', 'purity', 'purity_name',
             'barcode', 'pcs', 'gw', 'nw', 'huid',
+            'jewellery_cert_no', 'solitaire_cert_no',
             'making_val', 'making_type', 'other_chg', 'design_code',
             'total_amount', 'stk_status', 'created_date', 'voucher_no',
             'dia_ct', 'barcodedetails_set',

@@ -150,6 +150,16 @@ function BarcodeListView() {
       },
     },
     {
+      header: "Jewellery Cert No",
+      accessorKey: "jewellery_cert_no",
+      cell: ({ getValue }) => getValue() || "-",
+    },
+    {
+      header: "Solitaire Cert No",
+      accessorKey: "solitaire_cert_no",
+      cell: ({ getValue }) => getValue() || "-",
+    },
+    {
       header: "Making",
       accessorKey: "making_val",
       cell: ({ getValue }) => getValue() ?? "-",

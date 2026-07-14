@@ -43,7 +43,7 @@ const BarcodeManagementList = () => {
     defaultValues: {
       form: {
         barcode: "", item: "", purity: "", pcs: "", gw: "", nw: "",
-        huid: "", rfid_tag: "", value: "", making_val: "", making_type: "", other_chg: 0,
+        huid: "", jewellery_cert_no: "", solitaire_cert_no: "", rfid_tag: "", value: "", making_val: "", making_type: "", other_chg: 0,
         design_code: "", kr_code: "", voucher_no: "", size: "", metal_color: "",
         total_amount: 0, order_no: "", add_to_design: false,
         created_date: new Date().toISOString().split("T")[0],
@@ -539,6 +539,14 @@ const BarcodeManagementList = () => {
             <FieldContainer>
               <Label className="text-xs font-semibold text-muted-foreground">HUID</Label>
               <Input type="text" {...register("form.huid")} />
+            </FieldContainer>
+            <FieldContainer>
+              <Label className="text-xs font-semibold text-muted-foreground">JEWELLERY CERT NO</Label>
+              <Input type="text" {...register("form.jewellery_cert_no")} />
+            </FieldContainer>
+            <FieldContainer>
+              <Label className="text-xs font-semibold text-muted-foreground">SOLITAIRE CERT NO</Label>
+              <Input type="text" {...register("form.solitaire_cert_no")} />
             </FieldContainer>
             <FieldContainer>
               <Label className="text-xs font-semibold text-muted-foreground">RFID TAG</Label>

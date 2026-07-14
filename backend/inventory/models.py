@@ -28,6 +28,8 @@ class BarcodeMain(models.Model):
     gw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     nw = models.DecimalField(max_digits=10, decimal_places=3, blank=True, null=True)
     huid = models.CharField(max_length=30, blank=True,null=True)  # Added blank=True
+    jewellery_cert_no = models.CharField(max_length=50, blank=True, null=True)
+    solitaire_cert_no = models.CharField(max_length=50, blank=True, null=True)
     purity = models.ForeignKey(PurityMaster, on_delete=models.PROTECT)  # Added blank=True
     value = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
     making_val = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)

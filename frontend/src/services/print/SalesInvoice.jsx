@@ -512,9 +512,12 @@ const SalesInvoice = ({ data = {} }) => {
   const d = data;
 
   const buyer = resolveState(d.customer_state, d.customer_state_code);
-  const ship  = resolveState(
-    d.shipping_state || d.customer_state,
-    d.shipping_state_code || d.customer_state_code
+  // Place of Supply must reflect the state saved on the sales voucher itself,
+  // not the customer's shipping/ledger state. Fall back to the shipping/customer
+  // state only if the voucher has no place_of_supply recorded.
+  const pos = resolveState(
+    d.place_of_supply || d.shipping_state || d.customer_state,
+    d.customer_state_code
   );
 
   /* Normalise metal-rate input. Accepts:
@@ -640,7 +643,7 @@ const SalesInvoice = ({ data = {} }) => {
         <div className="si-name">{d.shipping_name || d.customer_name || ""}</div>
         <div className="si-addr">{d.shipping_address || d.customer_address || ""}</div>
         <div className="si-ids">
-          {idCell("Place of Supply", ship.label)}
+          {idCell("Place of Supply", pos.label)}
           {idCell("PAN",       d.shipping_pan   || d.customer_pan,   true)}
           {idCell("GSTIN",     d.shipping_gstin || d.customer_gstin, true)}
           {idCell("Mode",      d.mode_of_transport)}

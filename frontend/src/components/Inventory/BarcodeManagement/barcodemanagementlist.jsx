@@ -10,7 +10,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableRow, TableCell, TableHead, TableHeader, TableBody } from "@/components/ui/table";
 import {
-  fetchMainItem, fetchKarigarIssues, fetchPurity,
+  fetchMainItem, getLedgers, fetchPurity,
   fetchNextBarcode, fetchReceiveItemsForBarcode, createBarcode,
   fetchBarcodeForEdit, fetchPurhcaseItemsForBarcode, updateBarcodeForEdit,
   fetchPackets, uploadBarcodeImages,
@@ -204,7 +204,7 @@ const BarcodeManagementList = () => {
   useEffect(() => {
     async function fetchData() {
       const [karigarR, mainItemR, purityR, nextBarcodeR, packetR] = await Promise.all([
-        fetchKarigarIssues(),
+        getLedgers({ type: "KR,VD", page_size: 1000 }),
         fetchMainItem(),
         fetchPurity(),
         fetchNextBarcode(),
@@ -519,7 +519,7 @@ const BarcodeManagementList = () => {
                     <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {karigars.map((k) => (
-                        <SelectItem key={k.id} value={String(k.id)}>{k.ledger_name || k.name}</SelectItem>
+                        <SelectItem key={k.id} value={String(k.id)}>{k.ac_name || k.ledger_name || k.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

@@ -346,6 +346,11 @@ class JournalEntrySerializer(serializers.Serializer):
         # ── Resolve customer_order ID → instance (lazy import breaks cycle) ──
         co_id = validated_data.pop('customer_order', None)
         vtype_upper = validated_data.get('voucher_type', '').strip().upper()
+        # Normalize the URL alias "CONTRA" to the canonical stored value "CNTR"
+        # so every contra voucher is saved with a single, consistent type.
+        if vtype_upper == 'CONTRA':
+            vtype_upper = global_vars.VoucherType.cntr
+        validated_data['voucher_type'] = vtype_upper
         if co_id:
             if vtype_upper not in ('RCPT', 'RCPT-SALE'):
                 raise ValidationError(

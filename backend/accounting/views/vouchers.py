@@ -120,7 +120,7 @@ class JournalEntryViewSet(RetailBaseViewset):
     serializer_class = JournalEntrySerializer
     queryset = VoucherMain.objects.select_related('retail').prefetch_related('transactions__account').all()
     filter_backends = [DjangoFilterBackend,OrderingFilter,SearchFilter]
-    filterset_fields = ['voucher_no', 'voucher_type']
+    filterset_fields = ['voucher_no']
     search_fields=['voucher_no','voucher_type']
     ordering = ['-date', '-id']
 
@@ -132,7 +132,21 @@ class JournalEntryViewSet(RetailBaseViewset):
             VoucherType.sale, VoucherType.purc_sc, VoucherType.purc_ret,
             VoucherType.sale_ret, VoucherType.rcpt_sale,
         ]
-        return qs.exclude(voucher_type__in=excluded)
+        qs = qs.exclude(voucher_type__in=excluded)
+
+        # Normalize the incoming voucher_type filter: the frontend uses the URL
+        # alias "CONTRA" but contra vouchers are stored with the canonical
+        # VoucherType.cntr value ("CNTR"). Map the alias so the exact-match
+        # filter finds them. (JRNL/PMNT/RCPT already match their stored values.)
+        vt = self.request.query_params.get('voucher_type')
+        if vt:
+            # The frontend routes contra vouchers under the URL alias "CONTRA",
+            # but they are stored (and numbered) with the canonical
+            # VoucherType.cntr value ("CNTR"). Translate so the exact-match
+            # filter resolves. JRNL/PMNT/RCPT already equal their stored values.
+            alias_map = {'CONTRA': VoucherType.cntr}
+            qs = qs.filter(voucher_type=alias_map.get(vt, vt))
+        return qs
 
     def _check_voucher_mutable(self, instance, action):
         from rest_framework.exceptions import ValidationError

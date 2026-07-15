@@ -1272,14 +1272,14 @@ class Command(BaseCommand):
         # Contra voucher: cash deposit to bank
         cash_ldgr = retail.cash_ldgr
         if cash_ldgr and bank_ldgr:
-            vou_no = self._next_voucher_no(retail, fy, "CONTRA")
+            vou_no = self._next_voucher_no(retail, fy, "CNTR")
             if not VoucherMain.objects.filter(voucher_no=vou_no).exists():
                 vou = VoucherMain.objects.create(
                     date=date.today() - timedelta(days=10),
                     voucher_no=vou_no,
                     narration="Cash deposit to bank",
                     amount=D("200000"),
-                    voucher_type="CONTRA",
+                    voucher_type="CNTR",
                     status="posted",
                     retail=retail,
                     fiscal_year=fy,
@@ -1287,12 +1287,12 @@ class Command(BaseCommand):
                 VoucherDetail.objects.create(
                     voucher_main=vou, account=bank_ldgr,
                     debit=D("200000"), credit=D("0"),
-                    voucher_type="CONTRA", voucher_no=vou_no,
+                    voucher_type="CNTR", voucher_no=vou_no,
                 )
                 VoucherDetail.objects.create(
                     voucher_main=vou, account=cash_ldgr,
                     debit=D("0"), credit=D("200000"),
-                    voucher_type="CONTRA", voucher_no=vou_no,
+                    voucher_type="CNTR", voucher_no=vou_no,
                 )
                 self._ok("Contra Voucher: Cash Deposit Rs.2,00,000")
 

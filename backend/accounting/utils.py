@@ -238,7 +238,7 @@ def _bootstrap_sequence_number(retail, prefix, fiscal_year=None):
     voucher_type_map = {
         'JRNL': VoucherType.journal if hasattr(VoucherType, 'journal') else 'JRNL',
         'PMNT': VoucherType.pmnt if hasattr(VoucherType, 'pmnt') else 'PMNT',
-        'CONTRA': VoucherType.cntr if hasattr(VoucherType, 'cntr') else 'CONTRA',
+        'CNTR': VoucherType.cntr if hasattr(VoucherType, 'cntr') else 'CNTR',
         'RCPT': VoucherType.rcpt if hasattr(VoucherType, 'rcpt') else 'RCPT',
         'RCPT-SALE': VoucherType.rcpt_sale if hasattr(VoucherType, 'rcpt_sale') else 'RCPT-SALE',
     }

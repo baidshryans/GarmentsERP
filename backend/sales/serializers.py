@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -1202,6 +1202,7 @@ class SalesVouSerializer(serializers.ModelSerializer):
             'sgst_amt',  # Computed property
             'cgst_amt',  # Computed property
             'igst_amt',  # Computed property
+            'round_off',
             'total_bill_value',  # Computed property
             'tcs_amt',  # Computed property
             'total_gw',
@@ -1529,9 +1530,17 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _sgst_d  = Decimal(f"{sales_vou_instance.sgst_amt:.2f}")
             _igst_d  = Decimal(f"{sales_vou_instance.igst_amt:.2f}")
             _taxable_d = Decimal(str(sales_vou_instance.mrp or 0)) - Decimal(str(sales_vou_instance.discount or 0))
-            _round_off_d = Decimal(str(sales_vou_instance.round_off or 0))
             _tcs_d   = Decimal(f"{_tcs_amt:.2f}")
-            _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
+            # Derive round_off from the server's own Decimal components rather than
+            # trusting the client's value: the frontend computes it in floating point
+            # off its own tax figures and can land a paisa away, which then makes the
+            # over-receipt check reject a correctly-tendered whole-rupee payment.
+            _pre_round_d = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d
+            _round_off_d = _pre_round_d.quantize(Decimal('1'), rounding=ROUND_HALF_UP) - _pre_round_d
+            if Decimal(str(sales_vou_instance.round_off or 0)) != _round_off_d:
+                sales_vou_instance.round_off = _round_off_d
+                sales_vou_instance.save(update_fields=['round_off'])
+            _party_debit = _pre_round_d + _round_off_d
 
             # ── Reject over-receipt ──────────────────────────────────────────
             # Customer cannot pay more than the bill receivable. Check after
@@ -1955,9 +1964,17 @@ class SalesVouSerializer(serializers.ModelSerializer):
             _sgst_d  = Decimal(f"{sales_vou_instance.sgst_amt:.2f}")
             _igst_d  = Decimal(f"{sales_vou_instance.igst_amt:.2f}")
             _taxable_d = Decimal(str(sales_vou_instance.mrp or 0)) - Decimal(str(sales_vou_instance.discount or 0))
-            _round_off_d = Decimal(str(sales_vou_instance.round_off or 0))
             _tcs_d   = Decimal(f"{_tcs_amt:.2f}")
-            _party_debit = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d + _round_off_d
+            # Derive round_off from the server's own Decimal components rather than
+            # trusting the client's value: the frontend computes it in floating point
+            # off its own tax figures and can land a paisa away, which then makes the
+            # over-receipt check reject a correctly-tendered whole-rupee payment.
+            _pre_round_d = _taxable_d + _cgst_d + _sgst_d + _igst_d + _tcs_d
+            _round_off_d = _pre_round_d.quantize(Decimal('1'), rounding=ROUND_HALF_UP) - _pre_round_d
+            if Decimal(str(sales_vou_instance.round_off or 0)) != _round_off_d:
+                sales_vou_instance.round_off = _round_off_d
+                sales_vou_instance.save(update_fields=['round_off'])
+            _party_debit = _pre_round_d + _round_off_d
 
             # ── Reject over-receipt ──────────────────────────────────────────
             # Customer cannot pay more than the bill receivable.

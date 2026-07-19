@@ -61,6 +61,19 @@ TOOL_NAMES = [
     "list_financial_years",
     "compare_pnl_by_fy",
     "compare_balance_sheet_by_fy",
+    # Risk & receivables
+    "get_approval_items_outstanding",
+    "get_receivables_aging",
+    "get_ledger_statement",
+    "get_pending_customer_orders",
+    # Stock intelligence
+    "get_dead_stock",
+    "get_inventory_turnover",
+    "get_design_performance",
+    # Ad-hoc read-only SQL
+    "list_database_tables",
+    "describe_table",
+    "run_readonly_sql",
 ]
 
 # name -> callable

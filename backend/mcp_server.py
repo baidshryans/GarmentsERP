@@ -44,9 +44,9 @@ mcp = FastMCP("Jewel India ERP")
 from mastersconfig.models import RetailMaster, FiscalYearMaster
 from contacts.models import Ledger
 from accounting.models import VoucherMain, VoucherDetail, LedgerOpenBalance, Account
-from sales.models import SalesVou, SalesVouItem, CustomerOrder
+from sales.models import SalesVou, SalesVouItem, CustomerOrder, SalesApprovalItem
 from purchase.models import PurchaseVoucher
-from inventory.models import BarcodeMain, BarcodeDetails
+from inventory.models import BarcodeMain, BarcodeDetails, BarcodeTransaction
 from manufacturing.models import KarigarIssueItem
 from goldrates.models import GoldRates
 import global_vars
@@ -1475,6 +1475,735 @@ def compare_balance_sheet_by_fy(
         "fy2_detail": bs2,
         "note": "Liabilities include cumulative net profit (retained earnings).",
     }, indent=2)
+
+
+# ===================================================================
+#  RISK & RECEIVABLES
+# ===================================================================
+
+@mcp.tool()
+def get_approval_items_outstanding(retail_code: str = "") -> str:
+    """Jewellery given to customers on approval that has not come back yet —
+    live loss exposure. Shows each item, the customer holding it, and for how long.
+
+    Note: the ERP has no approval-to-sale link, so an approval that became a sale
+    must have been recorded as a return first; anything still flagged outstanding
+    is genuinely not returned.
+
+    Args:
+        retail_code: Retail location code (optional)
+    """
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    today = datetime.date.today()
+    outstanding = (
+        SalesApprovalItem.objects.filter(ret_status=False, retail=retail)
+        .select_related("billno", "billno__ldgr", "barcode", "item")
+        .order_by("billno__date1")
+    )
+
+    items, by_customer = [], {}
+    for it in outstanding:
+        header = it.billno
+        issued_on = header.date1 if header else None
+        days = (today - issued_on).days if issued_on else None
+        customer = header.ldgr.ac_name if header and header.ldgr else ""
+        items.append({
+            "approval_no": header.billno if header else "",
+            "date": str(issued_on) if issued_on else "",
+            "days_outstanding": days,
+            "customer": customer,
+            "barcode": str(it.barcode) if it.barcode else "",
+            "item": it.item.item_name if it.item else "",
+            "pcs": it.pcs,
+            "gross_wt": _decimal(it.gw),
+            "amount": _decimal(it.amount),
+        })
+        agg = by_customer.setdefault(
+            customer, {"customer": customer, "items": 0, "gross_wt": 0.0, "amount": 0.0}
+        )
+        agg["items"] += 1
+        agg["gross_wt"] += float(it.gw or 0)
+        agg["amount"] += float(it.amount or 0)
+
+    for agg in by_customer.values():
+        agg["gross_wt"] = round(agg["gross_wt"], 3)
+        agg["amount"] = round(agg["amount"], 2)
+
+    return json.dumps({
+        "as_of": str(today),
+        "outstanding_items": len(items),
+        "total_exposure": round(sum(i["amount"] or 0 for i in items), 2),
+        "total_gross_wt": round(sum(i["gross_wt"] or 0 for i in items), 3),
+        "by_customer": sorted(by_customer.values(), key=lambda r: -r["amount"]),
+        "items": items,
+    }, indent=2, default=str)
+
+
+@mcp.tool()
+def get_receivables_aging(as_of_date: str = "", retail_code: str = "") -> str:
+    """Outstanding customer receivables split into ageing buckets
+    (0-30, 31-60, 61-90, 90+ days) per customer.
+
+    Balances come from the general ledger (the authoritative source), then each
+    balance is aged FIFO against its debit postings, newest first. Any remainder
+    that predates the transaction history is treated as opening balance and
+    reported in the 90+ bucket.
+
+    Args:
+        as_of_date: As-of date (YYYY-MM-DD, defaults to today)
+        retail_code: Retail location code (optional)
+    """
+    from decimal import Decimal as D
+    from accounting.receivables import ledger_balances_for_groups, DEBTOR_GROUPS
+    from contacts.models import Ledger
+
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    as_of = (
+        datetime.date.fromisoformat(as_of_date)
+        if as_of_date
+        else datetime.date.today()
+    )
+
+    balances = ledger_balances_for_groups(retail, DEBTOR_GROUPS, as_of=as_of)
+    owing = {lid: bal for lid, bal in balances.items() if bal > 0}
+    if not owing:
+        return json.dumps({
+            "as_of": str(as_of),
+            "total_receivable": 0,
+            "customers": [],
+            "note": "No customer has a debit balance as of this date.",
+        }, indent=2)
+
+    names = dict(
+        Ledger.objects.filter(id__in=owing.keys()).values_list("id", "ac_name")
+    )
+
+    bucket_bounds = [(0, 30), (31, 60), (61, 90), (91, None)]
+    bucket_labels = ["0-30", "31-60", "61-90", "90+"]
+    totals = [D("0")] * 4
+    rows = []
+
+    for ledger_id, balance in owing.items():
+        debits = (
+            VoucherDetail.objects.filter(
+                account_id=ledger_id, voucher_main__retail=retail,
+                voucher_main__date__lte=as_of, debit__gt=0,
+            )
+            .values("voucher_main__date", "debit")
+            .order_by("-voucher_main__date")
+        )
+
+        remaining = balance
+        buckets = [D("0")] * 4
+        for entry in debits:
+            if remaining <= 0:
+                break
+            applied = min(remaining, entry["debit"])
+            remaining -= applied
+            age = (as_of - entry["voucher_main__date"]).days
+            for idx, (low, high) in enumerate(bucket_bounds):
+                if age >= low and (high is None or age <= high):
+                    buckets[idx] += applied
+                    break
+        if remaining > 0:  # older than recorded history — opening balance
+            buckets[3] += remaining
+
+        for idx in range(4):
+            totals[idx] += buckets[idx]
+
+        rows.append({
+            "customer": names.get(ledger_id, f"Ledger {ledger_id}"),
+            "outstanding": _decimal(balance),
+            **{bucket_labels[i]: _decimal(buckets[i]) for i in range(4)},
+        })
+
+    rows.sort(key=lambda r: -(r["outstanding"] or 0))
+    return json.dumps({
+        "as_of": str(as_of),
+        "total_receivable": _decimal(sum(owing.values())),
+        "buckets": {bucket_labels[i]: _decimal(totals[i]) for i in range(4)},
+        "customers": rows,
+    }, indent=2, default=str)
+
+
+@mcp.tool()
+def get_ledger_statement(ledger_name: str, from_date: str, to_date: str, retail_code: str = "") -> str:
+    """Full transaction statement for one ledger account: opening balance, every
+    entry with a running balance, and the closing balance.
+
+    Args:
+        ledger_name: Ledger account name (partial match allowed)
+        from_date: Start date (YYYY-MM-DD)
+        to_date: End date (YYYY-MM-DD)
+        retail_code: Retail location code (optional)
+    """
+    from accounting.receivables import ledger_balances
+    from contacts.models import Ledger
+
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    # Many ledgers are global (retail_code is NULL) rather than branch-scoped,
+    # so match this retail OR unscoped ledgers.
+    from django.db.models import Q
+    scope = Q(retail_code=retail) | Q(retail_code__isnull=True)
+    ledger = (
+        Ledger.objects.filter(scope, ac_name__iexact=ledger_name).first()
+        or Ledger.objects.filter(scope, ac_name__icontains=ledger_name).first()
+    )
+    if not ledger:
+        return json.dumps({
+            "error": f"Ledger '{ledger_name}' not found.",
+            "hint": "Use search_ledgers to find the exact name.",
+        })
+
+    start = datetime.date.fromisoformat(from_date)
+    opening = ledger_balances(
+        retail, [ledger.id], as_of=start - datetime.timedelta(days=1)
+    ).get(ledger.id, 0)
+
+    entries = (
+        VoucherDetail.objects.filter(
+            account=ledger, voucher_main__retail=retail,
+            voucher_main__date__range=(from_date, to_date),
+        )
+        .select_related("voucher_main")
+        .order_by("voucher_main__date", "id")
+    )
+
+    running = float(opening or 0)
+    transactions = []
+    total_debit = total_credit = 0.0
+    for entry in entries:
+        voucher = entry.voucher_main
+        debit = float(entry.debit or 0)
+        credit = float(entry.credit or 0)
+        running += debit - credit
+        total_debit += debit
+        total_credit += credit
+        transactions.append({
+            "date": str(voucher.date),
+            "voucher_no": voucher.voucher_no,
+            "voucher_type": voucher.voucher_type,
+            "narration": voucher.narration or "",
+            "debit": round(debit, 2),
+            "credit": round(credit, 2),
+            "balance": round(running, 2),
+        })
+
+    return json.dumps({
+        "ledger": ledger.ac_name,
+        "group": ledger.ac_group.name if ledger.ac_group else "",
+        "period": f"{from_date} to {to_date}",
+        "opening_balance": _decimal(opening or 0),
+        "total_debit": round(total_debit, 2),
+        "total_credit": round(total_credit, 2),
+        "closing_balance": round(running, 2),
+        "transaction_count": len(transactions),
+        "transactions": transactions,
+        "note": "Positive balance = debit (customer owes us).",
+    }, indent=2, default=str)
+
+
+@mcp.tool()
+def get_pending_customer_orders(retail_code: str = "", limit: int = 30) -> str:
+    """Customer orders not yet delivered, with age and committed weight.
+
+    Args:
+        retail_code: Retail location code (optional)
+        limit: Maximum orders to list (default 30)
+    """
+    from django.db.models import Sum
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    today = datetime.date.today()
+    pending = (
+        CustomerOrder.objects.filter(retail=retail)
+        .exclude(delivery_status__in=["delivered", "cancelled", "returned"])
+        .select_related("ldgr")
+        .order_by("date1")
+    )
+
+    totals = pending.aggregate(
+        wt=Sum("items__gw"), making=Sum("items__making_amt")
+    )
+
+    orders = []
+    for order in pending[: max(1, int(limit or 30))]:
+        line = order.items.aggregate(wt=Sum("gw"), making=Sum("making_amt"), pcs=Sum("pcs"))
+        orders.append({
+            "order_no": order.order_no,
+            "date": str(order.date1),
+            "days_pending": (today - order.date1).days if order.date1 else None,
+            "customer": order.ldgr.ac_name if order.ldgr else "",
+            "delivery_status": order.delivery_status,
+            "promised_date": str(order.delivery_date) if order.delivery_date else "",
+            "pcs": line["pcs"] or 0,
+            "gross_wt": _decimal(line["wt"] or 0),
+            "making_amount": _decimal(line["making"] or 0),
+        })
+
+    return json.dumps({
+        "as_of": str(today),
+        "pending_orders": pending.count(),
+        "total_gross_wt": _decimal(totals["wt"] or 0),
+        "total_making_amount": _decimal(totals["making"] or 0),
+        "orders": orders,
+        "note": (
+            "Order value (est_amount) is unpopulated in this database, so weight "
+            "and making charges are shown instead. Ageing uses the order date, as "
+            "promised delivery dates are unreliable in legacy rows."
+        ),
+    }, indent=2, default=str)
+
+
+# ===================================================================
+#  STOCK INTELLIGENCE
+# ===================================================================
+
+# BarcodeTransaction.trans_type values that mean "this barcode entered stock".
+_STOCK_ENTRY_TYPES = ["CREATE-PUR", "OP-STK"]
+
+
+def _barcode_entry_date_subquery():
+    """
+    Earliest stock-entry date per barcode.
+
+    BarcodeMain.created_date is unusable for ageing — the legacy import stamped
+    every row with the same date. BarcodeTransaction carries the real timeline.
+    """
+    from django.db.models import OuterRef, Subquery
+    return Subquery(
+        BarcodeTransaction.objects
+        .filter(barcode=OuterRef("pk"), trans_type__in=_STOCK_ENTRY_TYPES)
+        .order_by("date")
+        .values("date")[:1]
+    )
+
+
+@mcp.tool()
+def get_dead_stock(min_days: int = 90, retail_code: str = "", limit: int = 30) -> str:
+    """Find slow-moving stock: barcoded items still unsold after a number of days.
+    Shows the capital locked up in them.
+
+    Args:
+        min_days: Minimum days held to count as dead stock (default 90)
+        retail_code: Retail location code (optional)
+        limit: Maximum items to list (default 30)
+    """
+    from django.db.models import Sum, Count
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    from django.utils import timezone
+
+    today = datetime.date.today()
+    cutoff_date = today - datetime.timedelta(days=max(0, int(min_days or 0)))
+    # BarcodeTransaction.date is an aware DateTimeField; compare against an aware
+    # datetime at the end of the cutoff day rather than a naive date.
+    cutoff = timezone.make_aware(
+        datetime.datetime.combine(cutoff_date, datetime.time.max)
+    )
+
+    in_stock = BarcodeMain.objects.filter(retail=retail, stk_status=True)
+    aged = (
+        in_stock.annotate(entry_date=_barcode_entry_date_subquery())
+        .filter(entry_date__isnull=False, entry_date__lte=cutoff)
+        .order_by("entry_date")
+    )
+
+    rows = []
+    for bc in aged.select_related("item", "design")[: max(1, int(limit or 30))]:
+        entry = bc.entry_date
+        entry_date = entry.date() if hasattr(entry, "date") else entry
+        rows.append({
+            "barcode": bc.barcode,
+            "item": bc.item.item_name if bc.item else "",
+            "design_no": bc.design.design_no if bc.design else "",
+            "entry_date": str(entry_date),
+            "days_held": (today - entry_date).days,
+            "gross_wt": _decimal(bc.gw),
+            "value": _decimal(bc.total_amount),
+        })
+
+    dead_totals = aged.aggregate(value=Sum("total_amount"), wt=Sum("gw"), n=Count("id"))
+    all_totals = in_stock.aggregate(value=Sum("total_amount"), n=Count("id"))
+
+    # Ageing is bounded by how far back the transaction history goes.
+    oldest = (
+        in_stock.annotate(entry_date=_barcode_entry_date_subquery())
+        .filter(entry_date__isnull=False)
+        .order_by("entry_date")
+        .values_list("entry_date", flat=True)
+        .first()
+    )
+    max_age = None
+    if oldest:
+        oldest_date = oldest.date() if hasattr(oldest, "date") else oldest
+        max_age = (today - oldest_date).days
+
+    return json.dumps({
+        "as_of": str(today),
+        "threshold_days": min_days,
+        "oldest_stock_age_days": max_age,
+        "dead_stock_items": dead_totals["n"] or 0,
+        "capital_locked": _decimal(dead_totals["value"] or 0),
+        "dead_gross_wt": _decimal(dead_totals["wt"] or 0),
+        "total_stock_items": all_totals["n"] or 0,
+        "total_stock_value": _decimal(all_totals["value"] or 0),
+        "items": rows,
+        "note": (
+            "Ageing is measured from the first stock-entry transaction "
+            "(CREATE-PUR / OP-STK), not the barcode's created_date."
+        ),
+    }, indent=2, default=str)
+
+
+@mcp.tool()
+def get_inventory_turnover(from_date: str, to_date: str, retail_code: str = "") -> str:
+    """Stock turnover by item: cost of goods sold vs the value still in stock,
+    showing which categories actually move and which tie up capital.
+
+    Args:
+        from_date: Start date (YYYY-MM-DD)
+        to_date: End date (YYYY-MM-DD)
+        retail_code: Retail location code (optional)
+    """
+    from django.db.models import Sum, Count
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    # Cost comes from the acquisition value of the exact barcode that sold.
+    sold = (
+        SalesVouItem.objects.filter(
+            retail=retail,
+            billno__date1__range=(from_date, to_date),
+            billno__ret_status=False,
+        )
+        .values("item__item_name")
+        .annotate(cogs=Sum("barcode__total_amount"), revenue=Sum("amount"), units=Sum("pcs"))
+    )
+    sold_map = {r["item__item_name"]: r for r in sold}
+
+    stock = (
+        BarcodeMain.objects.filter(retail=retail, stk_status=True)
+        .values("item__item_name")
+        .annotate(stock_value=Sum("total_amount"), stock_units=Count("id"))
+    )
+    stock_map = {r["item__item_name"]: r for r in stock}
+
+    results = []
+    for name in set(sold_map) | set(stock_map):
+        s = sold_map.get(name, {})
+        k = stock_map.get(name, {})
+        cogs = float(s.get("cogs") or 0)
+        revenue = float(s.get("revenue") or 0)
+        stock_value = float(k.get("stock_value") or 0)
+        results.append({
+            "item": name or "(unspecified)",
+            "units_sold": s.get("units") or 0,
+            "revenue": round(revenue, 2),
+            "cogs": round(cogs, 2),
+            "gross_margin": round(revenue - cogs, 2),
+            "margin_pct": round((revenue - cogs) / revenue * 100, 2) if revenue else None,
+            "stock_value": round(stock_value, 2),
+            "stock_units": k.get("stock_units") or 0,
+            "turns": round(cogs / stock_value, 2) if stock_value else None,
+        })
+
+    results.sort(key=lambda r: -(r["revenue"] or 0))
+    return json.dumps({
+        "period": f"{from_date} to {to_date}",
+        "items": results,
+        "note": (
+            "No historical stock snapshots exist, so 'turns' uses closing stock "
+            "value as the denominator rather than average stock. Revenue and COGS "
+            "are ex-tax line values."
+        ),
+    }, indent=2, default=str)
+
+
+@mcp.tool()
+def get_design_performance(from_date: str, to_date: str, retail_code: str = "", limit: int = 15) -> str:
+    """Best and worst performing designs by revenue, with units still in stock.
+
+    Args:
+        from_date: Start date (YYYY-MM-DD)
+        to_date: End date (YYYY-MM-DD)
+        retail_code: Retail location code (optional)
+        limit: How many designs to show at each end (default 15)
+    """
+    from django.db.models import Sum, Count
+    retail = _get_retail(retail_code)
+    if not retail:
+        return json.dumps({"error": f"Retail '{retail_code}' not found."})
+
+    top_n = max(1, int(limit or 15))
+
+    sold = list(
+        SalesVouItem.objects.filter(
+            retail=retail,
+            billno__date1__range=(from_date, to_date),
+            billno__ret_status=False,
+            barcode__design__isnull=False,
+        )
+        .values("barcode__design__design_no", "barcode__design__item__item_name")
+        .annotate(units=Sum("pcs"), revenue=Sum("amount"), gross_wt=Sum("gw"))
+        .order_by("-revenue")
+    )
+
+    # Unsold stock per design.
+    stock = (
+        BarcodeMain.objects.filter(retail=retail, stk_status=True, design__isnull=False)
+        .values("design__design_no")
+        .annotate(n=Count("id"), value=Sum("total_amount"))
+    )
+    stock_map = {r["design__design_no"]: r for r in stock}
+
+    def _shape(r):
+        design_no = r["barcode__design__design_no"]
+        k = stock_map.get(design_no, {})
+        return {
+            "design_no": design_no,
+            "item": r["barcode__design__item__item_name"] or "",
+            "units_sold": r["units"] or 0,
+            "revenue": _decimal(r["revenue"] or 0),
+            "gross_wt": _decimal(r["gross_wt"] or 0),
+            "units_in_stock": k.get("n", 0),
+            "stock_value": _decimal(k.get("value") or 0),
+        }
+
+    performers = [_shape(r) for r in sold]
+
+    # Designs sitting in stock that sold nothing at all in the period.
+    sold_codes = {r["barcode__design__design_no"] for r in sold}
+    never_sold = [
+        {
+            "design_no": code,
+            "units_in_stock": v.get("n", 0),
+            "stock_value": _decimal(v.get("value") or 0),
+        }
+        for code, v in stock_map.items()
+        if code not in sold_codes
+    ]
+    never_sold.sort(key=lambda r: -(r["stock_value"] or 0))
+
+    return json.dumps({
+        "period": f"{from_date} to {to_date}",
+        "designs_sold": len(performers),
+        "best_sellers": performers[:top_n],
+        "weakest_sellers": performers[-top_n:][::-1] if len(performers) > top_n else [],
+        "in_stock_never_sold": never_sold[:top_n],
+        "note": (
+            "Barcodes with no linked design are excluded. Some legacy design_no "
+            "values are short stubs from the old import."
+        ),
+    }, indent=2, default=str)
+
+
+# ===================================================================
+#  READ-ONLY SQL — ad-hoc queries beyond the pre-built tools
+# ===================================================================
+#
+# Safety model (defence in depth — every layer independently sufficient):
+#   1. The connection is opened with SQLite's `mode=ro` URI, so the driver
+#      itself refuses any write. This is the hard guarantee.
+#   2. Only a single statement is accepted, and it must start with SELECT/WITH.
+#   3. Mutating keywords are rejected outright.
+#   4. The query is wrapped in an outer LIMIT so a runaway SELECT can't dump
+#      the whole database.
+#   5. A progress handler aborts anything exceeding the time budget.
+
+_SQL_MAX_ROWS = 500
+_SQL_TIMEOUT_SECONDS = 10
+
+_SQL_FORBIDDEN_WORDS = (
+    "insert", "update", "delete", "drop", "alter", "create", "replace",
+    "truncate", "attach", "detach", "pragma", "vacuum", "reindex",
+    "begin", "commit", "rollback", "savepoint",
+)
+
+
+def _readonly_sqlite_connection():
+    """Open a genuinely read-only connection to the Django SQLite database."""
+    import sqlite3
+    import pathlib
+    from django.conf import settings
+
+    db_path = pathlib.Path(str(settings.DATABASES["default"]["NAME"])).as_posix()
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=5)
+
+    # Abort long-running queries: the handler fires every N VM instructions and
+    # a non-zero return interrupts the statement.
+    import time
+    deadline = time.monotonic() + _SQL_TIMEOUT_SECONDS
+
+    def _abort_if_slow():
+        return 1 if time.monotonic() > deadline else 0
+
+    conn.set_progress_handler(_abort_if_slow, 10000)
+    return conn
+
+
+def _validate_select(sql: str):
+    """Return (safe_sql, error). Only a single SELECT/WITH statement passes."""
+    import re
+
+    statement = (sql or "").strip().rstrip(";").strip()
+    if not statement:
+        return None, "Empty query."
+    if ";" in statement:
+        return None, "Only a single statement is allowed (remove the ';')."
+
+    lowered = statement.lower()
+    if not (lowered.startswith("select") or lowered.startswith("with")):
+        return None, "Only SELECT queries are allowed (or WITH ... SELECT)."
+
+    for word in _SQL_FORBIDDEN_WORDS:
+        if re.search(rf"\b{word}\b", lowered):
+            return None, f"Forbidden keyword in a read-only query: '{word}'."
+
+    return statement, None
+
+
+@mcp.tool()
+def list_database_tables() -> str:
+    """List all database tables with their row counts. Use this first to discover
+    what data exists before writing a query with run_readonly_sql.
+    """
+    conn = _readonly_sqlite_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+        tables = [row[0] for row in cur.fetchall()]
+        out = []
+        for name in tables:
+            try:
+                cur.execute(f'SELECT COUNT(*) FROM "{name}"')
+                out.append({"table": name, "rows": cur.fetchone()[0]})
+            except Exception:
+                out.append({"table": name, "rows": None})
+    finally:
+        conn.close()
+
+    populated = [t for t in out if (t["rows"] or 0) > 0]
+    return json.dumps({
+        "table_count": len(out),
+        "tables_with_data": len(populated),
+        "tables": sorted(out, key=lambda t: -(t["rows"] or 0)),
+    }, indent=2)
+
+
+@mcp.tool()
+def describe_table(table_name: str) -> str:
+    """Show the columns, types and foreign keys of a table, so you can write a
+    correct SQL query against it.
+
+    Args:
+        table_name: Exact table name (get it from list_database_tables)
+    """
+    import re
+    if not re.fullmatch(r"[A-Za-z0-9_]+", table_name or ""):
+        return json.dumps({"error": "Invalid table name."})
+
+    conn = _readonly_sqlite_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            (table_name,),
+        )
+        if not cur.fetchone():
+            return json.dumps({"error": f"Table '{table_name}' does not exist."})
+
+        cur.execute(f'PRAGMA table_info("{table_name}")')
+        columns = [
+            {
+                "name": r[1],
+                "type": r[2],
+                "not_null": bool(r[3]),
+                "primary_key": bool(r[5]),
+            }
+            for r in cur.fetchall()
+        ]
+
+        cur.execute(f'PRAGMA foreign_key_list("{table_name}")')
+        foreign_keys = [
+            {"column": r[3], "references": f"{r[2]}.{r[4]}"} for r in cur.fetchall()
+        ]
+
+        cur.execute(f'SELECT COUNT(*) FROM "{table_name}"')
+        row_count = cur.fetchone()[0]
+    finally:
+        conn.close()
+
+    return json.dumps({
+        "table": table_name,
+        "row_count": row_count,
+        "columns": columns,
+        "foreign_keys": foreign_keys,
+    }, indent=2)
+
+
+@mcp.tool()
+def run_readonly_sql(sql: str, max_rows: int = 100) -> str:
+    """Run a read-only SELECT query against the ERP database for questions the
+    other tools don't cover. Writes are impossible — the connection is opened
+    read-only and anything but a single SELECT is rejected.
+
+    Discover the schema with list_database_tables and describe_table first.
+    Note: monetary values on sales vouchers are NOT stored — compute them as
+    (mrp - discount) plus GST derived from cgst_per/sgst_per/igst_per, plus
+    round_off.
+
+    Args:
+        sql: A single SELECT statement (WITH ... SELECT is also allowed)
+        max_rows: Maximum rows to return (default 100, hard cap 500)
+    """
+    statement, error = _validate_select(sql)
+    if error:
+        return json.dumps({"error": error})
+
+    limit = max(1, min(int(max_rows or 100), _SQL_MAX_ROWS))
+
+    conn = _readonly_sqlite_connection()
+    try:
+        cur = conn.cursor()
+        # Outer LIMIT guarantees the cap regardless of the inner query.
+        cur.execute(f"SELECT * FROM ({statement}) LIMIT {limit}")
+        columns = [d[0] for d in cur.description] if cur.description else []
+        rows = [
+            {col: _decimal(val) for col, val in zip(columns, record)}
+            for record in cur.fetchall()
+        ]
+    except Exception as exc:
+        return json.dumps({
+            "error": f"{type(exc).__name__}: {exc}",
+            "hint": "Check table and column names with describe_table.",
+        }, indent=2)
+    finally:
+        conn.close()
+
+    return json.dumps({
+        "columns": columns,
+        "row_count": len(rows),
+        "truncated": len(rows) >= limit,
+        "rows": rows,
+    }, indent=2, default=str)
 
 
 # ---------------------------------------------------------------------------

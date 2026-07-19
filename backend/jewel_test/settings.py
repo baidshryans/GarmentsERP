@@ -99,6 +99,10 @@ OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 AI_NL_MODEL = config('AI_NL_MODEL', default='gpt-4o-mini')
 AI_VISION_MODEL = config('AI_VISION_MODEL', default='gpt-4o')
 
+# ERP chat (natural-language query) — powered by Claude, shares the MCP tool registry
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
+AI_CHAT_MODEL = config('AI_CHAT_MODEL', default='claude-haiku-4-5')
+
 # ── App identity ──────────────────────────────────────────────────────────────
 # Used for white-label deployments (e.g. backup filenames). Override via .env.
 APP_NAME = config('APP_NAME', default='jewel_erp')

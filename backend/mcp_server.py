@@ -23,7 +23,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jewel_test.settings")
 
 import django
-django.setup()
+from django.apps import apps as _django_apps
+
+# Bootstrap Django only if it hasn't been configured yet. This lets the module be
+# imported from an already-running Django process (e.g. the ERP chat's shared tool
+# registry) without triggering a second, reentrant setup().
+if not _django_apps.ready:
+    django.setup()
 
 # ---------------------------------------------------------------------------
 # MCP SDK
@@ -80,6 +86,43 @@ def _fmt_inr(amount):
     return f"₹{amt:,.2f}"
 
 
+def _sales_exprs():
+    """
+    Database expressions for SalesVou monetary values.
+
+    SalesVou has no stored bill_value/GST-amount columns — they are derived from
+    mrp, discount, the per-cent GST rates and round_off (see the model's
+    total_bill_value / cgst_amt properties). These ORM expressions mirror that
+    formula so we can Sum/Avg/group in the database.
+
+    Returns a dict of ExpressionWrapper objects: taxable, cgst, sgst, igst, bill.
+    """
+    from django.db.models import F, Value, DecimalField, ExpressionWrapper
+    from django.db.models.functions import Coalesce
+
+    dec = DecimalField(max_digits=20, decimal_places=4)
+    z = Value(0, output_field=dec)
+    hundred = Value(100, output_field=dec)
+
+    taxable = Coalesce(F("mrp"), z) - Coalesce(F("discount"), z)
+    cgst = taxable * Coalesce(F("cgst_per"), z) / hundred
+    sgst = taxable * Coalesce(F("sgst_per"), z) / hundred
+    igst = taxable * Coalesce(F("igst_per"), z) / hundred
+    bill = taxable + cgst + sgst + igst + Coalesce(F("round_off"), z)
+
+    return {
+        "taxable": ExpressionWrapper(taxable, output_field=dec),
+        "cgst": ExpressionWrapper(cgst, output_field=dec),
+        "sgst": ExpressionWrapper(sgst, output_field=dec),
+        "igst": ExpressionWrapper(igst, output_field=dec),
+        "bill": ExpressionWrapper(bill, output_field=dec),
+    }
+
+
+# Ledger account-groups that represent liquid funds (cash & bank).
+_CASH_BANK_GROUPS = ["Cash-in-Hand", "Bank Accounts", "Bank OD Accounts"]
+
+
 # ---------------------------------------------------------------------------
 # MCP Resource: list available retail locations
 # ---------------------------------------------------------------------------
@@ -133,11 +176,12 @@ def get_sales_summary(from_date: str, to_date: str, retail_code: str = "") -> st
     if not retail:
         return json.dumps({"error": f"Retail '{retail_code}' not found."})
 
+    bill = _sales_exprs()["bill"]
     qs = SalesVou.objects.filter(retail=retail, date1__range=(from_date, to_date))
-    agg = qs.aggregate(total=Sum("bill_value"), count=Count("id"))
+    agg = qs.aggregate(total=Sum(bill), count=Count("id"))
     top = (
         qs.values("ldgr__ac_name")
-        .annotate(total=Sum("bill_value"))
+        .annotate(total=Sum(bill))
         .order_by("-total")[:5]
     )
     return json.dumps({
@@ -167,7 +211,7 @@ def get_top_customers(from_date: str, to_date: str, retail_code: str = "") -> st
     qs = (
         SalesVou.objects.filter(retail=retail, date1__range=(from_date, to_date))
         .values("ldgr__ac_name")
-        .annotate(total=Sum("bill_value"), count=Count("id"))
+        .annotate(total=Sum(_sales_exprs()["bill"]), count=Count("id"))
         .order_by("-total")[:10]
     )
     return json.dumps({
@@ -392,7 +436,9 @@ def get_cash_position(retail_code: str = "") -> str:
         return json.dumps({"error": f"Retail '{retail_code}' not found."})
 
     results = []
-    cash_ledgers = Ledger.objects.filter(retail_code=retail, type__in=["Cash", "Bank"])
+    cash_ledgers = Ledger.objects.filter(
+        retail_code=retail, ac_group__name__in=_CASH_BANK_GROUPS
+    ).select_related("ac_group")
     for ledger in cash_ledgers:
         ob = LedgerOpenBalance.objects.filter(ldgr=ledger, retail=retail).first()
         ob_dr = float(ob.debit if ob else 0)
@@ -405,7 +451,7 @@ def get_cash_position(retail_code: str = "") -> str:
         net = total_dr - total_cr
         results.append({
             "account": ledger.ac_name,
-            "type": ledger.type,
+            "type": ledger.ac_group.name if ledger.ac_group else "",
             "balance": round(abs(net), 2),
             "balance_type": "Dr" if net >= 0 else "Cr",
         })
@@ -599,9 +645,8 @@ def search_ledgers(query: str, retail_code: str = "") -> str:
         "results": [
             {
                 "name": l.ac_name,
+                "display_name": l.display_name or l.ac_name,
                 "group": l.ac_group.name if l.ac_group else "",
-                "type": l.type or "",
-                "code": l.ldgr_code or "",
             }
             for l in ledgers
         ],
@@ -622,13 +667,15 @@ def get_gst_summary(from_date: str, to_date: str, retail_code: str = "") -> str:
     if not retail:
         return json.dumps({"error": f"Retail '{retail_code}' not found."})
 
+    se = _sales_exprs()
     sales = SalesVou.objects.filter(
         retail=retail, date1__range=(from_date, to_date)
-    ).aggregate(cgst=Sum("cgst_value"), sgst=Sum("sgst_value"), igst=Sum("igst_value"))
+    ).aggregate(cgst=Sum(se["cgst"]), sgst=Sum(se["sgst"]), igst=Sum(se["igst"]))
 
+    # PurchaseVoucher stores GST amounts as real columns (cgst/sgst/igst).
     purchases = PurchaseVoucher.objects.filter(
         retail=retail, date1__range=(from_date, to_date)
-    ).aggregate(cgst=Sum("cgst_value"), sgst=Sum("sgst_value"), igst=Sum("igst_value"))
+    ).aggregate(cgst=Sum("cgst"), sgst=Sum("sgst"), igst=Sum("igst"))
 
     return json.dumps({
         "period": f"{from_date} to {to_date}",
@@ -688,9 +735,11 @@ def get_stock_valuation(retail_code: str = "", item_filter: str = "", purity_fil
     if not retail:
         return json.dumps({"error": f"Retail '{retail_code}' not found."})
 
-    barcodes = BarcodeMain.objects.filter(retail=retail, stk_status=True)
+    barcodes = BarcodeMain.objects.filter(
+        retail=retail, stk_status=True
+    ).select_related("purity")
     if purity_filter:
-        barcodes = barcodes.filter(purity=purity_filter)
+        barcodes = barcodes.filter(purity__purity__icontains=purity_filter)
 
     stock_data = []
     total_value = Decimal("0")
@@ -702,7 +751,7 @@ def get_stock_valuation(retail_code: str = "", item_filter: str = "", purity_fil
             "pcs": bc.pcs,
             "gross_wt": _decimal(bc.gw),
             "net_wt": _decimal(bc.nw),
-            "purity": bc.purity,
+            "purity": str(bc.purity) if bc.purity else "",
             "making_value": _decimal(bc.making_val),
             "total_value": _decimal(val),
         })
@@ -770,32 +819,33 @@ def get_invoice_details(voucher_no: str, retail_code: str = "") -> str:
     if not retail:
         return json.dumps({"error": f"Retail '{retail_code}' not found."})
 
-    # Try sales first
-    sale = SalesVou.objects.filter(retail=retail, voucher_no=voucher_no).first()
+    # Try sales first (invoices are identified by billno)
+    sale = SalesVou.objects.filter(retail=retail, billno=voucher_no).select_related("ldgr").first()
     if sale:
-        items = SalesVouItem.objects.filter(sales_vou=sale)
+        # On SalesVouItem, billno is a FK back to the SalesVou header.
+        items = SalesVouItem.objects.filter(retail=retail, billno=sale).select_related("barcode")
         return json.dumps({
             "type": "Sales Invoice",
-            "voucher_no": sale.voucher_no,
+            "voucher_no": sale.billno,
             "date": str(sale.date1),
             "customer": sale.ldgr.ac_name if sale.ldgr else "",
-            "bill_value": _decimal(sale.bill_value),
+            "bill_value": _decimal(sale.total_bill_value),
             "due_amount": _decimal(sale.due_amt),
             "items": [
                 {
-                    "barcode": str(item.barcode) if hasattr(item, "barcode") and item.barcode else "",
-                    "amount": _decimal(item.amount) if hasattr(item, "amount") else 0,
+                    "barcode": str(item.barcode) if item.barcode else "",
+                    "amount": _decimal(item.amount),
                 }
                 for item in items[:20]
             ],
         }, indent=2, default=str)
 
     # Try purchase
-    purchase = PurchaseVoucher.objects.filter(retail=retail, voucher_no=voucher_no).first()
+    purchase = PurchaseVoucher.objects.filter(retail=retail, billno=voucher_no).select_related("ldgr").first()
     if purchase:
         return json.dumps({
             "type": "Purchase Invoice",
-            "voucher_no": purchase.voucher_no,
+            "voucher_no": purchase.billno,
             "date": str(purchase.date1),
             "vendor": purchase.ldgr.ac_name if purchase.ldgr else "",
             "bill_value": _decimal(purchase.bill_value),
@@ -824,12 +874,12 @@ def get_dashboard_summary(retail_code: str = "") -> str:
     # Today's sales
     today_sales = SalesVou.objects.filter(
         retail=retail, date1=today
-    ).aggregate(total=Sum("bill_value"), count=Count("id"))
+    ).aggregate(total=Sum(_sales_exprs()["bill"]), count=Count("id"))
 
     # FY sales
     fy_sales = SalesVou.objects.filter(
         retail=retail, date1__range=(fy_start, today)
-    ).aggregate(total=Sum("bill_value"))
+    ).aggregate(total=Sum(_sales_exprs()["bill"]))
 
     # Stock count
     stock_count = BarcodeMain.objects.filter(retail=retail, stk_status=True).count()
@@ -1117,10 +1167,14 @@ def compare_sales(
 
     def _stats(from_d, to_d):
         qs = SalesVou.objects.filter(retail=retail, date1__range=(from_d, to_d))
-        agg = qs.aggregate(total=Sum("bill_value"), count=Count("id"), avg=Avg("bill_value"))
+        agg = qs.aggregate(
+            total=Sum(_sales_exprs()["bill"]),
+            count=Count("id"),
+            avg=Avg(_sales_exprs()["bill"]),
+        )
         top = list(
             qs.values("ldgr__ac_name")
-            .annotate(amt=Sum("bill_value"))
+            .annotate(amt=Sum(_sales_exprs()["bill"]))
             .order_by("-amt")[:5]
         )
         return {
@@ -1174,7 +1228,7 @@ def get_monthly_sales_trend(year: int, retail_code: str = "") -> str:
             month_end = fy_end
         total = SalesVou.objects.filter(
             retail=retail, date1__range=(cursor, month_end)
-        ).aggregate(t=Sum("bill_value"))["t"] or 0
+        ).aggregate(t=Sum(_sales_exprs()["bill"]))["t"] or 0
         monthly.append({
             "month": cursor.strftime("%b %Y"),
             "from": str(cursor),

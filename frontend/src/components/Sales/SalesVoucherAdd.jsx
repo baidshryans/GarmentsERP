@@ -1,5 +1,8 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { formatNumber } from "@/lib/format";
+import {
+  findB2bMakingRule, getB2bStoneRate, pureRateFromPurityRate, resolveB2bMaking,
+} from "@/lib/b2bPricing";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -320,6 +323,7 @@ const SalesVoucherAdd = () => {
   const detailGw       = watch("details.gw");
   const detailRate     = watch("details.rate");
   const detailPurity   = watch("details.metal_purity");
+  const mainItemCode   = watch("mainItem.item");
 
   // Helper: compute value from rate × qty based on UOM
   const computeValue = (rate, uom, pcs, ct, gw) => {
@@ -420,17 +424,28 @@ const SalesVoucherAdd = () => {
 
   // Auto-fill rate from gold rates when purity is selected on a raw/gold item
   // (must live after isRawItem declaration to avoid TDZ error)
+  // Remembers the last rate this effect wrote, so a rate the user edited by hand
+  // is never stomped when the weight changes (a B2B tunch rate is weight-
+  // dependent once a minimum-making-grams floor is in play, so this effect now
+  // re-fires on every gw keystroke).
+  const autoGoldRateRef = useRef(null);
   useEffect(() => {
     if (!isRawItem || !detailPurity) return;
     // B2B: apply tunch-adjusted rate; retail: use standard gold rate
-    const b2bRate = b2bPricelist ? getB2bGoldRate(detailPurity) : null;
+    const b2bRate = b2bPricelist
+      ? getB2bGoldRate(detailPurity, parseFloat(detailGw) || 0, mainItemCode)
+      : null;
     const rate = b2bRate != null ? b2bRate : goldRates[detailPurity];
-    if (rate !== undefined) {
-      setValue("details.rate", rate);
-    }
+    if (rate === undefined) return;
+    const current = getValues("details.rate");
+    const untouched = current === "" || current == null
+      || (autoGoldRateRef.current != null && Number(current) === Number(autoGoldRateRef.current));
+    if (!untouched) return;
+    autoGoldRateRef.current = rate;
+    setValue("details.rate", rate);
     // getB2bGoldRate is a closure over b2bPricelist (already in deps); setValue stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailPurity, isRawItem, goldRates, b2bPricelist]);
+  }, [detailPurity, detailGw, mainItemCode, isRawItem, goldRates, b2bPricelist]);
 
   // ── React-Query-driven hydrate effects (replaces the old mega useEffect) ────
   // The legacy effect ran ~160 lines of nested Promise.all + a manual
@@ -677,7 +692,9 @@ const SalesVoucherAdd = () => {
       });
 
       // Calculate making_value based on making_type
-      // - 'val'    → flat amount entered by user
+      // - 'val'    → flat amount entered by user (also how resolved B2B
+      //              per-gram / % -of-gold amounts are stored on the row)
+      // - 'tunch'  → 0; a B2B tunch rule is charged via the gold sub-item rate
       // - 'per_nw' → NW of gold × (making% / 100) × gold rate for that purity
       const making     = parseFloat(row.making) || 0;
       const makingType = row.making_type || '';
@@ -699,6 +716,9 @@ const SalesVoucherAdd = () => {
       let makingVal;
       if (makingType === 'val') {
         makingVal = making;
+      } else if (makingType === 'tunch') {
+        // B2B tunch: charged through the gold rate, so the making column is nil.
+        makingVal = 0;
       } else if (makingType === 'per_nw') {
         // making = percentage (e.g. 30 means 30%)
         makingVal = nw * (making / 100) * goldRate;
@@ -752,46 +772,35 @@ const SalesVoucherAdd = () => {
 
   // ── B2B pricelist helpers ───────────────────────────────────────────────────
 
-  /** Find the best matching making rule from pricelist (most specific wins). */
-  const findB2bMakingRule = (purity, itemCode) => {
-    if (!b2bPricelist?.making_entries?.length) return null;
-    const entries = b2bPricelist.making_entries;
-    // Priority: purity+item > purity-only > item-only > default (both null)
-    return (
-      entries.find(e => e.purity === purity && e.item === itemCode) ||
-      entries.find(e => e.purity === purity && !e.item) ||
-      entries.find(e => !e.purity && e.item === itemCode) ||
-      entries.find(e => !e.purity && !e.item) ||
-      null
-    );
-  };
-
-  /** Get B2B stone rate for a packet: stone_override > wholesale_packet_rates > fallback. */
-  const getB2bStoneRate = (pcktNo) => {
-    if (!b2bPricelist) return null;
-    const override = b2bPricelist.stone_overrides?.find(s => s.packet === pcktNo);
-    if (override) return override.rate;
-    const wholesale = b2bPricelist.wholesale_packet_rates?.[pcktNo];
-    if (wholesale != null) return wholesale;
-    return null;
-  };
-
-  /** Get B2B gold rate for a purity using tunch markup.
-   *  baseRate = retail rate for that purity (from goldRates state).
-   *  gwPer   = purity's gold weight % (e.g. 91.67 for 22K). */
-  const getB2bGoldRate = (purityName) => {
-    if (!b2bPricelist) return null;
-    const tunchEntry = b2bPricelist.tunch_entries?.find(t => t.purity === purityName);
-    if (!tunchEntry) return null;
-    const baseRate = goldRates[purityName];
-    if (!baseRate) return null;
+  /** Resolve a rule against the loaded pricelist, with the purity's base % and
+   *  pure-gold rate already looked up.  Returns null when nothing matches. */
+  const resolveB2bRule = (purityName, itemCode, weight) => {
+    const rule = findB2bMakingRule(b2bPricelist, purityName, itemCode);
+    if (!rule) return null;
     const purityObj = purityData.find(p => p.purity === purityName);
-    if (!purityObj) return null;
-    const gwPer = parseFloat(purityObj.gw_per);
-    const tunchPct = parseFloat(tunchEntry.tunch_percent);
-    // pureRate = baseRate / (gwPer / 100), then apply (gwPer + tunch) / 100
-    const pureRate = baseRate / (gwPer / 100);
-    return Math.round(pureRate * ((gwPer + tunchPct) / 100));
+    const gwPer = parseFloat(purityObj?.gw_per) || 0;
+    return {
+      rule,
+      res: resolveB2bMaking(rule, {
+        weight,
+        basePurityPct: gwPer,
+        pureGoldRate: pureRateFromPurityRate(goldRates[purityName], gwPer),
+      }),
+    };
+  };
+
+  /** B2B gold rate for a purity — only a 'tunch' rule moves the gold rate;
+   *  every other making type leaves it at the retail rate (null = no override).
+   *  Weight matters because the minimum-making-grams floor makes the effective
+   *  tunch % depend on how light the piece is. */
+  const getB2bGoldRate = (purityName, weightGm, itemCode) => {
+    if (!b2bPricelist) return null;
+    if (!goldRates[purityName]) return null;
+    const resolved = resolveB2bRule(purityName, itemCode, weightGm);
+    if (!resolved || resolved.rule.making_type !== 'tunch') return null;
+    // 2 dp, not whole rupees: with a min-grams floor the effective ₹/g is rarely
+    // integral and rounding it would move the line by up to 0.5 × gw.
+    return +resolved.res.goldRate.toFixed(2);
   };
 
   /** Apply B2B pricelist overrides to a barcode item before appending. */
@@ -802,10 +811,24 @@ const SalesVoucherAdd = () => {
     // Override making charges
     const purity = item.metal_purity || item.purity;
     const itemCode = item.item;
-    const makingRule = findB2bMakingRule(purity, itemCode);
-    if (makingRule) {
-      overridden.making_type = makingRule.making_type;
-      overridden.making = parseFloat(makingRule.making_value);
+    const weight = parseFloat(item.nw) || parseFloat(item.gw) || 0;
+    const resolved = resolveB2bRule(purity, itemCode, weight);
+    if (resolved) {
+      if (resolved.rule.making_type === 'tunch') {
+        // Tunch is charged through the gold rate, not the making column.  Keep
+        // the type on the row so the recalc zeroes making and the markup % stays
+        // visible for audit.
+        overridden.making_type = 'tunch';
+        overridden.making = parseFloat(resolved.rule.making_value);
+      } else {
+        // Collapse per_gram / per_nw to a resolved flat ₹ amount.  The row's
+        // making_type/making pair is a shared sale-document field also read by
+        // SalesReturnAdd, SalesApprovalAdd, POSItemsTable and barcode management
+        // — none of which know the B2B vocabulary or can see the pricelist to
+        // re-derive the minimum.  Storing the rupee amount is lossless here.
+        overridden.making_type = 'val';
+        overridden.making = Math.round(resolved.res.makingValue);
+      }
     }
 
     // Override stone rates in main_item_set
@@ -814,7 +837,7 @@ const SalesVoucherAdd = () => {
         const updated = { ...sub };
         // Stone items (non-raw): override rate from pricelist
         if (sub.pckt_no) {
-          const b2bRate = getB2bStoneRate(sub.pckt_no);
+          const b2bRate = getB2bStoneRate(b2bPricelist, sub.pckt_no);
           if (b2bRate != null) {
             updated.rate = b2bRate;
             // Recalculate amount
@@ -824,7 +847,7 @@ const SalesVoucherAdd = () => {
         }
         // Gold/raw sub-items: override rate using tunch
         if (sub.item_type === 'R' && sub.metal_purity) {
-          const b2bRate = getB2bGoldRate(sub.metal_purity);
+          const b2bRate = getB2bGoldRate(sub.metal_purity, parseFloat(sub.gw) || 0, item.item);
           if (b2bRate != null) {
             updated.rate = b2bRate;
             updated.amount = +(b2bRate * (parseFloat(sub.gw) || 0)).toFixed(2);

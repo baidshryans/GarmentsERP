@@ -5,7 +5,7 @@ from .models import (
     SalesPersonMaster, Shapes, Colors, FiscalYearMaster, State,
     TDSSectionMaster, TCSSectionMaster, ExhibitionProfile, BranchMaster,
     CompanyMaster, SystemSettings, CRMSettings, CRMSendLog, GSTINMaster,
-    B2BPricelist, B2BPricelistTunch, B2BPricelistMaking, B2BPricelistStoneOverride,
+    B2BPricelist, B2BPricelistMaking, B2BPricelistStoneOverride,
     RetailDiscountPricelist, RetailDiscountPricelistRule,
     SalesOffer, SalesOfferRule,
 )
@@ -394,22 +394,6 @@ class CRMSendLogSerializer(ModelSerializer):
 
 # ── B2B Pricelist serializers ────────────────────────────────────────────────
 
-class B2BPricelistTunchSerializer(ModelSerializer):
-    purity = serializers.SlugRelatedField(
-        queryset=__import__('goldrates.models', fromlist=['PurityMaster']).PurityMaster.objects.all(),
-        slug_field='purity',
-    )
-    pricelist = serializers.PrimaryKeyRelatedField(
-        queryset=B2BPricelist.objects.all(), required=False,
-    )
-
-    class Meta:
-        model  = B2BPricelistTunch
-        fields = ['id', 'pricelist', 'purity', 'tunch_percent']
-        extra_kwargs = {'id': {'read_only': False, 'required': False}}
-        validators = []  # see RetailDiscountPricelistRuleSerializer for rationale
-
-
 class B2BPricelistMakingSerializer(ModelSerializer):
     purity = serializers.SlugRelatedField(
         queryset=__import__('goldrates.models', fromlist=['PurityMaster']).PurityMaster.objects.all(),
@@ -422,9 +406,42 @@ class B2BPricelistMakingSerializer(ModelSerializer):
 
     class Meta:
         model  = B2BPricelistMaking
-        fields = ['id', 'pricelist', 'purity', 'item', 'making_type', 'making_value']
-        extra_kwargs = {'id': {'read_only': False, 'required': False}}
+        fields = ['id', 'pricelist', 'purity', 'item', 'making_type',
+                  'making_value', 'min_making_grams']
+        extra_kwargs = {
+            'id': {'read_only': False, 'required': False},
+            'min_making_grams': {'required': False},
+        }
         validators = []  # see RetailDiscountPricelistRuleSerializer for rationale
+
+    def validate(self, attrs):
+        def resolved(field, default=None):
+            if field in attrs:
+                return attrs[field]
+            return getattr(self.instance, field, default)
+
+        making_type = resolved('making_type')
+        making_value = resolved('making_value')
+        min_grams = resolved('min_making_grams', 0) or 0
+
+        if making_type == 'val' and min_grams:
+            raise serializers.ValidationError({
+                'min_making_grams': "Minimum making grams does not apply to a Flat Value rule.",
+            })
+        if min_grams and min_grams < 0:
+            raise serializers.ValidationError({
+                'min_making_grams': "Minimum making grams cannot be negative.",
+            })
+        if making_value is not None:
+            if making_value < 0:
+                raise serializers.ValidationError({
+                    'making_value': "Making value cannot be negative.",
+                })
+            if making_type in ('tunch', 'per_nw') and making_value > 100:
+                raise serializers.ValidationError({
+                    'making_value': "A percentage rule cannot exceed 100.",
+                })
+        return attrs
 
 
 class B2BPricelistStoneOverrideSerializer(ModelSerializer):
@@ -443,7 +460,6 @@ class B2BPricelistStoneOverrideSerializer(ModelSerializer):
 
 
 class B2BPricelistSerializer(ModelSerializer):
-    tunch_entries   = B2BPricelistTunchSerializer(many=True, required=False)
     making_entries  = B2BPricelistMakingSerializer(many=True, required=False)
     stone_overrides = B2BPricelistStoneOverrideSerializer(many=True, required=False)
 
@@ -451,36 +467,36 @@ class B2BPricelistSerializer(ModelSerializer):
         model  = B2BPricelist
         fields = [
             'id', 'name', 'description', 'is_active',
-            'tunch_entries', 'making_entries', 'stone_overrides',
+            'making_entries', 'stone_overrides',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
 
     def validate(self, attrs):
-        has_tunch  = bool(attrs.get('tunch_entries'))
-        has_making = bool(attrs.get('making_entries'))
-        if has_tunch and has_making:
-            raise serializers.ValidationError(
-                "A pricelist cannot have both Tunch rules and Making Charge rules. Use one or the other."
+        # create_or_update_nested validates each child in isolation, so the
+        # duplicate-key check has to live here on the parent.
+        seen = set()
+        for entry in (attrs.get('making_entries') or []):
+            key = (
+                getattr(entry.get('purity'), 'pk', None),
+                getattr(entry.get('item'), 'pk', None),
             )
+            if key in seen:
+                raise serializers.ValidationError(
+                    "Duplicate making rule for the same purity / item combination."
+                )
+            seen.add(key)
         return attrs
 
     def create(self, validated_data):
         from manufacturing.utils import create_or_update_nested
         from django.db import transaction
 
-        tunch   = validated_data.pop('tunch_entries', [])
         making  = validated_data.pop('making_entries', [])
         stones  = validated_data.pop('stone_overrides', [])
 
         with transaction.atomic():
             pricelist = B2BPricelist.objects.create(**validated_data)
-            if tunch:
-                create_or_update_nested(
-                    B2BPricelistTunchSerializer, pricelist,
-                    'tunch_entries', 'pricelist',
-                    B2BPricelistTunchSerializer(tunch, many=True).data,
-                )
             if making:
                 create_or_update_nested(
                     B2BPricelistMakingSerializer, pricelist,
@@ -499,7 +515,6 @@ class B2BPricelistSerializer(ModelSerializer):
         from manufacturing.utils import create_or_update_nested
         from django.db import transaction
 
-        tunch   = validated_data.pop('tunch_entries', [])
         making  = validated_data.pop('making_entries', [])
         stones  = validated_data.pop('stone_overrides', [])
 
@@ -508,11 +523,6 @@ class B2BPricelistSerializer(ModelSerializer):
                 setattr(instance, attr, val)
             instance.save()
 
-            create_or_update_nested(
-                B2BPricelistTunchSerializer, instance,
-                'tunch_entries', 'pricelist',
-                B2BPricelistTunchSerializer(tunch, many=True).data,
-            )
             create_or_update_nested(
                 B2BPricelistMakingSerializer, instance,
                 'making_entries', 'pricelist',

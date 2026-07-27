@@ -23,12 +23,12 @@ import {
   fetchMainItem,
   fetchPackets,
 } from "@/services/apiService";
+import { MAKING_TYPES, MAKING_TYPE_LABELS, MAKING_TYPE_UNITS } from "@/lib/b2bPricing";
 
 const emptyForm = {
   name: "",
   description: "",
   is_active: true,
-  tunch_entries: [],
   making_entries: [],
 };
 
@@ -116,7 +116,7 @@ export default function B2BPricelistPage() {
 
   const openAdd = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, tunch_entries: [], making_entries: [] });
+    setForm({ ...emptyForm, making_entries: [] });
     setStoneGroups([]);
     setShowForm(true);
   };
@@ -127,7 +127,6 @@ export default function B2BPricelistPage() {
       name: row.name,
       description: row.description || "",
       is_active: row.is_active,
-      tunch_entries: row.tunch_entries?.map(t => ({ ...t })) || [],
       making_entries: row.making_entries?.map(m => ({ ...m })) || [],
     });
     setStoneGroups(buildStoneGroups(row.stone_overrides || [], packets, stoneItems));
@@ -150,10 +149,6 @@ export default function B2BPricelistPage() {
       toast({ title: "Name is required", variant: "destructive" });
       return;
     }
-    if (form.tunch_entries.length > 0 && form.making_entries.length > 0) {
-      toast({ title: "Conflict", description: "A pricelist cannot have both Tunch rules and Making Charge rules. Use one or the other.", variant: "destructive" });
-      return;
-    }
     setSubmitting(true);
     const payload = { ...form, stone_overrides: flattenStoneGroups(stoneGroups) };
     const res = editingId
@@ -169,26 +164,28 @@ export default function B2BPricelistPage() {
     }
   };
 
-  // ── Tunch / Making helpers ────────────────────────────────────────────────
-
-  const addTunch = () => setForm(f => ({
-    ...f, tunch_entries: [...f.tunch_entries, { purity: "", tunch_percent: "" }],
-  }));
-  const removeTunch = (i) => setForm(f => ({
-    ...f, tunch_entries: f.tunch_entries.filter((_, idx) => idx !== i),
-  }));
-  const updateTunch = (i, field, val) => setForm(f => ({
-    ...f, tunch_entries: f.tunch_entries.map((t, idx) => idx === i ? { ...t, [field]: val } : t),
-  }));
+  // ── Making / Tunch rule helpers ───────────────────────────────────────────
 
   const addMaking = () => setForm(f => ({
-    ...f, making_entries: [...f.making_entries, { purity: null, item: null, making_type: "val", making_value: "" }],
+    ...f,
+    making_entries: [
+      ...f.making_entries,
+      { purity: null, item: null, making_type: "per_gram", making_value: "", min_making_grams: "" },
+    ],
   }));
   const removeMaking = (i) => setForm(f => ({
     ...f, making_entries: f.making_entries.filter((_, idx) => idx !== i),
   }));
   const updateMaking = (i, field, val) => setForm(f => ({
-    ...f, making_entries: f.making_entries.map((m, idx) => idx === i ? { ...m, [field]: val } : m),
+    ...f,
+    making_entries: f.making_entries.map((m, idx) => {
+      if (idx !== i) return m;
+      const next = { ...m, [field]: val };
+      // A Flat Value rule has no minimum — clear it in the same update, or the
+      // server rejects the save on a stale value left behind by the switch.
+      if (field === "making_type" && val === "val") next.min_making_grams = "";
+      return next;
+    }),
   }));
 
   // ── Stone group helpers ───────────────────────────────────────────────────
@@ -241,12 +238,7 @@ export default function B2BPricelistPage() {
       cell: ({ row }) => row.original.is_active ? "Yes" : "No",
     },
     {
-      header: "Tunch Rules",
-      accessorKey: "tunch_entries",
-      cell: ({ row }) => row.original.tunch_entries?.length || 0,
-    },
-    {
-      header: "Making Rules",
+      header: "Pricing Rules",
       accessorKey: "making_entries",
       cell: ({ row }) => row.original.making_entries?.length || 0,
     },
@@ -288,37 +280,20 @@ export default function B2BPricelistPage() {
           </div>
         </div>
 
-        {/* ── Tunch Rules ── */}
+        {/* ── Making / Tunch Rules ── */}
         <fieldset className="border rounded-lg p-4">
-          <legend className="text-sm font-semibold px-2">Tunch Rules (per purity)</legend>
-          <p className="text-xs text-muted-foreground mb-3">
-            e.g. 22K + 8% tunch means gold is charged at (91.6% + 8%) = 99.6% of pure gold rate.
-            {form.making_entries.length > 0 && <span className="text-destructive ml-1 font-medium">Cannot be used together with Making Charge rules.</span>}
-          </p>
-          {form.tunch_entries.map((t, i) => (
-            <div key={i} className="flex items-center gap-3 mb-2">
-              <Select value={t.purity} onValueChange={v => updateTunch(i, 'purity', v)}>
-                <SelectTrigger className="w-32"><SelectValue placeholder="Purity" /></SelectTrigger>
-                <SelectContent>
-                  {purities.map(p => <SelectItem key={p.purity} value={p.purity}>{p.purity}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Input type="number" step="0.01" className="w-28" value={t.tunch_percent} onChange={e => updateTunch(i, 'tunch_percent', e.target.value)} placeholder="Tunch %" />
-              <span className="text-xs text-muted-foreground">%</span>
-              <Button variant="ghost" size="icon" onClick={() => removeTunch(i)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-            </div>
-          ))}
-          <Button variant="outline" size="sm" onClick={addTunch} className="gap-1" disabled={form.making_entries.length > 0} title={form.making_entries.length > 0 ? "Remove Making Charge rules first" : ""}>
-            <Plus className="w-3.5 h-3.5" /> Add Tunch Rule
-          </Button>
-        </fieldset>
-
-        {/* ── Making Charge Rules ── */}
-        <fieldset className="border rounded-lg p-4">
-          <legend className="text-sm font-semibold px-2">Making Charge Rules</legend>
+          <legend className="text-sm font-semibold px-2">Making / Tunch Rules</legend>
           <p className="text-xs text-muted-foreground mb-3">
             Leave purity/item blank for a default rule. More specific rules (purity+item) take priority.
-            {form.tunch_entries.length > 0 && <span className="text-destructive ml-1 font-medium">Cannot be used together with Tunch rules.</span>}
+            <br />
+            <span className="font-medium">Per Gram</span> charges the value for every gram.{" "}
+            <span className="font-medium">Flat Value</span> is a fixed amount and overrides everything else.{" "}
+            <span className="font-medium">Tunch % Markup</span> adds the % on top of the purity (22K + 8% = 99.6% of
+            pure gold rate) and charges nothing in the making column.{" "}
+            <span className="font-medium">% of Gold Value</span> charges that % of the gold amount.
+            <br />
+            <span className="font-medium">Min g</span> is the minimum making charge in grams — a lighter item is
+            charged as if it weighed this much. It does not apply to Flat Value.
           </p>
           {form.making_entries.map((m, i) => (
             <div key={i} className="flex items-center gap-3 mb-2">
@@ -337,18 +312,32 @@ export default function B2BPricelistPage() {
                 </SelectContent>
               </Select>
               <Select value={m.making_type} onValueChange={v => updateMaking(i, 'making_type', v)}>
-                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="val">Flat Value</SelectItem>
-                  <SelectItem value="per_nw">% of Gold Value</SelectItem>
+                  {MAKING_TYPES.map(t => (
+                    <SelectItem key={t} value={t}>{MAKING_TYPE_LABELS[t]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Input type="number" step="0.01" className="w-28" value={m.making_value} onChange={e => updateMaking(i, 'making_value', e.target.value)} placeholder="Value" />
+              <span className="text-xs text-muted-foreground w-8">{MAKING_TYPE_UNITS[m.making_type] || ""}</span>
+              <Input
+                type="number"
+                step="0.001"
+                className="w-24"
+                value={m.making_type === "val" ? "" : (m.min_making_grams ?? "")}
+                onChange={e => updateMaking(i, 'min_making_grams', e.target.value)}
+                placeholder="Min g"
+                disabled={m.making_type === "val"}
+                title={m.making_type === "val"
+                  ? "A Flat Value rule has no minimum — it is already a fixed amount."
+                  : "Minimum making charge in grams. A lighter item is charged as if it weighed this much."}
+              />
               <Button variant="ghost" size="icon" onClick={() => removeMaking(i)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={addMaking} className="gap-1" disabled={form.tunch_entries.length > 0} title={form.tunch_entries.length > 0 ? "Remove Tunch rules first" : ""}>
-            <Plus className="w-3.5 h-3.5" /> Add Making Rule
+          <Button variant="outline" size="sm" onClick={addMaking} className="gap-1">
+            <Plus className="w-3.5 h-3.5" /> Add Rule
           </Button>
         </fieldset>
 

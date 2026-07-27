@@ -2670,7 +2670,10 @@ def _resolve_pricelists(tier, pricelist_id):
     if pricelist_id:
         if tier == "b2b":
             from mastersconfig.models import B2BPricelist
-            b2b_pl = B2BPricelist.objects.filter(pk=pricelist_id).first()
+            # prefetch: find_b2b_making_rule iterates making_entries per design
+            b2b_pl = (B2BPricelist.objects
+                      .prefetch_related("making_entries")
+                      .filter(pk=pricelist_id).first())
         else:
             from mastersconfig.models import RetailDiscountPricelist
             retail_pl = RetailDiscountPricelist.objects.filter(pk=pricelist_id).first()
@@ -2805,7 +2808,10 @@ def catalog_detail(request, pk):
     if pricelist_id:
         if tier == "b2b":
             from mastersconfig.models import B2BPricelist
-            b2b_pl = B2BPricelist.objects.filter(pk=pricelist_id).first()
+            # prefetch: find_b2b_making_rule iterates making_entries per design
+            b2b_pl = (B2BPricelist.objects
+                      .prefetch_related("making_entries")
+                      .filter(pk=pricelist_id).first())
         else:
             from mastersconfig.models import RetailDiscountPricelist
             retail_pl = RetailDiscountPricelist.objects.filter(pk=pricelist_id).first()

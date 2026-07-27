@@ -206,6 +206,10 @@ export default function POSView() {
   }, []);
 
   // ── Item amount computation (mirrors SalesVoucherAdd recalc logic) ──────────
+  // TODO: POS bills B2B customers at retail prices — it loads `b2bPricelist` and
+  // shows the badge but never applies making_entries or stone_overrides. Close
+  // the gap by resolving each row through @/lib/b2bPricing the way
+  // SalesVoucherAdd.applyB2bOverrides does.
   const computeItemAmount = useCallback((item) => {
     const subItems = Array.isArray(item.main_item_set) ? item.main_item_set : [];
 
@@ -232,6 +236,8 @@ export default function POSView() {
 
     let makingVal;
     if      (makingType === "val")    makingVal = making;
+    // B2B tunch is charged through the gold rate, never the making column.
+    else if (makingType === "tunch")  makingVal = 0;
     else if (makingType === "per_nw") makingVal = nw * (making / 100) * goldRate;
     else                              makingVal = making;
     makingVal = Math.floor(makingVal);

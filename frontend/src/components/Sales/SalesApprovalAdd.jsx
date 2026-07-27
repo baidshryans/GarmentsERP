@@ -293,6 +293,9 @@ const SalesApprovalAdd = () => {
       let makingValue;
       if (makingType === 'val') {
         makingValue = making;
+      } else if (makingType === 'tunch') {
+        // B2B tunch is charged through the gold rate, never the making column.
+        makingValue = 0;
       } else if (makingType === 'per_nw') {
         makingValue = nw * (making / 100) * goldRate;
       } else {

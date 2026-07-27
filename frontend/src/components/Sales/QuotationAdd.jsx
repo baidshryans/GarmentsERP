@@ -1,5 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
 import { formatNumber } from "@/lib/format";
+import {
+  findB2bMakingRule, getB2bStoneRate, pureRateFromPurityRate, resolveB2bMaking,
+} from "@/lib/b2bPricing";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,51 +51,20 @@ const goldRateForPurity = (purity, r18, r22, r24, r14) => {
   return 0;
 };
 
-// Compute fine weight from B2B tunch pricelist entry.
-// Returns { fine_wt, gold_amount } when tunch applies, null otherwise.
-// Same formula as sale voucher: fine_wt = nw * (gw_per + tunch_markup) / 100
-//                               gold_amount = fine_wt * rate_24kt
-const computeB2BFineWt = (pricelist, purities, purityVal, nw, rate24kt) => {
-  const entries = pricelist?.tunch_entries || [];
-  if (!entries.length) return null;
-  const match = entries.find((e) => String(e.purity) === String(purityVal));
-  if (!match) return null;
+// Resolve the B2B pricelist rule for a scanned item.  Returns null when there
+// is no pricelist or no matching rule, so callers fall back to stock values.
+// Shares mastersconfig/b2b_pricing.py's math via @/lib/b2bPricing so a quotation
+// and the sale voucher can never quote different numbers for the same item.
+const resolveB2BForItem = (pricelist, purities, purityVal, itemCode, nw, purityRate) => {
+  const rule = findB2bMakingRule(pricelist, purityVal, itemCode);
+  if (!rule) return null;
   const purityObj = purities.find((p) => String(p.purity) === String(purityVal));
-  const gwPer = parseFloat(purityObj?.gw_per || 0);
-  const tunchMarkup = parseFloat(match.tunch_percent) || 0;
-  const fullTunch = gwPer + tunchMarkup;
-  const fineWt = (parseFloat(nw) * fullTunch) / 100;
-  const goldAmount = fineWt * parseFloat(rate24kt || 0);
-  return { fine_wt: fineWt, gold_amount: Math.round(goldAmount) };
-};
-
-// Compute making charge from B2B pricelist for a scanned item
-const computeB2BMaking = (pricelist, nw, purityVal, goldAmount) => {
-  const entries = pricelist?.making_entries || [];
-  if (!entries.length) return null;
-  let best = null;
-  let bestScore = -1;
-  for (const e of entries) {
-    const matchPurity = e.purity ? String(e.purity) === String(purityVal) : true;
-    if (!matchPurity) continue;
-    const score = e.purity ? 1 : 0;
-    if (score > bestScore) { best = e; bestScore = score; }
-  }
-  if (!best) return null;
-  const val = parseFloat(best.making_value) || 0;
-  if (best.making_type === "val") return val;
-  if (best.making_type === "per_nw") return (goldAmount * val) / 100;
-  return null;
-};
-
-// Compute stone amount for a detail entry using B2B pricelist overrides
-const computeB2BStoneAmount = (pricelist, packetName, wt) => {
-  const overrides = pricelist?.stone_overrides || [];
-  const wholesale = pricelist?.wholesale_packet_rates || {};
-  const override = overrides.find((o) => o.packet === packetName);
-  const rate = override ? override.rate : (wholesale[packetName] ?? null);
-  if (rate === null) return null;
-  return parseFloat(rate) * parseFloat(wt);
+  const gwPer = parseFloat(purityObj?.gw_per) || 0;
+  return resolveB2bMaking(rule, {
+    weight: parseFloat(nw) || 0,
+    basePurityPct: gwPer,
+    pureGoldRate: pureRateFromPurityRate(purityRate, gwPer),
+  });
 };
 
 export default function QuotationAdd() {
@@ -227,15 +199,17 @@ export default function QuotationAdd() {
       const purityVal = d.purity ? String(d.purity).replace("K", "") : "";
       const gRate = goldRateForPurity(purityVal, rate18kt, rate22kt, rate24kt, rate14kt);
 
-      // B2B tunch: compute fine weight; gold_amount derives from fine_wt × 24K rate
-      const tunchResult = b2bPricelist
-        ? computeB2BFineWt(b2bPricelist, purities, purityVal, parseFloat(d.nw) || 0, rate24kt)
+      // B2B: one resolution drives fine weight, gold amount and making charge
+      const b2bRes = b2bPricelist
+        ? resolveB2BForItem(b2bPricelist, purities, purityVal, d.item, d.nw, gRate)
         : null;
+      // Only a tunch rule moves the gold value; other types leave gold at stock.
+      const tunchApplies = b2bRes?.makingType === "tunch";
 
-      const goldAmount = tunchResult
-        ? tunchResult.gold_amount
+      const goldAmount = tunchApplies
+        ? Math.round(b2bRes.goldValue)
         : (metalItem ? parseFloat(metalItem.amt) || (parseFloat(d.nw) * gRate) : 0);
-      const fineWt = tunchResult ? tunchResult.fine_wt : 0;
+      const fineWt = tunchApplies ? b2bRes.fineWt : 0;
 
       const makingAmt = parseFloat(d.making) || 0;
 
@@ -266,10 +240,10 @@ export default function QuotationAdd() {
       // Apply B2B stone overrides if pricelist is set
       const finalStoneDetails = b2bPricelist
         ? stoneDetails.map((sd) => {
-            const b2bAmt = computeB2BStoneAmount(b2bPricelist, sd.packet_name, sd.wt);
+            const b2bRate = getB2bStoneRate(b2bPricelist, sd.packet_name);
+            const b2bAmt = b2bRate != null ? parseFloat(b2bRate) * parseFloat(sd.wt) : null;
             if (b2bAmt !== null) {
-              const b2bRate = sd.wt > 0 ? Math.round(b2bAmt / sd.wt) : sd.rate;
-              return { ...sd, rate: b2bRate, amount: Math.round(b2bAmt) };
+              return { ...sd, rate: Math.round(parseFloat(b2bRate)), amount: Math.round(b2bAmt) };
             }
             return sd;
           })
@@ -279,9 +253,10 @@ export default function QuotationAdd() {
       const totalStoneWt = finalStoneDetails.reduce((s, d) => s + d.wt, 0);
       const totalStoneAmt = finalStoneDetails.reduce((s, d) => s + d.amount, 0);
 
-      // Apply B2B making override if pricelist is set
-      const finalMakingAmt = b2bPricelist
-        ? (computeB2BMaking(b2bPricelist, parseFloat(d.nw) || 0, purityVal, goldAmount) ?? makingAmt)
+      // Apply B2B making override if pricelist is set (a tunch rule resolves to
+      // 0 here on purpose — it is already charged through the gold amount)
+      const finalMakingAmt = b2bRes?.makingValue != null
+        ? Math.round(b2bRes.makingValue)
         : makingAmt;
 
       const totalAmount = goldAmount + totalDiamondAmt + totalStoneAmt + finalMakingAmt;
@@ -313,9 +288,9 @@ export default function QuotationAdd() {
         pcs: fmtI(d.pcs) || 1,
         gw: parseFloat(d.gw) || 0,
         nw: parseFloat(d.nw) || 0,
-        gold_rate: tunchResult ? 0 : gRate,
+        gold_rate: tunchApplies ? 0 : gRate,
         gold_amount: Math.round(goldAmount),
-        fine_wt: tunchResult ? parseFloat(fineWt.toFixed(3)) : 0,
+        fine_wt: tunchApplies ? parseFloat(fineWt.toFixed(3)) : 0,
         making_rate: finalMakingAmt > 0 && parseFloat(d.nw) > 0 ? Math.round(finalMakingAmt / parseFloat(d.nw)) : 0,
         making_amount: Math.round(finalMakingAmt),
         total_diamond_pcs: totalDiamondPcs,

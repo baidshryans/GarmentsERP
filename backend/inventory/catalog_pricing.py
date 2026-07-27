@@ -4,12 +4,15 @@ sale-time formula (which today lives only in the frontend).
 
 Price = gold value + making + stones, then GST on top.
 
-  gold value : fine_wt × gold_rate
+  gold value : fine_wt × pure_gold_rate
                fine_wt = net_weight × effective_tunch / 100
                effective_tunch = PurityMaster.gw_per (+ B2B tunch markup)
-               gold_rate = latest GoldRates for that purity (selling_rate)
-  making     : B2B  → B2BPricelistMaking rule ('val' → value × gw,
-                                                'per_nw' → value% × gold value)
+               pure_gold_rate = latest GoldRates for that purity, converted back
+               to a 100%-pure rate (GoldRates is stored per purity)
+  making     : B2B  → the matched B2BPricelistMaking rule, resolved by
+                      mastersconfig.b2b_pricing.resolve_b2b_making
+                      (per_gram / val / tunch / per_nw, with a per-rule minimum
+                       making charge expressed in grams)
                else → the design's stored making, less retail making_discount_pct
   stones     : stored design-detail amounts, less retail diamond_discount_pct
                (B2B per-packet overrides need a packet link, which design
@@ -29,6 +32,9 @@ on stored amounts and gold weight uses the design net weight.
 from decimal import Decimal, ROUND_HALF_UP
 
 from goldrates.models import GoldRates
+from mastersconfig.b2b_pricing import (
+    find_b2b_making_rule, pure_rate_from_purity_rate, resolve_b2b_making,
+)
 
 CATALOG_GST_PCT = Decimal("3")   # jewellery GST (1.5 CGST + 1.5 SGST)
 
@@ -100,17 +106,22 @@ def compute_design_price(design, *, b2b_pricelist=None, retail_pricelist=None,
     gold_value = Decimal(0)
     gold_rate = Decimal(0)
     eff_tunch = Decimal(0)
+    # One resolution drives both the gold line and the making line.  With no B2B
+    # rule the helper returns the plain purity figures, so this path is shared.
+    base_pct = _D(gold_purity.gw_per) if gold_purity is not None else Decimal(0)
+    purity_rate = _latest_gold_rate(gold_purity) if gold_purity is not None else Decimal(0)
+    # GoldRates is keyed by PurityMaster, so `purity_rate` is already the rate AT
+    # that purity — convert back to a 100%-pure rate before applying any tunch.
+    pure_rate = pure_rate_from_purity_rate(purity_rate, base_pct)
+    b2b_rule = find_b2b_making_rule(b2b_pricelist, purity=gold_purity, item=design.item)
+    b2b_res = resolve_b2b_making(
+        b2b_rule, weight=gold_weight, base_purity_pct=base_pct, pure_gold_rate=pure_rate,
+    )
+
     if gold_purity is not None and gold_weight > 0:
-        base_tunch = _D(gold_purity.gw_per)
-        markup = Decimal(0)
-        if b2b_pricelist is not None:
-            te = b2b_pricelist.tunch_entries.filter(purity=gold_purity).first()
-            if te:
-                markup = _D(te.tunch_percent)
-        eff_tunch = base_tunch + markup
-        gold_rate = _latest_gold_rate(gold_purity)
-        fine_wt = gold_weight * eff_tunch / Decimal(100)
-        gold_value = fine_wt * gold_rate
+        eff_tunch = b2b_res["eff_tunch_pct"]
+        gold_rate = b2b_res["gold_rate"]
+        gold_value = b2b_res["gold_value"]
         _pn = (gold_purity.purity or "").strip()
         gold_label = f"Gold {_pn}K" if _pn.replace(".", "", 1).isdigit() else (f"Gold {_pn}".strip() or "Gold")
         component_lines.append({
@@ -156,18 +167,9 @@ def compute_design_price(design, *, b2b_pricelist=None, retail_pricelist=None,
         })
 
     # ── Making ─────────────────────────────────────────────────────────────────
-    if b2b_pricelist is not None:
-        rule_m = (
-            b2b_pricelist.making_entries.filter(purity=gold_purity, item=design.item).first()
-            or b2b_pricelist.making_entries.filter(purity=gold_purity, item__isnull=True).first()
-            or b2b_pricelist.making_entries.filter(purity__isnull=True, item__isnull=True).first()
-        )
-        if rule_m and rule_m.making_type == "val":
-            making_value = _D(rule_m.making_value) * _D(design.gw)
-        elif rule_m:  # 'per_nw' → % of gold value
-            making_value = _D(rule_m.making_value) / Decimal(100) * gold_value
-        else:
-            making_value = _D(design.making)
+    if b2b_res["making_value"] is not None:
+        # A 'tunch' rule returns 0 here on purpose — it is charged via the gold rate.
+        making_value = b2b_res["making_value"]
     else:
         making_value = _D(design.making)
         if making_value == 0 and _D(design.making_rate) > 0:

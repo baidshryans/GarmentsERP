@@ -699,6 +699,9 @@ const SalesReturnAdd = () => {
                         <SelectContent>
                           <SelectItem value="per_nw">% of wt</SelectItem>
                           <SelectItem value="val">Value</SelectItem>
+                          {/* B2B tunch rows arrive from the sale — shown so the
+                              Select is not blank, but not manually selectable. */}
+                          <SelectItem value="tunch" disabled>Tunch %</SelectItem>
                         </SelectContent>
                       </Select>
                     )} />

@@ -51,7 +51,7 @@ def _get_master_models():
         State, CompanyMaster, BranchMaster, GSTINMaster, RetailMaster,
         Hsn, ItemGroupMaster, SalesPersonMaster, Item, Shapes, Colors,
         PacketGroup, Packet, ExhibitionProfile, SystemSettings,
-        B2BPricelist, B2BPricelistTunch, B2BPricelistMaking,
+        B2BPricelist, B2BPricelistMaking,
         B2BPricelistStoneOverride, RetailDiscountPricelist,
         RetailDiscountPricelistRule, SalesOffer, SalesOfferRule,
         TDSSectionMaster, TCSSectionMaster, CRMSettings,
@@ -97,7 +97,6 @@ def _get_master_models():
 
         # Pricing
         B2BPricelist,
-        B2BPricelistTunch,
         B2BPricelistMaking,
         B2BPricelistStoneOverride,
         RetailDiscountPricelist,

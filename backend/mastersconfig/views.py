@@ -2575,7 +2575,7 @@ def crm_test_send(request):
 class ListCreateB2BPricelist(ListCreateAPIView):
     serializer_class = B2BPricelistSerializer
     queryset = B2BPricelist.objects.prefetch_related(
-        'tunch_entries', 'making_entries', 'stone_overrides',
+        'making_entries', 'stone_overrides',
     ).all()
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ['name']
@@ -2585,7 +2585,7 @@ class ListCreateB2BPricelist(ListCreateAPIView):
 class RetrieveUpdateDestroyB2BPricelist(RetrieveUpdateDestroyAPIView):
     serializer_class = B2BPricelistSerializer
     queryset = B2BPricelist.objects.prefetch_related(
-        'tunch_entries', 'making_entries', 'stone_overrides',
+        'making_entries', 'stone_overrides',
     ).all()
 
 

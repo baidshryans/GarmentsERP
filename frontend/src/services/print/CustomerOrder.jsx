@@ -210,13 +210,13 @@ const CustomerOrderPrint = ({ data = {}, company = {} }) => {
             { lbl: 'Estimated Value',   val: fmtAmt(data.est_amount),        color: '#0f172a' },
             { lbl: 'Advance Received',  val: fmtAmt(data.advance_amt),       color: '#0f172a' },
             { lbl: 'Advance Available', val: fmtAmt(data.advance_available), color: '#166534' },
-          ].map(({ lbl, val }, i) => (
+          ].map(({ lbl, val, color }, i) => (
             <div key={i} style={{
               flex: 1, padding: '7px 10px', textAlign: 'center',
               borderRight: i < 2 ? '1px solid #e2e8f0' : 'none',
             }}>
               <div style={{ fontSize: 7, letterSpacing: '1.4px', textTransform: 'uppercase', color: '#64748b', fontWeight: 700, fontFamily: FONT }}>{lbl}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginTop: 2, fontVariantNumeric: 'tabular-nums', fontFamily: FONT, color: i === 2 ? '#166534' : '#0f172a' }}>{val}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, fontVariantNumeric: 'tabular-nums', fontFamily: FONT, color }}>{val}</div>
             </div>
           ))}
         </div>

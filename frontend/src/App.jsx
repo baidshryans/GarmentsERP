@@ -195,6 +195,13 @@ const RepairJobCardList          = lazy(() => import("./components/manufacturing
 const RepairJobCardForm          = lazy(() => import("./components/manufacturing/repair/RepairJobCardForm.jsx"));
 const AppsPage                   = lazy(() => import("./components/Apps/AppsPage.jsx"));
 const CustomerPurchaseHistory    = lazy(() => import("./components/CRM/CustomerPurchaseHistory.jsx"));
+const CustomerList               = lazy(() => import("./components/CRM/Customer360/CustomerList.jsx"));
+const CustomerProfile            = lazy(() => import("./components/CRM/Customer360/CustomerProfile.jsx"));
+const SegmentList                = lazy(() => import("./components/CRM/Customer360/SegmentList.jsx"));
+const SegmentBuilder             = lazy(() => import("./components/CRM/Customer360/SegmentBuilder.jsx"));
+const CampaignList               = lazy(() => import("./components/CRM/Customer360/CampaignList.jsx"));
+const CampaignForm               = lazy(() => import("./components/CRM/Customer360/CampaignForm.jsx"));
+const Worklist                   = lazy(() => import("./components/CRM/Customer360/Worklist.jsx"));
 const GSTR2BReconcile            = lazy(() => import("./components/purchase/GSTR2BReconcile.jsx"));
 const RfidTagAssign              = lazy(() => import("./components/Inventory/RFID/RfidTagAssign.jsx"));
 const RfidInventoryCount         = lazy(() => import("./components/Inventory/RFID/RfidInventoryCount.jsx"));
@@ -256,6 +263,15 @@ const appRoutes = [
   { path: "crm/ledger/:id", heading: "Edit Ledger",  component: <LedgerForm /> },
   { path: "crm/occasions",  heading: "Customer Occasions", component: <CRMDashboard /> },
   { path: "crm/customer-history", heading: "Customer Purchase History", component: <CustomerPurchaseHistory /> },
+  { path: "crm/worklist",         heading: "Today's Calls", component: <Worklist /> },
+  { path: "crm/customers",        heading: "Customers",     component: <CustomerList /> },
+  { path: "crm/customers/:id",    heading: "Customer 360",  component: <CustomerProfile /> },
+  { path: "crm/segments",         heading: "Segments",      component: <SegmentList /> },
+  { path: "crm/segments/new",     heading: "New Segment",   component: <SegmentBuilder /> },
+  { path: "crm/segments/:id",     heading: "Edit Segment",  component: <SegmentBuilder /> },
+  { path: "crm/campaigns",        heading: "Campaigns",     component: <CampaignList /> },
+  { path: "crm/campaigns/new",    heading: "New Campaign",  component: <CampaignForm /> },
+  { path: "crm/campaigns/:id",    heading: "Campaign",      component: <CampaignForm /> },
 
   // ── Setup / Masters ───────────────────────────────────────────────────────
   { path: "setup/salesperson",   heading: "Sales Person",          component: <SalesPersonList /> },

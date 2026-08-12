@@ -39,6 +39,7 @@ urlpatterns = [
     path('hr/', include('hr.urls')),
     path('carryforward/', include('carryforward.urls')),
     path('vendor-analytics/', include('vendor_analytics.urls')),
+    path('customer-intel/', include('customer_intel.urls')),
     path('audit/', include('audit.urls')),
 ]
 

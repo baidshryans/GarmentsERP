@@ -204,6 +204,20 @@ class CatalogShare(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True)
 
+    # ── attribution ────────────────────────────────────────────────────────
+    # A link minted for one customer turns anonymous catalog traffic into a
+    # per-customer intent signal. There is deliberately no `campaign` FK here:
+    # inventory must not depend on customer_intel, so the campaign linkage is
+    # discovered through CampaignRecipient.catalog_share instead.
+    ledger = models.ForeignKey(
+        'contacts.Ledger', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='catalog_shares',
+    )
+    source = models.CharField(max_length=20, blank=True)  # manual | campaign | walk_in
+    open_count = models.IntegerField(default=0)
+    first_opened_at = models.DateTimeField(null=True, blank=True)
+    last_opened_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = 'catalog_share'
         ordering = ['-created_at']

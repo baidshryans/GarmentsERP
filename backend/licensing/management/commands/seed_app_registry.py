@@ -125,6 +125,16 @@ APPS = [
         "Vendor performance dashboard — stock ageing, design performance, inventory turnover, and item-level margin reports.",
         ["navVendorAnalytics"],
     ),
+    (
+        "customer_intel",
+        "Customer 360 & Campaigns",
+        "customer_intel",
+        "UserSearch",
+        False, 299, 140,
+        "Customer profiling — RFM scoring, buying preferences, engagement timeline, "
+        "saved segments, WhatsApp campaigns, and the daily call worklist.",
+        ["navCustomer360"],
+    ),
 ]
 
 

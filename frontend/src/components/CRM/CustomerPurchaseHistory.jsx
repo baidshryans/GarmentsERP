@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import apiClient from "@/services/apiClient";
 import { isValidDateRange } from "@/lib/dateRange";
+import { useNavigate } from "react-router-dom";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -17,6 +18,7 @@ const TYPE_COLORS = {
 };
 
 export default function CustomerPurchaseHistory() {
+  const navigate = useNavigate();
   const [selectedLedger, setSelectedLedger] = useState(null);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState(today);
@@ -168,6 +170,16 @@ export default function CustomerPurchaseHistory() {
         <Button onClick={handleFetch} disabled={!selectedLedger || loading}>
           {loading ? "Loading…" : "Fetch History"}
         </Button>
+        {/* This page shows document headers; the 360 view adds line-item detail,
+            buying preferences, engagement history and lapse risk. */}
+        {selectedLedger && (
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/crm/customers/${selectedLedger.id}`)}
+          >
+            View 360 Profile
+          </Button>
+        )}
       </div>
 
       {error && <div className="text-red-500 text-sm mb-4">{error}</div>}

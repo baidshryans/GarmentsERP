@@ -15,4 +15,5 @@ export * from "./api/hr";
 export * from "./api/fixedAssets";
 export * from "./api/carryforward";
 export * from "./api/vendorAnalytics";
+export * from "./api/customerIntel";
 export * from "./api/ai";

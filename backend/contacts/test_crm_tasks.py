@@ -24,7 +24,7 @@ class SendOccasionMessageTests(TestCase):
         settings = make_settings(retail)
         led = make_customer(retail, "Asha", dob=date(1990, 7, 2))
 
-        with patch("contacts.tasks.send_whatsapp", return_value=(True, "")) as m:
+        with patch("contacts.tasks.send_whatsapp", return_value=(True, "", "wamid.TEST")) as m:
             send_occasion_message.enqueue(settings.id, led.id, "birthday")
 
         m.assert_called_once()
@@ -56,7 +56,7 @@ class SendOccasionMessageTests(TestCase):
         settings = make_settings(retail)
         led = make_customer(retail, "Asha", dob=date(1990, 7, 2))
 
-        with patch("contacts.tasks.send_whatsapp", return_value=(False, "Request timed out")):
+        with patch("contacts.tasks.send_whatsapp", return_value=(False, "Request timed out", "")):
             result = send_occasion_message.enqueue(settings.id, led.id, "birthday")
 
         self.assertEqual(result.status, TaskResultStatus.FAILED)
@@ -72,7 +72,7 @@ class SendOccasionMessageTests(TestCase):
         settings = make_settings(retail)
         led = make_customer(retail, "Asha", dob=date(1990, 7, 2))
 
-        with patch("contacts.tasks.send_whatsapp", return_value=(False, "Unknown provider: x")):
+        with patch("contacts.tasks.send_whatsapp", return_value=(False, "Unknown provider: x", "")):
             result = send_occasion_message.enqueue(settings.id, led.id, "birthday")
 
         self.assertEqual(result.status, TaskResultStatus.SUCCESSFUL)

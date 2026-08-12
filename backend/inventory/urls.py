@@ -73,6 +73,7 @@ urlpatterns = [
     path('api/catalog-shares/<int:pk>/', views.CatalogShareDelete.as_view(), name='catalog_share_delete'),
     path('api/catalog-share/<uuid:token>/', views.public_catalog, name='public_catalog'),
     path('api/catalog-share/<uuid:token>/pdf/', views.public_catalog_pdf, name='public_catalog_pdf'),
+    path('api/catalog-share/<uuid:token>/track/', views.public_catalog_track, name='public_catalog_track'),
     path('api/catalog/swap-candidates/', views.catalog_swap_candidates, name='catalog_swap_candidates'),
     path('api/catalog/<int:pk>/', views.catalog_detail, name='catalog_detail'),
     path('api/catalog/<int:pk>/simulate/', views.catalog_simulate, name='catalog_simulate'),

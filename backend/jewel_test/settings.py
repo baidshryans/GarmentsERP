@@ -90,6 +90,7 @@ EXTERNAL_APPS = [
     'vendor_analytics',
     'hr',
     'carryforward',
+    'customer_intel',
 ]
 
 INSTALLED_APPS = INSTALLED_APPS + EXTERNAL_APPS
@@ -214,6 +215,10 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '60/min',
         'customer_portal': config('PORTAL_THROTTLE_RATE', default='10/min'),
+        # Public inbound WhatsApp webhook. Meta bursts on retries, so this is
+        # sized to absorb a legitimate redelivery storm while still capping
+        # anyone who finds the URL.
+        'whatsapp_webhook': config('WHATSAPP_WEBHOOK_THROTTLE_RATE', default='240/min'),
     },
 }
 
@@ -223,6 +228,7 @@ REST_FRAMEWORK = {
 import sys as _sys  # noqa: E402
 if 'test' in _sys.argv:
     REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['customer_portal'] = '10000/min'
+    REST_FRAMEWORK['DEFAULT_THROTTLE_RATES']['whatsapp_webhook'] = '10000/min'
 
 
 # Database

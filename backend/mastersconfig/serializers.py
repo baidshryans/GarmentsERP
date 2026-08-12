@@ -374,16 +374,62 @@ class ExhibitionProfileSerializer(ModelSerializer):
 
 
 class CRMSettingsSerializer(ModelSerializer):
+    """
+    Provider configuration for outbound greetings and inbound replies.
+
+    Secrets (`api_key`, `app_secret`) are write-only: previously the access
+    token was echoed back in every GET, so anyone who could read the settings
+    page could lift the WhatsApp token. The UI shows whether a secret is set via
+    the `*_is_set` booleans and offers a replace field instead. Sending an empty
+    string leaves the stored value untouched, so saving the form without
+    retyping the secret does not wipe it.
+    """
+
+    api_key = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, max_length=600,
+    )
+    app_secret = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, max_length=200,
+    )
+    api_key_is_set = serializers.SerializerMethodField()
+    app_secret_is_set = serializers.SerializerMethodField()
+    webhook_path = serializers.SerializerMethodField()
+
     class Meta:
         model  = CRMSettings
         fields = [
             'id', 'retail', 'is_enabled', 'send_time', 'provider',
-            'api_key', 'phone_number_id',
+            'api_key', 'api_key_is_set', 'phone_number_id',
             'birthday_template_name', 'anniversary_template_name',
             'webhook_url', 'webhook_headers',
-            'last_send_date', 'last_run_status',
+            'inbound_enabled', 'webhook_verify_token',
+            'app_secret', 'app_secret_is_set', 'webhook_path',
+            'last_send_date', 'last_run_status', 'last_inbound_at',
         ]
-        read_only_fields = ('retail', 'last_send_date', 'last_run_status')
+        read_only_fields = (
+            'retail', 'last_send_date', 'last_run_status', 'last_inbound_at',
+        )
+
+    def get_api_key_is_set(self, obj):
+        return bool(obj.api_key)
+
+    def get_app_secret_is_set(self, obj):
+        return bool(obj.app_secret)
+
+    def get_webhook_path(self, obj):
+        """The per-retail inbound path to register with the provider."""
+        if not obj.inbound_enabled:
+            return ""
+        key = obj.ensure_inbound_url_key()
+        return f"/customer-intel/api/whatsapp/webhook/{key}/"
+
+    def update(self, instance, validated_data):
+        # A blank secret means "leave it alone", not "clear it" — otherwise
+        # saving any other field would silently break sending.
+        for secret in ('api_key', 'app_secret'):
+            if secret in validated_data and validated_data[secret] == "":
+                validated_data.pop(secret)
+        return super().update(instance, validated_data)
 
 
 class CRMSendLogSerializer(ModelSerializer):

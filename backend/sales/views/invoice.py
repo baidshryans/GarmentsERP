@@ -1881,99 +1881,18 @@ class CustomerPurchaseHistoryView(APIView):
     Returns all sales, returns, orders and approvals for a customer, sorted newest first.
     """
     def get(self, request):
-        from itertools import chain
+        from sales.services.customer_history import build_customer_history
 
         ledger_id = request.query_params.get('ledger_id')
-        from_date = request.query_params.get('from_date')
-        to_date   = request.query_params.get('to_date')
-        retail    = request.retail
-
         if not ledger_id:
             return Response({'error': 'ledger_id is required'}, status=400)
 
-        date_filter = {}
-        if from_date:
-            date_filter['date1__gte'] = from_date
-        if to_date:
-            date_filter['date1__lte'] = to_date
-
-        # ── Sales vouchers ──────────────────────────────────────────────────
-        # Note: taxable_value is a @property (mrp - discount), not a DB column.
-        sales = SalesVou.objects.filter(
-            ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
-
-        # ── Sale returns ────────────────────────────────────────────────────
-        returns = SaleReturn.objects.filter(
-            ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'billno', 'date1', 'mrp', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
-
-        # ── Customer orders ─────────────────────────────────────────────────
-        orders = CustomerOrder.objects.filter(
-            ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'order_no', 'date1', 'est_amount')
-
-        # ── Sales approvals ─────────────────────────────────────────────────
-        # SalesApproval has taxable_value as a real DB field (no mrp column)
-        approvals = SalesApproval.objects.filter(
-            ldgr_id=ledger_id, retail=retail, **date_filter
-        ).values('id', 'billno', 'date1', 'taxable_value', 'cgst_per', 'sgst_per', 'igst_per', 'discount')
-
-        def _bill_value(row):
-            """For SalesVou / SaleReturn: mrp is a real DB field, taxable = mrp - discount."""
-            mrp     = float(row.get('mrp') or 0)
-            disc    = float(row.get('discount') or 0)
-            taxable = mrp - disc
-            cgst    = taxable * float(row.get('cgst_per') or 0) / 100
-            sgst    = taxable * float(row.get('sgst_per') or 0) / 100
-            igst    = taxable * float(row.get('igst_per') or 0) / 100
-            return round(mrp, 2), round(cgst + sgst + igst, 2)
-
-        def _approval_bill_value(row):
-            """For SalesApproval: taxable_value is the real DB field (no mrp)."""
-            taxable = float(row.get('taxable_value') or 0)
-            disc    = float(row.get('discount') or 0)
-            base    = taxable - disc
-            cgst    = base * float(row.get('cgst_per') or 0) / 100
-            sgst    = base * float(row.get('sgst_per') or 0) / 100
-            igst    = base * float(row.get('igst_per') or 0) / 100
-            total   = round(base + cgst + sgst + igst, 2)
-            return total, round(cgst + sgst + igst, 2)
-
-        rows = []
-        for r in sales:
-            mrp, tax = _bill_value(r)
-            rows.append({'doc_type': 'Sale', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': mrp, 'tax': tax})
-        for r in returns:
-            mrp, tax = _bill_value(r)
-            rows.append({'doc_type': 'Return', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': mrp, 'tax': tax})
-        for r in orders:
-            rows.append({'doc_type': 'Order', 'doc_no': r['order_no'], 'date': str(r['date1']), 'id': r['id'], 'amount': float(r['est_amount'] or 0), 'tax': 0})
-        for r in approvals:
-            amt, tax = _approval_bill_value(r)
-            rows.append({'doc_type': 'Approval', 'doc_no': r['billno'], 'date': str(r['date1']), 'id': r['id'], 'amount': amt, 'tax': tax})
-
-        rows.sort(key=lambda x: x['date'], reverse=True)
-
-        total_sales   = sum(r['amount'] for r in rows if r['doc_type'] == 'Sale')
-        total_returns = sum(r['amount'] for r in rows if r['doc_type'] == 'Return')
-
-        try:
-            ledger = Ledger.objects.get(pk=ledger_id)
-            ledger_info = {'id': ledger.id, 'ac_name': ledger.ac_name, 'gst': ledger.gst or '', 'mobile': ledger.mobile1 or ''}
-        except Ledger.DoesNotExist:
-            ledger_info = {}
-
-        return Response({
-            'ledger': ledger_info,
-            'summary': {
-                'total_sales': round(total_sales, 2),
-                'total_returns': round(total_returns, 2),
-                'net': round(total_sales - total_returns, 2),
-                'order_count': sum(1 for r in rows if r['doc_type'] == 'Order'),
-            },
-            'transactions': rows,
-        })
+        return Response(build_customer_history(
+            retail=request.retail,
+            ledger_id=ledger_id,
+            from_date=request.query_params.get('from_date'),
+            to_date=request.query_params.get('to_date'),
+        ))
 
 
 # ── Cheque Management ──────────────────────────────────────────────────────────

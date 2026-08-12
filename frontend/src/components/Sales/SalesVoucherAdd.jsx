@@ -7,6 +7,7 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useActiveFiscalYear } from "@/hooks/useActiveFiscalYear";
+import ProfileCapturePrompt from "@/components/CRM/Customer360/ProfileCapturePrompt";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useF4Submit } from "@/hooks/useF4Submit";
@@ -1254,6 +1255,12 @@ const SalesVoucherAdd = () => {
 
           {/* Party Name with ledger lookup */}
           <div>
+          {/* Nudge staff to capture DOB/anniversary while the customer is here —
+              the only moment these actually get filled in. Non-blocking. */}
+          <ProfileCapturePrompt
+            ledgerId={watch("form.ldgr")}
+            ledgerName={watch("form.ldgr_name")}
+          />
           <FieldContainer>
             <Label className="text-nowrap">Party Name</Label>
             <div className="relative">

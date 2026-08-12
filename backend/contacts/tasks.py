@@ -47,16 +47,56 @@ def send_occasion_message(crm_settings_id, ledger_id, occasion):
         return
 
     message = build_message(ldgr.ac_name, occasion, retail.retail_name)
-    success, error = send_whatsapp(mobile, message, ldgr.ac_name, occasion, crm_settings)
+    success, error, provider_msg_id = send_whatsapp(
+        mobile, message, ldgr.ac_name, occasion, crm_settings,
+    )
 
     CRMSendLog.objects.create(
         retail=retail, ledger_id=ldgr.id, customer_name=ldgr.ac_name,
         mobile=mobile, occasion=occasion,
         status="success" if success else "failed", error_message=error or "",
     )
+    # Dual-write into the Customer 360 timeline. CRMSendLog stays authoritative
+    # for now; retiring it is deferred until this has run for a release.
+    _log_engagement(retail, ldgr, occasion, mobile, message, success, error,
+                    provider_msg_id, crm_settings.provider)
 
     if not success and any(marker in (error or "") for marker in TRANSIENT_MARKERS):
         raise TransientSendError(error)
+
+
+def _log_engagement(retail, ldgr, occasion, mobile, message, success, error,
+                    provider_msg_id, provider):
+    """
+    Mirror an occasion send onto the engagement timeline.
+
+    Wrapped in try/except on purpose: the timeline is a reporting surface, and
+    a failure to record history must never turn a delivered message into a
+    retried one.
+    """
+    try:
+        from django.utils import timezone
+
+        from customer_intel.models import EngagementEvent
+
+        EngagementEvent.objects.create(
+            retail=retail,
+            ledger=ldgr,
+            channel="whatsapp",
+            direction="out",
+            event_type=f"occasion_{occasion}" if occasion else "occasion",
+            subject=(occasion or "").title(),
+            body=message,
+            status="sent" if success else "failed",
+            error_message=(error or "")[:500],
+            to_address=mobile,
+            provider=provider or "",
+            provider_msg_id=provider_msg_id or "",
+            occurred_at=timezone.now(),
+        )
+    except Exception:
+        logger.warning("could not mirror occasion send to the timeline",
+                       exc_info=True)
 
 
 @task()

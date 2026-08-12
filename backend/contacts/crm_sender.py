@@ -77,7 +77,9 @@ def send_occasions_for_retail(crm_settings):
                 continue
 
             message = build_message(ldgr.ac_name, occasion, retail_name)
-            success, error = send_whatsapp(mobile, message, ldgr.ac_name, occasion, crm_settings)
+            success, error, _msg_id = send_whatsapp(
+                mobile, message, ldgr.ac_name, occasion, crm_settings,
+            )
 
             CRMSendLog.objects.create(
                 retail=retail,

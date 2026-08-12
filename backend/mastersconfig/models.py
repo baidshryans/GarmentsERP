@@ -893,12 +893,31 @@ class CRMSettings(models.Model):
     anniversary_template_name= models.CharField(max_length=100, default='anniversary_wishes')
     webhook_url              = models.CharField(max_length=500, blank=True, help_text="WATI server URL or generic webhook endpoint")
     webhook_headers          = models.JSONField(default=dict, blank=True, help_text="Extra HTTP headers as JSON object")
+
+    # ── Inbound / two-way messaging ────────────────────────────────────────
+    # A single shared webhook URL cannot tell which retail a payload belongs
+    # to, so each retail gets its own random path segment.
+    inbound_enabled          = models.BooleanField(default=False, help_text="Accept inbound replies and delivery receipts")
+    webhook_verify_token     = models.CharField(max_length=100, blank=True, help_text="Meta: hub.verify_token used during webhook setup")
+    app_secret               = models.CharField(max_length=200, blank=True, help_text="Meta: app secret, used to verify X-Hub-Signature-256")
+    inbound_url_key          = models.CharField(max_length=40, blank=True, null=True, unique=True, db_index=True, help_text="Random path segment identifying this retail's webhook")
+
     # Runtime state
     last_send_date           = models.DateField(null=True, blank=True)
     last_run_status          = models.CharField(max_length=500, blank=True)
+    last_inbound_at          = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'crm_settings'
+
+    def ensure_inbound_url_key(self):
+        """Mint the per-retail webhook path segment on first use."""
+        if not self.inbound_url_key:
+            import secrets
+
+            self.inbound_url_key = secrets.token_urlsafe(24)[:40]
+            self.save(update_fields=["inbound_url_key"])
+        return self.inbound_url_key
 
     def __str__(self):
         return f"CRM Settings — {self.retail.retail_name}"

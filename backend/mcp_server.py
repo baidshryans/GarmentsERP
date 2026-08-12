@@ -90,33 +90,14 @@ def _sales_exprs():
     """
     Database expressions for SalesVou monetary values.
 
-    SalesVou has no stored bill_value/GST-amount columns — they are derived from
-    mrp, discount, the per-cent GST rates and round_off (see the model's
-    total_bill_value / cgst_amt properties). These ORM expressions mirror that
-    formula so we can Sum/Avg/group in the database.
-
-    Returns a dict of ExpressionWrapper objects: taxable, cgst, sgst, igst, bill.
+    Thin wrapper over sales.expressions.sales_exprs(), which is the single
+    definition shared with customer_intel and anything else that needs to
+    aggregate bill values in SQL. Imported lazily because this module is
+    imported before django.setup() in some entry paths.
     """
-    from django.db.models import F, Value, DecimalField, ExpressionWrapper
-    from django.db.models.functions import Coalesce
+    from sales.expressions import sales_exprs
 
-    dec = DecimalField(max_digits=20, decimal_places=4)
-    z = Value(0, output_field=dec)
-    hundred = Value(100, output_field=dec)
-
-    taxable = Coalesce(F("mrp"), z) - Coalesce(F("discount"), z)
-    cgst = taxable * Coalesce(F("cgst_per"), z) / hundred
-    sgst = taxable * Coalesce(F("sgst_per"), z) / hundred
-    igst = taxable * Coalesce(F("igst_per"), z) / hundred
-    bill = taxable + cgst + sgst + igst + Coalesce(F("round_off"), z)
-
-    return {
-        "taxable": ExpressionWrapper(taxable, output_field=dec),
-        "cgst": ExpressionWrapper(cgst, output_field=dec),
-        "sgst": ExpressionWrapper(sgst, output_field=dec),
-        "igst": ExpressionWrapper(igst, output_field=dec),
-        "bill": ExpressionWrapper(bill, output_field=dec),
-    }
+    return sales_exprs()
 
 
 # Ledger account-groups that represent liquid funds (cash & bank).

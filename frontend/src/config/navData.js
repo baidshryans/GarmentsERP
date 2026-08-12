@@ -13,6 +13,10 @@ import {
   Gem,
   Hammer,
   Heart,
+  UserSearch,
+  Filter,
+  Megaphone,
+  PhoneCall,
   History,
   LayoutDashboard,
   Monitor,
@@ -89,6 +93,14 @@ export const navData = {
   // ── CRM Occasions (addon) ─────────────────────────────────────────────────
   navCRMOccasions: [
     { title: "Birthday & Anniversary", url: "/crm/occasions", icon: Heart    },
+  ],
+
+  // ── Customer 360 (addon) ──────────────────────────────────────────────────
+  navCustomer360: [
+    { title: "Today's Calls", url: "/crm/worklist", icon: PhoneCall, module: "customer_intel.customerprofilesnapshot" },
+    { title: "Customers", url: "/crm/customers", icon: UserSearch, module: "customer_intel.customerprofilesnapshot" },
+    { title: "Segments",  url: "/crm/segments",  icon: Filter,     module: "customer_intel.segment" },
+    { title: "Campaigns", url: "/crm/campaigns", icon: Megaphone,  module: "customer_intel.campaign" },
   ],
 
   // ── Manufacturing ──────────────────────────────────────────────────────────
@@ -356,7 +368,8 @@ export const navData = {
 export const navSections = [
   { label: "Setup",                parts: [{ key: "navMain0",          items: navData.navMain0 }] },
   { label: "CRM",                  parts: [{ key: "navCRM",            items: navData.navCRM },
-                                           { key: "navCRMOccasions",   items: navData.navCRMOccasions }] },
+                                           { key: "navCRMOccasions",   items: navData.navCRMOccasions },
+                                           { key: "navCustomer360",    items: navData.navCustomer360 }] },
   { label: "Manufacturing",        parts: [{ key: "navMain",           items: navData.navMain }] },
   { label: "Purchases",            parts: [{ key: "navPurchases",      items: navData.navPurchases }] },
   { label: "Sales",                parts: [{ key: "navMain2",          items: navData.navMain2 }] },

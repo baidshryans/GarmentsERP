@@ -25,7 +25,7 @@ class RunDueCrmTests(TestCase):
         make_customer(retail, "Asha", dob=date(1990, 7, 2))
         today = date(2026, 7, 2)
 
-        with patch("contacts.tasks.send_whatsapp", return_value=(True, "")) as m, \
+        with patch("contacts.tasks.send_whatsapp", return_value=(True, "", "wamid.TEST")) as m, \
              patch(CMD + "._today", return_value=today), \
              patch(CMD + "._now_time", return_value=time(9, 0)):
             call_command("run_due_crm")
@@ -40,7 +40,7 @@ class RunDueCrmTests(TestCase):
         self._settings(retail, last_send_date=today)
         make_customer(retail, "Asha", dob=date(1990, 7, 2))
 
-        with patch("contacts.tasks.send_whatsapp", return_value=(True, "")) as m, \
+        with patch("contacts.tasks.send_whatsapp", return_value=(True, "", "wamid.TEST")) as m, \
              patch(CMD + "._today", return_value=today), \
              patch(CMD + "._now_time", return_value=time(9, 0)):
             call_command("run_due_crm")
@@ -53,7 +53,7 @@ class RunDueCrmTests(TestCase):
         self._settings(retail, send_time=time(9, 0))
         make_customer(retail, "Asha", dob=date(1990, 7, 2))
 
-        with patch("contacts.tasks.send_whatsapp", return_value=(True, "")) as m, \
+        with patch("contacts.tasks.send_whatsapp", return_value=(True, "", "wamid.TEST")) as m, \
              patch(CMD + "._today", return_value=today), \
              patch(CMD + "._now_time", return_value=time(10, 30)):
             call_command("run_due_crm")

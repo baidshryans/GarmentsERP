@@ -89,7 +89,14 @@ export default function CRMAutomation() {
     anniversary_template_name: "anniversary_wishes",
     webhook_url: "",
     webhook_headers: "",
+    inbound_enabled: false,
+    webhook_verify_token: "",
+    app_secret: "",
   });
+  // Secrets are write-only on the API — we only learn whether one is stored.
+  const [secretsSet, setSecretsSet] = useState({ api_key: false, app_secret: false });
+  const [webhookPath, setWebhookPath] = useState("");
+  const [lastInboundAt, setLastInboundAt] = useState(null);
   const [lastSendDate, setLastSendDate]     = useState(null);
   const [lastRunStatus, setLastRunStatus]   = useState("");
   const [saving,     setSaving]   = useState(false);
@@ -106,7 +113,7 @@ export default function CRMAutomation() {
         is_enabled:                d.is_enabled ?? false,
         send_time:                 d.send_time ?? "09:00",
         provider:                  d.provider ?? "webhook",
-        api_key:                   d.api_key ?? "",
+        api_key:                   "",   // write-only; never returned
         phone_number_id:           d.phone_number_id ?? "",
         birthday_template_name:    d.birthday_template_name ?? "birthday_wishes",
         anniversary_template_name: d.anniversary_template_name ?? "anniversary_wishes",
@@ -114,7 +121,16 @@ export default function CRMAutomation() {
         webhook_headers:           typeof d.webhook_headers === "object"
           ? JSON.stringify(d.webhook_headers, null, 2)
           : (d.webhook_headers ?? ""),
+        inbound_enabled:           d.inbound_enabled ?? false,
+        webhook_verify_token:      d.webhook_verify_token ?? "",
+        app_secret:                "",   // write-only; never returned
       });
+      setSecretsSet({
+        api_key: Boolean(d.api_key_is_set),
+        app_secret: Boolean(d.app_secret_is_set),
+      });
+      setWebhookPath(d.webhook_path || "");
+      setLastInboundAt(d.last_inbound_at || null);
       setLastSendDate(d.last_send_date);
       setLastRunStatus(d.last_run_status);
     }
@@ -198,8 +214,9 @@ export default function CRMAutomation() {
       {/* Tab bar */}
       <div className="flex gap-1 border-b">
         {[
-          { id: "config", label: "Configuration", icon: Settings2 },
-          { id: "logs",   label: "Send Log",       icon: BookOpen  },
+          { id: "config",  label: "Configuration", icon: Settings2 },
+          { id: "inbound", label: "Two-way",       icon: MessageCircle },
+          { id: "logs",    label: "Send Log",      icon: BookOpen  },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -301,14 +318,25 @@ export default function CRMAutomation() {
             <div className="flex flex-col gap-1">
               <Label className="text-xs">
                 {form.provider === "meta" ? "Permanent Access Token" : "API Key / Access Token"}
+                {secretsSet.api_key && (
+                  <span className="ml-2 text-green-600">•••••• stored</span>
+                )}
               </Label>
               <Input
                 type="password"
-                placeholder="Paste your API key or access token"
+                placeholder={secretsSet.api_key
+                  ? "Leave blank to keep the current token"
+                  : "Paste your API key or access token"}
                 value={form.api_key}
                 onChange={e => handleChange("api_key", e.target.value)}
-                autoComplete="off"
+                autoComplete="new-password"
               />
+              {secretsSet.api_key && (
+                <p className="text-xs text-muted-foreground">
+                  The stored token is never sent back to the browser. Type a new
+                  one only if you want to replace it.
+                </p>
+              )}
             </div>
 
             {showPhoneNumberId && (
@@ -397,6 +425,120 @@ export default function CRMAutomation() {
             <p className="text-xs text-muted-foreground">
               "Send Now" immediately sends today's occasion messages, ignoring the scheduled time. Use for testing.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Two-way / Inbound Tab ── */}
+      {tab === "inbound" && (
+        <div className="space-y-6">
+          <div className="rounded-lg border p-4 space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-medium">Receive replies and delivery receipts</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Lets customer replies land on the customer timeline, marks
+                  messages as delivered or read, and honours a “STOP” reply as an
+                  immediate opt-out.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm shrink-0">
+                <input
+                  type="checkbox"
+                  checked={form.inbound_enabled}
+                  onChange={e => handleChange("inbound_enabled", e.target.checked)}
+                  className="size-4"
+                />
+                Enabled
+              </label>
+            </div>
+
+            {form.inbound_enabled && (
+              <>
+                <div className="rounded border bg-muted/40 p-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Callback URL — paste this into the provider's webhook setup
+                  </p>
+                  {webhookPath ? (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <code className="flex-1 break-all rounded bg-background px-2 py-1.5 text-xs">
+                        {window.location.origin.replace(/:\d+$/, "")}{webhookPath}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(
+                            window.location.origin.replace(/:\d+$/, "") + webhookPath
+                          );
+                          toast({ title: "Callback URL copied" });
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Save with “Enabled” ticked to generate this branch's unique URL.
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    The URL must be reachable from the public internet, and each
+                    branch has its own — a shared URL cannot tell which branch a
+                    message belongs to.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Verify token</Label>
+                    <Input
+                      value={form.webhook_verify_token}
+                      onChange={e => handleChange("webhook_verify_token", e.target.value)}
+                      placeholder="Any random string you also paste into Meta"
+                      className="mt-1"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Meta echoes this back once, during webhook setup.
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs">
+                      App secret
+                      {secretsSet.app_secret && (
+                        <span className="ml-2 text-green-600">•••••• stored</span>
+                      )}
+                    </Label>
+                    <Input
+                      type="password"
+                      value={form.app_secret}
+                      onChange={e => handleChange("app_secret", e.target.value)}
+                      placeholder={secretsSet.app_secret ? "Leave blank to keep the current secret" : "From your Meta app settings"}
+                      className="mt-1"
+                      autoComplete="new-password"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Every incoming request is checked against this signature.
+                      Without it, nothing is accepted.
+                    </p>
+                  </div>
+                </div>
+
+                {lastInboundAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Last inbound message received {new Date(lastInboundAt).toLocaleString("en-IN")}.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSave} disabled={saving} className="gap-1.5">
+              {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+              {saving ? "Saving…" : "Save"}
+            </Button>
           </div>
         </div>
       )}

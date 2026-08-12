@@ -3077,6 +3077,22 @@ def _get_active_share(token):
     return sh
 
 
+def _track_catalog(request, share, kind, design_id=None, page=None):
+    """
+    Record a catalog interaction, if the Customer 360 app is installed.
+
+    Deliberately swallows everything: this is analytics hanging off a public,
+    customer-facing page. A tracking failure must never turn into a 500 for
+    someone browsing jewellery.
+    """
+    try:
+        from customer_intel.services.catalog_tracking import track
+
+        return track(request, share, kind, design_id=design_id, page=page)
+    except Exception:
+        return None
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def public_catalog(request, token):
@@ -3088,6 +3104,9 @@ def public_catalog(request, token):
     if not sh:
         return Response({"error": "This catalog link is no longer available."},
                         status=status.HTTP_404_NOT_FOUND)
+
+    # Best-effort intent tracking — never allowed to break the public page.
+    _track_catalog(request, sh, "open")
 
     sh_filters = sh.filters or {}
     qs = _apply_catalog_filters(_base_design_qs(sh.retail), sh_filters.get)
@@ -3131,6 +3150,8 @@ def public_catalog_pdf(request, token):
     if not sh:
         return Response({"error": "This catalog link is no longer available."},
                         status=status.HTTP_404_NOT_FOUND)
+
+    _track_catalog(request, sh, "pdf")
 
     fmt = request.GET.get("fmt", "summary")
     if fmt not in ("summary", "detailed", "quotation"):
@@ -4080,3 +4101,47 @@ class UnbarcodedStockReportView(APIView):
                 'count': len(rows),
             },
         })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def public_catalog_track(request, token):
+    """
+    Record that a visitor opened a specific design in a shared catalog.
+
+    Called from the public catalog page when a design card is expanded. This is
+    the "which designs did they actually look at" signal that feeds the customer
+    profile and the daily worklist.
+
+    The customer is always derived server-side from the share; a body-supplied
+    ledger id is never trusted. Always returns 200 — a tracking endpoint that
+    errors would produce console noise on a customer-facing page for no reason.
+    """
+    sh = _get_active_share(token)
+    if not sh:
+        return Response({"status": "ignored"}, status=status.HTTP_200_OK)
+
+    kind = request.data.get("kind", "design")
+    if kind not in ("design", "page", "enquiry"):
+        kind = "design"
+
+    design_id = request.data.get("design_id")
+    if design_id is not None:
+        try:
+            design_id = int(design_id)
+        except (TypeError, ValueError):
+            design_id = None
+        # Only accept a design that actually belongs to this share's retail.
+        if design_id is not None and not DesignMain.objects.filter(
+            id=design_id, retail=sh.retail,
+        ).exists():
+            design_id = None
+
+    page = request.data.get("page")
+    try:
+        page = int(page) if page is not None else None
+    except (TypeError, ValueError):
+        page = None
+
+    _track_catalog(request, sh, kind, design_id=design_id, page=page)
+    return Response({"status": "ok"}, status=status.HTTP_200_OK)

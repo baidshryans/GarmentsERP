@@ -67,7 +67,7 @@ def _messages_for(request, exc):
 class SettingsForm(forms.ModelForm):
     class Meta:
         model = Company
-        fields = ["valuation_method", "allow_negative_stock", "po_approval_limit"]
+        fields = ["valuation_method", "allow_negative_stock", "po_approval_limit", "bom_tolerance_pct"]
         widgets = {"valuation_method": forms.RadioSelect}
 
 

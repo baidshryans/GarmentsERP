@@ -25,6 +25,14 @@ THREE = Decimal("0.001")
 ZERO = Decimal("0.00")
 T = StockMovement.Type
 
+# Pieces (SKUs) in these places are work in progress: only the quantity is tracked here, the money sits in the
+# lot's cost entries and the WIP ledger (Step 4). They never take part in a finished-goods average cost.
+QTY_ONLY_TYPES = ("cutting", "process", "fabricator", "rejects")
+
+
+def is_quantity_only(item, location) -> bool:
+    return isinstance(item, SKU) and location.loc_type in QTY_ONLY_TYPES
+
 
 def item_kwargs(item):
     if isinstance(item, Material):
@@ -65,7 +73,10 @@ def _money(value, what="Value") -> Decimal:
 
 def on_hand(factory, item):
     """(qty, value) of an item across all locations of a factory."""
-    agg = StockBalance.objects.filter(factory=factory, **item_kwargs(item)).aggregate(q=Sum("qty"), v=Sum("value"))
+    qs = StockBalance.objects.filter(factory=factory, **item_kwargs(item))
+    if isinstance(item, SKU):
+        qs = qs.exclude(location__loc_type__in=QTY_ONLY_TYPES)
+    agg = qs.aggregate(q=Sum("qty"), v=Sum("value"))
     return q3(agg["q"]), q2(agg["v"])
 
 
@@ -97,7 +108,7 @@ def _apply(model, pk, d_qty, d_value, *, floor, error):
 
 @transaction.atomic
 def post_movement(*, factory, location, item, qty, movement_type, date, user, source=None, voucher=None,
-                  roll=None, rate=None, value=None, notes="", enforce_scope=True) -> StockMovement:
+                  roll=None, rate=None, value=None, notes="", enforce_scope=True, bundle=None, lot=None) -> StockMovement:
     """Record one movement. qty is signed (+ in, - out).
 
     Inbound needs `value` or `rate` (value = qty x rate). Outbound is valued by the company's method
@@ -121,7 +132,12 @@ def post_movement(*, factory, location, item, qty, movement_type, date, user, so
             raise StockError(f"Roll {roll.label_code} is not a roll of {item}.")
 
     method = company.valuation_method
-    if is_reval:
+    qty_only = is_quantity_only(item, location)
+    if qty_only:
+        if is_reval or (value is not None and Decimal(value) != 0) or (rate is not None and Decimal(rate) != 0):
+            raise StockError("Work in progress is tracked by quantity here; its value sits in the lot's cost.")
+        signed_value = ZERO
+    elif is_reval:
         if value is None:
             raise StockError("A value adjustment needs a value.")
         signed_value = _money(value)
@@ -162,7 +178,7 @@ def post_movement(*, factory, location, item, qty, movement_type, date, user, so
 
     return StockMovement.objects.create(
         factory=factory, location=location, roll=roll, movement_type=movement_type, qty=qty,
-        value=signed_value, date=date, source_type=source._meta.label_lower if source is not None else "",
+        value=signed_value, date=date, bundle=bundle, lot=lot, source_type=source._meta.label_lower if source is not None else "",
         source_id=source.pk if source is not None else None, voucher=voucher, notes=notes, created_by=user, **kw,
     )
 

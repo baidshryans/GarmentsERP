@@ -11,6 +11,7 @@
           <div class="help">Weighted average values every issue at the item's average cost. Specific roll cost values fabric issued from a roll at that roll's own cost; trims, packing and finished goods always use weighted average. Changing it affects movements from now on; earlier stock keeps its value.</div></div>
         {% include "partials/field.html" with field=form.allow_negative_stock %}
         {% include "partials/field.html" with field=form.po_approval_limit %}
+        {% include "partials/field.html" with field=form.bom_tolerance_pct %}
         {% if can_edit %}<button class="btn primary">Save settings</button>{% endif %}
       </form>
     </div>

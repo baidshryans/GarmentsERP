@@ -32,6 +32,10 @@ class Company(models.Model):
     allow_negative_stock = models.BooleanField(
         default=False, help_text="When off, an issue above the stock on hand is blocked (BR-02, BR-09)"
     )
+    bom_tolerance_pct = models.DecimalField(
+        "BOM variance tolerance %", max_digits=5, decimal_places=2, default=5,
+        help_text="Fabric used beyond this many percent over or under the BOM is flagged (BR-10)",
+    )
     po_approval_limit = models.DecimalField(
         max_digits=14, decimal_places=2, default=50000,
         help_text="A purchase order above this value needs the owner's approval (BR-19). 0 = every PO needs approval.",
@@ -122,10 +126,16 @@ class Location(models.Model):
         SHOWROOM = "showroom", "Showroom"
         DISPATCH = "dispatch", "Dispatch"
         TRANSIT = "transit", "In transit"
+        FABRICATOR = "fabricator", "At a fabricator / subcontractor"
+        REJECTS = "rejects", "Rejects"
 
     factory = models.ForeignKey(Factory, on_delete=models.PROTECT, related_name="locations")
     name = models.CharField(max_length=100)
     loc_type = models.CharField(max_length=10, choices=Type.choices)
+    party = models.ForeignKey(
+        "masters.Party", on_delete=models.PROTECT, null=True, blank=True, related_name="locations",
+        help_text="For a fabricator's premises: whose it is",
+    )
     is_active = models.BooleanField(default=True)
 
     history = HistoricalRecords()

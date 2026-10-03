@@ -90,6 +90,8 @@ LEDGERS = [
     ("IGST RCM Payable", "Duties and Taxes", "igst_rcm", False),
     ("Inter-Factory Receivable", "Loans and Advances", "interfactory_receivable", False),
     ("Inter-Factory Payable", "Current Liabilities", "interfactory_payable", False),
+    ("Labour Absorbed (WIP)", "Direct Expenses", "labour_absorbed", False),
+    ("WIP Written Off", "Direct Expenses", "wip_written_off", False),
     ("Profit & Loss A/c", "Reserves", "profit_loss", False),
     ("Opening Balance Difference", "Capital", "opening_difference", False),
 ]

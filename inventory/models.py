@@ -114,11 +114,15 @@ class StockMovement(FactoryScopedModel):
         REVALUATION = "revaluation", "Value adjustment"
         ADJUSTMENT = "adjustment", "Adjustment"
         REVERSAL = "reversal", "Reversal"
+        PRODUCTION = "production", "Production output"
+        LOSS = "loss", "Loss / write-off"
 
     location = models.ForeignKey("core.Location", on_delete=models.PROTECT, related_name="+")
     material = models.ForeignKey("masters.Material", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     sku = models.ForeignKey("masters.SKU", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     roll = models.ForeignKey(FabricRoll, on_delete=models.PROTECT, null=True, blank=True, related_name="movements")
+    bundle = models.ForeignKey("production.Bundle", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    lot = models.ForeignKey("production.Lot", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     movement_type = models.CharField(max_length=14, choices=Type.choices)
     qty = models.DecimalField(max_digits=16, decimal_places=3, help_text="Signed: positive in, negative out")
     value = models.DecimalField(max_digits=18, decimal_places=2, help_text="Signed like qty")

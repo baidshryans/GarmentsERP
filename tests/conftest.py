@@ -47,6 +47,7 @@ def _stock_reconciles(check_gl=True):
     for bal in StockBalance.objects.filter(material__kind="fabric"):
         agg = RollBalance.objects.filter(location=bal.location, roll__material=bal.material).aggregate(q=Sum("qty"), v=Sum("value"))
         assert (q2(agg["q"]), q2(agg["v"])) == (bal.qty.quantize(Decimal("0.01")), bal.value), "Rolls do not add up to the item"
+    _production_reconciles(check_gl)
     for f in Factory.objects.all() if check_gl else []:
         for key, field in (("stock_raw_material", "material"), ("stock_finished", "sku")):
             held = StockBalance.objects.filter(factory=f, **{f"{field}__isnull": False}).aggregate(v=Sum("value"))["v"]
@@ -109,3 +110,24 @@ def ledgers(company):
         return Ledger.objects.get(company=company, system_key=key)
 
     return get
+
+
+def _production_reconciles(check_gl):
+    """Pieces in bundles equal the WIP stock quantities, and each factory's lot cost equals its WIP ledger."""
+    from inventory.models import StockBalance
+    from inventory.services.stock import QTY_ONLY_TYPES
+    from production.models import Bundle
+    from production.services.costing import check_wip_reconciles
+
+    wip_types = [t for t in QTY_ONLY_TYPES if t != "rejects"]
+    held = {}
+    for b in Bundle.objects.filter(status__in=Bundle.LIVE):
+        held[(b.location_id, b.sku_id)] = held.get((b.location_id, b.sku_id), 0) + b.qty
+    for bal in StockBalance.objects.filter(sku__isnull=False, location__loc_type__in=wip_types):
+        assert int(bal.qty) == held.pop((bal.location_id, bal.sku_id), 0), f"Bundles and WIP stock differ at {bal.location}"
+    assert not held, f"Bundles with no WIP stock record: {held}"
+    if check_gl:
+        from core.models import Company
+
+        for company in Company.objects.all():
+            assert not check_wip_reconciles(company), "Lot cost differs from the WIP ledger"

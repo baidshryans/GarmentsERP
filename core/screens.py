@@ -34,6 +34,18 @@ SCREENS = {
     "inventory.opening": "Opening stock",
     "inventory.labels": "Labels and tags",
     "inventory.settings": "Inventory and purchase settings",
+    "production.order": "Production orders",
+    "production.lot": "Lots and route planning",
+    "production.cutting": "Fabric issue and cutting",
+    "production.bundle": "Bundles and QR tags",
+    "production.move": "Move bundles between stages",
+    "production.dashboard": "Production dashboard and tracking",
+    "jobwork.challan": "Job work challans",
+    "jobwork.receipt": "Job work receipts",
+    "jobwork.qc": "QC of received work",
+    "jobwork.rate": "Labour rates",
+    "jobwork.bill": "Labour bills",
+    "jobwork.report": "Fabricator ledger and reports",
 }
 
 

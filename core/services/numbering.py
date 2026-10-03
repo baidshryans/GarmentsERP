@@ -28,6 +28,12 @@ DEFAULT_PREFIXES = {
     "purchase_invoice": "PI",
     "stock_transfer": "STF",
     "opening_stock": "OST",
+    "production_order": "PRO",
+    "lot": "LOT",
+    "challan": "JWC",
+    "jw_receipt": "JWR",
+    "labour_bill": "LB",
+    "fabric_issue": "FIS",
 }
 
 

@@ -37,6 +37,7 @@ NAV = [
         ("roll_list", "Fabric rolls", "inventory.stock"),
         ("transfer_list", "Transfers", "inventory.transfer"),
         ("opening_stock", "Opening stock", "inventory.opening"),
+        ("journal_list", "Stock journal", "inventory.journal"),
         ("tag_print", "Print tags", "inventory.labels"),
         ("reorder_levels", "Reorder levels", "inventory.reorder"),
         ("stock_alerts", "Low-stock alerts", "inventory.alerts"),

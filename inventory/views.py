@@ -15,8 +15,11 @@ from core.scoping import ScreenPermissionMixin
 from masters.models import SKU, Material, Party, Style
 
 from . import barcode
-from .models import FabricRoll, OpeningStock, ReorderLevel, RollBalance, StockAlert, StockBalance, StockTransfer
+from .models import (
+    FabricRoll, OpeningStock, ReorderLevel, RollBalance, StockAlert, StockBalance, StockJournal, StockJournalLine, StockTransfer,
+)
 from .services import alerts as alert_service
+from .services import journal as journal_service
 from .services import opening as opening_service
 from .services import transfers
 
@@ -214,6 +217,82 @@ class TagPrint(LoginRequiredMixin, ScreenPermissionMixin, View):
             "labels": labels, "kind": "sku", "layout": request.POST.get("layout", "thermal2"), "layouts": LAYOUTS,
             "show_mrp": True,
         })
+
+
+# ---------------------------------------------------------------- stock journal (E9.2)
+
+class JournalList(LoginRequiredMixin, ScreenPermissionMixin, View):
+    screen_code = "inventory.journal"
+
+    def get(self, request):
+        qs = StockJournal.objects.for_user(request.user).select_related("factory", "location")
+        return render(request, "inventory/journal_list.html", {
+            "journals": qs[:200], "can_create": request.user.has_screen_perm("inventory.journal", "create")})
+
+
+class JournalNew(LoginRequiredMixin, ScreenPermissionMixin, View):
+    screen_code = "inventory.journal"
+    screen_action = "create"
+
+    def _ctx(self, request, rows=None, data=None):
+        mats, skus = item_choices()
+        rolls = RollBalance.objects.for_user(request.user).filter(qty__gt=0).select_related("roll__material", "location")
+        return {"factories": Factory.objects.for_user(request.user).filter(is_active=True),
+                "locations": Location.objects.filter(factory__is_active=True, is_active=True).select_related("factory"),
+                "mats": mats, "skus": skus, "rolls": rolls, "rows": rows or [{}, {}, {}, {}], "d": data or {},
+                "reasons": StockJournal.Reason.choices}
+
+    def get(self, request):
+        return render(request, "inventory/journal_form.html", self._ctx(request))
+
+    def post(self, request):
+        p = request.POST
+        rows, specs = [], []
+        try:
+            for i, value in enumerate(p.getlist("item")):
+                row = {k: p.getlist(k)[i] for k in ("direction", "roll", "new_roll_no", "qty", "rate")} | {"item": value}
+                rows.append(row)
+                if not value:
+                    continue
+                rate = _decimal(row["rate"], "Rate") if row["rate"].strip() else None
+                roll = get_object_or_404(FabricRoll, pk=int(row["roll"])) if row["roll"] else None
+                specs.append(journal_service.JournalLineSpec(
+                    direction=row["direction"], item=parse_item(value), qty=_decimal(row["qty"], "Quantity"), rate=rate, roll=roll,
+                    new_roll_no=row["new_roll_no"]))
+            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=p.get("factory"))
+            j = journal_service.post_journal(
+                company=_company(), factory=factory, location=get_object_or_404(Location, pk=p.get("location")),
+                date=date.fromisoformat(p.get("date")), reason=p.get("reason", ""), lines=specs, user=request.user,
+                remarks=p.get("remarks", ""))
+        except (ValueError, BusinessRuleError) as exc:
+            _messages_for(request, exc)
+            return render(request, "inventory/journal_form.html", self._ctx(request, rows, p))
+        messages.success(request, f"Stock journal {j.number} posted.")
+        return redirect("journal_detail", pk=j.pk)
+
+
+class JournalDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
+    screen_code = "inventory.journal"
+
+    def _j(self, request, pk):
+        return get_object_or_404(StockJournal.objects.for_user(request.user).select_related("factory", "location", "voucher"), pk=pk)
+
+    def get(self, request, pk):
+        j = self._j(request, pk)
+        return render(request, "inventory/journal_detail.html", {
+            "j": j, "lines": j.lines.select_related("material", "sku__style", "sku__colour", "sku__size", "roll"),
+            "can_cancel": request.user.has_screen_perm("inventory.journal", "cancel")})
+
+    def post(self, request, pk):
+        j = self._j(request, pk)
+        if not request.user.has_screen_perm("inventory.journal", "cancel"):
+            raise PermissionDenied
+        try:
+            journal_service.cancel_journal(j, user=request.user, reason=request.POST.get("reason", ""))
+            messages.success(request, "Stock journal cancelled; the stock is back as it was.")
+        except BusinessRuleError as exc:
+            _messages_for(request, exc)
+        return redirect("journal_detail", pk=pk)
 
 
 # ---------------------------------------------------------------- reorder levels and low-stock alerts (E6.3)

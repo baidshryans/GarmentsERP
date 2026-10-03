@@ -46,6 +46,7 @@ SYSTEM_ROLES = {
          "purchases.invoice": ["view", "create", "edit", "cancel"], "purchases.debitnote": ["view", "create", "edit", "cancel"],
          "purchases.po": ["view"], "purchases.grn": ["view"], "inventory.stock": ["view"],
          "inventory.opening": ["view", "create"], "inventory.transfer": ["view"],
+         "inventory.journal": ["view", "create", "cancel"],
          "jobwork.bill": ["view", "create", "edit", "cancel"], "jobwork.rate": ["view", "create", "edit"],
          "jobwork.report": ["view"], "production.dashboard": ["view"], "production.order": ["view"],
          "sales.order": ["view"], "sales.packing": ["view"], "sales.invoice": ["view", "create", "edit", "cancel"],
@@ -100,7 +101,8 @@ SYSTEM_ROLES = {
          "purchases.grn": ["view", "create", "edit"], "purchases.po": ["view"], "inventory.stock": ["view"],
          "inventory.transfer": ["view", "create", "edit"], "inventory.labels": ["view", "create"],
          "inventory.opening": ["view", "create"], "purchases.debitnote": ["view"],
-         "inventory.reorder": ["view", "create", "edit"], "inventory.alerts": ["view", "edit"]}, [],
+         "inventory.reorder": ["view", "create", "edit"], "inventory.alerts": ["view", "edit"],
+         "inventory.journal": ["view", "create"]}, [],
     ),
     "Billing Clerk": (
         "Invoices, packing lists and dispatch",

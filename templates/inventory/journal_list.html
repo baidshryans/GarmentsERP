@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Stock journal{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Stock journal</h1><span class="muted">Count corrections, damage, repacking and conversion</span>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'journal_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New journal</a>{% endif %}</div></div>
+  <div class="island">
+    {% if journals %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Factory</th><th scope="col">Location</th><th scope="col">Reason</th><th scope="col" class="num">Out</th><th scope="col" class="num">In</th><th scope="col">Status</th></tr></thead>
+      <tbody>{% for j in journals %}<tr><td><a href="{% url 'journal_detail' j.pk %}">{{ j.number }}</a></td><td>{{ j.date|date:"d M Y" }}</td><td>{{ j.factory.code }}</td><td>{{ j.location.name }}</td><td>{{ j.get_reason_display }}</td><td class="num">{{ j.value_out }}</td><td class="num">{{ j.value_in }}</td>
+        <td><span class="pill {% if j.status == 'posted' %}success{% else %}danger{% endif %}">{{ j.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No stock journals</div></div>{% endif %}
+  </div>
+{% endblock %}

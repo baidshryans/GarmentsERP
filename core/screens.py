@@ -37,6 +37,7 @@ SCREENS = {
     "inventory.labels": "Labels and tags",
     "inventory.settings": "Inventory and purchase settings",
     "inventory.reorder": "Reorder levels",
+    "inventory.journal": "Stock journal",
     "inventory.alerts": "Low-stock alerts",
     "production.order": "Production orders",
     "production.lot": "Lots and route planning",

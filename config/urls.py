@@ -137,6 +137,9 @@ urlpatterns = [
     path("inventory/transfers/new/", inv.TransferNew.as_view(), name="transfer_new"),
     path("inventory/transfers/<int:pk>/", inv.TransferDetail.as_view(), name="transfer_detail"),
     path("inventory/opening/", inv.OpeningStockView.as_view(), name="opening_stock"),
+    path("inventory/journal/", inv.JournalList.as_view(), name="journal_list"),
+    path("inventory/journal/new/", inv.JournalNew.as_view(), name="journal_new"),
+    path("inventory/journal/<int:pk>/", inv.JournalDetail.as_view(), name="journal_detail"),
     path("inventory/reorder/", inv.ReorderLevels.as_view(), name="reorder_levels"),
     path("inventory/alerts/", inv.StockAlerts.as_view(), name="stock_alerts"),
     # purchases

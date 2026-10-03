@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}New stock journal{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">New stock journal</h1><div class="actions"><a class="btn ghost" href="{% url 'journal_list' %}">All journals</a></div></div>
+  <form method="post" novalidate>{% csrf_token %}
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" data-factory-select="location">{% for f in factories %}<option value="{{ f.pk }}" {% if d.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="location">Location</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required></div>
+      <div class="field"><label for="reason">Reason</label><select id="reason" name="reason">{% for v, l in reasons %}<option value="{{ v }}" {% if d.reason == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+    </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div></div>
+    <div class="island"><h2>Lines</h2>
+      <p class="muted">Take stock out and bring stock in. Out lines are valued at cost like any issue; give a rate for what comes in. The difference goes to Stock Adjustments as a gain or loss. Fabric goes out by roll and comes in as a new roll.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th scope="col">Direction</th><th scope="col" style="min-width:260px">Item</th><th scope="col">Roll taken out (fabric)</th><th scope="col">New roll no. (fabric in)</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate (in)</th></tr></thead>
+        <tbody>{% for r in rows %}<tr>
+          <td><select name="direction"><option value="out" {% if r.direction == "out" %}selected{% endif %}>Take out</option><option value="in" {% if r.direction == "in" %}selected{% endif %}>Bring in</option></select></td>
+          <td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>
+          <td><select name="roll"><option value="">—</option>{% for rb in rolls %}<option value="{{ rb.roll_id }}" {% if r.roll == rb.roll_id|stringformat:"s" %}selected{% endif %}>{{ rb.roll.label_code }} · {{ rb.roll.material.name }} · {{ rb.qty|floatformat:"-3" }} at {{ rb.location.name }}</option>{% endfor %}</select></td>
+          <td><input type="text" name="new_roll_no" value="{{ r.new_roll_no }}"></td>
+          <td class="num"><input type="text" inputmode="decimal" name="qty" value="{{ r.qty|default:'' }}" class="num"></td>
+          <td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate|default:'' }}" class="num"></td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="form-actions"><button class="btn primary">Post stock journal</button><a class="btn ghost" href="{% url 'journal_list' %}">Cancel</a></div>
+  </form>
+  <script src="{% static 'js/transfer.js' %}?v={{ asset_v }}" defer></script>
+{% endblock %}

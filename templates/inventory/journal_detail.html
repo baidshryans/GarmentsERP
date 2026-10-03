@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ j }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ j.number }}</h1><span class="pill {% if j.status == 'posted' %}success{% else %}danger{% endif %}">{{ j.get_status_display }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'journal_list' %}">All journals</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Factory</div>{{ j.factory.code }}</div><div><div class="label muted">Location</div>{{ j.location.name }}</div>
+    <div><div class="label muted">Date</div>{{ j.date|date:"d M Y" }}</div><div><div class="label muted">Reason</div>{{ j.get_reason_display }}</div></div>
+    {% if j.remarks %}<p class="muted">{{ j.remarks }}</p>{% endif %}
+    {% if j.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' j.voucher.pk %}">{{ j.voucher.number }}</a></p>{% endif %}</div>
+  <div class="island"><div class="table-wrap"><table>
+    <thead><tr><th scope="col"></th><th scope="col">Item</th><th scope="col">Roll</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Value</th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.get_direction_display }}</td><td>{{ l.item }}</td><td>{{ l.roll.label_code|default:"" }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{{ l.rate|default_if_none:"" }}</td><td class="num">{{ l.value }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td colspan="5">Value taken out {{ j.value_out }} · brought in {{ j.value_in }}</td><td class="num"></td></tr></tfoot>
+  </table></div></div>
+  {% if j.status == "posted" and can_cancel %}<div class="island"><form method="post" style="max-width:420px">{% csrf_token %}<div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel journal</button></form></div>{% endif %}
+{% endblock %}

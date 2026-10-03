@@ -1,8 +1,8 @@
 """BRD acceptance scenarios A9 and A12 (section 11.1) as far as release 1 builds them: the month-end reports with no manual
 adjustment, and one of each voucher type with the books tallying per factory and combined.
 
-A9's style profitability report is E10.3, which the PRD puts in release 2, so it is not here. A12's stock journal and
-payroll are not built yet; every other voucher type is, and job work bills post from job work (test_jobwork.py)."""
+A9's style profitability report is E10.3, which the PRD puts in release 2, so it is not here. A12's payroll is
+Release 3; every other voucher type is built, and job work bills post from job work (test_jobwork.py)."""
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -91,7 +91,17 @@ def test_A12_one_of_each_voucher_type_and_every_factory_tallies_alone_and_combin
         posted.append(post_party_voucher(company=company, factory=fac, vtype="credit_note", on_date=DAY, party=ns.local.customer_ledger.pk, user=owner,
                                          rows=[PartyRow(ledger=str(led(company, "sales_returns").pk), amount="250")], reference=f"S-{ref}"))
     quick_invoice(ns, ns.local, qty="4", rate="500")                                     # an automatic sales voucher as well
-    assert {v.voucher_type for v in posted} == {"journal", "contra", "payment", "receipt", "purchase", "debit_note", "sales", "credit_note"}
+    from inventory.services.journal import JournalLineSpec, post_journal
+
+    for fac in (factory, factory2):                                                      # a stock journal for each factory
+        godown = fac.locations.get(name="Main Godown")
+        if fac == factory:
+            posted.append(post_journal(company=company, factory=fac, location=godown, date=DAY, reason="damage", user=owner,
+                                       lines=[JournalLineSpec("out", ns.sku("Black", "S"), D("2"))]).voucher)
+        else:
+            posted.append(post_journal(company=company, factory=fac, location=godown, date=DAY, reason="count", user=owner,
+                                       lines=[JournalLineSpec("in", ns.sku("Black", "S"), D("2"), rate=D("300"))]).voucher)
+    assert {v.voucher_type for v in posted} == {"journal", "contra", "payment", "receipt", "purchase", "debit_note", "sales", "credit_note", "stock_journal"}
     combined_pl = books.profit_and_loss(company, user=owner, date_from=FROM, date_to=TO)
     parts = [books.profit_and_loss(company, user=owner, factory=f, date_from=FROM, date_to=TO) for f in (factory, factory2)]
     assert combined_pl["net_profit"] == sum((p["net_profit"] for p in parts), D("0.00"))

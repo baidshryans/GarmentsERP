@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Order book{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Order book</h1><span class="muted">Open orders and the balance still pending</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'saleorder_list' %}">All orders</a></div></div>
+  <div class="island">
+    {% if rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Order</th><th scope="col">Date</th><th scope="col">Due</th><th scope="col">Customer</th><th scope="col">Factory</th><th scope="col" class="num">Ordered</th><th scope="col" class="num">Invoiced</th><th scope="col" class="num">Balance pending</th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td><a href="{% url 'saleorder_detail' r.order.pk %}">{{ r.order.number }}</a></td><td>{{ r.order.date|date:"d M Y" }}</td><td>{{ r.order.due_date|date:"d M Y"|default:"—" }}</td><td>{{ r.order.customer.name }}</td><td>{{ r.order.factory.code }}</td><td class="num">{{ r.ordered|floatformat:"-0" }}</td><td class="num">{{ r.invoiced|floatformat:"-0" }}</td><td class="num"><strong>{{ r.balance|floatformat:"-0" }}</strong></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No open orders</div></div>{% endif %}
+  </div>
+{% endblock %}

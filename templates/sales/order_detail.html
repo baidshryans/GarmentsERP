@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ order }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ order.number|default:"Draft sale order" }}</h1>
+    <span class="pill {% if order.status == 'dispatched' %}success{% elif order.status == 'cancelled' %}danger{% elif order.status == 'draft' or order.status == 'partly_dispatched' %}warning{% endif %}">{{ order.get_status_display }}</span>
+    <div class="actions">
+      {% if order.status == "draft" and can_edit %}<a class="btn" href="{% url 'saleorder_edit' order.pk %}">Edit</a>{% endif %}
+      {% if order.status == "confirmed" or order.status == "partly_dispatched" %}{% if can_pack %}<a class="btn primary" href="{% url 'packing_new' order.pk %}">Pack and dispatch</a>{% endif %}{% endif %}
+      <a class="btn ghost" href="{% url 'saleorder_list' %}">All orders</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Customer</div>{{ order.customer.name }}{% if show_phone %}<div class="muted">{{ order.customer.mobile }}</div>{% endif %}</div>
+    <div><div class="label muted">Type</div>{{ order.get_order_type_display }}</div>
+    <div><div class="label muted">Factory</div>{{ order.factory.code }}</div>
+    <div><div class="label muted">Date</div>{{ order.date|date:"d M Y" }}</div>
+    <div><div class="label muted">Due by</div>{{ order.due_date|date:"d M Y"|default:"—" }}</div></div>
+    {% if order.remarks %}<p class="muted">{{ order.remarks }}</p>{% endif %}
+    {% if order.production_order %}<p>Production requirement: {% if can_production %}<a href="{% url 'order_detail' order.production_order.pk %}">{{ order.production_order.number|default:"draft" }}</a>{% else %}{{ order.production_order.number|default:"draft" }}{% endif %} <span class="muted">({{ order.production_order.get_status_display }}) · production sees the style and quantities, not the customer</span></p>{% endif %}
+    {% if stages %}<p class="muted" style="margin-bottom:4px">Where the pieces are in production:</p><p>{% for stage, qty in stages %}<span class="pill">{{ stage }}: {{ qty }}</span> {% endfor %}</p>{% endif %}
+    {% if order.close_reason %}<p class="muted">Reason: {{ order.close_reason }}</p>{% endif %}</div>
+
+  <div class="island"><div class="table-wrap"><table>
+    <thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" class="num">Ordered</th><th scope="col" class="num">Packed</th><th scope="col" class="num">Invoiced</th><th scope="col" class="num">Balance</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Disc %</th><th scope="col" class="num">Amount</th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.sku.style.style_no }}</td><td>{{ l.sku.colour }}</td><td>{{ l.sku.size }}</td><td class="num">{{ l.qty|floatformat:"-0" }}</td><td class="num">{{ l.qty_packed|floatformat:"-0" }}</td><td class="num">{{ l.qty_invoiced|floatformat:"-0" }}</td><td class="num"><strong>{{ l.balance|floatformat:"-0" }}</strong></td><td class="num">{{ l.rate }}</td><td class="num">{{ l.discount_pct|floatformat:"-2" }}</td><td class="num">{{ l.amount }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td colspan="3">Total</td><td class="num">{{ order.total_qty|floatformat:"-0" }}</td><td></td><td></td><td class="num">{{ order.balance_qty|floatformat:"-0" }}</td><td colspan="2"></td><td class="num">{{ order.total }}</td></tr></tfoot>
+  </table></div></div>
+
+  <div class="grid-2">
+    <div class="island"><h2>Dispatch</h2>
+      {% if packings %}<ul>{% for p in packings %}<li><a href="{% url 'packing_detail' p.pk %}">{{ p.number|default:"Draft packing list" }}</a> · {{ p.get_status_display }}</li>{% endfor %}</ul>{% else %}<p class="muted">Nothing packed yet.</p>{% endif %}
+      {% if invoices %}<h3>Invoices</h3><ul>{% for i in invoices %}<li><a href="{% url 'saleinvoice_detail' i.pk %}">{{ i.number|default:"Draft invoice" }}</a> · {{ i.get_status_display }} · {{ i.total }}</li>{% endfor %}</ul>{% endif %}</div>
+    <div class="island"><h2>Actions</h2>
+      {% if order.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="confirm">Confirm order</button></form>
+        <p class="muted">Confirming numbers the order{% if order.order_type == "mto" %} and raises the production requirement{% endif %}.</p>{% endif %}
+      {% if can_edit and order.status != "cancelled" and order.status != "closed" and order.status != "dispatched" %}
+        <form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<div class="field"><label for="why">Reason</label><input id="why" name="reason" type="text"></div>
+          {% if order.status == "confirmed" or order.status == "partly_dispatched" %}<button class="btn" name="action" value="close">Close the balance</button> {% endif %}
+          {% if can_cancel or order.status == "draft" %}<button class="btn danger" name="action" value="cancel">Cancel order</button>{% endif %}</form>{% endif %}
+    </div>
+  </div>
+{% endblock %}

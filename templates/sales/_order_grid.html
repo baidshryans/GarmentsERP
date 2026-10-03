@@ -1,0 +1,16 @@
+<div class="island order-grid" data-style="{{ g.style.pk }}">
+  <input type="hidden" name="style" value="{{ g.style.pk }}">
+  <div class="grid-head">
+    <h2>{{ g.style.style_no }} <span class="muted" style="font-weight:400">{{ g.style.name }}</span></h2>
+    <div class="field"><label for="rate_{{ g.style.pk }}">Rate</label><input id="rate_{{ g.style.pk }}" name="rate_{{ g.style.pk }}" type="text" inputmode="decimal" class="num" value="{{ g.rate }}" placeholder="auto">{% if g.hint %}<div class="help">{{ g.hint }}</div>{% endif %}</div>
+    <div class="field"><label for="disc_{{ g.style.pk }}">Discount %</label><input id="disc_{{ g.style.pk }}" name="disc_{{ g.style.pk }}" type="text" inputmode="decimal" class="num" value="{{ g.disc }}"></div>
+    <button type="button" class="btn ghost remove-grid" title="Remove this style">Remove</button>
+  </div>
+  {% if g.rows %}<div class="table-scroll"><table>
+    <thead><tr><th scope="col">Colour</th>{% for s in g.sizes %}<th scope="col" class="num">{{ s.code }}</th>{% endfor %}<th scope="col" class="num">Total</th></tr></thead>
+    <tbody>{% for r in g.rows %}<tr data-row><th scope="row">{{ r.colour.name }}</th>
+      {% for c in r.cells %}<td class="num">{% if c.sku %}<input class="cell" type="text" inputmode="numeric" name="{{ c.name }}" value="{{ c.value }}" aria-label="{{ r.colour.name }} {{ c.size.code }}">{% else %}<span class="muted">—</span>{% endif %}</td>{% endfor %}
+      <td class="num row-total">{{ r.total }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><th scope="row">Total</th>{% for t in g.col_totals %}<td class="num col-total">{{ t }}</td>{% endfor %}<td class="num grand-total">{{ g.grand }}</td></tr></tfoot>
+  </table></div>{% else %}<p class="muted">This style has no colours or sizes yet; add them on the style.</p>{% endif %}
+</div>

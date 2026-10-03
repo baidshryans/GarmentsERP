@@ -1,0 +1,16 @@
+/* Sales screens: the order grid, the billing table and scan feedback. Tokens only. */
+.order-grid { margin-bottom: var(--space-4); }
+.order-grid .grid-head { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); margin-bottom: var(--space-3); }
+.order-grid .grid-head h2 { margin: 0; margin-right: auto; }
+.order-grid .grid-head .field { margin: 0; width: 110px; }
+.order-grid table input.cell { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.order-grid th.num, .order-grid td.num { white-space: nowrap; }
+.order-grid .row-total, .order-grid .col-total, .order-grid .grand-total { font-weight: 600; }
+.scan-box { max-width: 520px; }
+.scan-box input { font-size: 18px; padding: var(--space-3); }
+.scan-msg { min-height: 1.5em; margin: var(--space-2) 0; color: var(--color-muted); }
+.scan-msg.bad { color: var(--color-danger); font-weight: 600; }
+tr.flash td { background: var(--color-primary-pale); }
+.bill-totals { display: flex; gap: var(--space-5); justify-content: flex-end; font-size: 16px; }
+.bill-totals strong { font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-4); }

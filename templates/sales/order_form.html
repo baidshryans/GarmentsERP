@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Sale order{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
+  <div class="page-head"><h1 class="page-title">{% if order %}Edit sale order{% else %}New sale order{% endif %}</h1></div>
+  <form method="post" novalidate>{% csrf_token %}
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="customer">Customer</label><select id="customer" name="customer">{% for c in customers %}<option value="{{ c.pk }}" {% if vals.customer == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" {% if order %}disabled{% endif %}>{% for f in factories %}<option value="{{ f.pk }}" {% if vals.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select>{% if order %}<input type="hidden" name="factory" value="{{ order.factory_id }}">{% endif %}</div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}" required></div>
+      <div class="field"><label for="due_date">Due by</label><input id="due_date" name="due_date" type="date" value="{{ vals.due_date }}"></div>
+      <div class="field"><label for="order_type">Type</label><select id="order_type" name="order_type">{% for v, l in types %}<option value="{{ v }}" {% if vals.order_type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select><div class="help">Made to order raises a production requirement without the customer's name.</div></div>
+    </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>
+
+    <div class="island"><div class="field-row" style="align-items:end">
+      <div class="field"><label for="add-style">Add a style</label>
+        <select id="add-style" name="style_pick" hx-get="{% url 'saleorder_grid' %}" hx-trigger="change" hx-target="#grids" hx-swap="beforeend" hx-include="#customer, #date" hx-vals="js:{style: document.getElementById('add-style').value}" hx-on::after-request="this.value=''">
+          <option value="">Choose a style…</option>{% for s in styles %}<option value="{{ s.pk }}">{{ s.style_no }} — {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="muted" style="padding-bottom:10px"><strong id="order-pieces">0</strong> pieces in all</div>
+    </div></div>
+    <div id="grids">{% for g in grids %}{% include "sales/_order_grid.html" %}{% endfor %}</div>
+
+    <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'saleorder_list' %}">Cancel</a></div>
+  </form>
+  <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>
+{% endblock %}

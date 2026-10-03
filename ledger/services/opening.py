@@ -31,6 +31,11 @@ def post_opening_balances(*, company, factory, entries, user, date=None):
     difference_ledger = Ledger.objects.get(company=company, system_key="opening_difference")
     lines = []
     for e in entries:
+        if (e.ledger.system_key or "").startswith("stock_"):
+            raise PostingError(
+                f"{e.ledger.name} is a stock ledger: enter opening stock under Inventory > Opening stock "
+                "so quantities and value stay in step."
+            )
         if e.ledger.pk == difference_ledger.pk:
             raise PostingError("The Opening Balance Difference ledger is filled in automatically.")
         amount = e.debit or e.credit

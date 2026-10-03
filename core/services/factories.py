@@ -8,7 +8,16 @@ DEFAULT_LOCATIONS = [
     ("Cutting Floor", Location.Type.CUTTING),
     ("Process Area", Location.Type.PROCESS),
     ("Dispatch", Location.Type.DISPATCH),
+    ("In Transit", Location.Type.TRANSIT),
 ]
+
+
+def transit_location(factory):
+    """The factory's In Transit location (stock moving between factories). Created on first use for older factories."""
+    loc, _ = Location.objects.get_or_create(
+        factory=factory, name="In Transit", defaults={"loc_type": Location.Type.TRANSIT}
+    )
+    return loc
 
 
 @transaction.atomic

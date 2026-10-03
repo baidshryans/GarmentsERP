@@ -62,7 +62,7 @@ def _money(value, what) -> Decimal:
     return value.quantize(TWO_PLACES)
 
 
-def _validate(*, company, factory, lines, user, check_active=True):
+def _validate(*, company, factory, lines, user, check_active=True, scope_lines=True):
     """Return normalised lines. Raises a PostingError subclass on any problem."""
     if factory is None:
         raise FactoryRequired("A voucher must carry a factory.")
@@ -92,7 +92,8 @@ def _validate(*, company, factory, lines, user, check_active=True):
         if line_factory.pk != factory.pk:
             if line_factory.company_id != company.pk or not line_factory.is_active:
                 raise InvalidLine(f"Line {i}: invalid factory.")
-            assert_factory_access(user, line_factory)
+            if scope_lines:
+                assert_factory_access(user, line_factory)
 
         amount = debit or credit
         allocations = _normalise_allocations(i, ledger, amount, spec.allocations)
@@ -102,6 +103,18 @@ def _validate(*, company, factory, lines, user, check_active=True):
 
     if total_dr != total_cr:
         raise Unbalanced(f"Debits {total_dr} and credits {total_cr} do not match (difference {total_dr - total_cr}).")
+    # Each factory's lines must balance on their own, so factory-wise books always tally (ACC-13).
+    # A movement between factories goes through the Inter-Factory Receivable / Payable ledgers (ACC-17).
+    by_factory = {}
+    for _, debit, credit, line_factory, _ in normalised:
+        net = by_factory.setdefault(line_factory.pk, [line_factory, ZERO])
+        net[1] += debit - credit
+    for line_factory, net in by_factory.values():
+        if net != 0:
+            raise Unbalanced(
+                f"Factory {line_factory.code} is out of balance by {net}. Entries across factories must "
+                "go through the Inter-Factory Receivable / Payable ledgers."
+            )
     return normalised, total_dr
 
 
@@ -149,10 +162,10 @@ def _source_fields(source):
 
 @transaction.atomic
 def create_draft(*, company, factory, voucher_type, date, lines, user, narration="", source=None,
-                 reverses=None, reversal_reason="", _reversal=False) -> Voucher:
+                 reverses=None, reversal_reason="", _reversal=False, scope_lines=True) -> Voucher:
     """Save a draft. A draft must already balance and carry a factory."""
     normalised, total = _validate(company=company, factory=factory, lines=lines, user=user,
-                                  check_active=not _reversal)
+                                  check_active=not _reversal, scope_lines=scope_lines)
     assert_period_open(company, factory, date)
     voucher = Voucher.objects.create(
         company=company, factory=factory, voucher_type=voucher_type, date=date,
@@ -194,6 +207,11 @@ def post_draft(voucher, *, user) -> Voucher:
     credit = sum((l.credit for l in lines), ZERO)
     if len(lines) < 2 or debit != credit:
         raise Unbalanced("The draft no longer balances and cannot be posted.")
+    per_factory = {}
+    for l in lines:
+        per_factory[l.factory_id] = per_factory.get(l.factory_id, ZERO) + l.debit - l.credit
+    if any(net != 0 for net in per_factory.values()):
+        raise Unbalanced("The draft no longer balances factory by factory and cannot be posted.")
     voucher.number = next_document_number(
         factory=voucher.factory, doc_type=voucher.voucher_type, on_date=voucher.date
     )
@@ -205,11 +223,16 @@ def post_draft(voucher, *, user) -> Voucher:
 
 
 @transaction.atomic
-def post_voucher(*, company, factory, voucher_type, date, lines, user, narration="", source=None) -> Voucher:
-    """Validate, number and post in one transaction. The usual entry point for source documents."""
+def post_voucher(*, company, factory, voucher_type, date, lines, user, narration="", source=None,
+                 scope_lines=True) -> Voucher:
+    """Validate, number and post in one transaction. The usual entry point for source documents.
+
+    scope_lines=False lets a source document post a line into another factory the user cannot access
+    (an inter-factory transfer's receiving side). The header factory is always checked.
+    """
     draft = create_draft(
         company=company, factory=factory, voucher_type=voucher_type, date=date, lines=lines,
-        user=user, narration=narration, source=source,
+        user=user, narration=narration, source=source, scope_lines=scope_lines,
     )
     return post_draft(draft, user=user)
 

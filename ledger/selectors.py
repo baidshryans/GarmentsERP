@@ -8,6 +8,11 @@ from ledger.models import BillAllocation, Ledger, VoucherLine
 ZERO = Decimal("0.00")
 
 
+def q2(value) -> Decimal:
+    """Round an aggregate back to paise: SQLite adds DecimalFields as floats, so sums can carry 1e-14 noise."""
+    return Decimal(value or 0).quantize(Decimal("0.01"))
+
+
 def posted_lines(user=None, factory=None, as_of=None):
     qs = VoucherLine.objects.filter(voucher__status="posted")
     if user is not None:
@@ -31,7 +36,7 @@ def trial_balance(company, *, user=None, factory=None, as_of=None):
     result = []
     total_dr = total_cr = ZERO
     for r in rows:
-        dr, cr = r["debit"] or ZERO, r["credit"] or ZERO
+        dr, cr = q2(r["debit"]), q2(r["credit"])
         closing = dr - cr
         result.append({
             "ledger_id": r["ledger_id"], "ledger": r["ledger__name"], "group": r["ledger__group__name"],
@@ -50,7 +55,7 @@ def trial_balance(company, *, user=None, factory=None, as_of=None):
 def ledger_balance(ledger: Ledger, *, user=None, factory=None, as_of=None) -> Decimal:
     """Debit-positive balance of one ledger."""
     agg = posted_lines(user, factory, as_of).filter(ledger=ledger).aggregate(d=Sum("debit"), c=Sum("credit"))
-    return (agg["d"] or ZERO) - (agg["c"] or ZERO)
+    return q2(agg["d"]) - q2(agg["c"])
 
 
 def outstanding_bills(ledger: Ledger, *, user=None, factory=None):

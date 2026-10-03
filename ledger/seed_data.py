@@ -83,6 +83,13 @@ LEDGERS = [
     ("Scrap and Remnant Sales", "Direct Incomes", "scrap_sales", False),
     ("Discount Received", "Indirect Incomes", "discount_received", False),
     ("Discount Allowed", "Indirect Expenses", "discount_allowed", False),
+    ("Goods Received Not Billed", "Current Liabilities", "grni", False),
+    ("Rejected Goods Recoverable", "Loans and Advances", "rejected_recoverable", False),
+    ("CGST RCM Payable", "Duties and Taxes", "cgst_rcm", False),
+    ("SGST RCM Payable", "Duties and Taxes", "sgst_rcm", False),
+    ("IGST RCM Payable", "Duties and Taxes", "igst_rcm", False),
+    ("Inter-Factory Receivable", "Loans and Advances", "interfactory_receivable", False),
+    ("Inter-Factory Payable", "Current Liabilities", "interfactory_payable", False),
     ("Profit & Loss A/c", "Reserves", "profit_loss", False),
     ("Opening Balance Difference", "Capital", "opening_difference", False),
 ]

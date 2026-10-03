@@ -7,6 +7,7 @@ from masters.models import CodeCounter
 DEFAULTS = {
     "barcode": {"padding": 10, "prefix": ""},
     "party": {"padding": 4, "prefix": "P"},
+    "roll": {"padding": 6, "prefix": "R"},
 }
 
 

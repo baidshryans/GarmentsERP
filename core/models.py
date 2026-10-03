@@ -23,6 +23,20 @@ class Company(models.Model):
     setup_complete = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Inventory and purchase settings (Step 3). Changes are kept in the model history.
+    class Valuation(models.TextChoices):
+        WEIGHTED_AVERAGE = "weighted_average", "Weighted average per item per factory"
+        SPECIFIC_ROLL = "specific_roll", "Specific cost per fabric roll (other items: weighted average)"
+
+    valuation_method = models.CharField(max_length=20, choices=Valuation.choices, default=Valuation.WEIGHTED_AVERAGE)
+    allow_negative_stock = models.BooleanField(
+        default=False, help_text="When off, an issue above the stock on hand is blocked (BR-02, BR-09)"
+    )
+    po_approval_limit = models.DecimalField(
+        max_digits=14, decimal_places=2, default=50000,
+        help_text="A purchase order above this value needs the owner's approval (BR-19). 0 = every PO needs approval.",
+    )
+
     history = HistoricalRecords()
 
     class Meta:

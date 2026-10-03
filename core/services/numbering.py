@@ -23,6 +23,11 @@ DEFAULT_PREFIXES = {
     "job_work_bill": "JWB",
     "payroll": "PRL",
     "opening": "OPN",
+    "purchase_order": "PO",
+    "goods_receipt": "GRN",
+    "purchase_invoice": "PI",
+    "stock_transfer": "STF",
+    "opening_stock": "OST",
 }
 
 

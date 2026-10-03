@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Import from Excel{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Import from Excel</h1></div>
+  <p class="muted" style="max-width:760px">Download the template, fill it in, then upload it. <strong>Check only</strong> validates every row without saving anything. <strong>Import</strong> saves all rows, or none if any row has a problem.</p>
+  <div class="grid-2">
+    <div class="island">
+      <h2>1. Templates</h2>
+      {% for k, title, notes in kinds %}
+        <p><a class="btn" href="{% url 'import_template' k %}">Download {{ title|lower }} template</a><br><span class="muted">{{ notes }}</span></p>
+      {% endfor %}
+    </div>
+    <div class="island">
+      <h2>2. Upload</h2>
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="field"><label for="kind">What are you importing?</label>
+          <select id="kind" name="kind">{% for k, title, notes in kinds %}<option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ title }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="factory">Factory (opening balances only)</label>
+          <select id="factory" name="factory">{% for f in factories %}<option value="{{ f.pk }}">{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="file">Excel file (.xlsx)</label><input id="file" name="file" type="file" accept=".xlsx"></div>
+        <div class="form-actions"><button class="btn" name="mode" value="check">Check only</button><button class="btn primary" name="mode" value="import">Import</button></div>
+      </form>
+    </div>
+  </div>
+  {% if result %}
+  <div class="island">
+    <h2>Result</h2>
+    <p>{{ result.rows }} rows read · {{ result.ok }} valid · {{ result.errors|length }} with problems{% if result.committed %} · <span class="pill success">Saved</span>{% endif %}</p>
+    {% if result.errors %}<table><thead><tr><th class="num">Row</th><th>Problem</th></tr></thead>
+      <tbody>{% for row, msg in result.errors %}<tr><td class="num">{{ row|default:"—" }}</td><td>{{ msg }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+  </div>
+  {% endif %}
+{% endblock %}

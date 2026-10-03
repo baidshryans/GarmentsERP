@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ title }}</h1><div class="actions"><a class="btn ghost" href="{% url 'voucher_list' %}">All vouchers</a></div></div>
+  <p class="muted" style="max-width:720px">{{ intro }}</p>
+  <form method="post" novalidate>{% csrf_token %}
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="factory">Factory <span class="muted">*</span></label><select id="factory" name="factory" required>{% for f in factories %}<option value="{{ f.pk }}" {% if v.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">Date <span class="muted">*</span></label><input id="date" name="date" type="date" value="{{ v.date|default:today }}" required></div>
+      <div class="field"><label for="party">{% if vtype == "sales" or vtype == "credit_note" %}Customer{% else %}Vendor{% endif %} <span class="muted">*</span></label><select id="party" name="party"><option value="">— choose —</option>{% for l in parties %}<option value="{{ l.pk }}" {% if v.party == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="ref_type">Bill</label><select id="ref_type" name="ref_type">{% for k, l in ref_types %}<option value="{{ k }}" {% if v.ref_type == k or not v.ref_type and k == default_ref %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="reference">Bill reference (invoice no.)</label><input id="reference" name="reference" type="text" maxlength="60" value="{{ v.reference }}"></div>
+      <div class="field"><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="{{ v.due_date }}"></div>
+    </div></div>
+    <div class="island"><h2>{% if vtype == "sales" %}Income{% elif vtype == "credit_note" %}Returns{% elif vtype == "debit_note" %}Returned goods{% else %}Purchases and expenses{% endif %}</h2>
+      <div class="table-scroll"><table><thead><tr><th scope="col" style="min-width:260px">Ledger</th><th scope="col" class="num">Amount</th><th scope="col">Note</th></tr></thead>
+        <tbody>{% for r in rows %}<tr><td><select name="row_ledger" aria-label="Ledger"><option value="">—</option>{% for g, ledgers in ledger_groups %}<optgroup label="{{ g }}">{% for l in ledgers %}<option value="{{ l.pk }}" {% if r.ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></td>
+          <td class="num"><input type="text" inputmode="decimal" name="row_amount" value="{{ r.amount }}"></td><td><input type="text" name="row_narration" value="{{ r.narration }}"></td></tr>{% endfor %}</tbody></table></div>
+    </div>
+    <div class="island"><h2>Tax <span class="muted" style="font-weight:400">optional; nothing is added unless you choose it</span></h2>
+      <div class="field-row">
+        <div class="field"><label for="gst_template">GST</label><select id="gst_template" name="gst_template"><option value="">No GST</option>{% for t in gst_templates %}{% if vtype == "purchase" or not t.is_reverse_charge %}<option value="{{ t.pk }}" {% if v.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endif %}{% endfor %}</select></div>
+        {% if other_templates %}<div class="field"><label for="other_template">{{ other_label }}</label><select id="other_template" name="other_template"><option value="">None</option>{% for t in other_templates %}<option value="{{ t.pk }}" {% if v.other_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>{% endif %}
+      </div>
+      <details {% if v.override_reason %}open{% endif %}><summary>Change a calculated amount</summary>
+        <div class="field-row"><div class="field"><label for="oc">CGST</label><input id="oc" name="override_cgst" type="text" inputmode="decimal" value="{{ v.override_cgst }}"></div>
+          <div class="field"><label for="os">SGST</label><input id="os" name="override_sgst" type="text" inputmode="decimal" value="{{ v.override_sgst }}"></div>
+          <div class="field"><label for="oi">IGST</label><input id="oi" name="override_igst" type="text" inputmode="decimal" value="{{ v.override_igst }}"></div>
+          {% if other_templates %}<div class="field"><label for="ot">{{ other_label }}</label><input id="ot" name="override_tax" type="text" inputmode="decimal" value="{{ v.override_tax }}"></div>{% endif %}
+          <div class="field"><label for="orr">Reason (needed)</label><input id="orr" name="override_reason" type="text" value="{{ v.override_reason }}"></div></div></details>
+      <div class="field"><label for="narration">Narration</label><input id="narration" name="narration" type="text" value="{{ v.narration }}"></div>
+    </div>
+    <div class="form-actions"><button class="btn primary">Post {{ title|lower }}</button></div>
+  </form>
+{% endblock %}

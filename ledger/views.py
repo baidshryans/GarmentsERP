@@ -5,17 +5,23 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views import View
 
+from core.crud import ObjectDelete
 from core.exceptions import BusinessRuleError
 from core.models import Company, Factory
 from core.scoping import ScreenPermissionMixin
 
 from .forms import GroupForm, LedgerForm
 from .models import AccountGroup, Ledger, Voucher, VoucherType
-from .selectors import trial_balance
+from .selectors import outstanding_bills, trial_balance
 from .services.opening import OpeningEntry, post_opening_balances
+from .services.manual import MANUAL_TYPES, Row, cash_bank_ledgers, parse_amount, post_manual_voucher
+from .services.party_voucher import PartyRow, post_party_voucher
 from .services.posting import reverse_voucher
 
 ZERO = Decimal("0.00")
@@ -63,7 +69,7 @@ class GroupSave(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk=None):
         form = GroupForm(instance=self._obj(pk), company=_company())
-        return render(request, "core/form.html", {"form": form, "title": "Account group"})
+        return render(request, "core/form.html", self._ctx(form, pk))
 
     def post(self, request, pk=None):
         form = GroupForm(request.POST, instance=self._obj(pk), company=_company())
@@ -71,7 +77,14 @@ class GroupSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             form.save()
             messages.success(request, "Group saved.")
             return redirect("chart_of_accounts")
-        return render(request, "core/form.html", {"form": form, "title": "Account group"})
+        return render(request, "core/form.html", self._ctx(form, pk))
+
+    @staticmethod
+    def _ctx(form, pk):
+        return {"form": form, "title": "Edit account group" if pk else "New account group",
+                "intro": "A group is a heading in the chart of accounts, such as Current Assets or Sundry Debtors. "
+                         "It holds ledgers and other groups, and carries no balance of its own.",
+                "cancel_url": "chart_of_accounts"}
 
 
 class LedgerSave(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -88,7 +101,7 @@ class LedgerSave(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk=None):
         form = LedgerForm(instance=self._obj(pk), company=_company())
-        return render(request, "core/form.html", {"form": form, "title": "Ledger"})
+        return render(request, "core/form.html", self._ctx(form, pk))
 
     def post(self, request, pk=None):
         form = LedgerForm(request.POST, instance=self._obj(pk), company=_company())
@@ -96,7 +109,38 @@ class LedgerSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             form.save()
             messages.success(request, "Ledger saved. A ledger with entries can be deactivated but never deleted.")
             return redirect("chart_of_accounts")
-        return render(request, "core/form.html", {"form": form, "title": "Ledger"})
+        return render(request, "core/form.html", self._ctx(form, pk))
+
+    @staticmethod
+    def _ctx(form, pk):
+        return {"form": form, "title": "Edit ledger" if pk else "New ledger",
+                "intro": "A ledger is an account that vouchers post to, such as a bank account, a customer or an expense. "
+                         "It sits inside a group. To add a heading instead, create a group.",
+                "cancel_url": "chart_of_accounts"}
+
+
+class GroupDelete(ObjectDelete):
+    screen_code, success_url_name, noun = "ledger.chart", "chart_of_accounts", "account group"
+
+    def get_object(self, request, pk):
+        return get_object_or_404(AccountGroup, pk=pk, company=_company())
+
+    def blocked_reason(self, obj):
+        return "System groups are part of the standard chart and cannot be deleted." if obj.is_system else None
+
+
+class LedgerDelete(ObjectDelete):
+    screen_code, success_url_name, noun = "ledger.chart", "chart_of_accounts", "ledger"
+
+    def get_object(self, request, pk):
+        return get_object_or_404(Ledger, pk=pk, company=_company())
+
+    def blocked_reason(self, obj):
+        if obj.is_system:
+            return "System ledgers are used by automatic postings and cannot be deleted."
+        if obj.lines.exists():
+            return f"'{obj.name}' has entries, so it cannot be deleted. Mark it inactive instead."
+        return None
 
 
 # ---------------- vouchers (read, reverse) ----------------
@@ -115,10 +159,40 @@ class VoucherList(LoginRequiredMixin, ScreenPermissionMixin, View):
             qs = qs.filter(voucher_type=vtype)
         if status:
             qs = qs.filter(status=status)
+        q = request.GET.get("q", "").strip()
+        if q:
+            qs = qs.filter(Q(number__icontains=q) | Q(vendor_invoice_no__icontains=q))
         return render(request, "ledger/voucher_list.html", {
             "vouchers": qs[:200], "factories": Factory.objects.for_user(request.user),
-            "types": VoucherType.choices, "f": {"factory": factory, "type": vtype, "status": status},
+            "types": VoucherType.choices, "f": {"factory": factory, "type": vtype, "status": status, "q": q},
+            "can_create": request.user.has_screen_perm("ledger.voucher", "create"),
         })
+
+
+SOURCE_PAGES = {   # source document -> (what to call it, url name)
+    "purchases.grn": ("GRN", "grn_detail"), "purchases.purchaseinvoice": ("Purchase invoice", "invoice_detail"),
+    "purchases.debitnote": ("Debit note", "debitnote_detail"), "sales.saleinvoice": ("Sale invoice", "saleinvoice_detail"),
+    "sales.salecreditnote": ("Credit note", "salecn_detail"), "inventory.stocktransfer": ("Stock transfer", "transfer_detail"),
+    "jobwork.jobworkbill": ("Labour bill", "bill_detail"), "jobwork.jobworkchallan": ("Challan", "challan_detail"),
+    "jobwork.receipt": ("Receipt", "receipt_detail"),
+}
+
+
+def source_link(voucher):
+    """(label, number, url) of the document that made this voucher, or None for a hand-entered one (E9.1)."""
+    from django.apps import apps
+    from django.urls import reverse
+
+    page = SOURCE_PAGES.get(voucher.source_type)
+    if not page or not voucher.source_id:
+        return None
+    try:
+        obj = apps.get_model(voucher.source_type).objects.filter(pk=voucher.source_id).first()
+    except LookupError:
+        return None
+    if obj is None:
+        return None
+    return {"label": page[0], "number": getattr(obj, "number", None) or f"#{obj.pk}", "url": reverse(page[1], args=[obj.pk])}
 
 
 class VoucherDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -131,7 +205,7 @@ class VoucherDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         v = self._voucher(request, pk)
         lines = v.lines.select_related("ledger", "factory").prefetch_related("allocations")
         return render(request, "ledger/voucher_detail.html", {
-            "v": v, "lines": lines, "reversal": v.reversals.first(),
+            "v": v, "lines": lines, "reversal": v.reversals.first(), "source": source_link(v),
             "can_cancel": request.user.has_screen_perm("ledger.voucher", "cancel"),
         })
 
@@ -146,6 +220,159 @@ class VoucherDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             return redirect("voucher_detail", pk=pk)
         messages.success(request, f"{v.number} cancelled by {reversal.number}.")
         return redirect("voucher_detail", pk=reversal.pk)
+
+
+# ---------------- manual vouchers: payment, receipt, contra, journal (E9.2, E9.3) ----------------
+
+ENTRY_TITLES = {
+    "payment": ("Payment voucher", "Money going out of cash or bank. Choose where it was paid from, then who or what it was paid to."),
+    "receipt": ("Receipt voucher", "Money coming into cash or bank. Choose where it was received, then who or what it came from."),
+    "contra": ("Contra voucher", "Money moved between your own cash and bank accounts, e.g. cash deposited in the bank."),
+    "journal": ("Journal voucher", "Any other adjustment. Every row is a debit or a credit, and the two sides must be equal. "
+                                   "Add GST or TDS ledgers as rows if the entry carries tax; nothing is added for you."),
+}
+ENTRY_ROWS = {"payment": 5, "receipt": 5, "journal": 6, "contra": 3}
+
+
+class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
+    screen_code = "ledger.voucher"
+    screen_action = "create"
+
+    def _context(self, request, vtype, rows=None, values=None):
+        company = _company()
+        groups = {}
+        for l in Ledger.objects.filter(company=company, is_active=True).exclude(system_key="opening_difference").select_related("group"):
+            groups.setdefault(l.group.name, []).append(l)
+        title, intro = ENTRY_TITLES[vtype]
+        values = values or {"date": timezone.localdate().isoformat()}
+        return {
+            "vtype": vtype, "title": title, "intro": intro, "v": values,
+            "factories": Factory.objects.for_user(request.user).filter(is_active=True),
+            "ledger_groups": sorted(groups.items()), "cash_bank": cash_bank_ledgers(company).order_by("name"),
+            "rows": rows or [{} for _ in range(ENTRY_ROWS[vtype])],
+            "ref_types": [("on_account", "On account"), ("against", "Against bill"), ("new", "New bill"), ("advance", "Advance")],
+        }
+
+    def get(self, request, vtype):
+        return render(request, "ledger/voucher_form.html", self._context(request, vtype))
+
+    def post(self, request, vtype):
+        p = request.POST
+        company = _company()
+        factory = get_object_or_404(Factory.objects.for_user(request.user).filter(is_active=True), pk=p.get("factory"))
+        fields = ("ledger", "to_ledger", "amount", "debit", "credit", "ref_type", "reference", "due_date", "narration")
+        cols = {f: p.getlist("row_" + f) for f in fields}
+        count = max((len(v) for v in cols.values()), default=0)
+        raw = [{f: (cols[f][i] if i < len(cols[f]) else "") for f in fields} for i in range(count)]
+        values = {k: p.get(k, "") for k in ("factory", "date", "narration", "account", "from_account", "to_account", "amount", "vendor_invoice_no")}
+        try:
+            on_date = date.fromisoformat(values["date"]) if values["date"] else None
+        except ValueError:
+            on_date = None
+        try:
+            voucher = post_manual_voucher(
+                company=company, factory=factory, vtype=vtype, on_date=on_date, narration=values["narration"],
+                header=values, rows=[Row(**r) for r in raw], user=request.user,
+            )
+        except BusinessRuleError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, f"{MANUAL_TYPES[vtype].label} {voucher.number} posted.")
+            return redirect("voucher_detail", pk=voucher.pk)
+        return render(request, "ledger/voucher_form.html", self._context(request, vtype, raw, values))
+
+
+PARTY_TITLES = {
+    "sales": ("Sales voucher", "A sale you book by hand against a customer. Choose a GST template if the sale carries GST; otherwise no tax is added."),
+    "purchase": ("Purchase voucher", "A purchase or expense bill from a vendor. Choose a GST template and, if you deduct it, a TDS template; otherwise no tax is added."),
+    "debit_note": ("Debit note", "Goods or value sent back to a vendor, settling their bill. A GST template reverses the GST claimed."),
+    "credit_note": ("Credit note", "Goods or value taken back from a customer, settling their bill. A GST template reverses the GST charged."),
+}
+
+
+class PartyVoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Sales, purchase, debit note and credit note by hand, with optional GST / TDS / TCS from a template (E9.2, E9.4)."""
+
+    screen_code = "ledger.voucher"
+    screen_action = "create"
+
+    def _context(self, request, vtype, rows=None, values=None):
+        from tax.models import TaxTemplate
+
+        company = _company()
+        groups = {}
+        for l in Ledger.objects.filter(company=company, is_active=True).exclude(system_key="opening_difference").select_related("group"):
+            groups.setdefault(l.group.name, []).append(l)
+        receivable = vtype in ("sales", "credit_note")
+        party_group = "Sundry Debtors" if receivable else "Sundry Creditors"
+        title, intro = PARTY_TITLES[vtype]
+        return {
+            "vtype": vtype, "title": title, "intro": intro, "v": values or {"date": timezone.localdate().isoformat()},
+            "factories": Factory.objects.for_user(request.user).filter(is_active=True),
+            "parties": [l for l in Ledger.objects.filter(company=company, is_active=True).select_related("group", "group__parent")
+                        if l.group.name == party_group or (l.group.parent and l.group.parent.name == party_group)],
+            "ledger_groups": sorted(groups.items()), "rows": rows or [{} for _ in range(4)],
+            "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True),
+            "other_templates": TaxTemplate.objects.filter(kind="tds" if vtype == "purchase" else "tcs", is_active=True) if vtype in ("purchase", "sales") else [],
+            "other_label": "TDS deducted" if vtype == "purchase" else "TCS collected",
+            "ref_types": [("new", "New bill"), ("against", "Against bill"), ("advance", "Advance"), ("on_account", "On account")],
+            "default_ref": "new" if vtype in ("purchase", "sales") else "against",
+        }
+
+    def get(self, request, vtype):
+        return render(request, "ledger/party_voucher_form.html", self._context(request, vtype))
+
+    def post(self, request, vtype):
+        from tax.models import TaxTemplate
+
+        p, company = request.POST, _company()
+        factory = get_object_or_404(Factory.objects.for_user(request.user).filter(is_active=True), pk=p.get("factory"))
+        names = ("ledger", "amount", "narration")
+        cols = {n: p.getlist("row_" + n) for n in names}
+        count = max((len(v) for v in cols.values()), default=0)
+        raw = [{n: (cols[n][i] if i < len(cols[n]) else "") for n in names} for i in range(count)]
+        values = {k: p.get(k, "") for k in ("factory", "date", "party", "reference", "ref_type", "due_date", "narration",
+                                           "gst_template", "other_template", "override_reason")}
+        for c in ("cgst", "sgst", "igst", "tax"):
+            values[f"override_{c}"] = p.get(f"override_{c}", "")
+        try:
+            on_date = date.fromisoformat(values["date"]) if values["date"] else None
+            due = date.fromisoformat(values["due_date"]) if values["due_date"] else None
+            gst_t = TaxTemplate.objects.filter(pk=int(values["gst_template"])).first() if values["gst_template"].isdigit() else None
+            other_t = TaxTemplate.objects.filter(pk=int(values["other_template"])).first() if values["other_template"].isdigit() else None
+            overrides = {}
+            for comp in ("cgst", "sgst", "igst"):
+                if values[f"override_{comp}"].strip():
+                    overrides[comp] = (parse_amount(values[f"override_{comp}"], comp.upper()), values["override_reason"])
+            if values["override_tax"].strip() and other_t is not None:
+                overrides[other_t.lines.first().component] = (parse_amount(values["override_tax"], "Tax"), values["override_reason"])
+            voucher = post_party_voucher(
+                company=company, factory=factory, vtype=vtype, on_date=on_date, party=values["party"], rows=[PartyRow(**r) for r in raw],
+                user=request.user, narration=values["narration"], ref_type=values["ref_type"], reference=values["reference"],
+                due_date=due, gst_template=gst_t, tax_template=other_t, overrides=overrides)
+        except ValueError:
+            messages.error(request, "Enter dates as YYYY-MM-DD.")
+        except BusinessRuleError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, f"{voucher.get_voucher_type_display()} {voucher.number} posted.")
+            return redirect("voucher_detail", pk=voucher.pk)
+        return render(request, "ledger/party_voucher_form.html", self._context(request, vtype, raw, values))
+
+
+class LedgerBills(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Open bills of a bill-wise ledger, for the 'against bill' picker on the voucher screen."""
+    screen_code = "ledger.voucher"
+
+    def get(self, request, pk):
+        ledger = get_object_or_404(Ledger, pk=pk, company=_company())
+        factory = None
+        if request.GET.get("factory"):
+            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=request.GET["factory"])
+        data = outstanding_bills(ledger, user=request.user, factory=factory)
+        bills = [{"reference": ref, "amount": str(abs(bal)), "side": "Dr" if bal > 0 else "Cr"}
+                 for ref, bal in sorted(data["bills"].items())]
+        return JsonResponse({"bill_wise": ledger.bill_wise, "bills": bills})
 
 
 # ---------------- opening balances (financial) ----------------
@@ -223,6 +450,81 @@ class OpeningBalances(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "ledger/opening.html", self._context(request, rows, factory.pk))
 
 
+# ---------------- period locks and year end (E9.8, E9.9) ----------------
+
+class PeriodLocks(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Everything on or before the locked date is closed to posting. Locking is for the accountant; unlocking is the owner's."""
+
+    screen_code = "core.period_lock"
+
+    def get(self, request):
+        from core.models import PeriodLock, PeriodLockLog
+
+        company = _company()
+        return render(request, "ledger/period_locks.html", {
+            "locks": PeriodLock.objects.filter(company=company).select_related("factory").order_by("factory__code"),
+            "log": PeriodLockLog.objects.filter(company=company).select_related("factory", "user")[:30],
+            "factories": Factory.objects.for_user(request.user).filter(is_active=True),
+            "can_lock": request.user.has_screen_perm("core.period_lock", "edit"),
+            "can_unlock": request.user.has_screen_perm("core.period_lock", "approve")})
+
+    def post(self, request):
+        from core.services import periods
+
+        company, p = _company(), request.POST
+        try:
+            factory = Factory.objects.filter(pk=int(p["factory"])).first() if p.get("factory", "").isdigit() else None
+            if p.get("action") == "lock":
+                periods.lock_period(user=request.user, company=company, upto=date.fromisoformat(p.get("upto", "")), factory=factory,
+                                    reason=p.get("reason", "").strip() or "Period locked after filing")
+                messages.success(request, "Period locked.")
+            elif p.get("action") == "unlock":
+                new_upto = date.fromisoformat(p["new_upto"]) if p.get("new_upto") else None
+                periods.unlock_period(user=request.user, company=company, new_upto=new_upto, reason=p.get("reason", ""), factory=factory)
+                messages.success(request, "Period unlocked.")
+        except ValueError:
+            messages.error(request, "Enter the date as YYYY-MM-DD.")
+        except BusinessRuleError as exc:
+            messages.error(request, str(exc))
+        return redirect("period_locks")
+
+
+class YearEnd(LoginRequiredMixin, ScreenPermissionMixin, View):
+    screen_code = "ledger.yearend"
+
+    def get(self, request):
+        from core.models import FinancialYear
+        from core.services import yearend
+
+        company = _company()
+        years = [{"fy": fy, "checks": yearend.readiness(company, fy) if not fy.is_closed else []}
+                 for fy in FinancialYear.objects.filter(company=company).order_by("start_date")]
+        for y in years:
+            y["ready"] = all(ok for ok, _ in y["checks"])
+        latest_closed = max((y["fy"].start_date for y in years if y["fy"].is_closed), default=None)
+        return render(request, "ledger/year_end.html", {
+            "years": years, "latest_closed": latest_closed,
+            "can_close": request.user.has_screen_perm("ledger.yearend", "edit"),
+            "can_reopen": request.user.has_screen_perm("ledger.yearend", "approve")})
+
+    def post(self, request):
+        from core.models import FinancialYear
+        from core.services import yearend
+
+        company, p = _company(), request.POST
+        fy = get_object_or_404(FinancialYear, pk=p.get("year"), company=company)
+        try:
+            if p.get("action") == "close":
+                nxt = yearend.close_year(user=request.user, company=company, financial_year=fy, reason=p.get("reason", ""))
+                messages.success(request, f"FY {fy.label} closed and locked. FY {nxt.label} is ready; balances carry forward on their own.")
+            elif p.get("action") == "reopen":
+                yearend.reopen_year(user=request.user, company=company, financial_year=fy, reason=p.get("reason", ""))
+                messages.success(request, f"FY {fy.label} reopened. Post the adjustments, then close it again.")
+        except BusinessRuleError as exc:
+            messages.error(request, str(exc))
+        return redirect("year_end")
+
+
 # ---------------- trial balance ----------------
 
 class TrialBalanceView(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -233,7 +535,7 @@ class TrialBalanceView(LoginRequiredMixin, ScreenPermissionMixin, View):
         factory = None
         if request.GET.get("factory"):
             factory = get_object_or_404(factories, pk=request.GET["factory"])
-        as_of = None
+        as_of = timezone.localdate()          # "as of" is today unless another date is chosen
         if request.GET.get("as_of"):
             try:
                 as_of = date.fromisoformat(request.GET["as_of"])

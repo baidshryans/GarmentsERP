@@ -330,3 +330,27 @@ def test_voucher_cancel_screen_reverses_and_needs_permission(company, factory, o
     c.force_login(accountant)
     r = c.post(reverse("voucher_detail", args=[v.pk]), {"reason": "Wrong party"})
     assert r.status_code == 302 and Voucher.objects.get(pk=v.pk).is_reversed
+
+
+# ---------------- collapsible menu, side or top ----------------
+
+def test_menu_groups_are_collapsible_and_the_current_one_is_open(company, owner):
+    c = Client()
+    c.force_login(owner)
+    html = c.get(reverse("voucher_list")).content.decode()
+    assert html.count('<details class="nav-group') >= 6 and "<summary>Accounts</summary>" in html
+    accounts = html[html.index('data-group="accounts"') - 60: html.index('data-group="accounts"') + 200]
+    assert "active" in accounts and "open" in accounts            # the page being viewed sits in an open group
+    admin_part = html[html.index('data-group="admin"') - 60: html.index('data-group="admin"') + 80]
+    assert "open" not in admin_part                               # the others start collapsed
+    assert 'aria-current="page"' in html and "data-nav-toggle" in html
+
+
+def test_the_menu_can_move_to_the_top_and_the_choice_is_remembered_in_the_browser(db):
+    boot = (ROOT / "templates/partials/theme_boot.html").read_text()
+    js = (ROOT / "static/js/app.js").read_text()
+    css = (ROOT / "static/css/base.css").read_text()
+    assert 'getItem("nav") === "top"' in boot and 'setAttribute("data-nav", nav)' in boot
+    assert 'localStorage.setItem("nav", mode)' in js and "data-nav-toggle" in js
+    assert '[data-nav="top"] .rail' in css and '[data-nav="top"] .nav-items' in css and "@media (max-width: 800px)" in css
+    assert css.count("{") == css.count("}")  # the stylesheet is well formed

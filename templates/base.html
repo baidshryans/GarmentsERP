@@ -26,6 +26,9 @@
     {% if user_factories.count > 1 %}
       <span class="muted" title="Factories you can access">{{ user_factories.count }} factories</span>
     {% endif %}
+    <button type="button" class="btn icon" data-nav-toggle data-tip="Move the menu to the top or the side" aria-label="Move the menu to the top or the side" aria-pressed="false">
+      <svg class="nav-icon-side"><use href="#i-menu-top"/></svg><svg class="nav-icon-top"><use href="#i-menu-side"/></svg>
+    </button>
     <button type="button" class="btn icon" data-theme-toggle data-tip="Switch light / dark" aria-label="Switch light or dark theme" aria-pressed="false">
       <svg class="theme-icon-sun"><use href="#i-sun"/></svg><svg class="theme-icon-moon"><use href="#i-moon"/></svg>
     </button>
@@ -36,12 +39,20 @@
     </form>
   </header>
   <div class="shell">
-    <nav class="rail" aria-label="Main">
+    <nav class="rail" id="main-nav" aria-label="Main">
       {% for group in nav_groups %}
-        <h4>{{ group.title }}</h4>
-        {% for item in group.items %}
-          <a href="{% url item.url_name %}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}>{{ item.label }}</a>
-        {% endfor %}
+        {% if group.title == "Home" %}
+          <div class="nav-items nav-home">{% for item in group.items %}<a href="{% url item.url_name %}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}</div>
+        {% else %}
+        <details class="nav-group{% if group.active %} active{% endif %}" data-group="{{ group.key }}" {% if group.active %}open{% endif %}>
+          <summary>{{ group.title }}</summary>
+          <div class="nav-items">
+            {% for item in group.items %}
+              <a href="{% url item.url_name %}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}>{{ item.label }}</a>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
       {% endfor %}
     </nav>
     <main class="content">

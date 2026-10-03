@@ -48,17 +48,49 @@ h1.page-title { font-weight: 700; font-size: 24px; margin: 0; }
 .topbar select { max-width: 200px; }
 
 .shell { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); }
-.rail h4 {
-  margin: var(--space-4) var(--space-2) var(--space-1); font-size: var(--text-label);
-  font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted);
+.rail {
+  width: var(--rail-width); flex: none; padding: var(--space-2);
+  position: sticky; top: calc(var(--topbar-height) + var(--space-5));
+  max-height: calc(100vh - var(--topbar-height) - var(--space-6)); overflow-y: auto;
+  background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow-island);
 }
-.rail h4:first-child { margin-top: 0; }
-.rail a {
-  display: block; padding: 7px var(--space-3); border-radius: var(--radius);
-  color: var(--color-ink);
+
+/* ---- navigation menu: collapsible groups; in the side rail they open downwards, in the top bar as drop-downs ---- */
+.nav-group { border-radius: var(--radius); }
+.nav-group > summary {
+  list-style: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: 8px var(--space-3); border-radius: var(--radius); cursor: pointer; user-select: none;
+  font-size: var(--text-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted);
 }
-.rail a:hover { background: var(--color-primary-soft); text-decoration: none; }
-.rail a[aria-current="page"] { background: var(--color-primary-pale); font-weight: 600; }
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary::after {
+  content: ""; width: 7px; height: 7px; flex: none; margin-right: 2px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s;
+}
+.nav-group[open] > summary::after { transform: rotate(45deg); }
+.nav-group > summary:hover { background: var(--color-primary-soft); color: var(--color-ink); }
+.nav-group.active > summary { color: var(--color-primary); }
+.nav-items a {
+  display: block; padding: 7px var(--space-3) 7px var(--space-4); border-radius: var(--radius); color: var(--color-ink);
+}
+.nav-items a:hover { background: var(--color-primary-soft); text-decoration: none; }
+.nav-items a[aria-current="page"] { background: var(--color-primary-pale); font-weight: 600; }
+
+/* top-bar layout: the menu runs across under the title bar */
+[data-nav="top"] .shell { display: block; padding-top: 0; }
+[data-nav="top"] .rail {
+  position: relative; top: auto; width: auto; max-height: none; overflow: visible;
+  display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-2) 0 var(--space-3); padding: var(--space-1) var(--space-2); z-index: 15;
+}
+[data-nav="top"] .nav-group { position: relative; }
+[data-nav="top"] .nav-group[open] > summary { background: var(--color-primary-soft); color: var(--color-ink); }
+[data-nav="top"] .nav-items {
+  position: absolute; top: calc(100% + 4px); left: 0; min-width: 230px; padding: var(--space-2); z-index: 30;
+  background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow-pop);
+}
+[data-nav="top"] .content { padding: 0 var(--space-3); }
+[data-nav="top"] .nav-home, .nav-home { position: static; min-width: 0; padding: 0; background: transparent; box-shadow: none; }
+[data-nav="top"] .nav-home a { padding: 8px var(--space-3); font-weight: 600; }
 
 .content { flex: 1; min-width: 0; padding: var(--space-2) var(--space-3); }
 .page-head { display: flex; align-items: baseline; gap: var(--space-4); margin-bottom: var(--space-4); }
@@ -168,15 +200,27 @@ td input, td select { padding: 4px var(--space-2); }
 
 .stat { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* ---- mobile ---- */
-@media (max-width: 800px) {
-  .rail {
-  width: var(--rail-width); flex: none; padding: var(--space-3);
-  position: sticky; top: calc(var(--topbar-height) + var(--space-5));
-  background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow-island);
-}
-
 /* theme toggle icon: sun in light, moon in dark */
 .theme-icon-moon { display: none; }
 [data-theme="dark"] .theme-icon-sun { display: none; }
 [data-theme="dark"] .theme-icon-moon { display: inline; }
+.nav-icon-top { display: none; }
+[data-nav="top"] .nav-icon-side { display: none; }
+[data-nav="top"] .nav-icon-top { display: inline; }
+
+/* ---- mobile: the menu always runs across the top, as drop-downs ---- */
+@media (max-width: 800px) {
+  .shell { display: block; padding-top: 0; }
+  .rail {
+    position: relative; top: auto; width: auto; max-height: none; overflow: visible;
+    display: flex; flex-wrap: wrap; gap: var(--space-1); margin: var(--space-2) 0 var(--space-3); z-index: 15;
+  }
+  .nav-group { position: relative; }
+  .nav-items { position: absolute; top: calc(100% + 4px); left: 0; min-width: 230px; padding: var(--space-2); z-index: 30;
+    background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow-pop); }
+  .nav-home { position: static; min-width: 0; padding: 0; background: transparent; box-shadow: none; }
+  .content { padding: var(--space-3); }
+  .island { padding: var(--space-4); }
+  input, select, textarea, .btn { min-height: 44px; }
+  [data-nav-toggle] { display: none; }
+}

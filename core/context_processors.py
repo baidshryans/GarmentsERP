@@ -54,12 +54,26 @@ NAV = [
 ]
 
 
+# A group is "current" when the page is one of its screens or lives under one of its URL prefixes
+# (a lot page, a challan, a style are not menu entries but belong to Production, Job work, Masters).
+PREFIXES = {
+    "Masters": ("/masters/", "/import/"),
+    "Purchases": ("/purchases/",),
+    "Inventory": ("/inventory/",),
+    "Production": ("/production/",),
+    "Job work": ("/jobwork/",),
+    "Accounts": ("/accounts/chart", "/accounts/vouchers", "/accounts/opening", "/accounts/trial"),
+    "Admin": ("/factories/", "/users/", "/roles/", "/tax/", "/settings/"),
+}
+
+
 def app_shell(request):
     """Navigation rail and company name for the base layout. Only built screens are listed."""
     user = request.user
     if not user.is_authenticated:
         return {}
     groups = []
+    current = request.resolver_match.url_name if getattr(request, "resolver_match", None) else None
     for title, items in NAV:
         visible = [
             {"url_name": u, "label": label}
@@ -67,7 +81,12 @@ def app_shell(request):
             if screen == "core.home" or user.has_screen_perm(screen, "view")
         ]
         if visible:
-            groups.append({"title": title, "items": visible})
+            groups.append({
+                "title": title, "items": visible,
+                "active": any(i["url_name"] == current for i in visible)
+                or any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
+                "key": title.lower().replace(" ", "-"),
+            })
     company = Company.objects.filter(setup_complete=True).first()
     return {
         "nav_groups": groups,

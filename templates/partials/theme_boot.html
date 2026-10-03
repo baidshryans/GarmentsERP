@@ -1,8 +1,12 @@
 <script>
-  /* Light is the default. Dark is used only if the user switches to it with the toggle. */
+  /* Light is the default. Dark and the top menu are used only if the user switched to them with the toggles. */
   (function () {
-    var theme = "light";
-    try { if (localStorage.getItem("theme") === "dark") { theme = "dark"; } } catch (e) {}
+    var theme = "light", nav = "side";
+    try {
+      if (localStorage.getItem("theme") === "dark") { theme = "dark"; }
+      if (localStorage.getItem("nav") === "top") { nav = "top"; }
+    } catch (e) {}
     document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.setAttribute("data-nav", nav);
   })();
 </script>

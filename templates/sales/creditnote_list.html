@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Sales credit notes{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Sales credit notes</h1><span class="muted">Raise one from the posted invoice that is being returned</span></div>
+  <div class="island">
+    {% if notes %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Customer</th><th scope="col">Invoice</th><th scope="col">Reason</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+      <tbody>{% for n in notes %}<tr><td><a href="{% url 'salecn_detail' n.pk %}">{{ n.number|default:"Draft" }}</a></td><td>{{ n.date|date:"d M Y" }}</td><td>{{ n.customer.name }}</td><td><a href="{% url 'saleinvoice_detail' n.invoice.pk %}">{{ n.invoice.number }}</a></td><td>{{ n.reason }}</td><td class="num">{{ n.total }}</td>
+        <td><span class="pill {% if n.status == 'posted' %}success{% elif n.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ n.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No credit notes</div></div>{% endif %}
+  </div>
+{% endblock %}

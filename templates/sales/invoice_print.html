@@ -1,0 +1,47 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Invoice {{ inv.number|default:"draft" }}</title>
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v={{ asset_v }}"><link rel="stylesheet" href="{% static 'css/base.css' %}?v={{ asset_v }}">
+  <style>
+    body { background: white; color: black; font-family: "Assistant", sans-serif; }
+    .sheet { max-width: 190mm; margin: 10mm auto; padding: 0 6mm; }
+    .sheet table { border-collapse: collapse; width: 100%; margin-bottom: 5mm; }
+    .sheet th, .sheet td { border: 1px solid black; padding: 4px 8px; color: black; background: white; font-variant-numeric: tabular-nums; }
+    .sheet h1 { margin: 0; font-size: 20pt; }
+    .r { text-align: right; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6mm; }
+    .sign { display: flex; justify-content: space-between; margin-top: 20mm; }
+    .sign div { border-top: 1px solid black; width: 60mm; text-align: center; padding-top: 2mm; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <p class="no-print"><button class="btn primary" onclick="window.print()">Print</button></p>
+    <div class="head">
+      <div><h1>{{ inv.company.name }}</h1><div>{{ inv.factory.name }}{% if inv.factory.address %}, {{ inv.factory.address }}{% endif %}</div>{% if inv.factory.gstin %}<div>GSTIN {{ inv.factory.gstin }}</div>{% endif %}
+        <div style="font-size:14pt;margin-top:4mm"><strong>{% if inv.tax_mode == "none" and inv.gst_total == 0 and inv.tax_note %}INVOICE{% elif inv.gst_total %}TAX INVOICE{% else %}INVOICE{% endif %}</strong></div></div>
+      <div style="text-align:right"><div style="color:black">{{ qr|safe }}</div><div><strong>{{ inv.number|default:"DRAFT" }}</strong></div><div>Date {{ inv.date|date:"d M Y" }}</div>{% if inv.due_date %}<div>Due {{ inv.due_date|date:"d M Y" }}</div>{% endif %}</div>
+    </div>
+    <table><tbody>
+      <tr><td style="width:50%"><strong>Billed to</strong><br>{{ inv.customer.name }}{% if billing %}<br>{{ billing.line1 }}{% if billing.line2 %}, {{ billing.line2 }}{% endif %}<br>{{ billing.city }} {{ billing.pincode }}{% endif %}{% if inv.customer.gstin %}<br>GSTIN {{ inv.customer.gstin }}{% endif %}</td>
+        <td><strong>Supply</strong><br>Place of supply: {{ inv.get_place_of_supply_display|default:inv.place_of_supply }}{% if inv.order %}<br>Order {{ inv.order.number }}{% endif %}{% if inv.packing %}<br>Packing list {{ inv.packing.number }} · {{ cartons }} carton{{ cartons|pluralize }}{% endif %}{% if inv.lr_no %}<br>LR {{ inv.lr_no }}{% endif %}{% if inv.vehicle_no %} · Vehicle {{ inv.vehicle_no }}{% endif %}</td></tr>
+    </tbody></table>
+    {% if inv.irn %}<p style="font-size:9pt;word-break:break-all">IRN {{ inv.irn }} · Ack {{ inv.ack_no }} · {{ inv.ack_date|date:"d M Y" }}{% if inv.eway_bill_no %} · E-way bill {{ inv.eway_bill_no }}{% endif %}</p>{% endif %}
+    <table>
+      <thead><tr><th scope="col">Item</th><th scope="col">HSN</th><th scope="col" class="r">Pieces</th><th scope="col" class="r">Rate</th><th scope="col" class="r">Disc %</th><th scope="col" class="r">Amount</th></tr></thead>
+      <tbody>{% for l in lines %}<tr><td>{{ l.sku.style.style_no }} {{ l.sku.style.name }} · {{ l.sku.colour }} · {{ l.sku.size }}</td><td>{{ l.hsn }}</td><td class="r">{{ l.qty|floatformat:"-0" }}</td><td class="r">{{ l.rate }}</td><td class="r">{{ l.discount_pct|floatformat:"-2" }}</td><td class="r">{{ l.amount }}</td></tr>{% endfor %}</tbody>
+      <tfoot>
+        <tr><td colspan="5">Value after discount</td><td class="r">{{ inv.subtotal }}</td></tr>
+        {% for t in taxes %}<tr><td colspan="5">{{ t.component|upper }} @ {{ t.rate|floatformat:"-3" }}% on {{ t.taxable }}</td><td class="r">{{ t.amount }}</td></tr>{% endfor %}
+        {% if inv.round_off %}<tr><td colspan="5">Round off</td><td class="r">{{ inv.round_off }}</td></tr>{% endif %}
+        <tr><td colspan="5"><strong>Total</strong></td><td class="r"><strong>{{ inv.total }}</strong></td></tr>
+      </tfoot>
+    </table>
+    {% if inv.tax_mode == "none" and inv.tax_note %}<p>No GST charged: {{ inv.tax_note }}</p>{% endif %}
+    <div class="sign"><div>Customer</div><div>For {{ inv.company.name }}</div></div>
+  </div>
+</body>
+</html>

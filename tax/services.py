@@ -56,3 +56,9 @@ def gst_rate_for(hsn, value_per_piece, on_date):
         if value_per_piece >= slab.value_from and (slab.value_to is None or value_per_piece <= slab.value_to):
             return slab.gst_rate
     return None
+
+
+def gst_registration(company, on_date, factory=None) -> str:
+    """The GSTIN in force on a date (the factory's own row first, else the company's), or an empty string."""
+    setting = _effective(company, "gst", on_date, factory)
+    return setting.registration_number if setting and setting.enabled else ""

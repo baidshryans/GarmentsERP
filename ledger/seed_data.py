@@ -74,6 +74,7 @@ LEDGERS = [
     ("Sales - Ready Stock", "Sales", "sales_stock", False),
     ("Sales - Made to Order", "Sales", "sales_mto", False),
     ("Sales Returns", "Sales", "sales_returns", False),
+    ("Cost of Goods Sold", "Direct Expenses", "cogs", False),
     ("Purchases - Fabric", "Purchases", "purchases_fabric", False),
     ("Purchases - Trims", "Purchases", "purchases_trims", False),
     ("Purchases - Finished Goods", "Purchases", "purchases_finished", False),

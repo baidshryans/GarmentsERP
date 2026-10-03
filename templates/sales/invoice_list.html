@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Sale invoices{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Sale invoices</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'billing' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Barcode billing</a>{% endif %}</div></div>
+  <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'saleinvoice_list' %}">All</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
+  <div class="island">
+    {% if invoices %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Customer</th><th scope="col">Factory</th><th scope="col" class="num">Before GST</th><th scope="col" class="num">GST</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+      <tbody>{% for i in invoices %}<tr><td><a href="{% url 'saleinvoice_detail' i.pk %}">{{ i.number|default:"Draft" }}</a></td><td>{{ i.date|date:"d M Y" }}</td><td>{{ i.customer.name }}</td><td>{{ i.factory.code }}</td><td class="num">{{ i.subtotal }}</td><td class="num">{{ i.gst_total }}</td><td class="num">{{ i.total }}</td>
+        <td><span class="pill {% if i.status == 'posted' %}success{% elif i.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ i.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No invoices yet</div></div>{% endif %}
+  </div>
+{% endblock %}

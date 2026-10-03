@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Credit note{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Credit note against {{ inv.number }}</h1><span class="muted">{{ inv.customer.name }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'saleinvoice_detail' inv.pk %}">Back to the invoice</a></div></div>
+  <form method="post" novalidate>{% csrf_token %}
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ p.date|default:today }}"></div>
+      <div class="field"><label for="location">Goods come back to</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if p.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <div class="field" style="flex:2"><label for="reason">Reason</label><input id="reason" name="reason" type="text" value="{{ p.reason }}" required></div>
+    </div></div>
+    <div class="island"><h2>Pieces returned</h2>
+      {% if lines %}<div class="table-wrap"><table>
+        <thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" class="num">Invoiced</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Can be returned</th><th scope="col" class="num" style="width:110px">Returning</th></tr></thead>
+        <tbody>{% for l in lines %}<tr><td>{{ l.sku.style.style_no }}</td><td>{{ l.sku.colour }}</td><td>{{ l.sku.size }}</td><td class="num">{{ l.qty|floatformat:"-0" }}</td><td class="num">{{ l.rate }}</td><td class="num">{{ l.returnable|floatformat:"-0" }}</td>
+          <td class="num"><input type="text" inputmode="numeric" name="qty_{{ l.pk }}"></td></tr>{% endfor %}</tbody>
+      </table></div><p class="muted">GST is reversed exactly as it was charged on these pieces. They return to stock at the cost they left at.</p>
+      {% else %}<div class="empty"><div class="hand">Everything on this invoice has already been returned</div></div>{% endif %}</div>
+    {% if lines %}<div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'saleinvoice_detail' inv.pk %}">Cancel</a></div>{% endif %}
+  </form>
+{% endblock %}

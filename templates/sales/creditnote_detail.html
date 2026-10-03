@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ note }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ note.number|default:"Draft credit note" }}</h1>
+    <span class="pill {% if note.status == 'posted' %}success{% elif note.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ note.get_status_display }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'salecn_list' %}">All credit notes</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Customer</div>{{ note.customer.name }}</div>
+    <div><div class="label muted">Invoice</div><a href="{% url 'saleinvoice_detail' note.invoice.pk %}">{{ note.invoice.number }}</a></div>
+    <div><div class="label muted">Date</div>{{ note.date|date:"d M Y" }}</div>
+    <div><div class="label muted">Back to</div>{{ note.location.name }}</div></div>
+    <p>{{ note.reason }}</p>{% if note.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' note.voucher.pk %}">{{ note.voucher.number }}</a></p>{% endif %}</div>
+  <div class="island"><div class="table-wrap"><table>
+    <thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Amount</th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.invoice_line.sku.style.style_no }}</td><td>{{ l.invoice_line.sku.colour }}</td><td>{{ l.invoice_line.sku.size }}</td><td class="num">{{ l.qty|floatformat:"-0" }}</td><td class="num">{{ l.amount }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td colspan="4">Value of returned pieces</td><td class="num">{{ note.subtotal }}</td></tr>
+      {% for t in taxes %}<tr><td colspan="4">{{ t.component|upper }} {{ t.rate|floatformat:"-3" }}% reversed</td><td class="num">{{ t.amount }}</td></tr>{% endfor %}
+      {% if note.round_off %}<tr><td colspan="4">Round off</td><td class="num">{{ note.round_off }}</td></tr>{% endif %}
+      <tr><td colspan="4"><strong>Credit to the customer</strong></td><td class="num"><strong>{{ note.total }}</strong></td></tr></tfoot>
+  </table></div></div>
+  <div class="island"><h2>Actions</h2>
+    {% if note.status == "draft" %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="post">Post credit note</button> {% if can_cancel or can_edit %}<button class="btn danger" name="action" value="cancel">Discard draft</button>{% endif %}</form>{% endif %}
+    {% if note.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel credit note</button></form>{% endif %}
+  </div>
+{% endblock %}

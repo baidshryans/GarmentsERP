@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ inv }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ inv.number|default:"Draft invoice" }}</h1>
+    <span class="pill {% if inv.status == 'posted' %}success{% elif inv.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ inv.get_status_display }}</span>
+    <div class="actions">
+      {% if inv.status == "posted" %}<a class="btn" href="{% url 'saleinvoice_print' inv.pk %}">Print</a>{% if can_return %}<a class="btn" href="{% url 'salecn_new' inv.pk %}">Credit note</a>{% endif %}{% endif %}
+      <a class="btn ghost" href="{% url 'saleinvoice_list' %}">All invoices</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Customer</div>{{ inv.customer.name }}{% if inv.customer.gstin %}<div class="muted">GSTIN {{ inv.customer.gstin }}</div>{% endif %}</div>
+    <div><div class="label muted">Factory</div>{{ inv.factory.code }} · from {{ inv.location.name }}</div>
+    <div><div class="label muted">Date</div>{{ inv.date|date:"d M Y" }}</div>
+    <div><div class="label muted">Due</div>{{ inv.due_date|date:"d M Y"|default:"—" }}</div>
+    <div><div class="label muted">Place of supply</div>{{ inv.get_place_of_supply_display|default:inv.place_of_supply }}</div></div>
+    <p class="muted">{% if inv.order %}Order <a href="{% url 'saleorder_detail' inv.order.pk %}">{{ inv.order.number }}</a>{% endif %}{% if inv.packing %} · Packing list <a href="{% url 'packing_detail' inv.packing.pk %}">{{ inv.packing.number }}</a>{% endif %}{% if inv.lr_no %} · LR {{ inv.lr_no }}{% endif %}{% if inv.voucher %} · Books: <a href="{% url 'voucher_detail' inv.voucher.pk %}">{{ inv.voucher.number }}</a>{% endif %}</p></div>
+
+  <div class="island"><div class="table-wrap"><table>
+    <thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col">HSN</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Disc %</th><th scope="col" class="num">Amount</th><th scope="col" class="num">GST %</th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.sku.style.style_no }}</td><td>{{ l.sku.colour }}</td><td>{{ l.sku.size }}</td><td>{{ l.hsn }}</td><td class="num">{{ l.qty|floatformat:"-0" }}</td><td class="num">{{ l.rate }}</td><td class="num">{{ l.discount_pct|floatformat:"-2" }}</td><td class="num">{{ l.amount }}</td><td class="num">{% if l.gst_template %}{{ l.gst_rate|floatformat:"-2" }}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+
+  <div class="grid-2">
+    <div class="island"><h2>GST and total</h2>
+      <p>{{ inv.get_tax_mode_display }}{% if inv.gst_template %} · {{ inv.gst_template.name }}{% endif %}</p>
+      {% if inv.tax_note %}<p class="muted">Changed from the suggestion ({{ inv.suggested_tax|default:"none" }}): {{ inv.tax_note }}</p>{% endif %}
+      <div class="table-scroll"><table><tbody>
+        <tr><td>Value after discount</td><td class="num">{{ inv.subtotal }}</td></tr>
+        {% for t in taxes %}<tr><td>{{ t.component|upper }} {{ t.rate|floatformat:"-3" }}% on {{ t.taxable }}</td><td class="num">{{ t.amount }}</td></tr>{% endfor %}
+        {% if inv.round_off %}<tr><td>Round off</td><td class="num">{{ inv.round_off }}</td></tr>{% endif %}</tbody>
+        <tfoot><tr><td>Invoice total</td><td class="num">{{ inv.total }}</td></tr></tfoot></table></div>
+      {% if inv.status == "draft" and can_edit and gst %}
+      <form method="post" style="margin-top:16px">{% csrf_token %}<input type="hidden" name="action" value="tax">
+        <div class="field"><label for="tax_mode">Change the GST on this invoice</label><select id="tax_mode" name="tax_mode"><option value="auto" {% if inv.tax_mode == "auto" %}selected{% endif %}>From the HSN slab and place of supply (suggested)</option><option value="template" {% if inv.tax_mode == "template" %}selected{% endif %}>One GST template for all items</option><option value="none" {% if inv.tax_mode == "none" %}selected{% endif %}>No GST on this invoice</option></select></div>
+        <div class="field" data-tax-show="template" hidden><label for="gst_template">GST template</label><select id="gst_template" name="gst_template">{% for t in gst_templates %}<option value="{{ t.pk }}" {% if inv.gst_template_id == t.pk %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="field" data-tax-show="template none" hidden><label for="tax_note">Reason</label><input id="tax_note" name="tax_note" type="text" value="{{ inv.tax_note }}"></div>
+        <button class="btn">Update GST</button></form>{% elif inv.status == "draft" and not gst %}<p class="muted">GST is not switched on, so this invoice carries no tax.</p>{% endif %}
+    </div>
+    <div class="island"><h2>Actions</h2>
+      {% if inv.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="post">Post invoice</button> <button class="btn danger" name="action" value="discard">Discard draft</button></form>
+        <p class="muted">Posting takes the goods out of stock and books the sale, the GST and the cost of goods sold together.</p>{% endif %}
+      {% if inv.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel invoice</button></form>{% endif %}
+      {% if inv.status == "cancelled" %}<p class="muted">{{ inv.notes }}</p>{% endif %}
+      {% if credit_notes %}<h3>Credit notes</h3><ul>{% for n in credit_notes %}<li><a href="{% url 'salecn_detail' n.pk %}">{{ n.number|default:"Draft" }}</a> · {{ n.get_status_display }} · {{ n.total }}</li>{% endfor %}</ul>{% endif %}
+    </div>
+  </div>
+
+  {% if einvoice %}
+  <div class="island"><h2>E-invoice and e-way bill</h2>
+    {% if inv.einvoice_error %}<p><span class="pill danger">Portal message</span> {{ inv.einvoice_error }}</p>{% endif %}
+    {% if inv.irn %}<div class="kv"><span class="muted">IRN</span><span style="word-break:break-all">{{ inv.irn }}</span><span class="muted">Ack no and date</span><span>{{ inv.ack_no }} · {{ inv.ack_date|date:"d M Y H:i" }}</span>
+      <span class="muted">E-way bill</span><span>{% if inv.eway_bill_no %}{{ inv.eway_bill_no }}{% if inv.eway_valid_until %} · valid till {{ inv.eway_valid_until|date:"d M Y" }}{% endif %}{% else %}not generated{% endif %}</span></div>{% endif %}
+    {% if can_edit and not inv.eway_bill_no %}
+    <form method="post" class="field-row" style="align-items:end;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="einvoice">
+      <div class="field"><label for="vehicle_no">Vehicle no</label><input id="vehicle_no" name="vehicle_no" type="text" value="{{ inv.vehicle_no }}"></div>
+      <div class="field"><label for="distance_km">Distance (km)</label><input id="distance_km" name="distance_km" type="text" inputmode="numeric"></div>
+      <div class="field"><button class="btn primary">{% if inv.irn %}Generate e-way bill{% else %}Send e-invoice and e-way bill{% endif %}</button></div></form>
+    <p class="muted">The e-way bill is made when the invoice value needs one, or when a vehicle number is given.</p>{% endif %}
+    {% if inv.irn and can_cancel %}<form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="einvoice_cancel"><div class="field"><label for="ewhy">Cancel the e-invoice with a reason</label><input id="ewhy" name="reason" type="text" required></div><button class="btn danger">Cancel e-invoice</button></form>{% endif %}
+  </div>{% endif %}
+  <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>
+{% endblock %}

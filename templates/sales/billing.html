@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Barcode billing{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
+  <div class="page-head"><h1 class="page-title">Barcode billing</h1><span class="muted">Scan a tag or a carton label; each scan adds a piece at the customer's rate</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'saleinvoice_list' %}">All invoices</a></div></div>
+  <form method="post" novalidate>{% csrf_token %}
+    <button hidden tabindex="-1" name="action" value="draft" aria-hidden="true"></button>
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="customer">Customer</label><select id="customer" name="customer">{% for c in customers %}<option value="{{ c.pk }}" {% if p.customer == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" onchange="location.search='?factory='+this.value">{% for f in factories %}<option value="{{ f.pk }}" {% if factory.pk == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="location">Goods leave from</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if p.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ p.date|default:today }}"></div>
+    </div></div>
+
+    <div class="island">
+      <div class="scan-box"><label for="scan" class="label">Scan here</label>
+        <input id="scan" type="text" autocomplete="off" inputmode="none" data-url="{% url 'sale_scan' %}" placeholder="Scan or type a barcode, then Enter"></div>
+      <div id="scan-msg" class="scan-msg" role="status" aria-live="polite"></div>
+      <div class="table-wrap"><table id="bill-lines">
+        <thead><tr><th scope="col">Item</th><th scope="col" class="num" style="width:90px">Pieces</th><th scope="col" class="num" style="width:110px">Rate</th><th scope="col" class="num" style="width:90px">Disc %</th><th scope="col" class="num">Amount</th><th scope="col"></th></tr></thead>
+        <tbody>{% for r in rows %}<tr data-sku="{{ r.sku.pk }}"><td><input type="hidden" name="sku" value="{{ r.sku.pk }}"><span class="label">{{ r.sku.style.style_no }} · {{ r.sku.colour }} · {{ r.sku.size }}</span> <span class="muted src"></span></td>
+          <td class="num"><input type="text" inputmode="numeric" name="qty" value="{{ r.qty }}"></td><td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate }}" placeholder="auto"></td><td class="num"><input type="text" inputmode="decimal" name="disc" value="{{ r.disc }}"></td>
+          <td class="num amount">0.00</td><td><button type="button" class="btn ghost remove-row" title="Remove">✕</button></td></tr>{% endfor %}</tbody>
+      </table></div>
+      <template id="row-tpl"><tr data-sku=""><td><input type="hidden" name="sku"><span class="label"></span> <span class="muted src"></span></td>
+        <td class="num"><input type="text" inputmode="numeric" name="qty"></td><td class="num"><input type="text" inputmode="decimal" name="rate" placeholder="auto"></td><td class="num"><input type="text" inputmode="decimal" name="disc"></td>
+        <td class="num amount">0.00</td><td><button type="button" class="btn ghost remove-row" title="Remove">✕</button></td></tr></template>
+      <div class="bill-totals"><span>Pieces <strong id="bill-pieces">0</strong></span><span>Before GST <strong id="bill-total">0.00</strong></span></div>
+    </div>
+
+    <div class="island"><h2>GST</h2>
+      {% if gst %}
+      <div class="field-row">
+        <div class="field"><label for="tax_mode">GST on this invoice</label><select id="tax_mode" name="tax_mode"><option value="auto" {% if p.tax_mode == "auto" or not p.tax_mode %}selected{% endif %}>From the HSN slab and place of supply (suggested)</option><option value="template" {% if p.tax_mode == "template" %}selected{% endif %}>One GST template for all items</option><option value="none" {% if p.tax_mode == "none" %}selected{% endif %}>No GST on this invoice</option></select></div>
+        <div class="field" data-tax-show="template" hidden><label for="gst_template">GST template</label><select id="gst_template" name="gst_template">{% for t in gst_templates %}<option value="{{ t.pk }}" {% if p.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="field" data-tax-show="template none" hidden><label for="tax_note">Reason for changing the GST</label><input id="tax_note" name="tax_note" type="text" value="{{ p.tax_note }}"></div>
+      </div>
+      <p class="muted">GST is worked out when you save, from the style's HSN code, the value per piece, and the customer's state.</p>
+      {% else %}<p class="muted">GST is not switched on for this factory, so no tax is charged.</p>{% endif %}
+      <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ p.notes }}"></div>
+    </div>
+    <div class="form-actions"><button class="btn primary" name="action" value="post">Post invoice</button><button class="btn" name="action" value="draft">Save as draft</button></div>
+  </form>
+  <script src="{% static 'js/sales.js' %}?v={{ asset_v }}" defer></script>
+{% endblock %}

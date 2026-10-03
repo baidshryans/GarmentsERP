@@ -32,7 +32,14 @@
           <div class="nav-items">
             <div class="nav-items-title">{{ group.title }}</div>
             {% for item in group.items %}
-              <a href="{% url item.url_name %}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}>{{ item.label }}</a>
+              {% if item.sub %}
+              <div class="nav-sub{% if item.active %} open{% endif %}" data-sub="{{ item.key }}">
+                <button type="button" class="nav-sub-toggle" aria-expanded="{% if item.active %}true{% else %}false{% endif %}"><span>{{ item.label }}</span><svg class="nav-chev"><use href="#i-chevron"/></svg></button>
+                <div class="nav-sub-items">{% for k in item.items %}<a href="{% url k.url_name %}" {% if k.current %}aria-current="page"{% endif %}>{{ k.label }}</a>{% endfor %}</div>
+              </div>
+              {% else %}
+              <a href="{% url item.url_name %}" {% if item.current %}aria-current="page"{% endif %}>{{ item.label }}</a>
+              {% endif %}
             {% endfor %}
           </div>
         </details>
@@ -45,6 +52,7 @@
       <div class="rail-resizer" role="separator" aria-orientation="vertical" aria-label="Resize the menu (arrow keys, double-click to reset)" tabindex="0"></div>
     </nav>
     <span class="spacer"></span>
+    <button type="button" class="btn icon" data-cmdk-open data-tip="Jump to a screen (Ctrl+K)" aria-label="Jump to a screen, shortcut Control K" aria-haspopup="dialog"><svg><use href="#i-command"/></svg></button>
     <div class="search-box">
       <svg class="search-ico"><use href="#i-search"/></svg>
       <input type="search" name="q" placeholder="Search styles, barcodes, parties" autocomplete="off" aria-label="Search"
@@ -70,6 +78,19 @@
     </details>
   </header>
   <div class="nav-scrim" data-nav-close></div>
+  <div class="cmdk" id="cmdk" hidden>
+    <div class="cmdk-box" role="dialog" aria-modal="true" aria-label="Jump to a screen">
+      <div class="cmdk-input">
+        <svg><use href="#i-search"/></svg>
+        <input id="cmdk-input" type="text" placeholder="Jump to a screen: payment, trial balance, challans…" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="true" aria-controls="cmdk-list" aria-autocomplete="list" aria-label="Jump to a screen">
+        <kbd>Esc</kbd>
+      </div>
+      <ul id="cmdk-list" role="listbox" aria-label="Screens"></ul>
+      <div class="cmdk-foot"><span><kbd>&uarr;</kbd><kbd>&darr;</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div>
+    </div>
+  </div>
+  {{ nav_index|json_script:"nav-index" }}
   <main class="content" id="content" tabindex="-1">
     {% if messages %}<ul class="messages" role="status">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
     {% block content %}{% endblock %}

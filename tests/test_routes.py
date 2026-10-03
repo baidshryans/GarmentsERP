@@ -56,10 +56,10 @@ def test_every_url_name_used_in_a_template_or_redirect_exists():
 
 
 def test_every_menu_entry_points_at_a_real_screen():
-    from core.context_processors import NAV
+    from core.context_processors import NAV, flat_items
 
     for group, items in NAV:
-        for url_name, label, screen in items:
+        for url_name, label, screen in flat_items(items):
             try:
                 reverse(url_name)
             except NoReverseMatch:

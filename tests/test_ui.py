@@ -413,3 +413,21 @@ def test_side_menu_width_and_collapse_are_remembered_and_applied_before_first_pa
     assert 'getItem("navWidth")' in boot and '"--rail-w-user"' in boot and "data-collapsed" in boot
     assert 'store("navWidth"' in js and "pointerdown" in js and "ArrowLeft" in js and "dblclick" in js
     assert "var(--sidebar-w)" in css and "col-resize" in css
+
+
+def test_menu_groups_fold_into_sections_and_quick_jump_knows_every_screen(company, owner):
+    from django.urls import reverse as rev
+
+    c = Client()
+    c.force_login(owner)
+    html = c.get(rev("trial_balance")).content.decode()
+    assert html.count('class="nav-sub') >= 6 and 'data-sub="accounts/books"' in html
+    books = html[html.index('data-sub="accounts/books"') - 40: html.index('data-sub="accounts/books"') + 60]
+    assert " open" in books                                       # the section holding the current page is open
+    assert 'id="cmdk"' in html and "data-cmdk-open" in html and 'id="nav-index"' in html
+    assert rev("voucher_payment") in html and "Trial balance" in html
+
+
+def test_quick_jump_script_has_keyboard_support(db):
+    js = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
+    assert "ctrlKey || e.metaKey" in js and "ArrowDown" in js and "Escape" in js and "navRecent" in js

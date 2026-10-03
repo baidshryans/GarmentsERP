@@ -6,6 +6,13 @@ from django.utils import timezone
 
 from .models import Company, Factory
 
+class Sub:
+    """A fold-away section inside a menu group, so a long group reads as a few headings instead of one long list."""
+
+    def __init__(self, label, items):
+        self.label, self.items = label, items
+
+
 NAV = [
     ("Home", [("home", "Home", "core.home")]),
     ("Masters", [
@@ -13,10 +20,12 @@ NAV = [
         ("material_list", "Materials", "masters.material"),
         ("party_list", "Parties", "masters.party"),
         ("pricelist_list", "Price lists", "masters.pricelist"),
-        ("route_list", "Routes", "masters.route"),
-        ("process_list", "Processes", "masters.process"),
-        ("unit_list", "Units, sizes, colours", "masters.basics"),
-        ("hsn_list", "HSN and GST slabs", "tax.hsn"),
+        Sub("Setup", [
+            ("route_list", "Routes", "masters.route"),
+            ("process_list", "Processes", "masters.process"),
+            ("unit_list", "Units, sizes, colours", "masters.basics"),
+            ("hsn_list", "HSN and GST slabs", "tax.hsn"),
+        ]),
         ("excel_import", "Import from Excel", "masters.import"),
     ]),
     ("Purchases", [
@@ -35,12 +44,16 @@ NAV = [
     ("Inventory", [
         ("stock_enquiry", "Stock", "inventory.stock"),
         ("roll_list", "Fabric rolls", "inventory.stock"),
-        ("transfer_list", "Transfers", "inventory.transfer"),
-        ("opening_stock", "Opening stock", "inventory.opening"),
-        ("journal_list", "Stock journal", "inventory.journal"),
-        ("tag_print", "Print tags", "inventory.labels"),
-        ("reorder_levels", "Reorder levels", "inventory.reorder"),
-        ("stock_alerts", "Low-stock alerts", "inventory.alerts"),
+        Sub("Movements", [
+            ("transfer_list", "Transfers", "inventory.transfer"),
+            ("journal_list", "Stock journal", "inventory.journal"),
+            ("opening_stock", "Opening stock", "inventory.opening"),
+        ]),
+        Sub("Alerts and labels", [
+            ("reorder_levels", "Reorder levels", "inventory.reorder"),
+            ("stock_alerts", "Low-stock alerts", "inventory.alerts"),
+            ("tag_print", "Print tags", "inventory.labels"),
+        ]),
     ]),
     ("Production", [
         ("production_dashboard", "Dashboard", "production.dashboard"),
@@ -50,50 +63,75 @@ NAV = [
     ("Job work", [
         ("challan_list", "Challans", "jobwork.challan"),
         ("receipt_list", "Receipts and QC", "jobwork.receipt"),
-        ("bill_list", "Labour bills", "jobwork.bill"),
-        ("rate_list", "Labour rates", "jobwork.rate"),
-        ("job_reports", "Fabricator reports", "jobwork.report"),
-        ("daily_summary", "Daily summary", "jobwork.report"),
+        Sub("Labour", [
+            ("bill_list", "Labour bills", "jobwork.bill"),
+            ("rate_list", "Labour rates", "jobwork.rate"),
+        ]),
+        Sub("Reports", [
+            ("job_reports", "Fabricator reports", "jobwork.report"),
+            ("daily_summary", "Daily summary", "jobwork.report"),
+        ]),
     ]),
     ("Accounts", [
         ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
-        ("voucher_list", "Vouchers", "ledger.voucher"),
-        ("voucher_payment", "Payment", "ledger.voucher.create"),
-        ("voucher_receipt", "Receipt", "ledger.voucher.create"),
-        ("voucher_contra", "Contra", "ledger.voucher.create"),
-        ("voucher_journal", "Journal", "ledger.voucher.create"),
-        ("voucher_sales", "Sales voucher", "ledger.voucher.create"),
-        ("voucher_purchase", "Purchase voucher", "ledger.voucher.create"),
-        ("voucher_debit_note", "Debit note", "ledger.voucher.create"),
-        ("voucher_credit_note", "Credit note", "ledger.voucher.create"),
-        ("opening_balances", "Opening balances", "ledger.opening"),
-        ("trial_balance", "Trial balance", "ledger.report"),
-        ("profit_loss", "Profit and loss", "ledger.report"),
-        ("balance_sheet", "Balance sheet", "ledger.report"),
-        ("day_book", "Day book", "ledger.report"),
-        ("ledger_pick", "Ledger statement", "ledger.report"),
-        ("period_locks", "Period locks", "core.period_lock"),
-        ("year_end", "Year-end", "ledger.yearend"),
+        Sub("Vouchers", [
+            ("voucher_list", "All vouchers", "ledger.voucher"),
+            ("voucher_payment", "Payment", "ledger.voucher.create"),
+            ("voucher_receipt", "Receipt", "ledger.voucher.create"),
+            ("voucher_contra", "Contra", "ledger.voucher.create"),
+            ("voucher_journal", "Journal", "ledger.voucher.create"),
+            ("voucher_sales", "Sales voucher", "ledger.voucher.create"),
+            ("voucher_purchase", "Purchase voucher", "ledger.voucher.create"),
+            ("voucher_debit_note", "Debit note", "ledger.voucher.create"),
+            ("voucher_credit_note", "Credit note", "ledger.voucher.create"),
+        ]),
+        Sub("Books", [
+            ("trial_balance", "Trial balance", "ledger.report"),
+            ("profit_loss", "Profit and loss", "ledger.report"),
+            ("balance_sheet", "Balance sheet", "ledger.report"),
+            ("day_book", "Day book", "ledger.report"),
+            ("ledger_pick", "Ledger statement", "ledger.report"),
+        ]),
+        Sub("Set up and close", [
+            ("opening_balances", "Opening balances", "ledger.opening"),
+            ("period_locks", "Period locks", "core.period_lock"),
+            ("year_end", "Year-end", "ledger.yearend"),
+        ]),
     ]),
     ("Reports", [
         ("sales_report", "Sales", "sales.invoice"),
         ("purchase_report", "Purchases", "purchases.invoice"),
         ("finished_stock", "Finished stock", "inventory.stock"),
-        ("ageing_debtors", "Receivables ageing", "ledger.report"),
-        ("ageing_creditors", "Payables ageing", "ledger.report"),
-        ("gstr1", "GSTR-1 data", "tax.report"),
-        ("gstr3b", "GSTR-3B summary", "tax.report"),
-        ("tax_register", "Tax register", "tax.report"),
+        Sub("Ageing", [
+            ("ageing_debtors", "Receivables ageing", "ledger.report"),
+            ("ageing_creditors", "Payables ageing", "ledger.report"),
+        ]),
+        Sub("GST", [
+            ("gstr1", "GSTR-1 data", "tax.report"),
+            ("gstr3b", "GSTR-3B summary", "tax.report"),
+            ("tax_register", "Tax register", "tax.report"),
+        ]),
     ]),
     ("Admin", [
         ("factory_list", "Factories", "core.factory"),
         ("user_list", "Users", "core.user"),
         ("role_list", "Roles", "core.role"),
-        ("tax_settings", "Tax settings", "tax.settings"),
-        ("inventory_settings", "Inventory settings", "inventory.settings"),
-        ("sales_settings", "Sales settings", "sales.settings"),
+        Sub("Settings", [
+            ("tax_settings", "Tax settings", "tax.settings"),
+            ("inventory_settings", "Inventory settings", "inventory.settings"),
+            ("sales_settings", "Sales settings", "sales.settings"),
+        ]),
     ]),
 ]
+
+
+def flat_items(items):
+    """Every (url_name, label, screen) in a group, with the fold-away sections opened out."""
+    for it in items:
+        if isinstance(it, Sub):
+            yield from it.items
+        else:
+            yield it
 
 
 # A group is "current" when the page is one of its screens or lives under one of its URL prefixes
@@ -146,25 +184,41 @@ def app_shell(request):
     asset_v = _asset_version()
     if not user.is_authenticated:
         return {"today": today, "asset_v": asset_v}
-    groups = []
+    groups, index = [], []
     current = request.resolver_match.url_name if getattr(request, "resolver_match", None) else None
-    for title, items in NAV:
-        visible = [
-            {"url_name": u, "label": label}
-            for u, label, screen in items
+
+    def visible(entries):
+        return [
+            {"url_name": u, "label": label, "current": u == current}
+            for u, label, screen in entries
             if (screen == "core.home" or _allowed(user, screen)) and _built(u)
         ]
-        if visible:
+
+    for title, items in NAV:
+        key = title.lower().replace(" ", "-")
+        shown = []
+        for it in items:
+            if isinstance(it, Sub):
+                kids = visible(it.items)
+                if kids:
+                    shown.append({"sub": True, "label": it.label, "items": kids, "key": f"{key}/{it.label.lower().replace(' ', '-')}",
+                                  "active": any(k["current"] for k in kids)})
+            else:
+                shown.extend(visible([it]))
+        if shown:
+            leaves = [k for i in shown for k in (i["items"] if i.get("sub") else [i])]
             groups.append({
-                "title": title, "items": visible,
-                "active": any(i["url_name"] == current for i in visible)
-                or any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
-                "key": title.lower().replace(" ", "-"), "icon": ICONS.get(title, "i-masters"),
+                "title": title, "items": shown, "key": key, "icon": ICONS.get(title, "i-masters"),
+                "active": any(k["current"] for k in leaves) or any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
             })
+            for i in shown:
+                for k in (i["items"] if i.get("sub") else [i]):
+                    index.append({"label": k["label"], "group": title, "sub": i["label"] if i.get("sub") else "",
+                                  "url": reverse(k["url_name"])})
     company = Company.objects.filter(setup_complete=True).first()
     return {
         "today": today, "asset_v": asset_v,
-        "nav_groups": groups,
+        "nav_groups": groups, "nav_index": index,
         "company": company,
         "user_factories": Factory.objects.for_user(user).filter(is_active=True),
     }

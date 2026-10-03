@@ -46,6 +46,12 @@
 
   function syncGroups() {
     var saved = readOpen();
+    document.querySelectorAll("#main-nav .nav-sub").forEach(function (box) {      // remembered sections; the page in view always opens its own
+      var key = box.getAttribute("data-sub");
+      var on = !!box.querySelector("[aria-current]") || saved[key] === true || (box.classList.contains("open") && saved[key] !== false);
+      box.classList.toggle("open", on);
+      box.querySelector(".nav-sub-toggle").setAttribute("aria-expanded", on ? "true" : "false");
+    });
     groups().forEach(function (g) {
       var key = g.getAttribute("data-group");
       if (popover()) { g.open = false; }
@@ -108,6 +114,14 @@
   }, true);
 
   document.addEventListener("click", function (e) {
+    var sub = e.target.closest(".nav-sub-toggle");
+    if (sub && !popover()) {                     // fold or unfold a section inside a group
+      var box = sub.closest(".nav-sub"), on = !box.classList.contains("open");
+      box.classList.toggle("open", on); sub.setAttribute("aria-expanded", on ? "true" : "false");
+      var m = readOpen(); m[box.getAttribute("data-sub")] = on; store(OPEN_KEY, JSON.stringify(m));
+      return;
+    }
+    if (e.target.closest("[data-cmdk-open]")) { openJump(); return; }
     if (e.target.closest("[data-theme-toggle]")) { applyTheme(current() === "dark" ? "light" : "dark"); return; }
     if (e.target.closest("[data-nav-toggle]")) { setNav(navMode() === "top" ? "side" : "top"); return; }
     if (e.target.closest("[data-nav-collapse]")) { setCollapsed(!collapsed()); return; }
@@ -183,6 +197,103 @@
     computeDrawer();
     initResizer(); syncButtons(); syncGroups();
   });
+
+  // ---- quick jump (Ctrl+K): type to find any screen the user may open ----
+  var jump = { box: null, input: null, list: null, items: [], shown: [], at: 0, opener: null };
+  function jumpIndex() {
+    if (jump.items.length) { return jump.items; }
+    var el = document.getElementById("nav-index");
+    try { jump.items = JSON.parse(el ? el.textContent : "[]"); } catch (e) { jump.items = []; }
+    jump.items.forEach(function (i) { i.hay = (i.label + " " + i.sub + " " + i.group).toLowerCase(); });
+    return jump.items;
+  }
+  function recent() { try { return JSON.parse(load("navRecent") || "[]"); } catch (e) { return []; } }
+  function rememberPage() {
+    var here = jumpIndex().filter(function (i) { return i.url === location.pathname; })[0];
+    if (!here) { return; }
+    var r = recent().filter(function (u) { return u !== here.url; });
+    r.unshift(here.url); store("navRecent", JSON.stringify(r.slice(0, 6)));
+  }
+  function crumb(i) { return i.sub ? i.group + " \u203a " + i.sub : i.group; }
+  function renderJump() {
+    var q = jump.input.value.trim().toLowerCase(), all = jumpIndex(), nRecent = 0;
+    if (q) {
+      var words = q.split(/\s+/);
+      var rows = all.filter(function (i) { return words.every(function (w) { return i.hay.indexOf(w) !== -1; }); });
+      rows.sort(function (a, b) {
+        var sa = a.label.toLowerCase().indexOf(q) === 0 ? 0 : 1, sb = b.label.toLowerCase().indexOf(q) === 0 ? 0 : 1;
+        return sa - sb || a.label.localeCompare(b.label);
+      });
+      jump.shown = rows.slice(0, 40);
+    } else {
+      var r = recent().map(function (u) { return all.filter(function (i) { return i.url === u; })[0]; }).filter(Boolean);
+      nRecent = r.length;
+      jump.shown = r.concat(all.filter(function (i) { return r.indexOf(i) === -1; }));
+    }
+    jump.list.innerHTML = "";
+    if (!jump.shown.length) {
+      var none = document.createElement("li"); none.className = "cmdk-empty";
+      none.textContent = "No screen matches \u201c" + jump.input.value + "\u201d."; jump.list.appendChild(none); return;
+    }
+    var heading = null;
+    jump.shown.forEach(function (i, n) {
+      var h = q ? "" : (n < nRecent ? "Recent" : i.group);
+      if (h && h !== heading) {
+        var hd = document.createElement("li"); hd.className = "cmdk-head"; hd.setAttribute("role", "presentation"); hd.textContent = h; jump.list.appendChild(hd);
+      }
+      heading = h;
+      var li = document.createElement("li");
+      li.setAttribute("role", "option"); li.id = "cmdk-opt-" + n; li.setAttribute("data-i", n);
+      var name = document.createElement("span"); name.textContent = i.label;
+      var c = document.createElement("span"); c.className = "cmdk-crumb"; c.textContent = crumb(i);
+      li.appendChild(name); li.appendChild(c); jump.list.appendChild(li);
+    });
+    pick(0);
+  }
+  function pick(n) {
+    if (!jump.shown.length) { return; }
+    jump.at = Math.max(0, Math.min(n, jump.shown.length - 1));
+    jump.list.querySelectorAll("[role=option]").forEach(function (li) { li.setAttribute("aria-selected", "false"); });
+    var cur = document.getElementById("cmdk-opt-" + jump.at);
+    if (cur) { cur.setAttribute("aria-selected", "true"); cur.scrollIntoView({ block: "nearest" }); jump.input.setAttribute("aria-activedescendant", cur.id); }
+  }
+  function openJump() {
+    jump.box = jump.box || document.getElementById("cmdk");
+    if (!jump.box) { return; }
+    jump.input = document.getElementById("cmdk-input"); jump.list = document.getElementById("cmdk-list");
+    jump.opener = document.activeElement; jump.box.hidden = false; jump.input.value = ""; renderJump(); jump.input.focus();
+  }
+  function closeJump() {
+    if (!jump.box || jump.box.hidden) { return; }
+    jump.box.hidden = true;
+    if (jump.opener && jump.opener.focus) { jump.opener.focus(); }
+  }
+  function goJump(n) { var i = jump.shown[n]; if (i) { window.location.href = i.url; } }
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+      e.preventDefault();
+      if (jump.box && !jump.box.hidden) { closeJump(); } else { openJump(); }
+      return;
+    }
+    if (!jump.box || jump.box.hidden) { return; }
+    if (e.key === "Escape") { e.preventDefault(); closeJump(); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); pick(jump.at + 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); pick(jump.at - 1); }
+    else if (e.key === "Enter") { e.preventDefault(); goJump(jump.at); }
+    else if (e.key === "Tab") { e.preventDefault(); }          // keep focus in the box
+  });
+  document.addEventListener("input", function (e) { if (e.target && e.target.id === "cmdk-input") { renderJump(); } });
+  document.addEventListener("mousedown", function (e) {
+    if (!jump.box || jump.box.hidden) { return; }
+    var li = e.target.closest("#cmdk-list [role=option]");
+    if (li) { e.preventDefault(); goJump(parseInt(li.getAttribute("data-i"), 10)); }
+    else if (!e.target.closest(".cmdk-box")) { closeJump(); }
+  });
+  document.addEventListener("mousemove", function (e) {
+    var li = e.target.closest && e.target.closest("#cmdk-list [role=option]");
+    if (li && jump.box && !jump.box.hidden) { var n = parseInt(li.getAttribute("data-i"), 10); if (n !== jump.at) { pick(n); } }
+  });
+  document.addEventListener("DOMContentLoaded", rememberPage);
 
   // ---- forms: confirm destructive buttons, and lock the submit buttons once a form is sent (no double posting) ----
   document.addEventListener("submit", function (e) {

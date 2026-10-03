@@ -327,3 +327,54 @@ html[data-drawer] .btn.nav-layout { display: none; }
 #voucher-rows input[name="row_narration"] { min-width: 170px; }
 
 .section-title { font-size: var(--text-label); font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: .04em; margin: var(--space-4) 0 var(--space-2); }
+
+/* ---- fold-away sections inside a menu group ---- */
+.nav-sub-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: 100%; min-height: 30px;
+  padding: 4px var(--space-3); border: 0; border-radius: var(--radius); background: transparent; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--color-muted); text-align: left;
+}
+.nav-sub-toggle:hover { background: var(--color-primary-soft); color: var(--color-ink); }
+.nav-sub:not(.open) .nav-sub-toggle .nav-chev { transform: rotate(-90deg); }
+.nav-sub.open .nav-sub-toggle .nav-chev { transform: none; }
+.nav-sub-items { display: none; margin: 0 0 var(--space-1) var(--space-3); padding-left: var(--space-2); border-left: 1px solid var(--color-hairline); }
+.nav-sub.open .nav-sub-items { display: block; }
+.nav-sub-items a { padding: 5px var(--space-3); font-size: 13.5px; }
+/* in a drop-down (top menu, icon-only menu) the sections are plain headings and always open */
+[data-nav="top"] .nav-sub-toggle, [data-collapsed="1"][data-nav="side"] .nav-sub-toggle {
+  pointer-events: none; min-height: 0; padding: var(--space-2) var(--space-3) 2px; background: transparent;
+  font-size: var(--text-label); text-transform: uppercase; letter-spacing: 0.06em;
+}
+[data-nav="top"] .nav-sub-toggle .nav-chev, [data-collapsed="1"][data-nav="side"] .nav-sub-toggle .nav-chev { display: none; }
+[data-nav="top"] .nav-sub-items, [data-collapsed="1"][data-nav="side"] .nav-sub-items { display: block; margin: 0; padding: 0; border: 0; }
+[data-nav="top"] .nav-sub-items a, [data-collapsed="1"][data-nav="side"] .nav-sub-items a { padding: 6px var(--space-3); font-size: 14px; }
+html[data-drawer][data-nav] .nav-sub-toggle { pointer-events: auto; min-height: 40px; padding: 4px var(--space-3); font-size: 13px; text-transform: none; letter-spacing: 0; }
+html[data-drawer][data-nav] .nav-sub-toggle .nav-chev { display: block; }
+html[data-drawer][data-nav] .nav-sub:not(.open) .nav-sub-items { display: none; }
+html[data-drawer][data-nav] .nav-sub.open .nav-sub-items { display: block; margin: 0 0 var(--space-1) var(--space-3); padding-left: var(--space-2); border-left: 1px solid var(--color-hairline); }
+html[data-drawer][data-nav] .nav-sub-items a { padding: 4px var(--space-3); }
+
+/* ---- quick jump (Ctrl+K) ---- */
+.cmdk { position: fixed; inset: 0; z-index: 200; display: flex; justify-content: center; align-items: flex-start; padding: 14vh var(--space-3) var(--space-3); background: var(--color-scrim); }
+.cmdk[hidden] { display: none; }
+.cmdk-box { width: min(580px, 100%); max-height: 70vh; display: flex; flex-direction: column; overflow: hidden; background: var(--color-surface); border: 1px solid var(--color-hairline); border-radius: 12px; box-shadow: var(--shadow-pop); }
+.cmdk-input { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-hairline); }
+.cmdk-input svg { width: 18px; height: 18px; flex: none; color: var(--color-muted); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cmdk-input input { flex: 1; min-width: 0; border: 0; padding: 4px 0; background: transparent; font-size: 16px; box-shadow: none; }
+.cmdk-input input:focus { border: 0; box-shadow: none; outline: none; }
+.cmdk kbd { display: inline-block; padding: 1px 6px; margin-right: 4px; border: 1px solid var(--color-hairline); border-radius: 4px; background: var(--color-primary-soft); font: inherit; font-size: 11.5px; color: var(--color-muted); }
+#cmdk-list { list-style: none; margin: 0; padding: var(--space-1) 0; overflow-y: auto; }
+#cmdk-list .cmdk-head { padding: var(--space-3) var(--space-4) var(--space-1); font-size: var(--text-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
+#cmdk-list [role="option"] { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: 8px var(--space-4); cursor: pointer; }
+#cmdk-list [role="option"][aria-selected="true"] { background: var(--color-primary-pale); box-shadow: inset 3px 0 0 var(--color-primary); }
+#cmdk-list .cmdk-crumb { flex: none; font-size: var(--text-label); color: var(--color-muted); }
+#cmdk-list .cmdk-empty { padding: var(--space-5) var(--space-4); text-align: center; color: var(--color-muted); }
+.cmdk-foot { display: flex; gap: var(--space-4); padding: var(--space-2) var(--space-4); border-top: 1px solid var(--color-hairline); font-size: var(--text-label); color: var(--color-muted); }
+@media (max-width: 960px) { .cmdk { padding-top: var(--space-4); } .cmdk-foot { display: none; } }
+
+/* top menu: ten groups have to fit beside the search, so tighten it */
+[data-nav="top"] .nav-group > summary, [data-nav="top"] .nav-home a { padding-inline: 8px; font-size: 13.5px; gap: 4px; }
+[data-nav="top"] .nav-home .nav-label { display: none; }
+[data-nav="top"] .search-box { width: 170px; }
+[data-nav="top"] .brand-text { max-width: 130px; }
+@media (max-width: 1500px) { [data-nav="top"] .user-name { display: none; } }

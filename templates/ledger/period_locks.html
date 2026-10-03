@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Period locks{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Period locks</h1><span class="muted">Nothing can be posted on or before a locked date</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'year_end' %}">Year-end</a></div></div>
+  <div class="island"><h2>Locked now</h2>
+    {% if locks %}<div class="table-wrap"><table><thead><tr><th scope="col">Applies to</th><th scope="col">Locked up to</th><th scope="col">Changed</th></tr></thead>
+      <tbody>{% for l in locks %}<tr><td>{% if l.factory %}{{ l.factory.code }} — {{ l.factory.name }}{% else %}All factories{% endif %}</td><td>{{ l.locked_upto|date:"d M Y" }}</td><td>{{ l.updated_at|date:"d M Y H:i" }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">No period is locked.</p>{% endif %}</div>
+  <div class="grid-2">
+    {% if can_lock %}<form method="post" class="island" novalidate>{% csrf_token %}<input type="hidden" name="action" value="lock"><h2>Lock a period</h2>
+      <div class="field"><label for="lf">For</label><select id="lf" name="factory"><option value="">All factories</option>{% for f in factories %}<option value="{{ f.pk }}">{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="upto">Lock up to and including</label><input id="upto" name="upto" type="date"></div>
+      <div class="field"><label for="lr">Note</label><input id="lr" name="reason" type="text" placeholder="GSTR-3B filed for May"></div>
+      <button class="btn primary">Lock</button></form>{% endif %}
+    {% if can_unlock %}<form method="post" class="island" novalidate>{% csrf_token %}<input type="hidden" name="action" value="unlock"><h2>Unlock (owner)</h2>
+      <div class="field"><label for="uf">For</label><select id="uf" name="factory"><option value="">All factories</option>{% for f in factories %}<option value="{{ f.pk }}">{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="nu">Move the lock back to</label><input id="nu" name="new_upto" type="date"><div class="help">Leave blank to remove the lock.</div></div>
+      <div class="field"><label for="ur">Reason (kept in the log)</label><input id="ur" name="reason" type="text" required></div>
+      <button class="btn danger">Unlock</button></form>{% endif %}
+  </div>
+  <div class="island"><h2>Log</h2>{% if log %}<div class="table-wrap"><table><thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Scope</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Reason</th></tr></thead>
+    <tbody>{% for e in log %}<tr><td>{{ e.at|date:"d M Y H:i" }}</td><td>{{ e.user.username }}</td><td>{{ e.get_action_display }}</td><td>{{ e.factory.code|default:"All" }}</td><td>{{ e.previous_upto|date:"d M Y"|default:"—" }}</td><td>{{ e.new_upto|date:"d M Y"|default:"—" }}</td><td>{{ e.reason }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">Nothing yet.</p>{% endif %}</div>
+{% endblock %}

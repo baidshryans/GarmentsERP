@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Year-end{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Financial years</h1><span class="muted">Closing locks the year; balances carry forward on their own</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'period_locks' %}">Period locks</a></div></div>
+  {% for y in years %}
+  <div class="island"><h2>FY {{ y.fy.label }} <span class="muted" style="font-weight:400">{{ y.fy.start_date|date:"d M Y" }} to {{ y.fy.end_date|date:"d M Y" }}</span>
+      <span class="pill {% if y.fy.is_closed %}success{% else %}warning{% endif %}">{% if y.fy.is_closed %}Closed{% else %}Open{% endif %}</span></h2>
+    {% if not y.fy.is_closed %}
+      <ul>{% for ok, msg in y.checks %}<li>{% if ok %}✓{% else %}✗{% endif %} {{ msg }}</li>{% endfor %}</ul>
+      {% if can_close %}<form method="post" style="max-width:480px">{% csrf_token %}<input type="hidden" name="action" value="close"><input type="hidden" name="year" value="{{ y.fy.pk }}">
+        <div class="field"><label for="r{{ y.fy.pk }}">Note</label><input id="r{{ y.fy.pk }}" name="reason" type="text" placeholder="Accounts finalised"></div>
+        <button class="btn primary" {% if not y.ready %}disabled{% endif %}>Close FY {{ y.fy.label }}</button></form>
+        <p class="muted">Closing checks the books, creates the next year and its number series, and locks every factory up to {{ y.fy.end_date|date:"d M Y" }}.</p>{% endif %}
+    {% elif can_reopen and y.fy.start_date == latest_closed %}
+      <form method="post" style="max-width:480px">{% csrf_token %}<input type="hidden" name="action" value="reopen"><input type="hidden" name="year" value="{{ y.fy.pk }}">
+        <div class="field"><label for="o{{ y.fy.pk }}">Reason to reopen (for example audit adjustments)</label><input id="o{{ y.fy.pk }}" name="reason" type="text" required></div>
+        <button class="btn danger">Reopen FY {{ y.fy.label }}</button></form>
+      <p class="muted">Adjustments posted into a reopened year show in the later years' opening figures at once.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% endblock %}

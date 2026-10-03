@@ -229,6 +229,76 @@ class StockAlert(models.Model):
         return cls.objects.filter(factory_id__in=ids)
 
 
+class StockJournal(FactoryScopedModel):
+    """A stock journal voucher (E9.2): items taken out and brought in at one location of one factory, for a stock count
+    correction, damage, repacking or a conversion. Stock moves through the stock engine and one balanced voucher is
+    posted with it; any difference between what went out and what came in lands in the Stock Adjustments ledger."""
+
+    class Reason(models.TextChoices):
+        COUNT = "count", "Stock count correction"
+        DAMAGE = "damage", "Damage or write-off"
+        CONVERSION = "conversion", "Repacking or conversion"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        POSTED = "posted", "Posted"
+        CANCELLED = "cancelled", "Cancelled"
+
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="+")
+    number = models.CharField(max_length=50, null=True, blank=True)
+    date = models.DateField()
+    location = models.ForeignKey("core.Location", on_delete=models.PROTECT, related_name="+")
+    reason = models.CharField(max_length=10, choices=Reason.choices)
+    remarks = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.POSTED)
+    voucher = models.ForeignKey("ledger.Voucher", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    value_in = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
+    value_out = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
+    created_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-date", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["company", "number"], condition=Q(number__isnull=False), name="uniq_stockjournal_number"),
+        ]
+
+    def __str__(self):
+        return self.number or f"Stock journal #{self.pk}"
+
+
+class StockJournalLine(models.Model):
+    class Direction(models.TextChoices):
+        OUT = "out", "Taken out"
+        IN = "in", "Brought in"
+
+    journal = models.ForeignKey(StockJournal, on_delete=models.CASCADE, related_name="lines")
+    direction = models.CharField(max_length=3, choices=Direction.choices)
+    material = models.ForeignKey("masters.Material", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    sku = models.ForeignKey("masters.SKU", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    roll = models.ForeignKey(FabricRoll, on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                             help_text="Fabric: the roll taken out, or the new roll brought in")
+    qty = models.DecimalField(max_digits=14, decimal_places=3)
+    rate = models.DecimalField(max_digits=14, decimal_places=4, null=True, blank=True, help_text="Brought-in lines only")
+    value = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO, help_text="Set when posted")
+
+    history = HistoricalRecords()
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(material__isnull=False, sku__isnull=True) | Q(material__isnull=True, sku__isnull=False)),
+                name="stockjournalline_one_item"),
+            models.CheckConstraint(condition=Q(qty__gt=0), name="stockjournalline_qty_positive"),
+        ]
+
+    @property
+    def item(self):
+        return self.material or self.sku
+
+
 class StockTransfer(models.Model):
     """Move stock between locations or factories (E6.2). Between factories stock and value move when issued,
     into the destination's In Transit location, and into the final location when received."""

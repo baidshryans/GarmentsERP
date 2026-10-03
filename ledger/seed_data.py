@@ -46,6 +46,7 @@ LEDGERS = [
     ("TDS Payable", "Duties and Taxes", "tds_payable", False),
     ("TCS Payable", "Duties and Taxes", "tcs_payable", False),
     ("Round Off", "Indirect Expenses", "round_off", False),
+    ("Stock Adjustments", "Indirect Expenses", "stock_adjustment", False),
     # PRD E1.3 - garment-unit expenses
     ("Job Work Charges", "Direct Expenses", "job_work_charges", False),
     ("Embroidery Charges", "Direct Expenses", "embroidery_charges", False),

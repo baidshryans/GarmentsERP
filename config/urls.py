@@ -6,8 +6,10 @@ from django.urls import include, path
 
 from core import views as core
 from inventory import views as inv
+from jobwork import views as jw
 from ledger import views as ledger
 from masters import views as m
+from production import views as prod
 from purchases import views as pur
 from tax import views as tax
 
@@ -108,6 +110,34 @@ urlpatterns = [
     path("purchases/debit-notes/", pur.DebitNoteList.as_view(), name="debitnote_list"),
     path("purchases/debit-notes/new/", pur.DebitNoteNew.as_view(), name="debitnote_new"),
     path("purchases/debit-notes/<int:pk>/", pur.DebitNoteDetail.as_view(), name="debitnote_detail"),
+    # production
+    path("production/orders/", prod.OrderList.as_view(), name="order_list"),
+    path("production/orders/new/", prod.OrderSave.as_view(), name="order_new"),
+    path("production/orders/<int:pk>/", prod.OrderDetail.as_view(), name="order_detail"),
+    path("production/orders/<int:pk>/edit/", prod.OrderSave.as_view(), name="order_edit"),
+    path("production/lots/<int:pk>/", prod.LotDetail.as_view(), name="lot_detail"),
+    path("production/lots/<int:pk>/fabric/", prod.FabricIssueView.as_view(), name="lot_fabric"),
+    path("production/lots/<int:pk>/cutting/", prod.CuttingView.as_view(), name="lot_cutting"),
+    path("production/lots/<int:pk>/tags/", prod.LotTags.as_view(), name="lot_tags"),
+    path("production/lots/<int:pk>/tags.zpl", prod.LotZpl.as_view(), name="lot_zpl"),
+    path("production/lots/<int:pk>/pack/", prod.PackBundles.as_view(), name="pack_bundles"),
+    path("production/move/", prod.MoveView.as_view(), name="move_bundles"),
+    path("production/dashboard/", prod.Dashboard.as_view(), name="production_dashboard"),
+    path("production/track/", prod.Track.as_view(), name="production_track"),
+    # job work
+    path("jobwork/challans/", jw.ChallanList.as_view(), name="challan_list"),
+    path("jobwork/challans/new/", jw.ChallanNew.as_view(), name="challan_new"),
+    path("jobwork/challans/<int:pk>/", jw.ChallanDetail.as_view(), name="challan_detail"),
+    path("jobwork/challans/<int:pk>/print/", jw.ChallanPrint.as_view(), name="challan_print"),
+    path("jobwork/challans/<int:pk>/receive/", jw.ReceiptNew.as_view(), name="receipt_new"),
+    path("jobwork/receipts/", jw.ReceiptList.as_view(), name="receipt_list"),
+    path("jobwork/receipts/<int:pk>/", jw.ReceiptDetail.as_view(), name="receipt_detail"),
+    path("jobwork/rates/", jw.RateList.as_view(), name="rate_list"),
+    path("jobwork/rates/new/", jw.RateNew.as_view(), name="rate_new"),
+    path("jobwork/bills/", jw.BillList.as_view(), name="bill_list"),
+    path("jobwork/bills/new/", jw.BillNew.as_view(), name="bill_new"),
+    path("jobwork/bills/<int:pk>/", jw.BillDetail.as_view(), name="bill_detail"),
+    path("jobwork/reports/", jw.Reports.as_view(), name="job_reports"),
     path("api/v1/", include("api.urls")),
 ]
 

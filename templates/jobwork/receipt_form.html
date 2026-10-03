@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Receive goods{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Receive from {{ ch.party.name }}</h1><span class="muted">{{ ch.number }} · {{ ch.lot.lot_no }} · {{ ch.step.process.name }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'challan_detail' ch.pk %}">Back to challan</a></div></div>
+  <p class="muted" style="max-width:760px">Count the pieces that came back for each bundle. Fewer than issued is recorded as a shortage against the fabricator; more than issued needs the owner's approval. A fabricator marking a bundle "Done" does not change stock or pay: only this receipt and the QC do.</p>
+  <form method="post" class="island" novalidate>{% csrf_token %}
+    <div class="field-row"><div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date }}"></div>
+      <div class="field"><label for="location">Receive into</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if l.loc_type == "process" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div></div>
+    <div class="field" style="max-width:420px"><label for="scan">Scan bundle QR codes here</label><input id="scan" type="text" autocomplete="off" placeholder="Scan and press Enter"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th></th><th>Bundle</th><th>Size</th><th class="num">Issued</th><th class="num" style="width:130px">Counted</th></tr></thead>
+      <tbody>{% for cb in lines %}<tr data-token="{{ cb.bundle.qr_token }}" data-no="{{ cb.bundle.bundle_no }}"><td><input type="checkbox" name="use_{{ cb.pk }}" aria-label="Received {{ cb.bundle.bundle_no }}"></td><td><strong>{{ cb.bundle.bundle_no }}</strong></td><td>{{ cb.bundle.sku.size.code }}</td><td class="num">{{ cb.qty_issued }}</td>
+        <td class="num"><input type="text" inputmode="numeric" name="count_{{ cb.pk }}" value="{{ cb.qty_issued }}"></td></tr>
+      {% empty %}<tr><td colspan="5" class="muted">Everything on this challan has been received.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if trims %}<h3 style="margin-top:16px">Trims</h3><table><thead><tr><th>Material</th><th class="num">Issued</th><th class="num">Returned</th><th class="num">Missing</th></tr></thead>
+      <tbody>{% for t in trims %}<tr><td>{{ t.material.name }}</td><td class="num">{{ t.qty_issued|floatformat:"-3" }}</td><td class="num"><input type="text" inputmode="decimal" name="returned_{{ t.pk }}" style="width:90px"></td><td class="num"><input type="text" inputmode="decimal" name="missing_{{ t.pk }}" style="width:90px"></td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% if lines %}<div class="form-actions"><button class="btn primary">Receive</button></div>{% endif %}
+  </form>
+  <script src="{% static 'js/scan.js' %}" defer></script>
+{% endblock %}

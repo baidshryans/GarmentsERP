@@ -286,7 +286,7 @@ def test_valuation_setting_screen_changes_how_issues_are_valued(company, factory
     c = login(owner)
     page = c.get(reverse("inventory_settings")).content.decode()
     assert "Weighted average" in page and "Specific cost per fabric roll" in page
-    r = c.post(reverse("inventory_settings"), {"valuation_method": "specific_roll", "po_approval_limit": "75000"})
+    r = c.post(reverse("inventory_settings"), {"valuation_method": "specific_roll", "po_approval_limit": "75000", "bom_tolerance_pct": "5"})
     company.refresh_from_db()
     assert r.status_code == 302 and company.valuation_method == "specific_roll"
     assert company.po_approval_limit == D("75000") and not company.allow_negative_stock
@@ -305,7 +305,7 @@ def test_settings_need_permission_and_changes_are_logged(company, accountant):
     admin.roles.add(Role.objects.get(name="Administrator"))
     a = login(admin)
     assert a.get(reverse("inventory_settings")).status_code == 200
-    a.post(reverse("inventory_settings"), {"valuation_method": "weighted_average", "allow_negative_stock": "on", "po_approval_limit": "10"})
+    a.post(reverse("inventory_settings"), {"valuation_method": "weighted_average", "allow_negative_stock": "on", "po_approval_limit": "10", "bom_tolerance_pct": "5"})
     company.refresh_from_db()
     assert company.allow_negative_stock and company.history.count() >= 2
 

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Issue fabric{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Issue fabric to cutting</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'lot_detail' lot.pk %}">Back to lot</a></div></div>
+  <p class="muted" style="max-width:740px">Choose the rolls and how much of each goes to the cutting floor. You cannot issue more than a roll holds, and you are warned if rolls of different shade lots end up in one lot.</p>
+  {% if can_create %}
+  <form method="post" class="island" novalidate>{% csrf_token %}
+    <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date }}"></div>
+    {% if rolls %}<div class="table-wrap"><table>
+      <thead><tr><th>Roll</th><th>Fabric</th><th>Lot / shade</th><th class="num">GSM</th><th class="num">In store</th><th class="num" style="width:140px">Issue</th></tr></thead>
+      <tbody>{% for rb in rolls %}<tr><td><strong>{{ rb.roll.label_code }}</strong> <span class="muted">{{ rb.roll.vendor_roll_no }}</span></td><td>{{ rb.roll.material.name }}</td><td>{{ rb.roll.lot_no|default:"—" }}</td><td class="num">{{ rb.roll.gsm|default:"" }}</td>
+        <td class="num">{{ rb.qty|floatformat:"-3" }}</td><td class="num"><input type="text" inputmode="decimal" name="qty_{{ rb.roll_id }}"></td></tr>{% endfor %}</tbody>
+    </table></div><div class="form-actions"><button class="btn primary">Issue to cutting floor</button></div>
+    {% else %}<div class="empty"><div class="hand">No fabric rolls in the store</div></div>{% endif %}
+  </form>{% endif %}
+  {% if issues %}<div class="island"><h2>Issued so far</h2>{% for i in issues %}<p>{{ i.date|date:"d M Y" }}: {% for l in i.lines.all %}{{ l.roll.label_code }} {{ l.qty|floatformat:"-3" }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if i.mixed_shades %} <span class="pill warning">Mixed shade lots</span>{% endif %}</p>{% endfor %}</div>{% endif %}
+{% endblock %}

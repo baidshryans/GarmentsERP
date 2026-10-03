@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Labour rates{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Labour rates</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'rate_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New rate</a>{% endif %}</div></div>
+  <p class="muted" style="max-width:720px">A rate applies to challans issued from its date. Changing it later never changes a challan already issued.</p>
+  <div class="island">
+    {% if rates %}<div class="table-wrap"><table>
+      <thead><tr><th>Fabricator</th><th>Process</th><th>Type</th><th>Rate</th><th class="num">Rework</th><th>From</th></tr></thead>
+      <tbody>{% for r in rates %}<tr><td>{{ r.party.name }}</td><td>{{ r.process.name }}</td><td>{{ r.get_rate_type_display }}</td>
+        <td>{% if r.rate_type == "A" %}{{ r.base_rate }} / pc{% elif r.rate_type == "B" %}{{ r.base_rate }} + {% for a in r.addons.all %}{{ a.name }} {{ a.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}{% elif r.rate_type == "C" %}{% for s in r.sizes.all %}{{ s.size.code }} {{ s.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}{{ r.flat_amount }} per lot{% endif %}</td>
+        <td class="num">{{ r.rework_rate }}</td><td>{{ r.effective_from|date:"d M Y" }}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No labour rates yet</div></div>{% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Production orders{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Production orders</h1>
+    <div class="actions"><a class="btn" href="{% url 'production_dashboard' %}">Dashboard</a>{% if can_create %}<a class="btn primary" href="{% url 'order_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New order</a>{% endif %}</div></div>
+  <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'order_list' %}">All</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
+  <div class="island">
+    {% if orders %}<div class="table-wrap"><table>
+      <thead><tr><th>Order</th><th>Date</th><th>Factory</th><th>For</th><th>Due</th><th class="num">Pieces</th><th>Status</th></tr></thead>
+      <tbody>{% for o in orders %}<tr><td><a href="{% url 'order_detail' o.pk %}">{{ o.number|default:"Draft" }}</a></td><td>{{ o.date|date:"d M Y" }}</td><td>{{ o.factory.code }}</td>
+        <td>{{ o.get_purpose_display }}{% if o.order_reference %} · {{ o.order_reference }}{% endif %}</td><td>{{ o.due_date|date:"d M Y"|default:"—" }}</td><td class="num">{{ o.total_qty }}</td>
+        <td><span class="pill {% if o.status == 'completed' %}success{% elif o.status == 'closed' %}{% elif o.status == 'draft' %}{% else %}warning{% endif %}">{{ o.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M30 20h60v50H30zM40 34h40M40 46h40M40 58h24"/></svg><div class="hand">No production orders</div></div>{% endif %}
+  </div>
+{% endblock %}

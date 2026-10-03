@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Fabricator reports{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Fabricator reports</h1></div>
+  <div class="island"><h2>Fabricator ledger</h2>
+    <form method="get" class="field-row" style="margin-bottom:12px"><div class="field"><label for="party">Fabricator</label><select id="party" name="party"><option value="">Choose…</option>{% for f in fabricators %}<option value="{{ f.pk }}" {% if party and party.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div><div style="align-self:end"><button class="btn">Show</button></div></form>
+    {% if ledger %}<div class="table-wrap"><table>
+      <thead><tr><th>Challan</th><th>Lot</th><th>Step</th><th class="num">Issued</th><th class="num">In process</th><th class="num">Received</th><th class="num">Short</th><th class="num">Accepted</th><th class="num">Rejected</th><th>Trims (issued / returned / missing)</th></tr></thead>
+      <tbody>{% for r in ledger %}<tr><td><a href="{% url 'challan_detail' r.challan.pk %}">{{ r.challan.number }}</a></td><td>{{ r.challan.lot.lot_no }}</td><td>{{ r.challan.step.process.name }}</td><td class="num">{{ r.issued }}</td><td class="num">{{ r.in_process }}</td><td class="num">{{ r.received }}</td><td class="num">{{ r.shortage }}</td><td class="num">{{ r.accepted }}</td><td class="num">{{ r.rejected }}</td>
+        <td>{% for name, i, ret, miss in r.trims %}{{ name }} {{ i|floatformat:"-3" }} / {{ ret|floatformat:"-3" }} / {{ miss|floatformat:"-3" }}{% if not forloop.last %}; {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% elif party %}<p class="muted">No challans for this fabricator.</p>{% endif %}
+  </div>
+  <div class="grid-2">
+    <div class="island"><h2>Shortages</h2>{% if shortages %}<table><thead><tr><th>Fabricator</th><th class="num">Pieces short</th><th class="num">Value</th><th>Trims missing</th></tr></thead>
+      <tbody>{% for s in shortages %}<tr><td>{{ s.party.name }}</td><td class="num">{{ s.pieces }}</td><td class="num">{{ s.piece_value }}</td><td>{% for n, q in s.trims %}{{ n }} {{ q|floatformat:"-3" }}{% if not forloop.last %}, {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">No shortages.</p>{% endif %}</div>
+    <div class="island"><h2>Material lying with fabricators</h2>
+      <table><thead><tr><th>Days since issue</th><th class="num">Pieces</th></tr></thead><tbody>{% for k, v in ageing.buckets.items %}<tr><td>{{ k }}</td><td class="num">{{ v }}</td></tr>{% endfor %}</tbody></table>
+      {% if ageing.parties %}<p class="muted" style="margin-top:8px">Oldest: {% for p in ageing.parties|slice:":5" %}{{ p.party.name }} ({{ p.oldest }} days){% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}</div>
+  </div>
+{% endblock %}

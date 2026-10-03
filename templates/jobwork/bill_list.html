@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Labour bills{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Labour bills</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'bill_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New labour bill</a>{% endif %}</div></div>
+  <div class="island">
+    {% if bills %}<div class="table-wrap"><table>
+      <thead><tr><th>Bill</th><th>Date</th><th>Fabricator</th><th>Factory</th><th class="num">Gross</th><th class="num">Net payable</th><th>Status</th></tr></thead>
+      <tbody>{% for b in bills %}<tr><td><a href="{% url 'bill_detail' b.pk %}">{{ b.number|default:"Draft" }}</a></td><td>{{ b.date|date:"d M Y" }}</td><td>{{ b.party.name }}</td><td>{{ b.factory.code }}</td><td class="num">{{ b.gross }}</td><td class="num">{{ b.net }}</td>
+        <td>{% if b.status == "posted" %}<span class="pill success">Posted</span>{% elif b.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill warning">Draft</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No labour bills yet</div><p>Bills are made from pieces that QC has accepted.</p></div>{% endif %}
+  </div>
+{% endblock %}

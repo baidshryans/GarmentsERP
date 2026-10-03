@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Lot {{ lot.lot_no }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ lot.style.style_no }} · {{ lot.colour }}</h1><span class="muted">{{ lot.lot_no }}</span><span class="pill">{{ lot.get_status_display }}</span>
+    <div class="actions">
+      {% if can_cut %}<a class="btn" href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a><a class="btn" href="{% url 'lot_cutting' lot.pk %}">Cutting</a>{% endif %}
+      {% if bundles %}<a class="btn" href="{% url 'lot_tags' lot.pk %}">QR tags</a>{% endif %}
+      {% if can_move %}<a class="btn primary" href="{% url 'move_bundles' %}?lot={{ lot.pk }}">Move bundles</a>{% endif %}
+      <a class="btn ghost" href="{% url 'order_detail' lot.order_line.order.pk %}">{{ lot.order_line.order.number }}</a></div></div>
+  <div class="grid-2">
+    <div class="island"><div class="field-row">
+      <div><div class="label muted">Planned</div><span class="stat">{{ planned }}</span></div><div><div class="label muted">Cut</div><span class="stat">{{ cut_pieces }}</span></div>
+      <div><div class="label muted">In progress</div><span class="stat">{{ live_pieces }}</span></div></div>
+      <p class="muted">Factory {{ lot.factory.code }} · BOM version {{ lot.bom_version.version_no|default:"—" }}</p></div>
+    {% if breakdown %}<div class="island"><h2>Lot cost</h2>
+      <table><tbody>
+        <tr><td>Fabric</td><td class="num">{{ breakdown.fabric }}</td></tr><tr><td>Trims</td><td class="num">{{ breakdown.trim }}</td></tr>
+        <tr><td>In-house labour</td><td class="num">{{ breakdown.labour }}</td></tr><tr><td>Job work</td><td class="num">{{ breakdown.jobwork }}</td></tr>
+        {% if breakdown.write_off != 0 %}<tr><td>Written off</td><td class="num">{{ breakdown.write_off }}</td></tr>{% endif %}
+        {% if breakdown.relief != 0 %}<tr><td>Moved to finished goods</td><td class="num">{{ breakdown.relief }}</td></tr>{% endif %}</tbody>
+        <tfoot><tr><td>Work in progress now</td><td class="num">{{ total_cost }}</td></tr></tfoot></table></div>{% endif %}
+  </div>
+
+  <div class="island"><h2>Route</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th class="num">#</th><th>Process</th><th>Where</th><th class="num">Rate</th><th>Status</th>{% if can_edit %}<th>Change</th>{% endif %}</tr></thead>
+      <tbody>{% for s in steps %}<tr {% if s.status == "skipped" %}class="muted"{% endif %}>
+        <td class="num">{{ s.sequence }}</td><td>{{ s.process.name }}{% if not s.is_mandatory %} <span class="pill">Optional</span>{% endif %}</td>
+        <td>{% if s.assignment == "in_house" %}In-house · {{ s.factory.code|default:lot.factory.code }}{% else %}Fabricator · {{ s.party.name|default:"to be chosen" }}{% endif %}</td>
+        <td class="num">{{ s.rate }}</td>
+        <td><span class="pill {% if s.status == 'done' %}success{% elif s.status == 'in_progress' %}warning{% endif %}">{{ s.get_status_display }}</span></td>
+        {% if can_edit %}<td>{% if s.status == "pending" or s.status == "skipped" %}
+          <details><summary>Change…</summary>
+            <form method="post" class="field-row" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="step" value="{{ s.pk }}">
+              <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
+              <div class="field"><label>Where</label><select name="assignment"><option value="in_house" {% if s.assignment == "in_house" %}selected{% endif %}>In-house</option><option value="subcontract" {% if s.assignment == "subcontract" %}selected{% endif %}>Fabricator</option></select></div>
+              <div class="field"><label>Factory</label><select name="factory"><option value="">—</option>{% for f in factories %}<option value="{{ f.pk }}" {% if s.factory_id == f.pk %}selected{% endif %}>{{ f.code }}</option>{% endfor %}</select></div>
+              <div class="field"><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}" {% if s.party_id == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+              <div class="field"><label>Rate</label><input type="text" name="rate" value="{{ s.rate }}"></div>
+              <div class="field"><label>Rework rate</label><input type="text" name="rework_rate" value="{{ s.rework_rate }}"></div>
+              <div style="align-self:end"><button class="btn" name="action" value="reassign">Reassign</button>
+                {% if not s.is_mandatory %}<button class="btn" name="action" value="skip">Skip</button>{% endif %}
+                <button class="btn danger" name="action" value="remove">Remove</button></div>
+            </form></details>{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% if can_edit %}<details style="margin-top:12px"><summary>Add a step</summary>
+      <form method="post" class="field-row" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="action" value="add">
+        <div class="field"><label>Process</label><select name="process">{% for p in processes %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label>After step no.</label><input type="text" name="after_sequence" value="1"></div>
+        <div class="field"><label>Where</label><select name="assignment"><option value="in_house">In-house</option><option value="subcontract">Fabricator</option></select></div>
+        <div class="field"><label>Fabricator</label><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}">{{ p.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Rate</label><input type="text" name="rate" value="0"></div>
+        <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
+        <div class="check" style="align-self:end"><input id="mand" type="checkbox" name="is_mandatory" checked><label for="mand">Mandatory</label></div>
+        <div style="align-self:end"><button class="btn primary">Add step</button></div></form></details>
+      <details style="margin-top:8px"><summary>Move a step</summary>
+      <form method="post" class="field-row" style="margin-top:8px">{% csrf_token %}<input type="hidden" name="action" value="reorder">
+        <div class="field"><label>Step</label><select name="step">{% for s in steps %}<option value="{{ s.pk }}">{{ s.sequence }}. {{ s.process.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label>New position</label><input type="text" name="new_sequence"></div>
+        <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
+        <div style="align-self:end"><button class="btn">Move</button></div></form></details>{% endif %}
+  </div>
+
+  <div class="island"><h2>Bundles</h2>
+    {% if bundles %}<div class="table-wrap"><table>
+      <thead><tr><th>Bundle</th><th>Size</th><th class="num">Pieces</th><th>Stage</th><th>Where</th><th>Status</th></tr></thead>
+      <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
+        <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}</td><td>{{ b.location.name }}</td>
+        <td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if pack_ready and can_pack %}<form method="post" action="{% url 'pack_bundles' lot.pk %}" style="margin-top:12px">{% csrf_token %}
+      <h3>Pack into finished goods</h3><p class="muted">These bundles have reached packing.</p>
+      {% for b in pack_ready %}<div class="check"><input id="pk{{ b.pk }}" type="checkbox" name="bundle" value="{{ b.pk }}" checked><label for="pk{{ b.pk }}">{{ b.bundle_no }} · {{ b.sku.size.code }} · {{ b.qty }} pieces</label></div>{% endfor %}
+      <div class="field" style="max-width:300px;margin-top:8px"><label for="loc">Receive into</label><select id="loc" name="location">{% for l in dispatch_locations %}<option value="{{ l.pk }}" {% if l.loc_type == "dispatch" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <button class="btn primary">Pack</button></form>{% endif %}
+    {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
+  </div>
+  {% if changes %}<div class="island"><h2>Route changes</h2><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endblock %}

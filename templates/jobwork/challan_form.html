@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}New challan{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if kind == "rework" %}Rework challan{% else %}Issue to a fabricator{% endif %}</h1></div>
+  <form method="get" class="island"><div class="field-row">
+    <div class="field"><label for="lot">Lot</label><select id="lot" name="lot"><option value="">Choose…</option>{% for l in lots %}<option value="{{ l.pk }}" {% if lot and lot.pk == l.pk %}selected{% endif %}>{{ l.lot_no }} · {{ l.style.style_no }} {{ l.colour }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="kind">Kind</label><select id="kind" name="kind"><option value="issue" {% if kind == "issue" %}selected{% endif %}>Job work</option><option value="rework" {% if kind == "rework" %}selected{% endif %}>Rework</option></select></div>
+    {% if lot %}<div class="field"><label for="step">Step</label><select id="step" name="step">{% for s in steps %}<option value="{{ s.pk }}" {% if step and step.pk == s.pk %}selected{% endif %}>{{ s.sequence }}. {{ s.process.name }}</option>{% endfor %}</select></div>{% endif %}
+    <div style="align-self:end"><button class="btn">Show bundles</button></div></div></form>
+  {% if lot and step %}
+  <form method="post" class="island" novalidate>{% csrf_token %}
+    <input type="hidden" name="lot" value="{{ lot.pk }}"><input type="hidden" name="step" value="{{ step.pk }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="factory" value="{{ lot.factory_id }}">
+    <h2>{{ step.process.name }} · {{ lot.style.style_no }} {{ lot.colour }}</h2>
+    <div class="field-row">
+      <div class="field"><label for="party">Fabricator</label><select id="party" name="party">{% for f in fabricators %}<option value="{{ f.pk }}" {% if d.party == f.pk|stringformat:"s" or step.party_id == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date }}"></div>
+      <div class="field"><label for="expected_date">Expected back by</label><input id="expected_date" name="expected_date" type="date" value="{{ d.expected_date }}"></div>
+      <div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div></div>
+    <div class="field" style="max-width:420px"><label for="scan">Scan bundle QR codes here</label><input id="scan" type="text" autocomplete="off" placeholder="Scan and press Enter"></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th></th><th>Bundle</th><th>Size</th><th class="num">Pieces</th><th>Now at</th></tr></thead>
+      <tbody>{% for b in bundles %}<tr data-token="{{ b.qr_token }}" data-no="{{ b.bundle_no }}"><td><input type="checkbox" name="bundle" value="{{ b.pk }}" aria-label="Issue {{ b.bundle_no }}"></td><td><strong>{{ b.bundle_no }}</strong></td><td>{{ b.sku.size.code }}</td><td class="num">{% if kind == "rework" %}{{ b.rework_qty }}{% else %}{{ b.qty }}{% endif %}</td><td>{{ b.current_step.process.name|default:"Cut" }} · {{ b.location.name }}</td></tr>
+      {% empty %}<tr><td colspan="5" class="muted">No bundles can be issued to this step right now.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if need_confirm %}<div class="check" style="margin-top:12px"><input id="cs" type="checkbox" name="confirm_second"><label for="cs"><strong>Yes, issue this lot to another fabricator too</strong></label></div>{% endif %}
+    {% if bundles %}<p class="muted">The challan fills in the rate and, for stitching, the trims the BOM needs. You can review it before issuing.</p>
+    <div class="form-actions"><button class="btn primary">Save challan</button><a class="btn ghost" href="{% url 'challan_list' %}">Cancel</a></div>{% endif %}
+  </form>
+  <script src="{% static 'js/scan.js' %}" defer></script>
+  {% endif %}
+{% endblock %}

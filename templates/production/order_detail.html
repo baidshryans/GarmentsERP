@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ order }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ order.number|default:"Draft order" }}</h1><span class="pill">{{ order.get_status_display }}</span>
+    <div class="actions">{% if order.status == "draft" and can_edit %}<a class="btn" href="{% url 'order_edit' order.pk %}">Edit</a>{% endif %}<a class="btn ghost" href="{% url 'order_list' %}">All orders</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Factory</div>{{ order.factory.code }}</div><div><div class="label muted">Date</div>{{ order.date|date:"d M Y" }}</div>
+    <div><div class="label muted">Due</div>{{ order.due_date|date:"d M Y"|default:"—" }}</div><div><div class="label muted">For</div>{{ order.get_purpose_display }}{% if order.order_reference %} · {{ order.order_reference }}{% endif %}</div>
+    <div><div class="label muted">Pieces</div><strong>{{ order.total_qty }}</strong></div></div>
+    {% if order.close_reason %}<p class="muted">Closed: {{ order.close_reason }}</p>{% endif %}</div>
+  {% for r in lines %}
+  <div class="island">
+    <h2>{{ r.line.style.style_no }} · {{ r.line.colour }} <span class="muted" style="font-weight:400">{{ r.line.total_qty }} pieces</span></h2>
+    <p>{% for s in r.sizes %}<span class="pill">{{ s.size.code }}: {{ s.qty }}</span> {% endfor %}</p>
+    <p class="muted">BOM version {{ r.line.bom_version.version_no|default:"—" }} · route {{ r.line.route.name|default:"—" }}</p>
+    {% if r.lot %}<a class="btn" href="{% url 'lot_detail' r.lot.pk %}">Lot {{ r.lot.lot_no }} — {{ r.lot.get_status_display }}</a>{% endif %}
+  </div>
+  {% endfor %}
+  <div class="grid-2">
+    {% if order.status == "draft" and can_edit %}<div class="island"><form method="post">{% csrf_token %}<button class="btn primary" name="action" value="release">Release order</button><p class="muted">Releasing makes a lot for each style and colour, with its own copy of the route.</p></form></div>{% endif %}
+    {% if order.status != "draft" and order.status != "closed" and can_close %}<div class="island"><h3>Close the order</h3><p class="muted">Whatever is still in progress is written off. Only the owner can do this.</p>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="close"><div class="field"><label for="why">Reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Close and write off</button></form></div>{% endif %}
+  </div>
+{% endblock %}

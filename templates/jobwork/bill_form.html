@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}New labour bill{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">New labour bill</h1></div>
+  <p class="muted" style="max-width:740px">A fabricator is paid only for pieces QC has accepted, and never twice. Shortages and missing trims are taken off. TDS is deducted only if you choose it.</p>
+  <form method="get" class="island"><div class="field-row">
+    <div class="field"><label for="party">Fabricator</label><select id="party" name="party"><option value="">Choose…</option>{% for f in fabricators %}<option value="{{ f.pk }}" {% if party and party.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">Choose…</option>{% for f in factories %}<option value="{{ f.pk }}" {% if factory and factory.pk == f.pk %}selected{% endif %}>{{ f.code }}</option>{% endfor %}</select></div>
+    <div style="align-self:end"><button class="btn">Show what is payable</button></div></div></form>
+  {% if party and factory %}
+  <form method="post" novalidate>{% csrf_token %}<input type="hidden" name="party" value="{{ party.pk }}"><input type="hidden" name="factory" value="{{ factory.pk }}">
+    <div class="island"><h2>Accepted pieces to pay</h2>
+      {% if rows %}<div class="table-wrap"><table>
+        <thead><tr><th></th><th>Challan</th><th>Lot</th><th>Bundle</th><th class="num">Accepted</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+        <tbody>{% for r in rows %}<tr><td><input type="checkbox" name="qc_{{ r.r.pk }}" checked aria-label="Pay this"></td><td>{{ r.r.line.challan_bundle.challan.number }}</td><td>{{ r.r.line.challan_bundle.challan.lot.lot_no }}</td>
+          <td>{{ r.r.line.challan_bundle.bundle.bundle_no }}{% if r.r.is_rework_pass %} <span class="pill warning">Rework</span>{% endif %}</td><td class="num">{{ r.r.accepted }}</td><td class="num">{% if r.rate %}{{ r.rate }}{% else %}flat{% endif %}</td><td class="num">{{ r.amount }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="empty"><div class="hand">Nothing to pay</div><p>No accepted pieces are waiting for this fabricator.</p></div>{% endif %}</div>
+    {% if deductions %}<div class="island"><h2>Deductions</h2><table><tbody>
+      {% for d in deductions %}<tr><td><input type="checkbox" name="ded_{% if d.5 %}{{ d.5.pk }}{% else %}t{{ d.6.pk }}{% endif %}" checked aria-label="Deduct this"></td><td>{{ d.3 }}</td><td class="muted">{{ d.1.number }}</td><td class="num">- {{ d.4 }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    {% if rows %}<div class="island"><div class="field-row">
+      <div class="field"><label for="date">Bill date</label><input id="date" name="date" type="date" value="{{ d.date }}"></div>
+      <div class="field"><label for="tds">TDS</label><select id="tds" name="tds_template"><option value="">No TDS</option>{% for t in tds %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text"></div></div>
+      <div class="form-actions"><button class="btn primary">Save draft and review</button></div></div>{% endif %}
+  </form>
+  {% endif %}
+{% endblock %}

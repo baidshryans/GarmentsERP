@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Cutting{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Cutting</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
+    <div class="actions"><a class="btn" href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a><a class="btn ghost" href="{% url 'lot_detail' lot.pk %}">Back to lot</a></div></div>
+  {% if can_create %}
+  <form method="post" class="island" novalidate>{% csrf_token %}
+    <h2>Record a lay</h2>
+    <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date }}"></div>
+    <div class="label">Pieces cut per size</div>
+    <div class="field-row">{% for s in sizes %}<div class="field"><label for="p{{ s.pk }}">{{ s.code }}{% if planned %}<span class="muted"> (planned {% for k, v in planned.items %}{% if k == s.pk %}{{ v }}{% endif %}{% endfor %})</span>{% endif %}</label><input id="p{{ s.pk }}" type="text" inputmode="numeric" name="pieces_{{ s.pk }}"></div>{% endfor %}</div>
+    <div class="label">Fabric on the cutting floor</div>
+    {% if rolls %}<div class="table-wrap"><table>
+      <thead><tr><th>Roll</th><th>Fabric</th><th class="num">On the floor</th><th class="num">Used</th><th class="num">Waste</th><th class="num">Remnant returned</th></tr></thead>
+      <tbody>{% for rb in rolls %}<tr><td><strong>{{ rb.roll.label_code }}</strong></td><td>{{ rb.roll.material.name }}</td><td class="num">{{ rb.qty|floatformat:"-3" }}</td>
+        <td class="num"><input type="text" inputmode="decimal" name="used_{{ rb.roll_id }}"></td><td class="num"><input type="text" inputmode="decimal" name="waste_{{ rb.roll_id }}"></td><td class="num"><input type="text" inputmode="decimal" name="remnant_{{ rb.roll_id }}"></td></tr>{% endfor %}</tbody>
+    </table></div><p class="muted">What you used, wasted and returned should add up to what was issued. Used and waste become the lot's fabric cost; the remnant goes back to the store.</p>
+    <div class="field" style="margin-top:12px"><label for="notes">Notes</label><input id="notes" name="notes" type="text"></div>
+    <div class="form-actions"><button class="btn primary">Record cutting</button></div>
+    {% else %}<div class="empty"><div class="hand">No fabric on the cutting floor</div><p><a href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a> first.</p></div>{% endif %}
+  </form>{% endif %}
+  {% for e in entries %}
+  <div class="island"><h2>Lay {{ e.lay_no }} <span class="muted" style="font-weight:400">{{ e.date|date:"d M Y" }}</span></h2>
+    <p>{% for s in e.sizes.all %}<span class="pill">{{ s.size.code }}: {{ s.pieces }}</span> {% endfor %}</p>
+    <p class="muted">{% for r in e.rolls.all %}{{ r.roll.label_code }}: used {{ r.used_qty|floatformat:"-3" }}, waste {{ r.waste_qty|floatformat:"-3" }}, remnant {{ r.remnant_qty|floatformat:"-3" }}{% if not forloop.last %}; {% endif %}{% endfor %}</p>
+    {% if e.variance_pct is not None %}<p>Against the BOM ({{ e.expected_fabric|floatformat:"-3" }} expected): <span class="pill {% if e.over_tolerance %}danger{% else %}success{% endif %}">{{ e.variance_pct }}%</span></p>{% endif %}
+    {% if not e.bundled and can_create %}<form method="post" class="field-row" style="align-items:end">{% csrf_token %}<input type="hidden" name="action" value="bundles"><input type="hidden" name="entry" value="{{ e.pk }}">
+      <div class="field"><label for="bs{{ e.pk }}">Pieces per bundle</label><input id="bs{{ e.pk }}" name="bundle_size" type="text" inputmode="numeric" value="25"></div>
+      <div class="field"><button class="btn primary">Make bundles and QR tags</button></div></form>{% elif e.bundled %}<p class="muted">Bundles made.</p>{% endif %}
+  </div>{% endfor %}
+{% endblock %}

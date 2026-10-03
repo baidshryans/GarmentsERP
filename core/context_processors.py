@@ -26,6 +26,18 @@ NAV = [
         ("opening_stock", "Opening stock", "inventory.opening"),
         ("tag_print", "Print tags", "inventory.labels"),
     ]),
+    ("Production", [
+        ("production_dashboard", "Dashboard", "production.dashboard"),
+        ("order_list", "Production orders", "production.order"),
+        ("move_bundles", "Move bundles", "production.move"),
+    ]),
+    ("Job work", [
+        ("challan_list", "Challans", "jobwork.challan"),
+        ("receipt_list", "Receipts and QC", "jobwork.receipt"),
+        ("bill_list", "Labour bills", "jobwork.bill"),
+        ("rate_list", "Labour rates", "jobwork.rate"),
+        ("job_reports", "Fabricator reports", "jobwork.report"),
+    ]),
     ("Accounts", [
         ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
         ("voucher_list", "Vouchers", "ledger.voucher"),

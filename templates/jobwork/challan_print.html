@@ -1,0 +1,42 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Challan {{ ch.number|default:"draft" }}</title>
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}"><link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <style>
+    body { background: white; color: black; font-family: "Assistant", sans-serif; }
+    .sheet { max-width: 190mm; margin: 10mm auto; padding: 0 6mm; }
+    .sheet table { border-collapse: collapse; width: 100%; }
+    .sheet th, .sheet td { border: 1px solid black; padding: 4px 8px; color: black; background: white; }
+    .sheet h1 { margin: 0; font-size: 20pt; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8mm; }
+    .sign { display: flex; justify-content: space-between; margin-top: 25mm; }
+    .sign div { border-top: 1px solid black; width: 60mm; text-align: center; padding-top: 2mm; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <p class="no-print"><button class="btn primary" onclick="window.print()">Print</button></p>
+    <div class="head">
+      <div><h1>{{ ch.company.name }}</h1><div>{{ ch.factory.name }}{% if ch.factory.gstin %} · GSTIN {{ ch.factory.gstin }}{% endif %}</div>
+        <div style="font-size:14pt;margin-top:4mm"><strong>JOB WORK CHALLAN{% if ch.kind == "rework" %} (REWORK){% endif %}</strong></div></div>
+      <div style="text-align:right"><div style="color:black">{{ qr|safe }}</div><div><strong>{{ ch.number|default:"DRAFT" }}</strong></div><div>Date {{ ch.date|date:"d M Y" }}</div></div>
+    </div>
+    <table style="margin-bottom:6mm"><tbody>
+      <tr><td>To</td><td><strong>{{ ch.party.name }}</strong>{% if ch.party.gstin %}<br>GSTIN {{ ch.party.gstin }}{% endif %}</td><td>Lot / order</td><td>{{ ch.lot.lot_no }}<br>{{ ch.lot.order.number }}</td></tr>
+      <tr><td>Style</td><td>{{ ch.lot.style.style_no }} {{ ch.lot.style.name }}<br>{{ ch.lot.colour }}</td><td>Process</td><td>{{ ch.step.process.name }}<br>Expected back {{ ch.expected_date|date:"d M Y"|default:"—" }}</td></tr>
+    </tbody></table>
+    <table>
+      <thead><tr><th>Bundle</th><th>Size</th><th>Pieces</th><th>Rate</th></tr></thead>
+      <tbody>{% for l in lines %}<tr><td>{{ l.bundle.bundle_no }}</td><td>{{ l.bundle.sku.size.code }}</td><td style="text-align:right">{{ l.qty_issued }}</td><td style="text-align:right">{{ l.rate }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td colspan="2"><strong>Total pieces</strong></td><td style="text-align:right"><strong>{{ total }}</strong></td><td></td></tr></tfoot>
+    </table>
+    {% if trims %}<h3 style="margin-top:6mm">Trims issued</h3><table><thead><tr><th>Item</th><th>Quantity</th></tr></thead>
+      <tbody>{% for t in trims %}<tr><td>{{ t.material.name }}</td><td style="text-align:right">{{ t.qty_issued|floatformat:"-3" }} {{ t.material.unit }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% if ch.remarks %}<p>Remarks: {{ ch.remarks }}</p>{% endif %}
+    <div class="sign"><div>Issued by</div><div>Received by fabricator</div></div>
+  </div>
+</body>
+</html>

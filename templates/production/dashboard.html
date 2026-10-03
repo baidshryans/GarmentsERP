@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Production dashboard{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Production dashboard</h1><span class="muted">{{ today|date:"d M Y" }}</span>
+    <div class="actions"><a class="btn" href="{% url 'order_list' %}">Orders</a></div></div>
+  <form method="get" action="{% url 'production_track' %}" class="island field-row"><div class="field"><label for="q">Where is it? Search by order, style, lot or order reference</label><input id="q" name="q" type="text" placeholder="e.g. JGR-104 or LOT/LDH1/26-27/0001"></div><div style="align-self:end"><button class="btn primary">Track</button></div></form>
+  <div class="grid-2">
+    <div class="island"><div class="label muted">Cut today</div><div class="stat">{{ cut_today }}</div></div>
+    <div class="island"><div class="label muted">Stitched today</div><div class="stat">{{ stitched_today }}</div></div>
+    <div class="island"><div class="label muted">Packed today</div><div class="stat">{{ packed_today }}</div></div>
+    <div class="island"><div class="label muted">Work in progress</div><div class="stat">{{ total }}</div><div class="muted">{{ in_house }} in-house{% if rework %} · {{ rework }} in rework{% endif %}</div></div>
+  </div>
+  <div class="grid-2">
+    <div class="island"><h2>By stage</h2>{% if by_stage %}<table><tbody>{% for name, qty in by_stage %}<tr><td>{{ name }}</td><td class="num">{{ qty }}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">Nothing in progress.</p>{% endif %}</div>
+    <div class="island"><h2>By factory</h2>{% if by_factory %}<table><tbody>{% for name, qty in by_factory %}<tr><td>{{ name }}</td><td class="num">{{ qty }}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">Nothing in progress.</p>{% endif %}</div>
+    <div class="island"><h2>With fabricators</h2>{% if by_fabricator %}<table><tbody>{% for name, qty in by_fabricator %}<tr><td>{{ name }}</td><td class="num">{{ qty }}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">Nothing is out with a fabricator.</p>{% endif %}</div>
+    <div class="island"><h2>Late lots</h2>{% if late %}<table><tbody>{% for l in late %}<tr><td><a href="{% url 'lot_detail' l.pk %}">{{ l.lot_no }}</a> {{ l.style.style_no }}</td><td class="num">due {{ l.order_line.order.due_date|date:"d M" }}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">No late lots.</p>{% endif %}</div>
+  </div>
+  <div class="island"><h2>Oldest open lots</h2>{% if ageing %}<table><thead><tr><th>Lot</th><th>Style</th><th class="num">Days open</th></tr></thead><tbody>{% for r in ageing %}<tr><td><a href="{% url 'lot_detail' r.lot.pk %}">{{ r.lot.lot_no }}</a></td><td>{{ r.lot.style.style_no }} {{ r.lot.colour }}</td><td class="num">{{ r.days }}</td></tr>{% endfor %}</tbody></table>{% else %}<p class="muted">No open lots.</p>{% endif %}</div>
+{% endblock %}

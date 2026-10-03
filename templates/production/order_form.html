@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Production order{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if order %}Edit production order{% else %}New production order{% endif %}</h1></div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" {% if order %}disabled{% endif %}>{% for f in factories %}<option value="{{ f.pk }}" {% if d.factory == f.pk|stringformat:"s" or order.factory_id == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select>{% if order %}<input type="hidden" name="factory" value="{{ order.factory_id }}">{% endif %}</div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date }}" required></div>
+      <div class="field"><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="{{ vals.due_date }}"></div>
+      <div class="field"><label for="purpose">For</label><select id="purpose" name="purpose"><option value="stock" {% if vals.purpose == "stock" %}selected{% endif %}>Stock</option><option value="mto" {% if vals.purpose == "mto" %}selected{% endif %}>Made to order</option></select></div>
+      <div class="field"><label for="ref">Order reference</label><input id="ref" name="order_reference" type="text" value="{{ vals.order_reference }}" placeholder="MTO order no."><div class="help">Production never sees the customer, only this reference.</div></div>
+    </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>
+    <div class="island"><h2>Styles</h2>
+      <p class="muted">Enter the total once and the size ratio, for example <code>S:1, M:2, L:2, XL:1</code>. The pieces are spread across the sizes. The latest BOM and the style's route are filled in.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th style="width:26%">Style</th><th>Colour</th><th class="num">Total pieces</th><th>Size ratio</th></tr></thead>
+        <tbody>{% for r in rows %}<tr>
+          <td><select name="style"><option value="">—</option>{% for s in styles %}<option value="{{ s.pk }}" {% if r.style == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.style_no }} — {{ s.name }}</option>{% endfor %}</select></td>
+          <td><select name="colour">{% for c in colours %}<option value="{{ c.pk }}" {% if r.colour == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></td>
+          <td class="num"><input type="text" inputmode="numeric" name="qty" value="{{ r.qty|default:'' }}"></td>
+          <td><input type="text" name="ratios" value="{{ r.ratios|default:'' }}" placeholder="S:1, M:2, L:2, XL:1"></td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'order_list' %}">Cancel</a></div>
+  </form>
+{% endblock %}

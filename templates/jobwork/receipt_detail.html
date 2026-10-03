@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ r }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ r.number|default:"Receipt waiting for approval" }}</h1><span class="pill {% if r.status == 'qc_done' %}success{% elif r.status == 'pending_approval' %}danger{% else %}warning{% endif %}">{{ r.get_status_display }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'challan_detail' r.challan.pk %}">{{ r.challan.number }}</a><a class="btn ghost" href="{% url 'receipt_list' %}">All receipts</a></div></div>
+  <div class="island"><div class="field-row"><div><div class="label muted">Fabricator</div>{{ r.challan.party.name }}</div><div><div class="label muted">Lot</div>{{ r.challan.lot.lot_no }}</div>
+    <div><div class="label muted">Step</div>{{ r.challan.step.process.name }}</div><div><div class="label muted">Date</div>{{ r.date|date:"d M Y" }}</div></div></div>
+  {% if r.status == "pending_approval" %}<div class="island"><p class="pill warning">Some bundles were counted above what was issued. Nothing has moved yet.</p>
+    {% if can_approve %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="approve">Approve over-receipt</button></form>{% else %}<p class="muted">Only the owner can approve this.</p>{% endif %}</div>{% endif %}
+  {% for l in lines %}
+  <div class="island">
+    <h3>Bundle {{ l.challan_bundle.bundle.bundle_no }} · {{ l.challan_bundle.bundle.sku.size.code }}
+      <span class="muted" style="font-weight:400">issued {{ l.challan_bundle.qty_issued }} · counted {{ l.qty_received }}{% if l.shortage_qty %} · <strong>short {{ l.shortage_qty }}</strong>{% endif %}{% if l.over_qty %} · over {{ l.over_qty }}{% endif %}</span></h3>
+    {% if l.qc_done %}{% with q=l.qc %}<p>QC: accepted <strong>{{ q.accepted }}</strong>, rejected {{ q.rejected }}{% if q.reject_reason %} ({{ q.reject_reason }}){% endif %}, rework {{ q.rework }}{% if q.bill_line_id %} · <span class="pill success">Paid</span>{% endif %}</p>{% endwith %}
+    {% elif r.status != "pending_approval" and can_qc %}
+    <form method="post" class="field-row" style="align-items:end">{% csrf_token %}<input type="hidden" name="action" value="qc"><input type="hidden" name="line" value="{{ l.pk }}">
+      <div class="field"><label>Accepted</label><input type="text" inputmode="numeric" name="accepted" value="{{ l.qty_received }}"></div>
+      <div class="field"><label>Rejected</label><input type="text" inputmode="numeric" name="rejected" value="0"></div>
+      <div class="field"><label>Rework (whole bundle)</label><input type="text" inputmode="numeric" name="rework" value="0"></div>
+      <div class="field"><label>Reject reason</label><input type="text" name="reason"></div>
+      <div class="field"><label>Rejected go to</label><select name="destination"><option value="rejects">Rejects stock</option><option value="scrap">Scrapped</option></select></div>
+      <div class="field"><button class="btn primary">Save QC</button></div></form>
+    {% else %}<p class="muted">Waiting for QC.</p>{% endif %}
+  </div>
+  {% endfor %}
+  {% if trims %}<div class="island"><h2>Trims</h2><table><tbody>{% for t in trims %}<tr><td>{{ t.challan_trim.material.name }}</td><td>returned {{ t.qty_returned|floatformat:"-3" }}</td><td>missing {{ t.qty_missing|floatformat:"-3" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% endblock %}

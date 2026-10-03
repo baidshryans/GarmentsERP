@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{% if kind == "debtors" %}Receivables{% else %}Payables{% endif %}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if kind == "debtors" %}Receivables{% else %}Payables{% endif %} ageing</h1><span class="muted">As at {{ as_of|date:"d M Y" }} · days past the due date</span>
+    <div class="actions no-print"><a class="btn ghost" href="{% url 'ageing' 'debtors' %}">Receivables</a><a class="btn ghost" href="{% url 'ageing' 'creditors' %}">Payables</a></div></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="asof" %}
+    {% if ag.parties %}<div class="table-scroll"><table>
+      <thead><tr><th scope="col">Party</th>{% for b in ag.buckets %}<th scope="col" class="num">{{ b }}</th>{% endfor %}<th scope="col" class="num">Outstanding</th><th scope="col" class="num">Advance / on account</th></tr></thead>
+      <tbody>{% for p in ag.parties %}<tr><td><a href="{% url 'ledger_statement' p.ledger.pk %}">{{ p.ledger.name }}</a></td>{% for b in ag.buckets %}<td class="num">{% for k, v in p.buckets.items %}{% if k == b and v %}{{ v }}{% endif %}{% endfor %}</td>{% endfor %}<td class="num"><strong>{{ p.total }}</strong></td><td class="num">{% if p.unadjusted %}{{ p.unadjusted }}{% endif %}</td></tr>
+        <tr class="muted"><td colspan="{{ ag.buckets|length|add:3 }}" style="padding-left:24px">{% for b in p.bills %}{{ b.reference }} ({{ b.amount }}, {{ b.days }} days){% if not forloop.last %} · {% endif %}{% endfor %}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td>Total</td>{% for b in ag.buckets %}<td class="num">{% for k, v in ag.totals.items %}{% if k == b %}{{ v }}{% endif %}{% endfor %}</td>{% endfor %}<td class="num">{{ ag.total }}</td><td class="num">{{ ag.unadjusted }}</td></tr></tfoot>
+    </table></div>
+    {% else %}<div class="empty"><div class="hand">Nothing outstanding</div></div>{% endif %}
+  </div>
+{% endblock %}

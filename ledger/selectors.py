@@ -13,8 +13,10 @@ def q2(value) -> Decimal:
     return Decimal(value or 0).quantize(Decimal("0.01"))
 
 
-def posted_lines(user=None, factory=None, as_of=None):
+def posted_lines(user=None, factory=None, as_of=None, date_from=None):
     qs = VoucherLine.objects.filter(voucher__status="posted")
+    if date_from is not None:
+        qs = qs.filter(voucher__date__gte=date_from)
     if user is not None:
         qs = qs.for_user(user)
     if factory is not None:

@@ -1,0 +1,14 @@
+{% for p in problems %}<div class="messages"><div class="message error">{{ p }}</div></div>{% endfor %}
+<form method="get" class="field-row no-print" style="margin-bottom:16px;align-items:end">
+  <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All my factories</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if factory and factory.pk == fa.pk %}selected{% endif %}>{{ fa.code }} — {{ fa.name }}</option>{% endfor %}</select></div>
+  {% if mode == "range" %}
+  <div class="field"><label for="from">From</label><input id="from" name="from" type="date" value="{{ date_from|date:'Y-m-d' }}"></div>
+  <div class="field"><label for="to">To</label><input id="to" name="to" type="date" value="{{ date_to|date:'Y-m-d' }}"></div>
+  {% else %}
+  <div class="field"><label for="as_of">As at</label><input id="as_of" name="as_of" type="date" value="{{ as_of|date:'Y-m-d' }}"></div>
+  {% endif %}
+  {% if compare %}<input type="hidden" name="compare" value="1">{% endif %}{% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}{% if vtype %}<input type="hidden" name="type" value="{{ vtype }}">{% endif %}
+  <div class="field"><button class="btn">Show</button></div>
+  <div class="field"><button class="btn ghost" name="format" value="xlsx">Excel</button></div>
+  <div class="field"><button type="button" class="btn ghost" onclick="window.print()">Print / PDF</button></div>
+</form>

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Day book{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Day book</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }}</span></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    <p class="muted no-print">Filter by type with the link list: {% for v, l in types %}<a href="?type={{ v }}&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}" {% if vtype == v %}style="font-weight:700"{% endif %}>{{ l }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+    {% if book.vouchers %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Date</th><th scope="col">Voucher</th><th scope="col">Type</th><th scope="col">Factory</th><th scope="col">Narration</th><th scope="col" class="num">Amount</th></tr></thead>
+      <tbody>{% for v in book.vouchers %}<tr><td>{{ v.date|date:"d M Y" }}</td><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number }}</a></td><td>{{ v.get_voucher_type_display }}</td><td>{{ v.factory.code }}</td><td>{{ v.narration }}</td><td class="num">{{ v.total }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td colspan="5">Total of vouchers</td><td class="num">{{ book.total }}</td></tr></tfoot>
+    </table></div>{% if book.truncated %}<p class="muted">Showing the first 2000 vouchers; narrow the dates.</p>{% endif %}
+    {% else %}<div class="empty"><div class="hand">No vouchers in this period</div></div>{% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Purchase report{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Purchases</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }} · by {{ by }}</span>
+    <div class="actions no-print"><a class="btn {% if by == 'vendor' %}primary{% else %}ghost{% endif %}" href="?by=vendor&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">Vendor</a><a class="btn {% if by == 'month' %}primary{% else %}ghost{% endif %}" href="?by=month&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">Month</a><a class="btn ghost" href="{% url 'po_pending' %}">Pending POs</a></div></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    {% if r.rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">{{ by|title }}</th><th scope="col" class="num">Bills</th><th scope="col" class="num">Value</th><th scope="col" class="num">GST</th><th scope="col" class="num">Payable</th><th scope="col" class="num">Rate differences</th></tr></thead>
+      <tbody>{% for x in r.rows %}<tr><td>{{ x.key }}</td><td class="num">{{ x.bills }}</td><td class="num">{{ x.value }}</td><td class="num">{{ x.gst }}</td><td class="num">{{ x.payable }}</td><td class="num">{% if x.variances %}<span class="pill warning">{{ x.variances }}</span>{% else %}0{% endif %}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">{{ r.total.bills }}</td><td class="num">{{ r.total.value }}</td><td class="num">{{ r.total.gst }}</td><td class="num">{{ r.total.payable }}</td><td class="num">{{ r.total.variances }}</td></tr></tfoot>
+    </table></div>{% else %}<div class="empty"><div class="hand">No purchase bills in this period</div></div>{% endif %}
+  </div>
+{% endblock %}

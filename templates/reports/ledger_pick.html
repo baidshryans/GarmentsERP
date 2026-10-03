@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Ledger statement{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Ledger statement</h1><span class="muted">Choose a ledger to see every entry with a running balance</span></div>
+  <div class="island">
+    {% for group, ledgers in groups %}
+      <h2>{{ group }}</h2>
+      <p>{% for l in ledgers %}<a class="pill" href="{% url 'ledger_statement' l.pk %}">{{ l.name }}</a> {% endfor %}</p>
+    {% empty %}<div class="empty"><div class="hand">No ledgers yet</div></div>{% endfor %}
+  </div>
+{% endblock %}

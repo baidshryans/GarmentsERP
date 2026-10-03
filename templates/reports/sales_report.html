@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Sales report{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Sales</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }} · by {{ by }}</span>
+    <div class="actions no-print">{% for v in views %}<a class="btn {% if v == by %}primary{% else %}ghost{% endif %}" href="?by={{ v }}&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ v|title }}</a>{% endfor %}</div></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    {% if r.rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">{{ by|title }}</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Value</th><th scope="col" class="num">GST</th><th scope="col" class="num">Returned pcs</th><th scope="col" class="num">Returned value</th><th scope="col" class="num">Net pieces</th><th scope="col" class="num">Net value</th></tr></thead>
+      <tbody>{% for x in r.rows %}<tr><td>{{ x.key }}</td><td class="num">{{ x.pieces|floatformat:"-0" }}</td><td class="num">{{ x.value }}</td><td class="num">{{ x.gst }}</td><td class="num">{{ x.returned_pieces|floatformat:"-0" }}</td><td class="num">{{ x.returned_value }}</td><td class="num">{{ x.net_pieces|floatformat:"-0" }}</td><td class="num"><strong>{{ x.net_value }}</strong></td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">{{ r.total.pieces|floatformat:"-0" }}</td><td class="num">{{ r.total.value }}</td><td class="num">{{ r.total.gst }}</td><td class="num">{{ r.total.returned_pieces|floatformat:"-0" }}</td><td class="num">{{ r.total.returned_value }}</td><td class="num">{{ r.total.net_pieces|floatformat:"-0" }}</td><td class="num">{{ r.total.net_value }}</td></tr></tfoot>
+    </table></div>{% else %}<div class="empty"><div class="hand">No sales in this period</div></div>{% endif %}
+  </div>
+{% endblock %}

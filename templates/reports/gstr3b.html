@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}GSTR-3B summary{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">GSTR-3B summary</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }}</span>
+    <div class="actions no-print"><a class="btn ghost" href="{% url 'gstr1' %}">GSTR-1</a><a class="btn ghost" href="{% url 'tax_register' %}">Tax register</a></div></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    {% if not gst_on %}<p class="muted">GST is not switched on for this period.</p>{% endif %}
+    <div class="table-wrap"><table>
+      <thead><tr><th scope="col"></th><th scope="col" class="num">IGST</th><th scope="col" class="num">CGST</th><th scope="col" class="num">SGST</th><th scope="col" class="num">Total</th></tr></thead>
+      <tbody>
+        <tr><td>3.1 Outward taxable supplies (sales value)</td><td colspan="3"></td><td class="num">{{ r.taxable_outward }}</td></tr>
+        <tr><td>Output tax</td><td class="num">{{ r.output.igst }}</td><td class="num">{{ r.output.cgst }}</td><td class="num">{{ r.output.sgst }}</td><td class="num">{{ r.output_total }}</td></tr>
+        <tr><td>Reverse charge liability</td><td class="num">{{ r.rcm.igst }}</td><td class="num">{{ r.rcm.cgst }}</td><td class="num">{{ r.rcm.sgst }}</td><td class="num">{{ r.rcm_total }}</td></tr>
+        <tr><td>4 Input tax credit</td><td class="num">{{ r.itc.igst }}</td><td class="num">{{ r.itc.cgst }}</td><td class="num">{{ r.itc.sgst }}</td><td class="num">{{ r.itc_total }}</td></tr>
+      </tbody>
+      <tfoot><tr><td>Tax payable (output + reverse charge − credit)</td><td class="num">{{ r.payable.igst }}</td><td class="num">{{ r.payable.cgst }}</td><td class="num">{{ r.payable.sgst }}</td><td class="num">{{ r.payable_total }}</td></tr></tfoot>
+    </table></div>
+    <p class="muted">A negative amount is credit to carry forward. Set-off between IGST, CGST and SGST is done on the portal; pass the payment and set-off entries as vouchers.</p>
+  </div>
+{% endblock %}

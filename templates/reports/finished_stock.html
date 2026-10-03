@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Finished stock{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Finished stock</h1><span class="muted">{{ r.pieces|floatformat:"-0" }} pieces · value {{ r.value }} · {{ r.slow_count }} slow-moving</span></div>
+  <div class="island">
+    <form method="get" class="field-row no-print" style="align-items:end;margin-bottom:16px">
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All my factories</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if factory and factory.pk == fa.pk %}selected{% endif %}>{{ fa.code }} — {{ fa.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="slow">Slow-moving after (days without a sale)</label><input id="slow" name="slow" type="text" inputmode="numeric" value="{{ r.slow_days }}"></div>
+      <div class="field"><button class="btn">Show</button></div><div class="field"><button class="btn ghost" name="format" value="xlsx">Excel</button></div>
+      <div class="field"><button type="button" class="btn ghost" onclick="window.print()">Print / PDF</button></div>
+    </form>
+    {% if r.rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">SKU</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Value</th><th scope="col">Last in</th><th scope="col">Last sold</th><th scope="col" class="num">Days in stock</th><th scope="col"></th></tr></thead>
+      <tbody>{% for x in r.rows %}<tr><td>{{ x.sku }}</td><td class="num">{{ x.qty|floatformat:"-0" }}</td><td class="num">{{ x.value }}</td><td>{{ x.last_in|date:"d M Y"|default:"—" }}</td><td>{{ x.last_out|date:"d M Y"|default:"never" }}</td><td class="num">{{ x.age|default_if_none:"—" }}</td><td>{% if x.slow %}<span class="pill warning">Slow</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No finished goods in stock</div></div>{% endif %}
+  </div>
+{% endblock %}

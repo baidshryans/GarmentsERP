@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Tax register{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Tax register</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }}</span>
+    <div class="actions no-print"><a class="btn {% if kind == 'gst' %}primary{% else %}ghost{% endif %}" href="?kind=gst&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">GST</a><a class="btn {% if kind == 'tds' %}primary{% else %}ghost{% endif %}" href="?kind=tds&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">TDS</a><a class="btn {% if kind == 'tcs' %}primary{% else %}ghost{% endif %}" href="?kind=tcs&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">TCS</a></div></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    {% if kind == "gst" and not gst_on %}<p class="muted">GST is not switched on for this period.</p>{% elif kind == "tds" and not tds_on %}<p class="muted">TDS is not switched on for this period.</p>{% endif %}
+    {% if r.rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Date</th><th scope="col">Voucher</th><th scope="col">Party</th><th scope="col">Tax ledger</th><th scope="col">Factory</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th></tr></thead>
+      <tbody>{% for x in r.rows %}<tr><td>{{ x.date|date:"d M Y" }}</td><td><a href="{% url 'voucher_detail' x.voucher.pk %}">{{ x.voucher.number }}</a> <span class="muted">{{ x.voucher.get_voucher_type_display }}</span></td><td>{{ x.party }}</td><td>{{ x.ledger }}</td><td>{{ x.factory }}</td><td class="num">{% if x.debit %}{{ x.debit }}{% endif %}</td><td class="num">{% if x.credit %}{{ x.credit }}{% endif %}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td colspan="5">Total · net credit {{ r.net }}</td><td class="num">{{ r.debit }}</td><td class="num">{{ r.credit }}</td></tr></tfoot>
+    </table></div>{% else %}<div class="empty"><div class="hand">No tax entries in this period</div></div>{% endif %}
+  </div>
+{% endblock %}

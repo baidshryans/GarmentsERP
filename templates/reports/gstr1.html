@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}GSTR-1 data{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">GSTR-1 data</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }}</span>
+    <div class="actions no-print"><a class="btn ghost" href="{% url 'gstr3b' %}">GSTR-3B</a><a class="btn ghost" href="{% url 'tax_register' %}">Tax register</a></div></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    {% if not gst_on %}<p class="muted">GST is not switched on for this period, so no invoice carries GST here.</p>{% endif %}
+    <p class="muted">From the sale invoices and credit notes raised in the sales module ({{ r.docs.invoices }} invoice{{ r.docs.invoices|pluralize }}{% if r.docs.cancelled %}, {{ r.docs.cancelled }} cancelled and left out{% endif %}). Hand-entered sales vouchers are in the tax register and in GSTR-3B.</p>
+    <h2>B2B: invoices to registered buyers</h2>
+    {% if r.b2b %}<div class="table-scroll"><table><thead><tr><th scope="col">GSTIN</th><th scope="col">Buyer</th><th scope="col">Invoice</th><th scope="col">Date</th><th scope="col">Place</th><th scope="col" class="num">Rate %</th><th scope="col" class="num">Taxable</th><th scope="col" class="num">IGST</th><th scope="col" class="num">CGST</th><th scope="col" class="num">SGST</th></tr></thead>
+      <tbody>{% for x in r.b2b %}<tr><td>{{ x.gstin }}</td><td>{{ x.invoice.customer.name }}</td><td><a href="{% url 'saleinvoice_detail' x.invoice.pk %}">{{ x.invoice.number }}</a></td><td>{{ x.invoice.date|date:"d M Y" }}</td><td>{{ x.invoice.place_of_supply }}</td><td class="num">{{ x.rate|floatformat:"-2" }}</td><td class="num">{{ x.taxable }}</td><td class="num">{{ x.igst }}</td><td class="num">{{ x.cgst }}</td><td class="num">{{ x.sgst }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">None.</p>{% endif %}
+    <h2>B2C: sales to unregistered buyers, by state and rate</h2>
+    {% if r.b2c %}<div class="table-scroll"><table><thead><tr><th scope="col">Place of supply</th><th scope="col" class="num">Rate %</th><th scope="col" class="num">Invoices</th><th scope="col" class="num">Taxable</th><th scope="col" class="num">IGST</th><th scope="col" class="num">CGST</th><th scope="col" class="num">SGST</th></tr></thead>
+      <tbody>{% for x in r.b2c %}<tr><td>{{ x.place }}</td><td class="num">{{ x.rate|floatformat:"-2" }}</td><td class="num">{{ x.docs }}</td><td class="num">{{ x.taxable }}</td><td class="num">{{ x.igst }}</td><td class="num">{{ x.cgst }}</td><td class="num">{{ x.sgst }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">None.</p>{% endif %}
+    <h2>Credit notes</h2>
+    {% if r.cdn %}<div class="table-scroll"><table><thead><tr><th scope="col">Type</th><th scope="col">GSTIN</th><th scope="col">Buyer</th><th scope="col">Note</th><th scope="col">Date</th><th scope="col">Invoice</th><th scope="col" class="num">Taxable</th><th scope="col" class="num">IGST</th><th scope="col" class="num">CGST</th><th scope="col" class="num">SGST</th></tr></thead>
+      <tbody>{% for x in r.cdn %}<tr><td>{% if x.registered %}Registered{% else %}Unregistered{% endif %}</td><td>{{ x.gstin }}</td><td>{{ x.note.customer.name }}</td><td><a href="{% url 'salecn_detail' x.note.pk %}">{{ x.note.number }}</a></td><td>{{ x.note.date|date:"d M Y" }}</td><td>{{ x.note.invoice.number }}</td><td class="num">{{ x.taxable }}</td><td class="num">{{ x.igst }}</td><td class="num">{{ x.cgst }}</td><td class="num">{{ x.sgst }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">None.</p>{% endif %}
+    <h2>HSN summary</h2>
+    {% if r.hsn %}<div class="table-scroll"><table><thead><tr><th scope="col">HSN</th><th scope="col" class="num">Rate %</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Taxable</th><th scope="col" class="num">IGST</th><th scope="col" class="num">CGST</th><th scope="col" class="num">SGST</th></tr></thead>
+      <tbody>{% for x in r.hsn %}<tr><td>{{ x.hsn|default:"—" }}</td><td class="num">{{ x.rate|floatformat:"-2" }}</td><td class="num">{{ x.qty|floatformat:"-0" }}</td><td class="num">{{ x.taxable }}</td><td class="num">{{ x.igst }}</td><td class="num">{{ x.cgst }}</td><td class="num">{{ x.sgst }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">None.</p>{% endif %}
+    {% if r.nil %}<h2>Invoices issued without GST</h2><div class="table-scroll"><table><thead><tr><th scope="col">Invoice</th><th scope="col">Date</th><th scope="col">Buyer</th><th scope="col" class="num">Value</th><th scope="col">Reason</th></tr></thead>
+      <tbody>{% for x in r.nil %}<tr><td><a href="{% url 'saleinvoice_detail' x.invoice.pk %}">{{ x.invoice.number }}</a></td><td>{{ x.invoice.date|date:"d M Y" }}</td><td>{{ x.invoice.customer.name }}</td><td class="num">{{ x.taxable }}</td><td>{{ x.note|default:"GST not switched on" }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+    <p><strong>Net taxable {{ r.totals.taxable }} · IGST {{ r.totals.igst }} · CGST {{ r.totals.cgst }} · SGST {{ r.totals.sgst }}</strong> <span class="muted">(after credit notes)</span></p>
+  </div>
+{% endblock %}

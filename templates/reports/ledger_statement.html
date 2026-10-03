@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ ledger.name }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ ledger.name }}</h1><span class="muted">{{ ledger.group.name }} · {{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }}</span>
+    <div class="actions no-print"><a class="btn ghost" href="{% url 'trial_balance' %}">Trial balance</a>{% if ledger.bill_wise %}<a class="btn ghost" href="{% url 'ledger_bills' ledger.pk %}">Open bills (data)</a>{% endif %}</div></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    <div class="table-wrap"><table>
+      <thead><tr><th scope="col">Date</th><th scope="col">Voucher</th><th scope="col">Particulars</th><th scope="col">Factory</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th><th scope="col" class="num">Balance</th></tr></thead>
+      <tbody>
+        <tr><td colspan="6"><strong>Opening balance</strong></td><td class="num">{{ st.opening|floatformat:2 }} {% if st.opening >= 0 %}Dr{% else %}Cr{% endif %}</td></tr>
+        {% for r in st.rows %}<tr><td>{{ r.date|date:"d M Y" }}</td><td><a href="{% url 'voucher_detail' r.voucher.pk %}">{{ r.voucher.number }}</a> <span class="muted">{{ r.type }}</span></td><td>{{ r.particulars }}</td><td>{{ r.factory }}</td>
+          <td class="num">{% if r.debit %}{{ r.debit }}{% endif %}</td><td class="num">{% if r.credit %}{{ r.credit }}{% endif %}</td><td class="num">{{ r.balance|floatformat:2 }} {% if r.balance >= 0 %}Dr{% else %}Cr{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="7" class="muted">No entries in this period.</td></tr>{% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="4">Total / closing</td><td class="num">{{ st.debit }}</td><td class="num">{{ st.credit }}</td><td class="num">{{ st.closing|floatformat:2 }} {% if st.closing >= 0 %}Dr{% else %}Cr{% endif %}</td></tr></tfoot>
+    </table></div>
+  </div>
+{% endblock %}

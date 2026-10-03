@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Profit and loss{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Profit and loss</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }}{% if factory %} · {{ factory.code }}{% else %} · all factories{% endif %}</span></div>
+  <div class="island">
+    {% include "reports/_filter.html" with mode="range" %}
+    <p class="no-print">{% if compare %}<a href="?{% if factory %}factory={{ factory.pk }}&{% endif %}from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">Hide last year</a>{% else %}<a href="?compare=1{% if factory %}&factory={{ factory.pk }}{% endif %}&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">Compare with the same days last year</a>{% endif %}</p>
+    {% if compare %}
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col"></th><th scope="col" class="num">{{ date_from|date:"d M Y" }} – {{ date_to|date:"d M Y" }}</th><th scope="col" class="num">{{ cmp.before_from|date:"d M Y" }} – {{ cmp.before_to|date:"d M Y" }}</th></tr></thead>
+        <tbody>{% for block in cmp.lines %}<tr><th scope="rowgroup" colspan="3">{{ block.section }}</th></tr>
+          {% for name, now, before in block.rows %}<tr><td>{{ name }}</td><td class="num">{{ now }}</td><td class="num">{{ before }}</td></tr>{% endfor %}
+          {% if forloop.counter == 2 %}<tr><td><strong>Gross profit</strong></td><td class="num"><strong>{{ cmp.now.gross_profit }}</strong></td><td class="num"><strong>{{ cmp.before.gross_profit }}</strong></td></tr>{% endif %}{% endfor %}</tbody>
+        <tfoot><tr><td>Net profit</td><td class="num">{{ cmp.now.net_profit }}</td><td class="num">{{ cmp.before.net_profit }}</td></tr></tfoot>
+      </table></div>
+      <p class="muted">Gross margin {{ cmp.now.gross_margin|default:"-" }}% (last year {{ cmp.before.gross_margin|default:"-" }}%) · net margin {{ cmp.now.net_margin|default:"-" }}% (last year {{ cmp.before.net_margin|default:"-" }}%)</p>
+    {% else %}
+      <div class="table-wrap"><table>
+        <tbody>
+          <tr><th scope="rowgroup" colspan="2">Sales and direct income</th></tr>
+          {% for r in pl.income %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ r.ledger }}</a> <span class="muted">{{ r.group }}</span></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}
+          <tr><td><strong>Total</strong></td><td class="num"><strong>{{ pl.trading_income }}</strong></td></tr>
+          <tr><th scope="rowgroup" colspan="2">Purchases and direct expenses</th></tr>
+          {% for r in pl.expense %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ r.ledger }}</a> <span class="muted">{{ r.group }}</span></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}
+          <tr><td><strong>Total</strong></td><td class="num"><strong>{{ pl.trading_expense }}</strong></td></tr>
+          <tr><td><strong>Gross profit</strong>{% if pl.gross_margin is not None %} <span class="muted">({{ pl.gross_margin }}% of income)</span>{% endif %}</td><td class="num"><strong>{{ pl.gross_profit }}</strong></td></tr>
+          <tr><th scope="rowgroup" colspan="2">Indirect income</th></tr>
+          {% for r in pl.other_income %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ r.ledger }}</a></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}
+          <tr><th scope="rowgroup" colspan="2">Indirect expenses</th></tr>
+          {% for r in pl.other_expense %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ r.ledger }}</a></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}
+        </tbody>
+        <tfoot><tr><td>Net profit{% if pl.net_margin is not None %} <span class="muted">({{ pl.net_margin }}% of income)</span>{% endif %}</td><td class="num">{{ pl.net_profit }}</td></tr></tfoot>
+      </table></div>
+    {% endif %}
+  </div>
+{% endblock %}

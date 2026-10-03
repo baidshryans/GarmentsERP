@@ -1,8 +1,9 @@
 """BRD acceptance scenarios (section 11.1) for what exists so far. Each one is a story told end to end, and the
 autouse fixture then checks that the books tally and stock reconciles.
 
-A1, A2, A3, A10 are here. A11 is `test_one_lot_cut_in_house_stitched_by_a_subcontractor_ironed_at_factory_2_...`
-in test_jobwork.py. A12 (every voucher type) arrives with the accounting screens; A4-A9 with sales and reports.
+A1, A2, A3, A10 are here. A4, A5, A6 are in test_acceptance_sales.py, which also points to A7 and A8. A11 is
+`test_one_lot_cut_in_house_stitched_by_a_subcontractor_ironed_at_factory_2_...` in test_jobwork.py. A12 (every voucher
+type) and A9 (month-end reports) arrive with the accounting screens and reports.
 """
 from datetime import date
 from decimal import Decimal

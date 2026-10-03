@@ -29,8 +29,8 @@
   <div class="island">
     <h2>Result</h2>
     <p>{{ result.rows }} rows read · {{ result.ok }} valid · {{ result.errors|length }} with problems{% if result.committed %} · <span class="pill success">Saved</span>{% endif %}</p>
-    {% if result.errors %}<table><thead><tr><th class="num">Row</th><th>Problem</th></tr></thead>
-      <tbody>{% for row, msg in result.errors %}<tr><td class="num">{{ row|default:"—" }}</td><td>{{ msg }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+    {% if result.errors %}<div class="table-scroll"><table><thead><tr><th scope="col" class="num">Row</th><th scope="col">Problem</th></tr></thead>
+      <tbody>{% for row, msg in result.errors %}<tr><td class="num">{{ row|default:"—" }}</td><td>{{ msg }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
   </div>
   {% endif %}
 {% endblock %}

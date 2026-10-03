@@ -5,7 +5,7 @@
     <div class="actions"><a class="btn ghost" href="{% url 'challan_list' %}">Challans</a></div></div>
   <div class="island">
     {% if receipts %}<div class="table-wrap"><table>
-      <thead><tr><th>Receipt</th><th>Date</th><th>Fabricator</th><th>Challan</th><th>Lot</th><th>Status</th></tr></thead>
+      <thead><tr><th scope="col">Receipt</th><th scope="col">Date</th><th scope="col">Fabricator</th><th scope="col">Challan</th><th scope="col">Lot</th><th scope="col">Status</th></tr></thead>
       <tbody>{% for r in receipts %}<tr><td><a href="{% url 'receipt_detail' r.pk %}">{{ r.number|default:"Needs approval" }}</a></td><td>{{ r.date|date:"d M Y" }}</td><td>{{ r.challan.party.name }}</td><td>{{ r.challan.number }}</td><td>{{ r.challan.lot.lot_no }}</td>
         <td><span class="pill {% if r.status == 'qc_done' %}success{% elif r.status == 'pending_approval' %}danger{% else %}warning{% endif %}">{{ r.get_status_display }}</span></td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">No receipts yet</div><p>Receive goods from an issued challan.</p></div>{% endif %}

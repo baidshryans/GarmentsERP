@@ -2,6 +2,7 @@
 {% block title %}{{ title }}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ title }}</h1></div>
+  {% if intro %}<p class="muted" style="max-width:640px">{{ intro }}</p>{% endif %}
   <div class="island" style="max-width:640px">
     <form method="post" novalidate>
       {% csrf_token %}
@@ -9,7 +10,7 @@
       {% for field in form %}{% include "partials/field.html" %}{% endfor %}
       <div class="form-actions">
         <button class="btn primary">Save</button>
-        <a class="btn ghost" href="javascript:history.back()">Cancel</a>
+        {% if cancel_url and cancel_args %}<a class="btn ghost" href="{% url cancel_url cancel_args.0 %}">Cancel</a>{% elif cancel_url %}<a class="btn ghost" href="{% url cancel_url %}">Cancel</a>{% else %}<a class="btn ghost" href="javascript:history.back()">Cancel</a>{% endif %}
       </div>
     </form>
   </div>

@@ -1,12 +1,17 @@
 <script>
   /* Light is the default. Dark and the top menu are used only if the user switched to them with the toggles. */
   (function () {
-    var theme = "light", nav = "side";
+    var theme = "light", nav = "side", w = 0, collapsed = false;
     try {
       if (localStorage.getItem("theme") === "dark") { theme = "dark"; }
       if (localStorage.getItem("nav") === "top") { nav = "top"; }
+      w = parseInt(localStorage.getItem("navWidth"), 10) || 0;
+      collapsed = localStorage.getItem("navCollapsed") === "1";
     } catch (e) {}
     document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.setAttribute("data-nav", nav);
+    if (w >= 196 && w <= 440) { document.documentElement.style.setProperty("--rail-w-user", w + "px"); }
+    if (window.innerWidth <= 960 || (nav === "top" && window.innerWidth <= 1180)) { document.documentElement.setAttribute("data-drawer", ""); }
+    if (collapsed) { document.documentElement.setAttribute("data-collapsed", "1"); }
   })();
 </script>

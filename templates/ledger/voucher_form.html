@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">{{ title }}</h1>
+    <div class="actions">
+      <a class="btn ghost" href="{% url 'voucher_list' %}">All vouchers</a>
+    </div>
+  </div>
+  <p class="muted" style="max-width:720px">{{ intro }}</p>
+
+  <form method="post" class="island" id="voucher-form" data-vtype="{{ vtype }}" data-bills-url="{% url 'ledger_bills' 0 %}" novalidate>
+    {% csrf_token %}
+    <div class="field-row">
+      <div class="field"><label for="factory">Factory <span class="muted">*</span></label>
+        <select id="factory" name="factory" required>{% for f in factories %}<option value="{{ f.pk }}" {% if v.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">Date <span class="muted">*</span></label>
+        <input id="date" name="date" type="date" value="{{ v.date|default:today }}" required></div>
+
+      {% if vtype == "journal" %}
+      <div class="field"><label for="vendor_invoice_no">Vendor invoice no.</label>
+        <input id="vendor_invoice_no" name="vendor_invoice_no" type="text" maxlength="40" autocomplete="off" value="{{ v.vendor_invoice_no }}">
+        <div class="help">Optional. Used as the bill reference on rows set to <em>New bill</em> when their reference is blank.</div></div>
+      {% endif %}
+
+      {% if vtype == "payment" or vtype == "receipt" %}
+      <div class="field"><label for="account">{% if vtype == "payment" %}Paid from{% else %}Received in{% endif %} <span class="muted">*</span></label>
+        <select id="account" name="account" required><option value="">— choose cash or bank —</option>{% for l in cash_bank %}<option value="{{ l.pk }}" {% if v.account == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
+        <div class="help">Cash or a bank account. Add a new bank account under the Bank Accounts group in the chart of accounts.</div></div>
+      {% endif %}
+    </div>
+
+    {% if vtype == "contra" %}
+    <div class="table-scroll"><table id="voucher-rows">
+      <thead><tr><th scope="col" style="min-width:220px">From (cash / bank)</th><th scope="col" style="min-width:220px">To (cash / bank)</th><th scope="col" class="num">Amount</th><th scope="col">Note</th><th scope="col"></th></tr></thead>
+      <tbody>{% for r in rows %}
+        <tr>
+          <td><select name="row_ledger" aria-label="From"><option value="">—</option>{% for l in cash_bank %}<option value="{{ l.pk }}" {% if r.ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></td>
+          <td><select name="row_to_ledger" aria-label="To"><option value="">—</option>{% for l in cash_bank %}<option value="{{ l.pk }}" {% if r.to_ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></td>
+          <td class="num"><input type="text" inputmode="decimal" name="row_amount" aria-label="Amount" class="num" value="{{ r.amount|default:'' }}"></td>
+          <td><input type="text" name="row_narration" aria-label="Note for this row" value="{{ r.narration|default:'' }}"></td>
+          <td><button type="button" class="btn ghost remove-row" aria-label="Remove row" title="Remove row">&times;</button></td>
+        </tr>
+      {% endfor %}</tbody>
+      <tfoot><tr><td>Total <span class="muted" id="diff"></span></td><td></td><td class="num" id="tot">0.00</td><td colspan="2"></td></tr></tfoot>
+    </table></div>
+    <div style="margin-top:8px"><button type="button" class="btn" id="add-row"><svg width="16" height="16"><use href="#i-plus"/></svg> Add row</button></div>
+    {% else %}
+    <div class="table-scroll"><table id="voucher-rows">
+      <thead><tr>
+        <th scope="col" style="min-width:240px">{% if vtype == "payment" %}Paid to{% elif vtype == "receipt" %}Received from{% else %}Ledger{% endif %}</th>
+        {% if vtype == "journal" %}<th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th>{% else %}<th scope="col" class="num">Amount</th>{% endif %}
+        <th scope="col">Bill</th><th scope="col">Reference</th><th scope="col">Due</th><th scope="col">Note</th><th scope="col"></th>
+      </tr></thead>
+      <tbody>{% for r in rows %}
+        <tr>
+          <td><select name="row_ledger" aria-label="Ledger"><option value="">—</option>
+            {% for gname, items in ledger_groups %}<optgroup label="{{ gname }}">{% for l in items %}<option value="{{ l.pk }}" data-billwise="{% if l.bill_wise %}1{% endif %}" {% if r.ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</optgroup>{% endfor %}
+          </select></td>
+          {% if vtype == "journal" %}
+            <td class="num"><input type="text" inputmode="decimal" name="row_debit" aria-label="Debit" class="num" value="{{ r.debit|default:'' }}"><input type="hidden" name="row_amount" value=""></td>
+            <td class="num"><input type="text" inputmode="decimal" name="row_credit" aria-label="Credit" class="num" value="{{ r.credit|default:'' }}"></td>
+          {% else %}
+            <td class="num"><input type="text" inputmode="decimal" name="row_amount" aria-label="Amount" class="num" value="{{ r.amount|default:'' }}"><input type="hidden" name="row_debit" value=""><input type="hidden" name="row_credit" value=""></td>
+          {% endif %}
+          <td><select name="row_ref_type" class="bill-cell" aria-label="Bill option">{% for k, label in ref_types %}<option value="{{ k }}" {% if r.ref_type == k %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></td>
+          <td><input type="text" name="row_reference" class="bill-cell" aria-label="Bill reference" autocomplete="off" value="{{ r.reference|default:'' }}"></td>
+          <td><input type="date" name="row_due_date" class="bill-cell" aria-label="Due date" value="{{ r.due_date|default:'' }}"></td>
+          <td><input type="text" name="row_narration" aria-label="Note for this row" value="{{ r.narration|default:'' }}"></td>
+          <td><button type="button" class="btn ghost remove-row" aria-label="Remove row" title="Remove row">&times;</button></td>
+        </tr>
+      {% endfor %}</tbody>
+      <tfoot><tr><td>Total <span class="muted" id="diff"></span></td>
+        {% if vtype == "journal" %}<td class="num" id="tot-dr">0.00</td><td class="num" id="tot-cr">0.00</td>{% else %}<td class="num" id="tot">0.00</td>{% endif %}
+        <td colspan="5"></td></tr></tfoot>
+    </table></div>
+    <p class="muted small">Bill options appear for ledgers that track bills (customers, suppliers, fabricators). Choose <em>Against bill</em> to pay or receive against an invoice: pick the reference and its outstanding amount fills in. A bill that is fully settled cannot be paid again, and you cannot settle more than is outstanding.</p>
+    <div style="margin-top:8px"><button type="button" class="btn" id="add-row"><svg width="16" height="16"><use href="#i-plus"/></svg> Add row</button></div>
+    {% endif %}
+
+    <div class="field" style="margin-top:16px;max-width:640px"><label for="narration">Narration</label>
+      <input id="narration" name="narration" type="text" maxlength="500" value="{{ v.narration }}" placeholder="What is this entry for?"></div>
+    <div class="form-actions">
+      <button class="btn primary">Post {{ title|lower }}</button>
+      <a class="btn ghost" href="{% url 'voucher_list' %}">Cancel</a>
+    </div>
+    <p class="muted small">A posted voucher cannot be edited. To correct it, cancel it from its page and enter a new one.</p>
+  </form>
+  <script src="{% static 'js/voucher_entry.js' %}?v={{ asset_v }}" defer></script>
+{% endblock %}

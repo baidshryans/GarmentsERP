@@ -12,7 +12,7 @@
       <select id="factory" name="factory" required>{% for f in factories %}<option value="{{ f.pk }}" {% if factory_id == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select>
     </div>
     <div class="table-wrap"><table id="opening-rows">
-      <thead><tr><th style="width:34%">Ledger</th><th class="num">Debit</th><th class="num">Credit</th><th>Bill reference</th><th>Due date</th></tr></thead>
+      <thead><tr><th scope="col" style="width:34%">Ledger</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th><th scope="col">Bill reference</th><th scope="col">Due date</th></tr></thead>
       <tbody>{% for r in rows %}
         <tr>
           <td><select name="ledger"><option value="">—</option>{% for l in ledgers %}<option value="{{ l.pk }}" {% if r.ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }} ({{ l.group.name }})</option>{% endfor %}</select></td>
@@ -29,13 +29,13 @@
       <button class="btn primary">Post opening balances</button>
     </div>
   </form>
-  <script src="{% static 'js/opening.js' %}" defer></script>
+  <script src="{% static 'js/opening.js' %}?v={{ asset_v }}" defer></script>
   {% endif %}
   <div class="island">
     <h2>Already posted</h2>
     {% if existing %}
-      <table><thead><tr><th>Voucher</th><th>Date</th><th>Factory</th><th class="num">Total</th></tr></thead>
-        <tbody>{% for v in existing %}<tr><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number }}</a></td><td>{{ v.date|date:"d M Y" }}</td><td>{{ v.factory.code }}</td><td class="num">{{ v.total }}</td></tr>{% endfor %}</tbody></table>
+      <div class="table-scroll"><table><thead><tr><th scope="col">Voucher</th><th scope="col">Date</th><th scope="col">Factory</th><th scope="col" class="num">Total</th></tr></thead>
+        <tbody>{% for v in existing %}<tr><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number }}</a></td><td>{{ v.date|date:"d M Y" }}</td><td>{{ v.factory.code }}</td><td class="num">{{ v.total }}</td></tr>{% endfor %}</tbody></table></div>
     {% else %}<div class="empty"><div class="hand">No opening balances yet</div></div>{% endif %}
   </div>
 {% endblock %}

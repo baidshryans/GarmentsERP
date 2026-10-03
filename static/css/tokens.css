@@ -15,6 +15,8 @@
   --color-ink: #1b1b1f;
   --color-muted: #5f5f6b;
   --color-hairline: #e3e3ea;
+  --color-sidebar: #fcfcfe;
+  --color-scrim: rgba(27, 27, 31, 0.45);
 
   /* Status pills only */
   --color-success: #1d6f45;
@@ -45,8 +47,12 @@
   --space-6: 32px;
 
   /* Layout */
-  --topbar-height: 52px;
-  --rail-width: 232px;
+  --topbar-height: 48px;
+  --rail-width: 248px;
+  --rail-width-min: 196px;
+  --rail-width-max: 440px;
+  --rail-width-collapsed: 56px;
+  --sidebar-w: var(--rail-w-user, var(--rail-width));   /* --rail-w-user is set by the drag handle */
 }
 
 [data-theme="dark"] {
@@ -62,6 +68,8 @@
   --color-ink: #ececf1;
   --color-muted: #a3a3b0;
   --color-hairline: #2f2f38;
+  --color-sidebar: #17171b;
+  --color-scrim: rgba(0, 0, 0, 0.6);
 
   --color-success: #7fd8a4;
   --color-success-soft: #1d3a2b;

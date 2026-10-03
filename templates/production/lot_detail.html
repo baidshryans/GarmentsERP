@@ -13,17 +13,17 @@
       <div><div class="label muted">In progress</div><span class="stat">{{ live_pieces }}</span></div></div>
       <p class="muted">Factory {{ lot.factory.code }} · BOM version {{ lot.bom_version.version_no|default:"—" }}</p></div>
     {% if breakdown %}<div class="island"><h2>Lot cost</h2>
-      <table><tbody>
+      <div class="table-scroll"><table><tbody>
         <tr><td>Fabric</td><td class="num">{{ breakdown.fabric }}</td></tr><tr><td>Trims</td><td class="num">{{ breakdown.trim }}</td></tr>
         <tr><td>In-house labour</td><td class="num">{{ breakdown.labour }}</td></tr><tr><td>Job work</td><td class="num">{{ breakdown.jobwork }}</td></tr>
         {% if breakdown.write_off != 0 %}<tr><td>Written off</td><td class="num">{{ breakdown.write_off }}</td></tr>{% endif %}
         {% if breakdown.relief != 0 %}<tr><td>Moved to finished goods</td><td class="num">{{ breakdown.relief }}</td></tr>{% endif %}</tbody>
-        <tfoot><tr><td>Work in progress now</td><td class="num">{{ total_cost }}</td></tr></tfoot></table></div>{% endif %}
+        <tfoot><tr><td>Work in progress now</td><td class="num">{{ total_cost }}</td></tr></tfoot></table></div></div>{% endif %}
   </div>
 
   <div class="island"><h2>Route</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th class="num">#</th><th>Process</th><th>Where</th><th class="num">Rate</th><th>Status</th>{% if can_edit %}<th>Change</th>{% endif %}</tr></thead>
+      <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Where</th><th scope="col" class="num">Rate</th><th scope="col">Status</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
       <tbody>{% for s in steps %}<tr {% if s.status == "skipped" %}class="muted"{% endif %}>
         <td class="num">{{ s.sequence }}</td><td>{{ s.process.name }}{% if not s.is_mandatory %} <span class="pill">Optional</span>{% endif %}</td>
         <td>{% if s.assignment == "in_house" %}In-house · {{ s.factory.code|default:lot.factory.code }}{% else %}Fabricator · {{ s.party.name|default:"to be chosen" }}{% endif %}</td>
@@ -63,7 +63,7 @@
 
   <div class="island"><h2>Bundles</h2>
     {% if bundles %}<div class="table-wrap"><table>
-      <thead><tr><th>Bundle</th><th>Size</th><th class="num">Pieces</th><th>Stage</th><th>Where</th><th>Status</th></tr></thead>
+      <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
       <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
         <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}</td><td>{{ b.location.name }}</td>
         <td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% endfor %}</tbody>
@@ -75,5 +75,5 @@
       <button class="btn primary">Pack</button></form>{% endif %}
     {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
   </div>
-  {% if changes %}<div class="island"><h2>Route changes</h2><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+  {% if changes %}<div class="island"><h2>Route changes</h2><div class="table-scroll"><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
 {% endblock %}

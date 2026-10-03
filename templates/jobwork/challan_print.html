@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Challan {{ ch.number|default:"draft" }}</title>
-  <link rel="stylesheet" href="{% static 'css/tokens.css' %}"><link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v={{ asset_v }}"><link rel="stylesheet" href="{% static 'css/base.css' %}?v={{ asset_v }}">
   <style>
     body { background: white; color: black; font-family: "Assistant", sans-serif; }
     .sheet { max-width: 190mm; margin: 10mm auto; padding: 0 6mm; }
@@ -29,11 +29,11 @@
       <tr><td>Style</td><td>{{ ch.lot.style.style_no }} {{ ch.lot.style.name }}<br>{{ ch.lot.colour }}</td><td>Process</td><td>{{ ch.step.process.name }}<br>Expected back {{ ch.expected_date|date:"d M Y"|default:"—" }}</td></tr>
     </tbody></table>
     <table>
-      <thead><tr><th>Bundle</th><th>Size</th><th>Pieces</th><th>Rate</th></tr></thead>
+      <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col">Pieces</th><th scope="col">Rate</th></tr></thead>
       <tbody>{% for l in lines %}<tr><td>{{ l.bundle.bundle_no }}</td><td>{{ l.bundle.sku.size.code }}</td><td style="text-align:right">{{ l.qty_issued }}</td><td style="text-align:right">{{ l.rate }}</td></tr>{% endfor %}</tbody>
       <tfoot><tr><td colspan="2"><strong>Total pieces</strong></td><td style="text-align:right"><strong>{{ total }}</strong></td><td></td></tr></tfoot>
     </table>
-    {% if trims %}<h3 style="margin-top:6mm">Trims issued</h3><table><thead><tr><th>Item</th><th>Quantity</th></tr></thead>
+    {% if trims %}<h3 style="margin-top:6mm">Trims issued</h3><table><thead><tr><th scope="col">Item</th><th scope="col">Quantity</th></tr></thead>
       <tbody>{% for t in trims %}<tr><td>{{ t.material.name }}</td><td style="text-align:right">{{ t.qty_issued|floatformat:"-3" }} {{ t.material.unit }}</td></tr>{% endfor %}</tbody></table>{% endif %}
     {% if ch.remarks %}<p>Remarks: {{ ch.remarks }}</p>{% endif %}
     <div class="sign"><div>Issued by</div><div>Received by fabricator</div></div>

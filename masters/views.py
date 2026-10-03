@@ -534,3 +534,42 @@ def import_template(request, kind):
     )
     response["Content-Disposition"] = f'attachment; filename="{kind}-import-template.xlsx"'
     return response
+
+
+# ---------------------------------------------------------------- delete (masters are deletable while unused)
+
+from core.crud import ObjectDelete  # noqa: E402
+
+
+class SimpleDelete(ObjectDelete):
+    key = None
+
+    def dispatch(self, request, *args, **kwargs):
+        self.screen_code = SIMPLE[self.key]["screen"]
+        self.success_url_name = f"{self.key}_list"
+        self.noun = SIMPLE[self.key]["title"].lower().rstrip("s") if self.key != "hsn" else "HSN code"
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_object(self, request, pk):
+        return get_object_or_404(_model(SIMPLE[self.key]["model"]), pk=pk)
+
+
+class StyleDelete(ObjectDelete):
+    screen_code, success_url_name, noun = "masters.style", "style_list", "style"
+
+    def get_object(self, request, pk):
+        return get_object_or_404(Style, pk=pk)
+
+
+class PartyDelete(ObjectDelete):
+    screen_code, success_url_name, noun = "masters.party", "party_list", "party"
+
+    def get_object(self, request, pk):
+        return get_object_or_404(Party, pk=pk)
+
+
+class RouteDelete(ObjectDelete):
+    screen_code, success_url_name, noun = "masters.route", "route_list", "route template"
+
+    def get_object(self, request, pk):
+        return get_object_or_404(RouteTemplate, pk=pk)

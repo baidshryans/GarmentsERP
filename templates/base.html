@@ -5,48 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Home{% endblock %} · Garment ERP</title>
   {% include "partials/theme_boot.html" %}
-  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
-  <link rel="stylesheet" href="{% static 'css/base.css' %}">
-  <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{% static 'css/print.css' %}?v={{ asset_v }}" media="print">
   <script src="{% static 'js/htmx.min.js' %}" defer></script>
-  <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="{% static 'js/app.js' %}?v={{ asset_v }}" defer></script>
 </head>
 <body>
   {% include "partials/icons.html" %}
   {% block shell %}
+  <a class="skip-link" href="#content">Skip to content</a>
   <header class="topbar">
-    <a class="brand" href="{% url 'home' %}">Garment ERP</a>
-    {% if company %}<span class="muted">{{ company.name }}</span>{% endif %}
-    <div style="position:relative;width:min(320px,35vw);margin-left:var(--space-4)">
-      <input type="text" name="q" placeholder="Search styles, barcodes, materials, parties" autocomplete="off" aria-label="Search"
-             hx-get="{% url 'search' %}" hx-trigger="input changed delay:250ms, search" hx-target="#search-results" hx-swap="innerHTML">
-      <div id="search-results" style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:40"></div>
-    </div>
-    <span class="spacer"></span>
-    {% if user_factories.count > 1 %}
-      <span class="muted" title="Factories you can access">{{ user_factories.count }} factories</span>
-    {% endif %}
-    <button type="button" class="btn icon" data-nav-toggle data-tip="Move the menu to the top or the side" aria-label="Move the menu to the top or the side" aria-pressed="false">
-      <svg class="nav-icon-side"><use href="#i-menu-top"/></svg><svg class="nav-icon-top"><use href="#i-menu-side"/></svg>
-    </button>
-    <button type="button" class="btn icon" data-theme-toggle data-tip="Switch light / dark" aria-label="Switch light or dark theme" aria-pressed="false">
-      <svg class="theme-icon-sun"><use href="#i-sun"/></svg><svg class="theme-icon-moon"><use href="#i-moon"/></svg>
-    </button>
-    <span class="muted">{{ request.user.get_username }}</span>
-    <form method="post" action="{% url 'logout' %}" style="margin:0">
-      {% csrf_token %}
-      <button class="btn icon" data-tip="Sign out" aria-label="Sign out"><svg><use href="#i-logout"/></svg></button>
-    </form>
-  </header>
-  <div class="shell">
+    <button type="button" class="btn icon nav-burger" data-nav-open aria-label="Open the menu" aria-controls="main-nav" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
+    <a class="brand" href="{% url 'home' %}">
+      <span class="brand-tile"><svg><use href="#i-shirt"/></svg></span>
+      <span class="brand-text">{% if company %}{{ company.name }}{% else %}Garment ERP{% endif %}</span>
+    </a>
+    <span class="topbar-sep" aria-hidden="true"></span>
     <nav class="rail" id="main-nav" aria-label="Main">
       {% for group in nav_groups %}
         {% if group.title == "Home" %}
-          <div class="nav-items nav-home">{% for item in group.items %}<a href="{% url item.url_name %}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}</div>
+          <div class="nav-items nav-home">{% for item in group.items %}<a href="{% url item.url_name %}" data-label="{{ item.label }}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}><svg class="nav-ico"><use href="#{{ group.icon }}"/></svg><span class="nav-label">{{ item.label }}</span></a>{% endfor %}</div>
         {% else %}
         <details class="nav-group{% if group.active %} active{% endif %}" data-group="{{ group.key }}" {% if group.active %}open{% endif %}>
-          <summary>{{ group.title }}</summary>
+          <summary data-label="{{ group.title }}"><svg class="nav-ico"><use href="#{{ group.icon }}"/></svg><span class="nav-label">{{ group.title }}</span><svg class="nav-chev"><use href="#i-chevron"/></svg></summary>
           <div class="nav-items">
+            <div class="nav-items-title">{{ group.title }}</div>
             {% for item in group.items %}
               <a href="{% url item.url_name %}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}>{{ item.label }}</a>
             {% endfor %}
@@ -54,12 +38,42 @@
         </details>
         {% endif %}
       {% endfor %}
+      <div class="rail-foot">
+        <button type="button" class="rail-btn" data-nav-collapse aria-pressed="false"><svg class="ico-collapse"><use href="#i-collapse"/></svg><svg class="ico-expand"><use href="#i-expand"/></svg><span class="nav-label">Collapse menu</span></button>
+        <button type="button" class="rail-btn" data-nav-toggle aria-pressed="false"><svg class="nav-icon-side"><use href="#i-menu-top"/></svg><svg class="nav-icon-top"><use href="#i-menu-side"/></svg><span class="nav-label">Move menu to the top</span></button>
+      </div>
+      <div class="rail-resizer" role="separator" aria-orientation="vertical" aria-label="Resize the menu (arrow keys, double-click to reset)" tabindex="0"></div>
     </nav>
-    <main class="content">
-      {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
-      {% block content %}{% endblock %}
-    </main>
-  </div>
+    <span class="spacer"></span>
+    <div class="search-box">
+      <svg class="search-ico"><use href="#i-search"/></svg>
+      <input type="search" name="q" placeholder="Search styles, barcodes, parties" autocomplete="off" aria-label="Search"
+             hx-get="{% url 'search' %}" hx-trigger="input changed delay:250ms, search" hx-target="#search-results" hx-swap="innerHTML">
+      <div id="search-results"></div>
+    </div>
+    {% if user_factories.count > 1 %}
+      <span class="chip" title="Factories you can access"><svg><use href="#i-building"/></svg>{{ user_factories.count }}</span>
+    {% endif %}
+    <button type="button" class="btn icon nav-layout" data-nav-toggle data-tip="Move the menu to the top or the side" aria-label="Move the menu to the top or the side" aria-pressed="false">
+      <svg class="nav-icon-side"><use href="#i-menu-top"/></svg><svg class="nav-icon-top"><use href="#i-menu-side"/></svg>
+    </button>
+    <button type="button" class="btn icon" data-theme-toggle data-tip="Switch light / dark" aria-label="Switch light or dark theme" aria-pressed="false">
+      <svg class="theme-icon-sun"><use href="#i-sun"/></svg><svg class="theme-icon-moon"><use href="#i-moon"/></svg>
+    </button>
+    <details class="user-menu">
+      <summary aria-label="Account menu for {{ request.user.get_username }}"><span class="avatar" aria-hidden="true">{{ request.user.get_username|slice:":1"|upper }}</span><span class="user-name">{{ request.user.get_username }}</span><svg class="nav-chev"><use href="#i-chevron"/></svg></summary>
+      <div class="user-pop">
+        <div class="user-pop-head"><span class="avatar big" aria-hidden="true">{{ request.user.get_username|slice:":1"|upper }}</span><div><strong>{{ request.user.get_username }}</strong>{% if request.user.email %}<div class="muted small">{{ request.user.email }}</div>{% endif %}</div></div>
+        <a href="{% url 'password_change' %}"><svg><use href="#i-key"/></svg>Change password</a>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit"><svg><use href="#i-logout"/></svg>Sign out</button></form>
+      </div>
+    </details>
+  </header>
+  <div class="nav-scrim" data-nav-close></div>
+  <main class="content" id="content" tabindex="-1">
+    {% if messages %}<ul class="messages" role="status">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
   {% endblock %}
 </body>
 </html>

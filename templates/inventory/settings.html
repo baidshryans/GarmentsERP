@@ -16,8 +16,8 @@
       </form>
     </div>
     <div class="island"><h2>Recent changes</h2>
-      <table><thead><tr><th>When</th><th>By</th><th>Valuation</th><th>Negative stock</th><th class="num">PO limit</th></tr></thead>
-        <tbody>{% for h in history %}<tr><td>{{ h.history_date|date:"d M Y H:i" }}</td><td>{{ h.history_user|default:"—" }}</td><td>{{ h.get_valuation_method_display|truncatechars:22 }}</td><td>{% if h.allow_negative_stock %}Allowed{% else %}Blocked{% endif %}</td><td class="num">{{ h.po_approval_limit }}</td></tr>{% endfor %}</tbody></table>
+      <div class="table-scroll"><table><thead><tr><th scope="col">When</th><th scope="col">By</th><th scope="col">Valuation</th><th scope="col">Negative stock</th><th scope="col" class="num">PO limit</th></tr></thead>
+        <tbody>{% for h in history %}<tr><td>{{ h.history_date|date:"d M Y H:i" }}</td><td>{{ h.history_user|default:"—" }}</td><td>{{ h.get_valuation_method_display|truncatechars:22 }}</td><td>{% if h.allow_negative_stock %}Allowed{% else %}Blocked{% endif %}</td><td class="num">{{ h.po_approval_limit }}</td></tr>{% endfor %}</tbody></table></div>
     </div>
   </div>
 {% endblock %}

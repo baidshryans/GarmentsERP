@@ -9,10 +9,10 @@
     <div><div class="label muted">Date</div>{{ note.date|date:"d M Y" }}</div><div><div class="label muted">GRN</div>{% if note.grn %}<a href="{% url 'grn_detail' note.grn.pk %}">{{ note.grn.number }}</a>{% else %}—{% endif %}</div></div>
     <p class="muted">{{ note.reason }}</p>
     {% if note.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' note.voucher.pk %}">{{ note.voucher.number }}</a></p>{% endif %}</div>
-  <div class="island"><table>
-    <thead><tr><th>Item</th><th>Roll</th><th class="num">Quantity</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+  <div class="island"><div class="table-scroll"><table>
+    <thead><tr><th scope="col">Item</th><th scope="col">Roll</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th></tr></thead>
     <tbody>{% for l in lines %}<tr><td>{{ l.item }}</td><td>{{ l.roll.label_code|default:"" }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{{ l.rate|floatformat:"-4" }}</td><td class="num">{{ l.amount }}</td></tr>{% endfor %}</tbody>
-    <tfoot><tr><td colspan="4">Total{% if note.tax_total %} (including GST {{ note.tax_total }}){% endif %}</td><td class="num">{{ note.total }}</td></tr></tfoot></table>
+    <tfoot><tr><td colspan="4">Total{% if note.tax_total %} (including GST {{ note.tax_total }}){% endif %}</td><td class="num">{{ note.total }}</td></tr></tfoot></table></div>
     {% if note.kind == "rejection" and note.status == "draft" %}<p class="muted">The amount is filled in when you post: it is whatever the vendor billed for these rejected pieces, and posting is only possible once that invoice is booked.</p>{% endif %}</div>
   {% if note.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="post">Post debit note</button></form>{% endif %}
   {% if note.status != "cancelled" and can_cancel %}<div class="island" style="margin-top:16px"><form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel{% if note.status == "posted" %} (reason){% endif %}</label><input id="why" name="reason" type="text"></div><button class="btn danger">Cancel debit note</button></form></div>{% endif %}

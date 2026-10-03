@@ -10,16 +10,16 @@
   </div>
   <div class="island">
     <div class="table-wrap"><table>
-      <thead><tr><th>Name</th><th>Nature</th><th>Detail</th><th></th></tr></thead>
+      <thead><tr><th scope="col">Name</th><th scope="col">Nature</th><th scope="col">Detail</th><th scope="col"></th></tr></thead>
       <tbody>{% for r in rows %}
         {% if r.kind == "group" %}
           <tr><td style="padding-left:{{ r.depth|add:0 }}rem"><strong>{{ r.obj.name }}</strong></td>
             <td>{{ r.obj.get_nature_display }}</td><td class="muted">{{ r.obj.get_statement_display }}</td>
-            <td><a href="{% url 'group_edit' r.obj.pk %}">Edit</a></td></tr>
+            <td><a href="{% url 'group_edit' r.obj.pk %}">Edit</a>{% if not r.obj.is_system %} · <a href="{% url 'group_delete' r.obj.pk %}">Delete</a>{% endif %}</td></tr>
         {% else %}
           <tr><td style="padding-left:{{ r.depth|add:0 }}rem">{{ r.obj.name }}{% if not r.obj.is_active %} <span class="pill">Inactive</span>{% endif %}</td>
             <td></td><td class="muted">{% if r.obj.bill_wise %}Bill-wise{% endif %}</td>
-            <td><a href="{% url 'ledger_edit' r.obj.pk %}">Edit</a></td></tr>
+            <td><a href="{% url 'ledger_edit' r.obj.pk %}">Edit</a>{% if not r.obj.is_system %} · <a href="{% url 'ledger_delete' r.obj.pk %}">Delete</a>{% endif %}</td></tr>
         {% endif %}
       {% endfor %}</tbody>
     </table></div>

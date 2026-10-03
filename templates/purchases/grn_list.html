@@ -5,7 +5,7 @@
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'grn_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New GRN</a>{% endif %}</div></div>
   <div class="island">
     {% if grns %}<div class="table-wrap"><table>
-      <thead><tr><th>Number</th><th>Date</th><th>Vendor</th><th>PO</th><th>Factory</th><th>Status</th></tr></thead>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col">PO</th><th scope="col">Factory</th><th scope="col">Status</th></tr></thead>
       <tbody>{% for g in grns %}<tr><td><a href="{% url 'grn_detail' g.pk %}">{{ g.number|default:"Draft" }}</a></td><td>{{ g.date|date:"d M Y" }}</td><td>{{ g.vendor.name }}</td><td>{{ g.po.number|default:"—" }}</td><td>{{ g.factory.code }}</td>
         <td>{% if g.status == "posted" %}<span class="pill success">Posted</span>{% elif g.status == "qc_done" %}<span class="pill warning">QC done</span>{% elif g.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill">Draft</span>{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 30h50v40H20zM70 45h20l10 12v13H70z"/><circle cx="38" cy="72" r="6"/><circle cx="88" cy="72" r="6"/></svg><div class="hand">No goods received yet</div></div>{% endif %}

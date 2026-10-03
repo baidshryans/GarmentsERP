@@ -14,7 +14,7 @@
     </div>
     <div class="island">
       <h2>Locations</h2>
-      <table><tbody>{% for l in factory.locations.all %}<tr><td>{{ l.name }}</td><td class="muted">{{ l.get_loc_type_display }}</td></tr>{% endfor %}</tbody></table>
+      <div class="table-scroll"><table><tbody>{% for l in factory.locations.all %}<tr><td>{{ l.name }}</td><td class="muted">{{ l.get_loc_type_display }}</td></tr>{% endfor %}</tbody></table></div>
       <h3 style="margin-top:16px">Add a location</h3>
       <form method="post" action="{% url 'location_add' factory.pk %}">
         {% csrf_token %}

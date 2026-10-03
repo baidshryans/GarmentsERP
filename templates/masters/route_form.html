@@ -8,7 +8,7 @@
     <div class="island" style="max-width:480px"><div class="field"><label for="name">Route name</label><input id="name" name="name" type="text" value="{{ name }}" required></div></div>
     <div class="island">
       <div class="table-wrap"><table>
-        <thead><tr><th class="num">#</th><th>Process</th><th>Mandatory</th><th>Default</th><th>Factory</th><th>Fabricator</th><th class="num">Rate / pc</th></tr></thead>
+        <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Mandatory</th><th scope="col">Default</th><th scope="col">Factory</th><th scope="col">Fabricator</th><th scope="col" class="num">Rate / pc</th></tr></thead>
         <tbody>{% for r in rows %}<tr>
           <td class="num">{{ forloop.counter }}</td>
           <td><select name="process"><option value="">—</option>{% for p in processes %}<option value="{{ p.pk }}" {% if r.process == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></td>

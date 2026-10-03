@@ -10,10 +10,10 @@
     <div><div class="label muted">Vehicle</div>{{ t.vehicle_no|default:"—" }}</div><div><div class="label muted">E-way bill</div>{{ t.eway_bill_no|default:"—" }}</div>
   </div>{% if t.remarks %}<p class="muted">{{ t.remarks }}</p>{% endif %}
   {% if t.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' t.voucher.pk %}">{{ t.voucher.number }}</a> (inter-factory entries in both factories)</p>{% endif %}</div>
-  <div class="island"><table>
-    <thead><tr><th>Item</th><th>Roll</th><th class="num">Quantity</th><th class="num">Value</th></tr></thead>
+  <div class="island"><div class="table-scroll"><table>
+    <thead><tr><th scope="col">Item</th><th scope="col">Roll</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Value</th></tr></thead>
     <tbody>{% for l in lines %}<tr><td>{{ l.item }}</td><td>{{ l.roll.label_code|default:"" }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{% if t.status != "draft" %}{{ l.value }}{% endif %}</td></tr>{% endfor %}</tbody>
-  </table></div>
+  </table></div></div>
   {% if can_edit %}
   <div class="grid-2">
     <div class="island"><h2>Actions</h2>

@@ -295,6 +295,7 @@ def post_invoice(invoice, *, user) -> PurchaseInvoice:
     voucher = post_voucher(
         company=company, factory=inv.factory, voucher_type="purchase", date=inv.date, lines=specs, user=user,
         narration=f"Purchase from {inv.vendor.name}, invoice {inv.vendor_invoice_no}", source=inv,
+        vendor_invoice_no=inv.vendor_invoice_no,
     )
     for r in rows:
         l = r["line"]

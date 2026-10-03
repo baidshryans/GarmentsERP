@@ -6,9 +6,9 @@
   <p class="muted" style="max-width:740px">Choose the rolls and how much of each goes to the cutting floor. You cannot issue more than a roll holds, and you are warned if rolls of different shade lots end up in one lot.</p>
   {% if can_create %}
   <form method="post" class="island" novalidate>{% csrf_token %}
-    <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date }}"></div>
+    <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
     {% if rolls %}<div class="table-wrap"><table>
-      <thead><tr><th>Roll</th><th>Fabric</th><th>Lot / shade</th><th class="num">GSM</th><th class="num">In store</th><th class="num" style="width:140px">Issue</th></tr></thead>
+      <thead><tr><th scope="col">Roll</th><th scope="col">Fabric</th><th scope="col">Lot / shade</th><th scope="col" class="num">GSM</th><th scope="col" class="num">In store</th><th scope="col" class="num" style="width:140px">Issue</th></tr></thead>
       <tbody>{% for rb in rolls %}<tr><td><strong>{{ rb.roll.label_code }}</strong> <span class="muted">{{ rb.roll.vendor_roll_no }}</span></td><td>{{ rb.roll.material.name }}</td><td>{{ rb.roll.lot_no|default:"—" }}</td><td class="num">{{ rb.roll.gsm|default:"" }}</td>
         <td class="num">{{ rb.qty|floatformat:"-3" }}</td><td class="num"><input type="text" inputmode="decimal" name="qty_{{ rb.roll_id }}"></td></tr>{% endfor %}</tbody>
     </table></div><div class="form-actions"><button class="btn primary">Issue to cutting floor</button></div>

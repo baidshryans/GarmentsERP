@@ -7,7 +7,7 @@
   </div>
   <div class="island">
     <div class="table-wrap"><table>
-      <thead><tr><th>Code</th><th>Name</th><th>GSTIN</th><th>Locations</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th scope="col">Code</th><th scope="col">Name</th><th scope="col">GSTIN</th><th scope="col">Locations</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
       <tbody>{% for f in factories %}
         <tr>
           <td><strong>{{ f.code }}</strong></td><td>{{ f.name }}<div class="muted">{{ f.city }}</div></td>

@@ -12,12 +12,12 @@
     {% csrf_token %}<input type="hidden" name="vendor" value="{{ vendor.pk }}"><input type="hidden" name="factory" value="{{ factory.pk }}">
     <div class="island"><h2>Vendor's bill</h2><div class="field-row">
       <div class="field"><label for="vin">Vendor invoice no.</label><input id="vin" name="vendor_invoice_no" type="text" value="{{ d.vendor_invoice_no }}" required></div>
-      <div class="field"><label for="vid">Vendor invoice date</label><input id="vid" name="vendor_invoice_date" type="date" value="{{ d.vendor_invoice_date }}" required></div>
-      <div class="field"><label for="date">Booking date</label><input id="date" name="date" type="date" value="{{ d.date }}" required></div>
+      <div class="field"><label for="vid">Vendor invoice date</label><input id="vid" name="vendor_invoice_date" type="date" value="{{ d.vendor_invoice_date|default:today }}" required></div>
+      <div class="field"><label for="date">Booking date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required></div>
     </div></div>
     <div class="island"><h2>GRN lines to bill</h2>
       {% if grn_lines %}<div class="table-wrap"><table>
-        <thead><tr><th></th><th>GRN</th><th>Item</th><th class="num">Left to bill</th><th class="num">Billed qty</th><th class="num">GRN rate</th><th class="num">Bill rate</th><th class="num">Last rate</th></tr></thead>
+        <thead><tr><th scope="col"></th><th scope="col">GRN</th><th scope="col">Item</th><th scope="col" class="num">Left to bill</th><th scope="col" class="num">Billed qty</th><th scope="col" class="num">GRN rate</th><th scope="col" class="num">Bill rate</th><th scope="col" class="num">Last rate</th></tr></thead>
         <tbody>{% for r in grn_lines %}<tr>
           <td><input type="checkbox" name="use_{{ r.gl.pk }}" checked aria-label="Bill this line"></td>
           <td>{{ r.gl.grn.number }}<div class="muted">{{ r.gl.grn.date|date:"d M" }}</div></td><td>{{ r.gl.item }}<div class="muted">accepted {{ r.gl.qty_accepted|floatformat:"-3" }} of {{ r.gl.qty_received|floatformat:"-3" }}</div></td>

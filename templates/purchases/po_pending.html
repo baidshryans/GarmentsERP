@@ -4,7 +4,7 @@
   <div class="page-head"><h1 class="page-title">Pending purchase orders</h1><div class="actions"><a class="btn ghost" href="{% url 'po_list' %}">All POs</a></div></div>
   <div class="island">
     {% if rows %}<div class="table-wrap"><table>
-      <thead><tr><th>PO</th><th>Vendor</th><th>Item</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Pending</th><th>Expected</th></tr></thead>
+      <thead><tr><th scope="col">PO</th><th scope="col">Vendor</th><th scope="col">Item</th><th scope="col" class="num">Ordered</th><th scope="col" class="num">Received</th><th scope="col" class="num">Pending</th><th scope="col">Expected</th></tr></thead>
       <tbody>{% for r in rows %}<tr><td><a href="{% url 'po_detail' r.po.pk %}">{{ r.po.number }}</a></td><td>{{ r.po.vendor.name }}</td><td>{{ r.line.item }}</td><td class="num">{{ r.ordered|floatformat:"-3" }}</td><td class="num">{{ r.received|floatformat:"-3" }}</td><td class="num">{{ r.pending|floatformat:"-3" }}</td><td>{{ r.po.expected_date|date:"d M Y"|default:"—" }}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">Nothing pending</div><p>Every approved purchase order has been received.</p></div>{% endif %}
   </div>

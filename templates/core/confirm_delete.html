@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ noun }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Delete {{ noun }}</h1></div>
+  <div class="island" style="max-width:560px">
+    {% if blocked %}<p>{{ blocked }}</p><a class="btn" href="{{ cancel_url }}">Back</a>
+    {% else %}
+    <p>Delete <strong>{{ obj }}</strong>? This cannot be undone. If anything refers to it, it will not be deleted and you will be asked to mark it inactive instead.</p>
+    <form method="post">{% csrf_token %}
+      <button class="btn danger">Delete</button>
+      <a class="btn ghost" href="{{ cancel_url }}">Cancel</a>
+    </form>{% endif %}
+  </div>
+{% endblock %}

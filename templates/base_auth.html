@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Sign in{% endblock %} · Garment ERP</title>
   {% include "partials/theme_boot.html" %}
-  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
-  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}?v={{ asset_v }}">
   <script src="{% static 'js/htmx.min.js' %}" defer></script>
-  <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="{% static 'js/app.js' %}?v={{ asset_v }}" defer></script>
 </head>
 <body>
   {% include "partials/icons.html" %}

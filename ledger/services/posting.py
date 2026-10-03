@@ -76,6 +76,7 @@ def _validate(*, company, factory, lines, user, check_active=True, scope_lines=T
 
     normalised = []
     total_dr = total_cr = ZERO
+    settled = {}          # (ledger id, bill reference) -> settled so far in this voucher
     for i, spec in enumerate(lines, start=1):
         debit = _money(spec.debit, f"Line {i} debit")
         credit = _money(spec.credit, f"Line {i} credit")
@@ -97,6 +98,8 @@ def _validate(*, company, factory, lines, user, check_active=True, scope_lines=T
 
         amount = debit or credit
         allocations = _normalise_allocations(i, ledger, amount, spec.allocations)
+        if check_active:        # a reversal re-opens bills and must not be held to the open-bill check
+            _check_settlements(i, ledger, bool(debit), allocations, settled)
         total_dr += debit
         total_cr += credit
         normalised.append((spec, debit, credit, line_factory, allocations))
@@ -116,6 +119,30 @@ def _validate(*, company, factory, lines, user, check_active=True, scope_lines=T
                 "go through the Inter-Factory Receivable / Payable ledgers."
             )
     return normalised, total_dr
+
+
+def _check_settlements(i, ledger, is_debit, allocations, settled):
+    """An 'against' allocation must name a bill that is still open on the opposite side, and may not exceed
+    what is outstanding, so a fully paid invoice takes no further payment (ACC-14)."""
+    from ledger.selectors import outstanding_bills
+
+    for a in allocations:
+        if a.ref_type != "against":
+            continue
+        key = (ledger.pk, a.reference)
+        balance = outstanding_bills(ledger)["bills"].get(a.reference, ZERO)
+        open_amount = (-balance if is_debit else balance) - settled.get(key, ZERO)
+        if balance == 0 or open_amount <= 0:
+            raise InvalidLine(
+                f"Line {i}: bill '{a.reference}' of {ledger} is already fully settled or has no balance to settle; "
+                "no further payment can be made against it."
+            )
+        if a.amount > open_amount:
+            raise InvalidLine(
+                f"Line {i}: bill '{a.reference}' of {ledger} has only {open_amount} outstanding, "
+                f"but {a.amount} was entered."
+            )
+        settled[key] = settled.get(key, ZERO) + a.amount
 
 
 def _normalise_allocations(i, ledger, amount, allocations):
@@ -162,7 +189,8 @@ def _source_fields(source):
 
 @transaction.atomic
 def create_draft(*, company, factory, voucher_type, date, lines, user, narration="", source=None,
-                 reverses=None, reversal_reason="", _reversal=False, scope_lines=True) -> Voucher:
+                 reverses=None, reversal_reason="", _reversal=False, scope_lines=True,
+                 vendor_invoice_no="") -> Voucher:
     """Save a draft. A draft must already balance and carry a factory."""
     normalised, total = _validate(company=company, factory=factory, lines=lines, user=user,
                                   check_active=not _reversal, scope_lines=scope_lines)
@@ -170,7 +198,8 @@ def create_draft(*, company, factory, voucher_type, date, lines, user, narration
     voucher = Voucher.objects.create(
         company=company, factory=factory, voucher_type=voucher_type, date=date,
         financial_year=FinancialYear.for_date(company, date), narration=narration, total=total,
-        created_by=user, reverses=reverses, reversal_reason=reversal_reason, **_source_fields(source),
+        created_by=user, reverses=reverses, reversal_reason=reversal_reason, vendor_invoice_no=vendor_invoice_no.strip(),
+        **_source_fields(source),
     )
     _write_lines(voucher, normalised)
     return voucher
@@ -224,7 +253,7 @@ def post_draft(voucher, *, user) -> Voucher:
 
 @transaction.atomic
 def post_voucher(*, company, factory, voucher_type, date, lines, user, narration="", source=None,
-                 scope_lines=True) -> Voucher:
+                 scope_lines=True, vendor_invoice_no="") -> Voucher:
     """Validate, number and post in one transaction. The usual entry point for source documents.
 
     scope_lines=False lets a source document post a line into another factory the user cannot access
@@ -233,6 +262,7 @@ def post_voucher(*, company, factory, voucher_type, date, lines, user, narration
     draft = create_draft(
         company=company, factory=factory, voucher_type=voucher_type, date=date, lines=lines,
         user=user, narration=narration, source=source, scope_lines=scope_lines,
+        vendor_invoice_no=vendor_invoice_no,
     )
     return post_draft(draft, user=user)
 

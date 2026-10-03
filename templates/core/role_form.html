@@ -11,7 +11,7 @@
     <div class="island">
       <h2>Screens</h2>
       <div class="table-wrap"><table>
-        <thead><tr><th>Screen</th><th>View</th><th>Create</th><th>Edit</th><th>Cancel</th><th>Approve</th></tr></thead>
+        <thead><tr><th scope="col">Screen</th><th scope="col">View</th><th scope="col">Create</th><th scope="col">Edit</th><th scope="col">Cancel</th><th scope="col">Approve</th></tr></thead>
         <tbody>{% for label, cells in form.matrix %}
           <tr><td>{{ label }}</td>{% for cell in cells %}<td>{{ cell }}</td>{% endfor %}</tr>
         {% endfor %}</tbody>

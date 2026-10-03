@@ -2,13 +2,14 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
 from core.models import Company, Factory
+from core.crud import ObjectDelete
 from core.scoping import ScreenPermissionMixin
 
-from .models import TaxSetting
+from .models import HsnSlab, TaxSetting
 from .services import set_tax_status
 
 
@@ -99,3 +100,39 @@ class HsnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             messages.success(request, "Slab added. It applies from its effective date; earlier bills keep their rate.")
             return redirect("hsn_detail", pk=pk)
         return render(request, "tax/hsn_detail.html", self._ctx(request, hsn, form))
+
+
+class HsnSlabEdit(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Edit a slab in place. Posted documents keep the tax they were made with; the change is kept in the audit history."""
+
+    screen_code = "tax.hsn"
+    screen_action = "edit"
+
+    def get(self, request, pk):
+        from masters.forms import HsnSlabForm
+
+        slab = get_object_or_404(HsnSlab, pk=pk)
+        return render(request, "core/form.html", {"form": HsnSlabForm(instance=slab), "title": f"Edit slab of HSN {slab.hsn.code}",
+                                                  "cancel_url": "hsn_detail", "cancel_args": [slab.hsn_id]})
+
+    def post(self, request, pk):
+        from masters.forms import HsnSlabForm
+
+        slab = get_object_or_404(HsnSlab, pk=pk)
+        form = HsnSlabForm(request.POST, instance=slab)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Slab updated. Bills already posted keep the GST they were made with.")
+            return redirect("hsn_detail", pk=slab.hsn_id)
+        return render(request, "core/form.html", {"form": form, "title": f"Edit slab of HSN {slab.hsn.code}",
+                                                  "cancel_url": "hsn_detail", "cancel_args": [slab.hsn_id]})
+
+
+class HsnSlabDelete(ObjectDelete):
+    screen_code, success_url_name, noun = "tax.hsn", "hsn_detail", "GST slab"
+
+    def get_object(self, request, pk):
+        return get_object_or_404(HsnSlab, pk=pk)
+
+    def success_url_args(self, obj):
+        return (obj.hsn_id,)

@@ -261,3 +261,14 @@ def test_nav_shows_production_and_job_work_groups(company, factory, owner):
     sup = user_with("sup", "Production Supervisor", factory)
     html = login(sup).get(reverse("home")).content.decode()
     assert "Move bundles" in html and "Challans" in html and "Labour bills" not in html
+
+
+# ---------------- home dashboard ----------------
+
+def test_home_shows_lots_in_production_and_hides_money_from_production_roles(company, factory, owner):
+    ns = build(company, factory, owner, with_stock=True)
+    html = login(owner).get(reverse("home")).content.decode()
+    assert "In production" in html and "Overview" in html
+    sup = user_with("sup_home", "Production Supervisor", factory)
+    r = login(sup).get(reverse("home"))
+    assert r.status_code == 200 and "Recent vouchers" not in r.content.decode()

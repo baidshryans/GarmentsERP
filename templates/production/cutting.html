@@ -6,12 +6,12 @@
   {% if can_create %}
   <form method="post" class="island" novalidate>{% csrf_token %}
     <h2>Record a lay</h2>
-    <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date }}"></div>
+    <div class="field" style="max-width:220px"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
     <div class="label">Pieces cut per size</div>
     <div class="field-row">{% for s in sizes %}<div class="field"><label for="p{{ s.pk }}">{{ s.code }}{% if planned %}<span class="muted"> (planned {% for k, v in planned.items %}{% if k == s.pk %}{{ v }}{% endif %}{% endfor %})</span>{% endif %}</label><input id="p{{ s.pk }}" type="text" inputmode="numeric" name="pieces_{{ s.pk }}"></div>{% endfor %}</div>
     <div class="label">Fabric on the cutting floor</div>
     {% if rolls %}<div class="table-wrap"><table>
-      <thead><tr><th>Roll</th><th>Fabric</th><th class="num">On the floor</th><th class="num">Used</th><th class="num">Waste</th><th class="num">Remnant returned</th></tr></thead>
+      <thead><tr><th scope="col">Roll</th><th scope="col">Fabric</th><th scope="col" class="num">On the floor</th><th scope="col" class="num">Used</th><th scope="col" class="num">Waste</th><th scope="col" class="num">Remnant returned</th></tr></thead>
       <tbody>{% for rb in rolls %}<tr><td><strong>{{ rb.roll.label_code }}</strong></td><td>{{ rb.roll.material.name }}</td><td class="num">{{ rb.qty|floatformat:"-3" }}</td>
         <td class="num"><input type="text" inputmode="decimal" name="used_{{ rb.roll_id }}"></td><td class="num"><input type="text" inputmode="decimal" name="waste_{{ rb.roll_id }}"></td><td class="num"><input type="text" inputmode="decimal" name="remnant_{{ rb.roll_id }}"></td></tr>{% endfor %}</tbody>
     </table></div><p class="muted">What you used, wasted and returned should add up to what was issued. Used and waste become the lot's fabric cost; the remnant goes back to the store.</p>

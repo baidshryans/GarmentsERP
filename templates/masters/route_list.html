@@ -5,7 +5,7 @@
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'route_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New route</a>{% endif %}</div></div>
   {% for r in routes %}
   <div class="island">
-    <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0">{{ r.name }}</h2>{% if not r.is_active %}<span class="pill">Inactive</span>{% endif %}<div class="actions"><a href="{% url 'route_edit' r.pk %}">Edit</a></div></div>
+    <div class="page-head" style="margin-bottom:8px"><h2 style="margin:0">{{ r.name }}</h2>{% if not r.is_active %}<span class="pill">Inactive</span>{% endif %}<div class="actions"><a href="{% url 'route_edit' r.pk %}">Edit</a> · <a href="{% url 'route_delete' r.pk %}">Delete</a></div></div>
     <p class="muted" style="margin:0">{% for s in r.steps.all %}{{ s.process.name }}{% if not s.is_mandatory %} (optional){% endif %}{% if not forloop.last %} → {% endif %}{% endfor %}</p>
   </div>
   {% empty %}<div class="island"><div class="empty"><div class="hand">No routes yet</div></div></div>{% endfor %}

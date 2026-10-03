@@ -12,7 +12,7 @@
       <div class="field"><label for="to_location">To location</label><select id="to_location" name="to_location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.to_location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
     </div>
     <div class="field-row">
-      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date }}" required></div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}" required></div>
       <div class="field"><label for="document_type">Document (between different GSTINs)</label><select id="document_type" name="document_type">{% for v, l in documents %}<option value="{{ v }}" {% if d.document_type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
       <div class="field"><label for="vehicle_no">Vehicle no.</label><input id="vehicle_no" name="vehicle_no" type="text" value="{{ d.vehicle_no }}"></div>
       <div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ d.remarks }}"></div>
@@ -20,7 +20,7 @@
     <div class="island"><h2>Items</h2>
       <p class="muted">For fabric, choose the roll to move. Between factories the stock arrives in the destination's In Transit location until it is received.</p>
       <div class="table-wrap"><table>
-        <thead><tr><th style="width:42%">Item</th><th>Roll (fabric)</th><th class="num">Quantity</th></tr></thead>
+        <thead><tr><th scope="col" style="width:42%">Item</th><th scope="col">Roll (fabric)</th><th scope="col" class="num">Quantity</th></tr></thead>
         <tbody>{% for r in rows %}<tr>
           <td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>
           <td><select name="roll"><option value="">—</option>{% for rb in rolls %}<option value="{{ rb.roll_id }}" {% if r.roll == rb.roll_id|stringformat:"s" %}selected{% endif %}>{{ rb.roll.label_code }} · {{ rb.roll.material.name }} · lot {{ rb.roll.lot_no|default:"-" }} · {{ rb.qty|floatformat:"-3" }} at {{ rb.location.name }}</option>{% endfor %}</select></td>
@@ -29,5 +29,5 @@
     </div>
     <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'transfer_list' %}">Cancel</a></div>
   </form>
-  <script src="{% static 'js/transfer.js' %}" defer></script>
+  <script src="{% static 'js/transfer.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

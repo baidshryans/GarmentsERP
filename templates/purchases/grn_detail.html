@@ -18,7 +18,7 @@
     <h2>{{ line.item }} <span class="muted" style="font-weight:400">@ {{ line.rate }}</span></h2>
     {% if line.material and line.material.kind == "fabric" %}
       <div class="table-wrap"><table>
-        <thead><tr><th>Roll</th><th>Lot</th><th class="num">GSM</th><th class="num">Quantity</th><th class="num">Metres</th><th>QC</th><th>Remark</th>{% if grn.status == "posted" %}<th>Label</th>{% endif %}</tr></thead>
+        <thead><tr><th scope="col">Roll</th><th scope="col">Lot</th><th scope="col" class="num">GSM</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Metres</th><th scope="col">QC</th><th scope="col">Remark</th>{% if grn.status == "posted" %}<th scope="col">Label</th>{% endif %}</tr></thead>
         <tbody>{% for r in line.rolls.all %}<tr><td>{{ r.vendor_roll_no }}</td><td>{{ r.lot_no|default:"—" }}</td><td class="num">{{ r.gsm|default:"" }}</td><td class="num">{{ r.qty|floatformat:"-3" }}</td><td class="num">{{ r.length_m|floatformat:"-1" }}</td>
           <td>{% if grn.status == "draft" or grn.status == "qc_done" %}<select name="roll_status_{{ r.pk }}"><option value="pending">Choose…</option>{% for v, l in qc_choices %}<option value="{{ v }}" {% if r.qc_status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
             {% else %}<span class="pill {% if r.qc_status == 'rejected' %}danger{% else %}success{% endif %}">{{ r.get_qc_status_display }}</span>{% endif %}</td>

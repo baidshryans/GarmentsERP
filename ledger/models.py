@@ -131,6 +131,7 @@ class Voucher(FactoryScopedModel):
     financial_year = models.ForeignKey("core.FinancialYear", on_delete=models.PROTECT, related_name="vouchers")
     status = models.CharField(max_length=6, choices=Status.choices, default=Status.DRAFT)
     narration = models.CharField(max_length=500, blank=True)
+    vendor_invoice_no = models.CharField("Vendor invoice no.", max_length=40, blank=True, db_index=True)
     source_type = models.CharField(max_length=60, blank=True, help_text="app_label.model of the source document")
     source_id = models.PositiveIntegerField(null=True, blank=True)
     reverses = models.ForeignKey(

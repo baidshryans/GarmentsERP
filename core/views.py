@@ -1,17 +1,18 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import PasswordChangeView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.generic import ListView
 
 from core.exceptions import BusinessRuleError
 from core.scoping import ScreenPermissionMixin
-from ledger.models import Voucher
+from reports.services.overview import build_overview
 
 from .forms import (
     CompanyStepForm, FactoryCreateForm, FactoryEditForm, FactoryStepForm, LocationForm, RoleForm,
@@ -26,13 +27,17 @@ from .services.setup import run_setup
 
 @login_required
 def home(request):
-    scoped = Voucher.objects.for_user(request.user).filter(status="posted")
-    context = {
-        "factory_count": Factory.objects.for_user(request.user).filter(is_active=True).count(),
-        "voucher_count": scoped.count(),
-        "recent": scoped.select_related("factory")[:8],
-    }
-    return render(request, "core/home.html", context)
+    return render(request, "core/home.html", build_overview(request.user))
+
+
+class PasswordChange(PasswordChangeView):
+    """Every signed-in user can change their own password; the session stays signed in afterwards."""
+    template_name = "registration/password_change_form.html"
+    success_url = reverse_lazy("home")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Your password has been changed.")
+        return super().form_valid(form)
 
 
 # ---------------- setup wizard (E1.1) ----------------

@@ -13,11 +13,11 @@
   {% if po.approved_by %}<p class="muted">Approved by {{ po.approved_by }} on {{ po.approved_at|date:"d M Y" }}</p>{% endif %}
   {% if po.close_reason %}<p class="muted">Short-closed: {{ po.close_reason }}</p>{% endif %}
   {% if po.remarks %}<p class="muted">{{ po.remarks }}</p>{% endif %}</div>
-  <div class="island"><table>
-    <thead><tr><th>Item</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Pending</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+  <div class="island"><div class="table-scroll"><table>
+    <thead><tr><th scope="col">Item</th><th scope="col" class="num">Ordered</th><th scope="col" class="num">Received</th><th scope="col" class="num">Pending</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th></tr></thead>
     <tbody>{% for r in lines %}<tr><td>{{ r.line.item }}</td><td class="num">{{ r.line.qty|floatformat:"-3" }}</td><td class="num">{{ r.received|floatformat:"-3" }}</td>
       <td class="num">{{ r.pending|floatformat:"-3" }}</td><td class="num">{{ r.line.rate }}</td><td class="num">{{ r.line.amount }}</td></tr>{% endfor %}</tbody>
-  </table></div>
+  </table></div></div>
   <div class="grid-2">
     <div class="island"><h2>Actions</h2>
       <form method="post">{% csrf_token %}

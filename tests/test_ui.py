@@ -46,6 +46,7 @@ PAIRS = [
     ("color-on-primary", "color-primary-darkest"), ("color-primary", "color-bg"), ("color-primary", "color-surface"),
     ("color-success", "color-success-soft"), ("color-warning", "color-warning-soft"),
     ("color-danger", "color-danger-soft"), ("color-muted", "color-primary-soft"),
+    ("color-ink", "color-sidebar"), ("color-muted", "color-sidebar"), ("color-primary", "color-sidebar"),
 ]
 
 
@@ -100,6 +101,55 @@ def test_nav_rail_shows_only_screens_the_user_may_view(company, accountant):
     html = c.get(reverse("home")).content.decode()
     assert "Chart of accounts" in html and "Trial balance" in html
     assert "Users" not in html and "Roles" not in html
+
+
+def test_shell_has_resizable_menu_user_menu_and_skip_link(company, accountant):
+    c = Client()
+    c.force_login(accountant)
+    html = c.get(reverse("home")).content.decode()
+    assert 'class="rail-resizer"' in html and 'role="separator"' in html
+    assert reverse("password_change") in html and "Sign out" in html
+    assert 'class="skip-link"' in html and 'id="content"' in html
+
+
+def test_user_can_change_own_password_and_stays_signed_in(company, accountant):
+    c = Client()
+    c.force_login(accountant)
+    assert c.get(reverse("password_change")).status_code == 200
+    r = c.post(reverse("password_change"), {
+        "old_password": "pw-for-tests-1", "new_password1": "a-new-Passw0rd-42", "new_password2": "a-new-Passw0rd-42"})
+    assert r.status_code == 302 and r["Location"] == reverse("home")
+    assert c.get(reverse("home")).status_code == 200            # session survived
+    accountant.refresh_from_db()
+    assert accountant.check_password("a-new-Passw0rd-42")
+    assert Client().login(username="accountant", password="a-new-Passw0rd-42")
+
+
+def test_change_password_rejects_wrong_old_and_mismatch(company, accountant):
+    c = Client()
+    c.force_login(accountant)
+    r = c.post(reverse("password_change"), {"old_password": "nope", "new_password1": "a-new-Passw0rd-42", "new_password2": "a-new-Passw0rd-42"})
+    assert r.status_code == 200 and b"incorrect" in r.content
+    r = c.post(reverse("password_change"), {"old_password": "pw-for-tests-1", "new_password1": "a-new-Passw0rd-42", "new_password2": "different-Passw0rd-1"})
+    assert r.status_code == 200
+    accountant.refresh_from_db()
+    assert accountant.check_password("pw-for-tests-1")
+
+
+def test_change_password_needs_login(company):
+    r = Client().get(reverse("password_change"))
+    assert r.status_code == 302 and "/accounts/login/" in r["Location"]
+
+
+def test_as_on_dates_default_to_today(company, admin_user):
+    from django.utils import timezone
+
+    today = timezone.localdate().isoformat()
+    c = Client()
+    c.force_login(admin_user)
+    for name in ("trial_balance", "opening_stock", "po_new", "transfer_new", "order_new", "grn_new"):
+        html = c.get(reverse(name)).content.decode()
+        assert f'type="date" value="{today}"' in html, name
 
 
 def test_anonymous_user_is_sent_to_login(company):
@@ -338,7 +388,7 @@ def test_menu_groups_are_collapsible_and_the_current_one_is_open(company, owner)
     c = Client()
     c.force_login(owner)
     html = c.get(reverse("voucher_list")).content.decode()
-    assert html.count('<details class="nav-group') >= 6 and "<summary>Accounts</summary>" in html
+    assert html.count('<details class="nav-group') >= 6 and '<span class="nav-label">Accounts</span>' in html
     accounts = html[html.index('data-group="accounts"') - 60: html.index('data-group="accounts"') + 200]
     assert "active" in accounts and "open" in accounts            # the page being viewed sits in an open group
     admin_part = html[html.index('data-group="admin"') - 60: html.index('data-group="admin"') + 80]
@@ -351,6 +401,15 @@ def test_the_menu_can_move_to_the_top_and_the_choice_is_remembered_in_the_browse
     js = (ROOT / "static/js/app.js").read_text()
     css = (ROOT / "static/css/base.css").read_text()
     assert 'getItem("nav") === "top"' in boot and 'setAttribute("data-nav", nav)' in boot
-    assert 'localStorage.setItem("nav", mode)' in js and "data-nav-toggle" in js
-    assert '[data-nav="top"] .rail' in css and '[data-nav="top"] .nav-items' in css and "@media (max-width: 800px)" in css
+    assert 'store("nav", mode)' in js and "data-nav-toggle" in js
+    assert '[data-nav="side"] .rail' in css and '[data-nav="top"] .nav-items' in css and "@media (max-width: 960px)" in css and "data-drawer" in css
     assert css.count("{") == css.count("}")  # the stylesheet is well formed
+
+
+def test_side_menu_width_and_collapse_are_remembered_and_applied_before_first_paint(db):
+    boot = (ROOT / "templates/partials/theme_boot.html").read_text()
+    js = (ROOT / "static/js/app.js").read_text()
+    css = (ROOT / "static/css/base.css").read_text()
+    assert 'getItem("navWidth")' in boot and '"--rail-w-user"' in boot and "data-collapsed" in boot
+    assert 'store("navWidth"' in js and "pointerdown" in js and "ArrowLeft" in js and "dblclick" in js
+    assert "var(--sidebar-w)" in css and "col-resize" in css

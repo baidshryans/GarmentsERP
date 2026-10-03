@@ -7,7 +7,7 @@
   </div>
   <div class="island">
     <div class="table-wrap"><table>
-      <thead><tr><th>User</th><th>Mobile</th><th>Roles</th><th>Factories</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th scope="col">User</th><th scope="col">Mobile</th><th scope="col">Roles</th><th scope="col">Factories</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
       <tbody>{% for u in users %}
         <tr>
           <td><strong>{{ u.username }}</strong><div class="muted">{{ u.get_full_name }}</div></td>

@@ -12,7 +12,7 @@
     </form>
     {% if rows %}
     <div class="table-wrap"><table>
-      <thead><tr><th>Item</th><th>Factory</th><th>Location</th><th class="num">Quantity</th>{% if can_cost %}<th class="num">Value</th><th class="num">Average cost</th>{% endif %}</tr></thead>
+      <thead><tr><th scope="col">Item</th><th scope="col">Factory</th><th scope="col">Location</th><th scope="col" class="num">Quantity</th>{% if can_cost %}<th scope="col" class="num">Value</th><th scope="col" class="num">Average cost</th>{% endif %}</tr></thead>
       <tbody>{% for r in rows %}<tr>
         <td>{{ r.item }}</td><td>{{ r.b.factory.code }}</td>
         <td>{{ r.b.location.name }}{% if r.transit %} <span class="pill warning">In transit</span>{% endif %}</td>

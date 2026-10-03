@@ -9,7 +9,7 @@
       <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor">{% for v in vendors %}<option value="{{ v.pk }}" {% if vals.vendor == v.pk|stringformat:"s" %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" data-factory-select="location">{% for f in factories %}<option value="{{ f.pk }}" {% if vals.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="location">Receive into</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if vals.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date }}" required></div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}" required></div>
     </div>
     <div class="field-row">
       <div class="field"><label for="vcn">Vendor challan no.</label><input id="vcn" name="vendor_challan_no" type="text" value="{{ vals.vendor_challan_no }}"></div>
@@ -19,7 +19,7 @@
     <div class="island"><h2>Items received</h2>
       <p class="muted">For <strong>fabric</strong>, list the rolls, one per line: <code>roll no, quantity, metres, lot, GSM, width</code> (only the first two are required; you can paste from the vendor's packing list). Other items take a quantity.</p>
       <div class="table-wrap"><table>
-        <thead><tr><th style="width:28%">Item</th><th class="num">Rate</th><th class="num">Quantity (not fabric)</th><th>Rolls (fabric)</th></tr></thead>
+        <thead><tr><th scope="col" style="width:28%">Item</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Quantity (not fabric)</th><th scope="col">Rolls (fabric)</th></tr></thead>
         <tbody>{% for r in rows %}<tr>
           <td>{% include "partials/item_select.html" with name="item" selected=r.item %}<input type="hidden" name="po_line" value="{{ r.po_line|default:'' }}">{% if r.hint %}<div class="muted">{{ r.hint }}</div>{% endif %}</td>
           <td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate|default:'' }}"></td>
@@ -29,5 +29,5 @@
     </div>
     <div class="form-actions"><button class="btn primary">Save and go to QC</button><a class="btn ghost" href="{% url 'grn_list' %}">Cancel</a></div>
   </form>
-  <script src="{% static 'js/transfer.js' %}" defer></script>
+  <script src="{% static 'js/transfer.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

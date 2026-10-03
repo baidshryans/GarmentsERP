@@ -11,7 +11,7 @@
     </form>
     {% if styles %}
     <div class="table-wrap"><table>
-      <thead><tr><th></th><th>Style</th><th>Product</th><th class="num">MRP</th><th></th></tr></thead>
+      <thead><tr><th scope="col"></th><th scope="col">Style</th><th scope="col">Product</th><th scope="col" class="num">MRP</th><th scope="col"></th></tr></thead>
       <tbody>{% for s in styles %}
         <tr><td style="width:48px">{% if s.thumbnail %}<img src="{{ s.thumbnail.url }}" alt="" width="40" height="40" style="object-fit:cover;border-radius:6px">{% endif %}</td>
           <td><a href="{% url 'style_detail' s.pk %}"><strong>{{ s.style_no }}</strong></a><div class="muted">{{ s.name }}</div></td>

@@ -15,7 +15,7 @@
     </form>
     {% if parties %}
     <div class="table-wrap"><table>
-      <thead><tr><th>Code</th><th>Name</th><th>Roles</th>{% if can_phone %}<th>Mobile</th>{% endif %}<th>GSTIN</th><th></th></tr></thead>
+      <thead><tr><th scope="col">Code</th><th scope="col">Name</th><th scope="col">Roles</th>{% if can_phone %}<th scope="col">Mobile</th>{% endif %}<th scope="col">GSTIN</th><th scope="col"></th></tr></thead>
       <tbody>{% for p in parties %}<tr>
         <td>{{ p.code }}</td><td><a href="{% url 'party_detail' p.pk %}"><strong>{{ p.name }}</strong></a></td>
         <td>{% for r in p.roles %}<span class="pill">{{ r }}</span> {% endfor %}</td>

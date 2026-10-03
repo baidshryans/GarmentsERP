@@ -6,7 +6,7 @@
   {% for r in results %}
   <div class="island"><h2><a href="{% url 'lot_detail' r.lot.pk %}">{{ r.lot.lot_no }}</a> <span class="muted" style="font-weight:400">{{ r.lot.style.style_no }} · {{ r.lot.colour }} · {{ r.lot.order_line.order.number }}</span></h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>Bundle</th><th>Size</th><th class="num">Pieces</th><th>Current stage</th><th>Where</th><th>Status</th></tr></thead>
+      <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Current stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
       <tbody>{% for b in r.bundles %}<tr><td>{{ b.bundle_no }}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td><td>{{ b.current_step.process.name|default:"Cut" }}</td><td>{{ b.location.name }}</td><td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% empty %}<tr><td colspan="6" class="muted">No bundles cut yet.</td></tr>{% endfor %}</tbody>
     </table></div></div>
   {% empty %}{% if q %}<div class="island"><div class="empty"><div class="hand">Nothing found for "{{ q }}"</div></div></div>{% endif %}{% endfor %}

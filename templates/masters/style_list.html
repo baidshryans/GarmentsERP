@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Styles{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Styles</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'style_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New style</a>{% endif %}</div></div>
+  <div class="island">
+    <form method="get" class="field-row" style="margin-bottom:16px">
+      <div><label for="q">Search</label><input id="q" name="q" type="text" value="{{ q }}" placeholder="Style no. or name"></div>
+      <div class="check" style="align-self:end"><input id="archived" type="checkbox" name="archived" value="1" {% if archived %}checked{% endif %}><label for="archived">Show archived</label></div>
+      <div style="align-self:end"><button class="btn">Search</button></div>
+    </form>
+    {% if styles %}
+    <div class="table-wrap"><table>
+      <thead><tr><th></th><th>Style</th><th>Product</th><th class="num">MRP</th><th></th></tr></thead>
+      <tbody>{% for s in styles %}
+        <tr><td style="width:48px">{% if s.thumbnail %}<img src="{{ s.thumbnail.url }}" alt="" width="40" height="40" style="object-fit:cover;border-radius:6px">{% endif %}</td>
+          <td><a href="{% url 'style_detail' s.pk %}"><strong>{{ s.style_no }}</strong></a><div class="muted">{{ s.name }}</div></td>
+          <td>{{ s.product.code }}</td><td class="num">{{ s.mrp|default:"" }}</td>
+          <td>{% if s.is_archived %}<span class="pill">Archived</span>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M40 20l-20 14 10 12 10-6v36h40V40l10 6 10-12-20-14c-4 8-10 12-20 12s-16-4-20-12z"/></svg><div class="hand">No styles yet</div><p>Create a style and its colour-size SKUs are made for you.</p></div>{% endif %}
+  </div>
+{% endblock %}

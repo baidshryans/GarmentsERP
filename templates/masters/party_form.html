@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{% if party %}{{ party.name }}{% else %}New party{% endif %}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if party %}Edit {{ party.name }}{% else %}New party{% endif %}</h1></div>
+  <form method="post" novalidate>
+    {% csrf_token %}{% include "partials/form_errors.html" %}
+    <div class="island">
+      <h2>Who they are</h2>
+      <div class="field-row">
+        {% with f=form.name %}{% include "partials/field.html" with field=f %}{% endwith %}
+        {% with f=form.contact_person %}{% include "partials/field.html" with field=f %}{% endwith %}
+      </div>
+      <div class="label">Roles</div>
+      <div class="field-row">
+        {% include "partials/field.html" with field=form.is_customer %}
+        {% include "partials/field.html" with field=form.is_vendor %}
+        {% include "partials/field.html" with field=form.is_fabricator %}
+        {% include "partials/field.html" with field=form.is_agent %}
+        {% include "partials/field.html" with field=form.is_transporter %}
+      </div>
+    </div>
+    <div class="island"><h2>Contact</h2><div class="field-row">
+      {% include "partials/field.html" with field=form.mobile %}{% include "partials/field.html" with field=form.mobile2 %}
+      {% include "partials/field.html" with field=form.mobile3 %}{% include "partials/field.html" with field=form.landline %}
+      {% include "partials/field.html" with field=form.email %}</div></div>
+    <div class="island"><h2>Tax identity</h2><div class="field-row">
+      {% include "partials/field.html" with field=form.gstin %}{% include "partials/field.html" with field=form.pan %}</div>
+      <p class="muted">The GSTIN's state code sets the State, which decides CGST + SGST or IGST.</p></div>
+    <div class="island"><h2>Selling terms</h2><div class="field-row">
+      {% include "partials/field.html" with field=form.category %}{% include "partials/field.html" with field=form.price_list %}
+      {% include "partials/field.html" with field=form.discount_pct %}{% include "partials/field.html" with field=form.credit_limit %}
+      {% include "partials/field.html" with field=form.credit_days %}{% include "partials/field.html" with field=form.payment_terms %}
+      {% include "partials/field.html" with field=form.agent %}{% include "partials/field.html" with field=form.transporter %}
+      {% include "partials/field.html" with field=form.destination %}{% include "partials/field.html" with field=form.tds_section %}</div></div>
+    {% include "partials/field.html" with field=form.is_active %}
+    <div class="form-actions"><button class="btn primary">Save</button><a class="btn ghost" href="{% url 'party_list' %}">Cancel</a></div>
+  </form>
+{% endblock %}

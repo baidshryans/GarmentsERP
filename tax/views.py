@@ -60,3 +60,42 @@ class TaxSettingsView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 messages.success(request, "Tax status updated. Earlier documents are untouched.")
                 return redirect("tax_settings")
         return self._render(request, form)
+
+
+class HsnDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """An HSN code and its value-based GST slabs. Slabs are append-only: a change is a new dated row."""
+
+    screen_code = "tax.hsn"
+
+    def _ctx(self, request, hsn, form=None):
+        from masters.forms import HsnSlabForm
+
+        return {"hsn": hsn, "slabs": hsn.slabs.all(), "form": form or HsnSlabForm(),
+                "can_edit": request.user.has_screen_perm("tax.hsn", "edit")}
+
+    def get(self, request, pk):
+        from django.shortcuts import get_object_or_404
+
+        from .models import HSN
+
+        return render(request, "tax/hsn_detail.html", self._ctx(request, get_object_or_404(HSN, pk=pk)))
+
+    def post(self, request, pk):
+        from django.core.exceptions import PermissionDenied
+        from django.shortcuts import get_object_or_404
+
+        from masters.forms import HsnSlabForm
+
+        from .models import HSN
+
+        if not request.user.has_screen_perm("tax.hsn", "edit"):
+            raise PermissionDenied
+        hsn = get_object_or_404(HSN, pk=pk)
+        form = HsnSlabForm(request.POST)
+        if form.is_valid():
+            slab = form.save(commit=False)
+            slab.hsn = hsn
+            slab.save()
+            messages.success(request, "Slab added. It applies from its effective date; earlier bills keep their rate.")
+            return redirect("hsn_detail", pk=pk)
+        return render(request, "tax/hsn_detail.html", self._ctx(request, hsn, form))

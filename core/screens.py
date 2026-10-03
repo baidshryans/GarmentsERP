@@ -24,6 +24,7 @@ SCREENS = {
     "masters.route": "Route templates",
     "masters.party": "Parties (customers, vendors, fabricators)",
     "masters.pricelist": "Price lists and customer rates",
+    "masters.import": "Excel import",
 }
 
 

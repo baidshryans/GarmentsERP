@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ cfg.title }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">{{ cfg.title }}</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url key|add:'_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New</a>{% endif %}</div>
+  </div>
+  {% if cfg.tabs %}
+  <div class="steps">
+    <a class="step {% if key == 'unit' %}current{% endif %}" href="{% url 'unit_list' %}">Units</a>
+    <a class="step {% if key == 'size' %}current{% endif %}" href="{% url 'size_list' %}">Sizes</a>
+    <a class="step {% if key == 'colour' %}current{% endif %}" href="{% url 'colour_list' %}">Colours</a>
+    <a class="step {% if key == 'product' %}current{% endif %}" href="{% url 'product_list' %}">Products</a>
+  </div>
+  {% endif %}
+  <div class="island">
+    {% if rows %}
+    <div class="table-wrap"><table>
+      <thead><tr>{% for h in headers %}<th>{{ h }}</th>{% endfor %}<th>Status</th><th></th></tr></thead>
+      <tbody>{% for r in rows %}
+        <tr>{% for c in r.cells %}<td>{{ c|default:"—" }}</td>{% endfor %}
+          <td>{% if r.active %}<span class="pill success">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</td>
+          <td>{% if key == "hsn" %}<a href="{% url 'hsn_detail' r.obj.pk %}">Slabs</a>{% elif key == "pricelist" %}<a href="{% url 'pricelist_detail' r.obj.pk %}">Rates</a>{% if can_edit %} · <a href="{% url 'pricelist_edit' r.obj.pk %}">Edit</a>{% endif %}{% elif can_edit %}<a href="{% url key|add:'_edit' r.obj.pk %}">Edit</a>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty"><div class="hand">Nothing here yet</div></div>{% endif %}
+  </div>
+{% endblock %}

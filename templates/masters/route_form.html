@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Route{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if route %}Edit route{% else %}New route{% endif %}</h1></div>
+  <p class="muted" style="max-width:760px">List the steps in order. Each step is in-house or sent to a subcontractor by default; a lot can change this later until the step starts.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="island" style="max-width:480px"><div class="field"><label for="name">Route name</label><input id="name" name="name" type="text" value="{{ name }}" required></div></div>
+    <div class="island">
+      <div class="table-wrap"><table>
+        <thead><tr><th class="num">#</th><th>Process</th><th>Mandatory</th><th>Default</th><th>Factory</th><th>Fabricator</th><th class="num">Rate / pc</th></tr></thead>
+        <tbody>{% for r in rows %}<tr>
+          <td class="num">{{ forloop.counter }}</td>
+          <td><select name="process"><option value="">—</option>{% for p in processes %}<option value="{{ p.pk }}" {% if r.process == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></td>
+          <td><input type="checkbox" name="mandatory_{{ forloop.counter0 }}" {% if r.mandatory %}checked{% endif %}></td>
+          <td><select name="assignment"><option value="in_house" {% if r.assignment == "in_house" %}selected{% endif %}>In-house</option><option value="subcontract" {% if r.assignment == "subcontract" %}selected{% endif %}>Subcontractor</option></select></td>
+          <td><select name="factory"><option value="">—</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if r.factory == fa.pk|stringformat:"s" %}selected{% endif %}>{{ fa.code }}</option>{% endfor %}</select></td>
+          <td><select name="party"><option value="">—</option>{% for p in fabricators %}<option value="{{ p.pk }}" {% if r.party == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></td>
+          <td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate|default:'' }}"></td></tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="form-actions"><button class="btn primary">Save route</button><a class="btn ghost" href="{% url 'route_list' %}">Cancel</a></div>
+  </form>
+{% endblock %}

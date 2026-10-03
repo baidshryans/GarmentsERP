@@ -1,0 +1,8 @@
+{% if q|length >= 2 %}
+<div class="island" style="padding:var(--space-3);margin:0;box-shadow:var(--shadow-pop)">
+  {% for title, items in groups %}
+    <div class="label muted" style="margin-top:6px">{{ title }}</div>
+    {% for text, url_name, pk in items %}<div><a href="{% url url_name pk %}">{{ text }}</a></div>{% endfor %}
+  {% empty %}<div class="muted">Nothing found for "{{ q }}"</div>{% endfor %}
+</div>
+{% endif %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Parties{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Parties</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'party_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New party</a>{% endif %}</div></div>
+  <div class="steps">
+    <a class="step {% if not role %}current{% endif %}" href="{% url 'party_list' %}">All</a>
+    {% for r in roles %}<a class="step {% if role == r %}current{% endif %}" href="?role={{ r }}">{{ r|capfirst }}s</a>{% endfor %}
+  </div>
+  <div class="island">
+    <form method="get" class="field-row" style="margin-bottom:16px">
+      <input type="hidden" name="role" value="{{ role }}">
+      <div><label for="q">Search</label><input id="q" name="q" type="text" value="{{ q }}" placeholder="{% if can_phone %}Name, code or mobile{% else %}Name or code{% endif %}"></div>
+      <div style="align-self:end"><button class="btn">Search</button></div>
+    </form>
+    {% if parties %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Code</th><th>Name</th><th>Roles</th>{% if can_phone %}<th>Mobile</th>{% endif %}<th>GSTIN</th><th></th></tr></thead>
+      <tbody>{% for p in parties %}<tr>
+        <td>{{ p.code }}</td><td><a href="{% url 'party_detail' p.pk %}"><strong>{{ p.name }}</strong></a></td>
+        <td>{% for r in p.roles %}<span class="pill">{{ r }}</span> {% endfor %}</td>
+        {% if can_phone %}<td>{{ p.mobile }}</td>{% endif %}
+        <td>{{ p.gstin|default:"—" }}</td><td>{% if not p.is_active %}<span class="pill">Inactive</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty"><div class="hand">No parties found</div></div>{% endif %}
+  </div>
+{% endblock %}

@@ -17,6 +17,11 @@
   <header class="topbar">
     <a class="brand" href="{% url 'home' %}">Garment ERP</a>
     {% if company %}<span class="muted">{{ company.name }}</span>{% endif %}
+    <div style="position:relative;width:min(320px,35vw);margin-left:var(--space-4)">
+      <input type="text" name="q" placeholder="Search styles, barcodes, materials, parties" autocomplete="off" aria-label="Search"
+             hx-get="{% url 'search' %}" hx-trigger="input changed delay:250ms, search" hx-target="#search-results" hx-swap="innerHTML">
+      <div id="search-results" style="position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:40"></div>
+    </div>
     <span class="spacer"></span>
     {% if user_factories.count > 1 %}
       <span class="muted" title="Factories you can access">{{ user_factories.count }} factories</span>

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}HSN {{ hsn.code }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">HSN {{ hsn.code }}</h1><span class="muted">{{ hsn.description }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'hsn_list' %}">All HSN codes</a></div></div>
+  <div class="grid-2">
+    <div class="island">
+      <h2>GST slabs</h2>
+      <p class="muted">The rate depends on the sale value per piece. A new rate is a new row with a later date, so earlier bills keep the rate they were made at.</p>
+      <table>
+        <thead><tr><th class="num">Value from</th><th class="num">Value to</th><th class="num">GST %</th><th>Effective from</th></tr></thead>
+        <tbody>{% for s in slabs %}<tr><td class="num">{{ s.value_from }}</td><td class="num">{{ s.value_to|default:"no limit" }}</td><td class="num">{{ s.gst_rate }}</td><td>{{ s.effective_from|date:"d M Y" }}</td></tr>{% empty %}<tr><td colspan="4" class="muted">No slabs yet.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    {% if can_edit %}<div class="island"><h2>Add a slab</h2>
+      <form method="post" novalidate>{% csrf_token %}{% include "partials/form_errors.html" %}
+        {% for field in form %}{% include "partials/field.html" %}{% endfor %}
+        <button class="btn primary">Add slab</button></form></div>{% endif %}
+  </div>
+{% endblock %}

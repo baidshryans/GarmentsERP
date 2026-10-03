@@ -42,6 +42,7 @@ SYSTEM_ROLES = {
         {"ledger.chart": ["view", "create", "edit"], "ledger.voucher": ["view", "create", "edit", "cancel"],
          "ledger.opening": ["view", "create"], "ledger.report": ["view"], "tax.settings": ["view", "edit"],
          "tax.hsn": ["view", "create", "edit"], "masters.party": ["view", "create", "edit"],
+         "masters.import": ["view", "create"],
          "core.period_lock": ["view", "edit"]},
         list(SENSITIVE_FIELDS),
     ),
@@ -50,7 +51,8 @@ SYSTEM_ROLES = {
         {"masters.style": ["view", "create", "edit"], "masters.bom": ["view", "create", "edit"],
          "masters.material": ["view", "create", "edit"], "masters.process": ["view", "create", "edit"],
          "masters.route": ["view", "create", "edit"], "masters.basics": ["view", "create", "edit"],
-         "masters.pricelist": ["view", "create", "edit"], "masters.party": ["view"], "tax.hsn": ["view"]},
+         "masters.pricelist": ["view", "create", "edit"], "masters.party": ["view"], "tax.hsn": ["view"],
+         "masters.import": ["view", "create"]},
         [],
     ),
     "Production Supervisor": (

@@ -2,6 +2,17 @@ from .models import Company, Factory
 
 NAV = [
     ("Home", [("home", "Home", "core.home")]),
+    ("Masters", [
+        ("style_list", "Styles", "masters.style"),
+        ("material_list", "Materials", "masters.material"),
+        ("party_list", "Parties", "masters.party"),
+        ("pricelist_list", "Price lists", "masters.pricelist"),
+        ("route_list", "Routes", "masters.route"),
+        ("process_list", "Processes", "masters.process"),
+        ("unit_list", "Units, sizes, colours", "masters.basics"),
+        ("hsn_list", "HSN and GST slabs", "tax.hsn"),
+        ("excel_import", "Import from Excel", "masters.import"),
+    ]),
     ("Accounts", [
         ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
         ("voucher_list", "Vouchers", "ledger.voucher"),

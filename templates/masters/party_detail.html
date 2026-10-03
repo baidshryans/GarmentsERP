@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ party.name }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ party.name }}</h1><span class="muted">{{ party.code }}</span>
+    {% for r in party.roles %}<span class="pill">{{ r }}</span>{% endfor %}{% if not party.is_active %}<span class="pill danger">Inactive</span>{% endif %}
+    <div class="actions">{% if can_edit %}<a class="btn" href="{% url 'party_edit' party.pk %}">Edit</a>{% endif %}</div></div>
+  <div class="grid-2">
+    <div class="island"><h2>Contact and tax</h2>
+      <div class="field-row">
+        <div><div class="label muted">Mobile</div>{% if can_phone %}{{ party.mobile }}{% else %}<span class="muted">Hidden</span>{% endif %}</div>
+        <div><div class="label muted">Contact person</div>{{ party.contact_person|default:"—" }}</div>
+        <div><div class="label muted">GSTIN</div>{{ party.gstin|default:"—" }}</div>
+        <div><div class="label muted">State</div>{{ party.get_state_code_display|default:"—" }}</div>
+        <div><div class="label muted">PAN</div>{{ party.pan|default:"—" }}</div>
+      </div></div>
+    <div class="island"><h2>Terms</h2>
+      <div class="field-row">
+        <div><div class="label muted">Category</div>{{ party.get_category_display|default:"—" }}</div>
+        <div><div class="label muted">Price list</div>{{ party.price_list|default:"—" }}</div>
+        <div><div class="label muted">Discount</div>{{ party.discount_pct }}%</div>
+        <div><div class="label muted">Credit limit</div>{{ party.credit_limit }}</div>
+        <div><div class="label muted">Credit days</div>{{ party.credit_days }}</div>
+      </div></div>
+  </div>
+  <div class="island"><h2>Ledgers</h2>
+    <p>{% if party.customer_ledger %}Receivable: {{ party.customer_ledger.name }}{% endif %}{% if party.customer_ledger and party.payable_ledger %} · {% endif %}{% if party.payable_ledger %}Payable: {{ party.payable_ledger.name }}{% endif %}</p></div>
+  <div class="grid-2">
+    <div class="island"><h2>Addresses</h2>
+      {% for a in addresses %}<p><span class="pill">{{ a.get_kind_display }}</span> {{ a.line1 }}{% if a.line2 %}, {{ a.line2 }}{% endif %}{% if a.city %}, {{ a.city }}{% endif %} {{ a.pincode }}</p>{% empty %}<p class="muted">No addresses yet.</p>{% endfor %}</div>
+    {% if can_edit %}<div class="island"><h2>Add an address</h2>
+      <form method="post" novalidate>{% csrf_token %}{% for field in address_form %}{% include "partials/field.html" %}{% endfor %}<button class="btn">Add address</button></form></div>{% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}BOM {{ style.style_no }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">BOM for {{ style.style_no }}</h1>{% if bom %}<span class="pill">Editing version {{ bom.version_no }}</span>{% endif %}</div>
+  <p class="muted" style="max-width:760px">Consumption is per piece in the material's own unit. Leave a size box empty to use the default. If lots already use the current version, saving creates a new version and old lots keep the old one.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="island">
+      <h2>Materials</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th style="width:30%">Material</th><th class="num">Per piece</th><th class="num">Wastage %</th>{% for s in sizes %}<th class="num">{{ s.code }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in rows %}
+          <tr>
+            <td><select name="material"><option value="">—</option>{% for m in materials %}<option value="{{ m.pk }}" {% if r.material == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.name }} ({{ m.unit }})</option>{% endfor %}</select></td>
+            <td class="num"><input type="text" inputmode="decimal" name="qty" value="{{ r.qty|default:'' }}"></td>
+            <td class="num"><input type="text" inputmode="decimal" name="wastage" value="{{ r.wastage|default:'' }}"></td>
+            {% for s in sizes %}<td class="num"><input type="text" inputmode="decimal" name="size_{{ s.pk }}" value="{% for sid, q in r.sizes.items %}{% if sid == s.pk|stringformat:'s' %}{{ q }}{% endif %}{% endfor %}"></td>{% endfor %}
+          </tr>
+        {% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="island">
+      <h2>Fixed charges per piece</h2>
+      <table>
+        <thead><tr><th>Description</th><th>Process</th><th class="num">Amount</th></tr></thead>
+        <tbody>{% for c in charge_rows %}<tr>
+          <td><input type="text" name="charge_desc" value="{{ c.description|default:'' }}" placeholder="Embroidery, printing, washing"></td>
+          <td><select name="charge_process"><option value="">—</option>{% for p in processes %}<option value="{{ p.pk }}" {% if c.process == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></td>
+          <td class="num"><input type="text" inputmode="decimal" name="charge_amount" value="{{ c.amount|default:'' }}"></td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    <div class="island" style="max-width:640px"><div class="field"><label for="notes">Version note</label><input id="notes" name="notes" type="text" placeholder="Why this changed"></div></div>
+    <div class="form-actions"><button class="btn primary">Save BOM</button><a class="btn ghost" href="{% url 'style_detail' style.pk %}">Cancel</a></div>
+  </form>
+{% endblock %}

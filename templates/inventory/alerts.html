@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Low-stock alerts{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Low-stock alerts</h1><span class="muted">One alert each time an item falls below its minimum; it closes when stock recovers</span>
+    <div class="actions"><a class="btn" href="{% url 'reorder_levels' %}">Reorder levels</a>{% if can_edit %}<form method="post" style="display:inline">{% csrf_token %}<button class="btn primary" name="action" value="check">Check now</button></form>{% endif %}</div></div>
+  <div class="island"><h2>Below the minimum now</h2>
+    {% if rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Item</th><th scope="col">Factory</th><th scope="col">Raised</th><th scope="col" class="num">In stock now</th><th scope="col" class="num">Minimum</th><th scope="col" class="num">Reorder qty</th><th scope="col"></th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td><strong>{% if r.alert.material %}{{ r.alert.material.name }}{% else %}{{ r.alert.style.style_no }} {{ r.alert.style.name }}{% endif %}</strong></td><td>{{ r.alert.factory.code|default:"All" }}</td><td>{{ r.alert.raised_at|date:"d M Y H:i" }}</td>
+        <td class="num">{% if r.now is not None %}{{ r.now|floatformat:"-3" }} {{ r.unit }}{% else %}—{% endif %}</td><td class="num">{{ r.alert.min_qty|floatformat:"-3" }}</td><td class="num">{{ r.alert.reorder_qty|floatformat:"-3" }}</td>
+        <td>{% if r.alert.acknowledged_at %}<span class="muted">Seen by {{ r.alert.acknowledged_by.username }}</span>{% elif can_edit %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="ack"><input type="hidden" name="alert" value="{{ r.alert.pk }}"><button class="btn">Mark as seen</button></form>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">Nothing is below its minimum</div></div>{% endif %}</div>
+  {% if history %}<div class="island"><h2>Recently recovered</h2><div class="table-wrap"><table>
+    <thead><tr><th scope="col">Item</th><th scope="col">Factory</th><th scope="col">Raised</th><th scope="col">Recovered</th><th scope="col" class="num">Stock when raised</th></tr></thead>
+    <tbody>{% for a in history %}<tr><td>{% if a.material %}{{ a.material.name }}{% else %}{{ a.style.style_no }}{% endif %}</td><td>{{ a.factory.code|default:"All" }}</td><td>{{ a.raised_at|date:"d M Y" }}</td><td>{{ a.cleared_at|date:"d M Y" }}</td><td class="num">{{ a.qty_at_alert|floatformat:"-3" }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+{% endblock %}

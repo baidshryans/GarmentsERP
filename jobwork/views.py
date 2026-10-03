@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 
@@ -20,9 +21,10 @@ from tax.models import TaxTemplate
 
 from . import selectors
 from .models import (
-    ChallanBundle, JobWorkBill, JobWorkChallan, LabourRate, QcResult, Receipt, ReceiptLine,
+    ChallanBundle, DailySummary, JobWorkBill, JobWorkChallan, LabourRate, QcResult, Receipt, ReceiptLine,
 )
 from .services import bills, challans, rates, receipts
+from .services import summary as summary_service
 from .services.challans import SecondFabricatorWarning
 from .services.receipts import Counted
 
@@ -382,6 +384,39 @@ class BillDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 
 
 # ================================================================ reports (JOB-05, JOB-08, JOB-12)
+
+class DailySummaryView(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """The day's picture of every fabricator, per factory (E8.8). Built by the daily_summary command; "Build now" redoes a day."""
+
+    screen_code = "jobwork.report"
+
+    def _day(self, text):
+        try:
+            return vu.day(text, default=timezone.localdate())
+        except ValueError:
+            return timezone.localdate()
+
+    def get(self, request):
+        on_date = self._day(request.GET.get("date"))
+        found = DailySummary.objects.for_user(request.user).filter(date=on_date).select_related("factory")
+        blocks = [{"summary": s, "rows": s.rows.select_related("party"), "totals": summary_service.totals(s),
+                   "text": summary_service.as_text(s)} for s in found]
+        return render(request, "jobwork/daily_summary.html", {
+            "date": on_date, "blocks": blocks, "can_build": request.user.has_screen_perm("jobwork.report", "edit"),
+            "factories": _factories(request.user)})
+
+    def post(self, request):
+        if not request.user.has_screen_perm("jobwork.report", "edit"):
+            raise PermissionDenied
+        on_date = self._day(request.POST.get("date"))
+        try:
+            for factory in _factories(request.user):
+                summary_service.build_summary(factory, on_date, user=request.user)
+            messages.success(request, f"Summary built for {on_date:%d %b %Y}.")
+        except BusinessRuleError as exc:
+            vu.report(request, exc)
+        return redirect(f"{reverse('daily_summary')}?date={on_date.isoformat()}")
+
 
 class Reports(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "jobwork.report"

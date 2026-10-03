@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Reorder levels{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Reorder levels</h1><span class="muted">The owner is alerted once each time stock falls below the minimum</span>
+    <div class="actions"><a class="btn" href="{% url 'stock_alerts' %}">Low-stock alerts</a></div></div>
+  {% if can_edit %}
+  <form method="post" class="island" novalidate>{% csrf_token %}
+    <h2>Set a level</h2>
+    <div class="field-row">
+      <div class="field"><label for="item">Item</label><select id="item" name="item"><option value="">Choose…</option>
+        <optgroup label="Materials">{% for v, l in materials %}<option value="{{ v }}" {% if vals.item == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>
+        <optgroup label="Styles (finished goods)">{% for v, l in styles %}<option value="{{ v }}" {% if vals.item == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup></select></div>
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory">{% if all_factories_ok %}<option value="">All factories together</option>{% endif %}{% for f in factories %}<option value="{{ f.pk }}" {% if vals.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="min_qty">Minimum</label><input id="min_qty" name="min_qty" type="text" inputmode="decimal" value="{{ vals.min_qty }}"></div>
+      <div class="field"><label for="reorder_qty">Reorder quantity</label><input id="reorder_qty" name="reorder_qty" type="text" inputmode="decimal" value="{{ vals.reorder_qty }}"></div>
+      <div class="field"><label for="max_qty">Maximum</label><input id="max_qty" name="max_qty" type="text" inputmode="decimal" value="{{ vals.max_qty }}"></div>
+    </div>
+    <p class="muted">Stock counted is what is in the godown, showroom and dispatch area; fabric on the cutting floor or with a fabricator is already issued. Fabric is counted in its own unit, finished goods in pieces.</p>
+    <div class="form-actions"><button class="btn primary">Save level</button></div>
+  </form>{% endif %}
+  <div class="island">
+    {% if rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Item</th><th scope="col">Factory</th><th scope="col" class="num">In stock</th><th scope="col" class="num">Minimum</th><th scope="col" class="num">Reorder qty</th><th scope="col" class="num">Maximum</th><th scope="col"></th><th scope="col"></th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td>{% if r.level.material %}{{ r.level.material.name }}{% else %}{{ r.level.style.style_no }} {{ r.level.style.name }}{% endif %}</td><td>{{ r.level.factory.code|default:"All" }}</td>
+        <td class="num">{{ r.stock|floatformat:"-3" }} {{ r.unit }}</td><td class="num">{{ r.level.min_qty|floatformat:"-3" }}</td><td class="num">{{ r.level.reorder_qty|floatformat:"-3" }}</td><td class="num">{{ r.level.max_qty|floatformat:"-3" }}</td>
+        <td>{% if r.low %}<span class="pill danger">Below minimum</span>{% endif %}</td>
+        <td>{% if can_edit %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="level" value="{{ r.level.pk }}"><button class="btn ghost">Remove</button></form>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No reorder levels set</div></div>{% endif %}
+  </div>
+{% endblock %}

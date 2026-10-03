@@ -163,7 +163,7 @@ class StockMovement(FactoryScopedModel):
 
 
 class ReorderLevel(models.Model):
-    """Min / reorder / max for an item, optionally per factory (INV-06). Alerts arrive with the mobile step."""
+    """Min / reorder / max for an item, optionally per factory (INV-06). StockAlert records each crossing below the minimum (E6.3)."""
 
     factory = models.ForeignKey("core.Factory", on_delete=models.CASCADE, null=True, blank=True, related_name="+")
     material = models.ForeignKey("masters.Material", on_delete=models.CASCADE, null=True, blank=True, related_name="+")
@@ -181,6 +181,52 @@ class ReorderLevel(models.Model):
                 name="reorder_one_item",
             ),
         ]
+
+
+class StockAlert(models.Model):
+    """Stock fell below an item's minimum (E6.3). One alert per crossing: it stays open until stock is back at or
+    above the minimum, and only then can the item raise a new one. factory null = the combined stock of all factories."""
+
+    company = models.ForeignKey("core.Company", on_delete=models.PROTECT, related_name="+")
+    factory = models.ForeignKey("core.Factory", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    material = models.ForeignKey("masters.Material", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    style = models.ForeignKey("masters.Style", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    min_qty = models.DecimalField(max_digits=14, decimal_places=3, help_text="The minimum when the alert was raised")
+    reorder_qty = models.DecimalField(max_digits=14, decimal_places=3, default=QZERO)
+    qty_at_alert = models.DecimalField(max_digits=16, decimal_places=3)
+    raised_at = models.DateTimeField(auto_now_add=True)
+    cleared_at = models.DateTimeField(null=True, blank=True, help_text="Stock recovered to the minimum")
+    acknowledged_by = models.ForeignKey("core.User", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-raised_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(Q(material__isnull=False, style__isnull=True) | Q(material__isnull=True, style__isnull=False)),
+                name="stockalert_one_item",
+            ),
+        ]
+
+    @property
+    def item(self):
+        return self.material or self.style
+
+    @property
+    def is_open(self):
+        return self.cleared_at is None
+
+    @classmethod
+    def visible_to(cls, user):
+        """Alerts of the user's factories; the combined-stock ones go to users who may see every factory."""
+        if not user.is_authenticated:
+            return cls.objects.none()
+        ids = user.allowed_factory_ids()
+        if ids is None:
+            return cls.objects.all()
+        return cls.objects.filter(factory_id__in=ids)
 
 
 class StockTransfer(models.Model):

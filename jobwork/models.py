@@ -300,3 +300,38 @@ class JobWorkBillDeduction(models.Model):
 
     class Meta:
         constraints = [models.CheckConstraint(condition=Q(amount__gt=0), name="deduction_positive")]
+
+
+class DailySummary(FactoryScopedModel):
+    """The owner's end-of-day picture of each fabricator for one factory and one day (E8.8). Built by the
+    `daily_summary` command at the configured time and kept, so a past day can be read exactly as it was."""
+
+    date = models.DateField()
+    generated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-date", "factory__code"]
+        constraints = [models.UniqueConstraint(fields=["factory", "date"], name="uniq_daily_summary")]
+
+    def __str__(self):
+        return f"{self.factory.code} {self.date}"
+
+
+class DailySummaryRow(models.Model):
+    summary = models.ForeignKey(DailySummary, on_delete=models.CASCADE, related_name="rows")
+    party = models.ForeignKey("masters.Party", on_delete=models.PROTECT, related_name="+")
+    issued_bundles = models.PositiveIntegerField(default=0)
+    issued_pcs = models.PositiveIntegerField(default=0)
+    received_pcs = models.PositiveIntegerField(default=0)
+    accepted_pcs = models.PositiveIntegerField(default=0)
+    pending_pcs = models.PositiveIntegerField(default=0, help_text="Still with the fabricator at the end of the day")
+    overdue_pcs = models.PositiveIntegerField(default=0, help_text="Pending on challans past their expected date")
+    earnings = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO, help_text="Accepted pieces x rate, today")
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["party__name"]
+        constraints = [models.UniqueConstraint(fields=["summary", "party"], name="uniq_summary_party")]

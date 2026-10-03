@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Daily summary{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Daily fabricator summary</h1><span class="muted">{{ date|date:"l, d M Y" }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'job_reports' %}">Fabricator reports</a></div></div>
+  <form method="get" class="island field-row" style="align-items:end">
+    <div class="field"><label for="date">Day</label><input id="date" name="date" type="date" value="{{ date|date:'Y-m-d' }}"></div>
+    <div class="field"><button class="btn">Show</button></div>
+  </form>
+  {% if can_build %}<form method="post" class="island" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">{% csrf_token %}<input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+    <button class="btn primary">Build this day now</button><span class="muted">The command <code>daily_summary</code> builds it every evening when scheduled. "Pending" and "overdue" are as at the time it is built.</span></form>{% endif %}
+  {% for b in blocks %}
+  <div class="island"><h2>{{ b.summary.factory.code }} — {{ b.summary.factory.name }} <span class="muted" style="font-weight:400">built {{ b.summary.generated_at|date:"d M H:i" }}</span></h2>
+    {% if b.rows %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Fabricator</th><th scope="col" class="num">Bundles issued</th><th scope="col" class="num">Pieces issued</th><th scope="col" class="num">Received</th><th scope="col" class="num">Accepted</th><th scope="col" class="num">Pending</th><th scope="col" class="num">Overdue</th><th scope="col" class="num">Earned today</th></tr></thead>
+      <tbody>{% for r in b.rows %}<tr><td>{{ r.party.name }}</td><td class="num">{{ r.issued_bundles }}</td><td class="num">{{ r.issued_pcs }}</td><td class="num">{{ r.received_pcs }}</td><td class="num">{{ r.accepted_pcs }}</td><td class="num">{{ r.pending_pcs }}</td><td class="num">{% if r.overdue_pcs %}<span class="pill danger">{{ r.overdue_pcs }}</span>{% else %}0{% endif %}</td><td class="num">{{ r.earnings }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">{{ b.totals.issued_bundles }}</td><td class="num">{{ b.totals.issued_pcs }}</td><td class="num">{{ b.totals.received_pcs }}</td><td class="num">{{ b.totals.accepted_pcs }}</td><td class="num">{{ b.totals.pending_pcs }}</td><td class="num">{{ b.totals.overdue_pcs }}</td><td class="num">{{ b.totals.earnings }}</td></tr></tfoot>
+    </table></div>
+    <details><summary>Message text</summary><pre style="white-space:pre-wrap">{{ b.text }}</pre></details>
+    {% else %}<p class="muted">No fabricator activity and nothing pending on this day.</p>{% endif %}
+  </div>
+  {% empty %}<div class="island"><div class="empty"><div class="hand">No summary for this day yet</div></div></div>{% endfor %}
+{% endblock %}

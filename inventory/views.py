@@ -15,7 +15,8 @@ from core.scoping import ScreenPermissionMixin
 from masters.models import SKU, Material, Party, Style
 
 from . import barcode
-from .models import FabricRoll, OpeningStock, RollBalance, StockBalance, StockTransfer
+from .models import FabricRoll, OpeningStock, ReorderLevel, RollBalance, StockAlert, StockBalance, StockTransfer
+from .services import alerts as alert_service
 from .services import opening as opening_service
 from .services import transfers
 
@@ -144,7 +145,7 @@ class RollList(LoginRequiredMixin, ScreenPermissionMixin, View):
 
 # ---------------------------------------------------------------- labels (E5.2, E6.4)
 
-LAYOUTS = {"a4": "A4 sheet", "thermal4": "Thermal 4 x 2 in", "thermal2": "Thermal 2 x 1 in"}
+LAYOUTS = {"a4": "A4 sheet", "thermal4": "Thermal 4 x 2 in", "thermal2": "Thermal 2 x 1 in", "thermal6": "Thermal 4 x 6 in (cartons)"}
 
 
 class RollLabels(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -213,6 +214,82 @@ class TagPrint(LoginRequiredMixin, ScreenPermissionMixin, View):
             "labels": labels, "kind": "sku", "layout": request.POST.get("layout", "thermal2"), "layouts": LAYOUTS,
             "show_mrp": True,
         })
+
+
+# ---------------------------------------------------------------- reorder levels and low-stock alerts (E6.3)
+
+class ReorderLevels(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Minimum, reorder quantity and maximum per material or style, per factory or for all factories (INV-06)."""
+
+    screen_code = "inventory.reorder"
+
+    def _ctx(self, request, vals=None):
+        return {"rows": alert_service.level_rows(request.user), "vals": vals or {},
+                "materials": [(f"m:{m.pk}", m.name) for m in Material.objects.filter(is_active=True).order_by("name")],
+                "styles": [(f"s:{st.pk}", f"{st.style_no} — {st.name}") for st in Style.objects.filter(is_archived=False)],
+                "factories": Factory.objects.for_user(request.user).filter(is_active=True),
+                "all_factories_ok": request.user.allowed_factory_ids() is None,
+                "can_edit": request.user.has_screen_perm("inventory.reorder", "edit")}
+
+    def get(self, request):
+        return render(request, "inventory/reorder.html", self._ctx(request))
+
+    def post(self, request):
+        p = request.POST
+        if not request.user.has_screen_perm("inventory.reorder", "edit"):
+            raise PermissionDenied
+        try:
+            if p.get("action") == "delete":
+                level = get_object_or_404(ReorderLevel, pk=p.get("level"))
+                alert_service.delete_level(level, user=request.user)
+                messages.success(request, "Level removed.")
+                return redirect("reorder_levels")
+            kind, _, pk = (p.get("item") or "").partition(":")
+            if kind == "m":
+                item = get_object_or_404(Material, pk=int(pk))
+            elif kind == "s":
+                item = get_object_or_404(Style, pk=int(pk))
+            else:
+                raise ValueError("Choose a material or a style.")
+            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=int(p["factory"])) if p.get("factory") else None
+            alert_service.set_level(
+                item=item, factory=factory, user=request.user,
+                min_qty=_decimal(p.get("min_qty"), "Minimum"), reorder_qty=_decimal(p.get("reorder_qty"), "Reorder quantity", Decimal("0")),
+                max_qty=_decimal(p.get("max_qty"), "Maximum", Decimal("0")))
+        except (ValueError, BusinessRuleError) as exc:
+            _messages_for(request, exc)
+            return render(request, "inventory/reorder.html", self._ctx(request, p))
+        messages.success(request, "Level saved. Stock below the minimum will raise an alert at the next check.")
+        return redirect("reorder_levels")
+
+
+class StockAlerts(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Items below their minimum right now, and the recent history. Each crossing is one alert (E6.3)."""
+
+    screen_code = "inventory.alerts"
+
+    def get(self, request):
+        visible = StockAlert.visible_to(request.user)
+        return render(request, "inventory/alerts.html", {
+            "rows": alert_service.alert_rows(request.user),
+            "history": visible.filter(cleared_at__isnull=False).select_related("factory", "material", "style")[:30],
+            "can_edit": request.user.has_screen_perm("inventory.alerts", "edit")})
+
+    def post(self, request):
+        if not request.user.has_screen_perm("inventory.alerts", "edit"):
+            raise PermissionDenied
+        action = request.POST.get("action")
+        try:
+            if action == "check":
+                raised = alert_service.check_low_stock(_company())
+                messages.success(request, f"{len(raised)} new alert{'s' if len(raised) != 1 else ''}." if raised else "Nothing new below its minimum.")
+            elif action == "ack":
+                alert = get_object_or_404(StockAlert.visible_to(request.user), pk=request.POST.get("alert"))
+                alert_service.acknowledge(alert, user=request.user)
+                messages.success(request, "Marked as seen.")
+        except BusinessRuleError as exc:
+            _messages_for(request, exc)
+        return redirect("stock_alerts")
 
 
 # ---------------------------------------------------------------- transfers (E6.2)

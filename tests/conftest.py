@@ -8,6 +8,7 @@ from core.models import Factory, Role, User
 from core.services.factories import create_factory
 from core.services.setup import run_setup
 from ledger.models import Ledger, Voucher, VoucherLine
+from ledger.selectors import q2
 
 D = Decimal
 BOOKS_FROM = date(2026, 4, 1)
@@ -15,17 +16,43 @@ IN_YEAR = date(2026, 6, 15)
 
 
 @pytest.fixture(autouse=True)
-def books_must_tally(db):
+def books_must_tally(db, request):
     """Definition of done: after any test that posts, the books balance - overall, per voucher,
     and per factory. (Stock reconciliation joins this check once the stock ledger exists.)"""
     yield
     totals = VoucherLine.objects.aggregate(d=Sum("debit"), c=Sum("credit"))
-    assert (totals["d"] or 0) == (totals["c"] or 0), "Trial balance does not tally"
+    assert q2(totals["d"]) == q2(totals["c"]), "Trial balance does not tally"
     for v in Voucher.objects.all():
         agg = v.lines.aggregate(d=Sum("debit"), c=Sum("credit"))
-        assert agg["d"] == agg["c"] == v.total, f"{v} is out of balance"
+        assert q2(agg["d"]) == q2(agg["c"]) == v.total, f"{v} is out of balance"
         if v.status == "posted":
             assert v.number
+    for f in Factory.objects.all():  # factory-wise books tally too (ACC-13)
+        agg = VoucherLine.objects.filter(factory=f).aggregate(d=Sum("debit"), c=Sum("credit"))
+        assert q2(agg["d"]) == q2(agg["c"]), f"Factory {f.code} does not tally"
+    _stock_reconciles(check_gl=request.node.get_closest_marker("raw_stock") is None)
+
+
+def _stock_reconciles(check_gl=True):
+    """Definition of done: stock reconciles. Movements = balances, rolls = item balances, and stock value = GL."""
+    from inventory.models import RollBalance, StockBalance, StockMovement
+
+    for bal in StockBalance.objects.all():
+        agg = StockMovement.objects.filter(location=bal.location, material=bal.material, sku=bal.sku).aggregate(
+            q=Sum("qty"), v=Sum("value"))
+        assert (q2(agg["q"]), q2(agg["v"])) == (bal.qty.quantize(Decimal("0.01")), bal.value), f"Balance drift at {bal.location}"
+    for rb in RollBalance.objects.all():
+        agg = StockMovement.objects.filter(roll=rb.roll, location=rb.location).aggregate(q=Sum("qty"), v=Sum("value"))
+        assert (q2(agg["q"]), q2(agg["v"])) == (rb.qty.quantize(Decimal("0.01")), rb.value), f"Roll drift {rb.roll}"
+    for bal in StockBalance.objects.filter(material__kind="fabric"):
+        agg = RollBalance.objects.filter(location=bal.location, roll__material=bal.material).aggregate(q=Sum("qty"), v=Sum("value"))
+        assert (q2(agg["q"]), q2(agg["v"])) == (bal.qty.quantize(Decimal("0.01")), bal.value), "Rolls do not add up to the item"
+    for f in Factory.objects.all() if check_gl else []:
+        for key, field in (("stock_raw_material", "material"), ("stock_finished", "sku")):
+            held = StockBalance.objects.filter(factory=f, **{f"{field}__isnull": False}).aggregate(v=Sum("value"))["v"]
+            gl = VoucherLine.objects.filter(factory=f, voucher__status="posted", ledger__system_key=key).aggregate(
+                d=Sum("debit"), c=Sum("credit"))
+            assert q2(held) == q2(gl["d"]) - q2(gl["c"]), f"Stock value differs from the {key} ledger in {f.code}"
 
 
 def make_user(username, **extra):

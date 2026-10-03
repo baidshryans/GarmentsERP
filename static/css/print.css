@@ -1,0 +1,12 @@
+/* Printed documents: plain black on white in Assistant, no theme colours. */
+@media print {
+  html, body { background: white !important; color: black !important; font-family: "Assistant", sans-serif; font-size: 11pt; }
+  .topbar, .rail, .messages, .btn, .no-print { display: none !important; }
+  .shell { display: block; }
+  .content { padding: 0; }
+  .island { box-shadow: none; border: 0; padding: 0; background: white; }
+  a { color: black; text-decoration: none; }
+  th, td { border-bottom: 1px solid black; color: black; background: white; }
+  thead th { position: static; color: black; background: white; }
+  .hand, h1.page-title { font-family: "Assistant", sans-serif; }
+}

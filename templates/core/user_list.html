@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">Users</h1>
+    <div class="actions"><a class="btn primary" href="{% url 'user_create' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New user</a></div>
+  </div>
+  <div class="island">
+    <div class="table-wrap"><table>
+      <thead><tr><th>User</th><th>Mobile</th><th>Roles</th><th>Factories</th><th>Status</th><th></th></tr></thead>
+      <tbody>{% for u in users %}
+        <tr>
+          <td><strong>{{ u.username }}</strong><div class="muted">{{ u.get_full_name }}</div></td>
+          <td>{{ u.mobile|default:"—" }}</td>
+          <td>{% for r in u.roles.all %}<span class="pill">{{ r.name }}</span> {% endfor %}{% if u.is_superuser %}<span class="pill warning">Superuser</span>{% endif %}</td>
+          <td>{% if u.all_factories or u.is_superuser %}All{% else %}{% for f in u.allowed_factories.all %}{{ f.code }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</td>
+          <td>{% if u.is_active %}<span class="pill success">Active</span>{% else %}<span class="pill danger">Deactivated</span>{% endif %}</td>
+          <td>{% if not u.is_superuser %}<a href="{% url 'user_edit' u.pk %}">Edit</a>{% endif %}</td>
+        </tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+{% endblock %}

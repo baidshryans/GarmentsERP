@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{% if role %}{{ role.name }}{% else %}New role{% endif %}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{% if role %}{{ role.name }}{% else %}New role{% endif %}</h1></div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/form_errors.html" %}
+    <div class="island" style="max-width:640px">
+      {% for field in form.visible_fields|slice:":2" %}{% include "partials/field.html" %}{% endfor %}
+    </div>
+    <div class="island">
+      <h2>Screens</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Screen</th><th>View</th><th>Create</th><th>Edit</th><th>Cancel</th><th>Approve</th></tr></thead>
+        <tbody>{% for label, cells in form.matrix %}
+          <tr><td>{{ label }}</td>{% for cell in cells %}<td>{{ cell }}</td>{% endfor %}</tr>
+        {% endfor %}</tbody>
+      </table></div>
+    </div>
+    <div class="island">
+      <h2>Sensitive fields</h2>
+      <p class="muted">Fields are hidden entirely from roles that are not ticked here.</p>
+      {% for field in form.field_checks %}{% include "partials/field.html" %}{% endfor %}
+    </div>
+    <div class="form-actions"><button class="btn primary">Save role</button><a class="btn ghost" href="{% url 'role_list' %}">Cancel</a></div>
+  </form>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Vouchers{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Vouchers</h1></div>
+  <div class="island">
+    <form method="get" class="field-row" style="margin-bottom:16px">
+      <div><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if f.factory == fa.pk|stringformat:"s" %}selected{% endif %}>{{ fa.code }}</option>{% endfor %}</select></div>
+      <div><label for="type">Type</label><select id="type" name="type"><option value="">All</option>{% for v, label in types %}<option value="{{ v }}" {% if f.type == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div><label for="status">Status</label><select id="status" name="status"><option value="">All</option><option value="posted" {% if f.status == "posted" %}selected{% endif %}>Posted</option><option value="draft" {% if f.status == "draft" %}selected{% endif %}>Draft</option></select></div>
+      <div style="align-self:end"><button class="btn">Filter</button></div>
+    </form>
+    {% if vouchers %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Number</th><th>Type</th><th>Date</th><th>Factory</th><th>Narration</th><th class="num">Amount</th><th>Status</th></tr></thead>
+      <tbody>{% for v in vouchers %}
+        <tr><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number|default:"Draft" }}</a></td><td>{{ v.get_voucher_type_display }}</td>
+          <td>{{ v.date|date:"d M Y" }}</td><td>{{ v.factory.code }}</td><td class="muted">{{ v.narration|truncatechars:50 }}</td>
+          <td class="num">{{ v.total }}</td>
+          <td>{% if v.status == "posted" %}{% if v.is_reversed %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill success">Posted</span>{% endif %}{% else %}<span class="pill warning">Draft</span>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}
+      <div class="empty"><div class="hand">No vouchers here</div><p>Vouchers appear as documents are posted.</p></div>
+    {% endif %}
+  </div>
+{% endblock %}

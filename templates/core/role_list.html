@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Roles{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">Roles</h1>
+    <div class="actions"><a class="btn primary" href="{% url 'role_create' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New role</a></div>
+  </div>
+  <div class="island">
+    <table>
+      <thead><tr><th>Role</th><th>What it is for</th><th class="num">Users</th><th></th></tr></thead>
+      <tbody>{% for r in roles %}
+        <tr><td><strong>{{ r.name }}</strong>{% if r.is_system %} <span class="pill">Standard</span>{% endif %}</td><td class="muted">{{ r.description }}</td><td class="num">{{ r.users.count }}</td><td><a href="{% url 'role_edit' r.pk %}">Permissions</a></td></tr>
+      {% endfor %}</tbody>
+    </table>
+  </div>
+{% endblock %}

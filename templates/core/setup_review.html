@@ -1,0 +1,27 @@
+{% extends "base_auth.html" %}
+{% block title %}Setup · Review{% endblock %}
+{% block card %}
+  <h1 class="hand-title">Almost there</h1>
+  <p class="tagline">Check these, then finish. Everything can be edited later.</p>
+  <div class="steps">{% for s in steps %}<span class="step {{ s.state }}">{{ s.label }}</span>{% endfor %}</div>
+  <div class="island">
+    <h3>Company</h3>
+    <p>{{ cleaned.company.name }}{% if cleaned.company.pan %} · PAN {{ cleaned.company.pan }}{% endif %}<br>
+      <span class="muted">{{ cleaned.company.city }}</span></p>
+    <h3>Tax</h3>
+    <p>GST: {% if cleaned.tax.gst_registered %}on from {{ cleaned.tax.gst_from|date:"d M Y" }} ({{ cleaned.tax.gstin }}){% else %}not registered{% endif %}<br>
+       TDS: {% if cleaned.tax.tds_deductor %}on from {{ cleaned.tax.tds_from|date:"d M Y" }}{% else %}not deducting{% endif %}<br>
+       <span class="muted">No tax is posted unless you choose it on a voucher.</span></p>
+    <h3>Books</h3>
+    <p>Begin on {{ cleaned.year.books_from|date:"d M Y" }}</p>
+    <h3>First factory</h3>
+    <p>{{ cleaned.factory.code }} — {{ cleaned.factory.name }}</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-actions">
+        <a class="btn ghost" href="{% url 'setup_step' back %}">Back</a>
+        <button class="btn primary">Finish setup</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

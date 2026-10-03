@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Opening balances{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Opening balances</h1></div>
+  <p class="muted" style="max-width:720px">Enter ledger balances as at the books-from date, <strong>{{ company.books_from|date:"d M Y" }}</strong>. Any difference goes to <em>Opening Balance Difference</em> so the books still balance. For debtors and creditors, add a bill reference per row to keep outstanding bill-wise. Opening <strong>stock</strong> is entered from the inventory screens (coming in the next step) and posts into the same books.</p>
+  {% if can_create %}
+  <form method="post" class="island" id="opening-form" novalidate>
+    {% csrf_token %}
+    <div class="field" style="max-width:320px">
+      <label for="factory">Factory</label>
+      <select id="factory" name="factory" required>{% for f in factories %}<option value="{{ f.pk }}" {% if factory_id == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select>
+    </div>
+    <div class="table-wrap"><table id="opening-rows">
+      <thead><tr><th style="width:34%">Ledger</th><th class="num">Debit</th><th class="num">Credit</th><th>Bill reference</th><th>Due date</th></tr></thead>
+      <tbody>{% for r in rows %}
+        <tr>
+          <td><select name="ledger"><option value="">—</option>{% for l in ledgers %}<option value="{{ l.pk }}" {% if r.ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }} ({{ l.group.name }})</option>{% endfor %}</select></td>
+          <td class="num"><input type="text" inputmode="decimal" name="debit" value="{{ r.debit|default:'' }}" class="num"></td>
+          <td class="num"><input type="text" inputmode="decimal" name="credit" value="{{ r.credit|default:'' }}" class="num"></td>
+          <td><input type="text" name="reference" value="{{ r.reference|default:'' }}"></td>
+          <td><input type="date" name="due_date" value="{{ r.due_date|default:'' }}"></td>
+        </tr>
+      {% endfor %}</tbody>
+      <tfoot><tr><td>Total <span class="muted" id="diff"></span></td><td class="num" id="tot-dr">0.00</td><td class="num" id="tot-cr">0.00</td><td colspan="2"></td></tr></tfoot>
+    </table></div>
+    <div class="form-actions">
+      <button type="button" class="btn" id="add-row"><svg width="16" height="16"><use href="#i-plus"/></svg> Add row</button>
+      <button class="btn primary">Post opening balances</button>
+    </div>
+  </form>
+  <script src="{% static 'js/opening.js' %}" defer></script>
+  {% endif %}
+  <div class="island">
+    <h2>Already posted</h2>
+    {% if existing %}
+      <table><thead><tr><th>Voucher</th><th>Date</th><th>Factory</th><th class="num">Total</th></tr></thead>
+        <tbody>{% for v in existing %}<tr><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number }}</a></td><td>{{ v.date|date:"d M Y" }}</td><td>{{ v.factory.code }}</td><td class="num">{{ v.total }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}<div class="empty"><div class="hand">No opening balances yet</div></div>{% endif %}
+  </div>
+{% endblock %}

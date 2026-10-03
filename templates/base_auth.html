@@ -1,0 +1,24 @@
+{% load static %}<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Sign in{% endblock %} · Garment ERP</title>
+  {% include "partials/theme_boot.html" %}
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/app.js' %}" defer></script>
+</head>
+<body>
+  {% include "partials/icons.html" %}
+  <div class="auth-page">
+    <div class="auth-card">
+      {% block card %}{% endblock %}
+    </div>
+  </div>
+  <div style="position:fixed;top:12px;right:12px">
+    <button type="button" class="btn icon" data-theme-toggle data-tip="Switch light / dark" aria-label="Switch light or dark theme" aria-pressed="false"><svg class="theme-icon-sun"><use href="#i-sun"/></svg><svg class="theme-icon-moon"><use href="#i-moon"/></svg></button>
+  </div>
+</body>
+</html>

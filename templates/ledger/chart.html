@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Chart of accounts{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">Chart of accounts</h1>
+    <div class="actions">
+      <a class="btn" href="{% url 'group_create' %}">New group</a>
+      <a class="btn primary" href="{% url 'ledger_create' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New ledger</a>
+    </div>
+  </div>
+  <div class="island">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Name</th><th>Nature</th><th>Detail</th><th></th></tr></thead>
+      <tbody>{% for r in rows %}
+        {% if r.kind == "group" %}
+          <tr><td style="padding-left:{{ r.depth|add:0 }}rem"><strong>{{ r.obj.name }}</strong></td>
+            <td>{{ r.obj.get_nature_display }}</td><td class="muted">{{ r.obj.get_statement_display }}</td>
+            <td><a href="{% url 'group_edit' r.obj.pk %}">Edit</a></td></tr>
+        {% else %}
+          <tr><td style="padding-left:{{ r.depth|add:0 }}rem">{{ r.obj.name }}{% if not r.obj.is_active %} <span class="pill">Inactive</span>{% endif %}</td>
+            <td></td><td class="muted">{% if r.obj.bill_wise %}Bill-wise{% endif %}</td>
+            <td><a href="{% url 'ledger_edit' r.obj.pk %}">Edit</a></td></tr>
+        {% endif %}
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+{% endblock %}

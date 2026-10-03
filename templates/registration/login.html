@@ -1,0 +1,14 @@
+{% extends "base_auth.html" %}
+{% block card %}
+  <h1 class="hand-title">Garment ERP</h1>
+  <p class="tagline">Every metre of fabric, every bundle, one set of books.</p>
+  <div class="island">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/form_errors.html" %}
+      {% for field in form %}{% include "partials/field.html" %}{% endfor %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn primary" style="width:100%">Sign in</button>
+    </form>
+  </div>
+{% endblock %}

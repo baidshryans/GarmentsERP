@@ -1,0 +1,49 @@
+{% load static %}<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Home{% endblock %} · Garment ERP</title>
+  {% include "partials/theme_boot.html" %}
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/app.js' %}" defer></script>
+</head>
+<body>
+  {% include "partials/icons.html" %}
+  {% block shell %}
+  <header class="topbar">
+    <a class="brand" href="{% url 'home' %}">Garment ERP</a>
+    {% if company %}<span class="muted">{{ company.name }}</span>{% endif %}
+    <span class="spacer"></span>
+    {% if user_factories.count > 1 %}
+      <span class="muted" title="Factories you can access">{{ user_factories.count }} factories</span>
+    {% endif %}
+    <button type="button" class="btn icon" data-theme-toggle data-tip="Switch light / dark" aria-label="Switch light or dark theme" aria-pressed="false">
+      <svg class="theme-icon-sun"><use href="#i-sun"/></svg><svg class="theme-icon-moon"><use href="#i-moon"/></svg>
+    </button>
+    <span class="muted">{{ request.user.get_username }}</span>
+    <form method="post" action="{% url 'logout' %}" style="margin:0">
+      {% csrf_token %}
+      <button class="btn icon" data-tip="Sign out" aria-label="Sign out"><svg><use href="#i-logout"/></svg></button>
+    </form>
+  </header>
+  <div class="shell">
+    <nav class="rail" aria-label="Main">
+      {% for group in nav_groups %}
+        <h4>{{ group.title }}</h4>
+        {% for item in group.items %}
+          <a href="{% url item.url_name %}" {% if request.resolver_match.url_name == item.url_name %}aria-current="page"{% endif %}>{{ item.label }}</a>
+        {% endfor %}
+      {% endfor %}
+    </nav>
+    <main class="content">
+      {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {% endblock %}
+</body>
+</html>

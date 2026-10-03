@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Tax settings{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Tax settings</h1></div>
+  <p class="muted" style="max-width:640px">GST and TDS are separate switches with an effective date. Nothing posts to a tax ledger unless you choose tax on a voucher.</p>
+  <div class="grid-2">
+    <div class="island">
+      <h2>History</h2>
+      {% if settings %}
+      <table>
+        <thead><tr><th>Tax</th><th>From</th><th>Status</th><th>Scope</th><th>Number</th></tr></thead>
+        <tbody>{% for s in settings %}
+          <tr><td>{{ s.get_kind_display }}</td><td>{{ s.effective_from|date:"d M Y" }}</td>
+            <td>{% if s.enabled %}<span class="pill success">On</span>{% else %}<span class="pill">Off</span>{% endif %}</td>
+            <td>{{ s.factory.code|default:"Company" }}</td><td>{{ s.registration_number|default:"—" }}</td></tr>
+        {% endfor %}</tbody>
+      </table>
+      {% else %}<div class="empty"><div class="hand">No tax switched on</div><p>The business is neither GST registered nor deducting TDS.</p></div>{% endif %}
+    </div>
+    {% if can_edit %}
+    <div class="island">
+      <h2>Change status</h2>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "partials/form_errors.html" %}
+        {% for field in form %}{% include "partials/field.html" %}{% endfor %}
+        <button class="btn primary">Save</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}

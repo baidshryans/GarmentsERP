@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Factories{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">Factories</h1>
+    <div class="actions"><a class="btn primary" href="{% url 'factory_create' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New factory</a></div>
+  </div>
+  <div class="island">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Code</th><th>Name</th><th>GSTIN</th><th>Locations</th><th>Status</th><th></th></tr></thead>
+      <tbody>{% for f in factories %}
+        <tr>
+          <td><strong>{{ f.code }}</strong></td><td>{{ f.name }}<div class="muted">{{ f.city }}</div></td>
+          <td>{{ f.gstin|default:"—" }}</td>
+          <td>{% for l in f.locations.all %}{{ l.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          <td>{% if f.is_active %}<span class="pill success">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</td>
+          <td><a href="{% url 'factory_edit' f.pk %}">Edit</a></td>
+        </tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+{% endblock %}

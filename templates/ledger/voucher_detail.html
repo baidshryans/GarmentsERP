@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ v }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">{{ v }}</h1>
+    {% if v.is_posted %}{% if reversal %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill success">Posted</span>{% endif %}{% else %}<span class="pill warning">Draft</span>{% endif %}
+  </div>
+  <div class="island">
+    <div class="field-row">
+      <div><div class="label muted">Type</div>{{ v.get_voucher_type_display }}</div>
+      <div><div class="label muted">Date</div>{{ v.date|date:"d M Y" }}</div>
+      <div><div class="label muted">Factory</div>{{ v.factory }}</div>
+      <div><div class="label muted">Financial year</div>{{ v.financial_year }}</div>
+    </div>
+    {% if v.narration %}<p class="muted">{{ v.narration }}</p>{% endif %}
+    {% if v.reverses %}<p>Reverses <a href="{% url 'voucher_detail' v.reverses.pk %}">{{ v.reverses }}</a> — {{ v.reversal_reason }}</p>{% endif %}
+    {% if reversal %}<p>Cancelled by <a href="{% url 'voucher_detail' reversal.pk %}">{{ reversal }}</a> — {{ reversal.reversal_reason }}</p>{% endif %}
+    {% if v.source_type %}<p class="muted">Source: {{ v.source_type }} #{{ v.source_id }}</p>{% endif %}
+  </div>
+  <div class="island">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Ledger</th><th>Factory</th><th>Bill reference</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+      <tbody>{% for l in lines %}
+        <tr><td>{{ l.ledger.name }}{% if l.narration %}<div class="muted">{{ l.narration }}</div>{% endif %}</td><td>{{ l.factory.code }}</td>
+          <td class="muted">{% for a in l.allocations.all %}{{ a.get_ref_type_display }}{% if a.reference %}: {{ a.reference }}{% endif %}{% if not forloop.last %}; {% endif %}{% endfor %}</td>
+          <td class="num">{% if l.debit %}{{ l.debit }}{% endif %}</td><td class="num">{% if l.credit %}{{ l.credit }}{% endif %}</td></tr>
+      {% endfor %}</tbody>
+      <tfoot><tr><td colspan="3">Total</td><td class="num">{{ v.total }}</td><td class="num">{{ v.total }}</td></tr></tfoot>
+    </table></div>
+  </div>
+  {% if v.is_posted and not reversal and not v.reverses and can_cancel %}
+  <div class="island no-print">
+    <h3>Cancel this voucher</h3>
+    <p class="muted">Posted vouchers are never edited or deleted. Cancelling posts an equal and opposite voucher.</p>
+    <form method="post" style="max-width:520px">
+      {% csrf_token %}
+      <div class="field"><label for="reason">Reason</label><input id="reason" name="reason" type="text" required></div>
+      <button class="btn danger">Cancel voucher</button>
+    </form>
+  </div>
+  {% endif %}
+{% endblock %}

@@ -43,7 +43,9 @@ class FactoryScopedViewMixin:
     """For class-based views and DRF viewsets: filters the queryset to the user's factories."""
 
     def get_queryset(self):
-        return super().get_queryset().for_user(self.request.user)
+        parent = super()
+        qs = parent.get_queryset() if hasattr(parent, "get_queryset") else self.queryset.all()
+        return qs.for_user(self.request.user)
 
 
 class ScreenPermissionMixin:

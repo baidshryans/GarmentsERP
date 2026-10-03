@@ -1,0 +1,19 @@
+{% extends "base_auth.html" %}
+{% block title %}Setup · {{ step_label }}{% endblock %}
+{% block card %}
+  <h1 class="hand-title">Let's set things up</h1>
+  <p class="tagline">First-install setup — about two minutes.</p>
+  <div class="steps">{% for s in steps %}<span class="step {{ s.state }}">{{ s.label }}</span>{% endfor %}</div>
+  <div class="island">
+    <h2>{{ step_label }}</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/form_errors.html" %}
+      {% for field in form %}{% include "partials/field.html" %}{% endfor %}
+      <div class="form-actions">
+        {% if back %}<a class="btn ghost" href="{% url 'setup_step' back %}">Back</a>{% endif %}
+        <button class="btn primary">Continue</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

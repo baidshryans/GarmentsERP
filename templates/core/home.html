@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Hello, {{ request.user.first_name|default:request.user.username }}</h1></div>
+  <div class="grid-2">
+    <div class="island"><div class="label muted">Active factories</div><div class="stat">{{ factory_count }}</div></div>
+    <div class="island"><div class="label muted">Posted vouchers</div><div class="stat">{{ voucher_count }}</div></div>
+  </div>
+  <div class="island">
+    <h2>Recent vouchers</h2>
+    {% if recent %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Number</th><th>Date</th><th>Factory</th><th class="num">Amount</th></tr></thead>
+        <tbody>{% for v in recent %}
+          <tr><td><a href="{% url 'voucher_detail' v.pk %}">{{ v.number }}</a></td><td>{{ v.date|date:"d M Y" }}</td><td>{{ v.factory.code }}</td><td class="num">{{ v.total }}</td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+    {% else %}
+      <div class="empty">
+        <svg viewBox="0 0 120 90" aria-hidden="true"><path d="M14 70 Q30 20 60 40 T106 22"/><path d="M14 78h92"/><circle cx="60" cy="40" r="5"/></svg>
+        <div class="hand">Nothing posted yet</div>
+        <p>Start with <a href="{% url 'opening_balances' %}">opening balances</a>, then everything you do will appear here.</p>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}

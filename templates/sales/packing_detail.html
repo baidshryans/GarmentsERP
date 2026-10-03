@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ p }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ p.number|default:"Draft packing list" }}</h1>
+    <span class="pill {% if p.status == 'invoiced' %}success{% elif p.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ p.get_status_display }}</span>
+    <div class="actions">
+      {% if p.status == "draft" and can_edit %}<a class="btn" href="{% url 'packing_edit' p.pk %}">Edit</a>{% endif %}
+      {% if p.status == "packed" or p.status == "invoiced" %}<a class="btn" href="{% url 'packing_print' p.pk %}">Print list</a><a class="btn" href="{% url 'carton_labels' p.pk %}">Carton labels</a>{% endif %}
+      <a class="btn ghost" href="{% url 'packing_list' %}">All packing lists</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Order</div><a href="{% url 'saleorder_detail' p.order.pk %}">{{ p.order.number }}</a></div>
+    <div><div class="label muted">Customer</div>{{ p.order.customer.name }}</div>
+    <div><div class="label muted">Packed from</div>{{ p.location.name }}</div>
+    <div><div class="label muted">Date</div>{{ p.date|date:"d M Y" }}</div>
+    <div><div class="label muted">Transport</div>{{ p.transporter.name|default:"—" }}{% if p.lr_no %} · LR {{ p.lr_no }}{% endif %}{% if p.vehicle_no %} · {{ p.vehicle_no }}{% endif %}</div></div>
+    {% if p.remarks %}<p class="muted">{{ p.remarks }}</p>{% endif %}</div>
+  {% for c in cartons %}
+  <div class="island"><h2>Carton {{ c.carton_no }} <span class="muted" style="font-weight:400">{{ c.code }} · {{ c.total_qty|floatformat:"-0" }} pieces</span></h2>
+    <div class="table-wrap"><table><thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th></tr></thead>
+      <tbody>{% for l in c.lines.all %}<tr><td>{{ l.sku.style.style_no }}</td><td>{{ l.sku.colour }}</td><td>{{ l.sku.size }}</td><td class="num">{{ l.qty|floatformat:"-0" }}</td></tr>{% endfor %}</tbody></table></div></div>
+  {% endfor %}
+  <div class="island"><h2>Actions</h2>
+    <p><strong>{{ p.total_qty|floatformat:"-0" }}</strong> pieces in {{ cartons|length }} carton{{ cartons|length|pluralize }}.</p>
+    {% if invoice %}<p>Invoice: <a href="{% url 'saleinvoice_detail' invoice.pk %}">{{ invoice.number|default:"Draft invoice" }}</a> ({{ invoice.get_status_display }})</p>{% endif %}
+    {% if p.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="finalize">Finalise the list</button> <button class="btn danger" name="action" value="cancel">Discard</button></form>{% endif %}
+    {% if p.status == "packed" %}<form method="post" style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">{% csrf_token %}
+      {% if can_invoice and not invoice %}<button class="btn primary" name="action" value="invoice">Create invoice for the packed pieces</button>{% endif %}</form>
+      {% if can_edit %}<form method="post" style="max-width:420px;margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel packing list</button></form>{% endif %}{% endif %}
+  </div>
+{% endblock %}

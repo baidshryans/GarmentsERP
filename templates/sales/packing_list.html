@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Packing and dispatch{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Packing and dispatch</h1></div>
+  <div class="island"><h2>Orders waiting to be packed</h2>
+    {% if book %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Due</th><th scope="col" class="num">Balance pending</th><th scope="col"></th></tr></thead>
+      <tbody>{% for r in book %}<tr><td><a href="{% url 'saleorder_detail' r.order.pk %}">{{ r.order.number }}</a></td><td>{{ r.order.customer.name }}</td><td>{{ r.order.due_date|date:"d M Y"|default:"—" }}</td><td class="num">{{ r.balance|floatformat:"-0" }}</td><td><a class="btn" href="{% url 'packing_new' r.order.pk %}">Pack</a></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<p class="muted">No open orders.</p>{% endif %}</div>
+  <div class="island"><h2>Packing lists</h2>
+    {% if lists %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Order</th><th scope="col">Customer</th><th scope="col" class="num">Cartons</th><th scope="col" class="num">Pieces</th><th scope="col">LR</th><th scope="col">Status</th></tr></thead>
+      <tbody>{% for p in lists %}<tr><td><a href="{% url 'packing_detail' p.pk %}">{{ p.number|default:"Draft" }}</a></td><td>{{ p.date|date:"d M Y" }}</td><td>{{ p.order.number }}</td><td>{{ p.order.customer.name }}</td><td class="num">{{ p.cartons.count }}</td><td class="num">{{ p.total_qty|floatformat:"-0" }}</td><td>{{ p.lr_no }}</td>
+        <td><span class="pill {% if p.status == 'invoiced' %}success{% elif p.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ p.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No packing lists</div></div>{% endif %}</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Packing list {{ p.number|default:"draft" }}</title>
+  <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v={{ asset_v }}"><link rel="stylesheet" href="{% static 'css/base.css' %}?v={{ asset_v }}">
+  <style>
+    body { background: white; color: black; font-family: "Assistant", sans-serif; }
+    .sheet { max-width: 190mm; margin: 10mm auto; padding: 0 6mm; }
+    .sheet table { border-collapse: collapse; width: 100%; margin-bottom: 5mm; }
+    .sheet th, .sheet td { border: 1px solid black; padding: 4px 8px; color: black; background: white; }
+    .sheet h1 { margin: 0; font-size: 20pt; }
+    .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6mm; }
+    .carton { break-inside: avoid; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <p class="no-print"><button class="btn primary" onclick="window.print()">Print</button></p>
+    <div class="head">
+      <div><h1>{{ p.company.name }}</h1><div>{{ p.factory.name }}{% if p.factory.gstin %} · GSTIN {{ p.factory.gstin }}{% endif %}</div>
+        <div style="font-size:14pt;margin-top:4mm"><strong>PACKING LIST</strong></div></div>
+      <div style="text-align:right"><div><strong>{{ p.number|default:"DRAFT" }}</strong></div><div>Date {{ p.date|date:"d M Y" }}</div><div>Order {{ p.order.number }}</div></div>
+    </div>
+    <table><tbody>
+      <tr><td>To</td><td><strong>{{ p.order.customer.name }}</strong>{% if p.order.customer.destination %}<br>{{ p.order.customer.destination }}{% endif %}</td><td>Transport</td><td>{{ p.transporter.name|default:"—" }}<br>LR {{ p.lr_no|default:"—" }}{% if p.lr_date %} · {{ p.lr_date|date:"d M Y" }}{% endif %}<br>Vehicle {{ p.vehicle_no|default:"—" }}</td></tr>
+    </tbody></table>
+    {% for c in cartons %}
+    <div class="carton"><strong>Carton {{ c.carton_no }}</strong> <span>({{ c.code }})</span>
+      <table><thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" style="text-align:right">Pieces</th></tr></thead>
+        <tbody>{% for l in c.lines.all %}<tr><td>{{ l.sku.style.style_no }} {{ l.sku.style.name }}</td><td>{{ l.sku.colour }}</td><td>{{ l.sku.size }}</td><td style="text-align:right">{{ l.qty|floatformat:"-0" }}</td></tr>{% endfor %}</tbody>
+        <tfoot><tr><td colspan="3"><strong>Carton total</strong></td><td style="text-align:right"><strong>{{ c.total_qty|floatformat:"-0" }}</strong></td></tr></tfoot></table></div>
+    {% endfor %}
+    <p><strong>Total: {{ cartons|length }} carton{{ cartons|length|pluralize }}, {{ p.total_qty|floatformat:"-0" }} pieces.</strong></p>
+  </div>
+</body>
+</html>

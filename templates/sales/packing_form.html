@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Packing list{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
+  <div class="page-head"><h1 class="page-title">{% if packing %}Edit packing list{% else %}Pack {{ order.number }}{% endif %}</h1><span class="muted">{{ order.customer.name }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'saleorder_detail' order.pk %}">Back to the order</a></div></div>
+  <form method="post" novalidate>{% csrf_token %}<input type="hidden" name="n" value="{{ n }}">
+    <button hidden tabindex="-1" aria-hidden="true"></button>
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="location">Pack from</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if vals.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}"></div>
+      <div class="field"><label for="transporter">Transporter</label><select id="transporter" name="transporter"><option value="">—</option>{% for t in transporters %}<option value="{{ t.pk }}" {% if vals.transporter == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="lr_no">LR / docket no</label><input id="lr_no" name="lr_no" type="text" value="{{ vals.lr_no }}"></div>
+      <div class="field"><label for="lr_date">LR date</label><input id="lr_date" name="lr_date" type="date" value="{{ vals.lr_date }}"></div>
+      <div class="field"><label for="vehicle_no">Vehicle no</label><input id="vehicle_no" name="vehicle_no" type="text" value="{{ vals.vehicle_no }}"></div>
+    </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>
+    <div class="island"><h2>Pieces in each carton</h2>
+      <div class="table-scroll"><table>
+        <thead><tr><th scope="col">Style</th><th scope="col">Colour</th><th scope="col">Size</th><th scope="col" class="num">Left to pack</th>{% for c in cartons %}<th scope="col" class="num">Carton {{ c }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in rows %}<tr><td>{{ r.line.sku.style.style_no }}</td><td>{{ r.line.sku.colour }}</td><td>{{ r.line.sku.size }}</td><td class="num">{{ r.left|floatformat:"-0" }}</td>
+          {% for c in r.cells %}<td class="num"><input type="text" inputmode="numeric" class="cell" style="width:70px" name="{{ c.name }}" value="{{ c.value }}"></td>{% endfor %}</tr>{% endfor %}</tbody>
+      </table></div>
+      {% if n < 30 %}<p><button class="btn" name="add_carton" value="1" formnovalidate>Add a carton</button> <span class="muted">keeps what you have typed</span></p>{% endif %}
+    </div>
+    <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'saleorder_detail' order.pk %}">Cancel</a></div>
+  </form>
+{% endblock %}

@@ -9,3 +9,4 @@ class TaxConfig(AppConfig):
         from . import seeding
 
         seeding.register()
+        seeding.register_templates()

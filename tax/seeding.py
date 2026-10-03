@@ -31,3 +31,37 @@ def seed_hsn(company=None):
 
 def register():
     register_seeder("hsn", seed_hsn, order=40)
+
+
+GST_RATES = [Decimal("0"), Decimal("5"), Decimal("12"), Decimal("18")]
+# name, section, rate - to be confirmed by the accountant; every row is editable.
+TDS_TEMPLATES = [
+    ("TDS 194C - individual / HUF (1%)", "194C", Decimal("1")),
+    ("TDS 194C - others (2%)", "194C", Decimal("2")),
+    ("TDS 194Q - purchase of goods (0.1%)", "194Q", Decimal("0.1")),
+]
+
+
+@transaction.atomic
+def seed_tax_templates(company=None):
+    from .models import TaxTemplate, TaxTemplateLine
+
+    def make(name, kind, lines, **flags):
+        t, created = TaxTemplate.objects.get_or_create(name=name, defaults={"kind": kind, **flags})
+        if created:
+            for component, rate in lines:
+                TaxTemplateLine.objects.create(template=t, component=component, rate=rate)
+
+    for rate in GST_RATES:
+        half = rate / 2
+        r = f"{rate.normalize():f}"
+        make(f"GST {r}% intra-state (CGST + SGST)", "gst", [("cgst", half), ("sgst", half)])
+        make(f"GST {r}% inter-state (IGST)", "gst", [("igst", rate)], is_interstate=True)
+        make(f"GST {r}% intra-state, reverse charge", "gst", [("cgst", half), ("sgst", half)], is_reverse_charge=True)
+        make(f"GST {r}% inter-state, reverse charge", "gst", [("igst", rate)], is_interstate=True, is_reverse_charge=True)
+    for name, section, rate in TDS_TEMPLATES:
+        make(name, "tds", [("tds", rate)], section=section)
+
+
+def register_templates():
+    register_seeder("tax_templates", seed_tax_templates, order=45)

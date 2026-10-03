@@ -93,3 +93,58 @@ class HsnSlab(models.Model):
     def __str__(self):
         upper = self.value_to if self.value_to is not None else "up"
         return f"{self.hsn.code}: {self.value_from}-{upper} @ {self.gst_rate}%"
+
+
+class TaxTemplate(models.Model):
+    """A named tax choice a user picks on a voucher (PRD 10.2 item 3). Nothing applies unless chosen.
+
+    GST templates are intra-state (CGST + SGST) or inter-state (IGST). A reverse-charge template
+    makes the buyer, not the vendor, liable. TDS and TCS templates carry a section and a rate.
+    """
+
+    class Kind(models.TextChoices):
+        GST = "gst", "GST"
+        TDS = "tds", "TDS"
+        TCS = "tcs", "TCS"
+
+    name = models.CharField(max_length=80, unique=True)
+    kind = models.CharField(max_length=3, choices=Kind.choices)
+    is_interstate = models.BooleanField(default=False, help_text="GST only: IGST instead of CGST + SGST")
+    is_reverse_charge = models.BooleanField(default=False, help_text="GST only: the buyer pays the tax (RCM)")
+    section = models.CharField(max_length=10, blank=True, help_text="TDS / TCS section, for example 194C")
+    is_active = models.BooleanField(default=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["kind", "name"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def total_rate(self):
+        return sum((l.rate for l in self.lines.all()), 0)
+
+
+class TaxTemplateLine(models.Model):
+    class Component(models.TextChoices):
+        CGST = "cgst", "CGST"
+        SGST = "sgst", "SGST"
+        IGST = "igst", "IGST"
+        TDS = "tds", "TDS"
+        TCS = "tcs", "TCS"
+
+    template = models.ForeignKey(TaxTemplate, on_delete=models.CASCADE, related_name="lines")
+    component = models.CharField(max_length=4, choices=Component.choices)
+    rate = models.DecimalField("Rate %", max_digits=6, decimal_places=3)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["template", "component"], name="uniq_template_component"),
+        ]
+
+    def __str__(self):
+        return f"{self.template}: {self.component} {self.rate}%"

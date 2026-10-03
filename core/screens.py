@@ -14,8 +14,10 @@ SCREENS = {
     "ledger.voucher": "Vouchers",
     "ledger.opening": "Opening balances",
     "ledger.report": "Books and trial balance",
+    "ledger.yearend": "Year-end close",
     "tax.settings": "Tax settings",
     "tax.hsn": "HSN codes and GST slabs",
+    "tax.report": "GST and TDS returns",
     "masters.basics": "Units, sizes, colours, products",
     "masters.material": "Materials (fabric, trims)",
     "masters.style": "Styles and SKUs",
@@ -34,6 +36,8 @@ SCREENS = {
     "inventory.opening": "Opening stock",
     "inventory.labels": "Labels and tags",
     "inventory.settings": "Inventory and purchase settings",
+    "inventory.reorder": "Reorder levels",
+    "inventory.alerts": "Low-stock alerts",
     "production.order": "Production orders",
     "production.lot": "Lots and route planning",
     "production.cutting": "Fabric issue and cutting",
@@ -46,6 +50,12 @@ SCREENS = {
     "jobwork.rate": "Labour rates",
     "jobwork.bill": "Labour bills",
     "jobwork.report": "Fabricator ledger and reports",
+    "sales.order": "Sale orders",
+    "sales.packing": "Packing lists and dispatch",
+    "sales.invoice": "Sale invoices and barcode billing",
+    "sales.creditnote": "Sales credit notes",
+    "sales.discount": "Discount above the limit",
+    "sales.settings": "Sales settings",
 }
 
 

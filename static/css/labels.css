@@ -11,10 +11,13 @@
 .layout-thermal2 .tag { width: 50mm; height: 25mm; font-size: 7pt; padding: 1.5mm; }
 .layout-thermal2 .tag svg { height: 8mm; }
 .layout-thermal2 .tag .big { font-size: 9pt; }
+.layout-thermal6 .tag { width: 100mm; height: 150mm; font-size: 11pt; padding: 5mm; }
+.layout-thermal6 .tag svg { height: 22mm; }
+.layout-thermal6 .tag .big { font-size: 18pt; }
 .layout-a4 .tag { width: 63mm; height: 38mm; }
 @media print {
   @page { margin: 6mm; }
-  .layout-thermal4 .tag, .layout-thermal2 .tag { page-break-after: always; border: 0; }
+  .layout-thermal4 .tag, .layout-thermal2 .tag, .layout-thermal6 .tag { page-break-after: always; border: 0; }
   .label-sheet { gap: 0; }
   .tag { color: black; background: white; border: 0; font-family: "Assistant", sans-serif; }
   .layout-a4 .tag { border: 1px dotted black; }

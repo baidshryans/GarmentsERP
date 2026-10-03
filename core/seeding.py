@@ -40,20 +40,22 @@ SYSTEM_ROLES = {
     "Accountant": (
         "Vouchers, opening balances, books and tax settings",
         {"ledger.chart": ["view", "create", "edit"], "ledger.voucher": ["view", "create", "edit", "cancel"],
-         "ledger.opening": ["view", "create"], "ledger.report": ["view"], "tax.settings": ["view", "edit"],
-         "tax.hsn": ["view", "create", "edit"], "masters.party": ["view", "create", "edit"],
+         "ledger.opening": ["view", "create"], "ledger.report": ["view"], "ledger.yearend": ["view"], "tax.settings": ["view", "edit"],
+         "tax.hsn": ["view", "create", "edit"], "tax.report": ["view"], "masters.party": ["view", "create", "edit"],
          "masters.import": ["view", "create"], "core.period_lock": ["view", "edit"],
          "purchases.invoice": ["view", "create", "edit", "cancel"], "purchases.debitnote": ["view", "create", "edit", "cancel"],
          "purchases.po": ["view"], "purchases.grn": ["view"], "inventory.stock": ["view"],
          "inventory.opening": ["view", "create"], "inventory.transfer": ["view"],
          "jobwork.bill": ["view", "create", "edit", "cancel"], "jobwork.rate": ["view", "create", "edit"],
-         "jobwork.report": ["view"], "production.dashboard": ["view"], "production.order": ["view"]},
+         "jobwork.report": ["view"], "production.dashboard": ["view"], "production.order": ["view"],
+         "sales.order": ["view"], "sales.packing": ["view"], "sales.invoice": ["view", "create", "edit", "cancel"],
+         "sales.creditnote": ["view", "create", "edit", "cancel"], "sales.settings": ["view", "edit"]},
         list(SENSITIVE_FIELDS),
     ),
     "Purchase Officer": (
         "Purchase orders and vendors",
         {"purchases.po": ["view", "create", "edit"], "purchases.grn": ["view"], "masters.party": ["view", "create", "edit"],
-         "masters.material": ["view"], "inventory.stock": ["view"]},
+         "masters.material": ["view"], "inventory.stock": ["view"], "inventory.alerts": ["view"], "inventory.reorder": ["view"]},
         [],
     ),
     "Merchandiser": (
@@ -97,15 +99,21 @@ SYSTEM_ROLES = {
         {"masters.material": ["view"], "masters.style": ["view"], "masters.basics": ["view"],
          "purchases.grn": ["view", "create", "edit"], "purchases.po": ["view"], "inventory.stock": ["view"],
          "inventory.transfer": ["view", "create", "edit"], "inventory.labels": ["view", "create"],
-         "inventory.opening": ["view", "create"], "purchases.debitnote": ["view"]}, [],
+         "inventory.opening": ["view", "create"], "purchases.debitnote": ["view"],
+         "inventory.reorder": ["view", "create", "edit"], "inventory.alerts": ["view", "edit"]}, [],
     ),
     "Billing Clerk": (
         "Invoices, packing lists and dispatch",
-        {"masters.party": ["view", "create", "edit"], "masters.style": ["view"], "masters.pricelist": ["view"]},
+        {"masters.party": ["view", "create", "edit"], "masters.style": ["view"], "masters.pricelist": ["view"],
+         "sales.order": ["view", "create", "edit"], "sales.packing": ["view", "create", "edit"],
+         "sales.invoice": ["view", "create", "edit"], "sales.creditnote": ["view", "create"],
+         "inventory.stock": ["view"], "inventory.labels": ["view", "create"]},
         ["customer_phone"],
     ),
     "Salesperson": (
-        "Orders and own customers", {"masters.party": ["view"], "masters.style": ["view"]}, ["customer_phone"]
+        "Orders and own customers",
+        {"masters.party": ["view"], "masters.style": ["view"], "sales.order": ["view", "create", "edit"]},
+        ["customer_phone"]
     ),
     "Fabricator": ("Own bundles and earnings on the mobile app", {}, []),
 }

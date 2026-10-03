@@ -12,14 +12,15 @@
       <div><div class="label muted">Factory</div>{{ v.factory }}</div>
       <div><div class="label muted">Financial year</div>{{ v.financial_year }}</div>
     </div>
+    {% if v.vendor_invoice_no %}<p class="muted">Vendor invoice no.: <strong>{{ v.vendor_invoice_no }}</strong></p>{% endif %}
     {% if v.narration %}<p class="muted">{{ v.narration }}</p>{% endif %}
     {% if v.reverses %}<p>Reverses <a href="{% url 'voucher_detail' v.reverses.pk %}">{{ v.reverses }}</a> — {{ v.reversal_reason }}</p>{% endif %}
     {% if reversal %}<p>Cancelled by <a href="{% url 'voucher_detail' reversal.pk %}">{{ reversal }}</a> — {{ reversal.reversal_reason }}</p>{% endif %}
-    {% if v.source_type %}<p class="muted">Source: {{ v.source_type }} #{{ v.source_id }}</p>{% endif %}
+    {% if source %}<p>Made by {{ source.label }} <a href="{{ source.url }}">{{ source.number }}</a></p>{% elif v.source_type %}<p class="muted">Source: {{ v.source_type }} #{{ v.source_id }}</p>{% endif %}
   </div>
   <div class="island">
     <div class="table-wrap"><table>
-      <thead><tr><th>Ledger</th><th>Factory</th><th>Bill reference</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+      <thead><tr><th scope="col">Ledger</th><th scope="col">Factory</th><th scope="col">Bill reference</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th></tr></thead>
       <tbody>{% for l in lines %}
         <tr><td>{{ l.ledger.name }}{% if l.narration %}<div class="muted">{{ l.narration }}</div>{% endif %}</td><td>{{ l.factory.code }}</td>
           <td class="muted">{% for a in l.allocations.all %}{{ a.get_ref_type_display }}{% if a.reference %}: {{ a.reference }}{% endif %}{% if not forloop.last %}; {% endif %}{% endfor %}</td>

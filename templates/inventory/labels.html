@@ -2,10 +2,10 @@
 {% load static %}
 {% block title %}Print labels{% endblock %}
 {% block content %}
-  <link rel="stylesheet" href="{% static 'css/labels.css' %}">
+  <link rel="stylesheet" href="{% static 'css/labels.css' %}?v={{ asset_v }}">
   <div class="page-head no-print"><h1 class="page-title">{{ labels|length }} label{{ labels|length|pluralize }}</h1>
     <div class="actions">
-      {% if kind == "roll" %}{% for key, name in layouts.items %}<a class="btn {% if key == layout %}primary{% endif %}" href="?layout={{ key }}">{{ name }}</a>{% endfor %}{% endif %}
+      {% if kind == "roll" or kind == "carton" %}{% for key, name in layouts.items %}<a class="btn {% if key == layout %}primary{% endif %}" href="?layout={{ key }}">{{ name }}</a>{% endfor %}{% endif %}
       <button class="btn primary" onclick="window.print()">Print</button></div></div>
   <p class="muted no-print">Choose the paper size in the print dialog to match the layout. Labels print in black on white.</p>
   <div class="label-sheet layout-{{ layout }}">
@@ -18,6 +18,16 @@
         <div>Roll {{ l.roll.vendor_roll_no }}{% if l.roll.lot_no %} · Lot {{ l.roll.lot_no }}{% endif %}</div>
         <div>{{ l.roll.received_qty|floatformat:"-3" }} {{ l.roll.material.unit }}{% if l.roll.received_length_m %} · {{ l.roll.received_length_m|floatformat:"-1" }} m{% endif %}{% if l.roll.gsm %} · {{ l.roll.gsm }} GSM{% endif %}{% if l.roll.width_cm %} · {{ l.roll.width_cm|floatformat:"-1" }} cm{% endif %}</div>
         <div>{{ l.roll.supplier.name|default:"" }} · {{ l.roll.received_date|date:"d M Y" }}</div>
+      </div>
+      {% elif kind == "carton" %}
+      <div class="tag">
+        <div class="big">{{ l.carton.packing.order.customer.name }}</div>
+        <div>{{ l.carton.packing.order.customer.destination|default:"" }}{% if l.carton.packing.lr_no %} · LR {{ l.carton.packing.lr_no }}{% endif %}</div>
+        <div><strong>Carton {{ l.carton.carton_no }} of {{ l.total }}</strong> · {{ l.carton.total_qty|floatformat:"-0" }} pcs · {{ l.carton.packing.number }}</div>
+        {{ l.svg|safe }}
+        <div class="code">{{ l.carton.code }}</div>
+        <div>{% for cl in l.carton.lines.all %}{{ cl.sku.style.style_no }} {{ cl.sku.colour }} {{ cl.sku.size }}: {{ cl.qty|floatformat:"-0" }}{% if not forloop.last %} · {% endif %}{% endfor %}</div>
+        <div>From {{ l.carton.packing.factory.name }}</div>
       </div>
       {% else %}
       <div class="tag">

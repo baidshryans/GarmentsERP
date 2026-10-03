@@ -1,3 +1,9 @@
+from pathlib import Path
+
+from django.conf import settings
+from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
+
 from .models import Company, Factory
 
 NAV = [
@@ -19,12 +25,21 @@ NAV = [
         ("invoice_list", "Purchase invoices", "purchases.invoice"),
         ("debitnote_list", "Debit notes", "purchases.debitnote"),
     ]),
+    ("Sales", [
+        ("saleorder_list", "Sale orders", "sales.order"),
+        ("packing_list", "Packing and dispatch", "sales.packing"),
+        ("saleinvoice_list", "Sale invoices", "sales.invoice"),
+        ("billing", "Barcode billing", "sales.invoice.create"),
+        ("salecn_list", "Credit notes", "sales.creditnote"),
+    ]),
     ("Inventory", [
         ("stock_enquiry", "Stock", "inventory.stock"),
         ("roll_list", "Fabric rolls", "inventory.stock"),
         ("transfer_list", "Transfers", "inventory.transfer"),
         ("opening_stock", "Opening stock", "inventory.opening"),
         ("tag_print", "Print tags", "inventory.labels"),
+        ("reorder_levels", "Reorder levels", "inventory.reorder"),
+        ("stock_alerts", "Low-stock alerts", "inventory.alerts"),
     ]),
     ("Production", [
         ("production_dashboard", "Dashboard", "production.dashboard"),
@@ -37,12 +52,37 @@ NAV = [
         ("bill_list", "Labour bills", "jobwork.bill"),
         ("rate_list", "Labour rates", "jobwork.rate"),
         ("job_reports", "Fabricator reports", "jobwork.report"),
+        ("daily_summary", "Daily summary", "jobwork.report"),
     ]),
     ("Accounts", [
         ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
         ("voucher_list", "Vouchers", "ledger.voucher"),
+        ("voucher_payment", "Payment", "ledger.voucher.create"),
+        ("voucher_receipt", "Receipt", "ledger.voucher.create"),
+        ("voucher_contra", "Contra", "ledger.voucher.create"),
+        ("voucher_journal", "Journal", "ledger.voucher.create"),
+        ("voucher_sales", "Sales voucher", "ledger.voucher.create"),
+        ("voucher_purchase", "Purchase voucher", "ledger.voucher.create"),
+        ("voucher_debit_note", "Debit note", "ledger.voucher.create"),
+        ("voucher_credit_note", "Credit note", "ledger.voucher.create"),
         ("opening_balances", "Opening balances", "ledger.opening"),
         ("trial_balance", "Trial balance", "ledger.report"),
+        ("profit_loss", "Profit and loss", "ledger.report"),
+        ("balance_sheet", "Balance sheet", "ledger.report"),
+        ("day_book", "Day book", "ledger.report"),
+        ("ledger_pick", "Ledger statement", "ledger.report"),
+        ("period_locks", "Period locks", "core.period_lock"),
+        ("year_end", "Year-end", "ledger.yearend"),
+    ]),
+    ("Reports", [
+        ("sales_report", "Sales", "sales.invoice"),
+        ("purchase_report", "Purchases", "purchases.invoice"),
+        ("finished_stock", "Finished stock", "inventory.stock"),
+        ("ageing_debtors", "Receivables ageing", "ledger.report"),
+        ("ageing_creditors", "Payables ageing", "ledger.report"),
+        ("gstr1", "GSTR-1 data", "tax.report"),
+        ("gstr3b", "GSTR-3B summary", "tax.report"),
+        ("tax_register", "Tax register", "tax.report"),
     ]),
     ("Admin", [
         ("factory_list", "Factories", "core.factory"),
@@ -50,45 +90,79 @@ NAV = [
         ("role_list", "Roles", "core.role"),
         ("tax_settings", "Tax settings", "tax.settings"),
         ("inventory_settings", "Inventory settings", "inventory.settings"),
+        ("sales_settings", "Sales settings", "sales.settings"),
     ]),
 ]
 
 
 # A group is "current" when the page is one of its screens or lives under one of its URL prefixes
 # (a lot page, a challan, a style are not menu entries but belong to Production, Job work, Masters).
+ICONS = {
+    "Home": "i-home", "Masters": "i-masters", "Purchases": "i-purchases", "Sales": "i-sales", "Inventory": "i-inventory",
+    "Production": "i-production", "Job work": "i-jobwork", "Accounts": "i-accounts", "Reports": "i-reports", "Admin": "i-admin",
+}
+
 PREFIXES = {
     "Masters": ("/masters/", "/import/"),
     "Purchases": ("/purchases/",),
+    "Sales": ("/sales/",),
     "Inventory": ("/inventory/",),
     "Production": ("/production/",),
     "Job work": ("/jobwork/",),
-    "Accounts": ("/accounts/chart", "/accounts/vouchers", "/accounts/opening", "/accounts/trial"),
+    "Accounts": ("/accounts/chart", "/accounts/vouchers", "/accounts/opening", "/accounts/trial", "/accounts/ledgers", "/accounts/profit",
+                 "/accounts/balance", "/accounts/day-book", "/accounts/ageing", "/accounts/period", "/accounts/year"),
+    "Reports": ("/reports/",),
     "Admin": ("/factories/", "/users/", "/roles/", "/tax/", "/settings/"),
 }
+
+
+def _built(url_name):
+    """A screen is listed only once its URL exists, so a menu entry never breaks the page."""
+    try:
+        reverse(url_name)
+    except NoReverseMatch:
+        return False
+    return True
+
+
+def _allowed(user, screen):
+    """'app.screen' needs view; 'app.screen.create' (or .edit ...) needs that action instead."""
+    base, _, action = screen.rpartition(".") if screen.count(".") == 2 else (screen, "", "view")
+    return user.has_screen_perm(base, action or "view")
+
+
+def _asset_version():
+    """Newest modification time of our own css/js, so a changed file is never served from a stale browser cache."""
+    root = Path(settings.BASE_DIR) / "static"
+    stamps = [f.stat().st_mtime for sub in ("css", "js") for f in (root / sub).glob("*") if f.is_file()]
+    return str(int(max(stamps))) if stamps else "0"
 
 
 def app_shell(request):
     """Navigation rail and company name for the base layout. Only built screens are listed."""
     user = request.user
+    today = timezone.localdate().isoformat()   # ISO text, ready for <input type="date">
+    asset_v = _asset_version()
     if not user.is_authenticated:
-        return {}
+        return {"today": today, "asset_v": asset_v}
     groups = []
     current = request.resolver_match.url_name if getattr(request, "resolver_match", None) else None
     for title, items in NAV:
         visible = [
             {"url_name": u, "label": label}
             for u, label, screen in items
-            if screen == "core.home" or user.has_screen_perm(screen, "view")
+            if (screen == "core.home" or _allowed(user, screen)) and _built(u)
         ]
         if visible:
             groups.append({
                 "title": title, "items": visible,
                 "active": any(i["url_name"] == current for i in visible)
                 or any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
-                "key": title.lower().replace(" ", "-"),
+                "key": title.lower().replace(" ", "-"), "icon": ICONS.get(title, "i-masters"),
             })
     company = Company.objects.filter(setup_complete=True).first()
     return {
+        "today": today, "asset_v": asset_v,
         "nav_groups": groups,
         "company": company,
         "user_factories": Factory.objects.for_user(user).filter(is_active=True),

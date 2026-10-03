@@ -34,6 +34,10 @@ DEFAULT_PREFIXES = {
     "jw_receipt": "JWR",
     "labour_bill": "LB",
     "fabric_issue": "FIS",
+    "sale_order": "SO",
+    "sale_invoice": "INV",
+    "sale_credit_note": "SCN",
+    "packing_list": "PKL",
 }
 
 

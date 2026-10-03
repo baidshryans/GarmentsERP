@@ -1,0 +1,21 @@
+/* Labels and tags. On screen they preview in tokens; printed they are plain black on white in Assistant. */
+.label-sheet { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.tag {
+  background: var(--color-surface); border: 1px dashed var(--color-hairline); border-radius: 4px;
+  padding: 3mm; overflow: hidden; break-inside: avoid; font-size: 9pt; line-height: 1.25; color: var(--color-ink);
+}
+.tag .code { font-weight: 700; font-size: 10pt; font-variant-numeric: tabular-nums; }
+.tag .big { font-weight: 700; font-size: 12pt; }
+.tag svg { display: block; max-width: 100%; height: 12mm; margin: 1mm 0; }
+.layout-thermal4 .tag { width: 100mm; height: 50mm; }
+.layout-thermal2 .tag { width: 50mm; height: 25mm; font-size: 7pt; padding: 1.5mm; }
+.layout-thermal2 .tag svg { height: 8mm; }
+.layout-thermal2 .tag .big { font-size: 9pt; }
+.layout-a4 .tag { width: 63mm; height: 38mm; }
+@media print {
+  @page { margin: 6mm; }
+  .layout-thermal4 .tag, .layout-thermal2 .tag { page-break-after: always; border: 0; }
+  .label-sheet { gap: 0; }
+  .tag { color: black; background: white; border: 0; font-family: "Assistant", sans-serif; }
+  .layout-a4 .tag { border: 1px dotted black; }
+}

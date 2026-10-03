@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Fabric rolls{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Fabric rolls</h1><div class="actions"><a class="btn" href="{% url 'stock_enquiry' %}">Stock</a></div></div>
+  <div class="island">
+    <form method="get" class="field-row" style="margin-bottom:16px"><div><label for="q">Search</label><input id="q" name="q" type="text" value="{{ q }}" placeholder="Label, roll no., lot or fabric"></div><div style="align-self:end"><button class="btn">Search</button></div></form>
+    {% if rows %}<div class="table-wrap"><table>
+      <thead><tr><th>Label</th><th>Fabric</th><th>Vendor roll</th><th>Lot / shade</th><th class="num">GSM</th><th>Location</th><th class="num">Balance</th>{% if can_cost %}<th class="num">Value</th>{% endif %}<th></th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td><strong>{{ r.roll.label_code }}</strong></td><td>{{ r.roll.material.name }}</td><td>{{ r.roll.vendor_roll_no }}</td><td>{{ r.roll.lot_no|default:"—" }}</td><td class="num">{{ r.roll.gsm|default:"" }}</td>
+        <td>{{ r.location }}</td><td class="num">{{ r.qty|floatformat:"-3" }}</td>{% if can_cost %}<td class="num">{{ r.value }}</td>{% endif %}<td><a href="{% url 'roll_label' r.roll.pk %}">Label</a></td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No rolls in stock</div></div>{% endif %}
+  </div>
+{% endblock %}

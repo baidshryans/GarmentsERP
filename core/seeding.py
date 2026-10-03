@@ -32,7 +32,7 @@ SYSTEM_ROLES = {
     "Owner": ("Approvals, dashboards and everything else", {"*": ALL_ACTIONS}, list(SENSITIVE_FIELDS)),
     "Administrator": (
         "Company, factories, users and roles. Cannot post transactions.",
-        {"core.company": ["view", "edit"], "core.factory": ["view", "create", "edit"],
+        {"core.company": ["view", "edit"], "inventory.settings": ["view", "edit"], "core.factory": ["view", "create", "edit"],
          "core.user": ["view", "create", "edit"], "core.role": ["view", "create", "edit"],
          "tax.settings": ["view", "edit"]},
         [],
@@ -42,9 +42,17 @@ SYSTEM_ROLES = {
         {"ledger.chart": ["view", "create", "edit"], "ledger.voucher": ["view", "create", "edit", "cancel"],
          "ledger.opening": ["view", "create"], "ledger.report": ["view"], "tax.settings": ["view", "edit"],
          "tax.hsn": ["view", "create", "edit"], "masters.party": ["view", "create", "edit"],
-         "masters.import": ["view", "create"],
-         "core.period_lock": ["view", "edit"]},
+         "masters.import": ["view", "create"], "core.period_lock": ["view", "edit"],
+         "purchases.invoice": ["view", "create", "edit", "cancel"], "purchases.debitnote": ["view", "create", "edit", "cancel"],
+         "purchases.po": ["view"], "purchases.grn": ["view"], "inventory.stock": ["view"],
+         "inventory.opening": ["view", "create"], "inventory.transfer": ["view"]},
         list(SENSITIVE_FIELDS),
+    ),
+    "Purchase Officer": (
+        "Purchase orders and vendors",
+        {"purchases.po": ["view", "create", "edit"], "purchases.grn": ["view"], "masters.party": ["view", "create", "edit"],
+         "masters.material": ["view"], "inventory.stock": ["view"]},
+        [],
     ),
     "Merchandiser": (
         "Styles, SKUs, BOMs, routes and materials",
@@ -62,7 +70,10 @@ SYSTEM_ROLES = {
     "Cutting Master": ("Lay, cutting and bundle tags", {}, []),
     "Store Keeper": (
         "Fabric and trims receipt, issue and transfers",
-        {"masters.material": ["view"], "masters.style": ["view"], "masters.basics": ["view"]}, [],
+        {"masters.material": ["view"], "masters.style": ["view"], "masters.basics": ["view"],
+         "purchases.grn": ["view", "create", "edit"], "purchases.po": ["view"], "inventory.stock": ["view"],
+         "inventory.transfer": ["view", "create", "edit"], "inventory.labels": ["view", "create"],
+         "inventory.opening": ["view", "create"], "purchases.debitnote": ["view"]}, [],
     ),
     "Billing Clerk": (
         "Invoices, packing lists and dispatch",

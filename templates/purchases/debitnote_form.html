@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Return to vendor{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Return goods to a vendor</h1></div>
+  <p class="muted" style="max-width:760px">For goods already in stock. Pieces rejected at QC get their own debit note automatically on the GRN.</p>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="island"><div class="field-row">
+      <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor">{% for v in vendors %}<option value="{{ v.pk }}" {% if d.vendor == v.pk|stringformat:"s" %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory">{% for f in factories %}<option value="{{ f.pk }}" {% if d.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ d.date }}" required></div>
+      <div class="field"><label for="reason">Reason</label><input id="reason" name="reason" type="text" value="{{ d.reason }}"></div></div>
+      <div class="field-row">
+        <div class="field"><label for="gst_template">GST on the return (optional)</label><select id="gst_template" name="gst_template"><option value="">No GST</option>{% for t in gst_templates %}<option value="{{ t.pk }}" {% if d.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="check" style="align-self:end"><input id="itc" type="checkbox" name="itc_claimable" checked><label for="itc">Input credit was claimed</label></div></div></div>
+    <div class="island"><div class="table-wrap"><table>
+      <thead><tr><th style="width:30%">Item</th><th>From location</th><th>Roll (fabric)</th><th class="num">Quantity</th><th class="num">Rate</th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>
+        <td><select name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if r.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></td>
+        <td><select name="roll"><option value="">—</option>{% for rb in rolls %}<option value="{{ rb.roll_id }}" {% if r.roll == rb.roll_id|stringformat:"s" %}selected{% endif %}>{{ rb.roll.label_code }} · {{ rb.qty|floatformat:"-3" }} at {{ rb.location.name }}</option>{% endfor %}</select></td>
+        <td class="num"><input type="text" inputmode="decimal" name="qty" value="{{ r.qty|default:'' }}"></td>
+        <td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate|default:'' }}"></td></tr>{% endfor %}</tbody>
+    </table></div></div>
+    <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'debitnote_list' %}">Cancel</a></div>
+  </form>
+{% endblock %}

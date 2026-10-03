@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ po }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ po.number|default:"Draft PO" }}</h1>
+    <span class="pill {% if po.status == 'pending_approval' %}warning{% elif po.status == 'approved' or po.status == 'received' %}success{% endif %}">{{ po.get_status_display }}</span>
+    <div class="actions">{% if po.status == "draft" and can_edit %}<a class="btn" href="{% url 'po_edit' po.pk %}">Edit</a>{% endif %}<a class="btn ghost" href="{% url 'po_list' %}">All POs</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Vendor</div>{{ po.vendor.name }}</div><div><div class="label muted">Factory</div>{{ po.factory.code }}</div>
+    <div><div class="label muted">Date</div>{{ po.date|date:"d M Y" }}</div><div><div class="label muted">Expected</div>{{ po.expected_date|date:"d M Y"|default:"—" }}</div>
+    <div><div class="label muted">Value</div><strong>{{ po.total }}</strong></div>
+  </div>
+  {% if po.status == "pending_approval" %}<p class="pill warning">Above the ₹{{ limit }} approval limit: the owner must approve before goods can be received.</p>{% endif %}
+  {% if po.approved_by %}<p class="muted">Approved by {{ po.approved_by }} on {{ po.approved_at|date:"d M Y" }}</p>{% endif %}
+  {% if po.close_reason %}<p class="muted">Short-closed: {{ po.close_reason }}</p>{% endif %}
+  {% if po.remarks %}<p class="muted">{{ po.remarks }}</p>{% endif %}</div>
+  <div class="island"><table>
+    <thead><tr><th>Item</th><th class="num">Ordered</th><th class="num">Received</th><th class="num">Pending</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+    <tbody>{% for r in lines %}<tr><td>{{ r.line.item }}</td><td class="num">{{ r.line.qty|floatformat:"-3" }}</td><td class="num">{{ r.received|floatformat:"-3" }}</td>
+      <td class="num">{{ r.pending|floatformat:"-3" }}</td><td class="num">{{ r.line.rate }}</td><td class="num">{{ r.line.amount }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  <div class="grid-2">
+    <div class="island"><h2>Actions</h2>
+      <form method="post">{% csrf_token %}
+        {% if po.status == "draft" and can_edit %}<button class="btn primary" name="action" value="submit">Submit</button>{% endif %}
+        {% if po.status == "pending_approval" and can_approve %}<button class="btn primary" name="action" value="approve">Approve</button>{% endif %}
+        {% if po.status == "approved" or po.status == "partly_received" %}{% if can_grn %}<a class="btn primary" href="{% url 'grn_new' %}?po={{ po.pk }}">Receive goods (GRN)</a>{% endif %}{% endif %}
+      </form>
+      {% if po.status == "pending_approval" and can_approve %}<form method="post" style="margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="reject"><div class="field"><label for="rj">Send back with a reason</label><input id="rj" name="reason" type="text"></div><button class="btn">Send back</button></form>{% endif %}
+      {% if po.status == "approved" or po.status == "partly_received" %}{% if can_edit %}<form method="post" style="margin-top:12px">{% csrf_token %}<input type="hidden" name="action" value="short_close"><div class="field"><label for="sc">Short-close (reason)</label><input id="sc" name="reason" type="text"></div><button class="btn danger">Short-close</button></form>{% endif %}{% endif %}
+    </div>
+    <div class="island"><h2>Goods received</h2>{% for g in grns.all %}<p><a href="{% url 'grn_detail' g.pk %}">{{ g.number|default:"Draft GRN" }}</a> · {{ g.date|date:"d M Y" }} · {{ g.get_status_display }}</p>{% empty %}<p class="muted">Nothing received yet.</p>{% endfor %}</div>
+  </div>
+{% endblock %}

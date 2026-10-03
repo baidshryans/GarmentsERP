@@ -25,6 +25,15 @@ SCREENS = {
     "masters.party": "Parties (customers, vendors, fabricators)",
     "masters.pricelist": "Price lists and customer rates",
     "masters.import": "Excel import",
+    "purchases.po": "Purchase orders",
+    "purchases.grn": "Goods receipt (GRN) and QC",
+    "purchases.invoice": "Purchase invoices",
+    "purchases.debitnote": "Debit notes",
+    "inventory.stock": "Stock enquiry",
+    "inventory.transfer": "Stock transfers",
+    "inventory.opening": "Opening stock",
+    "inventory.labels": "Labels and tags",
+    "inventory.settings": "Inventory and purchase settings",
 }
 
 

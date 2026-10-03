@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Stock{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Stock</h1><div class="actions"><a class="btn" href="{% url 'roll_list' %}">Fabric rolls</a></div></div>
+  <div class="island">
+    <form method="get" class="field-row" style="margin-bottom:16px">
+      <div><label for="q">Search</label><input id="q" name="q" type="text" value="{{ q }}" placeholder="Material, style or barcode"></div>
+      <div><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if f.factory == fa.pk|stringformat:"s" %}selected{% endif %}>{{ fa.code }}</option>{% endfor %}</select></div>
+      <div><label for="location">Location</label><select id="location" name="location"><option value="">All</option>{% for l in locations %}<option value="{{ l.pk }}" {% if f.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div><label for="kind">Type</label><select id="kind" name="kind"><option value="">All</option><option value="material" {% if f.kind == "material" %}selected{% endif %}>Raw material</option><option value="sku" {% if f.kind == "sku" %}selected{% endif %}>Finished goods</option></select></div>
+      <div style="align-self:end"><button class="btn">Show</button></div>
+    </form>
+    {% if rows %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Item</th><th>Factory</th><th>Location</th><th class="num">Quantity</th>{% if can_cost %}<th class="num">Value</th><th class="num">Average cost</th>{% endif %}</tr></thead>
+      <tbody>{% for r in rows %}<tr>
+        <td>{{ r.item }}</td><td>{{ r.b.factory.code }}</td>
+        <td>{{ r.b.location.name }}{% if r.transit %} <span class="pill warning">In transit</span>{% endif %}</td>
+        <td class="num">{{ r.b.qty|floatformat:"-3" }}</td>
+        {% if can_cost %}<td class="num">{{ r.b.value }}</td><td class="num">{{ r.avg|default_if_none:"" }}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M20 70h80M30 70V45h20v25M55 70V30h20v40M80 70V50h15v20"/></svg><div class="hand">No stock yet</div><p>Receive goods on a GRN, or enter <a href="{% url 'opening_stock' %}">opening stock</a>.</p></div>{% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Opening stock{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Opening stock</h1></div>
+  <p class="muted" style="max-width:780px">Enter the stock you hold at go-live, with its value. Fabric is entered roll by roll (give each roll's number, lot, GSM and width). The value posts to the stock ledger and the matching amount goes to <em>Opening Balance Difference</em>, which your accountant clears together with the other opening balances.</p>
+  {% if can_create %}
+  <form method="post" class="island" novalidate>
+    {% csrf_token %}
+    <div class="field-row">
+      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" data-factory-select="location">{% for f in factories %}<option value="{{ f.pk }}" {% if d.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="location">Location</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="date">As at</label><input id="date" name="date" type="date" value="{{ d.date|default:company.books_from|date:'Y-m-d' }}"></div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th style="width:26%">Item</th><th class="num">Quantity</th><th class="num">Rate</th><th>Roll no.</th><th>Lot / shade</th><th class="num">GSM</th><th class="num">Width cm</th><th class="num">Metres</th></tr></thead>
+      <tbody>{% for r in rows %}<tr>
+        <td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>
+        <td class="num"><input type="text" inputmode="decimal" name="qty" value="{{ r.qty|default:'' }}"></td>
+        <td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate|default:'' }}"></td>
+        <td><input type="text" name="roll_no" value="{{ r.roll_no|default:'' }}"></td>
+        <td><input type="text" name="lot" value="{{ r.lot|default:'' }}"></td>
+        <td class="num"><input type="text" inputmode="numeric" name="gsm" value="{{ r.gsm|default:'' }}"></td>
+        <td class="num"><input type="text" inputmode="decimal" name="width" value="{{ r.width|default:'' }}"></td>
+        <td class="num"><input type="text" inputmode="decimal" name="length" value="{{ r.length|default:'' }}"><input type="hidden" name="supplier" value="{{ r.supplier|default:'' }}"></td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="form-actions"><button class="btn primary">Post opening stock</button></div>
+  </form>
+  <script src="{% static 'js/transfer.js' %}" defer></script>
+  {% endif %}
+  <div class="island"><h2>Already posted</h2>
+    {% if existing %}<table><thead><tr><th>Number</th><th>Date</th><th>Where</th><th class="num">Value</th></tr></thead>
+      <tbody>{% for o in existing %}<tr><td><a href="{% url 'voucher_detail' o.voucher_id %}">{{ o.number }}</a></td><td>{{ o.date|date:"d M Y" }}</td><td>{{ o.location }}</td><td class="num">{{ o.total_value }}</td></tr>{% endfor %}</tbody></table>
+    {% else %}<div class="empty"><div class="hand">No opening stock yet</div></div>{% endif %}</div>
+{% endblock %}

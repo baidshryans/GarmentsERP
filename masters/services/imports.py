@@ -41,6 +41,13 @@ TEMPLATES = {
         "example": ["FAB-001", "Cotton fleece 280 GSM", "fabric", "KG", "80% cotton 20% polyester", 280, 180],
         "notes": "kind: fabric, trim or packing. unit: an existing unit code (KG, MTR, PCS, GRS ...).",
     },
+    "opening_stock": {
+        "title": "Opening stock",
+        "columns": ["item", "qty", "rate", "roll_no", "lot", "gsm", "width_cm", "length_m"],
+        "example": ["FAB-001", 120, 190, "OLD-9", "L3", 280, 180, ""],
+        "notes": "item: a material code, or a finished-goods barcode. Fabric needs a roll_no on every row (one row per roll). "
+                 "qty is in the unit of the item; rate is the cost per unit. Pick the factory and location on the import screen.",
+    },
     "opening": {
         "title": "Opening balances",
         "columns": ["ledger", "debit", "credit", "reference", "due_date"],
@@ -196,7 +203,7 @@ def _row_materials(company, v, **ctx):
 ROW_HANDLERS = {"parties": _row_parties, "styles": _row_styles, "materials": _row_materials}
 
 
-def run_import(*, kind, fileobj, company, user, factory=None, commit=False) -> ImportResult:
+def run_import(*, kind, fileobj, company, user, factory=None, location=None, commit=False) -> ImportResult:
     """Validate (and, with commit=True and no errors, save) every row in one transaction."""
     result = ImportResult(kind=kind)
     rows = _read(fileobj, kind)
@@ -204,6 +211,8 @@ def run_import(*, kind, fileobj, company, user, factory=None, commit=False) -> I
     with transaction.atomic():
         if kind == "opening":
             _opening(rows, result, company, user, factory)
+        elif kind == "opening_stock":
+            _opening_stock(rows, result, company, user, factory, location)
         else:
             handler = ROW_HANDLERS[kind]
             for n, values in rows:
@@ -249,3 +258,9 @@ def _opening(rows, result, company, user, factory):
                 post_opening_balances(company=company, factory=factory, entries=entries, user=user)
         except (BusinessRuleError, ValidationError) as exc:
             result.errors.append((0, "; ".join(exc.messages) if isinstance(exc, ValidationError) else str(exc)))
+
+
+def _opening_stock(rows, result, company, user, factory, location):
+    from masters.services.imports_stock import import_opening_stock
+
+    import_opening_stock(rows, result, company, user, factory, location, text=_text, dec=_dec)

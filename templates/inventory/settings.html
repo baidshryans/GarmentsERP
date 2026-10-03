@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Inventory settings{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Inventory and purchase settings</h1></div>
+  <div class="grid-2">
+    <div class="island">
+      <form method="post" novalidate>
+        {% csrf_token %}{% include "partials/form_errors.html" %}
+        <div class="field"><div class="label">Stock valuation method</div>
+          {% for radio in form.valuation_method %}<div class="check" style="margin-bottom:8px">{{ radio.tag }}<label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>{% endfor %}
+          <div class="help">Weighted average values every issue at the item's average cost. Specific roll cost values fabric issued from a roll at that roll's own cost; trims, packing and finished goods always use weighted average. Changing it affects movements from now on; earlier stock keeps its value.</div></div>
+        {% include "partials/field.html" with field=form.allow_negative_stock %}
+        {% include "partials/field.html" with field=form.po_approval_limit %}
+        {% if can_edit %}<button class="btn primary">Save settings</button>{% endif %}
+      </form>
+    </div>
+    <div class="island"><h2>Recent changes</h2>
+      <table><thead><tr><th>When</th><th>By</th><th>Valuation</th><th>Negative stock</th><th class="num">PO limit</th></tr></thead>
+        <tbody>{% for h in history %}<tr><td>{{ h.history_date|date:"d M Y H:i" }}</td><td>{{ h.history_user|default:"—" }}</td><td>{{ h.get_valuation_method_display|truncatechars:22 }}</td><td>{% if h.allow_negative_stock %}Allowed{% else %}Blocked{% endif %}</td><td class="num">{{ h.po_approval_limit }}</td></tr>{% endfor %}</tbody></table>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,4 @@
+<select name="{{ name }}"><option value="">—</option>
+  <optgroup label="Materials">{% for v, l in mats %}<option value="{{ v }}" {% if v == selected %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>
+  <optgroup label="Finished goods (SKU)">{% for v, l in skus %}<option value="{{ v }}" {% if v == selected %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>
+</select>

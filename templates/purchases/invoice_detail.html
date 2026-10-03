@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ inv }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ inv.number|default:"Draft invoice" }}</h1>
+    <span class="pill {% if inv.status == 'posted' %}success{% elif inv.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ inv.get_status_display }}</span>
+    <div class="actions"><a class="btn ghost" href="{% url 'invoice_list' %}">All invoices</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Vendor</div>{{ inv.vendor.name }}</div><div><div class="label muted">Vendor invoice</div>{{ inv.vendor_invoice_no }} · {{ inv.vendor_invoice_date|date:"d M Y" }}</div>
+    <div><div class="label muted">Factory</div>{{ inv.factory.code }}</div><div><div class="label muted">Booked on</div>{{ inv.date|date:"d M Y" }}</div></div>
+    {% if inv.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' inv.voucher.pk %}">{{ inv.voucher.number }}</a></p>{% endif %}</div>
+
+  <div class="island"><div class="table-wrap"><table>
+    <thead><tr><th>GRN</th><th>Item</th><th class="num">Billed qty</th><th class="num">Rate</th><th class="num">Amount</th><th></th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.grn_line.grn.number }}</td><td>{{ l.grn_line.item }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{{ l.rate|floatformat:"-4" }}</td><td class="num">{{ l.amount }}</td>
+      <td>{% if l.rate_variance %}<span class="pill warning">Rate differs from last purchase</span>{% endif %}{% if l.qty_rejected_part %}<span class="pill danger">{{ l.qty_rejected_part|floatformat:"-3" }} rejected, recoverable {{ l.recoverable_amount }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td colspan="4">Bill value</td><td class="num">{{ inv.subtotal }}</td><td></td></tr></tfoot>
+  </table></div></div>
+
+  <div class="grid-2">
+    <div class="island"><h2>Tax and payable</h2>
+      <p>GST: {{ inv.get_tax_mode_display }}{% if inv.gst_template %} · {{ inv.gst_template.name }}{% endif %}{% if inv.tax_mode != "none" %} · input credit {% if inv.itc_claimable %}claimable{% else %}<strong>not claimable (added to item cost)</strong>{% endif %}{% endif %}</p>
+      {% if inv.status == "draft" and can_edit and inv.tax_lines.exists %}
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="overrides">
+          <table><thead><tr><th>Tax</th><th class="num">Amount</th><th>Reason if changed</th></tr></thead>
+            <tbody>{% for t in gst %}<tr><td>{{ t.component|upper }} {% if t.rate %}{{ t.rate|floatformat:"-3" }}%{% endif %}</td><td class="num"><input type="text" inputmode="decimal" name="amount_{{ t.pk }}" value="{{ t.amount }}"></td><td><input type="text" name="reason_{{ t.pk }}" value="{{ t.reason }}"></td></tr>{% endfor %}
+              {% for t in tds %}<tr><td>TDS {{ t.rate|floatformat:"-3" }}%</td><td class="num"><input type="text" inputmode="decimal" name="amount_{{ t.pk }}" value="{{ t.amount }}"></td><td><input type="text" name="reason_{{ t.pk }}" value="{{ t.reason }}"></td></tr>{% endfor %}</tbody></table>
+          <button class="btn" style="margin-top:8px">Update tax amounts</button></form>
+      {% else %}
+        <table><tbody>{% for t in gst %}<tr><td>{{ t.component|upper }}</td><td class="num">{{ t.amount }}</td><td class="muted">{% if t.is_override %}Changed: {{ t.reason }}{% endif %}</td></tr>{% endfor %}
+          {% for t in tds %}<tr><td>TDS</td><td class="num">- {{ t.amount }}</td><td class="muted">{% if t.is_override %}Changed: {{ t.reason }}{% endif %}</td></tr>{% endfor %}</tbody></table>
+      {% endif %}
+      <table style="margin-top:12px"><tbody><tr><td>Bill value</td><td class="num">{{ inv.subtotal }}</td></tr>
+        {% if inv.tax_mode == "reverse_charge" %}<tr><td>GST under reverse charge (paid by you, not billed)</td><td class="num">{{ inv.gst_total }}</td></tr>{% else %}<tr><td>GST</td><td class="num">{{ inv.gst_total }}</td></tr>{% endif %}
+        <tr><td>TDS deducted</td><td class="num">- {{ inv.tds_total }}</td></tr></tbody>
+        <tfoot><tr><td>Payable to vendor</td><td class="num">{{ inv.payable }}</td></tr></tfoot></table>
+    </div>
+    <div class="island"><h2>Actions</h2>
+      {% if inv.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="post">Post invoice</button> <button class="btn danger" name="action" value="discard">Discard draft</button></form>{% endif %}
+      {% if inv.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel invoice</button></form>{% endif %}
+      {% if inv.status == "cancelled" %}<p class="muted">{{ inv.notes }}</p>{% endif %}
+    </div>
+  </div>
+{% endblock %}

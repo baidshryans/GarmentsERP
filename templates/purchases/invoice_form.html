@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}New purchase invoice{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">New purchase invoice</h1></div>
+  <form method="get" class="island"><div class="field-row">
+    <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor"><option value="">Choose…</option>{% for v in vendors %}<option value="{{ v.pk }}" {% if vendor and vendor.pk == v.pk %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">Choose…</option>{% for f in factories %}<option value="{{ f.pk }}" {% if factory and factory.pk == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+    <div style="align-self:end"><button class="btn">Show GRN lines</button></div></div></form>
+
+  {% if vendor and factory %}
+  <form method="post" novalidate>
+    {% csrf_token %}<input type="hidden" name="vendor" value="{{ vendor.pk }}"><input type="hidden" name="factory" value="{{ factory.pk }}">
+    <div class="island"><h2>Vendor's bill</h2><div class="field-row">
+      <div class="field"><label for="vin">Vendor invoice no.</label><input id="vin" name="vendor_invoice_no" type="text" value="{{ d.vendor_invoice_no }}" required></div>
+      <div class="field"><label for="vid">Vendor invoice date</label><input id="vid" name="vendor_invoice_date" type="date" value="{{ d.vendor_invoice_date }}" required></div>
+      <div class="field"><label for="date">Booking date</label><input id="date" name="date" type="date" value="{{ d.date }}" required></div>
+    </div></div>
+    <div class="island"><h2>GRN lines to bill</h2>
+      {% if grn_lines %}<div class="table-wrap"><table>
+        <thead><tr><th></th><th>GRN</th><th>Item</th><th class="num">Left to bill</th><th class="num">Billed qty</th><th class="num">GRN rate</th><th class="num">Bill rate</th><th class="num">Last rate</th></tr></thead>
+        <tbody>{% for r in grn_lines %}<tr>
+          <td><input type="checkbox" name="use_{{ r.gl.pk }}" checked aria-label="Bill this line"></td>
+          <td>{{ r.gl.grn.number }}<div class="muted">{{ r.gl.grn.date|date:"d M" }}</div></td><td>{{ r.gl.item }}<div class="muted">accepted {{ r.gl.qty_accepted|floatformat:"-3" }} of {{ r.gl.qty_received|floatformat:"-3" }}</div></td>
+          <td class="num">{{ r.left|floatformat:"-3" }}</td>
+          <td class="num"><input type="text" inputmode="decimal" name="qty_{{ r.gl.pk }}" value="{{ r.left|floatformat:'-3' }}"></td>
+          <td class="num">{{ r.gl.rate|floatformat:"-4" }}</td>
+          <td class="num"><input type="text" inputmode="decimal" name="rate_{{ r.gl.pk }}" value="{{ r.gl.rate|floatformat:'-4' }}"></td>
+          <td class="num">{{ r.last|default_if_none:"—" }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      <p class="muted">If the vendor billed pieces that failed QC, enter the full billed quantity: the rejected part is parked as recoverable until its debit note posts.</p>
+      {% else %}<div class="empty"><div class="hand">Nothing left to bill</div><p>Post a GRN for this vendor and factory first.</p></div>{% endif %}
+    </div>
+    <div class="grid-2">
+      <div class="island"><h2>Tax</h2>
+        <p class="muted">Nothing is posted to tax ledgers unless you choose it here.</p>
+        <div class="field"><label for="tax_mode">GST</label><select id="tax_mode" name="tax_mode">{% for v, l in modes %}<option value="{{ v }}" {% if d.tax_mode == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="gst_template">GST template (for "GST template" or "Reverse charge")</label><select id="gst_template" name="gst_template"><option value="">—</option>{% for t in gst_templates %}<option value="{{ t.pk }}" {% if d.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="field-row">
+          <div class="field"><label for="mc">CGST (by hand)</label><input id="mc" name="manual_cgst" type="text" inputmode="decimal" value="{{ d.manual_cgst }}"></div>
+          <div class="field"><label for="ms">SGST (by hand)</label><input id="ms" name="manual_sgst" type="text" inputmode="decimal" value="{{ d.manual_sgst }}"></div>
+          <div class="field"><label for="mi">IGST (by hand)</label><input id="mi" name="manual_igst" type="text" inputmode="decimal" value="{{ d.manual_igst }}"></div></div>
+        <div class="check"><input id="itc" type="checkbox" name="itc_claimable" checked><label for="itc">Input credit is claimable (if not, the GST is added to item cost)</label></div>
+      </div>
+      <div class="island"><h2>TDS</h2>
+        <div class="field"><label for="tds_template">Deduct TDS</label><select id="tds_template" name="tds_template"><option value="">No TDS</option>{% for t in tds_templates %}<option value="{{ t.pk }}" {% if d.tds_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="notes">Notes</label><input id="notes" name="notes" type="text" value="{{ d.notes }}"></div>
+      </div>
+    </div>
+    {% if grn_lines %}<div class="form-actions"><button class="btn primary">Save draft and review</button><a class="btn ghost" href="{% url 'invoice_list' %}">Cancel</a></div>{% endif %}
+  </form>
+  {% endif %}
+{% endblock %}

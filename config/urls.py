@@ -5,8 +5,10 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from core import views as core
+from inventory import views as inv
 from ledger import views as ledger
 from masters import views as m
+from purchases import views as pur
 from tax import views as tax
 
 urlpatterns = [
@@ -79,6 +81,33 @@ urlpatterns = [
     path("search/", m.Search.as_view(), name="search"),
     path("import/", m.ExcelImport.as_view(), name="excel_import"),
     path("import/template/<str:kind>/", m.import_template, name="import_template"),
+    # inventory
+    path("settings/inventory/", inv.InventorySettings.as_view(), name="inventory_settings"),
+    path("inventory/stock/", inv.StockEnquiry.as_view(), name="stock_enquiry"),
+    path("inventory/rolls/", inv.RollList.as_view(), name="roll_list"),
+    path("inventory/labels/roll/<int:pk>/", inv.RollLabels.as_view(), name="roll_label"),
+    path("inventory/labels/grn/<int:grn_pk>/", inv.RollLabels.as_view(), name="grn_labels"),
+    path("inventory/labels/tags/", inv.TagPrint.as_view(), name="tag_print"),
+    path("inventory/transfers/", inv.TransferList.as_view(), name="transfer_list"),
+    path("inventory/transfers/new/", inv.TransferNew.as_view(), name="transfer_new"),
+    path("inventory/transfers/<int:pk>/", inv.TransferDetail.as_view(), name="transfer_detail"),
+    path("inventory/opening/", inv.OpeningStockView.as_view(), name="opening_stock"),
+    # purchases
+    path("purchases/orders/", pur.POList.as_view(), name="po_list"),
+    path("purchases/orders/new/", pur.POSave.as_view(), name="po_new"),
+    path("purchases/orders/pending/", pur.PendingPOs.as_view(), name="po_pending"),
+    path("purchases/orders/<int:pk>/", pur.PODetail.as_view(), name="po_detail"),
+    path("purchases/orders/<int:pk>/edit/", pur.POSave.as_view(), name="po_edit"),
+    path("purchases/grn/", pur.GrnList.as_view(), name="grn_list"),
+    path("purchases/grn/new/", pur.GrnSave.as_view(), name="grn_new"),
+    path("purchases/grn/<int:pk>/", pur.GrnDetail.as_view(), name="grn_detail"),
+    path("purchases/grn/<int:pk>/edit/", pur.GrnSave.as_view(), name="grn_edit"),
+    path("purchases/invoices/", pur.InvoiceList.as_view(), name="invoice_list"),
+    path("purchases/invoices/new/", pur.InvoiceNew.as_view(), name="invoice_new"),
+    path("purchases/invoices/<int:pk>/", pur.InvoiceDetail.as_view(), name="invoice_detail"),
+    path("purchases/debit-notes/", pur.DebitNoteList.as_view(), name="debitnote_list"),
+    path("purchases/debit-notes/new/", pur.DebitNoteNew.as_view(), name="debitnote_new"),
+    path("purchases/debit-notes/<int:pk>/", pur.DebitNoteDetail.as_view(), name="debitnote_detail"),
     path("api/v1/", include("api.urls")),
 ]
 

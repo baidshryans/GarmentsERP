@@ -44,7 +44,7 @@ def test_date_outside_any_financial_year_is_refused(company, factory):
 
 
 def test_new_factory_gets_locations_and_series(company, factory2):
-    assert Location.objects.filter(factory=factory2).count() == 4
+    assert Location.objects.filter(factory=factory2).count() == 5
     assert NumberSeries.objects.filter(factory=factory2, doc_type="journal").exists()
 
 

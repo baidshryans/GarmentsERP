@@ -295,7 +295,7 @@ def test_opening_balances_post_with_difference_to_suspense(company, factory, own
     c = Client()
     c.force_login(owner)
     r = _opening_post(c, factory, [
-        (ledgers("cash"), "5000", "", ""), (dealer, "20000", "", "OLD-INV-7"), (ledgers("stock_raw_material"), "30000", "", ""),
+        (ledgers("cash"), "5000", "", ""), (dealer, "20000", "", "OLD-INV-7"), (ledgers("wages"), "30000", "", ""),
         (ledgers("profit_loss"), "", "50000", ""),
     ])
     assert r.status_code == 302

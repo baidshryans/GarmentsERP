@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Debit notes{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Debit notes</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'debitnote_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Return to vendor</a>{% endif %}</div></div>
+  <div class="island">
+    {% if notes %}<div class="table-wrap"><table>
+      <thead><tr><th>Number</th><th>Date</th><th>Vendor</th><th>Kind</th><th class="num">Total</th><th>Status</th></tr></thead>
+      <tbody>{% for n in notes %}<tr><td><a href="{% url 'debitnote_detail' n.pk %}">{{ n.number|default:"Draft" }}</a></td><td>{{ n.date|date:"d M Y" }}</td><td>{{ n.vendor.name }}</td><td>{{ n.get_kind_display }}</td><td class="num">{{ n.total }}</td>
+        <td>{% if n.status == "posted" %}<span class="pill success">Posted</span>{% elif n.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill warning">Draft</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No debit notes</div></div>{% endif %}
+  </div>
+{% endblock %}

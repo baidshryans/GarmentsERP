@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Transfers{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Stock transfers</h1>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'transfer_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New transfer</a>{% endif %}</div></div>
+  <div class="island">
+    {% if transfers %}<div class="table-wrap"><table>
+      <thead><tr><th>Number</th><th>Date</th><th>From</th><th>To</th><th>Document</th><th>Status</th></tr></thead>
+      <tbody>{% for t in transfers %}<tr><td><a href="{% url 'transfer_detail' t.pk %}">{{ t.number|default:"Draft" }}</a></td><td>{{ t.date|date:"d M Y" }}</td>
+        <td>{{ t.from_location }}</td><td>{{ t.to_location }}</td><td>{{ t.get_document_type_display }}</td>
+        <td>{% if t.status == "received" %}<span class="pill success">Received</span>{% elif t.status == "issued" %}<span class="pill warning">In transit</span>{% else %}<span class="pill">Draft</span>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}<div class="empty"><div class="hand">No transfers yet</div></div>{% endif %}
+  </div>
+{% endblock %}

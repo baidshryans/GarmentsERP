@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ grn }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ grn.number|default:"Draft GRN" }}</h1>
+    <span class="pill {% if grn.status == 'posted' %}success{% elif grn.status == 'cancelled' %}danger{% elif grn.status == 'qc_done' %}warning{% endif %}">{{ grn.get_status_display }}</span>
+    <div class="actions">{% if grn.status == "posted" %}<a class="btn" href="{% url 'grn_labels' grn.pk %}">Print roll labels</a>{% endif %}{% if grn.status == "draft" or grn.status == "qc_done" %}{% if can_edit %}<a class="btn" href="{% url 'grn_edit' grn.pk %}">Edit</a>{% endif %}{% endif %}<a class="btn ghost" href="{% url 'grn_list' %}">All GRNs</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">Vendor</div>{{ grn.vendor.name }}</div><div><div class="label muted">Factory</div>{{ grn.factory.code }}</div>
+    <div><div class="label muted">Received into</div>{{ grn.location.name }}</div><div><div class="label muted">Date</div>{{ grn.date|date:"d M Y" }}</div>
+    <div><div class="label muted">PO</div>{% if grn.po %}<a href="{% url 'po_detail' grn.po.pk %}">{{ grn.po.number }}</a>{% else %}—{% endif %}</div>
+    <div><div class="label muted">Vendor challan</div>{{ grn.vendor_challan_no|default:"—" }}</div></div>
+    {% if grn.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' grn.voucher.pk %}">{{ grn.voucher.number }}</a></p>{% endif %}
+    {% if grn.remarks %}<p class="muted">{{ grn.remarks }}</p>{% endif %}</div>
+
+  <form method="post">{% csrf_token %}
+  {% for line in lines %}
+  <div class="island">
+    <h2>{{ line.item }} <span class="muted" style="font-weight:400">@ {{ line.rate }}</span></h2>
+    {% if line.material and line.material.kind == "fabric" %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>Roll</th><th>Lot</th><th class="num">GSM</th><th class="num">Quantity</th><th class="num">Metres</th><th>QC</th><th>Remark</th>{% if grn.status == "posted" %}<th>Label</th>{% endif %}</tr></thead>
+        <tbody>{% for r in line.rolls.all %}<tr><td>{{ r.vendor_roll_no }}</td><td>{{ r.lot_no|default:"—" }}</td><td class="num">{{ r.gsm|default:"" }}</td><td class="num">{{ r.qty|floatformat:"-3" }}</td><td class="num">{{ r.length_m|floatformat:"-1" }}</td>
+          <td>{% if grn.status == "draft" or grn.status == "qc_done" %}<select name="roll_status_{{ r.pk }}"><option value="pending">Choose…</option>{% for v, l in qc_choices %}<option value="{{ v }}" {% if r.qc_status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+            {% else %}<span class="pill {% if r.qc_status == 'rejected' %}danger{% else %}success{% endif %}">{{ r.get_qc_status_display }}</span>{% endif %}</td>
+          <td>{% if grn.status == "draft" or grn.status == "qc_done" %}<input type="text" name="roll_remark_{{ r.pk }}" value="{{ r.remark }}">{% else %}{{ r.remark }}{% endif %}</td>
+          {% if grn.status == "posted" %}<td>{% if r.roll %}<a href="{% url 'roll_label' r.roll_id %}">{{ r.roll.label_code }}</a>{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
+      </table></div>
+    {% else %}
+      <div class="field-row">
+        <div><div class="label muted">Received</div>{{ line.qty_received|floatformat:"-3" }}</div>
+        <div class="field"><label for="rej{{ line.pk }}">Rejected</label>{% if grn.status == "draft" or grn.status == "qc_done" %}<input id="rej{{ line.pk }}" type="text" inputmode="decimal" name="rejected_{{ line.pk }}" value="{{ line.qty_rejected|floatformat:'-3' }}">{% else %}{{ line.qty_rejected|floatformat:"-3" }}{% endif %}</div>
+        <div class="field"><label for="rm{{ line.pk }}">Remark</label>{% if grn.status == "draft" or grn.status == "qc_done" %}<input id="rm{{ line.pk }}" type="text" name="remark_{{ line.pk }}" value="{{ line.remark }}">{% else %}{{ line.remark|default:"—" }}{% endif %}</div>
+      </div>
+    {% endif %}
+    {% if grn.status != "draft" %}<p class="muted">Received {{ line.qty_received|floatformat:"-3" }} · accepted <strong>{{ line.qty_accepted|floatformat:"-3" }}</strong> · rejected {{ line.qty_rejected|floatformat:"-3" }}{% if grn.status == "posted" %} · stock value {{ line.value }}{% endif %}</p>{% endif %}
+  </div>
+  {% endfor %}
+  {% if can_edit %}
+    {% if grn.status == "draft" or grn.status == "qc_done" %}
+    <div class="form-actions"><button class="btn" name="action" value="save_qc">Save QC</button><button class="btn primary" name="action" value="finish_qc">Finish QC</button>
+      {% if grn.status == "qc_done" %}<button class="btn primary" name="action" value="post">Post GRN</button>{% endif %}</div>
+    {% endif %}
+  {% endif %}
+  </form>
+  {% if notes %}<div class="island"><h2>Debit notes from rejection</h2>{% for n in notes %}<p><a href="{% url 'debitnote_detail' n.pk %}">{{ n.number|default:"Draft debit note" }}</a> · {{ n.get_status_display }} · rejected pieces will be recovered once the vendor bills them</p>{% endfor %}</div>{% endif %}
+  {% if grn.status == "posted" and can_cancel %}<div class="island no-print"><h3>Cancel this GRN</h3>
+    <form method="post" style="max-width:520px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel GRN</button></form></div>{% endif %}
+{% endblock %}

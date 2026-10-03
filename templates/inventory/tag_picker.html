@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Print tags{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Print tags</h1></div>
+  <div class="island">
+    <form method="get" class="field-row" style="margin-bottom:16px">
+      <div><label for="style">Style</label><select id="style" name="style"><option value="">All</option>{% for s in styles %}<option value="{{ s.pk }}" {% if f.style == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.style_no }}</option>{% endfor %}</select></div>
+      <div><label for="colour">Colour</label><select id="colour" name="colour"><option value="">All</option>{% for c in colours %}<option value="{{ c.pk }}" {% if f.colour == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+      <div><label for="size">Size</label><select id="size" name="size"><option value="">All</option>{% for s in sizes %}<option value="{{ s.pk }}" {% if f.size == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.code }}</option>{% endfor %}</select></div>
+      <div style="align-self:end"><button class="btn">Filter</button></div>
+    </form>
+    {% if skus %}
+    <form method="post">{% csrf_token %}
+      <div class="field" style="max-width:260px"><label for="layout">Label size</label><select id="layout" name="layout">{% for k, n in layouts.items %}<option value="{{ k }}" {% if k == "thermal2" %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Style</th><th>Colour</th><th>Size</th><th>Barcode</th><th class="num" style="width:110px">Tags</th></tr></thead>
+        <tbody>{% for k in skus %}<tr><td>{{ k.style.style_no }}</td><td>{{ k.colour }}</td><td>{{ k.size }}</td><td>{{ k.barcode }}</td><td class="num"><input type="text" inputmode="numeric" name="qty_{{ k.pk }}" class="num"></td></tr>{% endfor %}</tbody>
+      </table></div>
+      <div class="form-actions"><button class="btn primary">Preview and print</button></div>
+    </form>
+    {% else %}<div class="empty"><div class="hand">No SKUs match</div><p>Pick a style, colour or size to list its SKUs.</p></div>{% endif %}
+  </div>
+{% endblock %}

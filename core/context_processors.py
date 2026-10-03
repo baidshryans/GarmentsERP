@@ -13,6 +13,19 @@ NAV = [
         ("hsn_list", "HSN and GST slabs", "tax.hsn"),
         ("excel_import", "Import from Excel", "masters.import"),
     ]),
+    ("Purchases", [
+        ("po_list", "Purchase orders", "purchases.po"),
+        ("grn_list", "Goods receipt (GRN)", "purchases.grn"),
+        ("invoice_list", "Purchase invoices", "purchases.invoice"),
+        ("debitnote_list", "Debit notes", "purchases.debitnote"),
+    ]),
+    ("Inventory", [
+        ("stock_enquiry", "Stock", "inventory.stock"),
+        ("roll_list", "Fabric rolls", "inventory.stock"),
+        ("transfer_list", "Transfers", "inventory.transfer"),
+        ("opening_stock", "Opening stock", "inventory.opening"),
+        ("tag_print", "Print tags", "inventory.labels"),
+    ]),
     ("Accounts", [
         ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
         ("voucher_list", "Vouchers", "ledger.voucher"),
@@ -24,6 +37,7 @@ NAV = [
         ("user_list", "Users", "core.user"),
         ("role_list", "Roles", "core.role"),
         ("tax_settings", "Tax settings", "tax.settings"),
+        ("inventory_settings", "Inventory settings", "inventory.settings"),
     ]),
 ]
 

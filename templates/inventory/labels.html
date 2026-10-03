@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Print labels{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'css/labels.css' %}">
+  <div class="page-head no-print"><h1 class="page-title">{{ labels|length }} label{{ labels|length|pluralize }}</h1>
+    <div class="actions">
+      {% if kind == "roll" %}{% for key, name in layouts.items %}<a class="btn {% if key == layout %}primary{% endif %}" href="?layout={{ key }}">{{ name }}</a>{% endfor %}{% endif %}
+      <button class="btn primary" onclick="window.print()">Print</button></div></div>
+  <p class="muted no-print">Choose the paper size in the print dialog to match the layout. Labels print in black on white.</p>
+  <div class="label-sheet layout-{{ layout }}">
+    {% for l in labels %}
+      {% if kind == "roll" %}
+      <div class="tag">
+        <div class="big">{{ l.roll.material.name }}</div>
+        {{ l.svg|safe }}
+        <div class="code">{{ l.roll.label_code }}</div>
+        <div>Roll {{ l.roll.vendor_roll_no }}{% if l.roll.lot_no %} · Lot {{ l.roll.lot_no }}{% endif %}</div>
+        <div>{{ l.roll.received_qty|floatformat:"-3" }} {{ l.roll.material.unit }}{% if l.roll.received_length_m %} · {{ l.roll.received_length_m|floatformat:"-1" }} m{% endif %}{% if l.roll.gsm %} · {{ l.roll.gsm }} GSM{% endif %}{% if l.roll.width_cm %} · {{ l.roll.width_cm|floatformat:"-1" }} cm{% endif %}</div>
+        <div>{{ l.roll.supplier.name|default:"" }} · {{ l.roll.received_date|date:"d M Y" }}</div>
+      </div>
+      {% else %}
+      <div class="tag">
+        <div class="big">{{ l.sku.style.style_no }}</div>
+        <div>{{ l.sku.style.name }}</div>
+        <div><strong>{{ l.sku.colour }}</strong> · Size <strong>{{ l.sku.size }}</strong>{% if show_mrp and l.sku.style.mrp %} · MRP {{ l.sku.mrp|default:l.sku.style.mrp }}{% endif %}</div>
+        {{ l.svg|safe }}
+        <div class="code">{{ l.sku.barcode }}</div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endblock %}

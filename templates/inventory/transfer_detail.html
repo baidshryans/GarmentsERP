@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{{ t }}{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">{{ t.number|default:"Draft transfer" }}</h1>
+    {% if t.status == "received" %}<span class="pill success">Received</span>{% elif t.status == "issued" %}<span class="pill warning">In transit</span>{% else %}<span class="pill">Draft</span>{% endif %}
+    <div class="actions"><a class="btn ghost" href="{% url 'transfer_list' %}">All transfers</a></div></div>
+  <div class="island"><div class="field-row">
+    <div><div class="label muted">From</div>{{ t.from_location }}</div><div><div class="label muted">To</div>{{ t.to_location }}</div>
+    <div><div class="label muted">Date</div>{{ t.date|date:"d M Y" }}</div><div><div class="label muted">Document</div>{{ t.get_document_type_display }}</div>
+    <div><div class="label muted">Vehicle</div>{{ t.vehicle_no|default:"—" }}</div><div><div class="label muted">E-way bill</div>{{ t.eway_bill_no|default:"—" }}</div>
+  </div>{% if t.remarks %}<p class="muted">{{ t.remarks }}</p>{% endif %}
+  {% if t.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' t.voucher.pk %}">{{ t.voucher.number }}</a> (inter-factory entries in both factories)</p>{% endif %}</div>
+  <div class="island"><table>
+    <thead><tr><th>Item</th><th>Roll</th><th class="num">Quantity</th><th class="num">Value</th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{{ l.item }}</td><td>{{ l.roll.label_code|default:"" }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{% if t.status != "draft" %}{{ l.value }}{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if can_edit %}
+  <div class="grid-2">
+    <div class="island"><h2>Actions</h2>
+      <form method="post">{% csrf_token %}
+        {% if t.status == "draft" and can_issue %}<button class="btn primary" name="action" value="issue">Issue transfer</button>{% endif %}
+        {% if t.status == "issued" and can_receive %}<button class="btn primary" name="action" value="receive">Receive into {{ t.to_location.name }}</button>{% endif %}
+        {% if t.status == "issued" and not can_receive %}<p class="muted">Waiting to be received at {{ t.to_factory.code }}.</p>{% endif %}
+      </form></div>
+    {% if t.is_inter_factory %}<div class="island"><h2>Transport and e-way bill</h2>
+      <p class="muted">{% if not eway_ready %}No e-way bill service is connected yet; enter the number you generated on the portal.{% endif %}</p>
+      <form method="post">{% csrf_token %}<input type="hidden" name="action" value="eway">
+        <div class="field"><label for="eway">E-way bill no.</label><input id="eway" name="eway_bill_no" type="text" value="{{ t.eway_bill_no }}"></div>
+        <div class="field"><label for="veh">Vehicle no.</label><input id="veh" name="vehicle_no" type="text" value="{{ t.vehicle_no }}"></div>
+        <button class="btn">Save</button></form></div>{% endif %}
+  </div>{% endif %}
+{% endblock %}

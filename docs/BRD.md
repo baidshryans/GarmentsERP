@@ -132,7 +132,7 @@ The ERP links four cycles — buy, make, job work and sell — through one stock
 
 A made-to-order sale order raises a production order directly; ready-stock orders bill from finished goods. Pieces rejected at QC go back to the fabricator as rework, and labour is paid only on accepted pieces.
 
-Optional value-add processes (embroidery, printing, washing, dyeing) sit between cutting and finishing and can run through several issue and receive cycles with different vendors. Every step shown — cutting, stitching, value-add, ironing, finishing, packing — can be run in-house at any of the business's factories or sent to a subcontractor, and goods can move forward, skip optional steps, go back for rework, or move between factories.
+Printing on the cut panels follows cutting, before the panels are bundled and sent for stitching. Other value-add processes (embroidery, washing, dyeing) sit between cutting and finishing and can run through several issue and receive cycles with different vendors. Every step shown — cutting, printing, stitching, value-add, ironing, finishing, packing — can be run in-house at any of the business's factories or sent to a subcontractor, and goods can move forward, skip optional steps, go back for rework, or move between factories.
 
 ## 6. Functional requirements
 

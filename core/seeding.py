@@ -41,14 +41,35 @@ SYSTEM_ROLES = {
         "Vouchers, opening balances, books and tax settings",
         {"ledger.chart": ["view", "create", "edit"], "ledger.voucher": ["view", "create", "edit", "cancel"],
          "ledger.opening": ["view", "create"], "ledger.report": ["view"], "tax.settings": ["view", "edit"],
+         "tax.hsn": ["view", "create", "edit"], "masters.party": ["view", "create", "edit"],
          "core.period_lock": ["view", "edit"]},
         list(SENSITIVE_FIELDS),
     ),
-    "Production Supervisor": ("Bundle issue, receipt and QC", {}, []),
+    "Merchandiser": (
+        "Styles, SKUs, BOMs, routes and materials",
+        {"masters.style": ["view", "create", "edit"], "masters.bom": ["view", "create", "edit"],
+         "masters.material": ["view", "create", "edit"], "masters.process": ["view", "create", "edit"],
+         "masters.route": ["view", "create", "edit"], "masters.basics": ["view", "create", "edit"],
+         "masters.pricelist": ["view", "create", "edit"], "masters.party": ["view"], "tax.hsn": ["view"]},
+        [],
+    ),
+    "Production Supervisor": (
+        "Bundle issue, receipt and QC",
+        {"masters.style": ["view"], "masters.route": ["view"], "masters.process": ["view"]}, [],
+    ),
     "Cutting Master": ("Lay, cutting and bundle tags", {}, []),
-    "Store Keeper": ("Fabric and trims receipt, issue and transfers", {}, []),
-    "Billing Clerk": ("Invoices, packing lists and dispatch", {}, []),
-    "Salesperson": ("Orders and own customers", {}, []),
+    "Store Keeper": (
+        "Fabric and trims receipt, issue and transfers",
+        {"masters.material": ["view"], "masters.style": ["view"], "masters.basics": ["view"]}, [],
+    ),
+    "Billing Clerk": (
+        "Invoices, packing lists and dispatch",
+        {"masters.party": ["view", "create", "edit"], "masters.style": ["view"], "masters.pricelist": ["view"]},
+        ["customer_phone"],
+    ),
+    "Salesperson": (
+        "Orders and own customers", {"masters.party": ["view"], "masters.style": ["view"]}, ["customer_phone"]
+    ),
     "Fabricator": ("Own bundles and earnings on the mobile app", {}, []),
 }
 

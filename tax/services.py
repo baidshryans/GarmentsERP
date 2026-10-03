@@ -38,3 +38,21 @@ def set_tax_status(*, company, kind, enabled, effective_from, registration_numbe
         defaults={"enabled": enabled, "registration_number": setting.registration_number},
     )
     return obj
+
+
+def gst_rate_for(hsn, value_per_piece, on_date):
+    """Suggested GST % for an HSN at a per-piece value on a date, or None if no slab applies.
+
+    Uses the slabs of the latest effective_from on or before the date, so older documents
+    keep the rate that applied to them (TAX-03).
+    """
+    from .models import HsnSlab
+
+    slabs = HsnSlab.objects.filter(hsn=hsn, effective_from__lte=on_date)
+    latest = slabs.order_by("-effective_from").values_list("effective_from", flat=True).first()
+    if latest is None:
+        return None
+    for slab in slabs.filter(effective_from=latest).order_by("value_from"):
+        if value_per_piece >= slab.value_from and (slab.value_to is None or value_per_piece <= slab.value_to):
+            return slab.gst_rate
+    return None

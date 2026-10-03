@@ -45,3 +45,51 @@ class TaxSetting(models.Model):
 
     def __str__(self):
         return f"{self.kind.upper()} {'on' if self.enabled else 'off'} from {self.effective_from}"
+
+
+class HSN(models.Model):
+    """HSN code master (MST-07). Rates are not stored here but in dated slabs."""
+
+    code = models.CharField(max_length=8, unique=True)
+    description = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "HSN code"
+
+    def __str__(self):
+        return f"{self.code} - {self.description}"
+
+
+class HsnSlab(models.Model):
+    """Value-based GST slab for apparel (TAX-02): the rate depends on the sale value per piece.
+
+    value_to null means no upper limit. A rate change is a new slab row with a later
+    effective_from, so it applies to future documents only (TAX-03, BR-12).
+    """
+
+    hsn = models.ForeignKey(HSN, on_delete=models.CASCADE, related_name="slabs")
+    value_from = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Per piece, inclusive")
+    value_to = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Per piece, inclusive; blank = no limit")
+    gst_rate = models.DecimalField("GST %", max_digits=5, decimal_places=2)
+    effective_from = models.DateField()
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["hsn__code", "-effective_from", "value_from"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.value_to is not None and self.value_to < self.value_from:
+            raise ValidationError("The upper value cannot be below the lower value.")
+        if not 0 <= self.gst_rate <= 100:
+            raise ValidationError("GST % must be between 0 and 100.")
+
+    def __str__(self):
+        upper = self.value_to if self.value_to is not None else "up"
+        return f"{self.hsn.code}: {self.value_from}-{upper} @ {self.gst_rate}%"

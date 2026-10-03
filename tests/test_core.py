@@ -120,7 +120,7 @@ def test_role_permissions_are_checked_against_the_database(company, accountant, 
 
 def test_sensitive_fields_hidden_unless_granted(company, owner, accountant):
     clerk = make_user("clerk")
-    clerk.roles.add(Role.objects.get(name="Billing Clerk"))
+    clerk.roles.add(Role.objects.get(name="Production Supervisor"))  # production never sees MTO customer phone (BR-15)
     assert owner.can_view_field("cost") and accountant.can_view_field("margin")
     assert not clerk.can_view_field("cost") and not clerk.can_view_field("customer_phone")
 

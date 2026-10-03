@@ -15,6 +15,15 @@ SCREENS = {
     "ledger.opening": "Opening balances",
     "ledger.report": "Books and trial balance",
     "tax.settings": "Tax settings",
+    "tax.hsn": "HSN codes and GST slabs",
+    "masters.basics": "Units, sizes, colours, products",
+    "masters.material": "Materials (fabric, trims)",
+    "masters.style": "Styles and SKUs",
+    "masters.bom": "Bill of materials",
+    "masters.process": "Processes",
+    "masters.route": "Route templates",
+    "masters.party": "Parties (customers, vendors, fabricators)",
+    "masters.pricelist": "Price lists and customer rates",
 }
 
 

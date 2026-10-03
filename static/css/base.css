@@ -6,8 +6,6 @@
   src: url("../fonts/assistant-latin-600-normal.woff2") format("woff2"); }
 @font-face { font-family: "Assistant"; font-weight: 700; font-style: normal; font-display: swap;
   src: url("../fonts/assistant-latin-700-normal.woff2") format("woff2"); }
-@font-face { font-family: "Caveat"; font-weight: 700; font-style: normal; font-display: swap;
-  src: url("../fonts/caveat-latin-700-normal.woff2") format("woff2"); }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { color-scheme: light; }
@@ -30,8 +28,8 @@ a:active { color: var(--color-primary-darkest); }
 h1, h2, h3 { margin: 0 0 var(--space-3); line-height: 1.2; }
 h2 { font-size: 18px; }
 h3 { font-size: 15px; }
-.hand { font-family: var(--font-hand); font-weight: 700; letter-spacing: 0.01em; }
-h1.page-title { font-family: var(--font-hand); font-weight: 700; font-size: 34px; margin: 0; }
+.hand { font-weight: 700; }
+h1.page-title { font-weight: 700; font-size: 24px; margin: 0; }
 .muted { color: var(--color-muted); }
 .num, td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -39,22 +37,17 @@ h1.page-title { font-family: var(--font-hand); font-weight: 700; font-size: 34px
 
 /* ---- shell ---- */
 .topbar {
-  position: sticky; top: 0; z-index: 20; height: var(--topbar-height);
+  position: sticky; top: var(--space-3); z-index: 20; height: var(--topbar-height);
   display: flex; align-items: center; gap: var(--space-3);
-  padding: 0 var(--space-4);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-hairline);
+  margin: var(--space-3) var(--space-3) 0; padding: 0 var(--space-4);
+  background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow-island);
 }
-.topbar .brand { font-family: var(--font-hand); font-weight: 700; font-size: 26px; color: var(--color-ink); }
+.topbar .brand { font-weight: 700; font-size: 17px; color: var(--color-ink); }
 .topbar .brand:hover { text-decoration: none; color: var(--color-primary); }
 .topbar .spacer { flex: 1; }
 .topbar select { max-width: 200px; }
 
-.shell { display: flex; min-height: calc(100vh - var(--topbar-height)); }
-.rail {
-  width: var(--rail-width); flex: none; padding: var(--space-4) var(--space-3);
-  border-right: 1px solid var(--color-hairline); background: var(--color-bg);
-}
+.shell { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); }
 .rail h4 {
   margin: var(--space-4) var(--space-2) var(--space-1); font-size: var(--text-label);
   font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted);
@@ -67,7 +60,7 @@ h1.page-title { font-family: var(--font-hand); font-weight: 700; font-size: 34px
 .rail a:hover { background: var(--color-primary-soft); text-decoration: none; }
 .rail a[aria-current="page"] { background: var(--color-primary-pale); font-weight: 600; }
 
-.content { flex: 1; min-width: 0; padding: var(--space-5); }
+.content { flex: 1; min-width: 0; padding: var(--space-2) var(--space-3); }
 .page-head { display: flex; align-items: baseline; gap: var(--space-4); margin-bottom: var(--space-4); }
 .page-head .actions { margin-left: auto; display: flex; gap: var(--space-2); }
 
@@ -159,12 +152,12 @@ td input, td select { padding: 4px var(--space-2); }
 
 /* ---- empty state & login ---- */
 .empty { text-align: center; padding: var(--space-6) var(--space-4); color: var(--color-muted); }
-.empty .hand { font-size: 28px; color: var(--color-ink); }
+.empty .hand { font-size: 18px; color: var(--color-ink); }
 .empty svg { width: 120px; height: 90px; stroke: var(--color-muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .auth-page { min-height: 100vh; display: grid; place-items: center; padding: var(--space-4); }
 .auth-card { width: min(400px, 100%); }
-.auth-card .hand-title { font-family: var(--font-hand); font-weight: 700; font-size: 46px; text-align: center; margin: 0 0 var(--space-1); }
+.auth-card .hand-title { font-weight: 700; font-size: 30px; text-align: center; margin: 0 0 var(--space-1); }
 .auth-card .tagline { text-align: center; color: var(--color-muted); margin-bottom: var(--space-5); }
 
 /* ---- wizard steps ---- */
@@ -177,10 +170,10 @@ td input, td select { padding: 4px var(--space-2); }
 
 /* ---- mobile ---- */
 @media (max-width: 800px) {
-  .rail { display: none; }
-  .content { padding: var(--space-3); }
-  .island { padding: var(--space-4); }
-  input, select, textarea, .btn { min-height: 44px; }
+  .rail {
+  width: var(--rail-width); flex: none; padding: var(--space-3);
+  position: sticky; top: calc(var(--topbar-height) + var(--space-5));
+  background: var(--color-surface); border-radius: var(--radius); box-shadow: var(--shadow-island);
 }
 
 /* theme toggle icon: sun in light, moon in dark */

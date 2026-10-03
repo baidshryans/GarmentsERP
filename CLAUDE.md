@@ -67,7 +67,7 @@ Build the theme first as CSS custom properties in one file (`static/css/tokens.c
 | `--color-primary-darkest` | `#4a47b1` | Primary pressed |
 | `--color-primary-soft` | `#ececf4` | Secondary buttons, hover backgrounds, pills |
 | `--color-primary-pale` | `#e0dfff` | Selected / highlighted rows, active filters |
-| `--color-bg` | `#fffefd` | Page background (paper white) |
+| `--color-bg` | `#ffffff` | Page background (white) |
 | `--color-surface` | `#ffffff` | Panels ("islands"), cards, dialogs |
 | `--color-ink` | `#1b1b1f` | Body text |
 | `--color-muted` | a mid grey | Secondary text, labels |
@@ -80,18 +80,17 @@ Derive the dark theme from the same tokens: dark grey background, slightly light
 
 - UI and all data: **Assistant** (Google Fonts) with a system-ui fallback. Body 14–16px; labels 12–13px, weight 600.
 - Use tabular figures (`font-variant-numeric: tabular-nums`) in every table and amount field. Right-align amounts and quantities.
-- Hand-drawn accent font — **Virgil** or another open-licensed handwriting font — only for page titles, the login screen, empty states and the app name.
-- Never use the hand-drawn font in tables, forms, numbers, invoices or printed documents.
+- **Assistant only, everywhere** — no handwriting or decorative font (owner's decision, Oct 2026: it must look professional).
 
 **Shape and layout**
 
-- Content sits in floating "island" panels on the paper background: radius about 8px, soft low shadow, no heavy borders.
+- Content sits in floating "island" panels on the white page background: radius about 8px, soft low shadow, no heavy borders.
 - Compact top bar with icon buttons (with tooltips) and a left navigation rail grouped by module.
 - Buttons: radius about 8px. Primary is violet with white text; secondary is the soft lavender with ink text; ghost buttons for low-emphasis actions.
 - Inputs: light hairline border with a violet focus ring. Generous padding on mobile; compact density on desktop data-entry screens.
 - Tables: hairline row dividers, a sticky header, pale-violet selected row, zebra striping off.
 - Optional sketchy touch: rough.js-style hand-drawn outlines on empty-state illustrations and dashboard chart frames only — never on inputs or data.
-- Light and dark themes with a toggle; respect the system preference by default.
+- **Light by default, always, on a white background** (owner's decision, Oct 2026: a dark screen is unacceptable). The dark theme stays available only as an opt-in toggle; the system dark-mode preference is ignored.
 - Print styles (invoices, challans, labels) are plain black on white in Assistant, with no theme colours.
 
 **Mobile PWA:** same tokens; bottom tab bar (the fabricator app has 3 tabs); large tap targets of at least 44px; a full-width violet scan button.

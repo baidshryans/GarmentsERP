@@ -74,17 +74,17 @@ def test_no_raw_hex_outside_tokens_css():
 
 
 def test_hand_font_not_used_in_tables_forms_or_print():
-    base = (ROOT / "static/css/base.css").read_text()
-    for selector_block in re.findall(r"([^{}]+)\{[^}]*var\(--font-hand\)[^}]*\}", base):
-        assert not re.search(r"\b(table|th|td|input|select|textarea|label)\b", selector_block), selector_block
-    assert "--font-hand" not in (ROOT / "static/css/print.css").read_text()
+    """Owner's decision (Oct 2026): one professional typeface, Assistant, everywhere. No handwriting font."""
+    for name in ("base.css", "print.css", "tokens.css"):
+        text = (ROOT / "static/css" / name).read_text()
+        assert "font-hand" not in text and "Caveat" not in text
 
 
 # ---------------- login, theme, shell ----------------
 
 def test_login_page_has_theme_toggle_and_no_flash_bootstrap(db):
     html = Client().get(reverse("login")).content.decode()
-    assert "data-theme-toggle" in html and "prefers-color-scheme" in html
+    assert "data-theme-toggle" in html and "prefers-color-scheme" not in html  # light by default
     assert "tokens.css" in html
 
 

@@ -1,10 +1,8 @@
 <script>
+  /* Light is the default. Dark is used only if the user switches to it with the toggle. */
   (function () {
-    var theme = null;
-    try { theme = localStorage.getItem("theme"); } catch (e) {}
-    if (theme !== "dark" && theme !== "light") {
-      theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
+    var theme = "light";
+    try { if (localStorage.getItem("theme") === "dark") { theme = "dark"; } } catch (e) {}
     document.documentElement.setAttribute("data-theme", theme);
   })();
 </script>

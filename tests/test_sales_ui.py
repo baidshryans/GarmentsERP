@@ -306,3 +306,24 @@ def test_the_nav_lists_the_sales_screens(owner_c):
     html = owner_c.get(reverse("home")).content.decode()
     for text in ("Sale orders", "Packing and dispatch", "Barcode billing", "Sale invoices", "Credit notes", "Sales settings"):
         assert text in html
+
+
+# ---------------- the active factory drives the sales screens ----------------
+
+def test_sales_entries_use_the_active_factory_and_all_mode_is_view_only(ns, owner_c, factory, factory2):
+    black, m = ns.colours["Black"], ns.sizes["M"]
+    order_form = {"customer": ns.local.pk, "factory": factory.pk, "date": "2026-06-15", "order_type": "stock", "style": ns.style.pk,
+                  f"rate_{ns.style.pk}": "450", f"disc_{ns.style.pk}": "", f"q_{ns.style.pk}_{black.pk}_{m.pk}": "5"}
+    owner_c.post(reverse("factory_switch"), {"factory": factory2.pk})
+    owner_c.post(reverse("saleorder_new"), order_form)
+    assert SaleOrder.objects.get().factory == factory2                 # the form's factory value is ignored
+    assert len(owner_c.get(reverse("saleorder_list")).context["orders"]) == 1
+    owner_c.post(reverse("factory_switch"), {"factory": factory.pk})
+    assert len(owner_c.get(reverse("saleorder_list")).context["orders"]) == 0
+    owner_c.post(reverse("factory_switch"), {"factory": "all"})
+    assert len(owner_c.get(reverse("saleorder_list")).context["orders"]) == 1
+    for name in ("saleorder_new", "billing"):
+        r = owner_c.get(reverse(name))
+        assert r.status_code == 302 and "single factory" in str(list(r.wsgi_request._messages)[-1]), name
+    owner_c.post(reverse("saleorder_new"), order_form)
+    assert SaleOrder.objects.count() == 1                                # nothing was saved in All mode

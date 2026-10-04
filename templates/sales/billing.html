@@ -9,7 +9,7 @@
     <button hidden tabindex="-1" name="action" value="draft" aria-hidden="true"></button>
     <div class="island"><div class="field-row">
       <div class="field"><label for="customer">Customer</label><select id="customer" name="customer">{% for c in customers %}<option value="{{ c.pk }}" {% if p.customer == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" onchange="location.search='?factory='+this.value">{% for f in factories %}<option value="{{ f.pk }}" {% if factory.pk == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
       <div class="field"><label for="location">Goods leave from</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if p.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ p.date|default:today }}"></div>
     </div></div>

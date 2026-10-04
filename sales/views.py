@@ -11,8 +11,9 @@ from django.utils import timezone
 from django.views import View
 
 from core.exceptions import BusinessRuleError
-from core.models import Factory, Location
+from core.models import Location
 from core.scoping import ScreenPermissionMixin
+from core.services.active_factory import in_active, require_active_factory
 from core.viewutils import company as _company, day as _day, dec as _dec, report as _msgs
 from inventory import barcode
 from inventory.views import LAYOUTS
@@ -24,8 +25,8 @@ from .models import (
 )
 from .services import credit_notes, einvoice, invoices, orders, packing as packing_service, pricing
 from .services.common import settings_for
-
 from ledger.settlement import settlement
+
 ERRORS = (ValueError, BusinessRuleError)
 
 
@@ -44,8 +45,12 @@ def _choose(qs, value, what):
     return obj
 
 
-def _factories(user):
-    return Factory.objects.for_user(user).filter(is_active=True)
+def _need_factory(request, to):
+    """New documents are entered in one factory. In "All factories" mode say so and go back to the list."""
+    if request.factory is None:
+        messages.error(request, "Choose a single factory in the top bar before entering a document.")
+        return redirect(to)
+    return None
 
 
 def _customers():
@@ -55,11 +60,6 @@ def _customers():
 def _locations(factory):
     return Location.objects.filter(factory=factory, is_active=True).exclude(
         loc_type__in=("cutting", "process", "fabricator", "rejects", "transit")) if factory else Location.objects.none()
-
-
-def _first_factory(user, value=None):
-    qs = _factories(user)
-    return qs.filter(pk=_pk(value)).first() if _pk(value) is not None else qs.first()
 
 
 def _can(request, screen, action):
@@ -155,7 +155,7 @@ class OrderList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.order"
 
     def get(self, request):
-        qs = SaleOrder.objects.for_user(request.user).select_related("customer", "factory")
+        qs = in_active(SaleOrder.objects.for_user(request.user), request).select_related("customer", "factory")
         status = request.GET.get("status")
         if status:
             qs = qs.filter(status=status)
@@ -182,10 +182,10 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                 grids = [grid_context(s, cells=g["cells"], rate=g["rate"], disc=g["disc"]) for s, g in by_style.items()]
         vals = p if p else None
         if vals is None and order is not None:
-            vals = {"customer": str(order.customer_id), "factory": str(order.factory_id), "date": order.date.isoformat(),
+            vals = {"customer": str(order.customer_id), "date": order.date.isoformat(),
                     "due_date": order.due_date.isoformat() if order.due_date else "", "order_type": order.order_type,
                     "remarks": order.remarks}
-        return {"order": order, "factories": _factories(request.user), "customers": _customers(), "grids": grids,
+        return {"order": order, "factory": order.factory if order else request.factory, "customers": _customers(), "grids": grids,
                 "styles": Style.objects.filter(is_archived=False), "vals": vals or {}, "types": SaleOrder.Type.choices}
 
     def get(self, request, pk=None):
@@ -193,6 +193,8 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         if order is not None and order.status != "draft":
             messages.error(request, "Only a draft order can be edited.")
             return redirect("saleorder_detail", pk=pk)
+        if order is None and (back := _need_factory(request, "saleorder_list")):
+            return back
         return render(request, "sales/order_form.html", self._ctx(request, order))
 
     def post(self, request, pk=None):
@@ -216,7 +218,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             due = _day(p.get("due_date"), "Due date", default=None) if p.get("due_date") else None
             if order is None:
                 order = orders.create_order(
-                    company=_company(), factory=_choose(_factories(request.user), p.get("factory"), "factory"),
+                    company=_company(), factory=require_active_factory(request),
                     customer=customer, date=_day(p.get("date"), "Date"), lines=specs, user=request.user,
                     order_type=p.get("order_type", "stock"), due_date=due, remarks=p.get("remarks", ""))
             else:
@@ -299,7 +301,7 @@ class PackingListView(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.packing"
 
     def get(self, request):
-        qs = PackingList.objects.for_user(request.user).select_related("order__customer", "factory")
+        qs = in_active(PackingList.objects.for_user(request.user), request).select_related("order__customer", "factory")
         return render(request, "sales/packing_list.html", {"lists": qs[:200], "book": orders.order_book(request.user)})
 
 
@@ -473,7 +475,7 @@ class InvoiceList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.invoice"
 
     def get(self, request):
-        qs = SaleInvoice.objects.for_user(request.user).select_related("customer", "factory")
+        qs = in_active(SaleInvoice.objects.for_user(request.user), request).select_related("customer", "factory")
         status = request.GET.get("status")
         if status:
             qs = qs.filter(status=status)
@@ -490,13 +492,15 @@ class Billing(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _ctx(self, request, p=None, rows=None):
         p = p or request.GET
-        factory = _first_factory(request.user, p.get("factory"))
-        return {"factories": _factories(request.user), "factory": factory, "customers": _customers(), "p": p,
+        factory = request.factory
+        return {"factory": factory, "customers": _customers(), "p": p,
                 "locations": _locations(factory), "rows": rows or [], "today": timezone.localdate().isoformat(),
                 "gst": invoices.gst_on(_company(), factory, timezone.localdate()) if factory else False,
                 **_tax_ctx()}
 
     def get(self, request):
+        if back := _need_factory(request, "saleinvoice_list"):
+            return back
         return render(request, "sales/billing.html", self._ctx(request))
 
     def post(self, request):
@@ -507,7 +511,7 @@ class Billing(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if sku_id:
                     sku = get_object_or_404(SKU.objects.select_related("style", "colour", "size"), pk=sku_id)
                     rows.append({"sku": sku, "qty": p.getlist("qty")[i], "rate": p.getlist("rate")[i], "disc": p.getlist("disc")[i]})
-            factory = _choose(_factories(request.user), p.get("factory"), "factory")
+            factory = require_active_factory(request)
             inv = invoices.save_invoice(
                 company=_company(), factory=factory, customer=_choose(_customers(), p.get("customer"), "customer"),
                 date=_day(p.get("date"), "Date"), lines=_line_specs(p), user=request.user,
@@ -543,7 +547,7 @@ class Scan(LoginRequiredMixin, ScreenPermissionMixin, View):
         if sku is not None:
             items = [(sku, 1)]
         else:
-            carton = Carton.objects.filter(code=code, packing__factory__in=_factories(request.user)).first()
+            carton = Carton.objects.filter(code=code, packing__factory__in=request.active_factories).first()
             if carton is not None:
                 items = [(cl.sku, int(cl.qty)) for cl in carton.lines.select_related("sku__style", "sku__colour", "sku__size")]
         if not items:
@@ -570,13 +574,13 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                 "can_cancel": _can(request, "sales.invoice", "cancel"),
                 "can_return": _can(request, "sales.creditnote", "create"),
                 "einvoice": einvoice.is_available(inv), "credit_notes": inv.credit_notes.all(),
+                "settle": settlement(request.user, ledger=inv.customer.customer_ledger, reference=inv.number, direction="receive",
+                                     narration=f"Received against {inv.number}")
+                if inv.status == "posted" and inv.customer.customer_ledger_id else None,
                 "gst": invoices.gst_on(inv.company, inv.factory, inv.date), **_tax_ctx()}
 
     def get(self, request, pk):
         return render(request, "sales/invoice_detail.html", self._ctx(request, self._inv(request, pk)))
-                "settle": settlement(request.user, ledger=inv.customer.customer_ledger, reference=inv.number, direction="receive",
-                                     narration=f"Received against {inv.number}")
-                if inv.status == "posted" and inv.customer.customer_ledger_id else None,
 
     def post(self, request, pk):
         inv = self._inv(request, pk)
@@ -646,7 +650,7 @@ class CreditNoteList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "sales.creditnote"
 
     def get(self, request):
-        qs = SaleCreditNote.objects.for_user(request.user).select_related("customer", "factory", "invoice")
+        qs = in_active(SaleCreditNote.objects.for_user(request.user), request).select_related("customer", "factory", "invoice")
         return render(request, "sales/creditnote_list.html", {"notes": qs[:200]})
 
 

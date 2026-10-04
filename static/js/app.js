@@ -295,6 +295,18 @@
   });
   document.addEventListener("DOMContentLoaded", rememberPage);
 
+  // A page whose main panel is a plain form (no table, not a filter bar) is a centred column; its title and intro follow it.
+  document.addEventListener("DOMContentLoaded", function () {
+    var c = document.querySelector(".content");
+    if (!c) { return; }
+    var main = c.querySelector(":scope > .island, :scope > form.island");
+    if (!main) { return; }
+    var plainForm = main.matches("form:not([method=\"get\" i])") || main.querySelector("form:not([method=\"get\" i])");
+    if (main.hasAttribute("style") && /max-width/.test(main.getAttribute("style")) || (plainForm && !main.querySelector("table"))) {
+      c.classList.add("form-page");
+    }
+  });
+
   // ---- forms: confirm destructive buttons, and lock the submit buttons once a form is sent (no double posting) ----
   document.addEventListener("submit", function (e) {
     var form = e.target, who = e.submitter;

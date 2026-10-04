@@ -52,6 +52,9 @@
   --rail-width-min: 196px;
   --rail-width-max: 440px;
   --rail-width-collapsed: 56px;
+  --control-max: 32rem;      /* widest a select or text box grows */
+  --textarea-max: 44rem;
+  --form-max: 44rem;         /* width of a centred form panel */
   --sidebar-w: var(--rail-w-user, var(--rail-width));   /* --rail-w-user is set by the drag handle */
 }
 

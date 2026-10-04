@@ -431,3 +431,13 @@ def test_menu_groups_fold_into_sections_and_quick_jump_knows_every_screen(compan
 def test_quick_jump_script_has_keyboard_support(db):
     js = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
     assert "ctrlKey || e.metaKey" in js and "ArrowDown" in js and "Escape" in js and "navRecent" in js
+
+
+def test_form_controls_have_a_width_cap_and_plain_form_pages_are_centred():
+    css = (ROOT / "static/css/base.css").read_text(encoding="utf-8")
+    tokens = (ROOT / "static/css/tokens.css").read_text(encoding="utf-8")
+    js = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
+    assert "--control-max" in tokens and "max-width: var(--control-max)" in css
+    assert "td select" in css and ".form-page" in css and "margin-inline: auto" in css
+    assert "form-page" in js
+    assert css.count("{") == css.count("}")

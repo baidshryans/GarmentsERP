@@ -378,3 +378,21 @@ html[data-drawer][data-nav] .nav-sub-items a { padding: 4px var(--space-3); }
 [data-nav="top"] .search-box { width: 170px; }
 [data-nav="top"] .brand-text { max-width: 130px; }
 @media (max-width: 1500px) { [data-nav="top"] .user-name { display: none; } }
+
+/* ---- form width: no control stretches across the page, and a form that is not full-width sits in the middle ---- */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { max-width: var(--control-max); }
+textarea { max-width: var(--textarea-max); }
+.search-box input, .cmdk-input input { max-width: none; }
+/* inside a table the columns share the width, but one select or text box still never runs the full page */
+td select, th select, td input:not([type="checkbox"]):not([type="radio"]), td textarea { max-width: 26rem; }
+td input.num, td input[inputmode="decimal"] { max-width: 12rem; margin-left: auto; display: block; }
+.field-row { grid-template-columns: repeat(auto-fill, minmax(220px, 300px)); justify-content: start; }
+
+/* a panel that holds only a form (no table, not a filter bar) is a centred, readable column */
+.island[style*="max-width"], form.island[style*="max-width"] { margin-inline: auto; }
+.content > .island:has(form:not([method="get" i])):not(:has(table)):not([style*="max-width"]),
+.content > form.island:not([method="get" i]):not(:has(table)):not([style*="max-width"]) {
+  max-width: var(--form-max); margin-inline: auto;
+}
+/* the title and intro of a centred form page line up with the form (app.js adds .form-page to .content) */
+.content.form-page > .page-head, .content.form-page > p.muted { max-width: var(--form-max); margin-inline: auto; }

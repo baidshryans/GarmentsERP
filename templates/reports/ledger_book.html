@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Ledger book{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Ledger book</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }} · tick one or more ledgers to see their entries</span></div>
+  <div class="island">
+    {% for p in problems %}<div class="messages"><div class="message error">{{ p }}</div></div>{% endfor %}
+    <form method="get" class="no-print" id="ledger-book-form" style="margin-bottom:16px">
+      <div class="field-row" style="align-items:end">
+        <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All my factories</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if factory and factory.pk == fa.pk %}selected{% endif %}>{{ fa.code }} — {{ fa.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="from">From</label><input id="from" name="from" type="date" value="{{ date_from|date:'Y-m-d' }}"></div>
+        <div class="field"><label for="to">To</label><input id="to" name="to" type="date" value="{{ date_to|date:'Y-m-d' }}"></div>
+        <div class="field"><button class="btn">Show</button></div>
+        <div class="field"><button class="btn ghost" name="format" value="xlsx">Excel</button></div>
+        <div class="field"><button type="button" class="btn ghost" onclick="window.print()">Print / PDF</button></div>
+      </div>
+      <details class="ledger-picker" {% if not book %}open{% endif %}>
+        <summary>Ledgers <span class="pill" id="lp-count">{{ picked_ids|length }} selected</span></summary>
+        <div class="lp-tools">
+          <input type="search" id="lp-search" placeholder="Type to filter ledgers" aria-label="Filter ledgers" autocomplete="off">
+          <button type="button" class="btn ghost" id="lp-all">Select shown</button>
+          <button type="button" class="btn ghost" id="lp-none">Clear</button>
+        </div>
+        <div class="lp-list">
+          {% for group, ledgers in groups %}
+            <fieldset class="lp-group"><legend>{{ group }}</legend>
+              {% for l in ledgers %}<label class="lp-item"><input type="checkbox" name="ledger" value="{{ l.pk }}" {% if l.pk in picked_ids %}checked{% endif %}> <span>{{ l.name }}</span></label>{% endfor %}
+            </fieldset>
+          {% empty %}<div class="empty"><div class="hand">No ledgers yet</div></div>{% endfor %}
+        </div>
+      </details>
+    </form>
+
+    {% if book %}
+      <div class="table-wrap"><table>
+        <caption class="sr-only">Summary of the selected ledgers</caption>
+        <thead><tr><th scope="col">Ledger</th><th scope="col" class="num">Opening</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th><th scope="col" class="num">Closing</th></tr></thead>
+        <tbody>{% for st in book.statements %}<tr><td><a href="#ledger-{{ st.ledger.pk }}">{{ st.ledger.name }}</a> <span class="muted">{{ st.ledger.group.name }}</span></td>
+          <td class="num">{{ st.opening|floatformat:2 }} {% if st.opening >= 0 %}Dr{% else %}Cr{% endif %}</td><td class="num">{{ st.debit }}</td><td class="num">{{ st.credit }}</td>
+          <td class="num">{{ st.closing|floatformat:2 }} {% if st.closing >= 0 %}Dr{% else %}Cr{% endif %}</td></tr>{% endfor %}</tbody>
+        {% if book.statements|length > 1 %}<tfoot><tr><td>All selected</td><td class="num">{{ book.opening|floatformat:2 }} {% if book.opening >= 0 %}Dr{% else %}Cr{% endif %}</td><td class="num">{{ book.debit }}</td><td class="num">{{ book.credit }}</td>
+          <td class="num">{{ book.closing|floatformat:2 }} {% if book.closing >= 0 %}Dr{% else %}Cr{% endif %}</td></tr></tfoot>{% endif %}
+      </table></div>
+
+      {% for st in book.statements %}
+        <h2 id="ledger-{{ st.ledger.pk }}" class="lb-title"><a href="{% url 'ledger_statement' st.ledger.pk %}?from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ st.ledger.name }}</a> <span class="muted">{{ st.ledger.group.name }}</span></h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th scope="col">Date</th><th scope="col">Voucher</th><th scope="col">Particulars</th><th scope="col">Factory</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th><th scope="col" class="num">Balance</th></tr></thead>
+          <tbody>
+            <tr><td colspan="6"><strong>Opening balance</strong></td><td class="num">{{ st.opening|floatformat:2 }} {% if st.opening >= 0 %}Dr{% else %}Cr{% endif %}</td></tr>
+            {% for r in st.rows %}<tr><td>{{ r.date|date:"d M Y" }}</td><td><a href="{% url 'voucher_detail' r.voucher.pk %}">{{ r.voucher.number }}</a> <span class="muted">{{ r.type }}</span></td><td>{{ r.particulars }}</td><td>{{ r.factory }}</td>
+              <td class="num">{% if r.debit %}{{ r.debit }}{% endif %}</td><td class="num">{% if r.credit %}{{ r.credit }}{% endif %}</td><td class="num">{{ r.balance|floatformat:2 }} {% if r.balance >= 0 %}Dr{% else %}Cr{% endif %}</td></tr>
+            {% empty %}<tr><td colspan="7" class="muted">No entries in this period.</td></tr>{% endfor %}
+          </tbody>
+          <tfoot><tr><td colspan="4">Total / closing</td><td class="num">{{ st.debit }}</td><td class="num">{{ st.credit }}</td><td class="num">{{ st.closing|floatformat:2 }} {% if st.closing >= 0 %}Dr{% else %}Cr{% endif %}</td></tr></tfoot>
+        </table></div>
+      {% endfor %}
+    {% elif asked %}
+      <p class="muted">Tick at least one ledger above, then press Show.</p>
+    {% endif %}
+  </div>
+  <script src="{% static 'js/ledger_book.js' %}?v={{ asset_v }}" defer></script>
+{% endblock %}

@@ -155,3 +155,19 @@ def test_every_report_opens_exports_and_respects_factories(month, ns, company, f
     cc = Client()
     cc.force_login(clerk)
     assert cc.get(reverse("profit_loss")).status_code == 403 and cc.get(reverse("balance_sheet")).status_code == 403
+
+
+def test_ledger_book_shows_each_chosen_ledger_with_combined_totals(month, ns, company, owner):
+    debtors, cash = ns.local.customer_ledger, led(company, "cash")
+    book = books.ledger_book([debtors, cash], user=owner, date_from=FY_FROM, date_to=FY_TO)
+    assert [s["ledger"] for s in book["statements"]] == [debtors, cash]
+    assert book["debit"] == sum((s["debit"] for s in book["statements"]), D("0.00"))
+    assert book["closing"] == D("3000.00") + D("1500.00")                    # debtors 3,000 Dr, cash 1,500 Dr
+    c = Client()
+    c.force_login(owner)
+    page = c.get(reverse("ledger_book"), {"ledger": [debtors.pk, cash.pk, 999999], "from": "2026-04-01", "to": "2027-03-31"}).content.decode()
+    assert "Punjab Traders" in page and "Cash" in page and "All selected" in page and "2 selected" in page
+    assert c.get(reverse("ledger_book")).status_code == 200                  # no ledger chosen yet: just the picker
+    r = c.get(reverse("ledger_book"), {"ledger": [debtors.pk, cash.pk], "format": "xlsx"})
+    assert "spreadsheetml" in r["Content-Type"] and load_workbook(BytesIO(r.content)).active["A1"].value == "Ledger book"
+    assert c.get(reverse("ledger_book"), {"format": "xlsx"}).status_code == 302

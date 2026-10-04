@@ -92,6 +92,7 @@ NAV = [
             ("profit_loss", "Profit and loss", "ledger.report"),
             ("balance_sheet", "Balance sheet", "ledger.report"),
             ("day_book", "Day book", "ledger.report"),
+            ("ledger_book", "Ledger book", "ledger.report"),
             ("ledger_pick", "Ledger statement", "ledger.report"),
         ]),
         Sub("Set up and close", [

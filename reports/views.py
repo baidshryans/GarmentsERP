@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 
@@ -86,6 +86,36 @@ class LedgerPicker(ReportView):
         for l in Ledger.objects.filter(company=f["company"], is_active=True).select_related("group").order_by("group__sort_order", "name"):
             groups.setdefault(l.group.name, []).append(l)
         return {"groups": list(groups.items())}
+
+
+class LedgerBook(ReportView):
+    """Tick any number of ledgers and see each one's entries with a running balance, one after another."""
+
+    template_name = "reports/ledger_book.html"
+
+    def build(self, request, f):
+        groups, by_id = {}, {}
+        for l in Ledger.objects.filter(company=f["company"], is_active=True).select_related("group").order_by("group__sort_order", "name"):
+            groups.setdefault(l.group.name, []).append(l)
+            by_id[l.pk] = l
+        picked_ids = [int(x) for x in request.GET.getlist("ledger") if x.isdigit() and int(x) in by_id]
+        picked = [by_id[i] for i in dict.fromkeys(picked_ids)]
+        book = books.ledger_book(picked, user=request.user, factory=f["factory"], date_from=f["date_from"], date_to=f["date_to"]) if picked else None
+        return {"groups": list(groups.items()), "picked_ids": {l.pk for l in picked}, "book": book, "asked": "ledger" in request.GET or "from" in request.GET}
+
+    def export(self, ctx):
+        rows = []
+        for st in ctx["book"]["statements"]:
+            rows.append((ctx["date_from"], st["ledger"].name, "", "Opening balance", "", "", st["opening"]))
+            rows += [(r["date"], st["ledger"].name, r["voucher"].number, r["particulars"], r["debit"], r["credit"], r["balance"]) for r in st["rows"]]
+            rows.append((ctx["date_to"], st["ledger"].name, "", "Closing balance", st["debit"], st["credit"], st["closing"]))
+        return xlsx_response("ledger-book", "Ledger book", ("Date", "Ledger", "Voucher", "Particulars", "Debit", "Credit", "Balance (Dr +)"), rows,
+                             notes=[f"{ctx['date_from']} to {ctx['date_to']}" + (f", factory {ctx['factory'].code}" if ctx["factory"] else ", all factories")])
+
+    def get(self, request, **kwargs):
+        if request.GET.get("format") == "xlsx" and not request.GET.getlist("ledger"):
+            return redirect(request.path)
+        return super().get(request, **kwargs)
 
 
 class DayBook(ReportView):

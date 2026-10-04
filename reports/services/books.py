@@ -74,6 +74,14 @@ def ledger_statement(ledger, *, user, factory=None, date_from=None, date_to=None
     return {"ledger": ledger, "opening": opening, "rows": rows, "debit": total_dr, "credit": total_cr, "closing": running}
 
 
+def ledger_book(ledgers, *, user, factory=None, date_from=None, date_to=None):
+    """A ledger statement for each chosen ledger, with the totals of all of them together (opening and closing are debit-positive)."""
+    statements = [ledger_statement(l, user=user, factory=factory, date_from=date_from, date_to=date_to) for l in ledgers]
+    return {"statements": statements,
+            "opening": sum((s["opening"] for s in statements), ZERO), "debit": sum((s["debit"] for s in statements), ZERO),
+            "credit": sum((s["credit"] for s in statements), ZERO), "closing": sum((s["closing"] for s in statements), ZERO)}
+
+
 def day_book(company, *, user, factory=None, date_from=None, date_to=None, voucher_type=None):
     qs = Voucher.objects.for_user(user).filter(company=company, status="posted").select_related("factory")
     if factory is not None:

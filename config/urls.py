@@ -60,6 +60,7 @@ urlpatterns = [
     path("accounts/trial-balance/", ledger.TrialBalanceView.as_view(), name="trial_balance"),
     path("accounts/ledgers/", rep.LedgerPicker.as_view(), name="ledger_pick"),
     path("accounts/ledgers/<int:pk>/statement/", rep.LedgerStatement.as_view(), name="ledger_statement"),
+    path("accounts/ledger-book/", rep.LedgerBook.as_view(), name="ledger_book"),
     path("accounts/day-book/", rep.DayBook.as_view(), name="day_book"),
     path("accounts/period-locks/", ledger.PeriodLocks.as_view(), name="period_locks"),
     path("accounts/year-end/", ledger.YearEnd.as_view(), name="year_end"),

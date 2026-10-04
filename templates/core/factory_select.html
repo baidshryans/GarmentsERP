@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Choose factory{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Choose a factory</h1></div>
+  <p class="muted" style="max-width:640px">Everything you enter and see follows this choice. You can change it any time from the top bar.</p>
+  <div class="island" style="max-width:640px">
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <div class="factory-choices">
+        {% for f in factories %}
+          <button class="btn" name="factory" value="{{ f.pk }}"><svg><use href="#i-building"/></svg>{{ f.name }} <span class="muted">{{ f.code }}</span></button>
+        {% endfor %}
+        {% if can_all %}<button class="btn ghost" name="factory" value="all">All factories (view only)</button>{% endif %}
+      </div>
+    </form>
+  </div>
+{% endblock %}

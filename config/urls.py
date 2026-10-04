@@ -21,6 +21,8 @@ urlpatterns = [
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("accounts/password/", core.PasswordChange.as_view(), name="password_change"),
     path("", core.home, name="home"),
+    path("factory/select/", core.factory_select, name="factory_select"),
+    path("factory/switch/", core.factory_switch, name="factory_switch"),
     path("setup/", core.setup_wizard, name="setup"),
     path("setup/<str:step>/", core.setup_wizard, name="setup_step"),
     # admin

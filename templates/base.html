@@ -61,8 +61,18 @@
              hx-get="{% url 'search' %}" hx-trigger="input changed delay:250ms, search" hx-target="#search-results" hx-swap="innerHTML">
       <div id="search-results"></div>
     </div>
-    {% if user_factories.count > 1 %}
-      <span class="chip" title="Factories you can access"><svg><use href="#i-building"/></svg>{{ user_factories.count }}</span>
+    {% if request.user.is_authenticated and user_factories %}
+    <details class="user-menu factory-menu">
+      <summary aria-label="Active factory"><svg class="nav-ico"><use href="#i-building"/></svg><span class="user-name">{% if request.factory %}{{ request.factory.name }}{% elif request.factory_all %}All factories{% else %}Choose factory{% endif %}</span>{% if user_factories|length > 1 %}<svg class="nav-chev"><use href="#i-chevron"/></svg>{% endif %}</summary>
+      {% if user_factories|length > 1 %}
+      <form class="user-pop" method="post" action="{% url 'factory_switch' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        {% for f in user_factories %}<button name="factory" value="{{ f.pk }}"{% if request.factory.pk == f.pk %} aria-current="true"{% endif %}>{{ f.name }} <span class="muted small">{{ f.code }}</span></button>{% endfor %}
+        <button name="factory" value="all"{% if request.factory_all %} aria-current="true"{% endif %}>All factories <span class="muted small">view only</span></button>
+      </form>
+      {% endif %}
+    </details>
     {% endif %}
     <button type="button" class="btn icon nav-layout" data-nav-toggle data-tip="Move the menu to the top or the side" aria-label="Move the menu to the top or the side" aria-pressed="false">
       <svg class="nav-icon-side"><use href="#i-menu-top"/></svg><svg class="nav-icon-top"><use href="#i-menu-side"/></svg>

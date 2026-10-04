@@ -7,10 +7,11 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView
 
-from core.exceptions import BusinessRuleError
+from core.exceptions import BusinessRuleError, FactoryNotAllowed
 from core.scoping import ScreenPermissionMixin
 from reports.services.overview import build_overview
 
@@ -19,6 +20,7 @@ from .forms import (
     TaxStepForm, UserForm, YearStepForm,
 )
 from .models import Company, Factory, Role, User
+from .services import active_factory
 from .services.factories import create_factory
 from .services.setup import run_setup
 
@@ -298,3 +300,36 @@ class RoleSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             messages.success(request, "Role saved. Changes apply at each user's next action.")
             return redirect("role_list")
         return render(request, "core/role_form.html", {"form": form, "role": role})
+
+
+def _safe_next(request, fallback="home"):
+    nxt = request.POST.get("next") or request.GET.get("next") or ""
+    return nxt if url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}) else reverse(fallback)
+
+
+@login_required
+def factory_select(request):
+    """Pick the factory to work in (after login, when the user has several and no last-used one)."""
+    if request.method == "POST":
+        try:
+            active_factory.switch(request, request.POST.get("factory", ""))
+        except FactoryNotAllowed as exc:
+            messages.error(request, str(exc))
+        else:
+            return redirect(_safe_next(request))
+    factories = active_factory.allowed_factories(request.user)
+    return render(request, "core/factory_select.html", {
+        "factories": factories, "can_all": factories.count() > 1, "next": _safe_next(request),
+    })
+
+
+@login_required
+def factory_switch(request):
+    """Top-bar switcher: change the active factory and return to the page the user was on."""
+    if request.method != "POST":
+        return redirect("home")
+    try:
+        active_factory.switch(request, request.POST.get("factory", ""))
+    except FactoryNotAllowed as exc:
+        messages.error(request, str(exc))
+    return redirect(_safe_next(request))

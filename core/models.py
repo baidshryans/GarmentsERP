@@ -202,10 +202,14 @@ class User(AbstractUser):
         default=False, help_text="Access every factory, including ones added later."
     )
     allowed_factories = models.ManyToManyField(Factory, blank=True, related_name="users")
+    last_factory = models.ForeignKey(
+        Factory, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+        help_text="The factory this user was last working in; selected again at next login.",
+    )
     failed_logins = models.PositiveSmallIntegerField(default=0)
     locked_until = models.DateTimeField(null=True, blank=True)
 
-    history = HistoricalRecords(excluded_fields=["password", "last_login", "failed_logins", "locked_until"])
+    history = HistoricalRecords(excluded_fields=["password", "last_login", "failed_logins", "locked_until", "last_factory"])
 
     def save(self, *args, **kwargs):
         if self.mobile == "":

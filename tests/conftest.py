@@ -131,3 +131,23 @@ def _production_reconciles(check_gl):
 
         for company in Company.objects.all():
             assert not check_wip_reconciles(company), "Lot cost differs from the WIP ledger"
+
+
+@pytest.fixture(autouse=True)
+def pick_first_factory_on_login(monkeypatch):
+    """A logged-in test client starts in the user's first allowed factory, as if chosen at the picker.
+    Tests of the picker itself (test_active_factory.py) clear it with `client.session` changes."""
+    from django.test import Client
+    from core.services.active_factory import SESSION_KEY, allowed_factories
+
+    original = Client.force_login
+
+    def force_login(self, user, backend=None):
+        original(self, user, backend)
+        first = allowed_factories(user).first()
+        if first:
+            session = self.session
+            session[SESSION_KEY] = str(first.pk)
+            session.save()
+
+    monkeypatch.setattr(Client, "force_login", force_login)

@@ -33,8 +33,8 @@
             <div class="nav-items-title">{{ group.title }}</div>
             {% for item in group.items %}
               {% if item.sub %}
-              <div class="nav-sub{% if item.active %} open{% endif %}" data-sub="{{ item.key }}">
-                <button type="button" class="nav-sub-toggle" aria-expanded="{% if item.active %}true{% else %}false{% endif %}"><span>{{ item.label }}</span><svg class="nav-chev"><use href="#i-chevron"/></svg></button>
+              <div class="nav-sub{% if item.active or item.default_open %} open{% endif %}" data-sub="{{ item.key }}">
+                <button type="button" class="nav-sub-toggle" aria-expanded="{% if item.active or item.default_open %}true{% else %}false{% endif %}"><span>{{ item.label }}</span><svg class="nav-chev"><use href="#i-chevron"/></svg></button>
                 <div class="nav-sub-items">{% for k in item.items %}<a href="{% url k.url_name %}" {% if k.current %}aria-current="page"{% endif %}>{{ k.label }}</a>{% endfor %}</div>
               </div>
               {% else %}

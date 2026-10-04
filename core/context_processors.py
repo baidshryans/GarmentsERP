@@ -9,8 +9,8 @@ from .models import Company, Factory
 class Sub:
     """A fold-away section inside a menu group, so a long group reads as a few headings instead of one long list."""
 
-    def __init__(self, label, items):
-        self.label, self.items = label, items
+    def __init__(self, label, items, open_by_default=False):
+        self.label, self.items, self.open_by_default = label, items, open_by_default
 
 
 NAV = [
@@ -59,10 +59,10 @@ NAV = [
         ("production_dashboard", "Dashboard", "production.dashboard"),
         ("order_list", "Production orders", "production.order"),
         ("move_bundles", "Move bundles", "production.move"),
-    ]),
-    ("Job work", [
-        ("challan_list", "Challans", "jobwork.challan"),
-        ("receipt_list", "Receipts and QC", "jobwork.receipt"),
+        Sub("Job work", [
+            ("challan_list", "Challans", "jobwork.challan"),
+            ("receipt_list", "Receipts and QC", "jobwork.receipt"),
+        ]),
         Sub("Labour", [
             ("bill_list", "Labour bills", "jobwork.bill"),
             ("rate_list", "Labour rates", "jobwork.rate"),
@@ -74,17 +74,19 @@ NAV = [
     ]),
     ("Accounts", [
         ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
-        Sub("Vouchers", [
-            ("voucher_list", "All vouchers", "ledger.voucher"),
+        Sub("Enter a voucher", [
             ("voucher_payment", "Payment", "ledger.voucher.create"),
             ("voucher_receipt", "Receipt", "ledger.voucher.create"),
             ("voucher_contra", "Contra", "ledger.voucher.create"),
             ("voucher_journal", "Journal", "ledger.voucher.create"),
+        ], open_by_default=True),
+        Sub("Sales and purchase entries", [
             ("voucher_sales", "Sales voucher", "ledger.voucher.create"),
             ("voucher_purchase", "Purchase voucher", "ledger.voucher.create"),
             ("voucher_debit_note", "Debit note", "ledger.voucher.create"),
             ("voucher_credit_note", "Credit note", "ledger.voucher.create"),
         ]),
+        ("voucher_list", "All vouchers", "ledger.voucher"),
         Sub("Books", [
             ("trial_balance", "Trial balance", "ledger.report"),
             ("profit_loss", "Profit and loss", "ledger.report"),
@@ -138,7 +140,7 @@ def flat_items(items):
 # (a lot page, a challan, a style are not menu entries but belong to Production, Job work, Masters).
 ICONS = {
     "Home": "i-home", "Masters": "i-masters", "Purchases": "i-purchases", "Sales": "i-sales", "Inventory": "i-inventory",
-    "Production": "i-production", "Job work": "i-jobwork", "Accounts": "i-accounts", "Reports": "i-reports", "Admin": "i-admin",
+    "Production": "i-production", "Accounts": "i-accounts", "Reports": "i-reports", "Admin": "i-admin",
 }
 
 PREFIXES = {
@@ -146,8 +148,7 @@ PREFIXES = {
     "Purchases": ("/purchases/",),
     "Sales": ("/sales/",),
     "Inventory": ("/inventory/",),
-    "Production": ("/production/",),
-    "Job work": ("/jobwork/",),
+    "Production": ("/production/", "/jobwork/"),
     "Accounts": ("/accounts/chart", "/accounts/vouchers", "/accounts/opening", "/accounts/trial", "/accounts/ledgers", "/accounts/profit",
                  "/accounts/balance", "/accounts/day-book", "/accounts/ageing", "/accounts/period", "/accounts/year"),
     "Reports": ("/reports/",),
@@ -202,7 +203,7 @@ def app_shell(request):
                 kids = visible(it.items)
                 if kids:
                     shown.append({"sub": True, "label": it.label, "items": kids, "key": f"{key}/{it.label.lower().replace(' ', '-')}",
-                                  "active": any(k["current"] for k in kids)})
+                                  "active": any(k["current"] for k in kids), "default_open": it.open_by_default})
             else:
                 shown.extend(visible([it]))
         if shown:

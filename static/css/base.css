@@ -396,3 +396,26 @@ td input.num, td input[inputmode="decimal"] { max-width: 12rem; margin-left: aut
 }
 /* the title and intro of a centred form page line up with the form (app.js adds .form-page to .content) */
 .content.form-page > .page-head, .content.form-page > p.muted { max-width: var(--form-max); margin-inline: auto; }
+
+/* ---- entry tables (line items inside a form): a subtle grid, so each row and column reads as a cell ---- */
+.field-row { column-gap: var(--space-4); row-gap: 0; }
+.content form .table-wrap, .content form .table-scroll {
+  border: 1px solid var(--color-hairline); border-radius: var(--radius); background: var(--color-surface);
+}
+.content form table { border-collapse: separate; border-spacing: 0; width: 100%; }
+.content form thead th {
+  background: var(--color-sidebar); border-bottom: 1px solid var(--color-hairline);
+  padding: 8px var(--space-3); font-size: var(--text-label); letter-spacing: 0.02em;
+}
+.content form tbody td { padding: 6px var(--space-2); vertical-align: top; border-bottom: 1px solid var(--color-hairline); }
+.content form tbody tr:last-child td { border-bottom: 0; }
+.content form tbody td + td, .content form thead th + th, .content form tfoot td + td { border-left: 1px solid var(--color-hairline); }
+.content form tbody tr:hover { background: transparent; }
+.content form tbody tr:focus-within { background: var(--color-primary-soft); }
+.content form tfoot td { background: var(--color-sidebar); border-top: 1px solid var(--color-hairline); padding: 8px var(--space-3); }
+/* the controls fill their cell, so the grid lines up */
+.content form td select, .content form td input:not([type="checkbox"]):not([type="radio"]), .content form td textarea { width: 100%; max-width: none; }
+.content form td input.num, .content form td input[inputmode="decimal"] { display: block; margin-left: 0; max-width: none; text-align: right; }
+.content form td textarea { min-height: 3.2em; resize: vertical; }
+.content form td .muted { margin-top: 2px; font-size: var(--text-label); }
+.content form td.num, .content form th.num { text-align: right; }

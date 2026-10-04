@@ -445,3 +445,23 @@ td input.num, td input[inputmode="decimal"] { max-width: 12rem; margin-left: aut
 .content form tfoot td.row-tools { border-left: 0; }
 .content form td textarea { height: 4.4em; min-height: 0; }
 .entry-hint::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; background: var(--color-primary); vertical-align: -1px; }
+
+/* ---- every data table: the same subtle grid as the entry tables ---- */
+.content .table-wrap, .content .table-scroll { border: 1px solid var(--color-hairline); border-radius: var(--radius); background: var(--color-surface); }
+.content table { border-collapse: separate; border-spacing: 0; width: 100%; }
+.content thead th {
+  background: var(--color-sidebar); border-bottom: 1px solid var(--color-hairline);
+  padding: 8px var(--space-3); font-size: var(--text-label); letter-spacing: 0.02em;
+}
+.content tbody td { padding: 8px var(--space-3); border-bottom: 1px solid var(--color-hairline); vertical-align: middle; }
+.content tbody tr:last-child td { border-bottom: 0; }
+.content tbody td + td, .content thead th + th, .content tfoot td + td { border-left: 1px solid var(--color-hairline); }
+.content tfoot td { background: var(--color-sidebar); border-top: 1px solid var(--color-hairline); border-bottom: 0; padding: 8px var(--space-3); }
+.content thead th:first-child { border-top-left-radius: calc(var(--radius) - 1px); }
+.content thead th:last-child { border-top-right-radius: calc(var(--radius) - 1px); }
+/* an empty-state or one-cell row does not need column lines */
+.content td[colspan] { border-left: 0; }
+/* entry tables keep their tighter cells */
+.content form tbody td { padding: 6px var(--space-2); }
+.content form td[colspan] { border-left: 0; }
+.content table.plain, .content .no-grid table { border: 0; }

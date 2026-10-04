@@ -451,3 +451,12 @@ def test_entry_tables_use_one_entry_line_and_save_every_line():
                  "ledger/party_voucher_form", "production/order_form", "masters/bom_form"):
         assert "<table data-entry" in (ROOT / f"templates/{name}.html").read_text(encoding="utf-8"), name
     assert "js/entry_table.js" in (ROOT / "templates/base.html").read_text(encoding="utf-8")
+
+
+def test_every_data_table_shares_the_subtle_grid_and_prints_plain():
+    css = (ROOT / "static/css/base.css").read_text(encoding="utf-8")
+    prt = (ROOT / "static/css/print.css").read_text(encoding="utf-8")
+    assert ".content .table-wrap, .content .table-scroll { border: 1px solid var(--color-hairline)" in css
+    assert ".content thead th" in css and ".content tfoot td" in css
+    assert ".table-wrap, .table-scroll { border: 0 !important" in prt
+    assert css.count("{") == css.count("}")

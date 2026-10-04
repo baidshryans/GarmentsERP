@@ -9,4 +9,7 @@
   th, td { border-bottom: 1px solid black; color: black; background: white; }
   thead th { position: static; color: black; background: white; }
   .hand, h1.page-title { font-family: "Assistant", sans-serif; }
+  .table-wrap, .table-scroll { border: 0 !important; border-radius: 0 !important; overflow: visible !important; max-height: none !important; }
+  tbody td + td, thead th + th, tfoot td + td { border-left: 0 !important; }
+  tfoot td { background: white !important; color: black; border-top: 1px solid black; }
 }

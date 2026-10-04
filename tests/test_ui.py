@@ -460,3 +460,13 @@ def test_every_data_table_shares_the_subtle_grid_and_prints_plain():
     assert ".content thead th" in css and ".content tfoot td" in css
     assert ".table-wrap, .table-scroll { border: 0 !important" in prt
     assert css.count("{") == css.count("}")
+
+
+def test_selects_are_searchable_and_still_post_through_the_real_select():
+    js = (ROOT / "static/js/searchable_select.js").read_text(encoding="utf-8")
+    css = (ROOT / "static/css/base.css").read_text(encoding="utf-8")
+    base = (ROOT / "templates/base.html").read_text(encoding="utf-8")
+    assert "js/searchable_select.js" in base
+    assert 'role", "combobox"' in js and "ArrowDown" in js and '"Tab"' in js and "data-native" in js
+    assert "Object.defineProperty(select, \"value\"" in js            # scripts that set select.value keep the box in step
+    assert ".ss-panel" in css and "select.ss-native" in css

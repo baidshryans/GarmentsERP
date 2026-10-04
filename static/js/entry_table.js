@@ -2,7 +2,7 @@
    line drops into the table above and a fresh entry line opens. Every line in the table, and a line still being
    typed, is submitted when the form is saved; the server ignores a blank line. */
 (function () {
-  var CONTROLS = "select, input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea";
+  var CONTROLS = "select:not(.ss-native), input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea";   // a searchable select shows as its text box
 
   function controls(row) { return Array.prototype.slice.call(row.querySelectorAll(CONTROLS)); }
 
@@ -13,7 +13,7 @@
   }
 
   function hasData(row) {
-    return controls(row).some(function (c) {
+    return Array.prototype.slice.call(row.querySelectorAll("select, input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not(.ss-input), textarea")).some(function (c) {
       if (c.tagName === "SELECT") { return c.selectedIndex > 0 && c.value !== ""; }
       return c.value.trim() !== "";
     });
@@ -55,6 +55,7 @@
   function commit(table, row) {
     var fresh = blankCopy(row);
     row.parentNode.appendChild(fresh);
+    if (window.SearchableSelect) { window.SearchableSelect.scan(fresh); }           // make the new line's selects searchable now, so focus lands on them
     addTools(table); mark(table); announce(table, fresh);
     var first = controls(fresh).filter(usable)[0];
     if (first) { first.focus(); }

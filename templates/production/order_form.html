@@ -13,7 +13,7 @@
     </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>
     <div class="island"><h2>Styles</h2>
       <p class="muted">Enter the total once and the size ratio, for example <code>S:1, M:2, L:2, XL:1</code>. The pieces are spread across the sizes. The latest BOM and the style's route are filled in.</p>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table data-entry>
         <thead><tr><th scope="col" style="width:26%">Style</th><th scope="col">Colour</th><th scope="col" class="num">Total pieces</th><th scope="col">Size ratio</th></tr></thead>
         <tbody>{% for r in rows %}<tr>
           <td><select name="style"><option value="">—</option>{% for s in styles %}<option value="{{ s.pk }}" {% if r.style == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.style_no }} — {{ s.name }}</option>{% endfor %}</select></td>

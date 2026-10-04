@@ -7,7 +7,7 @@
     {% csrf_token %}
     <div class="island">
       <h2>Materials</h2>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table data-entry>
         <thead><tr><th scope="col" style="width:30%">Material</th><th scope="col" class="num">Per piece</th><th scope="col" class="num">Wastage %</th>{% for s in sizes %}<th scope="col" class="num">{{ s.code }}</th>{% endfor %}</tr></thead>
         <tbody>{% for r in rows %}
           <tr>
@@ -21,7 +21,7 @@
     </div>
     <div class="island">
       <h2>Fixed charges per piece</h2>
-      <div class="table-scroll"><table>
+      <div class="table-scroll"><table data-entry>
         <thead><tr><th scope="col">Description</th><th scope="col">Process</th><th scope="col" class="num">Amount</th></tr></thead>
         <tbody>{% for c in charge_rows %}<tr>
           <td><input type="text" name="charge_desc" aria-label="Charge description" value="{{ c.description|default:'' }}" placeholder="Embroidery, printing, washing"></td>

@@ -11,7 +11,7 @@
       <div class="field"><label for="expected_date">Expected by</label><input id="expected_date" name="expected_date" type="date" value="{{ vals.expected_date }}"></div>
     </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>
     <div class="island"><h2>Items</h2>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table data-entry>
         <thead><tr><th scope="col" style="width:50%">Item</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate</th></tr></thead>
         <tbody>{% for r in rows %}<tr><td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>
           <td class="num"><input type="text" inputmode="decimal" name="qty" value="{{ r.qty|default:'' }}"></td>

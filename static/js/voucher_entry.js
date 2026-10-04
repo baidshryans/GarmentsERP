@@ -95,6 +95,7 @@
     body.appendChild(copy); syncRow(copy);
     copy.querySelector("select").focus();
   });
+  table.addEventListener("entry:added", function (e) { syncRow(e.detail.row); });   // a new entry line from entry_table.js
   body.querySelectorAll("tr").forEach(syncRow);
   totals();
 })();

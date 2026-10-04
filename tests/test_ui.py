@@ -441,3 +441,13 @@ def test_form_controls_have_a_width_cap_and_plain_form_pages_are_centred():
     assert "td select" in css and ".form-page" in css and "margin-inline: auto" in css
     assert "form-page" in js
     assert css.count("{") == css.count("}")
+
+
+def test_entry_tables_use_one_entry_line_and_save_every_line():
+    js = (ROOT / "static/js/entry_table.js").read_text(encoding="utf-8")
+    assert "entry-row" in js and '"Tab"' in js and "commit(" in js and "entry:added" in js
+    for name in ("purchases/po_form", "purchases/grn_form", "purchases/debitnote_form", "inventory/transfer_form",
+                 "inventory/opening", "inventory/journal_form", "ledger/opening", "ledger/voucher_form",
+                 "ledger/party_voucher_form", "production/order_form", "masters/bom_form"):
+        assert "<table data-entry" in (ROOT / f"templates/{name}.html").read_text(encoding="utf-8"), name
+    assert "js/entry_table.js" in (ROOT / "templates/base.html").read_text(encoding="utf-8")

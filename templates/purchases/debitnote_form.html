@@ -13,7 +13,7 @@
       <div class="field-row">
         <div class="field"><label for="gst_template">GST on the return (optional)</label><select id="gst_template" name="gst_template"><option value="">No GST</option>{% for t in gst_templates %}<option value="{{ t.pk }}" {% if d.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
         <div class="check" style="align-self:end"><input id="itc" type="checkbox" name="itc_claimable" checked><label for="itc">Input credit was claimed</label></div></div></div>
-    <div class="island"><div class="table-wrap"><table>
+    <div class="island"><div class="table-wrap"><table data-entry>
       <thead><tr><th scope="col" style="width:30%">Item</th><th scope="col">From location</th><th scope="col">Roll (fabric)</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate</th></tr></thead>
       <tbody>{% for r in rows %}<tr><td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>
         <td><select name="location">{% for l in locations %}<option value="{{ l.pk }}" {% if r.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></td>

@@ -19,7 +19,7 @@
     </div></div>
     <div class="island"><h2>Items</h2>
       <p class="muted">For fabric, choose the roll to move. Between factories the stock arrives in the destination's In Transit location until it is received.</p>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table data-entry>
         <thead><tr><th scope="col" style="width:42%">Item</th><th scope="col">Roll (fabric)</th><th scope="col" class="num">Quantity</th></tr></thead>
         <tbody>{% for r in rows %}<tr>
           <td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>

@@ -15,7 +15,7 @@
       <div class="field"><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="{{ v.due_date }}"></div>
     </div></div>
     <div class="island"><h2>{% if vtype == "sales" %}Income{% elif vtype == "credit_note" %}Returns{% elif vtype == "debit_note" %}Returned goods{% else %}Purchases and expenses{% endif %}</h2>
-      <div class="table-scroll"><table><thead><tr><th scope="col" style="min-width:260px">Ledger</th><th scope="col" class="num">Amount</th><th scope="col">Note</th></tr></thead>
+      <div class="table-scroll"><table data-entry><thead><tr><th scope="col" style="min-width:260px">Ledger</th><th scope="col" class="num">Amount</th><th scope="col">Note</th></tr></thead>
         <tbody>{% for r in rows %}<tr><td><select name="row_ledger" aria-label="Ledger"><option value="">—</option>{% for g, ledgers in ledger_groups %}<optgroup label="{{ g }}">{% for l in ledgers %}<option value="{{ l.pk }}" {% if r.ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></td>
           <td class="num"><input type="text" inputmode="decimal" name="row_amount" value="{{ r.amount }}"></td><td><input type="text" name="row_narration" value="{{ r.narration }}"></td></tr>{% endfor %}</tbody></table></div>
     </div>

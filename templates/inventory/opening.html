@@ -12,7 +12,7 @@
       <div class="field"><label for="location">Location</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="date">As at</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}"></div>
     </div>
-    <div class="table-wrap"><table>
+    <div class="table-wrap"><table data-entry>
       <thead><tr><th scope="col" style="width:26%">Item</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate</th><th scope="col">Roll no.</th><th scope="col">Lot / shade</th><th scope="col" class="num">GSM</th><th scope="col" class="num">Width cm</th><th scope="col" class="num">Metres</th></tr></thead>
       <tbody>{% for r in rows %}<tr>
         <td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>

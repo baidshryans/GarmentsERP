@@ -32,7 +32,7 @@
     </div>
 
     {% if vtype == "contra" %}
-    <div class="table-scroll"><table id="voucher-rows">
+    <div class="table-scroll"><table data-entry id="voucher-rows">
       <thead><tr><th scope="col" style="min-width:220px">From (cash / bank)</th><th scope="col" style="min-width:220px">To (cash / bank)</th><th scope="col" class="num">Amount</th><th scope="col">Note</th><th scope="col"></th></tr></thead>
       <tbody>{% for r in rows %}
         <tr>
@@ -47,7 +47,7 @@
     </table></div>
     <div style="margin-top:8px"><button type="button" class="btn" id="add-row"><svg width="16" height="16"><use href="#i-plus"/></svg> Add row</button></div>
     {% else %}
-    <div class="table-scroll"><table id="voucher-rows">
+    <div class="table-scroll"><table data-entry id="voucher-rows">
       <thead><tr>
         <th scope="col" style="min-width:240px">{% if vtype == "payment" %}Paid to{% elif vtype == "receipt" %}Received from{% else %}Ledger{% endif %}</th>
         {% if vtype == "journal" %}<th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th>{% else %}<th scope="col" class="num">Amount</th>{% endif %}

@@ -18,7 +18,7 @@
     </div></div>
     <div class="island"><h2>Items received</h2>
       <p class="muted">For <strong>fabric</strong>, list the rolls, one per line: <code>roll no, quantity, metres, lot, GSM, width</code> (only the first two are required; you can paste from the vendor's packing list). Other items take a quantity.</p>
-      <div class="table-wrap"><table>
+      <div class="table-wrap"><table data-entry>
         <thead><tr><th scope="col" style="width:28%">Item</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Quantity (not fabric)</th><th scope="col">Rolls (fabric)</th></tr></thead>
         <tbody>{% for r in rows %}<tr>
           <td>{% include "partials/item_select.html" with name="item" selected=r.item %}<input type="hidden" name="po_line" value="{{ r.po_line|default:'' }}">{% if r.hint %}<div class="muted">{{ r.hint }}</div>{% endif %}</td>

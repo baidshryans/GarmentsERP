@@ -252,7 +252,11 @@ def test_voucher_screens_and_api_hide_other_factories(company, factory, factory2
     api = c.get("/api/v1/vouchers/").json()
     assert [row["number"] for row in api] == [mine.number]
     assert [f["code"] for f in c.get("/api/v1/me/").json()["factories"]] == ["LDH1"]
-    assert c.get(reverse("trial_balance"), {"factory": factory2.pk}).status_code == 404
+    # The factory is the session's, not a URL value: the accountant cannot switch into LDH2, and the
+    # trial balance stays on LDH1 whatever the query string says.
+    c.post(reverse("factory_switch"), {"factory": factory2.pk})
+    page = c.get(reverse("trial_balance"), {"factory": factory2.pk})
+    assert page.status_code == 200 and page.wsgi_request.factory == factory
     assert c.get(reverse("factory_list")).status_code == 403  # accountant has no factory screen
 
 

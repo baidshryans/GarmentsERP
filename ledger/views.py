@@ -15,6 +15,7 @@ from core.crud import ObjectDelete
 from core.exceptions import BusinessRuleError
 from core.services.active_factory import require_active_factory
 from core.models import Company, Factory
+from core.services.active_factory import need_factory, require_active_factory
 from core.scoping import ScreenPermissionMixin
 
 from .forms import GroupForm, LedgerForm
@@ -344,7 +345,7 @@ class PartyVoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
         title, intro = PARTY_TITLES[vtype]
         return {
             "vtype": vtype, "title": title, "intro": intro, "v": values or {"date": timezone.localdate().isoformat()},
-            "factories": Factory.objects.for_user(request.user).filter(is_active=True),
+            "factory": request.factory,
             "parties": [l for l in Ledger.objects.filter(company=company, is_active=True).select_related("group", "group__parent")
                         if l.group.name == party_group or (l.group.parent and l.group.parent.name == party_group)],
             "ledger_groups": sorted(groups.items()), "rows": rows or [{} for _ in range(4)],
@@ -356,18 +357,22 @@ class PartyVoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
         }
 
     def get(self, request, vtype):
+        if back := need_factory(request, "voucher_list"):
+            return back
         return render(request, "ledger/party_voucher_form.html", self._context(request, vtype))
 
     def post(self, request, vtype):
         from tax.models import TaxTemplate
 
         p, company = request.POST, _company()
-        factory = get_object_or_404(Factory.objects.for_user(request.user).filter(is_active=True), pk=p.get("factory"))
+        if back := need_factory(request, "voucher_list"):
+            return back
+        factory = require_active_factory(request)
         names = ("ledger", "amount", "narration")
         cols = {n: p.getlist("row_" + n) for n in names}
         count = max((len(v) for v in cols.values()), default=0)
         raw = [{n: (cols[n][i] if i < len(cols[n]) else "") for n in names} for i in range(count)]
-        values = {k: p.get(k, "") for k in ("factory", "date", "party", "reference", "ref_type", "due_date", "narration",
+        values = {k: p.get(k, "") for k in ("date", "party", "reference", "ref_type", "due_date", "narration",
                                            "gst_template", "other_template", "override_reason")}
         for c in ("cgst", "sgst", "igst", "tax"):
             values[f"override_{c}"] = p.get(f"override_{c}", "")
@@ -445,7 +450,7 @@ class OpeningBalances(LoginRequiredMixin, ScreenPermissionMixin, View):
         company = _company()
         ledgers = Ledger.objects.filter(company=company, is_active=True).exclude(system_key="opening_difference")
         return {
-            "company": company, "factories": Factory.objects.for_user(request.user).filter(is_active=True),
+            "company": company, "factory": request.factory,
             "ledgers": ledgers.select_related("group").order_by("group__name", "name"),
             "rows": rows or [{} for _ in range(6)], "factory_id": factory_id,
             "existing": Voucher.objects.for_user(request.user).filter(voucher_type="opening").select_related("factory"),
@@ -453,13 +458,17 @@ class OpeningBalances(LoginRequiredMixin, ScreenPermissionMixin, View):
         }
 
     def get(self, request):
+        if back := need_factory(request, "chart_of_accounts"):
+            return back
         return render(request, "ledger/opening.html", self._context(request))
 
     def post(self, request):
         if not request.user.has_screen_perm("ledger.opening", "create"):
             raise PermissionDenied
+        if back := need_factory(request, "chart_of_accounts"):
+            return back
         company = _company()
-        factory = get_object_or_404(Factory.objects.for_user(request.user), pk=request.POST.get("factory"))
+        factory = require_active_factory(request)
         ledger_ids = request.POST.getlist("ledger")
         debits, credits = request.POST.getlist("debit"), request.POST.getlist("credit")
         refs, dues = request.POST.getlist("reference"), request.POST.getlist("due_date")

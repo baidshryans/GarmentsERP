@@ -12,6 +12,7 @@ from django.views import View
 from core.exceptions import BusinessRuleError
 from core.models import Company, Factory, Location
 from core.scoping import ScreenPermissionMixin
+from core.services.active_factory import need_factory, require_active_factory
 from masters.models import SKU, Material, Party, Style
 
 from . import barcode
@@ -236,12 +237,14 @@ class JournalNew(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _ctx(self, request, rows=None, data=None):
         mats, skus = item_choices()
         rolls = RollBalance.objects.for_user(request.user).filter(qty__gt=0).select_related("roll__material", "location")
-        return {"factories": Factory.objects.for_user(request.user).filter(is_active=True),
-                "locations": Location.objects.filter(factory__is_active=True, is_active=True).select_related("factory"),
+        return {"factory": request.factory,
+                "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit"),
                 "mats": mats, "skus": skus, "rolls": rolls, "rows": rows or [{}, {}, {}, {}], "d": data or {},
                 "reasons": StockJournal.Reason.choices}
 
     def get(self, request):
+        if back := need_factory(request, "journal_list"):
+            return back
         return render(request, "inventory/journal_form.html", self._ctx(request))
 
     def post(self, request):
@@ -258,7 +261,7 @@ class JournalNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 specs.append(journal_service.JournalLineSpec(
                     direction=row["direction"], item=parse_item(value), qty=_decimal(row["qty"], "Quantity"), rate=rate, roll=roll,
                     new_roll_no=row["new_roll_no"]))
-            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=p.get("factory"))
+            factory = require_active_factory(request)
             j = journal_service.post_journal(
                 company=_company(), factory=factory, location=get_object_or_404(Location, pk=p.get("location")),
                 date=date.fromisoformat(p.get("date")), reason=p.get("reason", ""), lines=specs, user=request.user,
@@ -305,8 +308,7 @@ class ReorderLevels(LoginRequiredMixin, ScreenPermissionMixin, View):
         return {"rows": alert_service.level_rows(request.user), "vals": vals or {},
                 "materials": [(f"m:{m.pk}", m.name) for m in Material.objects.filter(is_active=True).order_by("name")],
                 "styles": [(f"s:{st.pk}", f"{st.style_no} — {st.name}") for st in Style.objects.filter(is_archived=False)],
-                "factories": Factory.objects.for_user(request.user).filter(is_active=True),
-                "all_factories_ok": request.user.allowed_factory_ids() is None,
+                "factory": request.factory,
                 "can_edit": request.user.has_screen_perm("inventory.reorder", "edit")}
 
     def get(self, request):
@@ -329,7 +331,7 @@ class ReorderLevels(LoginRequiredMixin, ScreenPermissionMixin, View):
                 item = get_object_or_404(Style, pk=int(pk))
             else:
                 raise ValueError("Choose a material or a style.")
-            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=int(p["factory"])) if p.get("factory") else None
+            factory = request.factory           # None in "All factories" mode = a level for all factories together
             alert_service.set_level(
                 item=item, factory=factory, user=request.user,
                 min_qty=_decimal(p.get("min_qty"), "Minimum"), reorder_qty=_decimal(p.get("reorder_qty"), "Reorder quantity", Decimal("0")),
@@ -475,14 +477,16 @@ class OpeningStockView(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _ctx(self, request, rows=None, d=None):
         mats, skus = item_choices()
         return {
-            "company": _company(), "factories": Factory.objects.for_user(request.user).filter(is_active=True),
-            "locations": Location.objects.filter(factory__in=Factory.objects.for_user(request.user), is_active=True).exclude(loc_type="transit"),
+            "company": _company(), "factory": request.factory,
+            "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit"),
             "mats": mats, "skus": skus, "rows": rows or [{} for _ in range(6)], "d": d or {},
-            "existing": OpeningStock.objects.filter(factory__in=Factory.objects.for_user(request.user)).select_related("factory", "location"),
+            "existing": OpeningStock.objects.filter(factory__in=request.active_factories).select_related("factory", "location"),
             "can_create": request.user.has_screen_perm("inventory.opening", "create"),
         }
 
     def get(self, request):
+        if back := need_factory(request, "stock_enquiry"):
+            return back
         return render(request, "inventory/opening.html", self._ctx(request))
 
     def post(self, request):
@@ -492,7 +496,7 @@ class OpeningStockView(LoginRequiredMixin, ScreenPermissionMixin, View):
         company = _company()
         rows, entries = [], []
         try:
-            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=p.get("factory"))
+            factory = require_active_factory(request)
             location = get_object_or_404(Location, pk=p.get("location"))
             n = len(p.getlist("item"))
             for i in range(n):

@@ -374,7 +374,10 @@ def test_opening_screen_reports_bad_rows_without_saving(company, factory, owner,
 def test_opening_cannot_be_posted_into_a_factory_the_user_lacks(company, factory, factory2, accountant, ledgers):
     c = Client()
     c.force_login(accountant)
-    assert _opening_post(c, factory2, [(ledgers("cash"), "10", "", "")]).status_code == 404
+    c.post(reverse("factory_switch"), {"factory": factory2.pk})              # refused: not one of the accountant's factories
+    _opening_post(c, factory2, [(ledgers("cash"), "10", "", "")])           # the posted factory is ignored; the session's is used
+    assert not Voucher.objects.filter(factory=factory2).exists()
+    assert set(Voucher.objects.values_list("factory", flat=True)) <= {factory.pk}
 
 
 def test_voucher_cancel_screen_reverses_and_needs_permission(company, factory, owner, accountant, ledgers):

@@ -8,7 +8,7 @@
   <form method="post" class="island" novalidate>
     {% csrf_token %}
     <div class="field-row">
-      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" data-factory-select="location">{% for f in factories %}<option value="{{ f.pk }}" {% if d.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
       <div class="field"><label for="location">Location</label><select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}" data-factory="{{ l.factory_id }}" {% if d.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
       <div class="field"><label for="date">As at</label><input id="date" name="date" type="date" value="{{ d.date|default:today }}"></div>
     </div>

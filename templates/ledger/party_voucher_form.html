@@ -6,7 +6,7 @@
   <p class="muted" style="max-width:720px">{{ intro }}</p>
   <form method="post" novalidate>{% csrf_token %}
     <div class="island"><div class="field-row">
-      <div class="field"><label for="factory">Factory <span class="muted">*</span></label><select id="factory" name="factory" required>{% for f in factories %}<option value="{{ f.pk }}" {% if v.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
       <div class="field"><label for="date">Date <span class="muted">*</span></label><input id="date" name="date" type="date" value="{{ v.date|default:today }}" required></div>
       <div class="field"><label for="party">{% if vtype == "sales" or vtype == "credit_note" %}Customer{% else %}Vendor{% endif %} <span class="muted">*</span></label><select id="party" name="party"><option value="">— choose —</option>{% for l in parties %}<option value="{{ l.pk }}" {% if v.party == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select>
         <div id="party-position" class="ledger-position muted small" hidden aria-live="polite"></div></div>

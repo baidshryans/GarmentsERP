@@ -7,10 +7,7 @@
   {% if can_create %}
   <form method="post" class="island" id="opening-form" novalidate>
     {% csrf_token %}
-    <div class="field" style="max-width:320px">
-      <label for="factory">Factory</label>
-      <select id="factory" name="factory" required>{% for f in factories %}<option value="{{ f.pk }}" {% if factory_id == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select>
-    </div>
+    <div class="field" style="max-width:320px"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
     <div class="table-wrap"><table data-entry id="opening-rows">
       <thead><tr><th scope="col" style="width:34%">Ledger</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th><th scope="col">Bill reference</th><th scope="col">Due date</th></tr></thead>
       <tbody>{% for r in rows %}

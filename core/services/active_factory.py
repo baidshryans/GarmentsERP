@@ -62,3 +62,14 @@ def require_active_factory(request):
 def in_active(qs, request):
     """Limit a factory-scoped queryset to the active factory (or, in "All" mode, to the user's factories)."""
     return qs.filter(factory__in=request.active_factories)
+
+
+def need_factory(request, to):
+    """For screens that enter a document: in "All factories" mode say so and send the user back to `to`."""
+    from django.contrib import messages
+    from django.shortcuts import redirect
+
+    if request.factory is None:
+        messages.error(request, "Choose a single factory in the top bar before entering a document.")
+        return redirect(to)
+    return None

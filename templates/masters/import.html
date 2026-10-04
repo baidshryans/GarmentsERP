@@ -16,8 +16,7 @@
         {% csrf_token %}
         <div class="field"><label for="kind">What are you importing?</label>
           <select id="kind" name="kind">{% for k, title, notes in kinds %}<option value="{{ k }}" {% if kind == k %}selected{% endif %}>{{ title }}</option>{% endfor %}</select></div>
-        <div class="field"><label for="factory">Factory (opening balances and opening stock)</label>
-          <select id="factory" name="factory">{% for f in factories %}<option value="{{ f.pk }}">{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+        <div class="field"><label>Factory (opening balances and opening stock)</label><div class="static-value">{% if factory %}{{ factory.code }} — {{ factory.name }}{% else %}Choose a single factory in the top bar{% endif %}</div></div>
         <div class="field"><label for="location">Location (opening stock only)</label>
           <select id="location" name="location">{% for l in locations %}<option value="{{ l.pk }}">{{ l }}</option>{% endfor %}</select></div>
         <div class="field"><label for="file">Excel file (.xlsx)</label><input id="file" name="file" type="file" accept=".xlsx"></div>

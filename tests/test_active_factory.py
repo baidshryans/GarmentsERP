@@ -74,3 +74,22 @@ def test_a_factory_the_user_cannot_access_is_dropped(two_factories, company):
     assert c.get(reverse("home")).wsgi_request.factory == two_factories[0]
     c.post(reverse("factory_switch"), {"factory": two_factories[1].pk})
     assert c.get(reverse("home")).wsgi_request.factory == two_factories[0]
+
+
+ENTRY_SCREENS = ["po_new", "grn_new", "invoice_new", "debitnote_new", "saleorder_new", "billing", "order_new", "bill_new",
+                 "journal_new", "opening_stock", "voucher_sales", "voucher_purchase", "voucher_debit_note", "voucher_credit_note",
+                 "opening_balances"]
+
+
+def test_every_entry_screen_needs_one_factory_and_shows_it(two_factories, admin_user):
+    c = fresh_client(admin_user)
+    c.post(reverse("factory_switch"), {"factory": two_factories[1].pk})
+    for name in ENTRY_SCREENS:
+        r = c.get(reverse(name))
+        assert r.status_code == 200, name
+        assert r.context["factory"] == two_factories[1], name              # shown read-only, never chosen on the form
+        assert b'name="factory"' not in r.content.split(b"<main")[1], name   # the top-bar switcher is outside <main>
+    c.post(reverse("factory_switch"), {"factory": "all"})
+    for name in ENTRY_SCREENS:
+        r = c.get(reverse(name))
+        assert r.status_code == 302, name                                 # "All factories" is view-only

@@ -10,7 +10,7 @@
       <div class="field"><label for="item">Item</label><select id="item" name="item"><option value="">Choose…</option>
         <optgroup label="Materials">{% for v, l in materials %}<option value="{{ v }}" {% if vals.item == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>
         <optgroup label="Styles (finished goods)">{% for v, l in styles %}<option value="{{ v }}" {% if vals.item == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup></select></div>
-      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory">{% if all_factories_ok %}<option value="">All factories together</option>{% endif %}{% for f in factories %}<option value="{{ f.pk }}" {% if vals.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Factory</label><div class="static-value">{% if factory %}{{ factory.code }} — {{ factory.name }}{% else %}All factories together{% endif %}</div></div>
       <div class="field"><label for="min_qty">Minimum</label><input id="min_qty" name="min_qty" type="text" inputmode="decimal" value="{{ vals.min_qty }}"></div>
       <div class="field"><label for="reorder_qty">Reorder quantity</label><input id="reorder_qty" name="reorder_qty" type="text" inputmode="decimal" value="{{ vals.reorder_qty }}"></div>
       <div class="field"><label for="max_qty">Maximum</label><input id="max_qty" name="max_qty" type="text" inputmode="decimal" value="{{ vals.max_qty }}"></div>

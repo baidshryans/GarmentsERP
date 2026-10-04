@@ -11,6 +11,7 @@ from django.views import View
 from core.exceptions import BusinessRuleError
 from core.models import Company, Factory, Location
 from core.scoping import ScreenPermissionMixin
+from core.services.active_factory import require_active_factory
 from tax.models import HSN
 
 from . import forms as f
@@ -486,9 +487,8 @@ class ExcelImport(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _ctx(self, request, result=None, kind=""):
         kinds = [(k, spec["title"], spec["notes"]) for k, spec in imports.TEMPLATES.items()
                  if request.user.has_screen_perm(IMPORT_PERMISSION[k], "create")]
-        factories = Factory.objects.for_user(request.user).filter(is_active=True)
-        return {"kinds": kinds, "result": result, "kind": kind, "factories": factories,
-                "locations": Location.objects.filter(factory__in=factories, is_active=True).exclude(loc_type="transit")}
+        return {"kinds": kinds, "result": result, "kind": kind, "factory": request.factory,
+                "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit")}
 
     def get(self, request):
         return render(request, "masters/import.html", self._ctx(request))
@@ -505,7 +505,10 @@ class ExcelImport(LoginRequiredMixin, ScreenPermissionMixin, View):
             return render(request, "masters/import.html", self._ctx(request, kind=kind))
         factory = location = None
         if kind in ("opening", "opening_stock"):
-            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=request.POST.get("factory"))
+            if request.factory is None:
+                messages.error(request, "Choose a single factory in the top bar before importing opening balances or stock.")
+                return render(request, "masters/import.html", self._ctx(request, kind=kind))
+            factory = require_active_factory(request)
         if kind == "opening_stock":
             location = get_object_or_404(Location, pk=request.POST.get("location"), factory=factory)
         commit = request.POST.get("mode") == "import"

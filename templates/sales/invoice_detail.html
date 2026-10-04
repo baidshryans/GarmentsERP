@@ -5,6 +5,7 @@
   <div class="page-head"><h1 class="page-title">{{ inv.number|default:"Draft invoice" }}</h1>
     <span class="pill {% if inv.status == 'posted' %}success{% elif inv.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ inv.get_status_display }}</span>
     <div class="actions">
+      {% include "partials/settle.html" with label="Receive payment" %}
       {% if inv.status == "posted" %}<a class="btn" href="{% url 'saleinvoice_print' inv.pk %}">Print</a>{% if can_return %}<a class="btn" href="{% url 'salecn_new' inv.pk %}">Credit note</a>{% endif %}{% endif %}
       <a class="btn ghost" href="{% url 'saleinvoice_list' %}">All invoices</a></div></div>
   <div class="island"><div class="field-row">

@@ -54,6 +54,7 @@
       <div class="rail-resizer" role="separator" aria-orientation="vertical" aria-label="Resize the menu (arrow keys, double-click to reset)" tabindex="0"></div>
     </nav>
     <span class="spacer"></span>
+    <a class="btn icon" href="{% url 'help' %}{% if help_anchor %}#{{ help_anchor }}{% endif %}" data-tip="Help and user guide" aria-label="Help and user guide"><svg><use href="#i-help"/></svg></a>
     <button type="button" class="btn icon" data-cmdk-open data-tip="Jump to a screen (Ctrl+K)" aria-label="Jump to a screen, shortcut Control K" aria-haspopup="dialog"><svg><use href="#i-command"/></svg></button>
     <div class="search-box">
       <svg class="search-ico"><use href="#i-search"/></svg>

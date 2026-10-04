@@ -32,6 +32,14 @@ def home(request):
     return render(request, "core/home.html", build_overview(request.user))
 
 
+@login_required
+def help_page(request):
+    """The setup guide and user guide, rendered from docs/SETUP_GUIDE.md. Every signed-in user may read it."""
+    from .help import render_guide
+
+    return render(request, "core/help.html", render_guide())
+
+
 class PasswordChange(PasswordChangeView):
     """Every signed-in user can change their own password; the session stays signed in afterwards."""
     template_name = "registration/password_change_form.html"

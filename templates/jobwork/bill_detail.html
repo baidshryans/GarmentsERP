@@ -2,7 +2,7 @@
 {% block title %}{{ b }}{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ b.number|default:"Draft labour bill" }}</h1><span class="pill {% if b.status == 'posted' %}success{% elif b.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ b.get_status_display }}</span>
-    <div class="actions"><a class="btn ghost" href="{% url 'bill_list' %}">All bills</a></div></div>
+    <div class="actions">{% include "partials/settle.html" with label="Pay fabricator" %}<a class="btn ghost" href="{% url 'bill_list' %}">All bills</a></div></div>
   <div class="island"><div class="field-row"><div><div class="label muted">Fabricator</div>{{ b.party.name }}</div><div><div class="label muted">Factory</div>{{ b.factory.code }}</div><div><div class="label muted">Date</div>{{ b.date|date:"d M Y" }}</div></div>
     {% if b.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' b.voucher.pk %}">{{ b.voucher.number }}</a></p>{% endif %}</div>
   <div class="island"><div class="table-scroll"><table>

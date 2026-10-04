@@ -1,0 +1,1 @@
+{% if settle %}{% if settle.due %}<span class="pill warning">Outstanding {{ settle.due }}</span>{% elif settle.settled %}<span class="pill success">Settled</span>{% endif %}{% if settle.url %}<a class="btn primary" href="{{ settle.url }}" title="Opens the voucher with this bill filled in; nothing is posted until you press Post">{{ label }}</a>{% endif %}{% endif %}

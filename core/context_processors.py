@@ -4,6 +4,7 @@ from django.conf import settings
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
+from .help import anchor_for as help_anchor_for
 from .models import Company, Factory
 
 class Sub:
@@ -73,8 +74,8 @@ NAV = [
         ]),
     ]),
     ("Accounts", [
-        ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
         ("ledger_list", "Ledgers", "ledger.chart"),
+        ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
         Sub("Enter a voucher", [
             ("voucher_payment", "Payment", "ledger.voucher.create"),
             ("voucher_receipt", "Receipt", "ledger.voucher.create"),
@@ -116,6 +117,7 @@ NAV = [
             ("tax_register", "Tax register", "tax.report"),
         ]),
     ]),
+    ("Help", [("help", "Help and user guide", "core.home")]),
     ("Admin", [
         ("factory_list", "Factories", "core.factory"),
         ("user_list", "Users", "core.user"),
@@ -142,7 +144,7 @@ def flat_items(items):
 # (a lot page, a challan, a style are not menu entries but belong to Production, Job work, Masters).
 ICONS = {
     "Home": "i-home", "Masters": "i-masters", "Purchases": "i-purchases", "Sales": "i-sales", "Inventory": "i-inventory",
-    "Production": "i-production", "Accounts": "i-accounts", "Reports": "i-reports", "Admin": "i-admin",
+    "Production": "i-production", "Accounts": "i-accounts", "Reports": "i-reports", "Admin": "i-admin", "Help": "i-help",
 }
 
 PREFIXES = {
@@ -221,6 +223,7 @@ def app_shell(request):
     company = Company.objects.filter(setup_complete=True).first()
     return {
         "today": today, "asset_v": asset_v,
+        "help_anchor": help_anchor_for(request.path),
         "nav_groups": groups, "nav_index": index,
         "company": company,
         "user_factories": Factory.objects.for_user(user).filter(is_active=True),

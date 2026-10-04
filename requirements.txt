@@ -4,3 +4,4 @@ django-simple-history>=3.7
 pillow>=10
 openpyxl>=3.1
 segno>=1.6
+markdown-it-py>=3

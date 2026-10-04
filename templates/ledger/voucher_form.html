@@ -58,7 +58,7 @@
         <tr>
           <td><select name="row_ledger" aria-label="Ledger"><option value="">—</option>
             {% for gname, items in ledger_groups %}<optgroup label="{{ gname }}">{% for l in items %}<option value="{{ l.pk }}" data-billwise="{% if l.bill_wise %}1{% endif %}" {% if r.ledger == l.pk|stringformat:"s" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</optgroup>{% endfor %}
-          </select></td>
+          </select><div class="ledger-position muted small" hidden aria-live="polite"></div></td>
           {% if vtype == "journal" %}
             <td class="num"><input type="text" inputmode="decimal" name="row_debit" aria-label="Debit" class="num" value="{{ r.debit|default:'' }}"><input type="hidden" name="row_amount" value=""></td>
             <td class="num"><input type="text" inputmode="decimal" name="row_credit" aria-label="Credit" class="num" value="{{ r.credit|default:'' }}"></td>
@@ -88,5 +88,6 @@
     </div>
     <p class="muted small">A posted voucher cannot be edited. To correct it, cancel it from its page and enter a new one.</p>
   </form>
+  <script src="{% static 'js/ledger_position.js' %}?v={{ asset_v }}" defer></script>
   <script src="{% static 'js/voucher_entry.js' %}?v={{ asset_v }}" defer></script>
 {% endblock %}

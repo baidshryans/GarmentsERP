@@ -17,6 +17,7 @@ from tax.models import TaxTemplate
 
 from .models import DebitNote, Grn, GrnLine, PurchaseInvoice, PurchaseInvoiceLine, PurchaseOrder, PurchaseOrderLine
 from .services import debit_notes, grn as grn_service, invoices, orders
+from ledger.settlement import settlement
 
 
 def _company():
@@ -449,6 +450,9 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "gst": inv.tax_lines.filter(kind="gst"), "tds": inv.tax_lines.filter(kind="tds"),
             "can_edit": request.user.has_screen_perm("purchases.invoice", "edit"),
             "can_cancel": request.user.has_screen_perm("purchases.invoice", "cancel"),
+            "settle": settlement(request.user, ledger=inv.vendor.payable_ledger, reference=inv.vendor_invoice_no, direction="pay",
+                                 narration=f"Paid against {inv.vendor_invoice_no}")
+            if inv.status == "posted" and inv.vendor.payable_ledger_id else None,
         })
 
     def post(self, request, pk):

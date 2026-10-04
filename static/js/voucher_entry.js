@@ -33,9 +33,12 @@
 
   function loadBills(row) {                       // offer this ledger's open bills for "Against bill"
     var sel = row.querySelector("select[name=row_ledger]"), ref = row.querySelector("input[name=row_reference]");
-    if (!sel.value || !billWise(row)) { return; }
+    var note = row.querySelector(".ledger-position");
+    if (!sel.value) { if (window.LedgerPosition) { LedgerPosition.clear(note); } return; }
     var url = urlTemplate.replace("/0/", "/" + sel.value + "/");
     fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (data) {
+      if (window.LedgerPosition) { LedgerPosition.show(note, data, billWise(row)); }
+      if (!billWise(row) || !ref) { return; }
       var id = ref.getAttribute("list");
       if (!id) { id = "bills-" + (++listCount); ref.setAttribute("list", id); }
       var dl = document.getElementById(id);
@@ -56,7 +59,7 @@
       c.style.visibility = on ? "visible" : "hidden";
       c.tabIndex = on ? 0 : -1;
     });
-    if (on) { loadBills(row); }
+    loadBills(row);
   }
 
   function pickBill(row) {                        // choosing an open invoice settles it: fill the outstanding amount
@@ -91,6 +94,7 @@
     copy.querySelectorAll("input[type=text],input[type=date]").forEach(function (i) { i.value = ""; i.removeAttribute("list"); });
     copy.querySelectorAll("select").forEach(function (s) { s.selectedIndex = 0; });
     var dl = copy.querySelector("datalist"); if (dl) { dl.remove(); }
+    var note = copy.querySelector(".ledger-position"); if (note) { note.textContent = ""; note.hidden = true; }
     body.appendChild(copy); syncRow(copy);
     copy.querySelector("select").focus();
   });

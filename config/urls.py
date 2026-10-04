@@ -23,6 +23,7 @@ urlpatterns = [
     path("", core.home, name="home"),
     path("factory/select/", core.factory_select, name="factory_select"),
     path("factory/switch/", core.factory_switch, name="factory_switch"),
+    path("help/", core.help_page, name="help"),
     path("setup/", core.setup_wizard, name="setup"),
     path("setup/<str:step>/", core.setup_wizard, name="setup_step"),
     # admin
@@ -39,8 +40,8 @@ urlpatterns = [
     path("tax/", tax.TaxSettingsView.as_view(), name="tax_settings"),
     # accounts
     path("accounts/chart/", ledger.ChartView.as_view(), name="chart_of_accounts"),
-    path("accounts/chart/groups/new/", ledger.GroupSave.as_view(), name="group_create"),
     path("accounts/ledger-list/", ledger.LedgerList.as_view(), name="ledger_list"),
+    path("accounts/chart/groups/new/", ledger.GroupSave.as_view(), name="group_create"),
     path("accounts/chart/groups/<int:pk>/", ledger.GroupSave.as_view(), name="group_edit"),
     path("accounts/chart/ledgers/new/", ledger.LedgerSave.as_view(), name="ledger_create"),
     path("accounts/chart/ledgers/<int:pk>/", ledger.LedgerSave.as_view(), name="ledger_edit"),

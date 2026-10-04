@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Help and user guide{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">Help and user guide</h1>
+    <div class="actions"><button type="button" class="btn ghost" onclick="window.print()">Print</button></div>
+  </div>
+  <div class="help-layout">
+    <aside class="help-toc island" aria-label="Contents">
+      <div class="field"><label for="help-filter">Search the guide</label>
+        <input id="help-filter" type="search" placeholder="Type a word, e.g. challan" autocomplete="off"></div>
+      <p class="muted small" id="help-count" hidden></p>
+      <nav>
+        <ul class="help-toc-list">
+          {% for t in toc %}{% if t.level > 1 or not forloop.first %}
+            <li class="lvl{{ t.level }}"><a href="#{{ t.id }}">{{ t.title }}</a></li>
+          {% endif %}{% endfor %}
+        </ul>
+      </nav>
+    </aside>
+    <article class="help-body island" id="help-body">{{ html|safe }}</article>
+  </div>
+  <script src="{% static 'js/help.js' %}?v={{ asset_v }}" defer></script>
+{% endblock %}

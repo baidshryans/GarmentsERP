@@ -85,3 +85,27 @@ def outstanding_bills(ledger: Ledger, *, user=None, factory=None):
         "advance": advance,
         "on_account": on_account,
     }
+
+
+def bill_outstanding(ledger: Ledger, reference: str, *, user=None) -> Decimal:
+    """Signed (debit-positive) amount still open on one bill of a ledger; zero when settled or unknown."""
+    if ledger is None or not reference:
+        return ZERO
+    return outstanding_bills(ledger, user=user)["bills"].get(reference, ZERO)
+
+
+def ledger_position(ledger: Ledger, *, user=None) -> dict:
+    """What is owed on a ledger across every factory the user may see, for display beside a party or ledger choice.
+
+    `outstanding` is the net of its open bills (debit-positive); `advance` and `on_account` are kept apart;
+    `balance` is the full ledger balance. Information only: nothing is blocked on it.
+    """
+    data = outstanding_bills(ledger, user=user)
+    return {
+        "balance": ledger_balance(ledger, user=user),
+        "outstanding": sum(data["bills"].values(), ZERO),
+        "open_bills": len(data["bills"]),
+        "advance": data["advance"],
+        "on_account": data["on_account"],
+        "bill_wise": ledger.bill_wise,
+    }

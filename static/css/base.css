@@ -547,4 +547,38 @@ td .ss, th .ss { max-width: 26rem; }
 .content form td input.cell { display: block; width: 100%; max-width: 96px; margin-left: auto; text-align: right; }
 .order-grid .grid-head { align-items: end; }
 
-.static-value { min-height: 38px; display: flex; align-items: center; padding: 0 var(--space-3); background: var(--color-primary-soft); border-radius: var(--radius); }
+/* Outstanding shown beside a ledger or party choice on voucher screens. Information only. */
+.ledger-position { margin-top: var(--space-1); }
+.ledger-position.owes { color: var(--color-ink); font-weight: 600; }
+
+/* Help and user guide page. */
+.help-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.help-toc { position: sticky; top: var(--space-4); max-height: calc(100vh - 120px); overflow: auto; }
+.help-toc-list { list-style: none; margin: 0; padding: 0; font-size: var(--text-label); }
+.help-toc-list li[hidden] { display: none; }
+.help-toc-list a { display: block; padding: 4px var(--space-2); border-radius: var(--radius); color: var(--color-ink); text-decoration: none; }
+.help-toc-list a:hover { background: var(--color-primary-soft); }
+.help-toc-list a.current { background: var(--color-primary-pale); font-weight: 600; }
+.help-toc-list .lvl1 a { color: var(--color-primary); font-weight: 700; margin-top: var(--space-3); }
+.help-toc-list .lvl3 a { padding-left: var(--space-5); color: var(--color-muted); }
+.help-body { min-width: 0; line-height: 1.6; }
+.help-body h1 { font-size: 1.6rem; margin: var(--space-6) 0 var(--space-3); }
+.help-body h1:first-child { margin-top: 0; }
+.help-body h2 { font-size: 1.25rem; margin: var(--space-6) 0 var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--color-hairline); scroll-margin-top: var(--space-4); }
+.help-body h3 { font-size: 1.05rem; margin: var(--space-4) 0 var(--space-2); scroll-margin-top: var(--space-4); }
+.help-body h1, .help-body h2, .help-body h3 { scroll-margin-top: var(--space-4); }
+.help-body table { width: 100%; border-collapse: collapse; margin: var(--space-3) 0; font-size: var(--text-label); }
+.help-body th, .help-body td { text-align: left; vertical-align: top; padding: 6px var(--space-2); border-bottom: 1px solid var(--color-hairline); }
+.help-body th { font-weight: 600; position: static; }
+.help-body code { background: var(--color-primary-soft); padding: 1px 5px; border-radius: 4px; font-size: .92em; }
+.help-body blockquote { margin: var(--space-3) 0; padding: var(--space-2) var(--space-3); background: var(--color-primary-soft); border-radius: 8px; }
+.help-body blockquote p { margin: 0; }
+.help-body hr { border: 0; border-top: 1px solid var(--color-hairline); margin: var(--space-5) 0; }
+@media (max-width: 900px) {
+  .help-layout { grid-template-columns: minmax(0, 1fr); }
+  .help-toc { position: static; max-height: 260px; }
+}
+@media print {
+  .help-layout { display: block; }
+  .help-toc { display: none; }
+}

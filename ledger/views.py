@@ -19,7 +19,7 @@ from core.scoping import ScreenPermissionMixin
 
 from .forms import GroupForm, LedgerForm
 from .models import AccountGroup, Ledger, Voucher, VoucherType
-from .selectors import outstanding_bills, trial_balance
+from .selectors import ledger_position, outstanding_bills, trial_balance
 from .services.opening import OpeningEntry, post_opening_balances
 from .services.manual import MANUAL_TYPES, Row, cash_bank_ledgers, parse_amount, post_manual_voucher
 from .services.party_voucher import PartyRow, post_party_voucher
@@ -278,7 +278,19 @@ class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
         }
 
     def get(self, request, vtype):
-        return render(request, "ledger/voucher_form.html", self._context(request, vtype))
+        return render(request, "ledger/voucher_form.html", self._context(request, vtype, rows=self._prefill(request, vtype)))
+
+    def _prefill(self, request, vtype):
+        """'Receive payment' / 'Pay' buttons link here with ?ledger=&amount=&ref=&narration= to start a row already
+        set to settle that bill. It only fills the form; nothing is posted until the user presses Post."""
+        g = request.GET
+        if vtype not in ("receipt", "payment") or not g.get("ledger", "").isdigit():
+            return None
+        if not Ledger.objects.filter(pk=int(g["ledger"]), company=_company(), is_active=True).exists():
+            return None
+        row = {"ledger": g["ledger"], "amount": g.get("amount", "")[:20], "ref_type": "against" if g.get("ref") else "on_account",
+               "reference": g.get("ref", "")[:60], "narration": g.get("narration", "")[:200]}
+        return [row] + [{} for _ in range(ENTRY_ROWS[vtype] - 1)]
 
     def post(self, request, vtype):
         p = request.POST
@@ -396,7 +408,20 @@ class LedgerBills(LoginRequiredMixin, ScreenPermissionMixin, View):
         data = outstanding_bills(ledger, user=request.user, factory=factory)
         bills = [{"reference": ref, "amount": str(abs(bal)), "side": "Dr" if bal > 0 else "Cr"}
                  for ref, bal in sorted(data["bills"].items())]
-        return JsonResponse({"bill_wise": ledger.bill_wise, "bills": bills})
+        pos = ledger_position(ledger, user=request.user)
+
+        def side(v):
+            return "Dr" if v > 0 else ("Cr" if v < 0 else "")
+        return JsonResponse({
+            "bill_wise": ledger.bill_wise, "bills": bills,
+            "position": {
+                "balance": str(abs(pos["balance"])), "balance_side": side(pos["balance"]),
+                "outstanding": str(abs(pos["outstanding"])), "outstanding_side": side(pos["outstanding"]),
+                "open_bills": pos["open_bills"],
+                "advance": str(abs(pos["advance"])), "advance_side": side(pos["advance"]),
+                "on_account": str(abs(pos["on_account"])), "on_account_side": side(pos["on_account"]),
+            },
+        })
 
 
 # ---------------- opening balances (financial) ----------------

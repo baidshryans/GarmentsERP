@@ -3,7 +3,7 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ inv.number|default:"Draft invoice" }}</h1>
     <span class="pill {% if inv.status == 'posted' %}success{% elif inv.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ inv.get_status_display }}</span>
-    <div class="actions"><a class="btn ghost" href="{% url 'invoice_list' %}">All invoices</a></div></div>
+    <div class="actions">{% include "partials/settle.html" with label="Pay vendor" %}<a class="btn ghost" href="{% url 'invoice_list' %}">All invoices</a></div></div>
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ inv.vendor.name }}</div><div><div class="label muted">Vendor invoice</div>{{ inv.vendor_invoice_no }} · {{ inv.vendor_invoice_date|date:"d M Y" }}</div>
     <div><div class="label muted">Factory</div>{{ inv.factory.code }}</div><div><div class="label muted">Booked on</div>{{ inv.date|date:"d M Y" }}</div></div>

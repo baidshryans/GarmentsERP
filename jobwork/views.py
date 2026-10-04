@@ -27,6 +27,7 @@ from .services import bills, challans, rates, receipts
 from .services import summary as summary_service
 from .services.challans import SecondFabricatorWarning
 from .services.receipts import Counted
+from ledger.settlement import settlement
 
 
 def _factories(user):
@@ -362,6 +363,9 @@ class BillDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "jobwork/bill_detail.html", {
             "b": b, "lines": b.lines.select_related("challan", "lot"), "deductions": b.deduction_lines.select_related("challan"),
             "can_edit": request.user.has_screen_perm("jobwork.bill", "edit"), "can_cancel": request.user.has_screen_perm("jobwork.bill", "cancel"),
+            "settle": settlement(request.user, ledger=b.party.payable_ledger, reference=b.number, direction="pay",
+                                 narration=f"Paid against labour bill {b.number}")
+            if b.status == "posted" and b.party.payable_ledger_id else None,
         })
 
     def post(self, request, pk):

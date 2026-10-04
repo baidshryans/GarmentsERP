@@ -25,6 +25,7 @@ from .models import (
 from .services import credit_notes, einvoice, invoices, orders, packing as packing_service, pricing
 from .services.common import settings_for
 
+from ledger.settlement import settlement
 ERRORS = (ValueError, BusinessRuleError)
 
 
@@ -573,6 +574,9 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         return render(request, "sales/invoice_detail.html", self._ctx(request, self._inv(request, pk)))
+                "settle": settlement(request.user, ledger=inv.customer.customer_ledger, reference=inv.number, direction="receive",
+                                     narration=f"Received against {inv.number}")
+                if inv.status == "posted" and inv.customer.customer_ledger_id else None,
 
     def post(self, request, pk):
         inv = self._inv(request, pk)

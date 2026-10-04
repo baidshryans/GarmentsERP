@@ -5,10 +5,10 @@
   <p class="muted" style="max-width:740px">A fabricator is paid only for pieces QC has accepted, and never twice. Shortages and missing trims are taken off. TDS is deducted only if you choose it.</p>
   <form method="get" class="island"><div class="field-row">
     <div class="field"><label for="party">Fabricator</label><select id="party" name="party"><option value="">Choose…</option>{% for f in fabricators %}<option value="{{ f.pk }}" {% if party and party.pk == f.pk %}selected{% endif %}>{{ f.name }}</option>{% endfor %}</select></div>
-    <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">Choose…</option>{% for f in factories %}<option value="{{ f.pk }}" {% if factory and factory.pk == f.pk %}selected{% endif %}>{{ f.code }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
     <div style="align-self:end"><button class="btn">Show what is payable</button></div></div></form>
   {% if party and factory %}
-  <form method="post" novalidate>{% csrf_token %}<input type="hidden" name="party" value="{{ party.pk }}"><input type="hidden" name="factory" value="{{ factory.pk }}">
+  <form method="post" novalidate>{% csrf_token %}<input type="hidden" name="party" value="{{ party.pk }}">
     <div class="island"><h2>Accepted pieces to pay</h2>
       {% if rows %}<div class="table-wrap"><table>
         <thead><tr><th scope="col"></th><th scope="col">Challan</th><th scope="col">Lot</th><th scope="col">Bundle</th><th scope="col" class="num">Accepted</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th></tr></thead>

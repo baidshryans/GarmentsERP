@@ -15,6 +15,7 @@ from core import viewutils as vu
 from core.exceptions import BusinessRuleError
 from core.models import Factory, Location
 from core.scoping import ScreenPermissionMixin
+from core.services.active_factory import in_active, require_active_factory
 from core.services.factories import cutting_location, godown_location
 from inventory.models import RollBalance
 from masters.models import Colour, Party, Process, Size, Style
@@ -29,13 +30,21 @@ def _factories(user):
     return Factory.objects.for_user(user).filter(is_active=True)
 
 
+def _need_factory(request, to):
+    """New documents are entered in one factory. In "All factories" mode say so and go back to the list."""
+    if request.factory is None:
+        messages.error(request, "Choose a single factory in the top bar before entering a document.")
+        return redirect(to)
+    return None
+
+
 # ================================================================ orders (E7.1)
 
 class OrderList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "production.order"
 
     def get(self, request):
-        qs = ProductionOrder.objects.for_user(request.user).select_related("factory")
+        qs = in_active(ProductionOrder.objects.for_user(request.user), request).select_related("factory")
         if request.GET.get("status"):
             qs = qs.filter(status=request.GET["status"])
         return render(request, "production/order_list.html", {
@@ -74,7 +83,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                 for l in order.lines.select_related("style", "colour").prefetch_related("sizes__size"):
                     rows.append({"style": str(l.style_id), "colour": str(l.colour_id), "qty": l.total_qty,
                                  "ratios": ", ".join(f"{s.size.code}:{s.ratio}" for s in l.sizes.all())})
-        return {"order": order, "rows": rows + [{}, {}], "d": d or {}, "factories": _factories(request.user),
+        return {"order": order, "rows": rows + [{}, {}], "d": d or {}, "factory": order.factory if order else request.factory,
                 "styles": Style.objects.filter(is_archived=False).prefetch_related("style_sizes__size"),
                 "colours": Colour.objects.filter(is_active=True),
                 "vals": {k: (d or {}).get(k, "") or (getattr(order, k, "") if order and k != "factory" else "")
@@ -82,6 +91,8 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk=None):
         order = get_object_or_404(ProductionOrder.objects.for_user(request.user), pk=pk) if pk else None
+        if order is None and (back := _need_factory(request, "order_list")):
+            return back
         ctx = self._ctx(request, order)
         for k in ("date", "due_date"):
             if order and getattr(order, k):
@@ -104,7 +115,7 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             due = vu.day(p.get("due_date"), default=None) if p.get("due_date") else None
             if order is None:
                 order = orders.create_order(
-                    company=vu.company(), factory=get_object_or_404(_factories(request.user), pk=p.get("factory")),
+                    company=vu.company(), factory=require_active_factory(request),
                     date=vu.day(p.get("date")), due_date=due, lines=specs, user=request.user, purpose=p.get("purpose", "stock"),
                     order_reference=p.get("order_reference", ""), remarks=p.get("remarks", ""))
             else:
@@ -377,7 +388,7 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _ctx(self, request, lot, vals=None):
         ctx = {"lot": lot, "vals": vals or {},
-               "lots": Lot.objects.for_user(request.user).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
+               "lots": in_active(Lot.objects.for_user(request.user), request).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
                "can_move": request.user.has_screen_perm("production.move", "create")}
         if lot:
             bundles = list(lot.bundles.filter(status__in=("cut", "ready", "at_stage")).select_related(
@@ -425,7 +436,8 @@ class Dashboard(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request):
         user = request.user
         today = timezone.localdate()
-        live = Bundle.objects.filter(status__in=Bundle.LIVE, lot__in=Lot.objects.for_user(user)).select_related(
+        scope = in_active(Lot.objects.for_user(user), request)
+        live = Bundle.objects.filter(status__in=Bundle.LIVE, lot__in=scope).select_related(
             "current_step__process", "location__factory", "location__party", "lot")
         by_stage, by_factory, by_fabricator = {}, {}, {}
         rework = 0
@@ -439,11 +451,11 @@ class Dashboard(LoginRequiredMixin, ScreenPermissionMixin, View):
             if b.is_rework:
                 rework += b.qty
         in_house = sum(by_factory.values()) - sum(by_fabricator.values())
-        lots = Lot.objects.for_user(user).exclude(status__in=("closed", "completed")).select_related("style", "colour", "order_line__order")
+        lots = scope.exclude(status__in=("closed", "completed")).select_related("style", "colour", "order_line__order")
         late = [l for l in lots if l.order_line.order.due_date and l.order_line.order.due_date < today]
         ageing = sorted(({"lot": l, "days": (today - l.created_at.date()).days} for l in lots), key=lambda r: -r["days"])[:10]
-        moves = StageMovement.objects.for_user(user).filter(at__date=today)
-        cut_today = Bundle.objects.filter(lot__in=Lot.objects.for_user(user), created_at__date=today).aggregate(s=Sum("original_qty"))["s"] or 0
+        moves = in_active(StageMovement.objects.for_user(user), request).filter(at__date=today)
+        cut_today = Bundle.objects.filter(lot__in=scope, created_at__date=today).aggregate(s=Sum("original_qty"))["s"] or 0
         packed_today = moves.filter(kind="pack").aggregate(s=Sum("qty_in"))["s"] or 0
         stitched_today = moves.filter(Q(from_step__process__kind="stitching", kind__in=("move", "factory")) |
                                       Q(kind="qc", from_step__process__kind="stitching")).aggregate(s=Sum("qty_in"))["s"] or 0

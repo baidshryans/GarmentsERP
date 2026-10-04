@@ -231,10 +231,14 @@ def test_a_day_with_nothing_makes_an_empty_summary_and_the_command_builds_every_
 def test_summary_scoping_screen_and_permissions(ns, company, factory, factory2, owner):
     issue(ns, ns.fab, ns.bundles[:1])
     oc = login(owner)
+    oc.post(reverse("factory_switch"), {"factory": factory2.pk})
+    oc.post(reverse("daily_summary"), {"date": DAY.isoformat()})
+    assert DailySummary.objects.filter(date=DAY).count() == 1                      # only the active factory is built
+    oc.post(reverse("factory_switch"), {"factory": "all"})
     r = oc.post(reverse("daily_summary"), {"date": DAY.isoformat()}, follow=True)
     html = r.content.decode()
     assert "Summary built for 15 Jun 2026" in html and "Sharma Stitching" in html and "Message text" in html
-    assert DailySummary.objects.filter(date=DAY).count() == 2                      # one per factory the owner may see
+    assert DailySummary.objects.filter(date=DAY).count() == 2                      # all mode: one per factory the owner may see
     assert "No summary for this day yet" in oc.get(reverse("daily_summary"), {"date": "2026-07-01"}).content.decode()
     # an accountant (factory 1 only, view only) reads it but cannot build; a user of factory 2 sees only factory 2
     acct = user_with("Accountant", "acct2", factory)

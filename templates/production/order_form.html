@@ -5,7 +5,7 @@
   <form method="post" novalidate>
     {% csrf_token %}
     <div class="island"><div class="field-row">
-      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" {% if order %}disabled{% endif %}>{% for f in factories %}<option value="{{ f.pk }}" {% if d.factory == f.pk|stringformat:"s" or order.factory_id == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select>{% if order %}<input type="hidden" name="factory" value="{{ order.factory_id }}">{% endif %}</div>
+      <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}" required></div>
       <div class="field"><label for="due_date">Due date</label><input id="due_date" name="due_date" type="date" value="{{ vals.due_date }}"></div>
       <div class="field"><label for="purpose">For</label><select id="purpose" name="purpose"><option value="stock" {% if vals.purpose == "stock" %}selected{% endif %}>Stock</option><option value="mto" {% if vals.purpose == "mto" %}selected{% endif %}>Made to order</option></select></div>

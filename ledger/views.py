@@ -402,10 +402,7 @@ class LedgerBills(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         ledger = get_object_or_404(Ledger, pk=pk, company=_company())
-        factory = None
-        if request.GET.get("factory"):
-            factory = get_object_or_404(Factory.objects.for_user(request.user), pk=request.GET["factory"])
-        data = outstanding_bills(ledger, user=request.user, factory=factory)
+        data = outstanding_bills(ledger, user=request.user, factory=request.factory)
         bills = [{"reference": ref, "amount": str(abs(bal)), "side": "Dr" if bal > 0 else "Cr"}
                  for ref, bal in sorted(data["bills"].items())]
         pos = ledger_position(ledger, user=request.user)

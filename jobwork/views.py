@@ -13,6 +13,7 @@ from core import viewutils as vu
 from core.exceptions import BusinessRuleError
 from core.models import Factory, Location
 from core.scoping import ScreenPermissionMixin
+from core.services.active_factory import in_active, require_active_factory
 from masters.models import Party, Process, Size
 from production.labels import qr_svg, scan_text
 from production.models import Bundle, Lot, LotStep
@@ -34,6 +35,14 @@ def _factories(user):
     return Factory.objects.for_user(user).filter(is_active=True)
 
 
+def _need_factory(request, to):
+    """New documents are entered in one factory. In "All factories" mode say so and go back to the list."""
+    if request.factory is None:
+        messages.error(request, "Choose a single factory in the top bar before entering a document.")
+        return redirect(to)
+    return None
+
+
 def _fabricators():
     return Party.objects.filter(is_fabricator=True, is_active=True)
 
@@ -44,7 +53,7 @@ class ChallanList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "jobwork.challan"
 
     def get(self, request):
-        qs = JobWorkChallan.objects.for_user(request.user).select_related("party", "lot", "step__process")
+        qs = in_active(JobWorkChallan.objects.for_user(request.user), request).select_related("party", "lot", "step__process")
         if request.GET.get("status"):
             qs = qs.filter(status=request.GET["status"])
         return render(request, "jobwork/challan_list.html", {
@@ -60,7 +69,7 @@ class ChallanNew(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _ctx(self, request, d):
         lot = Lot.objects.for_user(request.user).select_related("style", "colour").filter(pk=d.get("lot")).first() if d.get("lot") else None
         ctx = {"lot": lot, "d": d, "fabricators": _fabricators(), "factories": _factories(request.user),
-               "lots": Lot.objects.for_user(request.user).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
+               "lots": in_active(Lot.objects.for_user(request.user), request).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
                "kind": d.get("kind", "issue")}
         if lot:
             steps = [s for s in lot.steps.select_related("process", "party") if s.status != "skipped"]
@@ -170,7 +179,7 @@ class ReceiptList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "jobwork.receipt"
 
     def get(self, request):
-        qs = Receipt.objects.for_user(request.user).select_related("challan__party", "challan__lot")
+        qs = in_active(Receipt.objects.for_user(request.user), request).select_related("challan__party", "challan__lot")
         return render(request, "jobwork/receipt_list.html", {
             "receipts": qs[:200], "pending_qc": ReceiptLine.objects.filter(qc_done=False, receipt__in=qs.exclude(status="pending_approval")).count(),
         })
@@ -306,7 +315,7 @@ class BillList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "jobwork.bill"
 
     def get(self, request):
-        qs = JobWorkBill.objects.for_user(request.user).select_related("party", "factory")
+        qs = in_active(JobWorkBill.objects.for_user(request.user), request).select_related("party", "factory")
         return render(request, "jobwork/bill_list.html", {"bills": qs[:200], "can_create": request.user.has_screen_perm("jobwork.bill", "create")})
 
 
@@ -316,8 +325,8 @@ class BillNew(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _ctx(self, request, d):
         party = Party.objects.filter(pk=d.get("party")).first() if d.get("party") else None
-        factory = _factories(request.user).filter(pk=d.get("factory")).first() if d.get("factory") else None
-        ctx = {"fabricators": _fabricators(), "factories": _factories(request.user), "party": party, "factory": factory, "d": d,
+        factory = request.factory
+        ctx = {"fabricators": _fabricators(), "party": party, "factory": factory, "d": d,
                "tds": TaxTemplate.objects.filter(kind="tds", is_active=True)}
         if party and factory:
             rows = []
@@ -329,13 +338,15 @@ class BillNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         return ctx
 
     def get(self, request):
+        if back := _need_factory(request, "bill_list"):
+            return back
         return render(request, "jobwork/bill_form.html", self._ctx(request, request.GET))
 
     def post(self, request):
         p = request.POST
         try:
             party = get_object_or_404(Party, pk=p.get("party"))
-            factory = get_object_or_404(_factories(request.user), pk=p.get("factory"))
+            factory = require_active_factory(request)
             picked = [get_object_or_404(QcResult, pk=k[3:]) for k in p if k.startswith("qc_")]
             all_pending = bills.pending_deductions(party, factory)
             wanted = {k[4:] for k in p if k.startswith("ded_")}
@@ -402,19 +413,19 @@ class DailySummaryView(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request):
         on_date = self._day(request.GET.get("date"))
-        found = DailySummary.objects.for_user(request.user).filter(date=on_date).select_related("factory")
+        found = in_active(DailySummary.objects.for_user(request.user), request).filter(date=on_date).select_related("factory")
         blocks = [{"summary": s, "rows": s.rows.select_related("party"), "totals": summary_service.totals(s),
                    "text": summary_service.as_text(s)} for s in found]
         return render(request, "jobwork/daily_summary.html", {
             "date": on_date, "blocks": blocks, "can_build": request.user.has_screen_perm("jobwork.report", "edit"),
-            "factories": _factories(request.user)})
+            "factories": request.active_factories})
 
     def post(self, request):
         if not request.user.has_screen_perm("jobwork.report", "edit"):
             raise PermissionDenied
         on_date = self._day(request.POST.get("date"))
         try:
-            for factory in _factories(request.user):
+            for factory in request.active_factories:
                 summary_service.build_summary(factory, on_date, user=request.user)
             messages.success(request, f"Summary built for {on_date:%d %b %Y}.")
         except BusinessRuleError as exc:

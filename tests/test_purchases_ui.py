@@ -315,3 +315,34 @@ def test_nav_shows_purchase_and_inventory_groups_by_permission(company, storekee
     assert "Goods receipt (GRN)" in html and "Transfers" in html and "Purchase invoices" not in html
     html = login(accountant).get(reverse("home")).content.decode()
     assert "Purchase invoices" in html and "Debit notes" in html
+
+
+# ---------------- the active factory drives the purchase screens ----------------
+
+def _po_form(vendor, fabric, **extra):
+    return {"vendor": vendor.pk, "date": "2026-06-15", "item": [f"m:{fabric.pk}"], "qty": ["10"], "rate": ["100"], **extra}
+
+
+def test_new_documents_go_into_the_active_factory_whatever_the_form_says(company, factory, factory2, vendor, owner, fabric):
+    c = login(owner)                                             # starts in the first factory
+    c.post(reverse("factory_switch"), {"factory": factory2.pk})
+    c.post(reverse("po_new"), _po_form(vendor, fabric, factory=factory.pk))
+    assert PurchaseOrder.objects.get().factory == factory2
+
+
+def test_all_factories_mode_is_view_only_for_purchases(company, factory, factory2, vendor, owner, fabric):
+    c = login(owner)
+    c.post(reverse("factory_switch"), {"factory": factory.pk})
+    c.post(reverse("po_new"), _po_form(vendor, fabric))
+    c.post(reverse("factory_switch"), {"factory": factory2.pk})
+    c.post(reverse("po_new"), _po_form(vendor, fabric))
+    assert PurchaseOrder.objects.count() == 2
+    c.post(reverse("factory_switch"), {"factory": "all"})
+    for name in ("po_new", "grn_new", "invoice_new", "debitnote_new"):
+        r = c.get(reverse(name))
+        assert r.status_code == 302 and "single factory" in str(list(r.wsgi_request._messages)[-1]), name
+    c.post(reverse("po_new"), _po_form(vendor, fabric))
+    assert PurchaseOrder.objects.count() == 2                    # nothing was saved in All mode
+    assert len(c.get(reverse("po_list")).context["pos"]) == 2    # but the list shows every factory
+    c.post(reverse("factory_switch"), {"factory": factory.pk})
+    assert [p.factory for p in c.get(reverse("po_list")).context["pos"]] == [factory]

@@ -546,3 +546,5 @@ td .ss, th .ss { max-width: 26rem; }
 .order-grid .row-total { background: var(--color-sidebar); }
 .content form td input.cell { display: block; width: 100%; max-width: 96px; margin-left: auto; text-align: right; }
 .order-grid .grid-head { align-items: end; }
+
+.static-value { min-height: 38px; display: flex; align-items: center; padding: 0 var(--space-3); background: var(--color-primary-soft); border-radius: var(--radius); }

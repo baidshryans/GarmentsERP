@@ -8,8 +8,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
 from core.exceptions import BusinessRuleError
-from core.models import Company, Factory, Location
+from core.models import Company, Location
 from core.scoping import ScreenPermissionMixin
+from core.services.active_factory import in_active, require_active_factory
 from inventory.views import item_choices, parse_item
 from masters.models import Material, Party
 from tax.models import TaxTemplate
@@ -72,8 +73,12 @@ def _vendors():
     return Party.objects.filter(is_vendor=True, is_active=True)
 
 
-def _factories(user):
-    return Factory.objects.for_user(user).filter(is_active=True)
+def _need_factory(request, to):
+    """New documents are entered in one factory. In "All factories" mode say so and go back to the list."""
+    if request.factory is None:
+        messages.error(request, "Choose a single factory in the top bar before entering a document.")
+        return redirect(to)
+    return None
 
 
 # ================================================================ purchase orders
@@ -82,7 +87,7 @@ class POList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "purchases.po"
 
     def get(self, request):
-        qs = PurchaseOrder.objects.for_user(request.user).select_related("vendor", "factory")
+        qs = in_active(PurchaseOrder.objects.for_user(request.user), request).select_related("vendor", "factory")
         status = request.GET.get("status")
         if status:
             qs = qs.filter(status=status)
@@ -104,12 +109,14 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         if rows is None:
             rows = [{"item": f"m:{l.material_id}" if l.material_id else f"s:{l.sku_id}", "qty": l.qty, "rate": l.rate}
                     for l in po.lines.all()] if po else []
-        return {"po": po, "factories": _factories(request.user), "vendors": _vendors(), "mats": mats, "skus": skus,
+        return {"po": po, "factory": po.factory if po else request.factory, "vendors": _vendors(), "mats": mats, "skus": skus,
                 "rows": rows + [{}, {}], "d": d or {},
-                "vals": form_values(po, d, ("vendor", "factory", "date", "expected_date", "remarks"))}
+                "vals": form_values(po, d, ("vendor", "date", "expected_date", "remarks"))}
 
     def get(self, request, pk=None):
         po = get_object_or_404(PurchaseOrder.objects.for_user(request.user), pk=pk) if pk else None
+        if po is None and (back := _need_factory(request, "po_list")):
+            return back
         return render(request, "purchases/po_form.html", self._ctx(request, po))
 
     def post(self, request, pk=None):
@@ -126,7 +133,7 @@ class POSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             expected = _date(p.get("expected_date"), default=None) if p.get("expected_date") else None
             if po is None:
                 po = orders.create_po(
-                    company=_company(), factory=get_object_or_404(_factories(request.user), pk=p.get("factory")),
+                    company=_company(), factory=require_active_factory(request),
                     vendor=vendor, date=_date(p.get("date")), lines=specs, user=request.user,
                     expected_date=expected, remarks=p.get("remarks", ""))
             else:
@@ -225,7 +232,7 @@ class GrnList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "purchases.grn"
 
     def get(self, request):
-        qs = Grn.objects.for_user(request.user).select_related("vendor", "factory", "po")
+        qs = in_active(Grn.objects.for_user(request.user), request).select_related("vendor", "factory", "po")
         return render(request, "purchases/grn_list.html", {
             "grns": qs[:200], "can_create": request.user.has_screen_perm("purchases.grn", "create"),
         })
@@ -257,18 +264,21 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         mats, skus = item_choices()
         if rows is None:
             rows = self._rows_from_grn(grn) if grn else (self._rows_from_po(po) if po else [])
-        locations = Location.objects.filter(factory__in=_factories(request.user), is_active=True).exclude(loc_type="transit")
-        vals = form_values(grn, d, ("vendor", "factory", "location", "date", "vendor_challan_no", "vendor_challan_date", "remarks"))
+        factory = grn.factory if grn else (po.factory if po else request.factory)
+        locations = Location.objects.filter(factory=factory, is_active=True).exclude(loc_type="transit")
+        vals = form_values(grn, d, ("vendor", "location", "date", "vendor_challan_no", "vendor_challan_date", "remarks"))
         if po is not None and not (d or grn):
-            vals.update(vendor=str(po.vendor_id), factory=str(po.factory_id))
+            vals.update(vendor=str(po.vendor_id))
         return {"grn": grn, "po": po or (grn.po if grn else None), "mats": mats, "skus": skus, "rows": rows + [{}, {}],
-                "factories": _factories(request.user), "locations": locations, "vendors": _vendors(), "d": d or {}, "vals": vals}
+                "factory": factory, "locations": locations, "vendors": _vendors(), "d": d or {}, "vals": vals}
 
     def get(self, request, pk=None):
         grn = get_object_or_404(Grn.objects.for_user(request.user), pk=pk) if pk else None
         po = None
         if request.GET.get("po"):
             po = get_object_or_404(PurchaseOrder.objects.for_user(request.user), pk=request.GET["po"])
+        if grn is None and po is None and (back := _need_factory(request, "grn_list")):
+            return back
         return render(request, "purchases/grn_form.html", self._ctx(request, grn, po))
 
     def post(self, request, pk=None):
@@ -296,7 +306,7 @@ class GrnSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             challan_date = _date(p.get("vendor_challan_date")) if p.get("vendor_challan_date") else None
             if grn is None:
                 grn = grn_service.create_grn(
-                    company=_company(), factory=get_object_or_404(_factories(request.user), pk=p.get("factory")),
+                    company=_company(), factory=po.factory if po else require_active_factory(request),
                     location=location, vendor=vendor, date=_date(p.get("date")), lines=specs, user=request.user, po=po,
                     vendor_challan_no=p.get("vendor_challan_no", ""), vendor_challan_date=challan_date, remarks=p.get("remarks", ""))
             else:
@@ -363,7 +373,7 @@ class InvoiceList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "purchases.invoice"
 
     def get(self, request):
-        qs = PurchaseInvoice.objects.for_user(request.user).select_related("vendor", "factory")
+        qs = in_active(PurchaseInvoice.objects.for_user(request.user), request).select_related("vendor", "factory")
         return render(request, "purchases/invoice_list.html", {
             "invoices": qs[:200], "can_create": request.user.has_screen_perm("purchases.invoice", "create"),
         })
@@ -376,7 +386,7 @@ class InvoiceNew(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _ctx(self, request, d=None):
         d = d or {}
         vendor = Party.objects.filter(pk=d.get("vendor"), is_vendor=True).first() if d.get("vendor") else None
-        factory = _factories(request.user).filter(pk=d.get("factory")).first() if d.get("factory") else None
+        factory = request.factory
         grn_lines = []
         if vendor and factory:
             for gl in GrnLine.objects.filter(grn__status="posted", grn__vendor=vendor, grn__factory=factory).select_related(
@@ -385,7 +395,7 @@ class InvoiceNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                 if left > 0:
                     grn_lines.append({"gl": gl, "left": left, "last": invoices.last_rate(vendor, gl)})
         return {
-            "vendors": _vendors(), "factories": _factories(request.user), "vendor": vendor, "factory": factory,
+            "vendors": _vendors(), "vendor": vendor, "factory": factory,
             "grn_lines": grn_lines, "d": d,
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True),
             "tds_templates": TaxTemplate.objects.filter(kind="tds", is_active=True),
@@ -393,13 +403,15 @@ class InvoiceNew(LoginRequiredMixin, ScreenPermissionMixin, View):
         }
 
     def get(self, request):
+        if back := _need_factory(request, "invoice_list"):
+            return back
         return render(request, "purchases/invoice_form.html", self._ctx(request, request.GET))
 
     def post(self, request):
         p = request.POST
         try:
             vendor = get_object_or_404(Party, pk=p.get("vendor"), is_vendor=True)
-            factory = get_object_or_404(_factories(request.user), pk=p.get("factory"))
+            factory = require_active_factory(request)
             specs = []
             for key in p:
                 if key.startswith("use_"):
@@ -485,7 +497,7 @@ class DebitNoteList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "purchases.debitnote"
 
     def get(self, request):
-        qs = DebitNote.objects.for_user(request.user).select_related("vendor", "factory")
+        qs = in_active(DebitNote.objects.for_user(request.user), request).select_related("vendor", "factory")
         return render(request, "purchases/debitnote_list.html", {
             "notes": qs[:200], "can_create": request.user.has_screen_perm("purchases.debitnote", "create"),
         })
@@ -500,14 +512,16 @@ class DebitNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
 
         mats, skus = item_choices()
         return {
-            "vendors": _vendors(), "factories": _factories(request.user), "mats": mats, "skus": skus,
-            "locations": Location.objects.filter(factory__in=_factories(request.user), is_active=True).exclude(loc_type="transit"),
+            "vendors": _vendors(), "factory": request.factory, "mats": mats, "skus": skus,
+            "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit"),
             "rolls": RollBalance.objects.for_user(request.user).filter(qty__gt=0).select_related("roll__material", "location"),
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True, is_reverse_charge=False),
             "rows": rows or [{}, {}, {}], "d": d or {},
         }
 
     def get(self, request):
+        if back := _need_factory(request, "debitnote_list"):
+            return back
         return render(request, "purchases/debitnote_form.html", self._ctx(request))
 
     def post(self, request):
@@ -526,7 +540,7 @@ class DebitNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                     location=get_object_or_404(Location, pk=row["location"]),
                     roll=get_object_or_404(FabricRoll, pk=row["roll"]) if row["roll"] else None))
             note = debit_notes.create_return_note(
-                company=_company(), factory=get_object_or_404(_factories(request.user), pk=p.get("factory")),
+                company=_company(), factory=require_active_factory(request),
                 vendor=get_object_or_404(Party, pk=p.get("vendor"), is_vendor=True), date=_date(p.get("date")),
                 lines=specs, user=request.user, reason=p.get("reason", ""),
                 gst_template=TaxTemplate.objects.filter(pk=p["gst_template"]).first() if p.get("gst_template") else None,

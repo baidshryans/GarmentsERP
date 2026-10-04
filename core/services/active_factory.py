@@ -57,3 +57,8 @@ def require_active_factory(request):
     if request.factory is None:
         raise FactoryNotAllowed("Select a single factory (top bar) to enter documents.")
     return request.factory
+
+
+def in_active(qs, request):
+    """Limit a factory-scoped queryset to the active factory (or, in "All" mode, to the user's factories)."""
+    return qs.filter(factory__in=request.active_factories)

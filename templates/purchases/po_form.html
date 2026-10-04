@@ -6,7 +6,7 @@
     {% csrf_token %}
     <div class="island"><div class="field-row">
       <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor">{% for v in vendors %}<option value="{{ v.pk }}" {% if vals.vendor == v.pk|stringformat:"s" %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
-      <div class="field"><label for="factory">Factory</label><select id="factory" name="factory" {% if po %}disabled{% endif %}>{% for f in factories %}<option value="{{ f.pk }}" {% if vals.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select>{% if po %}<input type="hidden" name="factory" value="{{ po.factory_id }}">{% endif %}</div>
+      <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
       <div class="field"><label for="date">Date</label><input id="date" name="date" type="date" value="{{ vals.date|default:today }}" required></div>
       <div class="field"><label for="expected_date">Expected by</label><input id="expected_date" name="expected_date" type="date" value="{{ vals.expected_date }}"></div>
     </div><div class="field"><label for="remarks">Remarks</label><input id="remarks" name="remarks" type="text" value="{{ vals.remarks }}"></div></div>

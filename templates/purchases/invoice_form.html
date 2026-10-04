@@ -4,12 +4,12 @@
   <div class="page-head"><h1 class="page-title">New purchase invoice</h1></div>
   <form method="get" class="island"><div class="field-row">
     <div class="field"><label for="vendor">Vendor</label><select id="vendor" name="vendor"><option value="">Choose…</option>{% for v in vendors %}<option value="{{ v.pk }}" {% if vendor and vendor.pk == v.pk %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
-    <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">Choose…</option>{% for f in factories %}<option value="{{ f.pk }}" {% if factory and factory.pk == f.pk %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Factory</label><div class="static-value">{{ factory.code }} — {{ factory.name }}</div></div>
     <div style="align-self:end"><button class="btn">Show GRN lines</button></div></div></form>
 
   {% if vendor and factory %}
   <form method="post" novalidate>
-    {% csrf_token %}<input type="hidden" name="vendor" value="{{ vendor.pk }}"><input type="hidden" name="factory" value="{{ factory.pk }}">
+    {% csrf_token %}<input type="hidden" name="vendor" value="{{ vendor.pk }}">
     <div class="island"><h2>Vendor's bill</h2><div class="field-row">
       <div class="field"><label for="vin">Vendor invoice no.</label><input id="vin" name="vendor_invoice_no" type="text" value="{{ d.vendor_invoice_no }}" required></div>
       <div class="field"><label for="vid">Vendor invoice date</label><input id="vid" name="vendor_invoice_date" type="date" value="{{ d.vendor_invoice_date|default:today }}" required></div>

@@ -13,6 +13,7 @@ from django.views import View
 
 from core.crud import ObjectDelete
 from core.exceptions import BusinessRuleError
+from core.services.active_factory import require_active_factory
 from core.models import Company, Factory
 from core.scoping import ScreenPermissionMixin
 
@@ -53,6 +54,30 @@ class ChartView(LoginRequiredMixin, ScreenPermissionMixin, View):
 
         walk(None, 0)
         return render(request, "ledger/chart.html", {"rows": rows})
+
+
+class LedgerList(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Every ledger in one flat list: search by name or code, filter by group or status, then edit or delete."""
+
+    screen_code = "ledger.chart"
+
+    def get(self, request):
+        company = _company()
+        q, status = request.GET.get("q", "").strip(), request.GET.get("status", "active")
+        group = request.GET.get("group", "")
+        qs = Ledger.objects.filter(company=company).select_related("group")
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(code__icontains=q) | Q(group__name__icontains=q))
+        if group.isdigit():
+            qs = qs.filter(group_id=int(group))
+        if status == "active":
+            qs = qs.filter(is_active=True)
+        elif status == "inactive":
+            qs = qs.filter(is_active=False)
+        total = qs.count()
+        return render(request, "ledger/ledger_list.html", {
+            "ledgers": qs.order_by("name")[:500], "total": total, "q": q, "status": status, "group": group,
+            "groups": AccountGroup.objects.filter(company=company).order_by("name")})
 
 
 class GroupSave(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -108,7 +133,7 @@ class LedgerSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         if form.is_valid():
             form.save()
             messages.success(request, "Ledger saved. A ledger with entries can be deactivated but never deleted.")
-            return redirect("chart_of_accounts")
+            return redirect("ledger_list")
         return render(request, "core/form.html", self._ctx(form, pk))
 
     @staticmethod
@@ -116,7 +141,7 @@ class LedgerSave(LoginRequiredMixin, ScreenPermissionMixin, View):
         return {"form": form, "title": "Edit ledger" if pk else "New ledger",
                 "intro": "A ledger is an account that vouchers post to, such as a bank account, a customer or an expense. "
                          "It sits inside a group. To add a heading instead, create a group.",
-                "cancel_url": "chart_of_accounts"}
+                "cancel_url": "ledger_list"}
 
 
 class GroupDelete(ObjectDelete):
@@ -130,7 +155,7 @@ class GroupDelete(ObjectDelete):
 
 
 class LedgerDelete(ObjectDelete):
-    screen_code, success_url_name, noun = "ledger.chart", "chart_of_accounts", "ledger"
+    screen_code, success_url_name, noun = "ledger.chart", "ledger_list", "ledger"
 
     def get_object(self, request, pk):
         return get_object_or_404(Ledger, pk=pk, company=_company())
@@ -150,11 +175,10 @@ class VoucherList(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request):
         qs = Voucher.objects.for_user(request.user).select_related("factory")
-        factory = request.GET.get("factory")
         vtype = request.GET.get("type")
         status = request.GET.get("status")
-        if factory:
-            qs = qs.filter(factory_id=factory)
+        if request.factory:
+            qs = qs.filter(factory=request.factory)
         if vtype:
             qs = qs.filter(voucher_type=vtype)
         if status:
@@ -163,8 +187,8 @@ class VoucherList(LoginRequiredMixin, ScreenPermissionMixin, View):
         if q:
             qs = qs.filter(Q(number__icontains=q) | Q(vendor_invoice_no__icontains=q))
         return render(request, "ledger/voucher_list.html", {
-            "vouchers": qs[:200], "factories": Factory.objects.for_user(request.user),
-            "types": VoucherType.choices, "f": {"factory": factory, "type": vtype, "status": status, "q": q},
+            "vouchers": qs[:200],
+            "types": VoucherType.choices, "f": {"type": vtype, "status": status, "q": q},
             "can_create": request.user.has_screen_perm("ledger.voucher", "create"),
         })
 
@@ -247,7 +271,7 @@ class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
         values = values or {"date": timezone.localdate().isoformat()}
         return {
             "vtype": vtype, "title": title, "intro": intro, "v": values,
-            "factories": Factory.objects.for_user(request.user).filter(is_active=True),
+            "factory": request.factory,
             "ledger_groups": sorted(groups.items()), "cash_bank": cash_bank_ledgers(company).order_by("name"),
             "rows": rows or [{} for _ in range(ENTRY_ROWS[vtype])],
             "ref_types": [("on_account", "On account"), ("against", "Against bill"), ("new", "New bill"), ("advance", "Advance")],
@@ -259,17 +283,17 @@ class VoucherEntry(LoginRequiredMixin, ScreenPermissionMixin, View):
     def post(self, request, vtype):
         p = request.POST
         company = _company()
-        factory = get_object_or_404(Factory.objects.for_user(request.user).filter(is_active=True), pk=p.get("factory"))
         fields = ("ledger", "to_ledger", "amount", "debit", "credit", "ref_type", "reference", "due_date", "narration")
         cols = {f: p.getlist("row_" + f) for f in fields}
         count = max((len(v) for v in cols.values()), default=0)
         raw = [{f: (cols[f][i] if i < len(cols[f]) else "") for f in fields} for i in range(count)]
-        values = {k: p.get(k, "") for k in ("factory", "date", "narration", "account", "from_account", "to_account", "amount", "vendor_invoice_no")}
+        values = {k: p.get(k, "") for k in ("date", "narration", "account", "from_account", "to_account", "amount", "vendor_invoice_no")}
         try:
             on_date = date.fromisoformat(values["date"]) if values["date"] else None
         except ValueError:
             on_date = None
         try:
+            factory = require_active_factory(request)       # the factory chosen at login; the form never asks again
             voucher = post_manual_voucher(
                 company=company, factory=factory, vtype=vtype, on_date=on_date, narration=values["narration"],
                 header=values, rows=[Row(**r) for r in raw], user=request.user,
@@ -531,10 +555,7 @@ class TrialBalanceView(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "ledger.report"
 
     def get(self, request):
-        factories = Factory.objects.for_user(request.user)
-        factory = None
-        if request.GET.get("factory"):
-            factory = get_object_or_404(factories, pk=request.GET["factory"])
+        factory = request.factory          # the session's active factory; None = all the user's factories
         as_of = timezone.localdate()          # "as of" is today unless another date is chosen
         if request.GET.get("as_of"):
             try:
@@ -543,5 +564,5 @@ class TrialBalanceView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 messages.error(request, "Enter the date as YYYY-MM-DD.")
         tb = trial_balance(_company(), user=request.user, factory=factory, as_of=as_of)
         return render(request, "ledger/trial_balance.html", {
-            "tb": tb, "factories": factories, "factory": factory, "as_of": request.GET.get("as_of", ""),
+            "tb": tb, "factory": factory, "as_of": request.GET.get("as_of", ""),
         })

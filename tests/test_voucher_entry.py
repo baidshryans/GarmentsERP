@@ -145,12 +145,12 @@ def test_entry_needs_create_permission_and_a_login(company, factory, bank, ledge
     assert c.post(reverse("voucher_payment"), {"factory": factory.pk}).status_code == 403
 
 
-def test_user_cannot_post_into_a_factory_they_may_not_use(company, factory, factory2, accountant, bank, ledgers):
+def test_a_posted_factory_field_is_ignored_the_active_factory_wins(company, factory, factory2, accountant, bank, ledgers):
     c = Client()
     c.force_login(accountant)                      # allowed LDH1 only
     r = c.post(reverse("voucher_payment"), {"factory": factory2.pk, "date": IN_YEAR.isoformat(), "account": bank.pk,
                                             **rows({"ledger": ledgers("bank_charges"), "amount": "5"})})
-    assert r.status_code == 404 and not Voucher.objects.exists()
+    assert r.status_code == 302 and [v.factory for v in Voucher.objects.all()] == [factory]    # never factory2
 
 
 def test_accounts_menu_lists_the_entry_screens(client, company):
@@ -181,3 +181,13 @@ def test_group_cannot_be_moved_under_its_own_child(client, company):
     child = AccountGroup.objects.get(company=company, name="Cash-in-hand")
     html = client.get(reverse("group_edit", args=[assets.pk])).content.decode()
     assert f'value="{child.pk}"' not in html.split('name="parent"')[1].split("</select>")[0]
+
+
+def test_manual_voucher_form_has_no_factory_field_and_posts_in_the_active_factory(client, company, factory, bank, ledgers):
+    page = client.get(reverse("voucher_journal")).content.decode()
+    assert 'name="factory"' not in page and factory.code in page
+    r = client.post(reverse("voucher_payment"), {"date": IN_YEAR.isoformat(), "narration": "t", "account": bank.pk,
+                                                 **rows({"ledger": ledgers("bank_charges"), "amount": "10.00"})})
+    assert r.status_code == 302
+    from ledger.models import Voucher
+    assert Voucher.objects.get(pk=r["Location"].rstrip("/").split("/")[-1]).factory == factory

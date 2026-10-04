@@ -34,7 +34,7 @@
   function loadBills(row) {                       // offer this ledger's open bills for "Against bill"
     var sel = row.querySelector("select[name=row_ledger]"), ref = row.querySelector("input[name=row_reference]");
     if (!sel.value || !billWise(row)) { return; }
-    var url = urlTemplate.replace("/0/", "/" + sel.value + "/") + "?factory=" + encodeURIComponent(document.getElementById("factory").value);
+    var url = urlTemplate.replace("/0/", "/" + sel.value + "/");
     fetch(url, { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (data) {
       var id = ref.getAttribute("list");
       if (!id) { id = "bills-" + (++listCount); ref.setAttribute("list", id); }
@@ -85,7 +85,6 @@
     totals();
   });
   form.addEventListener("input", totals);
-  document.getElementById("factory").addEventListener("change", function () { body.querySelectorAll("tr").forEach(syncRow); });
   document.getElementById("add-row").addEventListener("click", function () {
     var copy = body.querySelector("tr:last-child").cloneNode(true);
     copy._bills = {};

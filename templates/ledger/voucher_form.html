@@ -13,8 +13,9 @@
   <form method="post" class="island" id="voucher-form" data-vtype="{{ vtype }}" data-bills-url="{% url 'ledger_bills' 0 %}" novalidate>
     {% csrf_token %}
     <div class="field-row">
-      <div class="field"><label for="factory">Factory <span class="muted">*</span></label>
-        <select id="factory" name="factory" required>{% for f in factories %}<option value="{{ f.pk }}" {% if v.factory == f.pk|stringformat:"s" %}selected{% endif %}>{{ f.code }} — {{ f.name }}</option>{% endfor %}</select></div>
+      <div class="field"><label>Factory</label>
+        <div class="static-value">{% if factory %}<strong>{{ factory.code }}</strong> — {{ factory.name }}{% else %}<span class="pill warning">None selected</span>{% endif %}</div>
+        {% if not factory %}<div class="help">Pick a single factory in the top bar before entering a voucher.</div>{% endif %}</div>
       <div class="field"><label for="date">Date <span class="muted">*</span></label>
         <input id="date" name="date" type="date" value="{{ v.date|default:today }}" required></div>
 

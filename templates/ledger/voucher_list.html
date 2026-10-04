@@ -11,7 +11,6 @@
   </div>
   <div class="island">
     <form method="get" class="field-row" style="margin-bottom:16px">
-      <div><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if f.factory == fa.pk|stringformat:"s" %}selected{% endif %}>{{ fa.code }}</option>{% endfor %}</select></div>
       <div><label for="type">Type</label><select id="type" name="type"><option value="">All</option>{% for v, label in types %}<option value="{{ v }}" {% if f.type == v %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
       <div><label for="status">Status</label><select id="status" name="status"><option value="">All</option><option value="posted" {% if f.status == "posted" %}selected{% endif %}>Posted</option><option value="draft" {% if f.status == "draft" %}selected{% endif %}>Draft</option></select></div>
       <div><label for="q">Voucher or vendor invoice no.</label><input id="q" name="q" type="search" value="{{ f.q|default:'' }}"></div>

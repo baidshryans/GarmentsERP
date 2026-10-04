@@ -8,14 +8,14 @@
     <div class="grid-2">
       <div class="table-wrap"><table>
         <thead><tr><th scope="col">Liabilities</th><th scope="col" class="num">Amount</th></tr></thead>
-        <tbody>{% for r in bs.liabilities %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?to={{ as_of|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ r.ledger }}</a> <span class="muted">{{ r.group }}</span></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}
+        <tbody>{% for r in bs.liabilities %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?to={{ as_of|date:'Y-m-d' }}">{{ r.ledger }}</a> <span class="muted">{{ r.group }}</span></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}
           <tr><td>Profit of earlier years</td><td class="num">{{ bs.prior_profit }}</td></tr>
           <tr><td>Profit of this financial year{% if bs.financial_year %} <span class="muted">(FY {{ bs.financial_year.label }})</span>{% endif %}</td><td class="num">{{ bs.current_profit }}</td></tr></tbody>
         <tfoot><tr><td>Total</td><td class="num">{{ bs.liabilities_total }}</td></tr></tfoot>
       </table></div>
       <div class="table-wrap"><table>
         <thead><tr><th scope="col">Assets</th><th scope="col" class="num">Amount</th></tr></thead>
-        <tbody>{% for r in bs.assets %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?to={{ as_of|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ r.ledger }}</a> <span class="muted">{{ r.group }}</span></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}</tbody>
+        <tbody>{% for r in bs.assets %}<tr><td><a href="{% url 'ledger_statement' r.ledger_id %}?to={{ as_of|date:'Y-m-d' }}">{{ r.ledger }}</a> <span class="muted">{{ r.group }}</span></td><td class="num">{{ r.amount }}</td></tr>{% endfor %}</tbody>
         <tfoot><tr><td>Total</td><td class="num">{{ bs.assets_total }}</td></tr></tfoot>
       </table></div>
     </div>

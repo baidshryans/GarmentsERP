@@ -320,3 +320,4 @@ def test_seeding_masters_is_idempotent_and_adds_only_missing(company):
     seed_company(company)
     assert Colour.objects.filter(name="Jet Black").exists() and Colour.objects.filter(name="Black").exists()
     assert Colour.objects.count() == n + 1
+

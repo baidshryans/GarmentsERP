@@ -46,15 +46,14 @@ class ReportView(LoginRequiredMixin, ScreenPermissionMixin, View):
                 problems.append(f"'{g[key]}' is not a date (use YYYY-MM-DD).")
                 return default
 
-        factories = Factory.objects.for_user(request.user)
-        factory = factories.filter(pk=g["factory"]).first() if g.get("factory", "").isdigit() else None
-        return {"company": company, "factories": factories, "factory": factory, "problems": problems, "today": today,
+        factory = request.factory          # the session's active factory; None = every factory the user may see
+        return {"company": company, "factory": factory, "problems": problems, "today": today,
                 "date_from": day("from", _year_start(company, today)), "date_to": day("to", today), "as_of": day("as_of", today)}
 
     def get(self, request, **kwargs):
         f = self.filters(request)
         ctx = self.build(request, f, **kwargs)
-        ctx.update({k: f[k] for k in ("factories", "factory", "problems", "date_from", "date_to", "as_of")})
+        ctx.update({k: f[k] for k in ("factory", "problems", "date_from", "date_to", "as_of")})
         if request.GET.get("format") == "xlsx" and not f["problems"]:
             return self.export(ctx)
         return render(request, self.template_name, ctx)
@@ -94,14 +93,12 @@ class LedgerBook(ReportView):
     template_name = "reports/ledger_book.html"
 
     def build(self, request, f):
-        groups, by_id = {}, {}
-        for l in Ledger.objects.filter(company=f["company"], is_active=True).select_related("group").order_by("group__sort_order", "name"):
-            groups.setdefault(l.group.name, []).append(l)
-            by_id[l.pk] = l
+        by_id = {l.pk: l for l in Ledger.objects.filter(company=f["company"], is_active=True).select_related("group").order_by("group__sort_order", "name")}
         picked_ids = [int(x) for x in request.GET.getlist("ledger") if x.isdigit() and int(x) in by_id]
         picked = [by_id[i] for i in dict.fromkeys(picked_ids)]
         book = books.ledger_book(picked, user=request.user, factory=f["factory"], date_from=f["date_from"], date_to=f["date_to"]) if picked else None
-        return {"groups": list(groups.items()), "picked_ids": {l.pk for l in picked}, "book": book, "asked": "ledger" in request.GET or "from" in request.GET}
+        options = [{"id": l.pk, "name": l.name, "group": l.group.name} for l in by_id.values()]
+        return {"ledger_options": options, "picked": picked, "book": book, "asked": "from" in request.GET or "ledger" in request.GET}
 
     def export(self, ctx):
         rows = []

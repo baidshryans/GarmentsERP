@@ -202,3 +202,8 @@ def test_nav_lists_master_screens_by_permission(company, merch, accountant, clie
     assert "Styles" in html and "Routes" in html and "Trial balance" not in html
     html = client_for(accountant).get(reverse("home")).content.decode()
     assert "Parties" in html and "Styles" not in html
+
+
+def test_new_route_preselects_the_only_factory(company, factory, merch, client_for):
+    page = client_for(merch).get(reverse("route_new")).content.decode()
+    assert f'<option value="{factory.pk}" selected>' in page

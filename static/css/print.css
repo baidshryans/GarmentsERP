@@ -13,3 +13,19 @@
   tbody td + td, thead th + th, tfoot td + td { border-left: 0 !important; }
   tfoot td { background: white !important; color: black; border-top: 1px solid black; }
 }
+
+@media print {
+  @page { margin: 14mm 12mm; }
+  .lb-print-head { display: block; text-align: center; margin-bottom: 10pt; }
+  .lb-print-head h1 { font-size: 16pt; margin: 2pt 0; }
+  .lb-company { font-size: 12pt; font-weight: 700; }
+  .lb-ledger { break-before: page; margin: 0; }
+  .lb-summary + .lb-ledger, .lb-print-head + .lb-ledger { break-before: auto; }
+  .lb-ledger + .lb-ledger { break-before: page; }
+  .lb-ledger-head { border-bottom: 2px solid black; padding-bottom: 4pt; }
+  .lb-ledger-head .muted, .muted { color: black; }
+  .lb-ledger table { width: 100%; font-size: 10pt; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  .lb-open td { color: black; }
+}

@@ -106,8 +106,8 @@ class StockEnquiry(LoginRequiredMixin, ScreenPermissionMixin, View):
         qs = StockBalance.objects.for_user(request.user).exclude(qty=0, value=0).select_related(
             "factory", "location", "material", "sku__style", "sku__colour", "sku__size")
         g = request.GET
-        if g.get("factory"):
-            qs = qs.filter(factory_id=g["factory"])
+        if request.factory:
+            qs = qs.filter(factory=request.factory)
         if g.get("location"):
             qs = qs.filter(location_id=g["location"])
         if g.get("kind") == "material":
@@ -125,8 +125,7 @@ class StockEnquiry(LoginRequiredMixin, ScreenPermissionMixin, View):
             rows.append({"b": b, "item": b.item, "avg": avg, "transit": b.location.loc_type == "transit"})
         return render(request, "inventory/stock.html", {
             "rows": rows, "can_cost": can_cost, "f": g, "q": q,
-            "factories": Factory.objects.for_user(request.user),
-            "locations": Location.objects.filter(factory__in=Factory.objects.for_user(request.user)),
+            "locations": Location.objects.filter(factory__in=request.active_factories),
         })
 
 

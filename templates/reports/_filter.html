@@ -1,6 +1,5 @@
 {% for p in problems %}<div class="messages"><div class="message error">{{ p }}</div></div>{% endfor %}
 <form method="get" class="field-row no-print" style="margin-bottom:16px;align-items:end">
-  <div class="field"><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All my factories</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if factory and factory.pk == fa.pk %}selected{% endif %}>{{ fa.code }} — {{ fa.name }}</option>{% endfor %}</select></div>
   {% if mode == "range" %}
   <div class="field"><label for="from">From</label><input id="from" name="from" type="date" value="{{ date_from|date:'Y-m-d' }}"></div>
   <div class="field"><label for="to">To</label><input id="to" name="to" type="date" value="{{ date_to|date:'Y-m-d' }}"></div>

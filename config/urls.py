@@ -40,6 +40,7 @@ urlpatterns = [
     # accounts
     path("accounts/chart/", ledger.ChartView.as_view(), name="chart_of_accounts"),
     path("accounts/chart/groups/new/", ledger.GroupSave.as_view(), name="group_create"),
+    path("accounts/ledger-list/", ledger.LedgerList.as_view(), name="ledger_list"),
     path("accounts/chart/groups/<int:pk>/", ledger.GroupSave.as_view(), name="group_edit"),
     path("accounts/chart/ledgers/new/", ledger.LedgerSave.as_view(), name="ledger_create"),
     path("accounts/chart/ledgers/<int:pk>/", ledger.LedgerSave.as_view(), name="ledger_edit"),

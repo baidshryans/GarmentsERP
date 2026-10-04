@@ -166,8 +166,21 @@ def test_ledger_book_shows_each_chosen_ledger_with_combined_totals(month, ns, co
     c = Client()
     c.force_login(owner)
     page = c.get(reverse("ledger_book"), {"ledger": [debtors.pk, cash.pk, 999999], "from": "2026-04-01", "to": "2027-03-31"}).content.decode()
-    assert "Punjab Traders" in page and "Cash" in page and "All selected" in page and "2 selected" in page
-    assert c.get(reverse("ledger_book")).status_code == 200                  # no ledger chosen yet: just the picker
+    assert "Punjab Traders" in page and "Cash" in page and "All selected" in page and page.count('class="lb-chip"') == 2
+    empty = c.get(reverse("ledger_book")).content.decode()                   # nothing chosen yet: just the search box, no ledgers listed
+    assert 'class="lb-chip"' not in empty and "Total / closing balance" not in empty
     r = c.get(reverse("ledger_book"), {"ledger": [debtors.pk, cash.pk], "format": "xlsx"})
     assert "spreadsheetml" in r["Content-Type"] and load_workbook(BytesIO(r.content)).active["A1"].value == "Ledger book"
     assert c.get(reverse("ledger_book"), {"format": "xlsx"}).status_code == 302
+
+
+def test_ledger_list_searches_filters_and_links_to_edit_and_delete(month, ns, company, owner):
+    c = Client()
+    c.force_login(owner)
+    debtors = ns.local.customer_ledger
+    page = c.get(reverse("ledger_list")).content.decode()
+    assert debtors.name in page and reverse("ledger_edit", args=[debtors.pk]) in page and reverse("ledger_delete", args=[debtors.pk]) in page
+    hit = c.get(reverse("ledger_list"), {"q": debtors.name}).content.decode()
+    assert debtors.name in hit and "Office Expenses" not in hit
+    assert "No ledger matches" in c.get(reverse("ledger_list"), {"q": "zzzz-nothing"}).content.decode()
+    assert debtors.name not in c.get(reverse("ledger_list"), {"group": debtors.group_id + 9999}).content.decode()

@@ -74,6 +74,7 @@ NAV = [
     ]),
     ("Accounts", [
         ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
+        ("ledger_list", "Ledgers", "ledger.chart"),
         Sub("Enter a voucher", [
             ("voucher_payment", "Payment", "ledger.voucher.create"),
             ("voucher_receipt", "Receipt", "ledger.voucher.create"),

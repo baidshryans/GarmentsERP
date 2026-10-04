@@ -5,7 +5,6 @@
   <div class="island">
     <form method="get" class="field-row" style="margin-bottom:16px">
       <div><label for="q">Search</label><input id="q" name="q" type="text" value="{{ q }}" placeholder="Material, style or barcode"></div>
-      <div><label for="factory">Factory</label><select id="factory" name="factory"><option value="">All</option>{% for fa in factories %}<option value="{{ fa.pk }}" {% if f.factory == fa.pk|stringformat:"s" %}selected{% endif %}>{{ fa.code }}</option>{% endfor %}</select></div>
       <div><label for="location">Location</label><select id="location" name="location"><option value="">All</option>{% for l in locations %}<option value="{{ l.pk }}" {% if f.location == l.pk|stringformat:"s" %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
       <div><label for="kind">Type</label><select id="kind" name="kind"><option value="">All</option><option value="material" {% if f.kind == "material" %}selected{% endif %}>Raw material</option><option value="sku" {% if f.kind == "sku" %}selected{% endif %}>Finished goods</option></select></div>
       <div style="align-self:end"><button class="btn">Show</button></div>

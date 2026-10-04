@@ -2,7 +2,7 @@
 {% block title %}Sales report{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">Sales</h1><span class="muted">{{ date_from|date:"d M Y" }} to {{ date_to|date:"d M Y" }} · by {{ by }}</span>
-    <div class="actions no-print">{% for v in views %}<a class="btn {% if v == by %}primary{% else %}ghost{% endif %}" href="?by={{ v }}&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}{% if factory %}&factory={{ factory.pk }}{% endif %}">{{ v|title }}</a>{% endfor %}</div></div>
+    <div class="actions no-print">{% for v in views %}<a class="btn {% if v == by %}primary{% else %}ghost{% endif %}" href="?by={{ v }}&from={{ date_from|date:'Y-m-d' }}&to={{ date_to|date:'Y-m-d' }}">{{ v|title }}</a>{% endfor %}</div></div>
   <div class="island">
     {% include "reports/_filter.html" with mode="range" %}
     {% if r.rows %}<div class="table-wrap"><table>

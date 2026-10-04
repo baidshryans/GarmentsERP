@@ -287,9 +287,12 @@ class RouteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
             rows = [{"process": str(s.process_id), "mandatory": s.is_mandatory, "assignment": s.assignment,
                      "factory": str(s.default_factory_id or ""), "party": str(s.default_party_id or ""), "rate": s.rate}
                     for s in route.steps.all()] if route else []
+        factories = list(Factory.objects.filter(is_active=True))
+        blank = {"mandatory": True, "factory": str(factories[0].pk) if len(factories) == 1 else ""}    # one factory: no choice to make
+        rows = [{**blank, **r} if not r.get("process") and not r.get("factory") else r for r in rows]
         return {
-            "route": route, "rows": rows + [{"mandatory": True}] * 2, "name": name if name is not None else (route.name if route else ""),
-            "processes": Process.objects.filter(is_active=True), "factories": Factory.objects.filter(is_active=True),
+            "route": route, "rows": rows + [dict(blank) for _ in range(2)], "name": name if name is not None else (route.name if route else ""),
+            "processes": Process.objects.filter(is_active=True), "factories": factories,
             "fabricators": Party.objects.filter(is_fabricator=True, is_active=True),
         }
 

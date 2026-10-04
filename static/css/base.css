@@ -433,3 +433,15 @@ td input.num, td input[inputmode="decimal"] { max-width: 12rem; margin-left: aut
 .content form td.row-tools, .content form th.row-tools { position: sticky; right: 0; background: var(--color-surface); z-index: 1; }
 .content form thead th.row-tools, .content form tfoot td.row-tools { background: var(--color-sidebar); }
 .content form tr.entry-row td.row-tools { background: var(--color-primary-soft); }
+
+/* ---- entry table polish: calm entry line, slim remove column, compact header fields ---- */
+.field-row { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); max-width: 1000px; justify-content: stretch; }
+.content form tr.entry-row td, .content form tr.entry-row td.row-tools { background: var(--color-surface); }
+.content form tr.entry-row td { box-shadow: none; }
+.content form tr.entry-row td:first-child { box-shadow: inset 3px 0 0 var(--color-primary); }
+.content form tbody tr:not(:only-child).entry-row td { border-top: 1px dashed var(--color-hairline); }
+.content form tr.entry-row :is(input, select, textarea) { border-color: var(--color-primary); }
+.content form th.row-tools, .content form td.row-tools { width: 40px; min-width: 40px; border-left: 0; padding-inline: 2px; }
+.content form tfoot td.row-tools { border-left: 0; }
+.content form td textarea { height: 4.4em; min-height: 0; }
+.entry-hint::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 2px; background: var(--color-primary); vertical-align: -1px; }

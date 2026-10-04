@@ -272,3 +272,24 @@ def test_home_shows_lots_in_production_and_hides_money_from_production_roles(com
     sup = user_with("sup_home", "Production Supervisor", factory)
     r = login(sup).get(reverse("home"))
     assert r.status_code == 200 and "Recent vouchers" not in r.content.decode()
+
+
+# ---------------- the active factory drives production and job work ----------------
+
+def test_production_and_job_work_entries_follow_the_active_factory(company, factory, factory2, owner):
+    ns = build(company, factory, owner)
+    c = login(owner)
+    form = {"factory": factory.pk, "date": "2026-06-15", "purpose": "stock",
+            "style": [ns.style.pk, ""], "colour": [ns.black.pk, ns.black.pk], "qty": ["60", ""], "ratios": ["S:1, M:2, L:2, XL:1", ""]}
+    c.post(reverse("factory_switch"), {"factory": factory2.pk})
+    c.post(reverse("order_new"), form)
+    new = ProductionOrder.objects.exclude(pk=ns.order.pk).get()
+    assert new.factory == factory2                                           # the form's factory value is ignored
+    assert [o.factory for o in c.get(reverse("order_list")).context["orders"]] == [factory2]
+    c.post(reverse("factory_switch"), {"factory": "all"})
+    assert len(c.get(reverse("order_list")).context["orders"]) == 2
+    for name in ("order_new", "bill_new"):
+        r = c.get(reverse(name))
+        assert r.status_code == 302 and "single factory" in str(list(r.wsgi_request._messages)[-1]), name
+    c.post(reverse("order_new"), form)
+    assert ProductionOrder.objects.count() == 2                              # nothing was saved in All mode

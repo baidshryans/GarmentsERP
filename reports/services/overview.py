@@ -84,29 +84,31 @@ def accounts_overview(user):
     return {"voucher_count": posted.count(), "recent": posted.select_related("factory")[:6]}
 
 
-# (section, figure, text for one, text for many, screen that deals with it)
+# (section, figure, text for one, text for many, screen that deals with it, permission that screen needs)
 ATTENTION = [
     ("production", "awaiting_qc", "receipt from a fabricator is waiting to be checked",
-     "receipts from fabricators are waiting to be checked", "receipt_list"),
-    ("production", "late_lots", "lot is past its due date", "lots are past their due date", "production_dashboard"),
+     "receipts from fabricators are waiting to be checked", "receipt_list", "jobwork.receipt"),
+    ("production", "late_lots", "lot is past its due date", "lots are past their due date", "production_dashboard", "production.dashboard"),
     ("production", "orders_to_release", "production order is a draft, waiting to be released",
-     "production orders are drafts, waiting to be released", "order_list"),
+     "production orders are drafts, waiting to be released", "order_list", "production.order"),
     ("purchases", "pos_to_approve", "purchase order is waiting for approval",
-     "purchase orders are waiting for approval", "po_list"),
-    ("purchases", "grn_pending", "goods receipt is not posted yet", "goods receipts are not posted yet", "grn_list"),
-    ("sales", "overdue_orders", "sale order is past its due date", "sale orders are past their due date", "saleorder_list"),
-    (None, "low_stock", "item is below its minimum stock", "items are below their minimum stock", "stock_alerts"),
+     "purchase orders are waiting for approval", "po_list", "purchases.po"),
+    ("purchases", "grn_pending", "goods receipt is not posted yet", "goods receipts are not posted yet", "grn_list",
+     "purchases.grn"),
+    ("sales", "overdue_orders", "sale order is past its due date", "sale orders are past their due date", "saleorder_list",
+     "sales.order"),
+    (None, "low_stock", "item is below its minimum stock", "items are below their minimum stock", "stock_alerts", "inventory.alerts"),
 ]
 
 
-def attention_items(data):
-    """What is waiting on the user, from the figures already gathered for them (so already factory-scoped
-    and already limited to what their role may see). Nothing waiting, no line."""
+def attention_items(data, user):
+    """What is waiting on the user, from the figures already gathered for them (so already factory-scoped).
+    A line is offered only if the user may open the screen it leads to. Nothing waiting, no line."""
     items = []
-    for section, figure, one, many, url_name in ATTENTION:
+    for section, figure, one, many, url_name, screen in ATTENTION:
         source = data if section is None else data.get(section)
         count = (source or {}).get(figure) or 0
-        if count:
+        if count and user.has_screen_perm(screen, "view"):
             items.append({"count": count, "text": one if count == 1 else many, "url": reverse(url_name)})
     return items
 
@@ -124,5 +126,6 @@ def build_overview(user):
         "day": standard.today_figures(user, today),
         "low_stock": StockAlert.visible_to(user).filter(cleared_at__isnull=True).count() if can("inventory.alerts", "view") else None,
     }
-    data["attention"] = attention_items(data)
+    data["attention"] = attention_items(data, user)
+    data["can_open_lot"] = can("production.lot", "view")
     return data

@@ -8,7 +8,7 @@
   <div class="launch">
     {% for island in islands %}
     <section class="island" aria-labelledby="launch-{{ forloop.counter }}">
-      <h2 id="launch-{{ forloop.counter }}"><svg aria-hidden="true"><use href="#{{ island.icon }}"/></svg>{{ island.title }}</h2>
+      <h3 id="launch-{{ forloop.counter }}"><svg aria-hidden="true"><use href="#{{ island.icon }}"/></svg>{{ island.title }}</h3>
       <div class="launch-actions">{% for a in island.actions %}<a class="btn" href="{{ a.url }}">{{ a.label }}</a>{% endfor %}</div>
     </section>
     {% endfor %}
@@ -46,7 +46,7 @@
       <div class="table-scroll"><table>
         <thead><tr><th scope="col">Lot</th><th scope="col">Style</th><th scope="col">Order</th><th scope="col" class="num">Planned</th><th scope="col" class="num">Cut</th><th scope="col" class="num">In progress</th><th scope="col">Stages</th><th scope="col">Where</th><th scope="col">Due</th></tr></thead>
         <tbody>{% for r in production.rows %}
-          <tr><td><a href="{% url 'lot_detail' r.lot.pk %}">{{ r.lot.lot_no }}</a></td><td>{{ r.lot.style.style_no }} {{ r.lot.colour }}</td><td>{{ r.order.number|default:"-" }}</td>
+          <tr><td>{% if can_open_lot %}<a href="{% url 'lot_detail' r.lot.pk %}">{{ r.lot.lot_no }}</a>{% else %}{{ r.lot.lot_no }}{% endif %}</td><td>{{ r.lot.style.style_no }} {{ r.lot.colour }}</td><td>{{ r.order.number|default:"-" }}</td>
             <td class="num">{{ r.planned }}</td><td class="num">{{ r.cut }}</td><td class="num">{{ r.wip }}</td><td>{{ r.stages }}</td><td>{{ r.where }}</td>
             <td>{% if r.order.due_date %}{{ r.order.due_date|date:"d M" }}{% endif %}{% if r.late %} <span class="pill danger">Late</span>{% endif %}</td></tr>
         {% endfor %}</tbody>

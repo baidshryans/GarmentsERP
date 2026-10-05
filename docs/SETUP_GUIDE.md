@@ -27,7 +27,7 @@ Later steps depend on earlier ones. Do not skip ahead.
 | 1 | Setup wizard: company, tax switches, financial year, first factory | `/setup/` (first login) | Owner | 15 min |
 | 2 | More factories and locations | More → Settings → Factories | Administrator | 10 min |
 | 3 | Roles and users | More → Settings → Roles, Users | Administrator | 30 min |
-| 4 | Tax settings, HSN and GST slabs | More → Settings → Tax settings | Accountant | 20 min |
+| 4 | Tax settings, HSN and GST slabs | More → Settings → Tax settings; Masters → Setup → HSN and GST slabs | Accountant | 20 min |
 | 5 | Inventory settings | More → Settings → Inventory settings | Owner | 5 min |
 | 6 | Chart of accounts: add bank accounts and your own ledgers | More → Accountant → Chart of accounts | Accountant | 30 min |
 | 7 | Basic masters: units, sizes, colours, products, materials, processes | Masters | Merchandiser | 1–2 hours |

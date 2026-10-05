@@ -88,6 +88,7 @@ def test_launchpad_follows_the_role(company, factory):
     sup.roles.add(Role.objects.get(name="Production Supervisor"))
     sup.allowed_factories.add(factory)
     labels = {a["label"] for i in home_actions(sup) for a in i["actions"]}
+    assert "Send to fabricator" in labels
     assert "Money received" not in labels and "Make a bill" not in labels
     assert all(i["actions"] for i in home_actions(sup))          # an island with nothing allowed is dropped
 
@@ -112,8 +113,18 @@ def _figures(**over):
     return data
 
 
+class _Role:
+    """Stands in for a user: may view only the screens named."""
+
+    def __init__(self, *screens):
+        self.screens = screens
+
+    def has_screen_perm(self, screen, action):
+        return action == "view" and ("*" in self.screens or screen in self.screens)
+
+
 def test_attention_lists_only_what_is_waiting_with_a_link_to_fix_it():
-    items = attention_items(_figures(production__awaiting_qc=3, purchases__pos_to_approve=1, low_stock=5))
+    items = attention_items(_figures(production__awaiting_qc=3, purchases__pos_to_approve=1, low_stock=5), _Role("*"))
     assert [(i["count"], i["text"], i["url"]) for i in items] == [
         (3, "receipts from fabricators are waiting to be checked", reverse("receipt_list")),
         (1, "purchase order is waiting for approval", reverse("po_list")),
@@ -122,10 +133,34 @@ def test_attention_lists_only_what_is_waiting_with_a_link_to_fix_it():
 
 
 def test_attention_skips_sections_the_role_may_not_see():
-    data = _figures(low_stock=2)
-    data["production"] = data["purchases"] = data["sales"] = None
-    data["low_stock"] = None
-    assert attention_items(data) == []
+    data = _figures()
+    data["production"] = data["purchases"] = data["sales"] = data["low_stock"] = None
+    assert attention_items(data, _Role("*")) == []
+
+
+def test_attention_never_links_to_a_screen_the_role_cannot_open():
+    waiting = _figures(production__awaiting_qc=1, production__late_lots=2, production__orders_to_release=1,
+                       purchases__grn_pending=1, sales__overdue_orders=1)
+    urls = [i["url"] for i in attention_items(waiting, _Role("production.dashboard"))]
+    assert urls == [reverse("production_dashboard")]
+    assert len(attention_items(waiting, _Role("*"))) == 5
+
+
+def test_every_home_link_opens_for_the_role_that_sees_it(company, factory):
+    for role in Role.objects.all():
+        user = make_user(f"r{role.pk}")
+        user.roles.add(role)
+        user.allowed_factories.add(factory)
+        c = _client(user)
+        html = c.get(reverse("home")).content.decode()
+        main = html[html.index('id="content"'):]
+        for href in set(re.findall(r'href="(/[^"#]*)"', main)):
+            assert c.get(href).status_code != 403, f"{role.name} is shown {href} on home but may not open it"
+
+
+def test_a_menu_screen_lights_only_its_own_group(company, owner):
+    html = _client(owner).get(reverse("journal_list")).content.decode()
+    assert re.findall(r'<details class="nav-group active" data-group="([\w-]+)"', html) == ["more"]
 
 
 def test_overview_carries_the_attention_list(company, owner):

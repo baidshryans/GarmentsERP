@@ -204,13 +204,17 @@ def app_shell(request):
             leaves = [k for i in shown for k in (i["items"] if i.get("sub") else [i])]
             groups.append({
                 "title": title, "items": shown, "key": key, "icon": ICONS.get(title, "i-masters"),
-                "active": any(k["current"] for k in leaves) or current in DETAIL_PAGES.get(title, ())
-                or any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
+                "exact": any(k["current"] for k in leaves) or current in DETAIL_PAGES.get(title, ()),
+                "active": any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
             })
             for i in shown:
                 for k in (i["items"] if i.get("sub") else [i]):
                     index.append({"label": k["label"], "group": title, "sub": i["label"] if i.get("sub") else "",
                                   "alt": k["alt"], "url": reverse(k["url_name"])})
+    # A page that is itself a menu entry lights only its own group, even when its URL sits under another group's prefix.
+    listed = any(g["exact"] for g in groups)
+    for g in groups:
+        g["active"] = g["exact"] if listed else g["active"]
     company = Company.objects.filter(setup_complete=True).first()
     return {
         "today": today, "asset_v": asset_v,

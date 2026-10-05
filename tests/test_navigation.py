@@ -58,3 +58,9 @@ def test_search_finds_screens_by_their_old_trade_terms(company, owner):
     assert "debit note" in by_url[reverse("debitnote_list")]["alt"].lower()
     assert "credit note" in by_url[reverse("salecn_list")]["alt"].lower()
     assert by_url[reverse("journal_list")]["group"] == "More" and by_url[reverse("journal_list")]["sub"] == "Accountant"
+
+
+def test_a_party_statement_keeps_the_money_group_lit(company, owner, ledgers):
+    html = _client(owner).get(reverse("ledger_statement", args=[ledgers("cash").pk])).content.decode()
+    assert re.search(r'<details class="nav-group active" data-group="money"', html)
+    assert not re.search(r'<details class="nav-group active" data-group="more"', html)

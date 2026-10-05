@@ -144,6 +144,11 @@ PREFIXES = {
              "/accounts/year", "/factories/", "/users/", "/roles/", "/tax/", "/settings/"),
 }
 
+# Record pages that belong to a group but share a URL prefix with another group's screens, so they are named.
+DETAIL_PAGES = {
+    "Money": ("voucher_detail", "ledger_statement", "ledger_bills"),
+}
+
 
 def _built(url_name):
     """A screen is listed only once its URL exists, so a menu entry never breaks the page."""
@@ -199,7 +204,8 @@ def app_shell(request):
             leaves = [k for i in shown for k in (i["items"] if i.get("sub") else [i])]
             groups.append({
                 "title": title, "items": shown, "key": key, "icon": ICONS.get(title, "i-masters"),
-                "active": any(k["current"] for k in leaves) or any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
+                "active": any(k["current"] for k in leaves) or current in DETAIL_PAGES.get(title, ())
+                or any(request.path.startswith(p) for p in PREFIXES.get(title, ())),
             })
             for i in shown:
                 for k in (i["items"] if i.get("sub") else [i]):

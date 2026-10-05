@@ -23,7 +23,7 @@ from masters.models import Colour, Party, Process, Size, Style
 from . import labels
 from .models import Bundle, CuttingEntry, Lot, LotStep, ProductionOrder, StageMovement
 from .services import bundles as bundle_service
-from .services import costing, cutting, orders, routes
+from .services import costing, cutting, guide, orders, routes
 
 
 def _factories(user):
@@ -194,7 +194,7 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_cut": request.user.has_screen_perm("production.cutting", "create"),
             "can_move": request.user.has_screen_perm("production.move", "create"),
             "can_pack": request.user.has_screen_perm("production.move", "create"),
-            "pack_ready": [b for b in live if _pack_ready(lot, b, steps)],
+            "pack_ready": [b for b in live if guide.pack_ready(b, [s for s in steps if s.status != "skipped"])],
             "dispatch_locations": Location.objects.filter(factory=lot.factory, is_active=True).exclude(loc_type__in=("transit", "rejects", "fabricator")),
         })
 
@@ -231,15 +231,6 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)
         return redirect("lot_detail", pk=pk)
-
-
-def _pack_ready(lot, bundle, steps):
-    packing = [s for s in steps if s.process.kind == "packing" and s.status != "skipped"]
-    if not packing:
-        return False
-    ps = packing[-1]
-    return (bundle.status == "at_stage" and bundle.current_step_id == ps.pk and ps.assignment == "in_house") or \
-           (bundle.status == "ready" and bundle.completed_seq >= ps.sequence)
 
 
 class PackBundles(LoginRequiredMixin, ScreenPermissionMixin, View):

@@ -77,10 +77,10 @@ def test_every_launchpad_button_points_at_a_real_screen():
             assert reverse(url_name), label
 
 
-def test_owner_gets_all_five_islands(company, owner):
+def test_owner_gets_the_four_islands(company, owner):
     islands = home_actions(owner)
-    assert [i["title"] for i in islands] == ["Buy", "Make", "Sell", "Money", "Masters"]
-    assert sum(len(i["actions"]) for i in islands) == 17
+    assert [i["title"] for i in islands] == ["Buy", "Make", "Sell", "Money"]
+    assert sum(len(i["actions"]) for i in islands) == 9
 
 
 def test_launchpad_follows_the_role(company, factory):
@@ -135,7 +135,7 @@ def test_overview_carries_the_attention_list(company, owner):
 def test_home_is_a_launchpad(company, owner):
     html = _client(owner).get(reverse("home")).content.decode()
     assert "What do you want to do?" in html
-    for label in ("Order fabric or material", "Send to fabricator", "Make a bill", "Money received", "New party"):
+    for label in ("Order fabric or material", "Send to fabricator", "Make a bill", "Money received"):
         assert label in html
     assert f'href="{reverse("grn_new")}"' in html
     assert "Nothing is waiting on you" in html

@@ -14,7 +14,7 @@ For the owner, accountant and merchandiser. Follow the parts in order. Each mast
 
 **Menu paths** below are written like *Masters → Styles*. Some screens are only visible if your role allows them (Part 2).
 
-**Home and the menu.** Home shows the everyday jobs as buttons grouped Buy, Make, Sell, Money and Masters, plus a "Needs your attention" list of what is waiting. The menu on the left holds the same screens grouped as Masters, Buy, Make, Sell, Stock, Money and Reports, with accountant and settings screens under More. Press Ctrl+K to find any screen by its new name or its old trade term (GRN, challan, debit note).
+**Home and the menu.** Home shows the everyday jobs as buttons grouped Buy, Make, Sell and Money, plus a "Needs your attention" list of what is waiting. The menu on the left holds the same screens grouped as Masters, Buy, Make, Sell, Stock, Money and Reports, with accountant and settings screens under More. Press Ctrl+K to find any screen by its new name or its old trade term (GRN, challan, debit note).
 
 ---
 

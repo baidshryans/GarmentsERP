@@ -599,7 +599,7 @@ td .ss, th .ss { max-width: 26rem; }
 @media print { .row-actions { display: none; } }
 
 /* ---- home launchpad ---- */
-.launch { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+.launch { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
 .launch .island { margin-bottom: 0; }
 .launch h2 { display: flex; align-items: center; gap: var(--space-2); }
 .launch h2 svg { width: 20px; height: 20px; color: var(--color-primary); }

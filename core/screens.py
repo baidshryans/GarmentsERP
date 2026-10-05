@@ -10,6 +10,7 @@ SCREENS = {
     "core.user": "Users",
     "core.role": "Roles and permissions",
     "core.period_lock": "Period locks",
+    "core.reset": "Reset database (superuser only)",
     "ledger.chart": "Chart of accounts",
     "ledger.voucher": "Vouchers",
     "ledger.opening": "Opening balances",

@@ -341,3 +341,41 @@ def factory_switch(request):
     except FactoryNotAllowed as exc:
         messages.error(request, str(exc))
     return redirect(_safe_next(request))
+
+
+# ---------------- reset database (Settings) ----------------
+
+class ResetDatabase(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """Clears every transaction and keeps the masters. Superuser only, behind a typed phrase and the user's password."""
+
+    screen_code = "core.reset"
+    template = "core/reset_database.html"
+    phrase = "RESET"
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and not request.user.is_superuser:
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request):
+        from .services import reset
+
+        return render(request, self.template, {"rows": reset.counts(), "phrase": self.phrase})
+
+    def post(self, request):
+        from .services import reset
+
+        if request.POST.get("phrase", "").strip() != self.phrase:
+            messages.error(request, f"Type {self.phrase} in capitals to confirm.")
+        elif not request.user.check_password(request.POST.get("password", "")):
+            messages.error(request, "That password is not right.")
+        else:
+            try:
+                deleted, backup = reset.reset_transactions(user=request.user, backup=bool(request.POST.get("backup")))
+            except BusinessRuleError as exc:
+                messages.error(request, str(exc))
+            else:
+                note = f" A copy of the old database was saved as {backup.name}." if backup else ""
+                messages.success(request, f"Database reset: {deleted} records cleared, masters kept.{note}")
+                return redirect("home")
+        return render(request, self.template, {"rows": reset.counts(), "phrase": self.phrase})

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Reset database{% endblock %}
+{% block content %}
+  <div class="page-head"><h1 class="page-title">Reset database</h1></div>
+  <div class="grid-2">
+    <div class="island">
+      <p><strong>This deletes every transaction and cannot be undone.</strong> Use it to clear test entries before going live.</p>
+      <h2>Kept</h2>
+      <p class="help">Company, financial years, factories and locations, users and roles, chart of accounts (with no balances), tax setup, and all masters: styles, SKUs, BOMs, materials, parties, price lists, processes, routes, units, sizes, colours, labour rates, reorder levels. Document numbers start again from 1.</p>
+      <h2>Deleted</h2>
+      <p class="help">Vouchers and opening balances, stock and rolls, purchase orders, GRNs, invoices and debit notes, production orders, lots and bundles, job work challans, receipts and bills, sale orders, invoices, packing lists and credit notes, alerts, period locks and the login log.</p>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="field"><label for="phrase">Type {{ phrase }} to confirm</label><input id="phrase" name="phrase" autocomplete="off" required></div>
+        <div class="field"><label for="password">Your password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+        <div class="check" style="margin-bottom:12px"><input type="checkbox" id="backup" name="backup" value="1" checked><label for="backup">Save a copy of the database file first (SQLite)</label></div>
+        <button class="btn danger">Reset database</button>
+        <a class="btn ghost" href="{% url 'home' %}">Cancel</a>
+      </form>
+    </div>
+    <div class="island"><h2>What is in the database now</h2>
+      {% if rows %}<div class="table-scroll"><table><thead><tr><th scope="col">Records</th><th scope="col" class="num">Count</th></tr></thead>
+        <tbody>{% for name, n in rows %}<tr><td>{{ name }}</td><td class="num">{{ n }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<p class="help">There are no transactions to clear.</p>{% endif %}
+    </div>
+  </div>
+{% endblock %}

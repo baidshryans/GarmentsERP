@@ -126,6 +126,7 @@ NAV = [
             ("tax_settings", "Tax settings", "tax.settings"),
             ("inventory_settings", "Inventory settings", "inventory.settings"),
             ("sales_settings", "Sales settings", "sales.settings"),
+            ("reset_database", "Reset database", "core.reset"),
         ]),
     ]),
 ]

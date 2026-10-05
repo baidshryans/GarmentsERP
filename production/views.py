@@ -459,12 +459,31 @@ class Dashboard(LoginRequiredMixin, ScreenPermissionMixin, View):
         packed_today = moves.filter(kind="pack").aggregate(s=Sum("qty_in"))["s"] or 0
         stitched_today = moves.filter(Q(from_step__process__kind="stitching", kind__in=("move", "factory")) |
                                       Q(kind="qc", from_step__process__kind="stitching")).aggregate(s=Sum("qty_in"))["s"] or 0
+        waiting = list(in_active(ProductionOrder.objects.for_user(user), request).filter(
+            status=ProductionOrder.Status.DRAFT).select_related("factory").prefetch_related("lines__style", "lines__colour"))
         return render(request, "production/dashboard.html", {
+            "waiting": [{"order": o, "pieces": o.total_qty, "styles": ", ".join(sorted({l.style.style_no for l in o.lines.all()}))}
+                        for o in waiting],
+            "can_release": user.has_screen_perm("production.order", "edit"),
             "by_stage": sorted(by_stage.items(), key=lambda kv: -kv[1]), "by_factory": sorted(by_factory.items()),
             "by_fabricator": sorted(by_fabricator.items(), key=lambda kv: -kv[1]), "in_house": in_house,
             "total": sum(by_factory.values()), "rework": rework, "late": late, "ageing": ageing,
             "cut_today": cut_today, "stitched_today": stitched_today, "packed_today": packed_today, "today": today,
         })
+
+    def post(self, request):
+        """Release a waiting order from the dashboard; the same service as the order screen."""
+        user = request.user
+        if request.POST.get("action") == "release":
+            if not user.has_screen_perm("production.order", "edit"):
+                raise PermissionDenied
+            order = get_object_or_404(ProductionOrder.objects.for_user(user), pk=request.POST.get("order"))
+            try:
+                order = orders.release_order(order, user=user)
+                messages.success(request, f"{order.number} released. Lots and routes are ready.")
+            except BusinessRuleError as exc:
+                messages.error(request, f"{order}: {exc}")
+        return redirect("production_dashboard")
 
 
 class Track(LoginRequiredMixin, ScreenPermissionMixin, View):

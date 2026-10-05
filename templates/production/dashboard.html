@@ -4,6 +4,15 @@
   <div class="page-head"><h1 class="page-title">Production dashboard</h1><span class="muted">{{ today|date:"d M Y" }}</span>
     <div class="actions"><a class="btn" href="{% url 'order_list' %}">Orders</a></div></div>
   <form method="get" action="{% url 'production_track' %}" class="island field-row"><div class="field"><label for="q">Where is it? Search by order, style, lot or order reference</label><input id="q" name="q" type="text" placeholder="e.g. JGR-104 or LOT/LDH1/26-27/0001"></div><div style="align-self:end"><button class="btn primary">Track</button></div></form>
+  <div class="island"><h2>Waiting for release{% if waiting %} <span class="pill warning">{{ waiting|length }}</span>{% endif %}</h2>
+    {% if waiting %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Order</th><th scope="col">Styles</th><th scope="col" class="num">Pieces</th><th scope="col">Due</th><th scope="col">Factory</th><th scope="col"></th></tr></thead>
+      <tbody>{% for w in waiting %}<tr>
+        <td><a href="{% url 'order_detail' w.order.pk %}">{% if w.order.order_reference %}{{ w.order.order_reference }}{% else %}Draft #{{ w.order.pk }}{% endif %}</a> <span class="muted">{{ w.order.get_purpose_display }}</span></td>
+        <td>{{ w.styles }}</td><td class="num">{{ w.pieces }}</td><td>{{ w.order.due_date|date:"d M"|default:"—" }}</td><td>{{ w.order.factory.code }}</td>
+        <td class="num">{% if can_release %}<form method="post">{% csrf_token %}<input type="hidden" name="order" value="{{ w.order.pk }}"><button class="btn primary" name="action" value="release">Release</button></form>{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div><p class="muted">Releasing makes a lot for each style and colour, with its own copy of the route. Made-to-order work comes from confirmed sale orders and shows the order number only.</p>
+    {% else %}<p class="muted">Nothing is waiting for release.</p>{% endif %}</div>
   <div class="grid-2">
     <div class="island"><div class="label muted">Cut today</div><div class="stat">{{ cut_today }}</div></div>
     <div class="island"><div class="label muted">Stitched today</div><div class="stat">{{ stitched_today }}</div></div>

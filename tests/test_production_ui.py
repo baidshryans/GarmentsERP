@@ -293,3 +293,19 @@ def test_production_and_job_work_entries_follow_the_active_factory(company, fact
         assert r.status_code == 302 and "single factory" in str(list(r.wsgi_request._messages)[-1]), name
     c.post(reverse("order_new"), form)
     assert ProductionOrder.objects.count() == 2                              # nothing was saved in All mode
+
+
+def test_the_dashboard_lists_orders_waiting_for_release_and_releases_them_there(company, factory, owner):
+    ns = build(company, factory, owner)
+    c = login(owner)
+    c.post(reverse("order_new"), {
+        "factory": factory.pk, "date": "2026-06-15", "due_date": "2026-07-15", "purpose": "mto", "order_reference": "SO-77",
+        "style": [ns.style.pk, ""], "colour": [ns.black.pk, ns.black.pk], "qty": ["60", ""], "ratios": ["S:1, M:2, L:2, XL:1", ""]})
+    order = ProductionOrder.objects.exclude(pk=ns.order.pk).get()
+    html = c.get(reverse("production_dashboard")).content.decode()
+    assert "Waiting for release" in html and "SO-77" in html and 'value="release"' in html and ">60<" in html
+    r = c.post(reverse("production_dashboard"), {"action": "release", "order": order.pk})
+    order.refresh_from_db()
+    assert r.status_code == 302 and order.status == "released" and order.lines.get().lot
+    assert "SO-77" not in c.get(reverse("production_dashboard")).content.decode()
+    assert "Nothing is waiting for release" in c.get(reverse("production_dashboard")).content.decode()

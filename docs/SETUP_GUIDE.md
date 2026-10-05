@@ -776,7 +776,7 @@ Run one small lot through the whole system. This is the same flow as BRD scenari
 3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
 4. **Issue fabric** by roll (the lot's Next button). The roll balance reduces.
 5. **Cut.** Enter pieces per size, fabric used and waste. Compare with the BOM variance shown. Make bundles, then print the tags.
-6. **Issue a challan** to the embroiderer with the bundles (Next: Send to … for Embroidery); print it.
+6. **Issue a challan** to the embroiderer with the bundles; print it. On route B embroidery is a mandatory step, so it is the Next button (Send to … for Embroidery). On a route where embroidery is optional, such as the seeded route A, it is not the Next button: it appears as the smaller link "Send to … for Embroidery (optional)" under **Also waiting**.
 7. **Receive** the work back (Next: Receive from …; enter a small shortage to see how it is handled), then **QC** (Next: Check received pieces): accept most, reject one.
 8. **Move** accepted bundles through the next steps to Packing. Try moving one bundle backwards to see that a reason is required.
 9. **Labour bill** for the fabricator. Check the amount is rate × **accepted** pieces, with any deduction and TDS shown.
@@ -927,9 +927,9 @@ Order statuses: Draft → Released → In production → Partly completed → Co
 
 ## 21. Plan the route of each lot
 
-Open the lot page and open **Route and rates** (click it to unfold). The table shows #, Process, Where, Rate and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
+Open the lot page and go to **Route and rates**. While the lot is still Planned it is already open for anyone who may change the route; later, click it to unfold. The table shows #, Process, Where, Rate and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
 
-Change only what differs for this lot, using the **Change…** menu on a step or the forms below it. Every change needs a **reason** and is logged under *Route changes* with date, user and reason.
+Change only what differs for this lot, using the **Change…** menu on a step or the forms below it. Every change needs a **reason** and is logged under **History** on the lot page with date, user and reason.
 
 | Need | How | Rule |
 | --- | --- | --- |
@@ -1006,7 +1006,7 @@ Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Rea
 1. Choose the **Lot** and press **Show bundles**.
 2. **Scan** each bundle's QR (or type its number) in the scan box and press Enter. Scanning only ticks the row; everything is checked when you save.
 3. For any bundle with pieces that did not arrive, fill **Loss**, **Rejected** or **Short** on its row.
-4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house").
+4. Pick **Move to stage** (shown as "5. Ironing and pressing — in-house"). When you came from the lot's Next button, the stage it named is already chosen.
 5. **At factory**: leave as "Stage default", or choose another factory to send the goods there (inter-factory move).
 6. Press **Move selected bundles**.
 

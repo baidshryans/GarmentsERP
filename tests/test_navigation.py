@@ -8,6 +8,7 @@ from django.urls import reverse
 from core.context_processors import NAV, flat_items
 from core.home_actions import HOME_ACTIONS, home_actions
 from core.models import Role
+from reports.services.overview import attention_items, build_overview
 from tests.conftest import make_user
 
 # Every screen the menu offered before the regroup. None may be dropped.
@@ -92,3 +93,39 @@ def test_launchpad_follows_the_role(company, factory):
 
 def test_user_with_no_role_gets_no_islands(company):
     assert home_actions(make_user("nobody")) == []
+
+
+def _figures(**over):
+    data = {
+        "production": {"awaiting_qc": 0, "late_lots": 0, "orders_to_release": 0},
+        "purchases": {"pos_to_approve": 0, "grn_pending": 0},
+        "sales": {"overdue_orders": 0},
+        "low_stock": 0,
+    }
+    for key, value in over.items():
+        section, _, field = key.partition("__")
+        if field:
+            data[section][field] = value
+        else:
+            data[section] = value
+    return data
+
+
+def test_attention_lists_only_what_is_waiting_with_a_link_to_fix_it():
+    items = attention_items(_figures(production__awaiting_qc=3, purchases__pos_to_approve=1, low_stock=5))
+    assert [(i["count"], i["text"], i["url"]) for i in items] == [
+        (3, "receipts from fabricators are waiting to be checked", reverse("receipt_list")),
+        (1, "purchase order is waiting for approval", reverse("po_list")),
+        (5, "items are below their minimum stock", reverse("stock_alerts")),
+    ]
+
+
+def test_attention_skips_sections_the_role_may_not_see():
+    data = _figures(low_stock=2)
+    data["production"] = data["purchases"] = data["sales"] = None
+    data["low_stock"] = None
+    assert attention_items(data) == []
+
+
+def test_overview_carries_the_attention_list(company, owner):
+    assert build_overview(owner)["attention"] == []

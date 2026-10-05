@@ -268,10 +268,10 @@ def test_nav_shows_production_and_job_work_groups(company, factory, owner):
 def test_home_shows_lots_in_production_and_hides_money_from_production_roles(company, factory, owner):
     ns = build(company, factory, owner, with_stock=True)
     html = login(owner).get(reverse("home")).content.decode()
-    assert "In production" in html and "Overview" in html
+    assert "Items in production" in html and "Today at a glance" in html and ns.lot.lot_no in html
     sup = user_with("sup_home", "Production Supervisor", factory)
-    r = login(sup).get(reverse("home"))
-    assert r.status_code == 200 and "Recent vouchers" not in r.content.decode()
+    body = login(sup).get(reverse("home")).content.decode()
+    assert "Money received" not in body and "Sales today" not in body
 
 
 # ---------------- the active factory drives production and job work ----------------

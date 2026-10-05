@@ -2,6 +2,7 @@
 import json
 import re
 
+import pytest
 from django.test import Client
 from django.urls import reverse
 
@@ -129,3 +130,19 @@ def test_attention_skips_sections_the_role_may_not_see():
 
 def test_overview_carries_the_attention_list(company, owner):
     assert build_overview(owner)["attention"] == []
+
+
+def test_home_is_a_launchpad(company, owner):
+    html = _client(owner).get(reverse("home")).content.decode()
+    assert "What do you want to do?" in html
+    for label in ("Order fabric or material", "Send to fabricator", "Make a bill", "Money received", "New party"):
+        assert label in html
+    assert f'href="{reverse("grn_new")}"' in html
+    assert "Nothing is waiting on you" in html
+    assert "Posted vouchers" not in html and "Active factories" not in html and "Recent vouchers" not in html
+
+
+def test_home_for_a_user_with_no_role_still_opens(company):
+    r = _client(make_user("norole")).get(reverse("home"))
+    assert r.status_code == 200 and "What do you want to do?" not in r.content.decode()
+

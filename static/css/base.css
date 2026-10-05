@@ -597,3 +597,18 @@ td .ss, th .ss { max-width: 26rem; }
 .icon-btn svg { width: 18px; height: 18px; }
 @media (max-width: 640px) { .icon-btn { width: 44px; height: 44px; } }
 @media print { .row-actions { display: none; } }
+
+/* ---- home launchpad ---- */
+.launch { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+.launch .island { margin-bottom: 0; }
+.launch h2 { display: flex; align-items: center; gap: var(--space-2); }
+.launch h2 svg { width: 20px; height: 20px; color: var(--color-primary); }
+.launch-actions { display: grid; gap: var(--space-2); }
+.launch-actions .btn { display: flex; justify-content: flex-start; width: 100%; min-height: 44px; text-align: left; }
+.attention { list-style: none; margin: 0; padding: 0; }
+.attention li + li { border-top: 1px solid var(--color-hairline); }
+.attention a { display: flex; align-items: baseline; gap: var(--space-3); padding: var(--space-2) 0; color: var(--color-ink); }
+.attention a:hover { color: var(--color-primary); text-decoration: none; }
+.attention .count { min-width: 2.5em; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--color-primary); }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+.stat-row .island { margin-bottom: 0; }

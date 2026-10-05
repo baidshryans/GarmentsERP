@@ -29,7 +29,11 @@ from .services.setup import run_setup
 
 @login_required
 def home(request):
-    return render(request, "core/home.html", build_overview(request.user))
+    from .home_actions import home_actions
+
+    ctx = build_overview(request.user)
+    ctx["islands"] = home_actions(request.user)
+    return render(request, "core/home.html", ctx)
 
 
 @login_required

@@ -3,7 +3,7 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ po.number|default:"Draft PO" }}</h1>
     <span class="pill {% if po.status == 'pending_approval' %}warning{% elif po.status == 'approved' or po.status == 'received' %}success{% endif %}">{{ po.get_status_display }}</span>
-    <div class="actions">{% if po.status == "draft" and can_edit %}<a class="btn" href="{% url 'po_edit' po.pk %}">Edit</a>{% endif %}<a class="btn ghost" href="{% url 'po_list' %}">All POs</a></div></div>
+    <div class="actions">{% if po.status == "draft" and can_edit %}{% url 'po_edit' po.pk as eu %}{% url 'po_delete' po.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}<a class="btn ghost" href="{% url 'po_list' %}">All POs</a></div></div>
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ po.vendor.name }}</div><div><div class="label muted">Factory</div>{{ po.factory.code }}</div>
     <div><div class="label muted">Date</div>{{ po.date|date:"d M Y" }}</div><div><div class="label muted">Expected</div>{{ po.expected_date|date:"d M Y"|default:"—" }}</div>

@@ -198,6 +198,10 @@ class PurchaseInvoice(FactoryScopedModel):
     itc_claimable = models.BooleanField("Input credit claimable", default=True,
                                         help_text="If not, the GST is added to the item cost")
     tds_template = models.ForeignKey("tax.TaxTemplate", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    is_direct = models.BooleanField("Direct purchase", default=False,
+                                    help_text="Booked without a GRN: posting also brings the goods into stock at the location")
+    location = models.ForeignKey("core.Location", on_delete=models.PROTECT, null=True, blank=True, related_name="+",
+                                 help_text="Direct purchase: where the goods are received")
     subtotal = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
     gst_total = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
     tds_total = models.DecimalField(max_digits=16, decimal_places=2, default=ZERO)
@@ -223,9 +227,11 @@ class PurchaseInvoice(FactoryScopedModel):
         return self.number or f"Draft invoice #{self.pk}"
 
 
-class PurchaseInvoiceLine(models.Model):
+class PurchaseInvoiceLine(ItemLineMixin):
+    """Bills a GRN line, or (direct purchase) an item that comes into stock with the invoice itself."""
+
     invoice = models.ForeignKey(PurchaseInvoice, on_delete=models.CASCADE, related_name="lines")
-    grn_line = models.ForeignKey(GrnLine, on_delete=models.PROTECT, related_name="invoice_lines")
+    grn_line = models.ForeignKey(GrnLine, on_delete=models.PROTECT, null=True, blank=True, related_name="invoice_lines")
     qty = models.DecimalField(max_digits=14, decimal_places=3, help_text="As billed by the vendor")
     rate = models.DecimalField(max_digits=14, decimal_places=4)
     amount = models.DecimalField(max_digits=16, decimal_places=2)
@@ -239,7 +245,18 @@ class PurchaseInvoiceLine(models.Model):
     history = HistoricalRecords()
 
     class Meta:
-        constraints = [models.CheckConstraint(condition=Q(qty__gt=0), name="pi_qty_positive")]
+        constraints = [
+            models.CheckConstraint(condition=Q(qty__gt=0), name="pi_qty_positive"),
+            models.CheckConstraint(
+                condition=(Q(grn_line__isnull=False, material__isnull=True, sku__isnull=True)
+                           | Q(grn_line__isnull=True, material__isnull=False, sku__isnull=True)
+                           | Q(grn_line__isnull=True, material__isnull=True, sku__isnull=False)),
+                name="pi_line_grn_or_one_item"),
+        ]
+
+    @property
+    def billed_item(self):
+        return self.grn_line.item if self.grn_line_id else self.item
 
 
 class PurchaseInvoiceTax(models.Model):

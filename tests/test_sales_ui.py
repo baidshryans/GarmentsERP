@@ -80,6 +80,14 @@ def test_the_grid_shows_colours_as_rows_sizes_as_columns_and_saves_an_order(ns, 
     assert r.status_code == 302                                                       # confirmed: no more editing
 
 
+def test_the_order_form_offers_every_field_and_the_style_picker(ns, owner_c):
+    html = owner_c.get(reverse("saleorder_new")).content.decode()
+    for name in ("customer", "date", "due_date", "order_type", "remarks", "style_pick"):
+        assert f'name="{name}"' in html, name
+    assert reverse("saleorder_grid") in html and ns.style.style_no in html
+    assert 'name="date" type="date" value=""' not in html                              # the date starts on today
+
+
 def test_an_order_with_a_bad_cell_shows_the_error_and_keeps_what_was_typed(ns, owner_c):
     black, m = ns.colours["Black"], ns.sizes["M"]
     r = owner_c.post(reverse("saleorder_new"), {

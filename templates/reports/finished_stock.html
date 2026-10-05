@@ -5,8 +5,7 @@
   <div class="island">
     <form method="get" class="field-row no-print" style="align-items:end;margin-bottom:16px">
       <div class="field"><label for="slow">Slow-moving after (days without a sale)</label><input id="slow" name="slow" type="text" inputmode="numeric" value="{{ r.slow_days }}"></div>
-      <div class="field"><button class="btn">Show</button></div><div class="field"><button class="btn ghost" name="format" value="xlsx">Excel</button></div>
-      <div class="field"><button type="button" class="btn ghost" onclick="window.print()">Print / PDF</button></div>
+      <div class="field report-actions"><button class="btn primary">Show</button><button class="btn icon" name="format" value="xlsx" title="Export to Excel" aria-label="Export to Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9.5 12.5l5 5M14.5 12.5l-5 5"/></svg></button><button type="button" class="btn icon" onclick="window.print()" title="Print / save as PDF" aria-label="Print / save as PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8.5 16.5h7M8.5 13h4"/></svg></button></div>
     </form>
     {% if r.rows %}<div class="table-wrap"><table>
       <thead><tr><th scope="col">SKU</th><th scope="col" class="num">Pieces</th><th scope="col" class="num">Value</th><th scope="col">Last in</th><th scope="col">Last sold</th><th scope="col" class="num">Days in stock</th><th scope="col"></th></tr></thead>

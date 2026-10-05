@@ -3,15 +3,16 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ inv.number|default:"Draft invoice" }}</h1>
     <span class="pill {% if inv.status == 'posted' %}success{% elif inv.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ inv.get_status_display }}</span>
-    <div class="actions">{% include "partials/settle.html" with label="Pay vendor" %}<a class="btn ghost" href="{% url 'invoice_list' %}">All invoices</a></div></div>
+    <div class="actions">{% if inv.status == "draft" and can_edit %}{% url 'invoice_edit' inv.pk as eu %}{% url 'invoice_delete' inv.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}{% include "partials/settle.html" with label="Pay vendor" %}<a class="btn ghost" href="{% url 'invoice_list' %}">All invoices</a></div></div>
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ inv.vendor.name }}</div><div><div class="label muted">Vendor invoice</div>{{ inv.vendor_invoice_no }} · {{ inv.vendor_invoice_date|date:"d M Y" }}</div>
-    <div><div class="label muted">Factory</div>{{ inv.factory.code }}</div><div><div class="label muted">Booked on</div>{{ inv.date|date:"d M Y" }}</div></div>
+    <div><div class="label muted">Factory</div>{{ inv.factory.code }}</div><div><div class="label muted">Booked on</div>{{ inv.date|date:"d M Y" }}</div>
+    {% if inv.is_direct %}<div><div class="label muted">Type</div>Direct purchase, no GRN</div><div><div class="label muted">Received into</div>{{ inv.location.name }}</div>{% endif %}</div>
     {% if inv.voucher %}<p class="muted">Books: <a href="{% url 'voucher_detail' inv.voucher.pk %}">{{ inv.voucher.number }}</a></p>{% endif %}</div>
 
   <div class="island"><div class="table-wrap"><table>
-    <thead><tr><th scope="col">GRN</th><th scope="col">Item</th><th scope="col" class="num">Billed qty</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th><th scope="col"></th></tr></thead>
-    <tbody>{% for l in lines %}<tr><td>{{ l.grn_line.grn.number }}</td><td>{{ l.grn_line.item }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{{ l.rate|floatformat:"-4" }}</td><td class="num">{{ l.amount }}</td>
+    <thead><tr><th scope="col">{% if inv.is_direct %}Source{% else %}GRN{% endif %}</th><th scope="col">Item</th><th scope="col" class="num">Billed qty</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Amount</th><th scope="col"></th></tr></thead>
+    <tbody>{% for l in lines %}<tr><td>{% if l.grn_line %}{{ l.grn_line.grn.number }}{% else %}<span class="muted">Direct</span>{% endif %}</td><td>{{ l.billed_item }}</td><td class="num">{{ l.qty|floatformat:"-3" }}</td><td class="num">{{ l.rate|floatformat:"-4" }}</td><td class="num">{{ l.amount }}</td>
       <td>{% if l.rate_variance %}<span class="pill warning">Rate differs from last purchase</span>{% endif %}{% if l.qty_rejected_part %}<span class="pill danger">{{ l.qty_rejected_part|floatformat:"-3" }} rejected, recoverable {{ l.recoverable_amount }}</span>{% endif %}</td></tr>{% endfor %}</tbody>
     <tfoot><tr><td colspan="4">Bill value</td><td class="num">{{ inv.subtotal }}</td><td></td></tr></tfoot>
   </table></div></div>
@@ -35,6 +36,7 @@
         <tfoot><tr><td>Payable to vendor</td><td class="num">{{ inv.payable }}</td></tr></tfoot></table></div>
     </div>
     <div class="island"><h2>Actions</h2>
+      {% if inv.is_direct and inv.status == "draft" %}<p class="muted">Posting brings the goods into stock at {{ inv.location.name }} and books the purchase.</p>{% endif %}
       {% if inv.status == "draft" and can_edit %}<form method="post">{% csrf_token %}<button class="btn primary" name="action" value="post">Post invoice</button> <button class="btn danger" name="action" value="discard">Discard draft</button></form>{% endif %}
       {% if inv.status == "posted" and can_cancel %}<form method="post" style="max-width:420px">{% csrf_token %}<input type="hidden" name="action" value="cancel"><div class="field"><label for="why">Cancel with a reason</label><input id="why" name="reason" type="text" required></div><button class="btn danger">Cancel invoice</button></form>{% endif %}
       {% if inv.status == "cancelled" %}<p class="muted">{{ inv.notes }}</p>{% endif %}

@@ -4,7 +4,7 @@
   <div class="page-head">
     <h1 class="page-title">{{ style.style_no }}</h1><span class="muted">{{ style.name }}</span>
     {% if style.is_archived %}<span class="pill">Archived</span>{% endif %}
-    <div class="actions">{% if can_edit %}<a class="btn" href="{% url 'style_edit' style.pk %}">Edit style</a> <a class="btn ghost" href="{% url 'style_delete' style.pk %}">Delete</a>{% endif %}</div>
+    <div class="actions">{% if can_edit %}{% url 'style_edit' style.pk as eu %}{% url 'style_delete' style.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</div>
   </div>
   <div class="grid-2">
     <div class="island">

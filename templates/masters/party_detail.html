@@ -3,7 +3,7 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ party.name }}</h1><span class="muted">{{ party.code }}</span>
     {% for r in party.roles %}<span class="pill">{{ r }}</span>{% endfor %}{% if not party.is_active %}<span class="pill danger">Inactive</span>{% endif %}
-    <div class="actions">{% if can_edit %}<a class="btn" href="{% url 'party_edit' party.pk %}">Edit</a> <a class="btn ghost" href="{% url 'party_delete' party.pk %}">Delete</a>{% endif %}</div></div>
+    <div class="actions">{% if can_edit %}{% url 'party_edit' party.pk as eu %}{% url 'party_delete' party.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</div></div>
   <div class="grid-2">
     <div class="island"><h2>Contact and tax</h2>
       <div class="field-row">

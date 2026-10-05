@@ -3,7 +3,7 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ grn.number|default:"Draft GRN" }}</h1>
     <span class="pill {% if grn.status == 'posted' %}success{% elif grn.status == 'cancelled' %}danger{% elif grn.status == 'qc_done' %}warning{% endif %}">{{ grn.get_status_display }}</span>
-    <div class="actions">{% if grn.status == "posted" %}<a class="btn" href="{% url 'grn_labels' grn.pk %}">Print roll labels</a>{% endif %}{% if grn.status == "draft" or grn.status == "qc_done" %}{% if can_edit %}<a class="btn" href="{% url 'grn_edit' grn.pk %}">Edit</a>{% endif %}{% endif %}<a class="btn ghost" href="{% url 'grn_list' %}">All GRNs</a></div></div>
+    <div class="actions">{% if grn.status == "posted" %}<a class="btn" href="{% url 'grn_labels' grn.pk %}">Print roll labels</a>{% endif %}{% if grn.status == "draft" or grn.status == "qc_done" %}{% if can_edit %}{% url 'grn_edit' grn.pk as eu %}{% url 'grn_delete' grn.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}{% endif %}<a class="btn ghost" href="{% url 'grn_list' %}">All GRNs</a></div></div>
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ grn.vendor.name }}</div><div><div class="label muted">Factory</div>{{ grn.factory.code }}</div>
     <div><div class="label muted">Received into</div>{{ grn.location.name }}</div><div><div class="label muted">Date</div>{{ grn.date|date:"d M Y" }}</div>

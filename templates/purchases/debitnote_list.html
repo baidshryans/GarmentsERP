@@ -5,9 +5,10 @@
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'debitnote_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Return to vendor</a>{% endif %}</div></div>
   <div class="island">
     {% if notes %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col">Kind</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+      <thead><tr><th scope="col">Number</th><th scope="col">Date</th><th scope="col">Vendor</th><th scope="col">Kind</th><th scope="col" class="num">Total</th><th scope="col">Status</th><th scope="col" aria-label="Actions"></th></tr></thead>
       <tbody>{% for n in notes %}<tr><td><a href="{% url 'debitnote_detail' n.pk %}">{{ n.number|default:"Draft" }}</a></td><td>{{ n.date|date:"d M Y" }}</td><td>{{ n.vendor.name }}</td><td>{{ n.get_kind_display }}</td><td class="num">{{ n.total }}</td>
-        <td>{% if n.status == "posted" %}<span class="pill success">Posted</span>{% elif n.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill warning">Draft</span>{% endif %}</td></tr>{% endfor %}</tbody>
+        <td>{% if n.status == "posted" %}<span class="pill success">Posted</span>{% elif n.status == "cancelled" %}<span class="pill danger">Cancelled</span>{% else %}<span class="pill warning">Draft</span>{% endif %}</td>
+        <td>{% if can_edit and n.status == "draft" and n.kind == "return" %}{% url 'debitnote_edit' n.pk as eu %}{% url 'debitnote_delete' n.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</td></tr>{% endfor %}</tbody>
     </table></div>{% else %}<div class="empty"><div class="hand">No debit notes</div></div>{% endif %}
   </div>
 {% endblock %}

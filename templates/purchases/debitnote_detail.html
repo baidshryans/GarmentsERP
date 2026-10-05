@@ -3,7 +3,7 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ note.number|default:"Draft debit note" }}</h1>
     <span class="pill {% if note.status == 'posted' %}success{% elif note.status == 'cancelled' %}danger{% else %}warning{% endif %}">{{ note.get_status_display }}</span>
-    <div class="actions"><a class="btn ghost" href="{% url 'debitnote_list' %}">All debit notes</a></div></div>
+    <div class="actions">{% if note.status == "draft" and note.kind == "return" and can_edit %}{% url 'debitnote_edit' note.pk as eu %}{% url 'debitnote_delete' note.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}<a class="btn ghost" href="{% url 'debitnote_list' %}">All debit notes</a></div></div>
   <div class="island"><div class="field-row">
     <div><div class="label muted">Vendor</div>{{ note.vendor.name }}</div><div><div class="label muted">Kind</div>{{ note.get_kind_display }}</div>
     <div><div class="label muted">Date</div>{{ note.date|date:"d M Y" }}</div><div><div class="label muted">GRN</div>{% if note.grn %}<a href="{% url 'grn_detail' note.grn.pk %}">{{ note.grn.number }}</a>{% else %}—{% endif %}</div></div>

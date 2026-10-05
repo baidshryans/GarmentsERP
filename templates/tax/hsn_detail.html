@@ -9,7 +9,7 @@
       <p class="muted">The rate depends on the sale value per piece. You can edit or delete a slab here. Bills already posted keep the GST they were made with; every change is kept in the audit history.</p>
       <div class="table-scroll"><table>
         <thead><tr><th scope="col" class="num">Value from</th><th scope="col" class="num">Value to</th><th scope="col" class="num">GST %</th><th scope="col">Effective from</th>{% if can_edit %}<th scope="col"></th>{% endif %}</tr></thead>
-        <tbody>{% for s in slabs %}<tr><td class="num">{{ s.value_from }}</td><td class="num">{{ s.value_to|default:"no limit" }}</td><td class="num">{{ s.gst_rate }}</td><td>{{ s.effective_from|date:"d M Y" }}</td>{% if can_edit %}<td><a href="{% url 'hsn_slab_edit' s.pk %}">Edit</a> · <a href="{% url 'hsn_slab_delete' s.pk %}">Delete</a></td>{% endif %}</tr>{% empty %}<tr><td colspan="5" class="muted">No slabs yet.</td></tr>{% endfor %}</tbody>
+        <tbody>{% for s in slabs %}<tr><td class="num">{{ s.value_from }}</td><td class="num">{{ s.value_to|default:"no limit" }}</td><td class="num">{{ s.gst_rate }}</td><td>{{ s.effective_from|date:"d M Y" }}</td>{% if can_edit %}<td>{% url 'hsn_slab_edit' s.pk as eu %}{% url 'hsn_slab_delete' s.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}</td>{% endif %}</tr>{% empty %}<tr><td colspan="5" class="muted">No slabs yet.</td></tr>{% endfor %}</tbody>
       </table></div>
     </div>
     {% if can_edit %}<div class="island"><h2>Add a slab</h2>

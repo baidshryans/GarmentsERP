@@ -582,3 +582,18 @@ td .ss, th .ss { max-width: 26rem; }
   .help-layout { display: block; }
   .help-toc { display: none; }
 }
+
+/* ---- report export actions ---- */
+.report-actions { display: flex; align-items: center; gap: var(--space-2); }
+.field-row > .report-actions { align-self: end; margin-bottom: var(--space-4); }
+
+/* row actions: small icon buttons for edit and delete (labelled by title / aria-label) */
+.row-actions { display: inline-flex; gap: 2px; align-items: center; white-space: nowrap; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0;
+  border-radius: var(--radius, 8px); background: transparent; color: var(--color-muted); cursor: pointer; }
+.icon-btn:hover { background: var(--color-primary-soft); color: var(--color-primary); text-decoration: none; }
+.icon-btn.danger:hover { background: var(--color-danger-soft); color: var(--color-danger); }
+.icon-btn:focus-visible { box-shadow: var(--focus-ring); outline: 2px solid var(--color-primary); }
+.icon-btn svg { width: 18px; height: 18px; }
+@media (max-width: 640px) { .icon-btn { width: 44px; height: 44px; } }
+@media print { .row-actions { display: none; } }

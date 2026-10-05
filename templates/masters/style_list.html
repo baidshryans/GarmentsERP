@@ -11,12 +11,13 @@
     </form>
     {% if styles %}
     <div class="table-wrap"><table>
-      <thead><tr><th scope="col"></th><th scope="col">Style</th><th scope="col">Product</th><th scope="col" class="num">MRP</th><th scope="col"></th></tr></thead>
+      <thead><tr><th scope="col"></th><th scope="col">Style</th><th scope="col">Product</th><th scope="col" class="num">MRP</th><th scope="col"></th><th scope="col" aria-label="Actions"></th></tr></thead>
       <tbody>{% for s in styles %}
         <tr><td style="width:48px">{% if s.thumbnail %}<img src="{{ s.thumbnail.url }}" alt="" width="40" height="40" style="object-fit:cover;border-radius:6px">{% endif %}</td>
           <td><a href="{% url 'style_detail' s.pk %}"><strong>{{ s.style_no }}</strong></a><div class="muted">{{ s.name }}</div></td>
           <td>{{ s.product.code }}</td><td class="num">{{ s.mrp|default:"" }}</td>
-          <td>{% if s.is_archived %}<span class="pill">Archived</span>{% endif %}</td></tr>
+          <td>{% if s.is_archived %}<span class="pill">Archived</span>{% endif %}</td>
+          <td>{% if can_edit %}{% url 'style_edit' s.pk as eu %}{% url 'style_delete' s.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</td></tr>
       {% endfor %}</tbody>
     </table></div>
     {% else %}<div class="empty"><svg viewBox="0 0 120 90" aria-hidden="true"><path d="M40 20l-20 14 10 12 10-6v36h40V40l10 6 10-12-20-14c-4 8-10 12-20 12s-16-4-20-12z"/></svg><div class="hand">No styles yet</div><p>Create a style and its colour-size SKUs are made for you.</p></div>{% endif %}

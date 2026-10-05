@@ -41,21 +41,18 @@ class ReturnLineSpec:
     grn_line: object | None = None
 
 
-@transaction.atomic
-def create_return_note(*, company, factory, vendor, date, lines, user, reason, gst_template=None,
-                       itc_claimable=True, grn=None) -> DebitNote:
-    assert_factory_access(user, factory)
+def _check_return_header(vendor, gst_template):
     if not vendor.is_vendor:
         raise BusinessRuleError(f"{vendor.name} is not marked as a vendor.")
+    if gst_template is not None and (gst_template.kind != "gst" or gst_template.is_reverse_charge):
+        raise BusinessRuleError("Choose a normal GST template (not reverse charge) for a return.")
+
+
+def _write_return_lines(note, factory, lines, gst_template):
+    """Write the lines of a draft return note and set its totals."""
     lines = list(lines)
     if not lines:
         raise BusinessRuleError("A return note needs at least one line.")
-    if gst_template is not None and (gst_template.kind != "gst" or gst_template.is_reverse_charge):
-        raise BusinessRuleError("Choose a normal GST template (not reverse charge) for a return.")
-    note = DebitNote.objects.create(
-        company=company, factory=factory, kind=DebitNote.Kind.RETURN, vendor=vendor, grn=grn, date=date,
-        reason=reason, gst_template=gst_template, itc_claimable=itc_claimable, created_by=user,
-    )
     subtotal = ZERO
     for s in lines:
         if isinstance(s.qty, float) or isinstance(s.rate, float):
@@ -71,6 +68,38 @@ def create_return_note(*, company, factory, vendor, date, lines, user, reason, g
     tax = sum((t.amount for t in calc.compute(gst_template, subtotal)), ZERO) if gst_template else ZERO
     note.subtotal, note.tax_total, note.total = subtotal, tax, subtotal + tax
     note.save()
+
+
+@transaction.atomic
+def create_return_note(*, company, factory, vendor, date, lines, user, reason, gst_template=None,
+                       itc_claimable=True, grn=None) -> DebitNote:
+    assert_factory_access(user, factory)
+    _check_return_header(vendor, gst_template)
+    lines = list(lines)
+    if not lines:
+        raise BusinessRuleError("A return note needs at least one line.")
+    note = DebitNote.objects.create(
+        company=company, factory=factory, kind=DebitNote.Kind.RETURN, vendor=vendor, grn=grn, date=date,
+        reason=reason, gst_template=gst_template, itc_claimable=itc_claimable, created_by=user,
+    )
+    _write_return_lines(note, factory, lines, gst_template)
+    return note
+
+
+@transaction.atomic
+def update_return_note(note, *, vendor, date, lines, user, reason, gst_template=None, itc_claimable=True) -> DebitNote:
+    """Replace the contents of a draft return note. Posted notes are cancelled, never edited."""
+    note = DebitNote.objects.select_related("factory").get(pk=note.pk)
+    assert_factory_access(user, note.factory)
+    if note.status != DebitNote.Status.DRAFT:
+        raise BusinessRuleError("Only a draft debit note can be edited.")
+    if note.kind != DebitNote.Kind.RETURN:
+        raise BusinessRuleError("A note raised from a GRN rejection cannot be edited.")
+    _check_return_header(vendor, gst_template)
+    note.vendor, note.date, note.reason = vendor, date, reason
+    note.gst_template, note.itc_claimable = gst_template, itc_claimable
+    note.lines.all().delete()
+    _write_return_lines(note, note.factory, lines, gst_template)
     return note
 
 

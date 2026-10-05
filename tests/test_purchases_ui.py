@@ -346,3 +346,123 @@ def test_all_factories_mode_is_view_only_for_purchases(company, factory, factory
     assert len(c.get(reverse("po_list")).context["pos"]) == 2    # but the list shows every factory
     c.post(reverse("factory_switch"), {"factory": factory.pk})
     assert [p.factory for p in c.get(reverse("po_list")).context["pos"]] == [factory]
+
+
+# ---------------- edit and delete: icons on lists, drafts only ----------------
+
+def _draft_po(c, vendor, fabric):
+    c.post(reverse("po_new"), _po_form(vendor, fabric))
+    return PurchaseOrder.objects.latest("pk")
+
+
+def _posted_grn(company, factory, vendor, godown, item, owner, qty="100"):
+    from purchases.services import grn as grns
+
+    g = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=date(2026, 6, 15), user=owner,
+                        lines=[grns.GrnLineSpec(item=item, rate=D("10"), qty_received=D(qty))])
+    grns.finish_qc(g, user=owner)
+    grns.post_grn(g, user=owner)
+    return g
+
+
+def test_lists_show_edit_and_delete_icons_for_drafts_only(company, factory, vendor, owner, godown, fabric, trim):
+    c = login(owner)
+    po = _draft_po(c, vendor, fabric)
+    page = c.get(reverse("po_list")).content.decode()
+    assert reverse("po_edit", args=[po.pk]) in page and reverse("po_delete", args=[po.pk]) in page
+    assert 'aria-label="Edit"' in page and "#i-trash" in page and ">Edit<" not in page   # icons, not text
+    c.post(reverse("po_detail", args=[po.pk]), {"action": "submit"})
+    page = c.get(reverse("po_list")).content.decode()
+    assert reverse("po_edit", args=[po.pk]) not in page and reverse("po_delete", args=[po.pk]) not in page
+    g = _posted_grn(company, factory, vendor, godown, trim, owner)
+    assert reverse("grn_delete", args=[g.pk]) not in c.get(reverse("grn_list")).content.decode()
+
+
+def test_draft_po_is_deleted_but_an_approved_one_is_not(company, factory, vendor, owner, fabric):
+    c = login(owner)
+    po = _draft_po(c, vendor, fabric)
+    assert b"Delete" in c.get(reverse("po_delete", args=[po.pk])).content
+    assert c.post(reverse("po_delete", args=[po.pk])).status_code == 302
+    assert not PurchaseOrder.objects.exists()
+    po = _draft_po(c, vendor, fabric)
+    c.post(reverse("po_detail", args=[po.pk]), {"action": "submit"})
+    r = c.get(reverse("po_delete", args=[po.pk]))
+    assert b"cannot be deleted" in r.content
+    c.post(reverse("po_delete", args=[po.pk]))
+    assert PurchaseOrder.objects.filter(pk=po.pk).exists()
+
+
+def test_draft_grn_is_deleted_but_a_posted_one_is_not(company, factory, vendor, owner, godown, trim):
+    from purchases.services import grn as grns
+
+    c = login(owner)
+    draft = grns.create_grn(company=company, factory=factory, location=godown, vendor=vendor, date=date(2026, 6, 15), user=owner,
+                            lines=[grns.GrnLineSpec(item=trim, rate=D("10"), qty_received=D("5"))])
+    c.post(reverse("grn_delete", args=[draft.pk]))
+    assert not Grn.objects.filter(pk=draft.pk).exists()
+    posted = _posted_grn(company, factory, vendor, godown, trim, owner)
+    c.post(reverse("grn_delete", args=[posted.pk]))
+    assert Grn.objects.filter(pk=posted.pk, status="posted").exists()
+
+
+def test_draft_invoice_is_edited_then_deleted_and_a_posted_one_is_locked(company, factory, vendor, owner, godown, trim):
+    g = _posted_grn(company, factory, vendor, godown, trim, owner)
+    line = g.lines.get()
+    c = login(owner)
+    base = {"vendor": vendor.pk, "vendor_invoice_no": "E-1", "vendor_invoice_date": "2026-06-15", "date": "2026-06-15",
+            f"use_{line.pk}": "on", f"qty_{line.pk}": "40", f"rate_{line.pk}": "10", "itc_claimable": "on", "tax_mode": "none"}
+    c.post(reverse("invoice_new"), base)
+    inv = PurchaseInvoice.objects.get()
+    page = c.get(reverse("invoice_edit", args=[inv.pk])).content.decode()
+    assert 'value="E-1"' in page and 'value="40"' in page                      # the form is filled from the draft
+    r = c.post(reverse("invoice_edit", args=[inv.pk]), {**base, f"qty_{line.pk}": "60", "vendor_invoice_no": "E-2"})
+    inv.refresh_from_db()
+    assert r.status_code == 302 and inv.vendor_invoice_no == "E-2" and inv.lines.get().qty == D("60.000")
+    assert PurchaseInvoice.objects.count() == 1                                # edited in place, not duplicated
+    r = c.post(reverse("invoice_edit", args=[inv.pk]), {**base, f"qty_{line.pk}": "500"})
+    assert r.status_code == 200 and b"left to bill" in r.content               # errors keep the form
+    c.post(reverse("invoice_delete", args=[inv.pk]))
+    assert not PurchaseInvoice.objects.exists()
+    c.post(reverse("invoice_new"), base)
+    inv = PurchaseInvoice.objects.get()
+    c.post(reverse("invoice_detail", args=[inv.pk]), {"action": "post"})
+    assert c.get(reverse("invoice_edit", args=[inv.pk])).status_code == 302
+    c.post(reverse("invoice_delete", args=[inv.pk]))
+    assert PurchaseInvoice.objects.filter(pk=inv.pk, status="posted").exists()
+
+
+def test_draft_return_note_is_edited_then_deleted_and_a_posted_one_is_locked(company, factory, vendor, owner, godown, trim):
+    _posted_grn(company, factory, vendor, godown, trim, owner)
+    c = login(owner)
+    form = {"vendor": vendor.pk, "date": "2026-06-20", "reason": "Wrong size", "gst_template": "", "itc_claimable": "on",
+            "item": [f"m:{trim.pk}", ""], "location": [godown.pk, godown.pk], "roll": ["", ""], "qty": ["10", ""], "rate": ["10", ""]}
+    c.post(reverse("debitnote_new"), form)
+    note = DebitNote.objects.get(kind="return")
+    page = c.get(reverse("debitnote_edit", args=[note.pk])).content.decode()
+    assert "Wrong size" in page
+    r = c.post(reverse("debitnote_edit", args=[note.pk]), {**form, "qty": ["20", ""], "reason": "Damaged"})
+    note.refresh_from_db()
+    assert r.status_code == 302 and note.total == D("200.00") and note.reason == "Damaged" and note.lines.count() == 1
+    c.post(reverse("debitnote_delete", args=[note.pk]))
+    assert not DebitNote.objects.filter(kind="return").exists()
+    c.post(reverse("debitnote_new"), form)
+    note = DebitNote.objects.get(kind="return")
+    c.post(reverse("debitnote_detail", args=[note.pk]), {"action": "post"})
+    assert c.get(reverse("debitnote_edit", args=[note.pk])).status_code == 302
+    c.post(reverse("debitnote_delete", args=[note.pk]))
+    assert DebitNote.objects.filter(pk=note.pk, status="posted").exists()
+
+
+def test_deleting_a_draft_needs_edit_rights_and_the_documents_factory(company, factory, factory2, vendor, owner, godown, fabric, accountant):
+    c = login(owner)
+    c.post(reverse("factory_switch"), {"factory": factory2.pk})
+    po = _draft_po(c, vendor, fabric)
+    assert po.factory == factory2
+    keeper = make_user("keeper2")
+    keeper.roles.add(Role.objects.get(name="Store Keeper"))
+    keeper.allowed_factories.add(factory)
+    k = login(keeper)
+    assert k.post(reverse("po_delete", args=[po.pk])).status_code == 403       # no PO rights at all
+    a = login(accountant)                                                      # accountant is limited to the first factory
+    assert a.post(reverse("po_delete", args=[po.pk])).status_code in (403, 404)
+    assert PurchaseOrder.objects.filter(pk=po.pk).exists()

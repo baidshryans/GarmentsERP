@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Return to vendor{% endblock %}
+{% block title %}{% if note %}Edit debit note{% else %}Return to vendor{% endif %}{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">Return goods to a vendor</h1></div>
+  <div class="page-head"><h1 class="page-title">{% if note %}Edit {{ note }}{% else %}Return goods to a vendor{% endif %}</h1></div>
   <p class="muted" style="max-width:760px">For goods already in stock. Pieces rejected at QC get their own debit note automatically on the GRN.</p>
   <form method="post" novalidate>
     {% csrf_token %}
@@ -12,7 +12,7 @@
       <div class="field"><label for="reason">Reason</label><input id="reason" name="reason" type="text" value="{{ d.reason }}"></div></div>
       <div class="field-row">
         <div class="field"><label for="gst_template">GST on the return (optional)</label><select id="gst_template" name="gst_template"><option value="">No GST</option>{% for t in gst_templates %}<option value="{{ t.pk }}" {% if d.gst_template == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select></div>
-        <div class="check" style="align-self:end"><input id="itc" type="checkbox" name="itc_claimable" checked><label for="itc">Input credit was claimed</label></div></div></div>
+        <div class="check" style="align-self:end"><input id="itc" type="checkbox" name="itc_claimable" {% if itc %}checked{% endif %}><label for="itc">Input credit was claimed</label></div></div></div>
     <div class="island"><div class="table-wrap"><table data-entry>
       <thead><tr><th scope="col" style="width:30%">Item</th><th scope="col">From location</th><th scope="col">Roll (fabric)</th><th scope="col" class="num">Quantity</th><th scope="col" class="num">Rate</th></tr></thead>
       <tbody>{% for r in rows %}<tr><td>{% include "partials/item_select.html" with name="item" selected=r.item %}</td>
@@ -21,6 +21,6 @@
         <td class="num"><input type="text" inputmode="decimal" name="qty" value="{{ r.qty|default:'' }}"></td>
         <td class="num"><input type="text" inputmode="decimal" name="rate" value="{{ r.rate|default:'' }}"></td></tr>{% endfor %}</tbody>
     </table></div></div>
-    <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% url 'debitnote_list' %}">Cancel</a></div>
+    <div class="form-actions"><button class="btn primary">Save draft</button><a class="btn ghost" href="{% if note %}{% url 'debitnote_detail' note.pk %}{% else %}{% url 'debitnote_list' %}{% endif %}">Cancel</a></div>
   </form>
 {% endblock %}

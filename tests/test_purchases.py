@@ -428,3 +428,93 @@ def test_return_note_for_fabric_needs_the_roll(company, factory, vendor, owner, 
         lines=[debit_notes.ReturnLineSpec(fabric, D("10"), D("200"), godown, roll=roll)])
     debit_notes.post_debit_note(note2, user=owner)
     assert stock.on_hand(factory, fabric)[0] == D("170.000")
+
+
+# ============================== direct purchase invoice: bill and inward stock in one ==============================
+
+def direct(company, factory, vendor, owner, godown, items, no="D-1", post=True, **kw):
+    inv = invoices.save_invoice(
+        company=company, factory=factory, vendor=vendor, vendor_invoice_no=no, vendor_invoice_date=DAY, date=DAY,
+        lines=[invoices.InvoiceLineSpec(None, D(q), D(r), item=i) for i, q, r in items], user=owner, location=godown, **kw)
+    return invoices.post_invoice(inv, user=owner) if post else inv
+
+
+def test_a_direct_invoice_brings_the_goods_into_stock_and_books_the_purchase_with_no_grn(company, factory, vendor, owner, godown, trim):
+    inv = direct(company, factory, vendor, owner, godown, [(trim, "100", "10")])
+    assert inv.is_direct and inv.status == "posted" and inv.payable == D("1000.00") and not Grn.objects.exists()
+    assert stock.on_hand(factory, trim) == (D("100.000"), D("1000.00"))
+    assert StockMovement.objects.get(movement_type="receipt").location == godown
+    assert bal(company, "stock_raw_material", factory) == D("1000.00") and bal(company, "grni", factory) == D("0.00")
+    assert bal(company, "cgst_input", factory) == 0                                  # tax is optional
+    assert outstanding_bills(vendor.payable_ledger)["bills"] == {"D-1": D("-1000.00")}
+
+
+def test_a_direct_invoice_takes_fabric_in_as_one_roll_per_line_without_roll_entry(company, factory, vendor, owner, godown, fabric):
+    direct(company, factory, vendor, owner, godown, [(fabric, "150", "200")])
+    roll = FabricRoll.objects.get(material=fabric)
+    assert roll.received_qty == D("150.000") and roll.supplier == vendor
+    assert stock.on_hand(factory, fabric) == (D("150.000"), D("30000.00"))
+
+
+def test_a_direct_invoice_with_non_claimable_gst_adds_it_to_stock_cost(company, factory, vendor, owner, godown, trim):
+    inv = direct(company, factory, vendor, owner, godown, [(trim, "100", "10")], tax_mode="template",
+                 gst_template=tpl(GST12), itc_claimable=False)
+    assert inv.payable == D("1120.00") and stock.on_hand(factory, trim) == (D("100.000"), D("1120.00"))
+    claim = direct(company, factory, vendor, owner, godown, [(trim, "100", "10")], no="D-2", tax_mode="template", gst_template=tpl(GST12))
+    assert claim.payable == D("1120.00") and bal(company, "cgst_input", factory) == D("60.00")
+    assert stock.on_hand(factory, trim)[1] == D("2120.00")
+
+
+def test_a_direct_invoice_flags_a_changed_rate_and_cancelling_reverses_stock_and_books(company, factory, vendor, owner, godown, fabric, trim):
+    direct(company, factory, vendor, owner, godown, [(trim, "100", "10")], no="D-1")
+    second = direct(company, factory, vendor, owner, godown, [(trim, "50", "12"), (fabric, "10", "200")], no="D-2")
+    assert second.lines.get(material=trim).rate_variance and not second.lines.get(material=fabric).rate_variance
+    invoices.cancel_invoice(second, user=owner, reason="Wrong bill")
+    assert stock.on_hand(factory, trim) == (D("100.000"), D("1000.00")) and stock.on_hand(factory, fabric)[0] == 0
+    direct(company, factory, vendor, owner, godown, [(fabric, "10", "200")], no="D-2")   # can be entered again
+
+
+def test_cancelling_a_direct_invoice_is_refused_once_the_goods_are_used(company, factory, vendor, owner, godown, trim):
+    inv = direct(company, factory, vendor, owner, godown, [(trim, "100", "10")])
+    back = debit_notes.create_return_note(
+        company=company, factory=factory, vendor=vendor, date=DAY, user=owner, reason="Too many",
+        lines=[debit_notes.ReturnLineSpec(trim, D("60"), D("10"), godown)])
+    debit_notes.post_debit_note(back, user=owner)                                    # 60 of the 100 go back
+    with pytest.raises(Exception, match="Only 40"):
+        invoices.cancel_invoice(inv, user=owner, reason="Oops")
+
+
+def test_direct_invoice_rules(company, factory, factory2, vendor, owner, godown, trim):
+    with pytest.raises(BusinessRuleError, match="at least one item"):
+        direct(company, factory, vendor, owner, godown, [])
+    with pytest.raises(BusinessRuleError, match="more than zero"):
+        direct(company, factory, vendor, owner, godown, [(trim, "0", "10")])
+    with pytest.raises(BusinessRuleError, match="twice"):
+        direct(company, factory, vendor, owner, godown, [(trim, "1", "10"), (trim, "2", "10")])
+    other = Location.objects.get(factory=factory2, name="Main Godown")
+    with pytest.raises(BusinessRuleError, match="different factory"):
+        direct(company, factory, vendor, owner, other, [(trim, "1", "10")])
+    inv = direct(company, factory, vendor, owner, godown, [(trim, "1", "10")], post=False)
+    with pytest.raises(BusinessRuleError, match="cannot be changed"):
+        invoices.save_invoice(company=company, factory=factory, vendor=vendor, vendor_invoice_no="D-1", vendor_invoice_date=DAY,
+                              date=DAY, lines=[], user=owner, invoice=inv)
+
+
+def test_the_invoice_screen_saves_and_posts_a_direct_purchase(company, factory, vendor, owner, godown, trim):
+    from django.test import Client
+    from django.urls import reverse
+
+    c = Client()
+    c.force_login(owner)
+    html = c.get(reverse("invoice_new"), {"vendor": vendor.pk, "mode": "direct"}).content.decode()
+    assert 'name="item"' in html and 'name="location"' in html and 'value="direct"' in html
+    r = c.post(reverse("invoice_new"), {
+        "vendor": vendor.pk, "mode": "direct", "location": godown.pk, "vendor_invoice_no": "D-9", "vendor_invoice_date": "2026-06-15",
+        "date": "2026-06-15", "tax_mode": "none", "item": [f"m:{trim.pk}", ""], "qty": ["25", ""], "rate": ["8", ""]})
+    from purchases.models import PurchaseInvoice
+
+    inv = PurchaseInvoice.objects.get()
+    assert r.status_code == 302 and inv.is_direct and inv.subtotal == D("200.00")
+    c.post(reverse("invoice_detail", args=[inv.pk]), {"action": "post"})
+    assert stock.on_hand(factory, trim) == (D("25.000"), D("200.00"))
+    assert "Direct" in c.get(reverse("invoice_detail", args=[inv.pk])).content.decode()

@@ -140,6 +140,7 @@ class StyleList(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "masters/style_list.html", {
             "styles": qs[:300], "q": q, "archived": bool(request.GET.get("archived")),
             "can_create": request.user.has_screen_perm("masters.style", "create"),
+            "can_edit": request.user.has_screen_perm("masters.style", "edit"),
         })
 
 
@@ -273,6 +274,7 @@ class RouteList(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "masters/route_list.html", {
             "routes": RouteTemplate.objects.prefetch_related("steps__process"),
             "can_create": request.user.has_screen_perm("masters.route", "create"),
+            "can_edit": request.user.has_screen_perm("masters.route", "edit"),
         })
 
 
@@ -349,6 +351,7 @@ class PartyList(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "masters/party_list.html", {
             "parties": qs[:300], "role": role, "q": q, "roles": list(PARTY_ROLES), "can_phone": can_phone,
             "can_create": request.user.has_screen_perm("masters.party", "create"),
+            "can_edit": request.user.has_screen_perm("masters.party", "edit"),
         })
 
 

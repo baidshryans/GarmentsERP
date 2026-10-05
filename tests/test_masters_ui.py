@@ -207,3 +207,17 @@ def test_nav_lists_master_screens_by_permission(company, merch, accountant, clie
 def test_new_route_preselects_the_only_factory(company, factory, merch, client_for):
     page = client_for(merch).get(reverse("route_new")).content.decode()
     assert f'<option value="{factory.pk}" selected>' in page
+
+
+def test_masters_lists_show_edit_and_delete_as_icons(company, owner, client_for):
+    c = client_for(owner)
+    s = _style(company, "ICO-1")
+    p = parties.create_party(company=company, name="Icon Vendor", mobile="9800000001", is_vendor=True)
+    page = c.get(reverse("style_list")).content.decode()
+    assert reverse("style_edit", args=[s.pk]) in page and reverse("style_delete", args=[s.pk]) in page and "#i-trash" in page
+    page = c.get(reverse("party_list")).content.decode()
+    assert reverse("party_edit", args=[p.pk]) in page and reverse("party_delete", args=[p.pk]) in page
+    for name in ("unit_list", "size_list", "colour_list", "product_list", "material_list", "process_list", "pricelist_list", "hsn_list", "route_list"):
+        page = c.get(reverse(name)).content.decode()
+        assert ">Edit<" not in page and ">Delete<" not in page, name           # text links are gone
+    assert "#i-edit" in c.get(reverse("unit_list")).content.decode()

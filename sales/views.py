@@ -186,7 +186,8 @@ class OrderSave(LoginRequiredMixin, ScreenPermissionMixin, View):
                     "due_date": order.due_date.isoformat() if order.due_date else "", "order_type": order.order_type,
                     "remarks": order.remarks}
         return {"order": order, "factory": order.factory if order else request.factory, "customers": _customers(), "grids": grids,
-                "styles": Style.objects.filter(is_archived=False), "vals": vals or {}, "types": SaleOrder.Type.choices}
+                "styles": Style.objects.filter(is_archived=False), "vals": vals or {}, "types": SaleOrder.Type.choices,
+                "today": timezone.localdate().isoformat()}
 
     def get(self, request, pk=None):
         order = get_object_or_404(SaleOrder.objects.for_user(request.user), pk=pk) if pk else None

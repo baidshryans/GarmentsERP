@@ -95,6 +95,7 @@ class POList(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "purchases/po_list.html", {
             "pos": qs[:200], "status": status, "statuses": PurchaseOrder.Status.choices,
             "can_create": request.user.has_screen_perm("purchases.po", "create"),
+            "can_edit": request.user.has_screen_perm("purchases.po", "edit"),
         })
 
 
@@ -236,6 +237,7 @@ class GrnList(LoginRequiredMixin, ScreenPermissionMixin, View):
         qs = in_active(Grn.objects.for_user(request.user), request).select_related("vendor", "factory", "po")
         return render(request, "purchases/grn_list.html", {
             "grns": qs[:200], "can_create": request.user.has_screen_perm("purchases.grn", "create"),
+            "can_edit": request.user.has_screen_perm("purchases.grn", "edit"),
         })
 
 
@@ -377,44 +379,120 @@ class InvoiceList(LoginRequiredMixin, ScreenPermissionMixin, View):
         qs = in_active(PurchaseInvoice.objects.for_user(request.user), request).select_related("vendor", "factory")
         return render(request, "purchases/invoice_list.html", {
             "invoices": qs[:200], "can_create": request.user.has_screen_perm("purchases.invoice", "create"),
+            "can_edit": request.user.has_screen_perm("purchases.invoice", "edit"),
         })
 
 
-class InvoiceNew(LoginRequiredMixin, ScreenPermissionMixin, View):
-    screen_code = "purchases.invoice"
-    screen_action = "create"
+class InvoiceSave(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """New invoice, or edit a draft one (pk given). Posted invoices are cancelled, never edited."""
 
-    def _ctx(self, request, d=None):
+    screen_code = "purchases.invoice"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.screen_action = "edit" if kwargs.get("pk") else "create"
+        return super().dispatch(request, *args, **kwargs)
+
+    def _inv(self, request, pk):
+        qs = PurchaseInvoice.objects.for_user(request.user).select_related("vendor", "factory")
+        return get_object_or_404(qs, pk=pk) if pk else None
+
+    @staticmethod
+    def _saved_values(inv):
+        d = {"vendor": str(inv.vendor_id), "vendor_invoice_no": inv.vendor_invoice_no, "notes": inv.notes,
+             "vendor_invoice_date": inv.vendor_invoice_date.isoformat(), "date": inv.date.isoformat(),
+             "tax_mode": inv.tax_mode, "gst_template": str(inv.gst_template_id or ""),
+             "tds_template": str(inv.tds_template_id or ""), "location": str(inv.location_id or "")}
+        if inv.tax_mode == PurchaseInvoice.TaxMode.MANUAL:
+            for t in inv.tax_lines.filter(kind="gst"):
+                d[f"manual_{t.component}"] = str(t.amount)
+        return d
+
+    def _ctx(self, request, d=None, inv=None, posted=False):
+        if inv is not None and not posted:
+            d = self._saved_values(inv)
         d = d or {}
-        vendor = Party.objects.filter(pk=d.get("vendor"), is_vendor=True).first() if d.get("vendor") else None
-        factory = request.factory
-        grn_lines = []
-        if vendor and factory:
+        vendor = inv.vendor if inv else (
+            Party.objects.filter(pk=d.get("vendor"), is_vendor=True).first() if d.get("vendor") else None)
+        factory = inv.factory if inv else request.factory
+        direct = inv.is_direct if inv else (d.get("mode") == "direct")
+        existing = {l.grn_line_id: l for l in inv.lines.all()} if inv else {}
+        grn_lines, rows, locations = [], [], []
+        mats, skus = item_choices() if direct else ([], [])
+        if direct and factory:
+            locations = Location.objects.filter(factory=factory, is_active=True).exclude(
+                loc_type__in=("cutting", "process", "fabricator", "rejects", "transit"))
+            if posted:
+                items, qtys, rates = d.getlist("item"), d.getlist("qty"), d.getlist("rate")
+                rows = [{"item": v, "qty": qtys[i], "rate": rates[i]} for i, v in enumerate(items) if v or qtys[i] or rates[i]]
+            elif inv:
+                rows = [{"item": f"m:{l.material_id}" if l.material_id else f"s:{l.sku_id}", "qty": l.qty, "rate": l.rate}
+                        for l in inv.lines.all()]
+            rows += [{}, {}]
+        if vendor and factory and not direct:
             for gl in GrnLine.objects.filter(grn__status="posted", grn__vendor=vendor, grn__factory=factory).select_related(
                     "grn", "material", "sku__style", "sku__colour", "sku__size").order_by("grn__date", "id"):
-                left = invoices.billable_qty(gl)
-                if left > 0:
-                    grn_lines.append({"gl": gl, "left": left, "last": invoices.last_rate(vendor, gl)})
+                left = invoices.billable_qty(gl, exclude=inv)
+                if left <= 0:
+                    continue
+                row = {"gl": gl, "left": left, "last": invoices.last_rate(vendor, gl, exclude=inv),
+                       "use": True, "qty": left, "rate": gl.rate}
+                if posted:
+                    row.update(use=f"use_{gl.pk}" in d, qty=d.get(f"qty_{gl.pk}", left), rate=d.get(f"rate_{gl.pk}", gl.rate))
+                elif inv:
+                    line = existing.get(gl.pk)
+                    row["use"] = line is not None
+                    if line:
+                        row.update(qty=line.qty, rate=line.rate)
+                grn_lines.append(row)
+        itc = (d.get("itc_claimable") == "on") if posted else (inv.itc_claimable if inv else True)
         return {
-            "vendors": _vendors(), "vendor": vendor, "factory": factory,
-            "grn_lines": grn_lines, "d": d,
+            "vendors": _vendors(), "vendor": vendor, "factory": factory, "inv": inv, "itc": itc,
+            "grn_lines": grn_lines, "d": d, "direct": direct, "mats": mats, "skus": skus, "rows": rows,
+            "locations": locations,
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True),
             "tds_templates": TaxTemplate.objects.filter(kind="tds", is_active=True),
             "modes": PurchaseInvoice.TaxMode.choices,
         }
 
-    def get(self, request):
-        if back := _need_factory(request, "invoice_list"):
-            return back
-        return render(request, "purchases/invoice_form.html", self._ctx(request, request.GET))
+    def _draft_or_back(self, request, pk):
+        inv = self._inv(request, pk)
+        if inv is not None and inv.status != "draft":
+            messages.error(request, "Only a draft invoice can be edited; cancel a posted one instead.")
+            return inv, redirect("invoice_detail", pk=inv.pk)
+        return inv, None
 
-    def post(self, request):
+    def get(self, request, pk=None):
+        inv, back = self._draft_or_back(request, pk)
+        if back:
+            return back
+        if inv is None:
+            if back := _need_factory(request, "invoice_list"):
+                return back
+            return render(request, "purchases/invoice_form.html", self._ctx(request, request.GET))
+        return render(request, "purchases/invoice_form.html", self._ctx(request, inv=inv))
+
+    def post(self, request, pk=None):
+        inv, back = self._draft_or_back(request, pk)
+        if back:
+            return back
         p = request.POST
         try:
-            vendor = get_object_or_404(Party, pk=p.get("vendor"), is_vendor=True)
-            factory = require_active_factory(request)
-            specs = []
-            for key in p:
+            vendor = inv.vendor if inv else get_object_or_404(Party, pk=p.get("vendor"), is_vendor=True)
+            factory = inv.factory if inv else require_active_factory(request)
+            specs, location = [], None
+            direct = inv.is_direct if inv else p.get("mode") == "direct"
+            if direct:
+                location = get_object_or_404(Location, pk=p.get("location"), factory=factory) if p.get("location") else None
+                if location is None:
+                    raise ValueError("Choose where the goods are received.")
+                qtys, rates = p.getlist("qty"), p.getlist("rate")
+                for i, value in enumerate(p.getlist("item")):
+                    if not value:
+                        continue
+                    item = parse_item(value)
+                    specs.append(invoices.InvoiceLineSpec(None, _decimal(qtys[i], f"Quantity of {item}"),
+                                                          _decimal(rates[i], f"Rate of {item}"), item=item))
+            for key in ([] if direct else p):
                 if key.startswith("use_"):
                     gid = key[4:]
                     gl = get_object_or_404(GrnLine, pk=gid)
@@ -425,16 +503,17 @@ class InvoiceNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                     manual.append((comp, _decimal(p[f"manual_{comp}"], comp.upper())))
             gst_t = TaxTemplate.objects.filter(pk=p.get("gst_template"), kind="gst").first() if p.get("gst_template") else None
             tds_t = TaxTemplate.objects.filter(pk=p.get("tds_template"), kind="tds").first() if p.get("tds_template") else None
-            inv = invoices.save_invoice(
+            saved = invoices.save_invoice(
                 company=_company(), factory=factory, vendor=vendor, vendor_invoice_no=p.get("vendor_invoice_no", ""),
                 vendor_invoice_date=_date(p.get("vendor_invoice_date")), date=_date(p.get("date")), lines=specs,
-                user=request.user, tax_mode=p.get("tax_mode", "none"), gst_template=gst_t, tds_template=tds_t,
-                itc_claimable=p.get("itc_claimable") == "on", manual_tax=manual, notes=p.get("notes", ""))
+                user=request.user, invoice=inv, tax_mode=p.get("tax_mode", "none"), gst_template=gst_t, tds_template=tds_t,
+                itc_claimable=p.get("itc_claimable") == "on", manual_tax=manual, notes=p.get("notes", ""),
+                location=location)
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
-            return render(request, "purchases/invoice_form.html", self._ctx(request, p))
+            return render(request, "purchases/invoice_form.html", self._ctx(request, p, inv, posted=True))
         messages.success(request, "Invoice saved as a draft. Check the figures, then post it.")
-        return redirect("invoice_detail", pk=inv.pk)
+        return redirect("invoice_detail", pk=saved.pk)
 
 
 class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
@@ -446,7 +525,7 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
     def get(self, request, pk):
         inv = self._inv(request, pk)
         return render(request, "purchases/invoice_detail.html", {
-            "inv": inv, "lines": inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku__style", "grn_line__sku__colour", "grn_line__sku__size"),
+            "inv": inv, "lines": inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku__style", "grn_line__sku__colour", "grn_line__sku__size", "material", "sku__style", "sku__colour", "sku__size"),
             "gst": inv.tax_lines.filter(kind="gst"), "tds": inv.tax_lines.filter(kind="tds"),
             "can_edit": request.user.has_screen_perm("purchases.invoice", "edit"),
             "can_cancel": request.user.has_screen_perm("purchases.invoice", "cancel"),
@@ -486,7 +565,8 @@ class InvoiceDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                     invoices.save_invoice(
                         company=inv.company, factory=inv.factory, vendor=inv.vendor, vendor_invoice_no=inv.vendor_invoice_no,
                         vendor_invoice_date=inv.vendor_invoice_date, date=inv.date, user=user, invoice=inv,
-                        lines=[invoices.InvoiceLineSpec(l.grn_line, l.qty, l.rate) for l in inv.lines.all()],
+                        lines=[invoices.InvoiceLineSpec(l.grn_line, l.qty, l.rate, item=None if l.grn_line_id else l.item)
+                               for l in inv.lines.all()], location=inv.location,
                         tax_mode=inv.tax_mode, gst_template=inv.gst_template, itc_claimable=inv.itc_claimable,
                         tds_template=inv.tds_template, tax_overrides=overrides, manual_tax=manual, notes=inv.notes)
                     messages.success(request, "Tax amounts updated.")
@@ -504,33 +584,69 @@ class DebitNoteList(LoginRequiredMixin, ScreenPermissionMixin, View):
         qs = in_active(DebitNote.objects.for_user(request.user), request).select_related("vendor", "factory")
         return render(request, "purchases/debitnote_list.html", {
             "notes": qs[:200], "can_create": request.user.has_screen_perm("purchases.debitnote", "create"),
+            "can_edit": request.user.has_screen_perm("purchases.debitnote", "edit"),
         })
 
 
-class DebitNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
-    screen_code = "purchases.debitnote"
-    screen_action = "create"
+class DebitNoteSave(LoginRequiredMixin, ScreenPermissionMixin, View):
+    """New return note, or edit a draft one (pk given)."""
 
-    def _ctx(self, request, rows=None, d=None):
+    screen_code = "purchases.debitnote"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.screen_action = "edit" if kwargs.get("pk") else "create"
+        return super().dispatch(request, *args, **kwargs)
+
+    def _note(self, request, pk):
+        qs = DebitNote.objects.for_user(request.user).select_related("factory")
+        return get_object_or_404(qs, pk=pk) if pk else None
+
+    @staticmethod
+    def _saved(note):
+        d = {"vendor": str(note.vendor_id), "date": note.date.isoformat(), "reason": note.reason,
+             "gst_template": str(note.gst_template_id or "")}
+        rows = [{"item": f"m:{l.material_id}" if l.material_id else f"s:{l.sku_id}", "location": str(l.location_id or ""),
+                 "roll": str(l.roll_id or ""), "qty": l.qty.normalize(), "rate": l.rate.normalize()}
+                for l in note.lines.all()]
+        return d, rows
+
+    def _ctx(self, request, rows=None, d=None, note=None, posted=False):
         from inventory.models import RollBalance
 
+        if note is not None and not posted:
+            d, rows = self._saved(note)
+        factory = note.factory if note else request.factory
         mats, skus = item_choices()
+        itc = (d.get("itc_claimable") == "on") if posted else (note.itc_claimable if note else True)
         return {
-            "vendors": _vendors(), "factory": request.factory, "mats": mats, "skus": skus,
-            "locations": Location.objects.filter(factory=request.factory, is_active=True).exclude(loc_type="transit"),
+            "vendors": _vendors(), "factory": factory, "mats": mats, "skus": skus, "note": note, "itc": itc,
+            "locations": Location.objects.filter(factory=factory, is_active=True).exclude(loc_type="transit"),
             "rolls": RollBalance.objects.for_user(request.user).filter(qty__gt=0).select_related("roll__material", "location"),
             "gst_templates": TaxTemplate.objects.filter(kind="gst", is_active=True, is_reverse_charge=False),
-            "rows": rows or [{}, {}, {}], "d": d or {},
+            "rows": (rows or [{}, {}, {}]) + ([{}] if note else []), "d": d or {},
         }
 
-    def get(self, request):
-        if back := _need_factory(request, "debitnote_list"):
-            return back
-        return render(request, "purchases/debitnote_form.html", self._ctx(request))
+    def _editable_or_back(self, request, pk):
+        note = self._note(request, pk)
+        if note is not None and (note.status != "draft" or note.kind != DebitNote.Kind.RETURN):
+            messages.error(request, "Only a draft return note can be edited; cancel a posted one instead.")
+            return note, redirect("debitnote_detail", pk=note.pk)
+        return note, None
 
-    def post(self, request):
+    def get(self, request, pk=None):
+        note, back = self._editable_or_back(request, pk)
+        if back:
+            return back
+        if note is None and (back := _need_factory(request, "debitnote_list")):
+            return back
+        return render(request, "purchases/debitnote_form.html", self._ctx(request, note=note))
+
+    def post(self, request, pk=None):
         from inventory.models import FabricRoll
 
+        note, back = self._editable_or_back(request, pk)
+        if back:
+            return back
         p = request.POST
         rows, specs = [], []
         try:
@@ -543,15 +659,18 @@ class DebitNoteNew(LoginRequiredMixin, ScreenPermissionMixin, View):
                     item=parse_item(value), qty=_decimal(row["qty"], "Quantity"), rate=_decimal(row["rate"], "Rate"),
                     location=get_object_or_404(Location, pk=row["location"]),
                     roll=get_object_or_404(FabricRoll, pk=row["roll"]) if row["roll"] else None))
-            note = debit_notes.create_return_note(
-                company=_company(), factory=require_active_factory(request),
+            fields = dict(
                 vendor=get_object_or_404(Party, pk=p.get("vendor"), is_vendor=True), date=_date(p.get("date")),
                 lines=specs, user=request.user, reason=p.get("reason", ""),
                 gst_template=TaxTemplate.objects.filter(pk=p["gst_template"]).first() if p.get("gst_template") else None,
                 itc_claimable=p.get("itc_claimable") == "on")
+            if note is None:
+                note = debit_notes.create_return_note(company=_company(), factory=require_active_factory(request), **fields)
+            else:
+                note = debit_notes.update_return_note(note, **fields)
         except (ValueError, BusinessRuleError) as exc:
             _msgs(request, exc)
-            return render(request, "purchases/debitnote_form.html", self._ctx(request, rows, p))
+            return render(request, "purchases/debitnote_form.html", self._ctx(request, rows, p, note, posted=True))
         messages.success(request, "Return note saved as a draft.")
         return redirect("debitnote_detail", pk=note.pk)
 
@@ -587,3 +706,50 @@ class DebitNoteDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         except BusinessRuleError as exc:
             messages.error(request, str(exc))
         return redirect("debitnote_detail", pk=pk)
+
+
+# ================================================================ delete (drafts only)
+
+from core.crud import ObjectDelete  # noqa: E402
+
+
+class _DraftDelete(ObjectDelete):
+    """Drafts can be deleted. Anything posted is cancelled instead (rule 1), and is never offered here."""
+
+    model = None
+    draft_states = ("draft",)
+    cancel_hint = "Posted documents are cancelled, not deleted."
+
+    def get_object(self, request, pk):
+        return get_object_or_404(self.model.objects.for_user(request.user), pk=pk)
+
+    def blocked_reason(self, obj):
+        if obj.status not in self.draft_states:
+            return f"This {self.noun} is {obj.get_status_display().lower()} and cannot be deleted. {self.cancel_hint}"
+        return None
+
+
+class PODelete(_DraftDelete):
+    screen_code, success_url_name, noun, model = "purchases.po", "po_list", "purchase order", PurchaseOrder
+    cancel_hint = "Short-close an approved purchase order instead."
+
+
+class GrnDelete(_DraftDelete):
+    screen_code, success_url_name, noun, model = "purchases.grn", "grn_list", "GRN", Grn
+    draft_states = ("draft", "qc_done")
+    cancel_hint = "Cancel a posted GRN instead; that reverses its stock and books."
+
+
+class InvoiceDelete(_DraftDelete):
+    screen_code, success_url_name, noun, model = "purchases.invoice", "invoice_list", "purchase invoice", PurchaseInvoice
+    cancel_hint = "Cancel a posted invoice instead; that reverses its books."
+
+
+class DebitNoteDelete(_DraftDelete):
+    screen_code, success_url_name, noun, model = "purchases.debitnote", "debitnote_list", "debit note", DebitNote
+    cancel_hint = "Cancel a posted debit note instead."
+
+    def blocked_reason(self, obj):
+        if obj.kind != DebitNote.Kind.RETURN:
+            return "This note was raised automatically from a GRN rejection, so it cannot be deleted. Cancel it from its page if it is not needed."
+        return super().blocked_reason(obj)

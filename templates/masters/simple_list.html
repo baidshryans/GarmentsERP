@@ -16,11 +16,11 @@
   <div class="island">
     {% if rows %}
     <div class="table-wrap"><table>
-      <thead><tr>{% for h in headers %}<th scope="col">{{ h }}</th>{% endfor %}<th scope="col">Status</th><th scope="col"></th></tr></thead>
+      <thead><tr>{% for h in headers %}<th scope="col">{{ h }}</th>{% endfor %}<th scope="col">Status</th><th scope="col" aria-label="Actions"></th></tr></thead>
       <tbody>{% for r in rows %}
         <tr>{% for c in r.cells %}<td>{{ c|default:"—" }}</td>{% endfor %}
           <td>{% if r.active %}<span class="pill success">Active</span>{% else %}<span class="pill">Inactive</span>{% endif %}</td>
-          <td>{% if key == "hsn" %}<a href="{% url 'hsn_detail' r.obj.pk %}">Slabs</a>{% if can_edit %} · <a href="{% url 'hsn_edit' r.obj.pk %}">Edit</a>{% endif %}{% elif key == "pricelist" %}<a href="{% url 'pricelist_detail' r.obj.pk %}">Rates</a>{% if can_edit %} · <a href="{% url 'pricelist_edit' r.obj.pk %}">Edit</a>{% endif %}{% elif can_edit %}<a href="{% url key|add:'_edit' r.obj.pk %}">Edit</a>{% endif %}{% if can_edit %} · <a href="{% url key|add:'_delete' r.obj.pk %}">Delete</a>{% endif %}</td></tr>
+          <td><span class="row-actions">{% if key == "hsn" %}<a href="{% url 'hsn_detail' r.obj.pk %}">Slabs</a>{% elif key == "pricelist" %}<a href="{% url 'pricelist_detail' r.obj.pk %}">Rates</a>{% endif %}{% if can_edit %}{% url key|add:'_edit' r.obj.pk as eu %}{% url key|add:'_delete' r.obj.pk as du %}{% include "partials/row_actions.html" with edit_url=eu delete_url=du %}{% endif %}</span></td></tr>
       {% endfor %}</tbody>
     </table></div>
     {% else %}<div class="empty"><div class="hand">Nothing here yet</div></div>{% endif %}

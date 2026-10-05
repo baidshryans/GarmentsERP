@@ -5,7 +5,13 @@ hand, and whether input credit is claimable. Nothing posts to a tax ledger unles
 credit is not claimable, the GST (and any rate difference) is added to the item cost through a
 stock value adjustment. TDS is deducted only if a TDS template is selected.
 
-Voucher (all lines in the invoice's factory):
+A direct purchase invoice has no GRN: its lines are items, and posting also receives the goods into
+stock at the invoice's location (fabric as one auto-numbered roll per line, no roll-by-roll entry). The
+goods are taken as accepted in full; a later rejection is a purchase return (debit note). Its voucher
+debits stock directly instead of Goods Received Not Billed:
+    Dr Stock (+ non-claimable GST), Dr Input GST, Cr RCM / TDS / Vendor as below.
+
+Voucher against GRN lines (all lines in the invoice's factory):
     Dr Goods Received Not Billed   - what the GRN credited for the accepted pieces billed
     Dr Rejected Goods Recoverable  - value (and tax) of billed pieces that failed QC, claimable by debit note
     Dr / Cr Stock                  - rate difference and non-claimable GST capitalised into stock value
@@ -19,15 +25,16 @@ from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from core.exceptions import BusinessRuleError
 from core.scoping import assert_factory_access
 from core.services.numbering import next_document_number
-from inventory.models import StockMovement
+from inventory.models import FabricRoll, StockMovement
 from inventory.services import stock
 from ledger.models import Ledger
+from masters.models import Material
 from ledger.services.posting import AllocationSpec, LineSpec, post_voucher, reverse_voucher
 from purchases.models import DebitNote, GrnLine, PurchaseInvoice, PurchaseInvoiceLine, PurchaseInvoiceTax
 from tax import calc
@@ -41,9 +48,12 @@ Mode = PurchaseInvoice.TaxMode
 
 @dataclass
 class InvoiceLineSpec:
-    grn_line: object
+    """A GRN line to bill, or (direct purchase) an item - material or SKU - that comes in with the invoice."""
+
+    grn_line: object | None
     qty: Decimal
     rate: Decimal
+    item: object | None = None
 
 
 def _r2(v):
@@ -79,9 +89,12 @@ def billable_qty(grn_line, exclude=None) -> Decimal:
     return grn_line.qty_received - billed_qty(grn_line, exclude)
 
 
-def last_rate(vendor, grn_line, exclude=None):
-    kw = {"grn_line__material": grn_line.material} if grn_line.material_id else {"grn_line__sku": grn_line.sku}
-    qs = PurchaseInvoiceLine.objects.filter(invoice__vendor=vendor, invoice__status="posted", **kw)
+def last_rate(vendor, grn_line=None, exclude=None, item=None):
+    """The vendor's previous posted rate for the item, from GRN-based and direct invoice lines alike."""
+    item = item if item is not None else grn_line.item
+    key = "material" if isinstance(item, Material) else "sku"
+    qs = PurchaseInvoiceLine.objects.filter(invoice__vendor=vendor, invoice__status="posted").filter(
+        Q(**{f"grn_line__{key}": item}) | Q(**{key: item}))
     if exclude is not None:
         qs = qs.exclude(invoice=exclude)
     prev = qs.order_by("-invoice__date", "-id").first()
@@ -91,15 +104,21 @@ def last_rate(vendor, grn_line, exclude=None):
 @transaction.atomic
 def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_date, date, lines, user,
                  invoice=None, tax_mode=Mode.NONE, gst_template=None, itc_claimable=True, tds_template=None,
-                 tax_overrides=None, manual_tax=None, notes="") -> PurchaseInvoice:
-    """Create a draft invoice, or replace the contents of an existing draft."""
+                 tax_overrides=None, manual_tax=None, notes="", location=None) -> PurchaseInvoice:
+    """Create a draft invoice, or replace the contents of an existing draft. A `location` makes it a direct
+    purchase: the lines are items, not GRN lines."""
     assert_factory_access(user, factory)
+    direct = location is not None
+    if direct and location.factory_id != factory.pk:
+        raise BusinessRuleError("The receiving location belongs to a different factory.")
     if not vendor.is_vendor:
         raise BusinessRuleError(f"{vendor.name} is not marked as a vendor.")
     if invoice is not None:
         invoice = PurchaseInvoice.objects.get(pk=invoice.pk)
         if invoice.status != PurchaseInvoice.Status.DRAFT:
             raise BusinessRuleError("Only a draft invoice can be edited.")
+        if invoice.is_direct != direct:
+            raise BusinessRuleError("A direct purchase invoice cannot be changed into a GRN invoice, or the reverse.")
     vendor_invoice_no = vendor_invoice_no.strip()
     if not vendor_invoice_no:
         raise BusinessRuleError("Enter the vendor's invoice number.")
@@ -110,10 +129,30 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
         raise BusinessRuleError(f"Invoice {vendor_invoice_no} from {vendor.name} has already been entered.")
     lines = list(lines)
     if not lines:
-        raise BusinessRuleError("Pick at least one GRN line to bill.")
+        raise BusinessRuleError("Add at least one item to the invoice." if direct else "Pick at least one GRN line to bill.")
 
     seen, prepared, subtotal = set(), [], ZERO
     for spec in lines:
+        if direct:
+            item = spec.item
+            if item is None or spec.grn_line is not None:
+                raise BusinessRuleError("A direct purchase invoice bills items, not GRN lines.")
+            if isinstance(spec.qty, float) or isinstance(spec.rate, float):
+                raise BusinessRuleError("Quantity and rate must be Decimal.")
+            if spec.qty <= 0:
+                raise BusinessRuleError(f"Quantity of {item} must be more than zero.")
+            if spec.rate < 0:
+                raise BusinessRuleError(f"The rate of {item} cannot be negative.")
+            if (item._meta.label_lower, item.pk) in seen:
+                raise BusinessRuleError(f"{item} appears twice; combine it into one line.")
+            seen.add((item._meta.label_lower, item.pk))
+            amount = _r2(spec.qty * spec.rate)
+            prev = last_rate(vendor, exclude=invoice, item=item)
+            prepared.append((item, spec, amount, prev is not None and prev != spec.rate))
+            subtotal += amount
+            continue
+        if spec.grn_line is None:
+            raise BusinessRuleError("Pick a GRN line to bill.")
         gl = GrnLine.objects.select_related("grn", "material", "sku").get(pk=spec.grn_line.pk)
         if gl.pk in seen:
             raise BusinessRuleError("A GRN line can be billed only once per invoice.")
@@ -163,7 +202,7 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
         company=company, factory=factory, vendor=vendor, vendor_invoice_no=vendor_invoice_no,
         vendor_invoice_date=vendor_invoice_date, date=date, tax_mode=tax_mode, gst_template=gst_template,
         itc_claimable=itc_claimable, tds_template=tds_template, subtotal=subtotal, gst_total=gst_total,
-        tds_total=tds_total, payable=payable, notes=notes,
+        tds_total=tds_total, payable=payable, notes=notes, is_direct=direct, location=location,
     )
     if invoice is None:
         invoice = PurchaseInvoice.objects.create(created_by=user, **fields)
@@ -174,8 +213,9 @@ def save_invoice(*, company, factory, vendor, vendor_invoice_no, vendor_invoice_
         invoice.lines.all().delete()
         invoice.tax_lines.all().delete()
     for gl, spec, amount, variance in prepared:
-        PurchaseInvoiceLine.objects.create(invoice=invoice, grn_line=gl, qty=spec.qty, rate=spec.rate,
-                                           amount=amount, rate_variance=variance)
+        target = stock.item_kwargs(gl) if direct else {"grn_line": gl}
+        PurchaseInvoiceLine.objects.create(invoice=invoice, qty=spec.qty, rate=spec.rate, amount=amount,
+                                           rate_variance=variance, **target)
     for kind, items in (("gst", gst), ("tds", tds)):
         for t in items:
             PurchaseInvoiceTax.objects.create(invoice=invoice, kind=kind, component=t.component, rate=t.rate,
@@ -207,6 +247,21 @@ def _apply_revaluation(invoice, grn_line, amount, user):
     return out
 
 
+def _receive_direct(inv, line, value, user):
+    """Bring a direct-purchase line into stock. Fabric becomes one roll for the whole line."""
+    item = line.item
+    roll = None
+    if isinstance(item, Material) and item.kind == "fabric":
+        roll = stock.create_roll(
+            company=inv.company, material=item, supplier=inv.vendor,
+            vendor_roll_no=f"{inv.vendor_invoice_no}-{line.pk}"[:40], received_qty=line.qty, rate=line.rate,
+            received_date=inv.date, source_type=inv._meta.label_lower, source_id=inv.pk)
+    return stock.post_movement(
+        factory=inv.factory, location=inv.location, item=item, qty=line.qty, value=value, roll=roll,
+        movement_type=StockMovement.Type.RECEIPT, date=inv.date, user=user, source=inv,
+        notes=f"Direct purchase, invoice {inv.vendor_invoice_no}")
+
+
 @transaction.atomic
 def post_invoice(invoice, *, user) -> PurchaseInvoice:
     inv = PurchaseInvoice.objects.select_related("factory", "vendor", "company").get(pk=invoice.pk)
@@ -217,10 +272,14 @@ def post_invoice(invoice, *, user) -> PurchaseInvoice:
     if vendor_ledger is None:
         raise BusinessRuleError(f"{inv.vendor.name} has no payable ledger.")
     is_rcm = inv.tax_mode == Mode.REVERSE_CHARGE
-    lines = list(inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku"))
+    lines = list(inv.lines.select_related("grn_line__grn", "grn_line__material", "grn_line__sku", "material", "sku"))
 
     rows = []
     for l in lines:
+        if inv.is_direct:  # accepted in full: nothing to clear from GRNI, nothing rejected
+            rows.append({"line": l, "gl": None, "acc": l.qty, "rej": ZERO, "a_amt": l.amount, "rej_amt": ZERO,
+                         "grni": ZERO, "variance": ZERO, "rej_tax": ZERO, "cap_tax": ZERO})
+            continue
         gl = l.grn_line
         avail = billable_qty(gl, exclude=inv)
         if l.qty > avail:
@@ -259,7 +318,10 @@ def post_invoice(invoice, *, user) -> PurchaseInvoice:
 
     movements = []
     for r in rows:
-        movements += _apply_revaluation(inv, r["gl"], r["variance"] + r["cap_tax"], user)
+        if inv.is_direct:
+            movements.append(_receive_direct(inv, r["line"], r["a_amt"] + r["cap_tax"], user))
+        else:
+            movements += _apply_revaluation(inv, r["gl"], r["variance"] + r["cap_tax"], user)
 
     specs = []
     company = inv.company
@@ -321,10 +383,15 @@ def cancel_invoice(invoice, *, user, reason) -> PurchaseInvoice:
         raise BusinessRuleError("A debit note has been posted against this invoice's rejected pieces; cancel it first.")
     today = timezone.localdate()
     when = max(today, inv.date)
-    for m in StockMovement.objects.filter(source_type=inv._meta.label_lower, source_id=inv.pk,
-                                          movement_type=StockMovement.Type.REVALUATION).select_related(
+    for m in StockMovement.objects.filter(
+            source_type=inv._meta.label_lower, source_id=inv.pk,
+            movement_type__in=(StockMovement.Type.REVALUATION, StockMovement.Type.RECEIPT)).select_related(
             "material", "sku", "roll", "location", "factory"):
         stock.reverse_movement(m, user=user, date=when, source=inv, notes=f"Invoice {inv.vendor_invoice_no} cancelled")
+    for roll in FabricRoll.objects.filter(source_type=inv._meta.label_lower, source_id=inv.pk):
+        # free the roll number so the bill can be entered again, corrected
+        roll.vendor_roll_no = f"{roll.vendor_roll_no}-CANCELLED-{inv.pk}"[:40]
+        roll.save(update_fields=["vendor_roll_no"])
     reverse_voucher(inv.voucher, user=user, reason=f"Invoice cancelled: {reason.strip()}", date=when)
     inv.status = PurchaseInvoice.Status.CANCELLED
     inv.notes = f"Cancelled: {reason.strip()}"[:255]

@@ -1,0 +1,2 @@
+{% comment %}Edit and delete as icon buttons. Pass edit_url and/or delete_url; leave one out to hide it.{% endcomment %}
+<span class="row-actions">{% if edit_url %}<a class="icon-btn" href="{{ edit_url }}" title="Edit" aria-label="Edit"><svg aria-hidden="true"><use href="#i-edit"/></svg></a>{% endif %}{% if delete_url %}<a class="icon-btn danger" href="{{ delete_url }}" title="Delete" aria-label="Delete"><svg aria-hidden="true"><use href="#i-trash"/></svg></a>{% endif %}</span>

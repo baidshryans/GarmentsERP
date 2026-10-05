@@ -11,6 +11,7 @@ from core.models import Factory
 from jobwork.models import JobWorkChallan, Receipt
 from ledger.models import Voucher
 from production.models import Bundle, Lot, ProductionOrder
+from production.services import guide
 from purchases.models import Grn, PurchaseOrder
 from inventory.models import StockAlert
 from reports.services import standard
@@ -44,6 +45,7 @@ def production_overview(user, today):
             "stages": ", ".join(f"{n} {q}" for n, q in sorted(stages[lot.pk].items(), key=lambda kv: -kv[1])) or "Not cut yet",
             "where": ", ".join(sorted(holders[lot.pk])) or "-",
             "late": bool(order.due_date and order.due_date < today),
+            "next": guide.lot_guide(lot, user)["primary"],     # only an action this user's role may do, or None
         })
     rows.sort(key=lambda r: (not r["late"], r["order"].due_date or today.max, r["lot"].lot_no))
     orders = ProductionOrder.objects.for_user(user)

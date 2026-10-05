@@ -1,0 +1,17 @@
+<div class="island guide">
+  <ol class="journey{% if guide.closed %} closed{% endif %}" aria-label="Where this lot is">{% for s in guide.journey %}
+    <li class="{{ s.state }}"{% if s.state == "now" and not guide.closed %} aria-current="step"{% endif %}>
+      <span class="j-label">{{ s.label }}</span>
+      {% if s.optional %}<span class="j-tag">optional</span>{% endif %}
+      {% if s.detail %}<span class="j-detail">{{ s.detail }}</span>{% endif %}
+      {% if s.pieces %}<span class="j-pieces">{{ s.pieces }} pcs</span>{% endif %}
+      {% if not guide.closed %}<span class="sr-only">{% if s.state == "done" %}done{% elif s.state == "now" %}in progress{% else %}to come{% endif %}</span>{% endif %}
+    </li>{% endfor %}
+  </ol>
+  {% if guide.primary %}
+    <div class="guide-next"><a class="btn primary" href="{{ guide.primary.url }}">{{ guide.primary.label }}</a><span class="muted">{{ guide.primary.hint }}{% if guide.primary.pieces %} {{ guide.primary.pieces }} pieces.{% endif %}</span></div>
+    {% if guide.others %}<p class="muted guide-also">Also waiting: {% for a in guide.others %}<a href="{{ a.url }}">{{ a.label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+  {% elif guide.waiting %}<p class="muted">Waiting for: {{ guide.waiting }}</p>
+  {% elif guide.complete %}<p>This lot is complete.</p>
+  {% elif guide.closed %}<p class="muted">This lot is closed.</p>{% endif %}
+</div>

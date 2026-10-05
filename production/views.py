@@ -44,11 +44,14 @@ class OrderList(LoginRequiredMixin, ScreenPermissionMixin, View):
     screen_code = "production.order"
 
     def get(self, request):
-        qs = in_active(ProductionOrder.objects.for_user(request.user), request).select_related("factory")
+        qs = in_active(ProductionOrder.objects.for_user(request.user), request).select_related("factory").prefetch_related("lines__lot")
         if request.GET.get("status"):
             qs = qs.filter(status=request.GET["status"])
+        orders_shown = list(qs[:200])
+        for o in orders_shown:                                   # only the orders on the page: the guide reads each lot
+            o.next = guide.order_next(o, request.user)
         return render(request, "production/order_list.html", {
-            "orders": qs[:200], "statuses": ProductionOrder.Status.choices, "status": request.GET.get("status", ""),
+            "orders": orders_shown, "statuses": ProductionOrder.Status.choices, "status": request.GET.get("status", ""),
             "can_create": request.user.has_screen_perm("production.order", "create"),
         })
 
@@ -139,7 +142,8 @@ class OrderDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         lines = []
         for l in order.lines.select_related("style", "colour", "bom_version", "route").prefetch_related("sizes__size"):
             lot = getattr(l, "lot", None) if hasattr(l, "lot") else None
-            lines.append({"line": l, "lot": lot, "sizes": l.sizes.all()})
+            lines.append({"line": l, "lot": lot, "sizes": l.sizes.all(),
+                          "next": guide.lot_guide(lot, request.user)["primary"] if lot else None})
         return render(request, "production/order_detail.html", {
             "order": order, "lines": lines,
             "can_edit": request.user.has_screen_perm("production.order", "edit"),
@@ -183,7 +187,8 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         live = [b for b in bundles if b.is_live]
         expected_charges = sum((c.amount_per_piece for c in lot.bom_version.charges.all()), Decimal("0")) * sum(b.original_qty for b in bundles) if lot.bom_version else None
         return render(request, "production/lot_detail.html", {
-            "lot": lot, "steps": steps, "bundles": bundles, "cuttings": cuts, "planned": planned,
+            "lot": lot, "guide": guide.lot_guide(lot, request.user),
+            "steps": steps, "bundles": bundles, "cuttings": cuts, "planned": planned,
             "cut_pieces": sum(b.original_qty for b in bundles), "live_pieces": sum(b.qty for b in live),
             "breakdown": breakdown if can_cost else None, "total_cost": costing.lot_cost(lot) if can_cost else None,
             "expected_charges": expected_charges, "can_cost": can_cost,
@@ -194,6 +199,8 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "can_cut": request.user.has_screen_perm("production.cutting", "create"),
             "can_move": request.user.has_screen_perm("production.move", "create"),
             "can_pack": request.user.has_screen_perm("production.move", "create"),
+            "can_tags": request.user.has_screen_perm("production.bundle", "view"),
+            "can_open_order": request.user.has_screen_perm("production.order", "view"),
             "pack_ready": [b for b in live if guide.pack_ready(b, [s for s in steps if s.status != "skipped"])],
             "dispatch_locations": Location.objects.filter(factory=lot.factory, is_active=True).exclude(loc_type__in=("transit", "rejects", "fabricator")),
         })

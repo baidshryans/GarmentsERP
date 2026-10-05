@@ -1,7 +1,10 @@
 """The guide: where a lot is on its way to finished goods and the one thing it needs next (guided Making, piece 2a)."""
 from datetime import date
 
+import re
+
 import pytest
+from django.test import Client
 from django.urls import reverse
 
 from core.models import Role, RolePermission
@@ -343,3 +346,131 @@ def test_order_next_releases_a_draft_then_follows_its_lot_until_the_order_is_com
     bundle_service.pack_bundles(bundles=ns.bundles, user=ns.owner, date=DAY)
     ns.order.refresh_from_db()
     assert ns.order.status == "completed" and order_next(ns.order, ns.owner) is None
+
+
+# ================================================================ the guide on the screens
+
+def login(user):
+    c = Client()
+    c.force_login(user)
+    return c
+
+
+def user_with(name, role, factory):
+    u = make_user(name)
+    u.roles.add(Role.objects.get(name=role))
+    u.allowed_factories.add(factory)
+    return u
+
+
+def lot_page(ns, user):
+    return login(user).get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
+
+
+def guide_of(html):
+    """The guide island alone: from its opening tag to the next island."""
+    start = html.index('class="island guide"')
+    return html[start:html.index('class="island"', start)]
+
+
+def row_with(html, text):
+    return next(r for r in re.findall(r"<tr>.*?</tr>", html, re.S) if text in r)
+
+
+def test_the_lot_page_opens_with_the_journey_and_one_next_button(company, factory, owner):
+    ns = build(company, factory, owner)
+    html = lot_page(ns, owner)
+    g = guide_of(html)
+    assert 'class="journey"' in g and 'aria-current="step"' in g
+    assert re.search(r'<a class="btn primary" href="%s">Issue fabric</a>' % re.escape(reverse("lot_fabric", args=[ns.lot.pk])), g)
+    # the route is folded away, not removed: its table and its change forms are still on the page
+    assert "<summary>Route and rates</summary>" in html and '<th scope="col">Process</th>' in html
+    assert 'value="reassign"' in html and "<summary>Add a step</summary>" in html
+    assert "<summary>Lot cost</summary>" in html
+    assert g.count('class="j-tag"') == 3  # embroidery, printing and washing are marked optional
+    # only labels, counts and links are shown: the permission and sort keys stay inside the service
+    assert "production.cutting" not in html and "jobwork.challan" not in html
+    # the four header buttons are gone; fabric, cutting and move live in the corrections row
+    head = html[html.index('class="page-head"'):html.index('class="island guide"')]
+    assert "Issue fabric" not in head and "Move bundles" not in head and "Cutting" not in head and ns.order.number in head
+    more = html[html.index('class="guide-more"'):]
+    for label, url in (("Fabric issue", reverse("lot_fabric", args=[ns.lot.pk])), ("Cutting", reverse("lot_cutting", args=[ns.lot.pk])),
+                       ("Move bundles", reverse("move_bundles") + f"?lot={ns.lot.pk}&amp;back=1")):
+        assert f'<a class="btn ghost" href="{url}">{label}</a>' in more
+
+
+def test_a_role_that_may_not_cut_sees_what_the_lot_waits_for_and_no_link(company, factory, owner):
+    ns = build(company, factory, owner)
+    planner = user_with("planner", "Production Planner", factory)
+    assert planner.has_screen_perm("production.lot", "view") and not planner.has_screen_perm("production.cutting", "create")
+    html = lot_page(ns, planner)
+    g = guide_of(html)
+    assert "Waiting for: Issue fabric" in g and "btn primary" not in g
+    assert f'href="{reverse("lot_fabric", args=[ns.lot.pk])}"' not in html
+
+
+def test_the_orders_list_names_the_next_step_of_each_order(ns):
+    blank = orders.create_order(company=ns.company, factory=ns.factory, date=DAY, user=ns.owner, lines=[
+        orders.OrderLineSpec(ns.style, ns.black, 10, {ns.sizes["M"]: 1})])
+    html = login(ns.owner).get(reverse("order_list")).content.decode()
+    assert '<th scope="col">Next step</th>' in html
+    released = row_with(html, reverse("order_detail", args=[ns.order.pk]))
+    assert "Send to a fabricator for Stitching" in released and reverse("challan_new") in released
+    waiting = row_with(html, f'<a href="{reverse("order_detail", args=[blank.pk])}">')
+    assert re.search(r'<form method="post" action="%s">' % re.escape(reverse("order_detail", args=[blank.pk])), waiting)
+    assert "<button" in waiting and 'value="release"' in waiting
+    # someone who may only look at orders gets neither a release button nor a link they could not open
+    seen = login(user_with("acct2", "Accountant", ns.factory)).get(reverse("order_list")).content.decode()
+    assert 'value="release"' not in seen and reverse("challan_new") not in seen
+
+
+def test_the_orders_list_says_issue_fabric_for_a_fresh_order_and_the_order_page_shows_it_beside_the_lot(company, factory, owner):
+    ns = build(company, factory, owner)
+    c = login(owner)
+    assert "Issue fabric" in row_with(c.get(reverse("order_list")).content.decode(), reverse("order_detail", args=[ns.order.pk]))
+    page = c.get(reverse("order_detail", args=[ns.order.pk])).content.decode()
+    assert f'<a class="btn primary" href="{reverse("lot_fabric", args=[ns.lot.pk])}">Issue fabric</a>' in page
+    assert f'href="{reverse("lot_detail", args=[ns.lot.pk])}"' in page
+
+
+def test_home_names_the_next_step_of_each_lot_in_production(company, factory, owner):
+    ns = build(company, factory, owner)
+    html = login(owner).get(reverse("home")).content.decode()
+    assert "Items in production" in html and '<th scope="col">Next step</th>' in html
+    row = row_with(html, ns.lot.lot_no)
+    assert f'href="{reverse("lot_fabric", args=[ns.lot.pk])}"' in row and "Issue fabric" in row
+    sup = user_with("sup_guide", "Production Supervisor", factory)
+    body = login(sup).get(reverse("home")).content.decode()
+    assert "Money received" not in body and "Sales today" not in body
+    # issuing fabric is not the supervisor's job: the row is there, the link is not
+    assert reverse("lot_fabric", args=[ns.lot.pk]) not in row_with(body, ns.lot.lot_no)
+
+
+def test_a_finished_lot_says_so_and_asks_for_nothing(ns):
+    to_packing(ns)
+    html = lot_page(ns, ns.owner)
+    assert 'id="pack"' in html and "Pack into finished goods" in guide_of(html)
+    bundle_service.pack_bundles(bundles=ns.bundles, user=ns.owner, date=DAY)
+    g = guide_of(lot_page(ns, ns.owner))
+    assert "This lot is complete." in g and "btn primary" not in g and "Waiting for" not in g
+
+
+def test_a_closed_lot_shows_no_stage_as_current(company, factory, owner):
+    ns = build(company, factory, owner)
+    orders.close_order(ns.order, user=owner, reason="x")
+    g = guide_of(lot_page(ns, owner))
+    assert 'class="journey closed"' in g and "aria-current" not in g and "This lot is closed." in g and "btn primary" not in g
+
+
+def test_the_lot_page_offers_optional_steps_as_smaller_links_never_as_the_button(ns):
+    stitched(ns)
+    g = guide_of(lot_page(ns, ns.owner))
+    assert re.search(r'<a class="btn primary" href="[^"]*">Move to Ironing and pressing</a>', g)
+    also = g[g.index("Also waiting"):]
+    assert "Send to a fabricator for Embroidery (optional)" in also and "btn primary" not in also
+
+
+def test_a_lot_in_another_factory_cannot_be_opened(company, factory, factory2, owner):
+    ns = build(company, factory, owner)
+    other = user_with("sup_far", "Production Supervisor", factory2)
+    assert login(other).get(reverse("lot_detail", args=[ns.lot.pk])).status_code == 404

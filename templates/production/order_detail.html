@@ -14,6 +14,7 @@
     <p>{% for s in r.sizes %}<span class="pill">{{ s.size.code }}: {{ s.qty }}</span> {% endfor %}</p>
     <p class="muted">BOM version {{ r.line.bom_version.version_no|default:"—" }} · route {{ r.line.route.name|default:"—" }}</p>
     {% if r.lot %}<a class="btn" href="{% url 'lot_detail' r.lot.pk %}">Lot {{ r.lot.lot_no }} — {{ r.lot.get_status_display }}</a>{% endif %}
+    {% if r.next %}<a class="btn primary" href="{{ r.next.url }}">{{ r.next.label }}</a>{% endif %}
   </div>
   {% endfor %}
   <div class="grid-2">

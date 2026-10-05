@@ -3,25 +3,35 @@
 {% block content %}
   <div class="page-head"><h1 class="page-title">{{ lot.style.style_no }} · {{ lot.colour }}</h1><span class="muted">{{ lot.lot_no }}</span><span class="pill">{{ lot.get_status_display }}</span>
     <div class="actions">
-      {% if can_cut %}<a class="btn" href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a><a class="btn" href="{% url 'lot_cutting' lot.pk %}">Cutting</a>{% endif %}
-      {% if bundles %}<a class="btn" href="{% url 'lot_tags' lot.pk %}">QR tags</a>{% endif %}
-      {% if can_move %}<a class="btn primary" href="{% url 'move_bundles' %}?lot={{ lot.pk }}">Move bundles</a>{% endif %}
-      <a class="btn ghost" href="{% url 'order_detail' lot.order_line.order.pk %}">{{ lot.order_line.order.number }}</a></div></div>
-  <div class="grid-2">
-    <div class="island"><div class="field-row">
+      {% if bundles and can_tags %}<a class="btn" href="{% url 'lot_tags' lot.pk %}">Print tags</a>{% endif %}
+      {% if can_open_order %}<a class="btn ghost" href="{% url 'order_detail' lot.order_line.order.pk %}">{{ lot.order_line.order.number }}</a>{% endif %}</div></div>
+  {% include "production/_lot_guide.html" %}
+  <div class="island"><div class="field-row">
       <div><div class="label muted">Planned</div><span class="stat">{{ planned }}</span></div><div><div class="label muted">Cut</div><span class="stat">{{ cut_pieces }}</span></div>
       <div><div class="label muted">In progress</div><span class="stat">{{ live_pieces }}</span></div></div>
       <p class="muted">Factory {{ lot.factory.code }} · BOM version {{ lot.bom_version.version_no|default:"—" }}</p></div>
-    {% if breakdown %}<div class="island"><h2>Lot cost</h2>
+  <div class="island"><h2>Bundles</h2>
+    {% if bundles %}<div class="table-wrap"><table>
+      <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
+      <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
+        <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}</td><td>{{ b.location.name }}</td>
+        <td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if pack_ready and can_pack %}<form id="pack" method="post" action="{% url 'pack_bundles' lot.pk %}" style="margin-top:12px">{% csrf_token %}
+      <h3>Pack into finished goods</h3><p class="muted">These bundles have reached packing.</p>
+      {% for b in pack_ready %}<div class="check"><input id="pk{{ b.pk }}" type="checkbox" name="bundle" value="{{ b.pk }}" checked><label for="pk{{ b.pk }}">{{ b.bundle_no }} · {{ b.sku.size.code }} · {{ b.qty }} pieces</label></div>{% endfor %}
+      <div class="field" style="max-width:300px;margin-top:8px"><label for="loc">Receive into</label><select id="loc" name="location">{% for l in dispatch_locations %}<option value="{{ l.pk }}" {% if l.loc_type == "dispatch" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
+      <button class="btn primary">Pack</button></form>{% endif %}
+    {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
+  </div>
+  {% if breakdown %}<div class="island"><details class="fold"><summary>Lot cost</summary>
       <div class="table-scroll"><table><tbody>
         <tr><td>Fabric</td><td class="num">{{ breakdown.fabric }}</td></tr><tr><td>Trims</td><td class="num">{{ breakdown.trim }}</td></tr>
         <tr><td>In-house labour</td><td class="num">{{ breakdown.labour }}</td></tr><tr><td>Job work</td><td class="num">{{ breakdown.jobwork }}</td></tr>
         {% if breakdown.write_off != 0 %}<tr><td>Written off</td><td class="num">{{ breakdown.write_off }}</td></tr>{% endif %}
         {% if breakdown.relief != 0 %}<tr><td>Moved to finished goods</td><td class="num">{{ breakdown.relief }}</td></tr>{% endif %}</tbody>
-        <tfoot><tr><td>Work in progress now</td><td class="num">{{ total_cost }}</td></tr></tfoot></table></div></div>{% endif %}
-  </div>
-
-  <div class="island"><h2>Route</h2>
+        <tfoot><tr><td>Work in progress now</td><td class="num">{{ total_cost }}</td></tr></tfoot></table></div></details></div>{% endif %}
+  <div class="island"><details class="fold"><summary>Route and rates</summary>
     <div class="table-wrap"><table>
       <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Where</th><th scope="col" class="num">Rate</th><th scope="col">Status</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
       <tbody>{% for s in steps %}<tr {% if s.status == "skipped" %}class="muted"{% endif %}>
@@ -59,21 +69,9 @@
         <div class="field"><label>New position</label><input type="text" name="new_sequence"></div>
         <div class="field"><label>Reason</label><input type="text" name="reason" required></div>
         <div style="align-self:end"><button class="btn">Move</button></div></form></details>{% endif %}
-  </div>
-
-  <div class="island"><h2>Bundles</h2>
-    {% if bundles %}<div class="table-wrap"><table>
-      <thead><tr><th scope="col">Bundle</th><th scope="col">Size</th><th scope="col" class="num">Pieces</th><th scope="col">Stage</th><th scope="col">Where</th><th scope="col">Status</th></tr></thead>
-      <tbody>{% for b in bundles %}<tr><td>{{ b.bundle_no }}</td><td>{{ b.sku.size.code }}</td><td class="num">{{ b.qty }}</td>
-        <td>{{ b.current_step.process.name|default:"Cut" }}{% if b.is_rework %} <span class="pill warning">Rework</span>{% endif %}</td><td>{{ b.location.name }}</td>
-        <td><span class="pill">{{ b.get_status_display }}</span></td></tr>{% endfor %}</tbody>
-    </table></div>
-    {% if pack_ready and can_pack %}<form method="post" action="{% url 'pack_bundles' lot.pk %}" style="margin-top:12px">{% csrf_token %}
-      <h3>Pack into finished goods</h3><p class="muted">These bundles have reached packing.</p>
-      {% for b in pack_ready %}<div class="check"><input id="pk{{ b.pk }}" type="checkbox" name="bundle" value="{{ b.pk }}" checked><label for="pk{{ b.pk }}">{{ b.bundle_no }} · {{ b.sku.size.code }} · {{ b.qty }} pieces</label></div>{% endfor %}
-      <div class="field" style="max-width:300px;margin-top:8px"><label for="loc">Receive into</label><select id="loc" name="location">{% for l in dispatch_locations %}<option value="{{ l.pk }}" {% if l.loc_type == "dispatch" %}selected{% endif %}>{{ l.name }}</option>{% endfor %}</select></div>
-      <button class="btn primary">Pack</button></form>{% endif %}
-    {% else %}<div class="empty"><div class="hand">No bundles yet</div><p>Issue fabric, record the cutting, then make bundles.</p></div>{% endif %}
-  </div>
-  {% if changes %}<div class="island"><h2>Route changes</h2><div class="table-scroll"><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+  </details></div>
+  {% if changes %}<div class="island"><details class="fold"><summary>History</summary><div class="table-scroll"><table><tbody>{% for c in changes %}<tr><td>{{ c.at|date:"d M H:i" }}</td><td>{{ c.user.username }}</td><td>{{ c.detail }}</td><td class="muted">{{ c.reason }}</td></tr>{% endfor %}</tbody></table></div></details></div>{% endif %}
+  {% if can_cut or can_move %}<div class="guide-more"><span class="muted">Corrections</span>
+    {% if can_cut %}<a class="btn ghost" href="{% url 'lot_fabric' lot.pk %}">Fabric issue</a><a class="btn ghost" href="{% url 'lot_cutting' lot.pk %}">Cutting</a>{% endif %}
+    {% if can_move %}<a class="btn ghost" href="{% url 'move_bundles' %}?lot={{ lot.pk }}&amp;back=1">Move bundles</a>{% endif %}</div>{% endif %}
 {% endblock %}

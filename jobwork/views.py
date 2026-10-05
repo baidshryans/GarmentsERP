@@ -137,6 +137,7 @@ class ChallanDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "receipts": ch.receipts.all(), "can_edit": request.user.has_screen_perm("jobwork.challan", "edit"),
             "can_receive": request.user.has_screen_perm("jobwork.receipt", "create"),
             "total_pieces": sum(l.qty_issued for l in ch.bundles.all()),
+            "can_open_lot": request.user.has_screen_perm("production.lot", "view"),
         })
 
     def post(self, request, pk):
@@ -245,6 +246,7 @@ class ReceiptDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "r": r, "lines": lines, "trims": r.trims.select_related("challan_trim__material"),
             "can_approve": user.has_screen_perm("jobwork.receipt", "approve"),
             "can_qc": user.has_screen_perm("jobwork.qc", "create"),
+            "can_open_lot": user.has_screen_perm("production.lot", "view"),
         })
 
     def post(self, request, pk):
@@ -262,6 +264,10 @@ class ReceiptDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                     receipt_line=line, accepted=vu.whole(p.get("accepted"), "Accepted", 0), rejected=vu.whole(p.get("rejected"), "Rejected", 0),
                     rework=vu.whole(p.get("rework"), "Rework", 0), user=user, reject_reason=p.get("reason", ""),
                     destination=p.get("destination", "rejects"))
+                r.refresh_from_db()
+                if r.status == Receipt.Status.QC_DONE and user.has_screen_perm("production.lot", "view"):
+                    messages.success(request, "QC recorded. Every bundle on this receipt is checked.")
+                    return redirect("lot_detail", pk=r.challan.lot_id)
                 messages.success(request, "QC recorded.")
         except (ValueError, BusinessRuleError) as exc:
             vu.report(request, exc)

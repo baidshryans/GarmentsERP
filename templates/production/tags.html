@@ -6,7 +6,7 @@
   <div class="page-head no-print"><h1 class="page-title">{{ items|length }} bundle tag{{ items|length|pluralize }}</h1><span class="muted">{{ lot.lot_no }}</span>
     <div class="actions">{% for key, name in layouts.items %}<a class="btn {% if key == layout %}primary{% endif %}" href="?layout={{ key }}">{{ name }}</a>{% endfor %}
       <a class="btn" href="{% url 'lot_zpl' lot.pk %}">ZPL (Zebra) 4x2</a><a class="btn" href="{% url 'lot_zpl' lot.pk %}?size=2x1">ZPL 2x1</a>
-      <button class="btn primary" onclick="window.print()">Print</button><a class="btn ghost" href="{% url 'lot_detail' lot.pk %}">Back to lot</a></div></div>
+      <button class="btn primary" onclick="window.print()">Print</button>{% if perms_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
   <p class="muted no-print">Each bundle has its own QR. Scanning it opens the bundle on the move, receive and QC screens. Pick the paper size in the print dialog to match the layout.</p>
   <div class="label-sheet layout-{{ layout }}">
     {% for i in items %}

@@ -2,7 +2,7 @@
 {% block title %}Issue fabric{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">Issue fabric to cutting</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
-    <div class="actions"><a class="btn ghost" href="{% url 'lot_detail' lot.pk %}">Back to lot</a></div></div>
+    <div class="actions">{% if perms_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
   <p class="muted" style="max-width:740px">Choose the rolls and how much of each goes to the cutting floor. You cannot issue more than a roll holds, and you are warned if rolls of different shade lots end up in one lot.</p>
   {% if can_create %}
   <form method="post" class="island" novalidate>{% csrf_token %}

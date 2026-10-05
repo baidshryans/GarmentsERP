@@ -2,7 +2,7 @@
 {% block title %}Cutting{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">Cutting</h1><span class="muted">{{ lot.lot_no }} · {{ lot.style.style_no }} {{ lot.colour }}</span>
-    <div class="actions"><a class="btn" href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a><a class="btn ghost" href="{% url 'lot_detail' lot.pk %}">Back to lot</a></div></div>
+    <div class="actions"><a class="btn" href="{% url 'lot_fabric' lot.pk %}">Issue fabric</a>{% if perms_lot %}<a class="btn" href="{% url 'lot_detail' lot.pk %}">Back to lot</a>{% endif %}</div></div>
   {% if can_create %}
   <form method="post" class="island" novalidate>{% csrf_token %}
     <h2>Record a lay</h2>

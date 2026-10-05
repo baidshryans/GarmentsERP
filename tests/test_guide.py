@@ -474,3 +474,108 @@ def test_a_lot_in_another_factory_cannot_be_opened(company, factory, factory2, o
     ns = build(company, factory, owner)
     other = user_with("sup_far", "Production Supervisor", factory2)
     assert login(other).get(reverse("lot_detail", args=[ns.lot.pk])).status_code == 404
+
+
+# ================================================================ each step leads on to the next
+
+def role_user(name, grants, factory):
+    """A user whose own role holds exactly these screen permissions: {screen: [actions]}."""
+    role = Role.objects.create(name=f"{name} role")
+    for screen, actions in grants.items():
+        for action in actions:
+            RolePermission.objects.create(role=role, screen=screen, action=action)
+    u = make_user(name)
+    u.roles.add(role)
+    u.allowed_factories.add(factory)
+    return u
+
+
+def draft_order(ns):
+    return orders.create_order(company=ns.company, factory=ns.factory, date=DAY, user=ns.owner, lines=[
+        orders.OrderLineSpec(ns.style, ns.black, 10, {ns.sizes["M"]: 1})])
+
+
+def test_releasing_a_single_lot_order_opens_its_lot(company, factory, owner):
+    ns = build(company, factory, owner)
+    order = draft_order(ns)
+    r = login(owner).post(reverse("order_detail", args=[order.pk]), {"action": "release"})
+    order.refresh_from_db()
+    assert order.status == "released"
+    assert r.status_code == 302 and r["Location"] == reverse("lot_detail", args=[order.lines.get().lot.pk])
+
+
+def test_releasing_stays_on_the_order_for_someone_who_may_not_open_lots(company, factory, owner):
+    ns = build(company, factory, owner)
+    order = draft_order(ns)
+    clerk = role_user("orderclerk", {"production.order": ["view", "edit"]}, factory)
+    r = login(clerk).post(reverse("order_detail", args=[order.pk]), {"action": "release"})
+    order.refresh_from_db()
+    assert order.status == "released"
+    assert r.status_code == 302 and r["Location"] == reverse("order_detail", args=[order.pk])
+
+
+def test_a_move_started_from_the_lot_returns_to_it_and_one_from_the_menu_stays_put(ns):
+    stitch_in_house(ns)
+    c = login(ns.owner)
+    url, st = reverse("move_bundles"), step(ns, "STITCH")
+    page = c.get(url, {"lot": ns.lot.pk, "back": "1"}).content.decode()
+    assert '<input type="hidden" name="back" value="1">' in page
+    assert 'name="back"' not in c.get(url, {"lot": ns.lot.pk}).content.decode()
+    r = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[0].pk], "to_step": st.pk, "back": "1"})
+    assert r.status_code == 302 and r["Location"] == reverse("lot_detail", args=[ns.lot.pk])
+    r = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[1].pk], "to_step": st.pk})
+    assert r.status_code == 302 and r["Location"] == f"{url}?lot={ns.lot.pk}"
+    assert {Bundle.objects.get(pk=b.pk).current_step_id for b in ns.bundles[:2]} == {st.pk}
+    # a move that fails shows the form again and still remembers where it came from
+    bad = c.post(url, {"lot": ns.lot.pk, "bundle": [ns.bundles[2].pk], "to_step": step(ns, "FINISH").pk, "back": "1"})
+    assert bad.status_code == 200 and '<input type="hidden" name="back" value="1">' in bad.content.decode()
+
+
+def test_qc_of_the_last_line_returns_to_the_lot(ns):
+    rec = receive(ns, issue(ns, ns.bundles[:2]))
+    first, last = rec.lines.order_by("id")
+    c = login(ns.owner)
+    here = reverse("receipt_detail", args=[rec.pk])
+    r = c.post(here, {"action": "qc", "line": first.pk, "accepted": first.qty_received, "rejected": "0", "rework": "0"})
+    assert r.status_code == 302 and r["Location"] == here  # another line still waits
+    r = c.post(here, {"action": "qc", "line": last.pk, "accepted": last.qty_received, "rejected": "0", "rework": "0"}, follow=True)
+    assert r.redirect_chain == [(reverse("lot_detail", args=[ns.lot.pk]), 302)]
+    html = r.content.decode()
+    # one message per line checked (the first is still queued, as that redirect was not followed); the last says it is the last
+    assert html.count("QC recorded.") == 2 and html.count("QC recorded. Every bundle on this receipt is checked.") == 1
+    rec.refresh_from_db()
+    assert rec.status == "qc_done"
+
+
+def test_qc_stays_on_the_receipt_for_a_checker_who_may_not_open_lots(ns):
+    rec = receive(ns, issue(ns, ns.bundles[:1]))
+    line = rec.lines.get()
+    checker = user_with("qc_only", "QC Checker", ns.factory)
+    assert not checker.has_screen_perm("production.lot", "view")
+    here = reverse("receipt_detail", args=[rec.pk])
+    c = login(checker)
+    assert "Back to lot" not in c.get(here).content.decode()
+    r = c.post(here, {"action": "qc", "line": line.pk, "accepted": line.qty_received, "rejected": "0", "rework": "0"})
+    rec.refresh_from_db()
+    assert rec.status == "qc_done" and r.status_code == 302 and r["Location"] == here
+
+
+def test_every_step_screen_has_a_way_back_to_the_lot_for_those_who_may_open_it(ns):
+    ch = issue(ns, ns.bundles[:1])
+    rec = receive(ns, ch)
+    back = f'<a class="btn" href="{reverse("lot_detail", args=[ns.lot.pk])}">Back to lot</a>'
+    pages = [reverse("lot_tags", args=[ns.lot.pk]), reverse("lot_cutting", args=[ns.lot.pk]), reverse("lot_fabric", args=[ns.lot.pk]),
+             reverse("challan_detail", args=[ch.pk]), reverse("receipt_detail", args=[rec.pk])]
+    c = login(ns.owner)
+    for url in pages:
+        assert back in c.get(url).content.decode(), url
+    # no lot link for a role that would get a 403 on it
+    lot_url = reverse("lot_detail", args=[ns.lot.pk])
+    clerk = role_user("jwonly", {"jobwork.challan": ["view"]}, ns.factory)
+    html = login(clerk).get(reverse("challan_detail", args=[ch.pk]))
+    assert html.status_code == 200 and "Back to lot" not in html.content.decode() and f'href="{lot_url}"' not in html.content.decode()
+    cutter = user_with("cutter_back", "Cutting Master", ns.factory)
+    k = login(cutter)
+    for url in pages[:3]:
+        page = k.get(url)
+        assert page.status_code == 200 and "Back to lot" not in page.content.decode(), url

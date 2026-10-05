@@ -7,7 +7,7 @@
     <div class="field"><label for="lot">Lot</label><select id="lot" name="lot"><option value="">Choose…</option>{% for l in lots %}<option value="{{ l.pk }}" {% if lot and lot.pk == l.pk %}selected{% endif %}>{{ l.lot_no }} · {{ l.style.style_no }} {{ l.colour }}</option>{% endfor %}</select></div>
     <div style="align-self:end"><button class="btn">Show bundles</button></div></div></form>
   {% if lot %}
-  <form method="post" class="island" id="move-form" novalidate>{% csrf_token %}<input type="hidden" name="lot" value="{{ lot.pk }}">
+  <form method="post" class="island" id="move-form" novalidate>{% csrf_token %}<input type="hidden" name="lot" value="{{ lot.pk }}">{% if back %}<input type="hidden" name="back" value="1">{% endif %}
     <h2>{{ lot.style.style_no }} · {{ lot.colour }} <span class="muted" style="font-weight:400">{{ lot.lot_no }}</span></h2>
     <div class="field" style="max-width:420px"><label for="scan">Scan a bundle QR (or type its number) and press Enter</label><input id="scan" type="text" autocomplete="off" autofocus placeholder="Scan here"></div>
     <div class="table-wrap"><table>

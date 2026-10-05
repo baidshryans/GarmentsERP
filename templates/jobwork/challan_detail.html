@@ -4,9 +4,9 @@
   <div class="page-head"><h1 class="page-title">{{ ch.number|default:"Draft challan" }}</h1><span class="pill {% if ch.status == 'billed' %}success{% elif ch.status == 'draft' %}{% else %}warning{% endif %}">{{ ch.get_status_display }}</span>
     {% if ch.kind == "rework" %}<span class="pill warning">Rework</span>{% endif %}
     <div class="actions">{% if ch.status != "draft" %}<a class="btn" href="{% url 'challan_print' ch.pk %}" target="_blank">Print</a>{% endif %}
-      {% if ch.is_open and can_receive %}<a class="btn primary" href="{% url 'receipt_new' ch.pk %}">Receive goods</a>{% endif %}<a class="btn ghost" href="{% url 'challan_list' %}">All challans</a></div></div>
+      {% if ch.is_open and can_receive %}<a class="btn primary" href="{% url 'receipt_new' ch.pk %}">Receive goods</a>{% endif %}{% if can_open_lot %}<a class="btn" href="{% url 'lot_detail' ch.lot_id %}">Back to lot</a>{% endif %}<a class="btn ghost" href="{% url 'challan_list' %}">All challans</a></div></div>
   <div class="island"><div class="field-row">
-    <div><div class="label muted">Fabricator</div>{{ ch.party.name }}</div><div><div class="label muted">Lot</div><a href="{% url 'lot_detail' ch.lot.pk %}">{{ ch.lot.lot_no }}</a></div>
+    <div><div class="label muted">Fabricator</div>{{ ch.party.name }}</div><div><div class="label muted">Lot</div>{% if can_open_lot %}<a href="{% url 'lot_detail' ch.lot.pk %}">{{ ch.lot.lot_no }}</a>{% else %}{{ ch.lot.lot_no }}{% endif %}</div>
     <div><div class="label muted">Step</div>{{ ch.step.process.name }}</div><div><div class="label muted">Date</div>{{ ch.date|date:"d M Y" }}</div>
     <div><div class="label muted">Expected back</div>{{ ch.expected_date|date:"d M Y"|default:"—" }}</div><div><div class="label muted">Pieces</div><strong>{{ total_pieces }}</strong></div></div>
     {% if ch.second_fabricator_ack %}<p class="pill warning">This lot was already open with another fabricator.</p>{% endif %}

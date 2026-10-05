@@ -159,6 +159,9 @@ class OrderDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
                     raise PermissionDenied
                 order = orders.release_order(order, user=user)
                 messages.success(request, f"{order.number} released. Lots and routes are ready.")
+                lots = [l.lot for l in order.lines.all() if hasattr(l, "lot")]
+                if len(lots) == 1 and user.has_screen_perm("production.lot", "view"):
+                    return redirect("lot_detail", pk=lots[0].pk)
             elif action == "close":
                 orders.close_order(order, user=user, reason=request.POST.get("reason", ""))
                 messages.success(request, "Order closed; remaining work in progress written off.")
@@ -266,7 +269,8 @@ class FabricIssueView(LoginRequiredMixin, ScreenPermissionMixin, View):
         godown = godown_location(lot.factory)
         rolls = RollBalance.objects.for_user(request.user).filter(location=godown, qty__gt=0).select_related("roll__material")
         return {"lot": lot, "rolls": rolls, "vals": vals or {}, "issues": lot.fabric_issues.prefetch_related("lines__roll")[:10],
-                "can_create": request.user.has_screen_perm("production.cutting", "create")}
+                "can_create": request.user.has_screen_perm("production.cutting", "create"),
+                "perms_lot": request.user.has_screen_perm("production.lot", "view")}
 
     def get(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user), pk=pk)
@@ -302,7 +306,8 @@ class CuttingView(LoginRequiredMixin, ScreenPermissionMixin, View):
         sizes = [ss.size for ss in lot.style.style_sizes.select_related("size").order_by("size__sort_order")]
         return {"lot": lot, "rolls": rolls, "sizes": sizes, "vals": vals or {}, "entries": lot.cuttings.prefetch_related("sizes__size", "rolls__roll"),
                 "planned": {s.size_id: s.qty for s in lot.order_line.sizes.all()},
-                "can_create": request.user.has_screen_perm("production.cutting", "create")}
+                "can_create": request.user.has_screen_perm("production.cutting", "create"),
+                "perms_lot": request.user.has_screen_perm("production.lot", "view")}
 
     def get(self, request, pk):
         lot = get_object_or_404(Lot.objects.for_user(request.user), pk=pk)
@@ -359,6 +364,7 @@ class LotTags(LoginRequiredMixin, ScreenPermissionMixin, View):
         return render(request, "production/tags.html", {
             "lot": lot, "items": items, "layout": request.GET.get("layout", "thermal4"),
             "layouts": {"a4": "A4 sheet", "thermal4": "Thermal 4 x 2 in", "thermal2": "Thermal 2 x 1 in"},
+            "perms_lot": request.user.has_screen_perm("production.lot", "view"),
         })
 
 
@@ -386,6 +392,7 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def _ctx(self, request, lot, vals=None):
         ctx = {"lot": lot, "vals": vals or {},
+               "back": (request.GET.get("back") or request.POST.get("back")) == "1",   # opened from a lot's Next button
                "lots": in_active(Lot.objects.for_user(request.user), request).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
                "can_move": request.user.has_screen_perm("production.move", "create")}
         if lot:
@@ -423,6 +430,8 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
             vu.report(request, exc)
             return render(request, "production/move.html", self._ctx(request, lot, p))
         messages.success(request, f"{len(moves)} bundle(s) moved to {to_step.process.name}.")
+        if p.get("back") == "1" and request.user.has_screen_perm("production.lot", "view"):
+            return redirect("lot_detail", pk=lot.pk)
         return redirect(f"{request.path}?lot={lot.pk}")
 
 

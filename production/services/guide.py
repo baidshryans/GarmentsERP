@@ -11,8 +11,9 @@ from production.models import Bundle, LotStep
 
 B = Bundle.Status
 AT_A_STAGE = (B.AT_STAGE, B.DONE, B.RECEIVED, B.REWORK)
-# Within one stage, what is furthest behind comes first.
-RANK = {"send": 0, "move": 0, "issue": 1, "receive": 2, "approve": 3, "qc": 4, "rework": 5}
+# Within one stage, what is furthest behind comes first. An optional step sorts behind everything else aimed at the
+# mandatory step it comes before, so it is never the main button while that step is open to the same user.
+RANK = {"send": 0, "move": 0, "issue": 1, "receive": 2, "approve": 3, "qc": 4, "rework": 5, "optional": 6}
 STATE = {LotStep.Status.DONE: "done", LotStep.Status.IN_PROGRESS: "now", LotStep.Status.PENDING: "todo"}
 
 
@@ -39,31 +40,46 @@ def _journey(lot, steps, bundles, cuts, issued):
         if b.status in AT_A_STAGE and b.current_step_id:
             at[b.current_step_id] = at.get(b.current_step_id, 0) + b.qty
     stages = [
-        {"label": "Order", "detail": "", "state": "done", "pieces": None},
-        {"label": "Fabric", "detail": "", "state": "done" if issued or cuts else "now", "pieces": None},
+        {"label": "Order", "detail": "", "state": "done", "pieces": None, "optional": False},
+        {"label": "Fabric", "detail": "", "state": "done" if issued or cuts else "now", "pieces": None, "optional": False},
         {"label": "Cut", "detail": "", "state": "done" if bundled else ("now" if issued or cuts else "todo"),
-         "pieces": cut_pieces or None},
+         "pieces": cut_pieces or None, "optional": False},
     ]
     for s in steps:
         if s.process.kind == "cutting":
             continue
         outside = s.assignment == LotStep.Assignment.SUBCONTRACT and s.party_id
         stages.append({"label": s.process.name, "detail": s.party.name if outside else "",
-                       "state": STATE[s.status], "pieces": at.get(s.pk) or None})
+                       "state": STATE[s.status], "pieces": at.get(s.pk) or None, "optional": not s.is_mandatory})
     packed = sum(b.qty for b in bundles if b.status in (B.PACKED, B.DISPATCHED))
     done = lot.status == lot.Status.COMPLETED
     stages.append({"label": "Finished goods", "detail": "", "state": "done" if done else ("now" if packed else "todo"),
-                   "pieces": packed or None})
+                   "pieces": packed or None, "optional": False})
     return stages
 
 
 def _actions(lot, steps, bundles, cuts, issued):
     found = {}
 
-    def add(key, seq, label, hint, url, perm, pieces=0):
+    def add(key, seq, label, hint, url, perm, pieces=0, tie=0):
         a = found.setdefault(key, {"label": label, "hint": hint, "url": url, "perm": perm, "pieces": 0,
-                                   "order": (seq, RANK.get(key[0], 0))})
+                                   "order": (seq, RANK.get(key[0], 0), tie)})
         a["pieces"] += pieces
+
+    def onward(step, pieces, target=None):
+        """Send or move bundles on to `step`. With `target`, `step` is an optional one on the way to that mandatory
+        step (or, with nothing mandatory left, to itself): it is offered beside the main action, never ahead of it."""
+        extra = "" if target is None else " (optional)"
+        key = () if target is None else ("optional",)
+        seq, tie = (step.sequence, 0) if target is None else (target.sequence, step.sequence)
+        if step.assignment == LotStep.Assignment.SUBCONTRACT:
+            who = step.party.name if step.party_id else "a fabricator"
+            add(key + ("send", step.pk), seq, f"Send to {who} for {step.process.name}{extra}",
+                "Make a challan and hand the bundles over.",
+                reverse("challan_new") + f"?lot={lot.pk}&step={step.pk}", ("jobwork.challan", "create"), pieces, tie)
+        else:
+            add(key + ("move", step.pk), seq, f"Move to {step.process.name}{extra}", "Scan or tick the bundles that are ready.",
+                reverse("move_bundles") + f"?lot={lot.pk}&back=1", ("production.move", "create"), pieces, tie)
 
     cutting_perm = ("production.cutting", "create")
     if not cuts and not issued:
@@ -120,17 +136,15 @@ def _actions(lot, steps, bundles, cuts, issued):
                 reverse("lot_detail", args=[lot.pk]) + "#pack", ("production.move", "create"), b.qty)
             continue
         done = here if b.status == B.AT_STAGE else b.completed_seq
-        nxt = next((s for s in steps if s.sequence > done), None)
-        if nxt is None:
-            continue
-        if nxt.assignment == LotStep.Assignment.SUBCONTRACT:
-            who = nxt.party.name if nxt.party_id else "a fabricator"
-            add(("send", nxt.pk), nxt.sequence, f"Send to {who} for {nxt.process.name}",
-                "Make a challan and hand the bundles over.",
-                reverse("challan_new") + f"?lot={lot.pk}&step={nxt.pk}", ("jobwork.challan", "create"), b.qty)
-        else:
-            add(("move", nxt.pk), nxt.sequence, f"Move to {nxt.process.name}", "Scan or tick the bundles that are ready.",
-                reverse("move_bundles") + f"?lot={lot.pk}&back=1", ("production.move", "create"), b.qty)
+        later = [s for s in steps if s.sequence > done]
+        nxt = next((s for s in later if s.is_mandatory), None)   # optional steps may be jumped over (see check_entry)
+        if nxt is not None:
+            onward(nxt, b.qty)
+        for s in later:
+            if nxt is not None and s.sequence > nxt.sequence:
+                break
+            if not s.is_mandatory:
+                onward(s, b.qty, target=nxt or s)
     return sorted(found.values(), key=lambda a: a["order"])
 
 

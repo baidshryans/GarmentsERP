@@ -4,12 +4,14 @@ from datetime import date
 import pytest
 from django.urls import reverse
 
+from core.models import Role, RolePermission
 from jobwork.services import challans, rates, receipts
 from jobwork.services.receipts import Counted
 from production.models import Bundle
 from production.services import bundles as bundle_service
 from production.services import cutting, orders, routes
 from production.services.guide import lot_guide, order_next
+from tests.conftest import make_user
 from tests.prod_helpers import D, DAY, build, cut, fabricator, go, step
 
 HALF = slice(0, 3)  # B001 S17 + B002 M25 + B003 M8 = 50 of the 100 pieces
@@ -179,6 +181,96 @@ def test_pieces_qc_sends_back_go_out_for_rework(ns):
     assert len(rework) == 1
     assert rework[0]["url"] == reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework" and rework[0]["pieces"] == 8
     assert labels(g) == ["Check received pieces", "Send back for rework"]  # five lines still wait for QC
+
+
+# ---------------- optional steps: offered beside the next mandatory one, never instead of it ----------------
+
+def stitched(ns):
+    """Every bundle sent out for stitching, counted back in full and accepted by QC."""
+    r = receive(ns, issue(ns, ns.bundles))
+    for line in r.lines.all():
+        receipts.record_qc(receipt_line=line, accepted=line.qty_received, user=ns.owner)
+    return r
+
+
+def optional_send(ns, code, name):
+    return (f"Send to a fabricator for {name} (optional)", reverse("challan_new") + f"?lot={ns.lot.pk}&step={step(ns, code).pk}", 100)
+
+
+def test_after_stitching_the_next_step_is_ironing_and_the_optional_steps_are_offered_beside_it(ns):
+    stitched(ns)
+    assert {b.status for b in Bundle.objects.filter(lot=ns.lot)} == {"ready"}
+    g = lot_guide(ns.lot, ns.owner)
+    assert (g["primary"]["label"], g["primary"]["url"], g["primary"]["pieces"]) == (
+        "Move to Ironing and pressing", reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1", 100)
+    assert [(a["label"], a["url"], a["pieces"]) for a in g["others"]] == [
+        optional_send(ns, "EMB", "Embroidery"), optional_send(ns, "PRINT", "Printing"), optional_send(ns, "WASH", "Washing")]
+    # the strip still shows every step of the route, and says which ones may be left out
+    assert [s["label"] for s in g["journey"] if s["optional"]] == ["Embroidery", "Printing", "Washing"]
+    assert not any(s["optional"] for s in g["journey"] if s["label"] in ("Order", "Fabric", "Cut", "Stitching", "Packing", "Finished goods"))
+
+
+def test_an_optional_step_skipped_on_the_lot_is_not_offered(ns):
+    routes.skip_step(step(ns, "PRINT"), user=ns.owner, reason="plain pant")
+    stitched(ns)
+    g = lot_guide(ns.lot, ns.owner)
+    assert g["primary"]["label"] == "Move to Ironing and pressing"
+    assert [(a["label"], a["url"], a["pieces"]) for a in g["others"]] == [
+        optional_send(ns, "EMB", "Embroidery"), optional_send(ns, "WASH", "Washing")]
+    assert "Printing" not in [s["label"] for s in g["journey"]]
+
+
+def test_an_in_house_optional_step_is_a_move_and_still_comes_after_the_mandatory_one(ns):
+    routes.reassign_step(step(ns, "WASH"), user=ns.owner, reason="own washing unit", assignment="in_house")
+    stitched(ns)
+    g = lot_guide(ns.lot, ns.owner)
+    move_url = reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1"
+    assert g["primary"]["label"] == "Move to Ironing and pressing"
+    assert [(a["label"], a["url"]) for a in g["others"]] == [
+        optional_send(ns, "EMB", "Embroidery")[:2], optional_send(ns, "PRINT", "Printing")[:2], ("Move to Washing (optional)", move_url)]
+
+
+def test_bundles_at_different_points_keep_furthest_behind_first_with_optionals_behind_their_own_target(ns):
+    stitched(ns)
+    go(ns, ns.bundles[HALF], "IRON")
+    g = lot_guide(ns.lot, ns.owner)
+    # ready after stitching (target Ironing, with its three optional steps), then the half already at Ironing
+    assert labels(g) == ["Move to Ironing and pressing", "Send to a fabricator for Embroidery (optional)",
+                         "Send to a fabricator for Printing (optional)", "Send to a fabricator for Washing (optional)",
+                         "Move to Thread cutting and finishing"]
+    assert [a["pieces"] for a in [g["primary"], *g["others"]]] == [50, 50, 50, 50, 50]
+
+
+def test_a_role_that_may_send_but_not_move_gets_the_optional_sends(ns):
+    role = Role.objects.create(name="Job work clerk")
+    for action in ("view", "create"):
+        RolePermission.objects.create(role=role, screen="jobwork.challan", action=action)
+    clerk = make_user("jwclerk")
+    clerk.roles.add(role)
+    clerk.allowed_factories.add(ns.factory)
+    assert clerk.has_screen_perm("jobwork.challan", "create") and not clerk.has_screen_perm("production.move", "create")
+    stitched(ns)
+    g = lot_guide(ns.lot, clerk)
+    # The rule: the primary is the first action the user may do. The mandatory move is not theirs, so an optional
+    # send becomes their primary. That is accepted: it is a real thing they can do, and the label says "(optional)".
+    assert g["primary"]["label"] == "Send to a fabricator for Embroidery (optional)"
+    assert [a["label"] for a in g["others"]] == ["Send to a fabricator for Printing (optional)", "Send to a fabricator for Washing (optional)"]
+    assert g["waiting"] == ""  # `waiting` is only for a user who may do nothing at all
+    # someone who may do neither is told about the mandatory step, not an optional one
+    idle = make_user("idle")
+    idle.allowed_factories.add(ns.factory)
+    waits = lot_guide(ns.lot, idle)
+    assert waits["primary"] is None and waits["others"] == [] and waits["waiting"] == "Move to Ironing and pressing"
+
+
+def test_when_only_optional_steps_remain_they_are_all_that_is_offered(ns):
+    stitch_in_house(ns)
+    for code in ("IRON", "FINISH", "QC", "PACK"):
+        routes.remove_step(step(ns, code), user=ns.owner, reason="test: a route that ends in optional steps")
+    go(ns, ns.bundles, "STITCH")
+    g = lot_guide(ns.lot, ns.owner)
+    assert labels(g) == ["Send to a fabricator for Embroidery (optional)", "Send to a fabricator for Printing (optional)",
+                         "Send to a fabricator for Washing (optional)"]
 
 
 # ---------------- packing and the end ----------------

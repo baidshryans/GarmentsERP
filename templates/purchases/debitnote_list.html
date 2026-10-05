@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Debit notes{% endblock %}
+{% block title %}Returns to supplier{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">Debit notes</h1>
+  <div class="page-head"><h1 class="page-title">Returns to supplier</h1>
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'debitnote_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Return to vendor</a>{% endif %}</div></div>
   <div class="island">
     {% if notes %}<div class="table-wrap"><table>

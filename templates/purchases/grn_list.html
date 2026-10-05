@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Goods receipt{% endblock %}
+{% block title %}Goods received{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">Goods receipt (GRN)</h1>
+  <div class="page-head"><h1 class="page-title">Goods received</h1>
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'grn_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New GRN</a>{% endif %}</div></div>
   <div class="island">
     {% if grns %}<div class="table-wrap"><table>

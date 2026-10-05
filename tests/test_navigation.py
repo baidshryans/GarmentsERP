@@ -146,3 +146,14 @@ def test_home_for_a_user_with_no_role_still_opens(company):
     r = _client(make_user("norole")).get(reverse("home"))
     assert r.status_code == 200 and "What do you want to do?" not in r.content.decode()
 
+
+
+@pytest.mark.parametrize("url_name,title", [
+    ("grn_list", "Goods received"), ("invoice_list", "Supplier bills"), ("debitnote_list", "Returns to supplier"),
+    ("challan_list", "Sent to fabricators"), ("receipt_list", "Received from fabricators"),
+    ("saleinvoice_list", "Bills"), ("billing", "Quick billing"), ("salecn_list", "Returns from customer"),
+    ("ageing_debtors", "Who owes me"), ("ageing_creditors", "Whom I owe"),
+])
+def test_page_heading_matches_the_menu_wording(company, owner, url_name, title):
+    html = _client(owner).get(reverse(url_name)).content.decode()
+    assert re.search(r'<h1 class="page-title">\s*' + re.escape(title) + r"\s*</h1>", html), url_name

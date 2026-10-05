@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{% if kind == "debtors" %}Receivables{% else %}Payables{% endif %}{% endblock %}
+{% block title %}{% if kind == "debtors" %}Who owes me{% else %}Whom I owe{% endif %}{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">{% if kind == "debtors" %}Receivables{% else %}Payables{% endif %} ageing</h1><span class="muted">As at {{ as_of|date:"d M Y" }} · days past the due date</span>
-    <div class="actions no-print"><a class="btn ghost" href="{% url 'ageing' 'debtors' %}">Receivables</a><a class="btn ghost" href="{% url 'ageing' 'creditors' %}">Payables</a></div></div>
+  <div class="page-head"><h1 class="page-title">{% if kind == "debtors" %}Who owes me{% else %}Whom I owe{% endif %}</h1><span class="muted">As at {{ as_of|date:"d M Y" }} · days past the due date</span>
+    <div class="actions no-print"><a class="btn ghost" href="{% url 'ageing' 'debtors' %}">Who owes me</a><a class="btn ghost" href="{% url 'ageing' 'creditors' %}">Whom I owe</a></div></div>
   <div class="island">
     {% include "reports/_filter.html" with mode="asof" %}
     {% if ag.parties %}<div class="table-scroll"><table>

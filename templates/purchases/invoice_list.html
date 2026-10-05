@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Purchase invoices{% endblock %}
+{% block title %}Supplier bills{% endblock %}
 {% block content %}
-  <div class="page-head"><h1 class="page-title">Purchase invoices</h1>
+  <div class="page-head"><h1 class="page-title">Supplier bills</h1>
     <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'invoice_new' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> New invoice</a>{% endif %}</div></div>
   <div class="island">
     {% if invoices %}<div class="table-wrap"><table>

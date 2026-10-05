@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Barcode billing{% endblock %}
+{% block title %}Quick billing{% endblock %}
 {% block content %}
   <link rel="stylesheet" href="{% static 'css/sales.css' %}?v={{ asset_v }}">
-  <div class="page-head"><h1 class="page-title">Barcode billing</h1><span class="muted">Scan a tag or a carton label; each scan adds a piece at the customer's rate</span>
+  <div class="page-head"><h1 class="page-title">Quick billing</h1><span class="muted">Scan a tag or a carton label; each scan adds a piece at the customer's rate</span>
     <div class="actions"><a class="btn ghost" href="{% url 'saleinvoice_list' %}">All invoices</a></div></div>
   <form method="post" novalidate>{% csrf_token %}
     <button hidden tabindex="-1" name="action" value="draft" aria-hidden="true"></button>

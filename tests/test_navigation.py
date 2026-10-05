@@ -6,6 +6,9 @@ from django.test import Client
 from django.urls import reverse
 
 from core.context_processors import NAV, flat_items
+from core.home_actions import HOME_ACTIONS, home_actions
+from core.models import Role
+from tests.conftest import make_user
 
 # Every screen the menu offered before the regroup. None may be dropped.
 OLD_MENU = {
@@ -64,3 +67,28 @@ def test_a_party_statement_keeps_the_money_group_lit(company, owner, ledgers):
     html = _client(owner).get(reverse("ledger_statement", args=[ledgers("cash").pk])).content.decode()
     assert re.search(r'<details class="nav-group active" data-group="money"', html)
     assert not re.search(r'<details class="nav-group active" data-group="more"', html)
+
+
+def test_every_launchpad_button_points_at_a_real_screen():
+    for _, _, actions in HOME_ACTIONS:
+        for url_name, label, screen, action in actions:
+            assert reverse(url_name), label
+
+
+def test_owner_gets_all_five_islands(company, owner):
+    islands = home_actions(owner)
+    assert [i["title"] for i in islands] == ["Buy", "Make", "Sell", "Money", "Masters"]
+    assert sum(len(i["actions"]) for i in islands) == 17
+
+
+def test_launchpad_follows_the_role(company, factory):
+    sup = make_user("sup_launch")
+    sup.roles.add(Role.objects.get(name="Production Supervisor"))
+    sup.allowed_factories.add(factory)
+    labels = {a["label"] for i in home_actions(sup) for a in i["actions"]}
+    assert "Money received" not in labels and "Make a bill" not in labels
+    assert all(i["actions"] for i in home_actions(sup))          # an island with nothing allowed is dropped
+
+
+def test_user_with_no_role_gets_no_islands(company):
+    assert home_actions(make_user("nobody")) == []

@@ -62,7 +62,34 @@ def stage(guide, label):
 
 
 def labels(guide):
-    return [a["label"] for a in [guide["primary"], *guide["others"]] if a]
+    return [a["label"] for a in offered(guide)]
+
+
+def offered(guide):
+    return [a for a in [guide["primary"], *guide["others"]] if a]
+
+
+def move_to(ns, code):
+    return reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1&step={step(ns, code).pk}"
+
+
+def follow_links(ns, guide, user=None):
+    """Open every offered link as the user would, and check the screen it lands on really offers that work:
+    a challan form on the named step listing exactly those pieces, a move form with the named stage chosen."""
+    c = Client()
+    c.force_login(user or ns.owner)
+    for a in offered(guide):
+        r = c.get(a["url"])
+        assert r.status_code == 200, a
+        if a["url"].startswith(reverse("challan_new")):
+            assert f"step={r.context['step'].pk}" in a["url"], a
+            assert sum(b.qty for b in r.context["bundles"]) == a["pieces"], (a, [b.bundle_no for b in r.context["bundles"]])
+        elif a["url"].startswith(reverse("move_bundles")):
+            html = r.content.decode()
+            select = html[html.index('id="to_step"'):]
+            select = select[:select.index("</select>")]
+            chosen = re.findall(r'<option value="(\d+)" selected>', select)
+            assert len(chosen) == 1 and a["url"].endswith(f"&step={chosen[0]}"), a
 
 
 # ---------------- fabric, cutting, bundles ----------------
@@ -108,7 +135,8 @@ def test_cut_bundles_move_to_the_next_in_house_step(ns):
     assert nxt.process.code == "STITCH" and nxt.assignment == "in_house"
     g = lot_guide(ns.lot, ns.owner)
     assert g["primary"]["label"] == f"Move to {nxt.process.name}" == "Move to Stitching"
-    assert g["primary"]["url"] == reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1"
+    assert g["primary"]["url"] == reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1&step={nxt.pk}"
+    follow_links(ns, g)
     assert g["primary"]["pieces"] == 100 and g["others"] == []
     assert stage(g, "Cut")["state"] == "done" and stage(g, "Cut")["pieces"] == 100
 
@@ -182,7 +210,8 @@ def test_pieces_qc_sends_back_go_out_for_rework(ns):
     g = lot_guide(ns.lot, ns.owner)
     rework = [a for a in [g["primary"], *g["others"]] if a["label"] == "Send back for rework"]
     assert len(rework) == 1
-    assert rework[0]["url"] == reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework" and rework[0]["pieces"] == 8
+    assert rework[0]["url"] == reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework&step={step(ns, 'STITCH').pk}"
+    assert rework[0]["pieces"] == 8
     assert labels(g) == ["Check received pieces", "Send back for rework"]  # five lines still wait for QC
 
 
@@ -205,9 +234,10 @@ def test_after_stitching_the_next_step_is_ironing_and_the_optional_steps_are_off
     assert {b.status for b in Bundle.objects.filter(lot=ns.lot)} == {"ready"}
     g = lot_guide(ns.lot, ns.owner)
     assert (g["primary"]["label"], g["primary"]["url"], g["primary"]["pieces"]) == (
-        "Move to Ironing and pressing", reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1", 100)
+        "Move to Ironing and pressing", move_to(ns, "IRON"), 100)
     assert [(a["label"], a["url"], a["pieces"]) for a in g["others"]] == [
         optional_send(ns, "EMB", "Embroidery"), optional_send(ns, "PRINT", "Printing"), optional_send(ns, "WASH", "Washing")]
+    follow_links(ns, g)
     # the strip still shows every step of the route, and says which ones may be left out
     assert [s["label"] for s in g["journey"] if s["optional"]] == ["Embroidery", "Printing", "Washing"]
     assert not any(s["optional"] for s in g["journey"] if s["label"] in ("Order", "Fabric", "Cut", "Stitching", "Packing", "Finished goods"))
@@ -227,10 +257,11 @@ def test_an_in_house_optional_step_is_a_move_and_still_comes_after_the_mandatory
     routes.reassign_step(step(ns, "WASH"), user=ns.owner, reason="own washing unit", assignment="in_house")
     stitched(ns)
     g = lot_guide(ns.lot, ns.owner)
-    move_url = reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1"
-    assert g["primary"]["label"] == "Move to Ironing and pressing"
+    assert (g["primary"]["label"], g["primary"]["url"]) == ("Move to Ironing and pressing", move_to(ns, "IRON"))
     assert [(a["label"], a["url"]) for a in g["others"]] == [
-        optional_send(ns, "EMB", "Embroidery")[:2], optional_send(ns, "PRINT", "Printing")[:2], ("Move to Washing (optional)", move_url)]
+        optional_send(ns, "EMB", "Embroidery")[:2], optional_send(ns, "PRINT", "Printing")[:2],
+        ("Move to Washing (optional)", move_to(ns, "WASH"))]
+    follow_links(ns, g)
 
 
 def test_bundles_at_different_points_keep_furthest_behind_first_with_optionals_behind_their_own_target(ns):
@@ -286,7 +317,6 @@ def to_packing(ns):
 
 
 def test_bundles_spread_over_two_stages_then_packed_into_finished_goods(ns):
-    move_url = reverse("move_bundles") + f"?lot={ns.lot.pk}&back=1"
     stitch_in_house(ns)
     go(ns, ns.bundles, "STITCH")
     g = lot_guide(ns.lot, ns.owner)
@@ -294,8 +324,18 @@ def test_bundles_spread_over_two_stages_then_packed_into_finished_goods(ns):
     go(ns, ns.bundles, "IRON")
     go(ns, ns.bundles[HALF], "FINISH")
     g = lot_guide(ns.lot, ns.owner)
-    assert (g["primary"]["label"], g["primary"]["url"], g["primary"]["pieces"]) == ("Move to Thread cutting and finishing", move_url, 50)
-    assert [(a["label"], a["url"], a["pieces"]) for a in g["others"]] == [("Move to Quality check", move_url, 50)]
+    assert (g["primary"]["label"], g["primary"]["url"], g["primary"]["pieces"]) == (
+        "Move to Thread cutting and finishing", move_to(ns, "FINISH"), 50)
+    assert [(a["label"], a["url"], a["pieces"]) for a in g["others"]] == [("Move to Quality check", move_to(ns, "QC"), 50)]
+    follow_links(ns, g)
+    # several stages are in progress (the optional steps half the bundles jumped over count as in progress as well);
+    # only one is marked as where the lot is, the earliest that has pieces sitting at it, on the page too
+    now = [s["label"] for s in g["journey"] if s["state"] == "now"]
+    assert len(now) > 1 and {"Ironing and pressing", "Thread cutting and finishing"} <= set(now)
+    assert [s["label"] for s in g["journey"] if s["current"]] == ["Ironing and pressing"]
+    strip = guide_of(lot_page(ns, ns.owner))
+    assert strip.count('aria-current="step"') == 1 and strip.count('class="sr-only"') == len(g["journey"])
+    assert re.search(r'<li class="now" aria-current="step">\s*<span class="j-label">Ironing and pressing</span>', strip)
     assert stage(g, "Ironing and pressing")["pieces"] == 50 and stage(g, "Thread cutting and finishing")["pieces"] == 50
     assert stage(g, "Stitching")["state"] == "done" and stage(g, "Stitching")["pieces"] is None
 
@@ -385,6 +425,8 @@ def test_the_lot_page_opens_with_the_journey_and_one_next_button(company, factor
     assert re.search(r'<a class="btn primary" href="%s">Issue fabric</a>' % re.escape(reverse("lot_fabric", args=[ns.lot.pk])), g)
     # the route is folded away, not removed: its table and its change forms are still on the page
     assert "<summary>Route and rates</summary>" in html and '<th scope="col">Process</th>' in html
+    # a planned lot is where the route gets planned, so for someone who may change it the fold starts open
+    assert '<details class="fold" open><summary>Route and rates</summary>' in html
     assert 'value="reassign"' in html and "<summary>Add a step</summary>" in html
     assert "<summary>Lot cost</summary>" in html
     assert g.count('class="j-tag"') == 3  # embroidery, printing and washing are marked optional
@@ -407,6 +449,8 @@ def test_a_role_that_may_not_cut_sees_what_the_lot_waits_for_and_no_link(company
     g = guide_of(html)
     assert "Waiting for: Issue fabric" in g and "btn primary" not in g
     assert f'href="{reverse("lot_fabric", args=[ns.lot.pk])}"' not in html
+    looker = role_user("looker", {"production.lot": ["view"]}, factory)
+    assert '<details class="fold"><summary>Route and rates</summary>' in lot_page(ns, looker)  # cannot edit: folded
 
 
 def test_the_orders_list_names_the_next_step_of_each_order(ns):
@@ -464,7 +508,9 @@ def test_a_closed_lot_shows_no_stage_as_current(company, factory, owner):
 
 def test_the_lot_page_offers_optional_steps_as_smaller_links_never_as_the_button(ns):
     stitched(ns)
-    g = guide_of(lot_page(ns, ns.owner))
+    html = lot_page(ns, ns.owner)
+    assert '<details class="fold"><summary>Route and rates</summary>' in html  # past planning: folded again
+    g = guide_of(html)
     assert re.search(r'<a class="btn primary" href="[^"]*">Move to Ironing and pressing</a>', g)
     also = g[g.index("Also waiting"):]
     assert "Send to a fabricator for Embroidery (optional)" in also and "btn primary" not in also
@@ -536,13 +582,12 @@ def test_qc_of_the_last_line_returns_to_the_lot(ns):
     first, last = rec.lines.order_by("id")
     c = login(ns.owner)
     here = reverse("receipt_detail", args=[rec.pk])
-    r = c.post(here, {"action": "qc", "line": first.pk, "accepted": first.qty_received, "rejected": "0", "rework": "0"})
-    assert r.status_code == 302 and r["Location"] == here  # another line still waits
+    r = c.post(here, {"action": "qc", "line": first.pk, "accepted": first.qty_received, "rejected": "0", "rework": "0"}, follow=True)
+    assert r.redirect_chain == [(here, 302)]  # another line still waits
+    assert "QC recorded." in r.content.decode() and "Every bundle on this receipt is checked." not in r.content.decode()
     r = c.post(here, {"action": "qc", "line": last.pk, "accepted": last.qty_received, "rejected": "0", "rework": "0"}, follow=True)
     assert r.redirect_chain == [(reverse("lot_detail", args=[ns.lot.pk]), 302)]
-    html = r.content.decode()
-    # one message per line checked (the first is still queued, as that redirect was not followed); the last says it is the last
-    assert html.count("QC recorded.") == 2 and html.count("QC recorded. Every bundle on this receipt is checked.") == 1
+    assert "QC recorded. Every bundle on this receipt is checked." in r.content.decode()
     rec.refresh_from_db()
     assert rec.status == "qc_done"
 
@@ -579,3 +624,190 @@ def test_every_step_screen_has_a_way_back_to_the_lot_for_those_who_may_open_it(n
     for url in pages[:3]:
         page = k.get(url)
         assert page.status_code == 200 and "Back to lot" not in page.content.decode(), url
+
+
+# ================================================================ every offered step opens on the right step and bundles
+
+def test_rework_goes_back_on_the_step_it_came_from_not_the_first_open_one(ns):
+    emb = step(ns, "EMB")
+    rates.save_rate(party=ns.fab, process=emb.process, rate_type="A", base_rate=D("8"), rework_rate=D("2"), effective_from=date(2026, 4, 1))
+    one = ns.bundles[:1]  # B001, 17 pieces: stitched and accepted, then embroidered and sent back
+    for line in receive(ns, issue(ns, one)).lines.all():
+        receipts.record_qc(receipt_line=line, accepted=line.qty_received, user=ns.owner)
+    out = challans.issue_challan(challans.create_challan(company=ns.company, factory=ns.factory, party=ns.fab, lot=ns.lot, step=emb,
+                                                         bundles=one, date=DAY, user=ns.owner), user=ns.owner)
+    receipts.record_qc(receipt_line=receive(ns, out).lines.get(), accepted=0, rework=17, user=ns.owner)
+    b1 = Bundle.objects.get(pk=one[0].pk)
+    assert b1.status == "rework" and b1.current_step_id == emb.pk
+    assert step(ns, "STITCH").status != "done"  # five bundles are still cut: stitching is the first open outside step
+
+    g = lot_guide(ns.lot, ns.owner)
+    rework = [a for a in offered(g) if a["label"] == "Send back for rework"]
+    assert [(a["url"], a["pieces"]) for a in rework] == [(reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework&step={emb.pk}", 17)]
+    c = login(ns.owner)
+    form = c.get(rework[0]["url"])
+    assert form.context["kind"] == "rework" and form.context["step"].pk == emb.pk
+    assert [b.bundle_no for b in form.context["bundles"]] == ["B001"]
+    # without the step the same screen opens on stitching, which is what the link used to do
+    assert c.get(reverse("challan_new") + f"?lot={ns.lot.pk}&kind=rework").context["step"].pk == step(ns, "STITCH").pk
+    follow_links(ns, g)
+    # and the form, sent as it stands, makes the rework challan for embroidery
+    r = c.post(reverse("challan_new"), {"lot": ns.lot.pk, "step": emb.pk, "kind": "rework", "factory": ns.factory.pk,
+                                        "party": ns.fab.pk, "date": "2026-06-16", "bundle": [b1.pk]})
+    made = ns.lot.challans.get(kind="rework")
+    assert r.status_code == 302 and made.step_id == emb.pk and made.status == "draft"
+
+
+def test_a_bundle_still_on_an_open_challan_is_not_offered_to_another_fabricator(ns):
+    ch = issue(ns, ns.bundles[:2])  # B001 (17) and B002 (25) go out for stitching
+    b1, b2 = ch.bundles.order_by("id")
+    for line in receive(ns, ch, {b1: 17}).lines.all():
+        receipts.record_qc(receipt_line=line, accepted=17, user=ns.owner)
+    ch.refresh_from_db()
+    assert ch.status == "partly_received" and Bundle.objects.get(pk=ns.bundles[0].pk).status == "ready"
+
+    g = lot_guide(ns.lot, ns.owner)
+    # B001 may move on in-house, but no challan can take it until this one is fully received: no optional sends
+    assert [(a["label"], a["pieces"]) for a in offered(g)] == [
+        (f"Send to {ns.fab.name} for Stitching", 58), (f"Receive from {ns.fab.name}", 25), ("Move to Ironing and pressing", 17)]
+    follow_links(ns, g)
+    c = login(ns.owner)
+    for code in ("EMB", "PRINT", "WASH"):  # the challan screen agrees: it has nothing to list for those steps
+        assert list(c.get(reverse("challan_new"), {"lot": ns.lot.pk, "step": step(ns, code).pk}).context["bundles"]) == []
+
+    receive(ns, ch, {b2: 25})  # the rest comes back: the challan is closed to receiving, B001 is free to go out again
+    g = lot_guide(ns.lot, ns.owner)
+    assert [(a["label"], a["pieces"]) for a in offered(g)] == [
+        (f"Send to {ns.fab.name} for Stitching", 58), ("Check received pieces", 0), ("Move to Ironing and pressing", 17),
+        ("Send to a fabricator for Embroidery (optional)", 17), ("Send to a fabricator for Printing (optional)", 17),
+        ("Send to a fabricator for Washing (optional)", 17)]
+    follow_links(ns, g)
+
+
+def test_a_route_with_no_packing_step_packs_from_its_last_step(ns):
+    stitch_in_house(ns)
+    routes.remove_step(step(ns, "PACK"), user=ns.owner, reason="packed at the checking table")
+    for code in ("STITCH", "IRON", "FINISH"):
+        go(ns, ns.bundles, code)
+    g = lot_guide(ns.lot, ns.owner)
+    assert labels(g) == ["Move to Quality check"]
+    follow_links(ns, g)
+    go(ns, ns.bundles, "QC")
+    g = lot_guide(ns.lot, ns.owner)
+    assert [(a["label"], a["url"], a["pieces"]) for a in offered(g)] == [
+        ("Pack into finished goods", reverse("lot_detail", args=[ns.lot.pk]) + "#pack", 100)]
+    c = login(ns.owner)
+    html = c.get(reverse("lot_detail", args=[ns.lot.pk])).content.decode()
+    form = html[html.index('<form id="pack"'):]
+    form = form[:form.index("</form>")]
+    assert f'action="{reverse("pack_bundles", args=[ns.lot.pk])}"' in form
+    assert all(f'name="bundle" value="{b.pk}" checked' in form for b in ns.bundles)
+    done = c.post(reverse("pack_bundles", args=[ns.lot.pk]), {"bundle": [b.pk for b in ns.bundles]}, follow=True).content.decode()
+    assert "100 pieces packed into finished goods." in done and "This lot is complete." in guide_of(done)
+
+
+def test_a_lot_with_nothing_to_offer_says_so_instead_of_showing_a_blank_guide():
+    from django.template.loader import render_to_string
+
+    blank = {"journey": [], "primary": None, "others": [], "waiting": "", "complete": False, "closed": False}
+    assert "Nothing to do right now. Open Corrections below if something is missing." in render_to_string(
+        "production/_lot_guide.html", {"guide": blank})
+    for state in ("complete", "closed"):
+        assert "Nothing to do right now" not in render_to_string("production/_lot_guide.html", {"guide": {**blank, state: True}})
+
+
+def test_the_move_link_opens_with_its_stage_chosen_and_the_form_works_as_it_stands(ns):
+    stitch_in_house(ns)
+    st = step(ns, "STITCH")
+    g = lot_guide(ns.lot, ns.owner)
+    assert g["primary"]["url"] == move_to(ns, "STITCH")
+    c = login(ns.owner)
+    html = c.get(g["primary"]["url"]).content.decode()
+    select = html[html.index('id="to_step"'):]
+    select = select[:select.index("</select>")]
+    assert f'<option value="{st.pk}" selected>' in select and select.count(" selected") == 1
+    # opened from the menu or the corrections row, nothing is pre-chosen (the first stage shows, as before)
+    plain = c.get(reverse("move_bundles"), {"lot": ns.lot.pk}).content.decode()
+    plain = plain[plain.index('id="to_step"'):]
+    assert " selected" not in plain[:plain.index("</select>")]
+    # ticking the bundles and pressing the button, with the stage left as offered, moves them and returns to the lot
+    r = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "back": "1", "to_step": st.pk, "bundle": [b.pk for b in ns.bundles]})
+    assert r.status_code == 302 and r["Location"] == reverse("lot_detail", args=[ns.lot.pk])
+    assert set(Bundle.objects.filter(lot=ns.lot).values_list("current_step_id", flat=True)) == {st.pk}
+    # a refused move shows the form again with the stage the user had picked still chosen
+    bad = c.post(reverse("move_bundles"), {"lot": ns.lot.pk, "back": "1", "to_step": step(ns, "QC").pk, "bundle": [ns.bundles[0].pk]})
+    assert bad.status_code == 200 and f'<option value="{step(ns, "QC").pk}" selected>' in bad.content.decode()
+
+
+def test_an_action_needs_view_on_the_screen_it_opens_as_well_as_the_right_to_do_it(ns):
+    def guide_for(name, grants):
+        return lot_guide(ns.lot, role_user(name, grants, ns.factory))
+
+    # making a challan: `create` alone would land on a challan page the role cannot open
+    g = guide_for("send_only", {"jobwork.challan": ["create"]})
+    assert g["primary"] is None and g["others"] == [] and g["waiting"] == "Send to a fabricator for Stitching"
+    g = guide_for("send_view", {"jobwork.challan": ["create", "view"]})
+    assert g["primary"]["label"] == "Send to a fabricator for Stitching"
+
+    to_packing(ns)
+    for name, grants in (("pack_a", {"production.move": ["create"]}),
+                         ("pack_b", {"production.move": ["create", "view"]}),          # packing is done on the lot page
+                         ("pack_c", {"production.lot": ["view"]})):
+        g = guide_for(name, grants)
+        assert g["primary"] is None and g["others"] == [] and g["waiting"] == "Pack into finished goods", name
+    packer = role_user("pack_d", {"production.move": ["create"], "production.lot": ["view"]}, ns.factory)
+    g = lot_guide(ns.lot, packer)
+    assert g["primary"]["label"] == "Pack into finished goods"
+    assert login(packer).get(reverse("lot_detail", args=[ns.lot.pk])).status_code == 200
+
+
+def test_cutting_and_moving_need_view_on_their_own_screens(company, factory, owner):
+    ns = build(company, factory, owner)
+    blind = role_user("cut_blind", {"production.cutting": ["create"]}, factory)
+    g = lot_guide(ns.lot, blind)
+    assert g["primary"] is None and g["waiting"] == "Issue fabric"
+    assert login(blind).get(reverse("lot_fabric", args=[ns.lot.pk])).status_code == 403  # the link it would have been
+    seeing = role_user("cut_seeing", {"production.cutting": ["create", "view"]}, factory)
+    g = lot_guide(ns.lot, seeing)
+    assert g["primary"]["label"] == "Issue fabric" and login(seeing).get(g["primary"]["url"]).status_code == 200
+
+
+def test_one_call_asks_each_permission_once_and_callers_can_share_the_answers(ns):
+    class Counting:
+        def __init__(self, user):
+            self.user, self.asked = user, []
+
+        def has_screen_perm(self, screen, action):
+            self.asked.append((screen, action))
+            return self.user.has_screen_perm(screen, action)
+
+    stitched(ns)  # four actions on offer, three of them needing the same two challan permissions
+    who = Counting(ns.owner)
+    g = lot_guide(ns.lot, who)
+    assert len(offered(g)) == 4 and len(who.asked) == len(set(who.asked)) == 4
+    shared, again = {}, Counting(ns.owner)
+    assert lot_guide(ns.lot, again, shared) == lot_guide(ns.lot, again, shared) == g
+    assert len(again.asked) == 4  # the second lot (here the same one) asked nothing new
+    assert order_next(ns.order, again, shared) == g["primary"] and len(again.asked) == 4
+
+
+def test_the_orders_list_shares_what_it_learns_between_orders(company, factory, owner, django_assert_max_num_queries):
+    """Measured on this page with three released single-lot orders, none cut yet: 105 queries before the guide shared
+    its permission answers and skipped the job work look-ups for a lot with no bundles, 95 after. 83 of those are
+    the page itself (menu permissions, session, user); each further order costs the four reads of its lot."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    ns = build(company, factory, owner)
+    c = login(owner)
+    with CaptureQueriesContext(connection) as one:
+        c.get(reverse("order_list"))
+    for _ in range(2):
+        orders.release_order(draft_order(ns), user=owner)
+    with django_assert_max_num_queries(97) as three:
+        html = c.get(reverse("order_list")).content.decode()
+    assert html.count("Issue fabric</a>") == 3
+    # two more orders: their lots' steps, bundles, lays and fabric issues, and no permission asked a second time
+    assert len(three) - len(one) <= 2 * 4
+    asked = [q["sql"] for q in three.captured_queries if "core_rolepermission" in q["sql"] and "production.cutting" in q["sql"]]
+    assert len(asked) == 2  # create and view, once each for the whole page, not once per order

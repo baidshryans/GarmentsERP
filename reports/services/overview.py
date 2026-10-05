@@ -36,7 +36,7 @@ def production_overview(user, today):
         if b.is_rework:
             rework += b.qty
     cut = dict(Bundle.objects.filter(lot__in=lots).values_list("lot_id").annotate(s=Sum("original_qty")))
-    rows = []
+    rows, perms = [], {}
     for lot in lots:
         order = lot.order_line.order
         rows.append({
@@ -45,7 +45,7 @@ def production_overview(user, today):
             "stages": ", ".join(f"{n} {q}" for n, q in sorted(stages[lot.pk].items(), key=lambda kv: -kv[1])) or "Not cut yet",
             "where": ", ".join(sorted(holders[lot.pk])) or "-",
             "late": bool(order.due_date and order.due_date < today),
-            "next": guide.lot_guide(lot, user)["primary"],     # only an action this user's role may do, or None
+            "next": guide.lot_guide(lot, user, perms)["primary"],     # only an action this user's role may do, or None
         })
     rows.sort(key=lambda r: (not r["late"], r["order"].due_date or today.max, r["lot"].lot_no))
     orders = ProductionOrder.objects.for_user(user)

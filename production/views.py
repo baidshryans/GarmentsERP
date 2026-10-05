@@ -48,8 +48,9 @@ class OrderList(LoginRequiredMixin, ScreenPermissionMixin, View):
         if request.GET.get("status"):
             qs = qs.filter(status=request.GET["status"])
         orders_shown = list(qs[:200])
+        perms = {}                                               # one user: each permission is asked once for the page
         for o in orders_shown:                                   # only the orders on the page: the guide reads each lot
-            o.next = guide.order_next(o, request.user)
+            o.next = guide.order_next(o, request.user, perms)
         return render(request, "production/order_list.html", {
             "orders": orders_shown, "statuses": ProductionOrder.Status.choices, "status": request.GET.get("status", ""),
             "can_create": request.user.has_screen_perm("production.order", "create"),
@@ -139,11 +140,11 @@ class OrderDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
 
     def get(self, request, pk):
         order = self._order(request, pk)
-        lines = []
+        lines, perms = [], {}
         for l in order.lines.select_related("style", "colour", "bom_version", "route").prefetch_related("sizes__size"):
             lot = getattr(l, "lot", None) if hasattr(l, "lot") else None
             lines.append({"line": l, "lot": lot, "sizes": l.sizes.all(),
-                          "next": guide.lot_guide(lot, request.user)["primary"] if lot else None})
+                          "next": guide.lot_guide(lot, request.user, perms)["primary"] if lot else None})
         return render(request, "production/order_detail.html", {
             "order": order, "lines": lines,
             "can_edit": request.user.has_screen_perm("production.order", "edit"),
@@ -187,6 +188,7 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
         planned = sum(l.qty for l in lot.order_line.sizes.all())
         breakdown = costing.cost_breakdown(lot)
         can_cost = request.user.can_view_field("cost")
+        can_edit = request.user.has_screen_perm("production.lot", "edit")
         live = [b for b in bundles if b.is_live]
         expected_charges = sum((c.amount_per_piece for c in lot.bom_version.charges.all()), Decimal("0")) * sum(b.original_qty for b in bundles) if lot.bom_version else None
         return render(request, "production/lot_detail.html", {
@@ -198,7 +200,7 @@ class LotDetail(LoginRequiredMixin, ScreenPermissionMixin, View):
             "changes": lot.route_changes.select_related("user")[:20],
             "processes": Process.objects.filter(is_active=True), "factories": _factories(request.user),
             "fabricators": Party.objects.filter(is_fabricator=True, is_active=True),
-            "can_edit": request.user.has_screen_perm("production.lot", "edit"),
+            "can_edit": can_edit, "route_open": can_edit and lot.status == Lot.Status.PLANNED,   # the route is planned then
             "can_cut": request.user.has_screen_perm("production.cutting", "create"),
             "can_move": request.user.has_screen_perm("production.move", "create"),
             "can_pack": request.user.has_screen_perm("production.move", "create"),
@@ -393,6 +395,7 @@ class MoveView(LoginRequiredMixin, ScreenPermissionMixin, View):
     def _ctx(self, request, lot, vals=None):
         ctx = {"lot": lot, "vals": vals or {},
                "back": (request.GET.get("back") or request.POST.get("back")) == "1",   # opened from a lot's Next button
+               "to_step": request.POST.get("to_step") or request.GET.get("step") or "",  # the stage that button named
                "lots": in_active(Lot.objects.for_user(request.user), request).exclude(status__in=("closed", "completed")).select_related("style", "colour"),
                "can_move": request.user.has_screen_perm("production.move", "create")}
         if lot:

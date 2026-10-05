@@ -6,7 +6,7 @@ is the only party name used (BR-15)."""
 from django.urls import reverse
 
 from core.models import Location
-from jobwork.models import ChallanBundle, JobWorkChallan, Receipt, ReceiptLine
+from jobwork.models import JobWorkChallan, Receipt, ReceiptLine
 from production.models import Bundle, LotStep
 
 B = Bundle.Status
@@ -14,11 +14,15 @@ AT_A_STAGE = (B.AT_STAGE, B.DONE, B.RECEIVED, B.REWORK)
 # Within one stage, what is furthest behind comes first. An optional step sorts behind everything else aimed at the
 # mandatory step it comes before, so it is never the main button while that step is open to the same user.
 RANK = {"send": 0, "move": 0, "issue": 1, "receive": 2, "approve": 3, "qc": 4, "rework": 5, "optional": 6}
+# making a challan needs `create`; the saved challan then opens on its own page, which needs `view`
+CHALLAN_NEW = (("jobwork.challan", "create"), ("jobwork.challan", "view"))
 STATE = {LotStep.Status.DONE: "done", LotStep.Status.IN_PROGRESS: "now", LotStep.Status.PENDING: "todo"}
 
 
 def _packing_step(steps):
-    return next((s for s in reversed(steps) if s.process.kind == "packing"), None)
+    """The step bundles are packed from: the packing step, or the last step of a route that has none (the same
+    rule as `bundles._packing_step`, which is what the pack service checks against)."""
+    return next((s for s in reversed(steps) if s.process.kind == "packing"), steps[-1] if steps else None)
 
 
 def pack_ready(bundle, steps):
@@ -55,6 +59,12 @@ def _journey(lot, steps, bundles, cuts, issued):
     done = lot.status == lot.Status.COMPLETED
     stages.append({"label": "Finished goods", "detail": "", "state": "done" if done else ("now" if packed else "todo"),
                    "pieces": packed or None, "optional": False})
+    # several stages can be in progress at once (an optional step that some bundles jumped over counts as in progress
+    # too); one is marked as where the lot is: the earliest with pieces sitting at it, else the earliest in progress
+    now = [s for s in stages if s["state"] == "now"] if lot.status != lot.Status.CLOSED else []
+    first_now = next((s for s in now if s["pieces"]), now[0] if now else None)
+    for s in stages:
+        s["current"] = s is first_now
     return stages
 
 
@@ -62,26 +72,30 @@ def _actions(lot, steps, bundles, cuts, issued):
     found = {}
 
     def add(key, seq, label, hint, url, perm, pieces=0, tie=0):
+        """`perm` lists every permission the user needs: to do the thing, and to open the screen the link leads to."""
         a = found.setdefault(key, {"label": label, "hint": hint, "url": url, "perm": perm, "pieces": 0,
                                    "order": (seq, RANK.get(key[0], 0), tie)})
         a["pieces"] += pieces
 
-    def onward(step, pieces, target=None):
+    def onward(step, b, target=None):
         """Send or move bundles on to `step`. With `target`, `step` is an optional one on the way to that mandatory
         step (or, with nothing mandatory left, to itself): it is offered beside the main action, never ahead of it."""
         extra = "" if target is None else " (optional)"
         key = () if target is None else ("optional",)
         seq, tie = (step.sequence, 0) if target is None else (target.sequence, step.sequence)
         if step.assignment == LotStep.Assignment.SUBCONTRACT:
+            if b.pk in on_challan:
+                return        # the challan screen refuses a bundle until the challan it is on has been received in full
             who = step.party.name if step.party_id else "a fabricator"
             add(key + ("send", step.pk), seq, f"Send to {who} for {step.process.name}{extra}",
                 "Make a challan and hand the bundles over.",
-                reverse("challan_new") + f"?lot={lot.pk}&step={step.pk}", ("jobwork.challan", "create"), pieces, tie)
+                reverse("challan_new") + f"?lot={lot.pk}&step={step.pk}", CHALLAN_NEW, b.qty, tie)
         else:
             add(key + ("move", step.pk), seq, f"Move to {step.process.name}{extra}", "Scan or tick the bundles that are ready.",
-                reverse("move_bundles") + f"?lot={lot.pk}&back=1", ("production.move", "create"), pieces, tie)
+                reverse("move_bundles") + f"?lot={lot.pk}&back=1&step={step.pk}",
+                (("production.move", "create"), ("production.move", "view")), b.qty, tie)
 
-    cutting_perm = ("production.cutting", "create")
+    cutting_perm = (("production.cutting", "create"), ("production.cutting", "view"))
     if not cuts and not issued:
         add(("fabric",), -3, "Issue fabric", "Send rolls from the store to the cutting floor.",
             reverse("lot_fabric", args=[lot.pk]), cutting_perm)
@@ -90,42 +104,49 @@ def _actions(lot, steps, bundles, cuts, issued):
     elif any(not c.bundled for c in cuts):
         add(("bundle",), -1, "Make bundles", "A lay is cut but not bundled yet.", reverse("lot_cutting", args=[lot.pk]), cutting_perm)
 
+    if not bundles:
+        return sorted(found.values(), key=lambda a: a["order"])   # nothing is bundled yet: no challan, receipt or move to look for
+
     # counted back above what was issued: nothing has moved, but it is the owner's approval they wait for, not a recount
     counted = set(ReceiptLine.objects.filter(receipt__challan__lot=lot, receipt__status=Receipt.Status.PENDING_APPROVAL)
                   .values_list("challan_bundle_id", flat=True))
     open_status = (JobWorkChallan.Status.DRAFT, JobWorkChallan.Status.ISSUED, JobWorkChallan.Status.PARTLY)
-    on_draft = set()
-    for ch in lot.challans.filter(status__in=open_status).select_related("party", "step__process"):
-        lines = list(ChallanBundle.objects.filter(challan=ch).select_related("bundle"))
+    on_draft, on_challan = set(), set()
+    for ch in lot.challans.filter(status__in=open_status).select_related("party", "step__process").prefetch_related("bundles__bundle"):
+        lines = list(ch.bundles.all())
+        on_challan.update(l.bundle_id for l in lines)
         if ch.status == JobWorkChallan.Status.DRAFT:
             on_draft.update(l.bundle_id for l in lines)
             add(("issue", ch.pk), ch.step.sequence, f"Issue challan to {ch.party.name}",
                 "The challan is a draft. Issue it to hand the bundles over.",
-                reverse("challan_detail", args=[ch.pk]), ("jobwork.challan", "edit"), sum(l.bundle.qty for l in lines))
+                reverse("challan_detail", args=[ch.pk]), (("jobwork.challan", "edit"), ("jobwork.challan", "view")),
+                sum(l.bundle.qty for l in lines))
         else:
             out = sum(l.bundle.qty for l in lines if not (l.qty_received or l.qty_shortage) and l.pk not in counted)
             if out:
                 add(("receive", ch.pk), ch.step.sequence, f"Receive from {ch.party.name}",
                     f"Count the pieces that came back from {ch.step.process.name}.",
-                    reverse("receipt_new", args=[ch.pk]), ("jobwork.receipt", "create"), out)
+                    reverse("receipt_new", args=[ch.pk]), (("jobwork.receipt", "create"), ("jobwork.receipt", "view")), out)
 
     waiting = (Receipt.Status.PENDING_APPROVAL, Receipt.Status.RECEIVED)
     for r in Receipt.objects.filter(challan__lot=lot, status__in=waiting).select_related("challan__party", "challan__step"):
         url, seq = reverse("receipt_detail", args=[r.pk]), r.challan.step.sequence
         if r.status == Receipt.Status.PENDING_APPROVAL:
             add(("approve", r.pk), seq, "Approve over-receipt", "More pieces were counted than were sent. The owner must approve.",
-                url, ("jobwork.receipt", "approve"))
+                url, (("jobwork.receipt", "approve"), ("jobwork.receipt", "view")))
         else:
             add(("qc", r.pk), seq, "Check received pieces", f"Accept, reject or send back what {r.challan.party.name} returned.",
-                url, ("jobwork.qc", "create"))
+                url, (("jobwork.qc", "create"), ("jobwork.receipt", "view")))
 
     for b in bundles:
         if not b.is_live or b.pk in on_draft:
             continue
         here = b.current_step.sequence if b.current_step_id else b.completed_seq
         if b.status == B.REWORK or b.rework_qty:
-            add(("rework",), here, "Send back for rework", "QC sent these pieces back to the fabricator.",
-                reverse("challan_new") + f"?lot={lot.pk}&kind=rework", ("jobwork.challan", "create"), b.rework_qty or b.qty)
+            # a bundle sent back keeps the step of the challan it came back on: the rework challan is for that step
+            at = f"&step={b.current_step_id}" if b.current_step_id else ""
+            add(("rework", b.current_step_id), here, "Send back for rework", "QC sent these pieces back to the fabricator.",
+                reverse("challan_new") + f"?lot={lot.pk}&kind=rework{at}", CHALLAN_NEW, b.rework_qty or b.qty)
             continue
         if b.status not in (B.CUT, B.READY, B.AT_STAGE):
             continue
@@ -133,31 +154,43 @@ def _actions(lot, steps, bundles, cuts, issued):
             continue                                         # out on a challan: the challan's own line covers it
         if pack_ready(b, steps):
             add(("pack",), 10_000, "Pack into finished goods", "These bundles have reached packing.",
-                reverse("lot_detail", args=[lot.pk]) + "#pack", ("production.move", "create"), b.qty)
+                reverse("lot_detail", args=[lot.pk]) + "#pack", (("production.move", "create"), ("production.lot", "view")), b.qty)
             continue
         done = here if b.status == B.AT_STAGE else b.completed_seq
         later = [s for s in steps if s.sequence > done]
         nxt = next((s for s in later if s.is_mandatory), None)   # optional steps may be jumped over (see check_entry)
         if nxt is not None:
-            onward(nxt, b.qty)
+            onward(nxt, b)
         for s in later:
             if nxt is not None and s.sequence > nxt.sequence:
                 break
             if not s.is_mandatory:
-                onward(s, b.qty, target=nxt or s)
+                onward(s, b, target=nxt or s)
     return sorted(found.values(), key=lambda a: a["order"])
 
 
-def lot_guide(lot, user):
+def _checker(user, perms):
+    """Ask each permission once. `perms` is the memo; a caller showing many lots to one user passes the same dict."""
+    def can(screen, action):
+        key = (screen, action)
+        if key not in perms:
+            perms[key] = user.has_screen_perm(screen, action)
+        return perms[key]
+    return can
+
+
+def lot_guide(lot, user, perms=None):
     """{'journey': [...], 'primary': action or None, 'others': [...], 'waiting': label, 'complete': bool, 'closed': bool}.
-    An action is offered only if the user's role may do it; `waiting` names the next step when it is someone else's."""
+    An action is offered only if the user's role may do it and may open the screen it leads to; `waiting` names the
+    next step when it is someone else's. `perms` is an optional dict shared between calls for the SAME user."""
+    can = _checker(user, {} if perms is None else perms)
     steps = [s for s in lot.steps.select_related("process", "party").order_by("sequence") if s.status != LotStep.Status.SKIPPED]
     bundles = list(lot.bundles.select_related("location", "current_step"))
     cuts = list(lot.cuttings.all())
     issued = lot.fabric_issues.exists()
     closed, complete = lot.status == lot.Status.CLOSED, lot.status == lot.Status.COMPLETED
     actions = [] if closed or complete else _actions(lot, steps, bundles, cuts, issued)
-    allowed = [a for a in actions if user.has_screen_perm(*a["perm"])]
+    allowed = [a for a in actions if all(can(*p) for p in a["perm"])]
     return {
         "journey": _journey(lot, steps, bundles, cuts, issued),
         "primary": allowed[0] if allowed else None, "others": allowed[1:],
@@ -166,13 +199,15 @@ def lot_guide(lot, user):
     }
 
 
-def order_next(order, user):
-    """The one thing to do next on an order, for the orders list: release it, act on its lot, or open it."""
+def order_next(order, user, perms=None):
+    """The one thing to do next on an order, for the orders list: release it, act on its lot, or open it.
+    `perms` as in `lot_guide`."""
+    perms = {} if perms is None else perms
     if order.status == order.Status.DRAFT:
-        return {"release": True} if user.has_screen_perm("production.order", "edit") else None
+        return {"release": True} if _checker(user, perms)("production.order", "edit") else None
     if order.status in (order.Status.COMPLETED, order.Status.CLOSED):
         return None
     lots = [line.lot for line in order.lines.all() if hasattr(line, "lot")]
     if len(lots) == 1:
-        return lot_guide(lots[0], user)["primary"]
+        return lot_guide(lots[0], user, perms)["primary"]
     return {"label": "Open", "hint": "", "url": reverse("order_detail", args=[order.pk])} if lots else None

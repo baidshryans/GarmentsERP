@@ -31,7 +31,7 @@
         {% if breakdown.write_off != 0 %}<tr><td>Written off</td><td class="num">{{ breakdown.write_off }}</td></tr>{% endif %}
         {% if breakdown.relief != 0 %}<tr><td>Moved to finished goods</td><td class="num">{{ breakdown.relief }}</td></tr>{% endif %}</tbody>
         <tfoot><tr><td>Work in progress now</td><td class="num">{{ total_cost }}</td></tr></tfoot></table></div></details></div>{% endif %}
-  <div class="island"><details class="fold"><summary>Route and rates</summary>
+  <div class="island"><details class="fold"{% if route_open %} open{% endif %}><summary>Route and rates</summary>
     <div class="table-wrap"><table>
       <thead><tr><th scope="col" class="num">#</th><th scope="col">Process</th><th scope="col">Where</th><th scope="col" class="num">Rate</th><th scope="col">Status</th>{% if can_edit %}<th scope="col">Change</th>{% endif %}</tr></thead>
       <tbody>{% for s in steps %}<tr {% if s.status == "skipped" %}class="muted"{% endif %}>

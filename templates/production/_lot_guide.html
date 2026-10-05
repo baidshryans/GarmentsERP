@@ -1,6 +1,6 @@
 <div class="island guide">
   <ol class="journey{% if guide.closed %} closed{% endif %}" aria-label="Where this lot is">{% for s in guide.journey %}
-    <li class="{{ s.state }}"{% if s.state == "now" and not guide.closed %} aria-current="step"{% endif %}>
+    <li class="{{ s.state }}"{% if s.current %} aria-current="step"{% endif %}>
       <span class="j-label">{{ s.label }}</span>
       {% if s.optional %}<span class="j-tag">optional</span>{% endif %}
       {% if s.detail %}<span class="j-detail">{{ s.detail }}</span>{% endif %}
@@ -13,5 +13,6 @@
     {% if guide.others %}<p class="muted guide-also">Also waiting: {% for a in guide.others %}<a href="{{ a.url }}">{{ a.label }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</p>{% endif %}
   {% elif guide.waiting %}<p class="muted">Waiting for: {{ guide.waiting }}</p>
   {% elif guide.complete %}<p>This lot is complete.</p>
-  {% elif guide.closed %}<p class="muted">This lot is closed.</p>{% endif %}
+  {% elif guide.closed %}<p class="muted">This lot is closed.</p>
+  {% else %}<p class="muted">Nothing to do right now. Open Corrections below if something is missing.</p>{% endif %}
 </div>

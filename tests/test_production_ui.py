@@ -260,7 +260,7 @@ def test_nav_shows_production_and_job_work_groups(company, factory, owner):
     ns = build(company, factory, owner)
     sup = user_with("sup", "Production Supervisor", factory)
     html = login(sup).get(reverse("home")).content.decode()
-    assert "Move bundles" in html and "Challans" in html and "Labour bills" not in html
+    assert "Move bundles" in html and "Sent to fabricators" in html and "Labour bills" not in html
 
 
 # ---------------- home dashboard ----------------

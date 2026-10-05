@@ -312,7 +312,7 @@ def test_blank_selects_from_the_browser_are_handled_not_500s(ns, owner_c, factor
 
 def test_the_nav_lists_the_sales_screens(owner_c):
     html = owner_c.get(reverse("home")).content.decode()
-    for text in ("Sale orders", "Packing and dispatch", "Barcode billing", "Sale invoices", "Credit notes", "Sales settings"):
+    for text in ("Sale orders", "Packing and dispatch", "Quick billing (barcode)", "Bills", "Returns from customer", "Sales settings"):
         assert text in html
 
 

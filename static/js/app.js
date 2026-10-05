@@ -204,7 +204,7 @@
     if (jump.items.length) { return jump.items; }
     var el = document.getElementById("nav-index");
     try { jump.items = JSON.parse(el ? el.textContent : "[]"); } catch (e) { jump.items = []; }
-    jump.items.forEach(function (i) { i.hay = (i.label + " " + i.sub + " " + i.group).toLowerCase(); });
+    jump.items.forEach(function (i) { i.hay = (i.label + " " + (i.alt || "") + " " + i.sub + " " + i.group).toLowerCase(); });
     return jump.items;
   }
   function recent() { try { return JSON.parse(load("navRecent") || "[]"); } catch (e) { return []; } }

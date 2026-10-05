@@ -395,11 +395,11 @@ def test_menu_groups_are_collapsible_and_the_current_one_is_open(company, owner)
     c = Client()
     c.force_login(owner)
     html = c.get(reverse("voucher_list")).content.decode()
-    assert html.count('<details class="nav-group') >= 6 and '<span class="nav-label">Accounts</span>' in html
-    accounts = html[html.index('data-group="accounts"') - 60: html.index('data-group="accounts"') + 200]
-    assert "active" in accounts and "open" in accounts            # the page being viewed sits in an open group
-    admin_part = html[html.index('data-group="admin"') - 60: html.index('data-group="admin"') + 80]
-    assert "open" not in admin_part                               # the others start collapsed
+    assert html.count('<details class="nav-group') >= 6 and '<span class="nav-label">Money</span>' in html
+    money = html[html.index('data-group="money"') - 60: html.index('data-group="money"') + 200]
+    assert "active" in money and "open" in money            # the page being viewed sits in an open group
+    more_part = html[html.index('data-group="more"') - 60: html.index('data-group="more"') + 80]
+    assert "open" not in more_part                               # the others start collapsed
     assert 'aria-current="page"' in html and "data-nav-toggle" in html
 
 
@@ -428,8 +428,8 @@ def test_menu_groups_fold_into_sections_and_quick_jump_knows_every_screen(compan
     c = Client()
     c.force_login(owner)
     html = c.get(rev("trial_balance")).content.decode()
-    assert html.count('class="nav-sub') >= 6 and 'data-sub="accounts/books"' in html
-    books = html[html.index('data-sub="accounts/books"') - 40: html.index('data-sub="accounts/books"') + 60]
+    assert html.count('class="nav-sub') >= 6 and 'data-sub="more/accountant"' in html
+    books = html[html.index('data-sub="more/accountant"') - 40: html.index('data-sub="more/accountant"') + 60]
     assert " open" in books                                       # the section holding the current page is open
     assert 'id="cmdk"' in html and "data-cmdk-open" in html and 'id="nav-index"' in html
     assert rev("voucher_payment") in html and "Trial balance" in html

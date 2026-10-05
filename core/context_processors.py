@@ -14,12 +14,14 @@ class Sub:
         self.label, self.items, self.open_by_default = label, items, open_by_default
 
 
+# An entry is (url_name, label, screen) or (url_name, label, screen, aliases). The aliases are the trade or
+# accounting terms a user may type in the quick-jump box; they are searched but never shown.
 NAV = [
     ("Home", [("home", "Home", "core.home")]),
     ("Masters", [
         ("style_list", "Styles", "masters.style"),
-        ("material_list", "Materials", "masters.material"),
-        ("party_list", "Parties", "masters.party"),
+        ("material_list", "Materials", "masters.material", "fabric trims items"),
+        ("party_list", "Parties", "masters.party", "customers suppliers fabricators"),
         ("pricelist_list", "Price lists", "masters.pricelist"),
         Sub("Setup", [
             ("route_list", "Routes", "masters.route"),
@@ -29,105 +31,87 @@ NAV = [
         ]),
         ("excel_import", "Import from Excel", "masters.import"),
     ]),
-    ("Purchases", [
-        ("po_list", "Purchase orders", "purchases.po"),
-        ("grn_list", "Goods receipt (GRN)", "purchases.grn"),
-        ("invoice_list", "Purchase invoices", "purchases.invoice"),
-        ("debitnote_list", "Debit notes", "purchases.debitnote"),
+    ("Buy", [
+        ("po_list", "Purchase orders", "purchases.po", "PO"),
+        ("grn_list", "Goods received", "purchases.grn", "GRN goods receipt inward"),
+        ("invoice_list", "Supplier bills", "purchases.invoice", "purchase invoices"),
+        ("debitnote_list", "Returns to supplier", "purchases.debitnote", "debit notes"),
     ]),
-    ("Sales", [
+    ("Make", [
+        ("production_dashboard", "Production dashboard", "production.dashboard"),
+        ("order_list", "Production orders", "production.order", "lots cutting"),
+        ("move_bundles", "Move bundles", "production.move"),
+        ("challan_list", "Sent to fabricators", "jobwork.challan", "challans job work"),
+        ("receipt_list", "Received from fabricators", "jobwork.receipt", "receipts and QC"),
+        ("bill_list", "Labour bills", "jobwork.bill"),
+        ("rate_list", "Labour rates", "jobwork.rate"),
+    ]),
+    ("Sell", [
         ("saleorder_list", "Sale orders", "sales.order"),
         ("packing_list", "Packing and dispatch", "sales.packing"),
-        ("saleinvoice_list", "Sale invoices", "sales.invoice"),
-        ("billing", "Barcode billing", "sales.invoice.create"),
-        ("salecn_list", "Credit notes", "sales.creditnote"),
+        ("saleinvoice_list", "Bills", "sales.invoice", "sale invoices"),
+        ("billing", "Quick billing (barcode)", "sales.invoice.create", "barcode billing scan counter sale"),
+        ("salecn_list", "Returns from customer", "sales.creditnote", "credit notes"),
     ]),
-    ("Inventory", [
+    ("Stock", [
         ("stock_enquiry", "Stock", "inventory.stock"),
         ("roll_list", "Fabric rolls", "inventory.stock"),
-        Sub("Movements", [
-            ("transfer_list", "Transfers", "inventory.transfer"),
-            ("journal_list", "Stock journal", "inventory.journal"),
-            ("opening_stock", "Opening stock", "inventory.opening"),
-        ]),
-        Sub("Alerts and labels", [
-            ("reorder_levels", "Reorder levels", "inventory.reorder"),
-            ("stock_alerts", "Low-stock alerts", "inventory.alerts"),
-            ("tag_print", "Print tags", "inventory.labels"),
-        ]),
+        ("transfer_list", "Transfers", "inventory.transfer"),
+        ("stock_alerts", "Low stock", "inventory.alerts", "low-stock alerts"),
+        ("reorder_levels", "Reorder levels", "inventory.reorder"),
+        ("tag_print", "Print tags", "inventory.labels", "labels barcode"),
     ]),
-    ("Production", [
-        ("production_dashboard", "Dashboard", "production.dashboard"),
-        ("order_list", "Production orders", "production.order"),
-        ("move_bundles", "Move bundles", "production.move"),
-        Sub("Job work", [
-            ("challan_list", "Challans", "jobwork.challan"),
-            ("receipt_list", "Receipts and QC", "jobwork.receipt"),
-        ]),
-        Sub("Labour", [
-            ("bill_list", "Labour bills", "jobwork.bill"),
-            ("rate_list", "Labour rates", "jobwork.rate"),
-        ]),
-        Sub("Reports", [
-            ("job_reports", "Fabricator reports", "jobwork.report"),
-            ("daily_summary", "Daily summary", "jobwork.report"),
-        ]),
-    ]),
-    ("Accounts", [
-        ("ledger_list", "Ledgers", "ledger.chart"),
-        ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
-        Sub("Enter a voucher", [
-            ("voucher_payment", "Payment", "ledger.voucher.create"),
-            ("voucher_receipt", "Receipt", "ledger.voucher.create"),
-            ("voucher_contra", "Contra", "ledger.voucher.create"),
-            ("voucher_journal", "Journal", "ledger.voucher.create"),
-        ], open_by_default=True),
-        Sub("Sales and purchase entries", [
-            ("voucher_sales", "Sales voucher", "ledger.voucher.create"),
-            ("voucher_purchase", "Purchase voucher", "ledger.voucher.create"),
-            ("voucher_debit_note", "Debit note", "ledger.voucher.create"),
-            ("voucher_credit_note", "Credit note", "ledger.voucher.create"),
-        ]),
-        ("voucher_list", "All vouchers", "ledger.voucher"),
-        Sub("Books", [
-            ("trial_balance", "Trial balance", "ledger.report"),
-            ("profit_loss", "Profit and loss", "ledger.report"),
-            ("balance_sheet", "Balance sheet", "ledger.report"),
-            ("day_book", "Day book", "ledger.report"),
-            ("ledger_book", "Ledger book", "ledger.report"),
-            ("ledger_pick", "Ledger statement", "ledger.report"),
-        ]),
-        Sub("Set up and close", [
-            ("opening_balances", "Opening balances", "ledger.opening"),
-            ("period_locks", "Period locks", "core.period_lock"),
-            ("year_end", "Year-end", "ledger.yearend"),
-        ]),
+    ("Money", [
+        ("voucher_receipt", "Money received", "ledger.voucher.create", "receipt voucher"),
+        ("voucher_payment", "Money paid", "ledger.voucher.create", "payment voucher"),
+        ("ledger_pick", "Party accounts", "ledger.report", "ledger statement"),
+        ("voucher_list", "All entries", "ledger.voucher", "all vouchers"),
     ]),
     ("Reports", [
         ("sales_report", "Sales", "sales.invoice"),
         ("purchase_report", "Purchases", "purchases.invoice"),
         ("finished_stock", "Finished stock", "inventory.stock"),
-        Sub("Ageing", [
-            ("ageing_debtors", "Receivables ageing", "ledger.report"),
-            ("ageing_creditors", "Payables ageing", "ledger.report"),
-        ]),
+        ("job_reports", "Fabricator reports", "jobwork.report"),
+        ("daily_summary", "Daily summary", "jobwork.report"),
+        ("ageing_debtors", "Who owes me", "ledger.report", "receivables ageing debtors outstanding"),
+        ("ageing_creditors", "Whom I owe", "ledger.report", "payables ageing creditors outstanding"),
+        ("profit_loss", "Profit and loss", "ledger.report", "P&L"),
+        ("balance_sheet", "Balance sheet", "ledger.report"),
         Sub("GST", [
             ("gstr1", "GSTR-1 data", "tax.report"),
             ("gstr3b", "GSTR-3B summary", "tax.report"),
             ("tax_register", "Tax register", "tax.report"),
         ]),
     ]),
-    ("Help", [("help", "Help and user guide", "core.home")]),
-    ("Admin", [
-        ("factory_list", "Factories", "core.factory"),
-        ("user_list", "Users", "core.user"),
-        ("role_list", "Roles", "core.role"),
+    ("More", [
+        Sub("Accountant", [
+            ("ledger_list", "Ledgers", "ledger.chart"),
+            ("chart_of_accounts", "Chart of accounts", "ledger.chart"),
+            ("voucher_journal", "Journal", "ledger.voucher.create"),
+            ("voucher_contra", "Contra", "ledger.voucher.create", "cash bank transfer"),
+            ("voucher_sales", "Sales voucher", "ledger.voucher.create"),
+            ("voucher_purchase", "Purchase voucher", "ledger.voucher.create"),
+            ("voucher_debit_note", "Debit note voucher", "ledger.voucher.create"),
+            ("voucher_credit_note", "Credit note voucher", "ledger.voucher.create"),
+            ("trial_balance", "Trial balance", "ledger.report"),
+            ("day_book", "Day book", "ledger.report"),
+            ("ledger_book", "Ledger book", "ledger.report"),
+            ("opening_balances", "Opening balances", "ledger.opening"),
+            ("opening_stock", "Opening stock", "inventory.opening"),
+            ("journal_list", "Stock journal", "inventory.journal"),
+            ("period_locks", "Period locks", "core.period_lock"),
+            ("year_end", "Year-end", "ledger.yearend"),
+        ]),
         Sub("Settings", [
+            ("factory_list", "Factories", "core.factory"),
+            ("user_list", "Users", "core.user"),
+            ("role_list", "Roles", "core.role"),
             ("tax_settings", "Tax settings", "tax.settings"),
             ("inventory_settings", "Inventory settings", "inventory.settings"),
             ("sales_settings", "Sales settings", "sales.settings"),
             ("reset_database", "Reset database", "core.reset"),
         ]),
+        ("help", "Help and user guide", "core.home"),
     ]),
 ]
 
@@ -136,28 +120,28 @@ def flat_items(items):
     """Every (url_name, label, screen) in a group, with the fold-away sections opened out."""
     for it in items:
         if isinstance(it, Sub):
-            yield from it.items
+            for k in it.items:
+                yield k[:3]
         else:
-            yield it
+            yield it[:3]
 
 
 # A group is "current" when the page is one of its screens or lives under one of its URL prefixes
-# (a lot page, a challan, a style are not menu entries but belong to Production, Job work, Masters).
+# (a lot page, a challan, a style are not menu entries but belong to Make, Masters).
 ICONS = {
-    "Home": "i-home", "Masters": "i-masters", "Purchases": "i-purchases", "Sales": "i-sales", "Inventory": "i-inventory",
-    "Production": "i-production", "Accounts": "i-accounts", "Reports": "i-reports", "Admin": "i-admin", "Help": "i-help",
+    "Home": "i-home", "Masters": "i-masters", "Buy": "i-purchases", "Make": "i-production", "Sell": "i-sales",
+    "Stock": "i-inventory", "Money": "i-accounts", "Reports": "i-reports", "More": "i-admin",
 }
 
 PREFIXES = {
     "Masters": ("/masters/", "/import/"),
-    "Purchases": ("/purchases/",),
-    "Sales": ("/sales/",),
-    "Inventory": ("/inventory/",),
-    "Production": ("/production/", "/jobwork/"),
-    "Accounts": ("/accounts/chart", "/accounts/vouchers", "/accounts/opening", "/accounts/trial", "/accounts/ledgers", "/accounts/profit",
-                 "/accounts/balance", "/accounts/day-book", "/accounts/ageing", "/accounts/period", "/accounts/year"),
-    "Reports": ("/reports/",),
-    "Admin": ("/factories/", "/users/", "/roles/", "/tax/", "/settings/"),
+    "Buy": ("/purchases/",),
+    "Make": ("/production/", "/jobwork/"),
+    "Sell": ("/sales/",),
+    "Stock": ("/inventory/",),
+    "Reports": ("/reports/", "/accounts/ageing", "/accounts/profit", "/accounts/balance"),
+    "More": ("/accounts/chart", "/accounts/opening", "/accounts/trial", "/accounts/day-book", "/accounts/period",
+             "/accounts/year", "/factories/", "/users/", "/roles/", "/tax/", "/settings/"),
 }
 
 
@@ -195,9 +179,9 @@ def app_shell(request):
 
     def visible(entries):
         return [
-            {"url_name": u, "label": label, "current": u == current}
-            for u, label, screen in entries
-            if (screen == "core.home" or _allowed(user, screen)) and _built(u)
+            {"url_name": e[0], "label": e[1], "current": e[0] == current, "alt": e[3] if len(e) > 3 else ""}
+            for e in entries
+            if (e[2] == "core.home" or _allowed(user, e[2])) and _built(e[0])
         ]
 
     for title, items in NAV:
@@ -220,7 +204,7 @@ def app_shell(request):
             for i in shown:
                 for k in (i["items"] if i.get("sub") else [i]):
                     index.append({"label": k["label"], "group": title, "sub": i["label"] if i.get("sub") else "",
-                                  "url": reverse(k["url_name"])})
+                                  "alt": k["alt"], "url": reverse(k["url_name"])})
     company = Company.objects.filter(setup_complete=True).first()
     return {
         "today": today, "asset_v": asset_v,

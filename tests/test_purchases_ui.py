@@ -312,9 +312,9 @@ def test_settings_need_permission_and_changes_are_logged(company, accountant):
 
 def test_nav_shows_purchase_and_inventory_groups_by_permission(company, storekeeper, accountant):
     html = login(storekeeper).get(reverse("home")).content.decode()
-    assert "Goods receipt (GRN)" in html and "Transfers" in html and "Purchase invoices" not in html
+    assert "Goods received" in html and "Transfers" in html and "Supplier bills" not in html
     html = login(accountant).get(reverse("home")).content.decode()
-    assert "Purchase invoices" in html and "Debit notes" in html
+    assert "Supplier bills" in html and "Returns to supplier" in html
 
 
 # ---------------- the active factory drives the purchase screens ----------------

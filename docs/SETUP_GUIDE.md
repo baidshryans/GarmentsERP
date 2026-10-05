@@ -773,11 +773,11 @@ Run one small lot through the whole system. This is the same flow as BRD scenari
 
 1. **Purchase fabric.** Purchase order → goods received (GRN) into Main Godown with roll numbers and weights → QC → supplier bill (purchase invoice). Check the roll balance in *Stock → Stock*.
 2. **Create a production order** for `JGR-104`, Black, 20 pieces each of M and L, and release it. Route B is copied into the lot.
-3. **Plan the route.** Check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
-4. **Issue fabric** by roll. The roll balance reduces.
-5. **Cut.** Enter pieces per size, fabric used and waste. Compare with the BOM variance shown. Create bundles and print QR tags.
-6. **Issue a challan** to the embroiderer with the bundles; print it.
-7. **Receive** the work back (enter a small shortage to see how it is handled), then **QC**: accept most, reject one.
+3. **Plan the route.** On the lot page open **Route and rates** and check each step; assign stitching to Gurpreet Garments and embroidery to Royal Embroidery.
+4. **Issue fabric** by roll (the lot's Next button). The roll balance reduces.
+5. **Cut.** Enter pieces per size, fabric used and waste. Compare with the BOM variance shown. Make bundles, then print the tags.
+6. **Issue a challan** to the embroiderer with the bundles (Next: Send to … for Embroidery); print it.
+7. **Receive** the work back (Next: Receive from …; enter a small shortage to see how it is handled), then **QC** (Next: Check received pieces): accept most, reject one.
 8. **Move** accepted bundles through the next steps to Packing. Try moving one bundle backwards to see that a reason is required.
 9. **Labour bill** for the fabricator. Check the amount is rate × **accepted** pieces, with any deduction and TDS shown.
 10. **Reports.** Open the trial balance (it must tally) and the stock report (it must match the physical count).
@@ -849,13 +849,13 @@ Part A prepared the masters. This part follows one lot from the production order
 
 | Stage | Screen | What changes |
 | --- | --- | --- |
-| 1 | Make → Production orders → New order → **Release order** | Order numbered; one **lot** per style and colour, each with its own copy of the route |
-| 2 | Lot → **Issue fabric** | Rolls move from godown to cutting floor |
-| 3 | Lot → **Cutting** → Make bundles and QR tags | Fabric cost goes into the lot; pieces become **bundles** with QR tags |
-| 4 | **Move bundles** (in-house step) or **Challan** (fabricator step) | Bundle moves to the next step on the route |
-| 5 | Challan → **Receive goods**, then **QC** | Accepted pieces become ready for the next step |
+| 1 | Make → Production orders → New order → **Release order** (or **Release** in the list) | Order numbered; one **lot** per style and colour, each with its own copy of the route |
+| 2 | Lot → Next button **Issue fabric** | Rolls move from godown to cutting floor |
+| 3 | Lot → Next button **Record cutting**, then **Make bundles** (continues to the tags) | Fabric cost goes into the lot; pieces become **bundles** with QR tags |
+| 4 | Lot → Next button **Move to …** (in-house step) or **Send to … for …** (fabricator step) | Bundle moves to the next step on the route |
+| 5 | Lot → Next button **Receive from …**, then **Check received pieces** | Accepted pieces become ready for the next step |
 | 6 | Repeat 4–5 down the route | |
-| 7 | Lot → **Pack into finished goods** | Pieces become saleable stock |
+| 7 | Lot → Next button **Pack into finished goods** | Pieces become saleable stock |
 | 8 | Labour bills → **New labour bill**, then **Pay fabricator** on the posted bill | Fabricator paid for accepted pieces |
 | 9 | Sale order → Packing list → **Invoice** (or Quick billing) | Stock leaves, customer owes money |
 | 10 | Posted invoice → **Receive payment** (or Money → Money received) | Customer's bill settled |
@@ -881,7 +881,9 @@ Part A prepared the masters. This part follows one lot from the production order
 | Sale orders, packing, invoices | Billing Clerk / Salesperson |
 | Credit notes, receipts, cancelling invoices | Accountant |
 
-Lot pages, fabric issue, cutting and QR tags are **not** menu items. Open the production order, then click the lot ("Lot … — status"). The lot page has the buttons: Issue fabric, Cutting, QR tags, Move bundles.
+Lot pages, fabric issue, cutting and tags are **not** menu items. Open the production order, then click the lot ("Lot … — status"). Releasing an order that has one lot opens that lot directly.
+
+The lot page tells you what to do next. At the top is a **journey strip**: Order, Fabric, Cut, each step of the route, then Finished goods. Each stage is shown as done, now or to come, with the pieces sitting there, the fabricator's name on outside steps, and an "optional" tag on steps that can be skipped. Below it is one violet **Next** button naming what the lot needs, for example Issue fabric, Record cutting, Make bundles, Move to a stage, Send to a fabricator, Receive from a fabricator, Check received pieces or Pack into finished goods. The Next button points at the next mandatory step. Optional steps, and any other pending actions when bundles are spread over several stages, are listed beside it as smaller links under **Also waiting**. If the next step belongs to another role, the page says **Waiting for:** and the step instead of a button. A finished lot says "This lot is complete." **Route and rates**, **Lot cost** and **History** are folded sections; click one to open it. A **Corrections** row keeps Fabric issue, Cutting and Move bundles reachable if you need to go back, and the header keeps **Print tags**. Fabric issue, cutting, tags, challan and receipt pages have a **Back to lot** button.
 
 ---
 
@@ -907,7 +909,7 @@ Lot pages, fabric issue, cutting and QR tags are **not** menu items. Open the pr
 
 The ratio splits the total into whole pieces per size. Black becomes S 50, M 100, L 100, XL 50. Leftover pieces go to the largest remainders, and you see the result on the order.
 
-Press **Save draft**. A draft can be edited; nothing else has happened yet.
+Press **Save draft**. A draft can be edited; nothing else has happened yet. In the production orders list the **Next step** column shows **Release** for a draft, the lot's next action once it is released, or **Open** when the order has several lots. The order page shows each lot's next action beside the lot, and Home's **Items in production** table has the same column.
 
 **Release order** (needs edit permission):
 
@@ -925,7 +927,7 @@ Order statuses: Draft → Released → In production → Partly completed → Co
 
 ## 21. Plan the route of each lot
 
-Open the lot page. The **Route** table shows #, Process, Where, Rate and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
+Open the lot page and open **Route and rates** (click it to unfold). The table shows #, Process, Where, Rate and Status (Pending, In progress, Done, Skipped). The route was copied from the style, so for most lots **you change nothing**.
 
 Change only what differs for this lot, using the **Change…** menu on a step or the forms below it. Every change needs a **reason** and is logged under *Route changes* with date, user and reason.
 
@@ -946,16 +948,16 @@ A step that is In progress or Done cannot be changed. Issuing a challan to a fab
 
 ### 22.1 Issue fabric
 
-Lot page → **Issue fabric**. The page lists rolls in the factory godown with a balance: Roll, Fabric, Lot/shade, GSM, In store.
+Lot page → Next button **Issue fabric** (or **Fabric issue** in the Corrections row). The page lists rolls in the factory godown with a balance: Roll, Fabric, Lot/shade, GSM, In store.
 
 1. Enter the **Issue qty** against each roll you are sending to the cutting floor (in KG).
 2. Press **Issue to cutting floor**.
 
-Rules: quantity must be above zero and cannot exceed the roll's balance; only fabric can be issued; at least one roll. If you mix rolls from different shade lots you get a warning and the issue is flagged "Mixed shade lots". The lot status moves from Planned to Cutting.
+Rules: quantity must be above zero and cannot exceed the roll's balance; only fabric can be issued; at least one roll. If you mix rolls from different shade lots you get a warning and the issue is flagged "Mixed shade lots". The lot status moves from Planned to Cutting. After you save you go straight on to cutting.
 
 ### 22.2 Record the cutting
 
-Lot page → **Cutting** → *Record a lay*.
+Lot page → Next button **Record cutting** (or **Cutting** in the Corrections row) → *Record a lay*.
 
 | Field | Example |
 | --- | --- |
@@ -976,13 +978,13 @@ Each lay is numbered 1, 2, … You can record several lays for one lot.
 
 ### 22.3 Make bundles and print tags
 
-Under the lay, enter **Pieces per bundle** (for example 20) and press **Make bundles and QR tags**.
+Under the lay, enter **Pieces per bundle** (for example 20) and press **Make bundles and QR tags**. After you save you go straight on to the tags.
 
 - Bundles are made per size. The last bundle of a size may be smaller. They are numbered B001, B002, … across the lot.
 - One lay can be bundled only once.
 - Pieces now sit on the cutting floor with status **Cut**.
 
-Lot page → **QR tags**: choose **A4 sheet**, **Thermal 4 x 2 in** or **Thermal 2 x 1 in** and press Print, or download the **ZPL** file for a Zebra-type printer. Each tag shows the QR, style, colour and size, quantity, bundle number and lot number. Attach a tag to every bundle. All later work is done by scanning it.
+Lot page → **Print tags** (also shown after making bundles): choose **A4 sheet**, **Thermal 4 x 2 in** or **Thermal 2 x 1 in** and press Print, or download the **ZPL** file for a Zebra-type printer. Each tag shows the QR, style, colour and size, quantity, bundle number and lot number. Attach a tag to every bundle. All later work is done by scanning it.
 
 ---
 
@@ -992,14 +994,14 @@ The route decides what comes next. For each step ask: **is it in-house or with a
 
 | Next step is… | Use | Section |
 | --- | --- | --- |
-| In-house (ironing, finishing, QC, packing) | **Move bundles** | 23.1 |
-| With a fabricator (stitching, embroidery, washing…) | **Job work challan**, then **Receive** and **QC** | 23.2 – 23.4 |
+| In-house (ironing, finishing, QC, packing) | **Move bundles** (Next button **Move to …**) | 23.1 |
+| With a fabricator (stitching, embroidery, washing…) | **Job work challan** (Next button **Send to … for …**), then **Receive** and **QC** | 23.2 – 23.4 |
 
 Bundle statuses you will see: Cut → At stage → Received, awaiting QC → Ready for next stage → … → Packed. Also Awaiting rework and Written off.
 
 ### 23.1 In-house move
 
-*Make → Move bundles.*
+*Make → Move bundles*, or the lot's Next button **Move to …**.
 
 1. Choose the **Lot** and press **Show bundles**.
 2. **Scan** each bundle's QR (or type its number) in the scan box and press Enter. Scanning only ticks the row; everything is checked when you save.
@@ -1016,12 +1018,13 @@ What the system checks:
 - A bundle with a fabricator must be received first. A bundle waiting for rework cannot move until it has been reworked.
 - **Balance:** pieces leaving = pieces arriving + loss + rejected + short. Loss and short are removed from stock; rejected pieces go to the factory's **Rejects** location. A bundle with nothing left is Written off.
 - **Going back:** moving to a step at or before the bundle's completed step counts as moving back. It needs a **Reason** and flags the bundle as rework.
+- When you open the screen from the lot's Next button, saving returns you to the lot. When you open it from the menu it stays on the screen, so you can keep scanning.
 - Inter-factory moves carry the lot's cost to the receiving factory automatically.
 - When a bundle leaves an in-house step that has a rate, labour is added to the lot cost.
 
 ### 23.2 Issue to a fabricator (challan)
 
-*Make → Sent to fabricators* (the challan list) *→ New challan* (or the link from Move bundles).
+*Make → Sent to fabricators* (the challan list) *→ New challan*, the lot's Next button **Send to … for …**, or the link from Move bundles.
 
 1. Choose **Lot**, **Kind** (Job work, or Rework for pieces sent back) and the **Step**, then **Show bundles**.
 2. Choose the **Fabricator**, Date and **Expected back by**.
@@ -1042,7 +1045,7 @@ Challan statuses: Draft → Issued → Partly received → Fully received → Bi
 
 ### 23.3 Receive the goods
 
-Challan page → **Receive goods**.
+Lot page → Next button **Receive from …**, or Challan page → **Receive goods**.
 
 | Field | Example |
 | --- | --- |
@@ -1062,7 +1065,7 @@ Press **Receive**. Scanning the bundle tags ticks the rows.
 
 ### 23.4 Quality check (QC)
 
-*Make → Received from fabricators* (receipts and QC) *→* open the receipt. For every bundle fill:
+*Make → Received from fabricators* (receipts and QC) *→* open the receipt, or use the lot's Next button **Check received pieces**. For every bundle fill:
 
 | Field | Meaning |
 | --- | --- |
@@ -1083,7 +1086,7 @@ Results:
 - **No rework:** the bundle becomes **Ready for next stage** and the step counts as complete for it. Move it on (23.1, or a new challan).
 - **Rework:** the bundle becomes **Awaiting rework**. It cannot move until you issue a **Rework challan** (Kind = Rework) for it. The fabricator is then paid the rework rate.
 - **Rejected:** goes to the Rejects location (or is scrapped).
-- When every bundle on the receipt has QC, the receipt is **QC done**.
+- When every bundle on the receipt has QC, the receipt is **QC done**, and checking the last line returns you to the lot.
 
 Only **accepted pieces are payable**.
 
@@ -1103,7 +1106,7 @@ Only **accepted pieces are payable**.
 
 ## 24. Pack into finished goods
 
-When bundles reach the packing step, open the lot page → box **Pack into finished goods**.
+When bundles reach the packing step, open the lot page and press the Next button **Pack into finished goods**, which takes you to the **Pack into finished goods** box under Bundles.
 
 1. Tick the bundles ("These bundles have reached packing").
 2. Choose **Receive into** (default: the factory's Dispatch location).
@@ -1118,6 +1121,7 @@ The lot becomes **Completed** when none of its bundles is still live; packed, wr
 ### Tracking at any time
 
 - **Make → Production dashboard:** Cut today, Stitched today, Packed today; work in progress by stage and by factory; pieces with fabricators; late lots (past the due date); oldest open lots.
+- **Home → Items in production** lists each open lot with its **Next step**.
 - The **Where is it?** box searches by order number, style number, lot number or order reference and lists each bundle with size, pieces, current stage, location and status.
 
 ---

@@ -2,7 +2,7 @@
 {% block title %}Bills{% endblock %}
 {% block content %}
   <div class="page-head"><h1 class="page-title">Bills</h1>
-    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'billing' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Barcode billing</a>{% endif %}</div></div>
+    <div class="actions">{% if can_create %}<a class="btn primary" href="{% url 'billing' %}"><svg width="16" height="16"><use href="#i-plus"/></svg> Quick billing</a>{% endif %}</div></div>
   <div class="steps"><a class="step {% if not status %}current{% endif %}" href="{% url 'saleinvoice_list' %}">All</a>{% for v, l in statuses %}<a class="step {% if status == v %}current{% endif %}" href="?status={{ v }}">{{ l }}</a>{% endfor %}</div>
   <div class="island">
     {% if invoices %}<div class="table-wrap"><table>
